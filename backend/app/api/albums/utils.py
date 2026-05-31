@@ -1,0 +1,40 @@
+from datetime import datetime
+from app.models import Photo
+
+def safe_int(val):
+    if val is None: return 0
+    if isinstance(val, int): return val
+    if isinstance(val, bytes):
+        try:
+            return int.from_bytes(val, 'little')
+        except Exception: return 0
+    try:
+        return int(val)
+    except Exception: return 0
+
+def photo_to_dict(photo: Photo) -> dict:
+    location_parts = [p for p in [photo.city, photo.state, photo.country] if p]
+    photo_date = (photo.date_taken or photo.date or datetime.utcnow()).isoformat()
+    
+    return {
+        "id": photo.id,
+        "filename": photo.filename,
+        "path": photo.path,
+        "url": photo.url,
+        "width": photo.width,
+        "height": photo.height,
+        "aspect_ratio": photo.aspect_ratio,
+        "caption": photo.caption,
+        "location": ", ".join(location_parts) if location_parts else photo.location,
+        "city": photo.city,
+        "state": photo.state,
+        "country": photo.country,
+        "date": photo_date,
+        "date_taken": photo_date,
+        "upload_date": photo.upload_date.isoformat(),
+        "is_favorite": photo.is_favorite,
+        "is_archived": photo.is_archived,
+        "is_locked": photo.is_locked,
+        "mime_type": photo.mime_type,
+        "file_type": photo.file_type,
+    }

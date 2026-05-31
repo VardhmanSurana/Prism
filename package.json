@@ -1,0 +1,15 @@
+{
+  "name": "prism-root",
+  "private": true,
+  "scripts": {
+    "frontend": "cd frontend && bun run dev",
+    "backend": "cd backend && export LD_LIBRARY_PATH=./.venv/lib/python3.11/site-packages/nvidia/cublas/lib:./.venv/lib/python3.11/site-packages/nvidia/cudnn/lib:./.venv/lib/python3.11/site-packages/nvidia/cuda_runtime/lib:./.venv/lib/python3.11/site-packages/nvidia/cufft/lib:./.venv/lib/python3.11/site-packages/nvidia/cusolver/lib:./.venv/lib/python3.11/site-packages/nvidia/cusparse/lib:$LD_LIBRARY_PATH && export PYTHONUNBUFFERED=1 && uv run python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info",
+    "backend:stop": "if [ -f backend/backend.pid ]; then kill $(cat backend/backend.pid) && rm backend/backend.pid; fi",
+    "dev": "concurrently -n backend,frontend -c green,blue --kill-others-on-exit \"bun run backend\" \"bun run frontend\"",
+    "desktop": "bash run-desktop.sh",
+    "tauri": "cd frontend && bunx tauri"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

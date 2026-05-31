@@ -1,0 +1,162 @@
+import os
+import asyncio
+import logging
+from datetime import datetime
+from pathlib import Path
+from sqlalchemy.future import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Photo
+from app.config import settings
+from app.services.sync.tasks import process_image_task
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .core import SyncService
+
+logger = logging.getLogger(__name__)
+
+
+class IngestionMixin:
+    """Handles photo ingestion, duplicate detection, and database operations."""
+
+    def trigger_place_sync_debounced(self: "SyncService"):
+        if self.place_sync_timer:
+            self.place_sync_timer.cancel()
+        self.place_sync_timer = asyncio.create_task(self._delayed_place_sync())
+
+    async def _delayed_place_sync(self: "SyncService"):
+        try:
+            await asyncio.sleep(2.0)
+            from app.services.place_service import sync_all_places
+            await sync_all_places()
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error(f"Error executing debounced place sync: {e}")
+
+    async def ingest_photo(self: "SyncService", file_path: str, db: AsyncSession) -> Photo | None:
+        """
+        Unified, thread-safe ingestion pipeline for a single photo.
+        Prevents database lock concurrency exceptions on SQLite.
+        Detects duplicates by both path and content-based hashes.
+        """
+        try:
+            # 1. Quick path check
+            check_stmt = await db.execute(select(Photo).where(Photo.path == file_path))
+            existing_photo_path = check_stmt.scalar_one_or_none()
+            if existing_photo_path:
+                return existing_photo_path
+
+            # 2. Extract metadata and generate thumbnail in Process Pool
+            loop = asyncio.get_running_loop()
+            pool_result = await loop.run_in_executor(
+                self.process_pool,
+                process_image_task,
+                file_path,
+                str(settings.THUMBNAILS_DIR)
+            )
+
+            if not pool_result or not pool_result[0]:
+                return None
+
+            metadata, thumb_url = pool_result
+            file_hash = metadata.get("hash")
+
+            # 3. Safe database writes serialized using write Semaphore
+            async with self.db_write_semaphore:
+                # 4. Content-hash duplicate detection
+                if file_hash:
+                    hash_stmt = await db.execute(select(Photo).where(Photo.hash == file_hash))
+                    existing_photo_hash = hash_stmt.scalar_one_or_none()
+                    if existing_photo_hash:
+                        logger.info(f"Duplicate content detected for {file_path}. Existing photo ID: {existing_photo_hash.id}")
+                        return existing_photo_hash
+
+                is_external = not file_path.startswith(str(Path.home()))
+                mount_point = self.get_mount_point(file_path)
+
+                new_photo = Photo(
+                    filename=os.path.basename(file_path),
+                    path=file_path,
+                    url=thumb_url if thumb_url else f"local://{file_path}",
+                    hash=file_hash,
+                    width=metadata["width"],
+                    height=metadata["height"],
+                    aspect_ratio=metadata["aspect_ratio"],
+                    mime_type=metadata["mime_type"],
+                    file_type="image",
+                    caption=metadata.get("caption"),
+                    date=metadata.get("date_taken", datetime.utcnow()),
+                    date_taken=metadata.get("date_taken", datetime.utcnow()),
+                    upload_date=datetime.utcnow(),
+                    city=metadata.get("city"),
+                    state=metadata.get("state"),
+                    country=metadata.get("country"),
+                    location=metadata.get("location"),
+                    latitude=metadata.get("latitude"),
+                    longitude=metadata.get("longitude"),
+                    device_id=mount_point,
+                    is_external=is_external,
+                    blur_score=metadata.get("blur_score"),
+                    file_size=metadata.get("file_size")
+                )
+
+                try:
+                    db.add(new_photo)
+                    await db.commit()
+                    await db.refresh(new_photo)
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"Failed to commit database transaction for {file_path}: {e}")
+                    return None
+
+            # 5. Broadcast SSE creation event
+            photo_dict = {
+                "id": new_photo.id,
+                "filename": new_photo.filename,
+                "path": new_photo.path,
+                "url": new_photo.url,
+                "width": new_photo.width,
+                "height": new_photo.height,
+                "aspect_ratio": new_photo.aspect_ratio,
+                "location": new_photo.location,
+                "date": new_photo.date.isoformat(),
+                "date_taken": new_photo.date_taken.isoformat(),
+                "upload_date": new_photo.upload_date.isoformat(),
+                "is_favorite": new_photo.is_favorite,
+                "is_archived": new_photo.is_archived,
+                "is_locked": new_photo.is_locked,
+                "mime_type": new_photo.mime_type,
+                "file_type": new_photo.file_type,
+                "device_id": new_photo.device_id,
+                "is_external": new_photo.is_external
+            }
+            self.broadcast({"type": "new_photo", "photo": photo_dict})
+
+            # 6. Trigger debounced places sync task
+            if new_photo.city or new_photo.location:
+                self.trigger_place_sync_debounced()
+
+            return new_photo
+
+        except Exception as e:
+            logger.error(f"Failed to ingest photo {file_path}: {e}")
+            return None
+
+    async def delete_photo_by_path(self: "SyncService", file_path: str):
+        try:
+            from app.db import async_session
+            from sqlalchemy import delete
+
+            async with async_session() as db:
+                result = await db.execute(select(Photo).where(Photo.path == file_path))
+                photo = result.scalar_one_or_none()
+                if photo:
+                    photo_id = photo.id
+                    await db.execute(delete(Photo).where(Photo.id == photo_id))
+                    await db.commit()
+                    self.broadcast({"type": "delete_photo", "photo_id": photo_id})
+                    logger.info(f"Removed missing file from DB: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete photo record for {file_path}: {e}")

@@ -1,0 +1,8 @@
+{
+  "name": "Prism Photos",
+  "description": "A high-performance, aesthetically pleasing photo gallery app featuring timeline views, smart exploration, and AI-powered search capabilities.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
