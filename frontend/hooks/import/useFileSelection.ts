@@ -13,7 +13,6 @@ export const useFileSelection = () => {
 
   const handleFileUpload = async (): Promise<string[]> => {
     try {
-      console.log("[FILE UPLOAD] Opening file selection dialog...");
       const selected = await open({
         multiple: true,
         directory: false,
@@ -23,12 +22,7 @@ export const useFileSelection = () => {
         }]
       });
 
-      const paths = extractPaths(selected);
-      console.log("[FILE UPLOAD] Selected paths:", paths);
-      if (paths.length === 0) {
-        console.warn("[FILE UPLOAD] File selection cancelled or empty.");
-      }
-      return paths;
+      return extractPaths(selected);
     } catch (e) {
       console.error('Tauri open dialog failed', e);
       return [];
@@ -37,18 +31,12 @@ export const useFileSelection = () => {
 
   const handleFolderSelection = async (): Promise<string[]> => {
     try {
-      console.log("[FOLDER IMPORT] Opening folder selection dialog...");
       const selected = await open({
         multiple: true,
         directory: true,
       });
 
-      const paths = extractPaths(selected);
-      console.log("[FOLDER IMPORT] Selected paths:", paths);
-      if (paths.length === 0) {
-        console.warn("[FOLDER IMPORT] Folder selection cancelled or empty.");
-      }
-      return paths;
+      return extractPaths(selected);
     } catch (e) {
       console.error('Tauri open dialog failed', e);
       return [];

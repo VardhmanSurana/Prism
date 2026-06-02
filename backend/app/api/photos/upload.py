@@ -3,7 +3,7 @@
 import os
 import logging
 import time
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
 from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -110,6 +110,35 @@ async def upload_photo(
 
     # Handle Single File
     return await _internal_process_photo(file_path, db)
+
+
+@router.post("/upload-blob")
+async def upload_blob(
+    file: UploadFile = File(...),
+    original_path: str = Form(...),
+    is_save_as: bool = Form(False),
+    save_as_path: str = Form(None),
+    db: AsyncSession = Depends(get_db)
+):
+    import shutil
+    
+    # Verify original path exists and is allowed
+    if not os.path.exists(original_path):
+        raise HTTPException(status_code=404, detail="Original file not found")
+        
+    if is_save_as:
+        if save_as_path:
+            target_path = save_as_path
+        else:
+            base, ext = os.path.splitext(original_path)
+            target_path = f"{base}_edited_{int(time.time())}.jpg"
+    else:
+        target_path = original_path
+        
+    with open(target_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+        
+    return await _internal_process_photo(target_path, db)
 
 
 async def _internal_process_photo(file_path: str, db: AsyncSession):

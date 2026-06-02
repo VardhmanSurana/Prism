@@ -36,8 +36,8 @@ class FaceRecognizer:
             if p.face_embedding:
                 try:
                     embedding_cache[p.id] = np.array(json.loads(p.face_embedding), dtype=np.float32)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to load embedding for person {p.id}: {e}")
 
         return embedding_cache, existing_people
 

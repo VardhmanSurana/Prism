@@ -93,7 +93,7 @@ def _is_path_allowed(file_path: str) -> bool:
         ]
         # Include common posix external media mounts safely
         if os.name == 'posix':
-            for mount in ["/media", "/Volumes", "/mnt"]:
+            for mount in ["/media", "/run/media", "/Volumes", "/mnt"]:
                 if os.path.exists(mount):
                     allowed_roots.append(Path(mount).resolve())
                     

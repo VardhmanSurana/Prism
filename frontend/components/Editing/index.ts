@@ -1,2 +1,1 @@
-// Editing component folder created
-export {};
+export { EditingMode } from './EditingMode';

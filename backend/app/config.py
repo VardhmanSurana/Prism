@@ -24,12 +24,6 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_VISION_MODEL: str = "moondream:latest"  # or "llama3.2-vision", "moondream", etc.
     OLLAMA_TIMEOUT: int = 120  # seconds
-    
-    # Legacy GGUF settings (kept for backward compatibility if needed)
-    LLM_MODEL_FILENAME: str = "ToxicLlama3-8B-Float16.IQ4_XS.gguf"
-    LLM_MODEL_DIR: Path = BASE_DIR / "models"
-    LLM_CONTEXT_SIZE: int = 2048
-    LLM_THREADS: int = 8
 
 settings = Settings()
 

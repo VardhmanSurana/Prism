@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Photo } from '../types';
 import { API_BASE } from '../constants';
@@ -16,6 +16,7 @@ import {
   NavigationArrows,
   ImageDisplay
 } from './lightbox';
+import { EditingMode } from './Editing/EditingMode';
 
 interface LightboxProps {
   photo: Photo;
@@ -35,6 +36,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [metadata, setMetadata] = useState<any>(null);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
 
   // Refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +118,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
     maxHeight: '85vh',
   };
 
+  const editingSrc = useMemo(() => {
+    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url;
+    if (baseSrc.startsWith('blob:') || baseSrc.startsWith('data:')) return baseSrc;
+    const sep = baseSrc.includes('?') ? '&' : '?';
+    // Use highResStatus in the key to force a re-calc when high-res loads
+    return `${baseSrc}${sep}nocache=${photo.id}-${highRes.highResStatus}`;
+  }, [photo.id, photo.url, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -132,6 +143,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         onSetZoomScale={setZoomScale}
         onResetInteraction={resetInteraction}
         onToggleShowInfo={() => setShowInfo(!showInfo)}
+        onEdit={() => setIsEditing(true)}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -161,7 +173,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
               offset={offset}
               isDragging={isDragging}
               highResStatus={highRes.highResStatus}
-              currentHighResUrl={highRes.currentHighResUrl}
+              currentHighResUrl={editedPhotoUrl || highRes.currentHighResUrl}
             />
           </div>
 
@@ -176,6 +188,54 @@ export const Lightbox: React.FC<LightboxProps> = ({
       <div className="shrink-0 pb-10 px-6 z-20 bg-gradient-to-t from-black/90 to-transparent">
         <PhotoMetadataDisplay photo={photo} />
       </div>
+
+      {isEditing && (
+        <EditingMode 
+          src={editingSrc}
+          onClose={() => setIsEditing(false)}
+          onSave={async (blob, isSaveAs) => {
+            const formData = new FormData();
+            formData.append('file', blob, photo.filename || 'edited.jpg');
+            formData.append('original_path', photo.path || '');
+            formData.append('is_save_as', isSaveAs ? 'true' : 'false');
+
+            if (isSaveAs) {
+              try {
+                const { save } = await import('@tauri-apps/plugin-dialog');
+                const saveAsPath = await save({
+                  defaultPath: photo.filename || 'edited.jpg',
+                  filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
+                });
+                
+                if (!saveAsPath) {
+                  // User cancelled the dialog
+                  return;
+                }
+                formData.append('save_as_path', saveAsPath);
+              } catch (e) {
+                console.error("Tauri dialog error:", e);
+                // Fallback to default backend behavior if dialog fails
+              }
+            }
+            
+            try {
+              const res = await fetch(`${API_BASE}/api/v1/photos/upload-blob`, {
+                method: 'POST',
+                body: formData,
+              });
+              
+              if (res.ok) {
+                setEditedPhotoUrl(URL.createObjectURL(blob));
+                setIsEditing(false);
+              } else {
+                console.error("Failed to save photo", await res.text());
+              }
+            } catch (e) {
+              console.error("Error saving photo", e);
+            }
+          }} 
+        />
+      )}
     </motion.div>
   );
 };

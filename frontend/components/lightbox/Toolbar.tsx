@@ -2,7 +2,6 @@ import React from 'react';
 import {
   X,
   Heart,
-  Share2,
   Info,
   ZoomIn,
   ZoomOut,
@@ -19,6 +18,7 @@ interface ToolbarProps {
   onSetZoomScale: (scale: number) => void;
   onResetInteraction: () => void;
   onToggleShowInfo: () => void;
+  onEdit?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -30,6 +30,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onSetZoomScale,
   onResetInteraction,
   onToggleShowInfo,
+  onEdit,
 }) => {
   return (
     <div className="h-20 flex items-center justify-between px-8 shrink-0 z-20 bg-transparent font-sans">
@@ -84,16 +85,11 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Heart size={20} className={photo.isFavorite ? "fill-red-500 text-red-500" : ""} />
         </button>
         
-        <button 
-          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
-          title="Share"
-        >
-          <Share2 size={20} />
-        </button>
-        
+
         <button 
           className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
           title="Edit"
+          onClick={onEdit}
         >
           <Edit2 size={20} />
         </button>

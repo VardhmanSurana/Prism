@@ -87,8 +87,8 @@ def extract_metadata(img: Image.Image, file_path: str):
                 date_taken = datetime.strptime(dt_str, '%Y:%m:%d %H:%M:%S')
             # GPS extraction
             coords = _get_gps_coordinates(exif)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug(f"Failed to extract EXIF metadata: {e}")
 
     # Fallback for date
     if not date_taken:

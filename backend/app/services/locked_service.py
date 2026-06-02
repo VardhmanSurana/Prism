@@ -188,8 +188,8 @@ class LockedFolderService:
             if settings.SETTINGS_FILE.exists():
                 with open(settings.SETTINGS_FILE, "r") as f:
                     return json.load(f)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to read locked folder settings: {e}")
         return {}
 
     def _write_settings(self, data: dict) -> None:

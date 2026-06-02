@@ -9,9 +9,6 @@ from app.api.albums.utils import photo_to_dict
 logger = logging.getLogger(__name__)
 
 class PrismAgent:
-    def __init__(self):
-        pass
-
     async def chat(self, message: str, history: list = None):
         logger.info(f"Received message: {message}")
         msg_lower = message.lower()

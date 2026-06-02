@@ -39,14 +39,14 @@ class FaceSDK:
         if self._session is not None:
             try:
                 self._session.release()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to release face session: {e}")
             self._session = None
         if self._launched:
             try:
                 isf.terminate()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to terminate face SDK: {e}")
             self._launched = False
 
     @property

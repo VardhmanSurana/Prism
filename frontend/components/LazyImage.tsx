@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ImageOff } from 'lucide-react';
 import { resolveUrl } from '../constants';
 
@@ -37,9 +37,7 @@ export const LazyImage: React.FC<LazyImageProps> = ({ src, fallbackSrc, alt, cla
   }, [src]);
 
   const handleError = () => {
-    console.warn(`Failed to load image: ${currentSrc}`);
     if (fallbackSrc && !isUsingFallback) {
-      console.log(`Attempting fallback to: ${fallbackSrc}`);
       setIsUsingFallback(true);
       setCurrentSrc(fallbackSrc);
     } else {
