@@ -14,9 +14,10 @@ import { StorageCleanup } from './utilities/storageCleanup';
 interface UtilitiesViewProps {
   currentTheme: string;
   onThemeChange: (theme: string) => void;
+  onResetSuccess?: () => void;
 }
 
-export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onThemeChange }) => {
+export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onThemeChange, onResetSuccess }) => {
   const [activeTab, setActiveTab] = useState<'storage' | 'system'>('storage');
   
   const {
@@ -39,7 +40,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
     handlePurgeFolder,
     handleResetLibrary,
     handleTriggerFaceSync
-  } = useUtilities();
+  } = useUtilities({ onResetSuccess });
 
   return (
     <div className="p-4 sm:p-8 max-w-4xl space-y-8 flex flex-col h-full overflow-hidden select-none">

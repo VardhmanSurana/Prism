@@ -1,4 +1,4 @@
-import { Photo } from '../../types';
+import { Photo, RawPhoto, normalizePhoto } from '../../types';
 import { API_BASE } from '../../constants';
 
 interface ImportProgressStatus {
@@ -26,40 +26,38 @@ export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProces
       progress: 0
     });
 
-    for (const path of filePaths) {
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/photos/upload`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ file_path: path }),
-        });
+    const CONCURRENCY_LIMIT = 8;
+    for (let i = 0; i < filePaths.length; i += CONCURRENCY_LIMIT) {
+      const chunk = filePaths.slice(i, i + CONCURRENCY_LIMIT);
+      await Promise.allSettled(
+        chunk.map(async (path) => {
+          try {
+            const response = await fetch(`${API_BASE}/api/v1/photos/upload`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ file_path: path }),
+            });
 
-        if (response.ok) {
-          const p = await response.json();
-          if (p && p.id) {
-             const normalized = {
-               ...p,
-               isFavorite: p.is_favorite ?? p.isFavorite,
-               isArchived: p.is_archived ?? p.isArchived,
-               isLocked: p.is_locked ?? p.isLocked,
-               isTrash: p.is_trash ?? p.isTrash,
-               uploadDate: p.upload_date ?? p.uploadDate
-             };
-             uploadedPhotos.push(normalized);
+            if (response.ok) {
+              const p = await response.json() as RawPhoto;
+              if (p && p.id) {
+                uploadedPhotos.push(normalizePhoto(p));
+              }
+            }
+          } catch (e) {
+            console.error('[IMPORT LOOP] Failed to import:', path, e);
+          } finally {
+            processed++;
+            const currentProgress = Math.round((processed / total) * 100);
+            onImportProgress({
+              is_scanning: true,
+              total_files: total,
+              processed_files: processed,
+              progress: currentProgress
+            });
           }
-        }
-      } catch (e) {
-        console.error('[IMPORT LOOP] Failed to import:', path, e);
-      } finally {
-        processed++;
-        const currentProgress = Math.round((processed / total) * 100);
-        onImportProgress({
-          is_scanning: true,
-          total_files: total,
-          processed_files: processed,
-          progress: currentProgress
-        });
-      }
+        })
+      );
     }
 
     setTimeout(() => {

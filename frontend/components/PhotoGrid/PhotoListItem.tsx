@@ -81,7 +81,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
           src={photo.url || `local://${photo.path}`}
           fallbackSrc={`local://${photo.path}`}
           alt={photo.caption || 'Thumbnail'}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-500"
         />
       </div>
 
@@ -171,7 +171,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
             onDeleteToggle(photo.id);
           }}
           className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all hover:scale-105 active:scale-95"
-          title="Delete"
+          title="Trash"
         >
           <Trash2 size={16} />
         </button>

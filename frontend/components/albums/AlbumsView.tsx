@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Photo } from '../../types';
 import { useAlbums } from './hooks/useAlbums';
 import { AlbumTabs } from './AlbumTabs';
@@ -10,6 +10,7 @@ interface AlbumsViewProps {
 }
 
 export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
+  const [renameValue, setRenameValue] = useState('');
   const {
     activeTab,
     setActiveTab,
@@ -29,6 +30,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
   };
 
   const handleRenameAlbum = async (album: typeof albums[0]) => {
+    // Use browser prompt as fallback since Tauri doesn't support input dialogs natively
     const newName = window.prompt(`Enter name for this place:`, album.name);
     if (newName && newName !== album.name) {
       await renameAlbum(album, newName);

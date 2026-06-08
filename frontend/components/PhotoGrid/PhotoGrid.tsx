@@ -1,17 +1,26 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { TimelineDial } from '../TimelineDial';
-import { PhotoGridProps } from './types';
+import { PhotoGridProps, VirtualRowItem, RowItem } from './types';
 import { usePhotoGrid } from './hooks/usePhotoGrid';
 import { useTimeline } from './hooks/useTimeline';
 import { PhotoGridHeader } from './PhotoGridHeader';
 import { PhotoGridRow } from './PhotoGridRow';
 import { EmptyState } from './EmptyState';
 import { PhotoListItem } from './PhotoListItem';
-import { ROW_HEIGHT } from './constants';
+import { 
+  ROW_HEIGHT, 
+  ROW_PADDING, 
+  DASHBOARD_ROW_HEIGHT, 
+  EMPTY_ROW_HEIGHT, 
+  HEADER_ROW_HEIGHT, 
+  LIST_ITEM_HEIGHT 
+} from './constants';
 import { useStats } from '../../hooks/useStats';
 import { useImport } from '../../hooks/import';
 import { API_BASE } from '../../constants';
+
+import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
 import { 
   Image as ImageIcon, 
@@ -29,6 +38,7 @@ import {
 
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
+  isLoading,
   onPhotoClick,
   selectedIds,
   onToggleSelection,
@@ -39,6 +49,11 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onImportProgress,
   sortMode,
   onSortChange,
+  onUpdatePhotos,
+  onBulkFavorite,
+  onBulkArchive,
+  onBulkDelete,
+  onBulkLockToggle,
 }) => {
   const isSelectionMode = selectedIds.size > 0;
   
@@ -90,70 +105,96 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   // Handle Inline Toggles for List View
   const handleFavoriteToggle = useCallback(async (id: string | number, current: boolean) => {
-    try {
-      // Optimistic Update
-      const photo = photos.find(p => String(p.id) === String(id));
-      if (photo) {
-        photo.isFavorite = !current;
-        photo.is_favorite = !current;
-      }
-      await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
+    if (onBulkFavorite) {
+      await onBulkFavorite(new Set([String(id)]));
       refetchStats();
-    } catch (e) {
-      console.error('Failed to toggle favorite status', e);
+    } else {
+      const target = !current;
+      onUpdatePhotos?.(prev => prev.map(p =>
+        String(p.id) === String(id) ? { ...p, isFavorite: target, is_favorite: target } : p
+      ));
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
+        if (!response.ok) throw new Error('API failed');
+        refetchStats();
+      } catch (e) {
+        onUpdatePhotos?.(prev => prev.map(p =>
+          String(p.id) === String(id) ? { ...p, isFavorite: current, is_favorite: current } : p
+        ));
+        console.error('Failed to toggle favorite status', e);
+      }
     }
-  }, [photos, refetchStats]);
+  }, [onBulkFavorite, onUpdatePhotos, refetchStats]);
 
   const handleLockToggle = useCallback(async (id: string | number, current: boolean) => {
-    const isLocking = !current;
-    if (isLocking && !window.confirm("Encrypt and move this item to the Locked Folder?")) return;
-    if (!isLocking && !window.confirm("Decrypt and restore this item to your general photos?")) return;
-    
-    try {
-      // Optimistic Update
-      const photo = photos.find(p => String(p.id) === String(id));
-      if (photo) {
-        photo.isLocked = isLocking;
-        photo.is_locked = isLocking;
-      }
-      const endpoint = isLocking ? '/lock' : '/unlock';
-      await fetch(`${API_BASE}/api/v1/photos/${id}${endpoint}`, { method: 'POST' });
+    if (onBulkLockToggle) {
+      await onBulkLockToggle(new Set([String(id)]));
       refetchStats();
-    } catch (e) {
-      console.error('Failed to toggle lock status', e);
+    } else {
+      const isLocking = !current;
+      if (isLocking && !await customConfirm('Encrypt and move this item to the Locked Folder?', 'Confirm Lock')) return;
+      if (!isLocking && !await customConfirm('Decrypt and restore this item to your general photos?', 'Confirm Unlock')) return;
+      
+      onUpdatePhotos?.(prev => prev.map(p =>
+        String(p.id) === String(id) ? { ...p, isLocked: isLocking, is_locked: isLocking } : p
+      ));
+      try {
+        const endpoint = isLocking ? '/lock' : '/unlock';
+        const response = await fetch(`${API_BASE}/api/v1/photos/${id}${endpoint}`, { method: 'POST' });
+        if (!response.ok) throw new Error('API failed');
+        refetchStats();
+      } catch (e) {
+        onUpdatePhotos?.(prev => prev.map(p =>
+          String(p.id) === String(id) ? { ...p, isLocked: current, is_locked: current } : p
+        ));
+        console.error('Failed to toggle lock status', e);
+      }
     }
-  }, [photos, refetchStats]);
+  }, [onBulkLockToggle, onUpdatePhotos, refetchStats]);
 
   const handleArchiveToggle = useCallback(async (id: string | number, current: boolean) => {
-    try {
-      // Optimistic Update
-      const photo = photos.find(p => String(p.id) === String(id));
-      if (photo) {
-        photo.isArchived = !current;
-        photo.is_archived = !current;
-      }
-      // Toggle archived status via API if endpoint exists, or directly update in-memory
+    if (onBulkArchive) {
+      await onBulkArchive(new Set([String(id)]));
       refetchStats();
-    } catch (e) {
-      console.error('Failed to toggle archive status', e);
+    } else {
+      const target = !current;
+      onUpdatePhotos?.(prev => prev.map(p =>
+        String(p.id) === String(id) ? { ...p, isArchived: target, is_archived: target } : p
+      ));
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/photos/${id}/archive`, { method: 'POST' });
+        if (!response.ok) throw new Error('API failed');
+        refetchStats();
+      } catch (e) {
+        onUpdatePhotos?.(prev => prev.map(p =>
+          String(p.id) === String(id) ? { ...p, isArchived: current, is_archived: current } : p
+        ));
+        console.error('Failed to toggle archive status', e);
+      }
     }
-  }, [photos, refetchStats]);
+  }, [onBulkArchive, onUpdatePhotos, refetchStats]);
 
   const handleDeleteToggle = useCallback(async (id: string | number) => {
-    if (!window.confirm("Move this photo to Trash?")) return;
-    try {
-      // Optimistic Update
-      const photo = photos.find(p => String(p.id) === String(id));
-      if (photo) {
-        photo.isTrash = true;
-        photo.is_trash = true;
-      }
-      await fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' });
+    if (onBulkDelete) {
+      await onBulkDelete(new Set([String(id)]));
       refetchStats();
-    } catch (e) {
-      console.error('Failed to trash photo', e);
+    } else {
+      if (!await customConfirm('Move this photo to Trash?', 'Confirm Trash')) return;
+      onUpdatePhotos?.(prev => prev.map(p =>
+        String(p.id) === String(id) ? { ...p, isTrash: true, is_trash: true } : p
+      ));
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' });
+        if (!response.ok) throw new Error('API failed');
+        refetchStats();
+      } catch (e) {
+        onUpdatePhotos?.(prev => prev.map(p =>
+          String(p.id) === String(id) ? { ...p, isTrash: false, is_trash: false } : p
+        ));
+        console.error('Failed to trash photo', e);
+      }
     }
-  }, [photos, refetchStats]);
+  }, [onBulkDelete, onUpdatePhotos, refetchStats]);
 
   // Integrated Search trigger
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
@@ -178,7 +219,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         { type: 'empty' as const },
       ];
     }
-    const baseItems: any[] = viewMode === 'grid'
+    const baseItems: VirtualRowItem[] = viewMode === 'grid'
       ? gridRows
       : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
 
@@ -191,10 +232,10 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     estimateSize: (index) => {
       const item = rowItems[index];
       if (!item) return ROW_HEIGHT;
-      if (item.type === 'dashboard') return 360;
-      if (item.type === 'empty')     return 420; // tall enough to feel spacious
-      if (item.type === 'header')    return 80;
-      if (item.type === 'list-item') return 120;
+      if (item.type === 'dashboard') return DASHBOARD_ROW_HEIGHT;
+      if (item.type === 'empty')     return EMPTY_ROW_HEIGHT; // tall enough to feel spacious
+      if (item.type === 'header')    return HEADER_ROW_HEIGHT;
+      if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
       return ROW_HEIGHT;
     },
     overscan: 10,
@@ -213,9 +254,21 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   // Keep timeline dial linked only to regular grid rows
   const gridRowsOnly = useMemo(() => {
-    return gridRows.filter(item => item.type === 'header' || item.type === 'row') as any[];
+    return gridRows.filter((item): item is RowItem => item.type === 'header' || item.type === 'row');
   }, [gridRows]);
   const { timelineItems, scrollState, activeId } = useTimeline(gridRowsOnly, scrollParentRef);
+
+  if (isLoading && photos.length === 0) {
+    return (
+      <div className="pl-10 pr-10 pt-28 pb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+          {Array.from({ length: 18 }).map((_, i) => (
+            <div key={i} className="aspect-[3/4] rounded-xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -479,6 +532,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 virtualRowStart={virtualRow.start}
                 virtualRowKey={virtualRow.key}
                 virtualRowIndex={virtualRow.index}
+                rowHeight={ROW_HEIGHT}
+                rowPadding={ROW_PADDING}
                 measureElement={rowVirtualizer.measureElement}
               />
             );

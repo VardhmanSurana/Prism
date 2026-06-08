@@ -36,7 +36,7 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onDelete, variant }
           <button 
             onClick={() => onDelete(photo.id)}
             className="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/30 text-rose-400 rounded-lg hover:scale-105 transition-all"
-            title="Delete"
+            title="Trash"
           >
             <Trash2 size={12} />
           </button>

@@ -160,7 +160,18 @@
   border-radius: 99px;
 }
 
-/* Apply CSS filter only to images inside the Cropper, not the workspace background */
+.hide-crop-ui .cropper-drag-box,
+.hide-crop-ui .cropper-view-box,
+.hide-crop-ui .cropper-dashed,
+.hide-crop-ui .cropper-point,
+.hide-crop-ui .cropper-line,
+.hide-crop-ui .cropper-face,
+.hide-crop-ui .cropper-center,
+.hide-crop-ui .cropper-modal {
+  display: none !important;
+}
+
+/* Apply CSS filter to images inside the Cropper, not the workspace background. */
 .cropper-container img {
   filter: var(--cropper-filter, none);
 }

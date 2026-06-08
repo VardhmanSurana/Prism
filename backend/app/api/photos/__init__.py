@@ -7,6 +7,7 @@ from .upload import router as upload_router
 from .metadata import router as metadata_router
 from .lock import router as lock_router
 from .favorite import router as favorite_router
+from .trash import router as trash_router
 
 __all__ = [
     "UploadRequest",
@@ -16,4 +17,5 @@ __all__ = [
     "metadata_router",
     "lock_router",
     "favorite_router",
+    "trash_router",
 ]

@@ -56,6 +56,7 @@ class SyncService(
         # Concurrency & Debounce controls
         self.db_write_semaphore = None
         self.place_sync_timer = None
+        self.heartbeat_task = None
 
 
 sync_service = SyncService()

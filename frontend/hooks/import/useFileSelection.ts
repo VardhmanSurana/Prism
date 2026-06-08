@@ -1,12 +1,11 @@
 import { open } from '@tauri-apps/plugin-dialog';
 
 export const useFileSelection = () => {
-  const extractPaths = (selected: any): string[] => {
+  const extractPaths = (selected: string | string[] | null): string[] => {
     if (!selected) return [];
     const items = Array.isArray(selected) ? selected : [selected];
     return items.map(item => {
       if (typeof item === 'string') return item;
-      if (item && typeof item === 'object' && 'path' in item) return item.path;
       return String(item);
     });
   };

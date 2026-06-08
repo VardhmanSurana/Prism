@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Dispatch, SetStateAction } from 'react';
 import { ExploreView } from './ExploreView';
 import { AlbumsView } from './albums';
 import { PeopleView } from './PeopleView/index';
@@ -7,11 +7,13 @@ import { MapView } from './MapView';
 import { PhotoGrid } from './PhotoGrid';
 import { LockedViewAuth } from './LockedViewAuth/index';
 import { LockedFolderView } from './LockedFolderView';
-import { Photo, ViewMode } from '../types';
+import { Photo, ViewMode, SearchFilters, SortMode } from '../types';
+import { ImportProgressStatus } from './PhotoGrid/types';
 
 interface MainContentProps {
   currentView: ViewMode;
   photos: Photo[];
+  isLoading?: boolean;
   selectedIds: Set<string>;
   isLockedAuthenticated: boolean;
   theme: string;
@@ -24,16 +26,23 @@ interface MainContentProps {
   onThemeChange: (theme: string) => void;
   onPhotosLoaded: (photos: Photo[] | null) => void;
   onScroll: () => void;
-  onSearch?: (filters: any) => void;
+  onSearch?: (filters: SearchFilters | null) => void;
   onUpload?: (photos: Photo[]) => void;
-  onImportProgress?: (status: any) => void;
-  sortMode?: any;
-  onSortChange?: (mode: any) => void;
+  onImportProgress?: (status: ImportProgressStatus) => void;
+  sortMode?: SortMode;
+  onSortChange?: (mode: SortMode) => void;
+  onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
+  onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkArchive?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
+  onResetSuccess?: () => void;
 }
 
 export function MainContent({
   currentView,
   photos,
+  isLoading,
   selectedIds,
   isLockedAuthenticated,
   theme,
@@ -50,7 +59,13 @@ export function MainContent({
   onUpload,
   onImportProgress,
   sortMode,
-  onSortChange
+  onSortChange,
+  onUpdatePhotos,
+  onBulkFavorite,
+  onBulkArchive,
+  onBulkDelete,
+  onBulkLockToggle,
+  onResetSuccess
 }: MainContentProps) {
   const renderContent = () => {
     switch (currentView) {
@@ -63,7 +78,13 @@ export function MainContent({
       case 'map':
         return <MapView photos={photos} onPhotoClick={onPhotoClick} />;
       case 'utilities':
-        return <UtilitiesView currentTheme={theme} onThemeChange={onThemeChange} />;
+        return (
+          <UtilitiesView 
+            currentTheme={theme} 
+            onThemeChange={onThemeChange} 
+            onResetSuccess={onResetSuccess}
+          />
+        );
       case 'locked':
         if (!isLockedAuthenticated) {
           return <LockedViewAuth onAuthenticate={onAuthenticate} />;
@@ -83,6 +104,7 @@ export function MainContent({
         return (
           <PhotoGrid
             photos={photos}
+            isLoading={isLoading}
             onPhotoClick={onPhotoClick}
             selectedIds={selectedIds}
             onToggleSelection={onToggleSelection}
@@ -93,6 +115,11 @@ export function MainContent({
             onImportProgress={onImportProgress}
             sortMode={sortMode}
             onSortChange={onSortChange}
+            onUpdatePhotos={onUpdatePhotos}
+            onBulkFavorite={onBulkFavorite}
+            onBulkArchive={onBulkArchive}
+            onBulkDelete={onBulkDelete}
+            onBulkLockToggle={onBulkLockToggle}
           />
         );
     }

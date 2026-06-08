@@ -24,12 +24,10 @@ export const useFolderManagement = ({ excludedFolders, onFoldersChange }: UseFol
 
   const openBrowseDialog = async (title: string): Promise<string | null> => {
     try {
-      if (window && (window as any).__TAURI_INTERNALS__) {
-        const selected = await open({ directory: true, multiple: false, title });
-        return typeof selected === 'string' ? selected : null;
-      }
+      const selected = await open({ directory: true, multiple: false, title });
+      return typeof selected === 'string' ? selected : null;
     } catch (e) { /* fallthrough */ }
-    return window.prompt(`Enter absolute folder path (${title}):`);
+    return null;
   };
 
   const handleBrowse = async () => {

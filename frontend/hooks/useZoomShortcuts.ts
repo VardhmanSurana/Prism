@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useEditorUIStore } from '../store/uiStore';
 
-export function useKeyboardShortcuts() {
+export function useZoomShortcuts() {
   const setZoom = useEditorUIStore((s) => s.setZoom);
   const resetZoom = useEditorUIStore((s) => s.resetZoom);
 

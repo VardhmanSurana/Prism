@@ -1,9 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
-import { Adjustments } from './filterEngine';
+import { Adjustments, DEFAULT_ADJUSTMENTS } from './filterEngine';
 import { CurveEditor, CurveState, DEFAULT_CURVE } from './CurveEditor';
 
-// ── UI Group Definitions ──────────────────────────────────────────────────────
+// UI Group Definitions
 // Note: 'curves' is intentionally NOT a numeric slider here — it has its own
 // editor (`<CurveEditor />`) rendered separately below the numeric controls.
 
@@ -41,7 +41,7 @@ interface EffectsPanelProps {
 
 export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChange }) => {
   const isDefault =
-    adjustments.ambiance === DEFAULT_EFFECTS_SLIDERS.ambiance &&
+    adjustments.ambiance === DEFAULT_ADJUSTMENTS.ambiance &&
     adjustments.curves === DEFAULT_CURVE &&
     adjustments.vignette === DEFAULT_EFFECTS_SLIDERS.vignette;
 
@@ -60,11 +60,11 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChang
     [adjustments, onChange],
   );
 
-  const handleCurvesChange = (val: CurveState) => {
+  const handleCurvesChange = useCallback((val: CurveState) => {
     onChange({ ...adjustments, curves: val });
-  };
+  }, [adjustments, onChange]);
 
-  const items = EFFECTS_GROUPS.flatMap(group => group.items);
+  const items = useMemo(() => EFFECTS_GROUPS.flatMap(group => group.items), []);
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">

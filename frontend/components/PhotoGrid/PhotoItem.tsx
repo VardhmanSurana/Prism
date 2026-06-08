@@ -34,7 +34,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       }}
       className={`relative group cursor-pointer overflow-hidden rounded-[1.5rem] bg-[#0c0c0c]
       transition-all duration-500 will-change-transform
-      hover:z-10 hover:-translate-y-1 hover:shadow-[0_10px_20px_-5px_rgba(0,0,0,0.8)]
+      hover:z-10 hover:shadow-[0_10px_20px_-5px_rgba(0,0,0,0.8)]
       ${
         isSelected
           ? 'ring-4 ring-primary scale-[0.98] shadow-xl'
@@ -46,7 +46,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         src={photo.url || `local://${photo.path}`}
         fallbackSrc={`local://${photo.path}`}
         alt={photo.caption || 'Photo'}
-        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        className="w-full h-full object-cover transition-transform duration-500"
       />
       <div
         className={`absolute inset-0 transition-colors duration-300 ${

@@ -28,6 +28,8 @@ export type HistoryActionType =
   | 'ambiance'
   | 'curves'
   | 'vignette'
+  | 'regions'
+  | `regions_${string}`
   | 'initial';
 
 export interface HistoryEntry {
@@ -72,12 +74,10 @@ export function createHistoryEntry(
   };
 }
 
-export function getActionIcon(type: HistoryActionType): string {
-  // Return empty string - no icons
-  return '';
-}
-
 export function getActionColor(type: HistoryActionType): string {
+  if (typeof type === 'string' && type.startsWith('regions')) {
+    return 'text-cyan-400';
+  }
   switch (type) {
     case 'crop': return 'text-blue-400';
     case 'rotate': return 'text-purple-400';
@@ -109,6 +109,9 @@ export function getActionColor(type: HistoryActionType): string {
 }
 
 export function getAdjustmentLabel(type: HistoryActionType): string {
+  if (typeof type === 'string' && type.startsWith('regions')) {
+    return 'Regional Adjustment';
+  }
   // Convert camelCase to Title Case
   return type.charAt(0).toUpperCase() + type.slice(1).replace(/([A-Z])/g, ' $1');
 }

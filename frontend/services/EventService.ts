@@ -1,12 +1,18 @@
 
 import { API_BASE } from '../constants';
 
-type EventCallback = (data: any) => void;
+export interface SSEEvent {
+  type: string;
+  photoId?: string | number;
+  [key: string]: unknown;
+}
+
+type EventCallback = (data: SSEEvent) => void;
 
 class EventService {
     private eventSource: EventSource | null = null;
-    private listeners: { [type: string]: EventCallback[] } = {};
-    private reconnectTimeout: any = null;
+    private listeners: Record<string, EventCallback[]> = {};
+    private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
     connect() {
         if (this.eventSource) return;
@@ -15,12 +21,11 @@ class EventService {
 
         this.eventSource.onmessage = (event) => {
             try {
-                const data = JSON.parse(event.data);
+                const data = JSON.parse(event.data) as SSEEvent;
                 const type = data.type;
                 if (this.listeners[type]) {
                     this.listeners[type].forEach(callback => callback(data));
                 }
-                // Also support catch-all
                 if (this.listeners['*']) {
                     this.listeners['*'].forEach(callback => callback(data));
                 }
@@ -34,17 +39,24 @@ class EventService {
             this.eventSource?.close();
             this.eventSource = null;
             
-            // Avoid scheduling multiple duplicate reconnections
             if (this.reconnectTimeout) {
                 clearTimeout(this.reconnectTimeout);
             }
             
-            // Reconnect after 5 seconds
             this.reconnectTimeout = setTimeout(() => {
                 this.reconnectTimeout = null;
                 this.connect();
             }, 5000);
         };
+    }
+
+    emit(type: string, data: SSEEvent) {
+        if (this.listeners[type]) {
+            this.listeners[type].forEach(callback => callback(data));
+        }
+        if (this.listeners['*']) {
+            this.listeners['*'].forEach(callback => callback(data));
+        }
     }
 
     subscribe(type: string, callback: EventCallback) {

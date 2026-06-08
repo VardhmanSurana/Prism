@@ -1,5 +1,7 @@
-import React from 'react';
-import { RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Check } from 'lucide-react';
+import React, { useState } from 'react';
+import { RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Check, Sparkles, Loader2 } from 'lucide-react';
+import { ReactCropperElement } from 'react-cropper';
+import { API_BASE } from '../../constants';
 
 export const ASPECT_RATIOS = [
   { label: 'Free',  value: NaN       },
@@ -25,6 +27,8 @@ interface TransformPanelProps {
   flipV: boolean;
   handleFlipH: () => void;
   handleFlipV: () => void;
+  photoId?: number | string;
+  cropperRef: React.RefObject<ReactCropperElement>;
 }
 
 export const TransformPanel: React.FC<TransformPanelProps> = ({
@@ -41,9 +45,56 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
   flipV,
   handleFlipH,
   handleFlipV,
+  photoId,
+  cropperRef,
 }) => {
+  const [isSmartCropping, setIsSmartCropping] = useState(false);
+
+  const handleSmartCrop = async () => {
+    if (!photoId || !cropperRef.current) return;
+    setIsSmartCropping(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/photos/smart-crop/${photoId}`);
+      if (res.ok) {
+        const data = await res.json();
+        const cropper = cropperRef.current.cropper;
+        
+        // Get natural image data
+        const imageData = cropper.getImageData();
+        
+        // Convert percentage/absolute pixels to cropper's internal canvas scale
+        // The API returns pixels relative to original image size
+        const scale = imageData.width / imageData.naturalWidth;
+        
+        cropper.setCropBoxData({
+          left:   data.x * scale + imageData.left,
+          top:    data.y * scale + imageData.top,
+          width:  data.width * scale,
+          height: data.height * scale,
+        });
+      }
+    } catch (e) {
+      console.error("Smart crop failed", e);
+    } finally {
+      setIsSmartCropping(false);
+    }
+  };
+
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+
+      {/* AI Tools */}
+      <div className="space-y-3 pb-4 border-b border-white/5">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25">AI Tools</p>
+        <button
+          onClick={handleSmartCrop}
+          disabled={isSmartCropping || !photoId}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-xs font-bold cursor-pointer disabled:opacity-50"
+        >
+          {isSmartCropping ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          Smart Crop
+        </button>
+      </div>
 
       {/* Crop Actions (Apply / Reset) */}
       {(hasCropSelection || isImageCropped) && (

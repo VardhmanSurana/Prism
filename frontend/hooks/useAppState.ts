@@ -1,14 +1,16 @@
 import { useState, useCallback } from 'react';
-import { Photo } from '../types';
+import { Photo, ViewMode } from '../types';
 import { usePhotos } from './usePhotos';
 import { usePhotoSelection } from './appState/usePhotoSelection';
 import { useFilters } from './appState/useFilters';
 import { useLockedFolder } from './appState/useLockedFolder';
 import { usePhotoSorting } from './appState/usePhotoSorting';
 import { useImportStatus } from './appState/useImportStatus';
+import { useSelection } from './useSelection';
+import { useBulkActions } from './useBulkActions';
 
 export function useAppState() {
-  const { photos, setPhotos, fetchPhotos, syncStatus } = usePhotos();
+  const { photos, setPhotos, fetchPhotos, isLoading, syncStatus } = usePhotos();
   const [contextPhotos, setContextPhotos] = useState<Photo[] | null>(null);
 
   const {
@@ -21,24 +23,21 @@ export function useAppState() {
     theme,
     setTheme,
     isChatOpen,
-    setIsChatOpen
+    setIsChatOpen,
   } = useFilters();
 
   const {
     selectedPhoto,
-    setSelectedPhoto: setPhotoSelection
+    setSelectedPhoto: setPhotoSelection,
   } = usePhotoSelection(photos);
 
   const {
     isLockedAuthenticated,
     setIsLockedAuthenticated,
-    handleLockSession
+    handleLockSession,
   } = useLockedFolder();
 
-  const {
-    importStatus,
-    setImportStatus
-  } = useImportStatus();
+  const { importStatus, setImportStatus } = useImportStatus();
 
   const {
     scrollRef,
@@ -47,7 +46,7 @@ export function useAppState() {
     handleNextPhoto: getNextPhoto,
     handlePrevPhoto: getPrevPhoto,
     contextPhotos: sortedContextPhotos,
-    setContextPhotos: setSortedContextPhotos
+    setContextPhotos: setSortedContextPhotos,
   } = usePhotoSorting({
     photos,
     currentView,
@@ -56,7 +55,31 @@ export function useAppState() {
     contextPhotos,
     selectedPhoto,
     onFetchPhotos: fetchPhotos,
-    onSetContextPhotos: setContextPhotos
+    onSetContextPhotos: setContextPhotos,
+  });
+
+  const {
+    selectedIds,
+    handleToggleSelection,
+    handleToggleGroupSelection,
+    clearSelection,
+  } = useSelection();
+
+  const {
+    handleBulkDelete,
+    handleBulkArchive,
+    handleBulkFavorite,
+    handleBulkLockToggle,
+    isFavorited,
+    onShare,
+    onAddToAlbum,
+  } = useBulkActions({
+    photos,
+    setPhotos,
+    currentView,
+    clearSelection,
+    setSortMode,
+    selectedIds,
   });
 
   const setCurrentView = useCallback((v: typeof currentView) => {
@@ -92,6 +115,7 @@ export function useAppState() {
     photos,
     setPhotos,
     fetchPhotos,
+    isLoading,
     syncStatus,
     selectedPhoto,
     setSelectedPhoto,
@@ -115,6 +139,17 @@ export function useAppState() {
     handleUpload,
     handleNextPhoto,
     handlePrevPhoto,
-    displayedPhotos
+    displayedPhotos,
+    selectedIds,
+    handleToggleSelection,
+    handleToggleGroupSelection,
+    clearSelection,
+    isFavorited,
+    onShare,
+    onAddToAlbum,
+    handleBulkDelete,
+    handleBulkArchive,
+    handleBulkFavorite,
+    handleBulkLockToggle,
   };
 }

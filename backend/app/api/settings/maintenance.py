@@ -17,6 +17,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _delete_masks_for_photo(photo_id: int) -> int:
+    """Delete any cached mask files for the given photo id. Returns count removed."""
+    masks_dir = settings.THUMBNAILS_DIR / "masks"
+    if not masks_dir.exists():
+        return 0
+    removed = 0
+    # mask_<id>_background.png and mask_<id>_<face_idx>_<part>.png both
+    # start with the photo_id, so we prefix-match safely.
+    prefix = f"mask_{photo_id}"
+    for entry in masks_dir.iterdir():
+        try:
+            if entry.is_file() and entry.name.startswith(prefix):
+                entry.unlink()
+                removed += 1
+        except Exception as e:
+            logger.warning(f"Failed to delete mask {entry}: {e}")
+    return removed
+
+
 @router.post("/purge-folder")
 async def purge_folder(req: PurgeFolderRequest):
     """Deletes all photos whose path starts with the given folder, plus their thumbnails."""
@@ -35,6 +54,7 @@ async def purge_folder(req: PurgeFolderRequest):
                         os.remove(thumb_path)
                 except Exception:
                     pass
+            _delete_masks_for_photo(photo.id)
             await db.delete(photo)
             deleted_count += 1
 
@@ -66,6 +86,16 @@ async def clear_cache():
                     deleted_count += 1
                 except Exception as e:
                     logger.warning(f"Failed to delete {file_path}: {e}")
+        # Also wipe any nested cache folders (e.g. masks/)
+        for sub in settings.THUMBNAILS_DIR.iterdir():
+            if sub.is_dir():
+                for file_path in sub.iterdir():
+                    if file_path.is_file():
+                        try:
+                            file_path.unlink()
+                            deleted_count += 1
+                        except Exception as e:
+                            logger.warning(f"Failed to delete {file_path}: {e}")
 
     async with async_session() as db:
         await db.execute(

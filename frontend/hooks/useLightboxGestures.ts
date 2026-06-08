@@ -17,7 +17,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const dragStartOffset = useRef({ x: 0, y: 0 });
-  const pointers = useRef<Map<number, PointerEvent>>(new Map());
+  const pointers = useRef<Map<number, React.PointerEvent<HTMLDivElement>>>(new Map());
   const lastPinchDistance = useRef<number | null>(null);
 
   const zoomScale = zoom.scale;
@@ -53,8 +53,8 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    pointers.current.set(e.pointerId, e.nativeEvent);
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointers.current.set(e.pointerId, e);
 
     if (pointers.current.size === 1) {
       setIsDragging(true);
@@ -64,8 +64,8 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    pointers.current.set(e.pointerId, e.nativeEvent);
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointers.current.set(e.pointerId, e);
 
     if (isDragging && pointers.current.size === 1) {
       if (zoomScale > 1) {
@@ -80,7 +80,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
 
     if (pointers.current.size === 2) {
-      const pts = Array.from(pointers.current.values()) as PointerEvent[];
+      const pts = Array.from(pointers.current.values()) as React.PointerEvent<HTMLDivElement>[];
       const dist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
 
       if (lastPinchDistance.current !== null) {

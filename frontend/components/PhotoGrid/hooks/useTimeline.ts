@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { TimelineItem } from '../../TimelineDial';
 import { RowItem } from '../types';
 import { ROW_HEIGHT } from '../constants';
@@ -52,6 +52,16 @@ export const useTimeline = (
   const [scrollState, setScrollState] = useState({ progress: 0, height: 0 });
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  const timelineItemsRef = useRef(timelineItems);
+  useEffect(() => {
+    timelineItemsRef.current = timelineItems;
+  }, [timelineItems]);
+
+  // Deep comparison of timelineItems' IDs and progress values to stabilize effect trigger
+  const itemsKey = useMemo(() => {
+    return JSON.stringify(timelineItems.map(i => ({ id: i.id, progress: i.progress })));
+  }, [timelineItems]);
+
   useEffect(() => {
     const parent = scrollParentRef?.current;
     if (!parent) return;
@@ -70,7 +80,8 @@ export const useTimeline = (
 
       let closest = null;
       let minDiff = Infinity;
-      for (const item of timelineItems) {
+      const currentItems = timelineItemsRef.current;
+      for (const item of currentItems) {
         const diff = Math.abs(item.progress - progress);
         if (diff < minDiff) {
           minDiff = diff;
@@ -86,7 +97,7 @@ export const useTimeline = (
       parent.removeEventListener('scroll', handleScroll);
       clearTimeout(timer);
     };
-  }, [scrollParentRef, timelineItems]);
+  }, [scrollParentRef, itemsKey]);
 
   return { timelineItems, scrollState, activeId };
 };

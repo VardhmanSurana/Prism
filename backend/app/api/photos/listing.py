@@ -8,7 +8,7 @@ from sqlalchemy.future import select
 from sqlalchemy import or_, and_
 
 from app.db import get_db
-from app.models import Photo
+from app.models import Photo, Person, Album
 from app.services.sync_service import sync_service
 from app.services.locked_service import locked_service
 
@@ -29,16 +29,21 @@ async def list_photos(
     # 1. Internal (no device_id or starts with home)
     # 2. External but their device_id (mount point) is currently active
     # Filter out locked photos if the Locked Folder is not authenticated
+    # ALWAYS filter out trashed photos
     if locked_service.is_authenticated:
         stmt = select(Photo).where(
-            or_(
-                Photo.is_external == False,
-                Photo.device_id.in_(active_mounts)
+            and_(
+                Photo.is_trash == False,
+                or_(
+                    Photo.is_external == False,
+                    Photo.device_id.in_(active_mounts)
+                )
             )
         ).order_by(Photo.upload_date.desc()).limit(limit).offset(offset)
     else:
         stmt = select(Photo).where(
             and_(
+                Photo.is_trash == False,
                 or_(
                     Photo.is_external == False,
                     Photo.device_id.in_(active_mounts)
@@ -55,9 +60,8 @@ async def list_photos(
 
 @router.get("/stats")
 async def get_photo_stats(db: AsyncSession = Depends(get_db)):
-    from app.models import Photo, Person, Album
     from sqlalchemy import func
-    
+
     active_mounts = list(sync_service.active_mounts)
     
     # 1. Total Photos: visible active photos (not locked if unauthenticated, not in trash, in active mounts)

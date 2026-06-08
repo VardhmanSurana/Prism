@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Photo } from '../types';
-import { API_BASE } from '../constants';
+import { API_BASE, resolveUrl } from '../constants';
+import { eventService } from '../services/EventService';
+
+import { customConfirm } from '../services/ConfirmService';
 
 // Hooks
 import { useLightboxGestures } from '../hooks/useLightboxGestures';
 import { useImageHighRes } from '../hooks/useImageHighRes';
-import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { useZoomShortcuts } from '../hooks/useZoomShortcuts';
 
 // Sub-components
 import {
@@ -33,7 +36,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
 }) => {
   // UI State
   const [showInfo, setShowInfo] = useState(false);
-  const [metadata, setMetadata] = useState<any>(null);
+  const [metadata, setMetadata] = useState<Photo | null>(null);
   const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -63,22 +66,35 @@ export const Lightbox: React.FC<LightboxProps> = ({
   // High resolution loader hook
   const highRes = useImageHighRes({ photo });
 
-  // Keyboard shortcuts
-  useKeyboardShortcuts();
+  // Zoom shortcuts (0=reset, 1=2x, +/-, no-modifier)
+  useZoomShortcuts();
 
-  // Reset interaction on photo change
+  // Reset interaction and metadata on photo change
   useEffect(() => {
     resetInteraction();
+    setEditedPhotoUrl(null);
+    setMetadata(null);
   }, [photo.id, resetInteraction]);
 
-  // Fetch metadata when info panel is shown
+  // Revoke stale blob URL when photo changes, editedPhotoUrl changes, or component unmounts
+  const prevBlobUrlRef = useRef<string | null>(null);
   useEffect(() => {
-    if (showInfo && !metadata) {
-      fetchMetadata();
+    if (prevBlobUrlRef.current && prevBlobUrlRef.current !== editedPhotoUrl) {
+      URL.revokeObjectURL(prevBlobUrlRef.current);
     }
-  }, [showInfo, photo.id]);
+    prevBlobUrlRef.current = editedPhotoUrl?.startsWith('blob:') ? editedPhotoUrl : null;
+  }, [editedPhotoUrl]);
 
-  const fetchMetadata = async () => {
+  useEffect(() => {
+    return () => {
+      if (prevBlobUrlRef.current) {
+        URL.revokeObjectURL(prevBlobUrlRef.current);
+        prevBlobUrlRef.current = null;
+      }
+    };
+  }, [photo.id]);
+
+  const fetchMetadata = useCallback(async () => {
     setIsMetaLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/metadata`);
@@ -89,7 +105,32 @@ export const Lightbox: React.FC<LightboxProps> = ({
     } finally {
       setIsMetaLoading(false);
     }
-  };
+  }, [photo.id]);
+
+  // Fetch metadata when info panel is shown
+  useEffect(() => {
+    if (showInfo) {
+      fetchMetadata();
+    }
+  }, [showInfo, fetchMetadata]);
+
+  const handleTrash = useCallback(async () => {
+    if (!await customConfirm('Move this photo to trash?', 'Confirm Trash')) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/trash`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        eventService.emit('photo_trashed', { type: 'photo_trashed', photoId: photo.id });
+        onClose();
+      } else {
+        console.error("Failed to trash photo");
+      }
+    } catch (e) {
+      console.error("Error trashing photo", e);
+    }
+  }, [photo.id, onClose]);
 
   // Keyboard event handlers
   useEffect(() => {
@@ -106,17 +147,18 @@ export const Lightbox: React.FC<LightboxProps> = ({
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose, handleNext, handlePrev, zoomScale]);
 
-  const aspect = photo.width && photo.height
-    ? photo.width / photo.height
-    : null;
+  const aspect = useMemo(
+    () => (photo.width && photo.height ? photo.width / photo.height : null),
+    [photo.width, photo.height],
+  );
 
-  const displayContainerStyle = {
+  const displayContainerStyle = useMemo<React.CSSProperties>(() => ({
     aspectRatio: aspect ? `${aspect}` : undefined,
     width: '100%',
     height: '100%',
     maxWidth: '100%',
     maxHeight: '85vh',
-  };
+  }), [aspect]);
 
   const editingSrc = useMemo(() => {
     const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url;
@@ -144,6 +186,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         onResetInteraction={resetInteraction}
         onToggleShowInfo={() => setShowInfo(!showInfo)}
         onEdit={() => setIsEditing(true)}
+        onTrash={handleTrash}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -192,6 +235,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       {isEditing && (
         <EditingMode 
           src={editingSrc}
+          photoId={photo.id}
           onClose={() => setIsEditing(false)}
           onSave={async (blob, isSaveAs) => {
             const formData = new FormData();

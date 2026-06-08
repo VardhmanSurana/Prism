@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { resolveUrl } from '../../constants';
 import { ImageDisplayProps } from './types';
 
@@ -10,7 +10,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   highResStatus,
   currentHighResUrl,
 }) => {
-  const imageStyles: React.CSSProperties = {
+  const imageStyles = useMemo<React.CSSProperties>(() => ({
     position: 'absolute',
     top: '50%',
     left: '50%',
@@ -23,7 +23,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     cursor: zoomScale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
     touchAction: 'none',
     WebkitUserDrag: 'none',
-  };
+  }), [zoomScale, offset.x, offset.y, isDragging]);
 
   return (
     <>
@@ -35,7 +35,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
         className={`absolute object-contain shadow-2xl transition-all duration-700 select-none
-          ${highResStatus === 'loaded' ? 'opacity-0 scale-105' : 'opacity-100 blur-lg scale-100'}
+          ${highResStatus === 'loaded' ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}
+          ${highResStatus === 'loading' ? 'blur-sm' : 'blur-0'}
         `}
       />
 

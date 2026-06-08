@@ -10,7 +10,7 @@ import {
 // Re-export Point so consumers can import it from here if needed
 export type { Point } from './spline';
 
-// ── Curve State ──────────────────────────────────────────────────────────────
+// Curve State
 
 export type CurveState = {
   master: Point[];
@@ -105,11 +105,11 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     return { x, y };
   };
 
-  const handlePointerDown = (e: React.PointerEvent, idx: number) => {
+  const handlePointerDown = useCallback((e: React.PointerEvent, idx: number) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragInfo({ index: idx, channel: activeChannel });
-  };
+  }, [activeChannel]);
 
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragInfo) return;
@@ -152,7 +152,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     }
   }, [dragInfo, handlePointerMove, handlePointerUp]);
 
-  const handleSvgClick = (e: React.PointerEvent) => {
+  const handleSvgClick = useCallback((e: React.PointerEvent) => {
     if (dragInfo) return;
     const { x, y } = getCoordinates(e);
     
@@ -169,9 +169,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
 
     pts.splice(insertIdx, 0, { x, y });
     onChange({ ...value, [activeChannel]: pts });
-  };
+  }, [dragInfo, value, activeChannel, onChange]);
 
-  const handleDoubleClickPoint = (e: React.MouseEvent, idx: number) => {
+  const handleDoubleClickPoint = useCallback((e: React.MouseEvent, idx: number) => {
     e.stopPropagation();
     // Don't allow deleting the end points
     if (idx === 0 || idx === value[activeChannel].length - 1) {
@@ -185,7 +185,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     const pts = [...value[activeChannel]];
     pts.splice(idx, 1);
     onChange({ ...value, [activeChannel]: pts });
-  };
+  }, [value, activeChannel, onChange]);
 
   const channels: Channel[] = ['master', 'red', 'green', 'blue'];
 

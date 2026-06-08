@@ -8,10 +8,13 @@ from app.config import settings
 from app.db import engine, init_db
 from app.models import Base
 from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, summaries as summaries_api, people as people_api, utilities as utilities_api
+from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
 import os
 import logging
+
+logger = logging.getLogger(__name__)
 
 class LogAccessFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -25,6 +28,7 @@ logging.getLogger("uvicorn.access").addFilter(LogAccessFilter())
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Main app starting up...")
     # Initialize DB — setup WAL mode and create tables
     from app.db import init_db
     await init_db()
@@ -42,7 +46,7 @@ async def lifespan(app: FastAPI):
 
     # Initialize Sync Service
     await sync_service.initialize()
-    print(f"\n[BACKEND] Prism Backend ready (PID: {os.getpid()})")
+    logger.info(f"Prism Backend ready (PID: {os.getpid()})")
 
     yield
 
@@ -137,12 +141,15 @@ app.mount("/uploads", StaticFiles(directory=str(settings.UPLOAD_DIR)), name="upl
 app.mount("/thumbnails", StaticFiles(directory=str(settings.THUMBNAILS_DIR)), name="thumbnails")
 
 # Include Routers - Photos API
+logger.debug(f"Adding metadata router: {photos.metadata_router.routes}")
 app.include_router(photos.listing_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
 app.include_router(photos.directory_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
 app.include_router(photos.upload_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
 app.include_router(photos.metadata_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
 app.include_router(photos.lock_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
 app.include_router(photos.favorite_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
+app.include_router(photos.trash_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
+app.include_router(inpaint_api.router, tags=["inpaint"])
 app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings"])
 app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"])
 app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])

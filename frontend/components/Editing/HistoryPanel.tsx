@@ -1,6 +1,6 @@
 import React from 'react';
 import { History, RotateCcw, Eye, EyeOff, Trash2 } from 'lucide-react';
-import { HistoryEntry, getActionIcon, getActionColor } from './history';
+import { HistoryEntry, getActionColor } from './history';
 
 interface HistoryPanelProps {
   history: HistoryEntry[];
@@ -19,15 +19,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   onToggleHide,
   onDeleteEntry,
 }) => {
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
-
   const getRelativeTime = (timestamp: number) => {
     const now = Date.now();
     const diff = now - timestamp;
@@ -99,18 +90,14 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     onClick={() => !isCurrent && onJumpTo(index)}
                     className={`flex-1 flex items-start gap-3 min-w-0 ${!isCurrent ? 'cursor-pointer' : 'cursor-default'}`}
                   >
-                    {/* Icon - only show if not empty */}
-                    {getActionIcon(entry.type) && (
-                      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-base">
-                        {getActionIcon(entry.type)}
-                      </div>
-                    )}
-
                     {/* Content */}
-                    <div className={`flex-1 min-w-0 ${!getActionIcon(entry.type) ? 'pl-0' : ''}`}>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`text-xs font-medium ${getActionColor(entry.type)} ${entry.hidden ? 'line-through text-white/20' : ''}`}>
-                          {entry.type.charAt(0).toUpperCase() + entry.type.slice(1).replace(/([A-Z])/g, ' $1')}
+                          {entry.type === 'regions' 
+                            ? entry.description.replace('Adjusted ', '') 
+                            : entry.type.charAt(0).toUpperCase() + entry.type.slice(1).replace(/([A-Z])/g, ' $1')
+                          }
                         </span>
                         {isCurrent && (
                           <span className="px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-primary/20 text-primary rounded">

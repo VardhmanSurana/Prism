@@ -23,6 +23,7 @@ class LifecycleMixin:
         self.update_active_mounts()
         self.mount_check_task = asyncio.create_task(self.period_mount_check())
         self.lifecycle_task = asyncio.create_task(self.check_parent_lifecycle())
+        self.heartbeat_task = asyncio.create_task(self.start_heartbeat())
 
         if self.is_running:
             self.start_observer()
@@ -51,6 +52,9 @@ class LifecycleMixin:
 
         if self.lifecycle_task:
             self.lifecycle_task.cancel()
+
+        if hasattr(self, 'heartbeat_task') and self.heartbeat_task:
+            self.heartbeat_task.cancel()
 
         try:
             self.process_pool.shutdown(wait=True)

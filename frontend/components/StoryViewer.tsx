@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, MapPin, Calendar, Sparkles } from 'lucide-react';
 import { resolveUrl } from '../constants';
@@ -21,48 +21,33 @@ interface StoryViewerProps {
 
 export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [progress, setProgress] = useState(0);
   const photos = highlight.photos;
   const currentPhoto = photos[currentIndex];
   
   const SLIDE_DURATION = 5000; // 5 seconds per slide
-  const INTERVAL_STEP = 50;    // 50ms progress update interval
 
-  useEffect(() => {
-    setProgress(0);
-  }, [currentIndex]);
-
-  useEffect(() => {
-    if (photos.length === 0) return;
-    const totalSteps = SLIDE_DURATION / INTERVAL_STEP;
-    let stepCount = 0;
-    
-    const interval = setInterval(() => {
-      stepCount++;
-      const nextProgress = (stepCount / totalSteps) * 100;
-      setProgress(nextProgress);
-      
-      if (stepCount >= totalSteps) {
-        handleNext();
-      }
-    }, INTERVAL_STEP);
-
-    return () => clearInterval(interval);
-  }, [currentIndex, photos.length]);
-
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentIndex < photos.length - 1) {
       setCurrentIndex(prev => prev + 1);
     } else {
       onClose();
     }
-  };
+  }, [currentIndex, photos.length, onClose]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
     }
-  };
+  }, [currentIndex]);
+
+  useEffect(() => {
+    if (photos.length === 0) return;
+    const timer = setTimeout(() => {
+      handleNext();
+    }, SLIDE_DURATION);
+
+    return () => clearTimeout(timer);
+  }, [currentIndex, photos.length, handleNext]);
 
   if (!currentPhoto) return null;
 
@@ -93,14 +78,22 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
 
       {/* Header Overlay (Progress Bars, Title, Close Button) */}
       <div className="relative z-20 w-full p-4 bg-gradient-to-b from-black/85 via-black/40 to-transparent flex flex-col gap-3">
+        <style>{`
+          @keyframes storyProgress {
+            from { width: 0%; }
+            to { width: 100%; }
+          }
+        `}</style>
         {/* Progress Ticks */}
         <div className="flex gap-1.5 w-full">
           {photos.map((_, index) => (
             <div key={index} className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-primary transition-all duration-75"
+                key={`${index}-${currentIndex === index}`}
+                className="h-full bg-primary"
                 style={{ 
-                  width: index < currentIndex ? '100%' : index === currentIndex ? `${progress}%` : '0%',
+                  width: index < currentIndex ? '100%' : '0%',
+                  animation: index === currentIndex ? `storyProgress ${SLIDE_DURATION}ms linear forwards` : 'none',
                   backgroundColor: 'rgb(234, 179, 8)' // Gold theme
                 }}
               />

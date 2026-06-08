@@ -11,7 +11,7 @@ import { usePurgeOperations } from './usePurgeOperations';
 import { useLibraryOperations } from './useLibraryOperations';
 import { useConfirmDialog } from './useConfirmDialog';
 
-export const useUtilities = () => {
+export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void } = {}) => {
   const { 
     syncEnabled, 
     excludedFolders, 
@@ -45,7 +45,7 @@ export const useUtilities = () => {
     handleResetLibrary,
     handleTriggerFaceSync,
     setSystemStatus
-  } = useLibraryOperations({ onConfirm: openConfirmDialog });
+  } = useLibraryOperations({ onConfirm: openConfirmDialog, onResetSuccess });
 
   return {
     syncEnabled,

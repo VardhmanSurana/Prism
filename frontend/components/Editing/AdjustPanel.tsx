@@ -4,14 +4,19 @@
  * Completely stateless — parent owns the Adjustments object.
  */
 
-import React, { useCallback } from 'react';
-import { RotateCcw } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
+import { RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
+import { API_BASE } from '../../constants';
 
-// ── UI Group Definitions ──────────────────────────────────────────────────────
+export type AdjustSliderKey =
+  | 'brightness' | 'contrast'   | 'exposure'
+  | 'highlights' | 'shadows'    | 'whites'    | 'blacks'
+  | 'vibrance'   | 'saturation' | 'hue'       | 'temperature'
+  | 'ambiance';
 
 export interface AdjItem {
-  key:   keyof Adjustments;
+  key:   AdjustSliderKey;
   label: string;
   min:   number;
   max:   number;
@@ -48,16 +53,6 @@ export const ADJUSTMENT_GROUPS: AdjGroup[] = [
   },
 ];
 
-// ── Slider Keys + Defaults ───────────────────────────────────────────────────
-// All Adjust fields default to 0, so a partial spread over the 11 keys is
-// enough to scope the "Reset" button to this panel only.
-
-export type AdjustSliderKey =
-  | 'brightness' | 'contrast'   | 'exposure'
-  | 'highlights' | 'shadows'    | 'whites'    | 'blacks'
-  | 'vibrance'   | 'saturation' | 'hue'       | 'temperature'
-  | 'ambiance';
-
 export const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
   brightness:  0,
   contrast:    0,
@@ -76,17 +71,41 @@ export const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
 interface AdjustPanelProps {
   adjustments: Adjustments;
   onChange:    (adj: Adjustments) => void;
+  photoId?:    number | string;
 }
 
-export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange }) => {
-  const items = ADJUSTMENT_GROUPS.flatMap(group => group.items);
+export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId }) => {
+  const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
+  const items = useMemo(() => ADJUSTMENT_GROUPS.flatMap(group => group.items), []);
 
-  const isDefault = items.every(
-    item => adjustments[item.key] === DEFAULT_ADJUST_SLIDERS[item.key]
+  const isDefault = useMemo(
+    () => items.every(
+      item => adjustments[item.key] === DEFAULT_ADJUST_SLIDERS[item.key as keyof typeof DEFAULT_ADJUST_SLIDERS]
+    ),
+    [items, adjustments],
   );
 
   const handleReset = () => {
     onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS });
+  };
+
+  const handleAutoEnhance = async () => {
+    if (!photoId) return;
+    setIsAutoEnhancing(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/photos/auto-enhance/${photoId}`);
+      if (res.ok) {
+        const params = await res.json();
+        onChange({
+          ...adjustments,
+          ...params
+        });
+      }
+    } catch (e) {
+      console.error("Auto enhance failed", e);
+    } finally {
+      setIsAutoEnhancing(false);
+    }
   };
 
   const handleChange = useCallback(
@@ -100,6 +119,15 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange 
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-3 flex gap-2">
+        <button
+          onClick={handleAutoEnhance}
+          disabled={!photoId || isAutoEnhancing}
+          className="flex-[2] flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 cursor-pointer disabled:opacity-50 disabled:cursor-default"
+        >
+          {isAutoEnhancing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+          Auto Enhance
+        </button>
+
         <button
           onClick={handleReset}
           disabled={isDefault}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -7,16 +7,16 @@ import { Lightbox } from './components/Lightbox';
 import { BulkActionsBar } from './components/BulkActionsBar';
 import { ChatWindow } from './components/ChatWindow';
 import { FloatingActions } from './components/FloatingActions';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { useAppState } from './hooks/useAppState';
-import { useSelection } from './hooks/useSelection';
-import { useBulkActions } from './hooks/useBulkActions';
+import type { ViewMode } from './types';
 
 function App() {
   const {
     currentView,
     setCurrentView,
-    photos,
-    setPhotos,
+    isLoading,
     syncStatus,
     selectedPhoto,
     setSelectedPhoto,
@@ -30,7 +30,6 @@ function App() {
     setIsChatOpen,
     sortMode,
     setSortMode,
-    contextPhotos,
     setContextPhotos,
     importStatus,
     setImportStatus,
@@ -40,132 +39,135 @@ function App() {
     handleUpload,
     handleNextPhoto,
     handlePrevPhoto,
-    displayedPhotos
-  } = useAppState();
-
-  const {
+    displayedPhotos,
     selectedIds,
     handleToggleSelection,
     handleToggleGroupSelection,
-    clearSelection
-  } = useSelection();
-
-  const {
+    clearSelection,
+    isFavorited,
+    onShare,
+    onAddToAlbum,
     handleBulkDelete,
     handleBulkArchive,
     handleBulkFavorite,
-    handleBulkLockToggle
-  } = useBulkActions({
-    photos,
+    handleBulkLockToggle,
     setPhotos,
-    currentView,
-    clearSelection,
-    setSortMode
-  });
+  } = useAppState();
 
-  const handleViewChange = (v: typeof currentView) => {
+  const handleViewChange = useCallback((v: ViewMode) => {
     setCurrentView(v);
     setActiveFilters(null);
     if (v !== 'locked') {
       handleLockSession();
       clearSelection();
     }
-  };
+  }, [setCurrentView, setActiveFilters, handleLockSession, clearSelection]);
+
+  const handleResetSuccess = useCallback(() => {
+    setPhotos([]);
+    setSelectedPhoto(null);
+    clearSelection();
+  }, [setPhotos, setSelectedPhoto, clearSelection]);
 
   return (
-    <div className="relative flex h-screen w-screen overflow-hidden bg-background text-gray-100">
-      <div className="grain-overlay" />
-      <div className="mesh-atmos" />
+    <ErrorBoundary>
+      <div className="relative flex h-screen w-screen overflow-hidden bg-background text-gray-100">
+        <div className="grain-overlay" />
+        <div className="mesh-atmos" />
 
-      <Sidebar
-        currentView={currentView}
-        onChangeView={handleViewChange}
-      />
+        <Sidebar
+          currentView={currentView}
+          onChangeView={handleViewChange}
+        />
 
-      <main className="flex-1 flex flex-col min-w-0 relative z-10">
-        {currentView !== 'photos' && (
-          <Header
+        <main className="flex-1 flex flex-col min-w-0 relative z-10">
+          {currentView !== 'gallery' && (
+            <Header
+              onSearch={setActiveFilters}
+              onUpload={handleUpload}
+              onImportProgress={setImportStatus}
+              sortMode={sortMode}
+              onSortChange={setSortMode}
+            />
+          )}
+
+          <MainContent
+            currentView={currentView}
+            photos={displayedPhotos}
+            isLoading={isLoading}
+            selectedIds={selectedIds}
+            isLockedAuthenticated={isLockedAuthenticated}
+            theme={theme}
+            scrollRef={scrollRef}
+            onPhotoClick={setSelectedPhoto}
+            onToggleSelection={handleToggleSelection}
+            onToggleGroupSelection={handleToggleGroupSelection}
+            onAuthenticate={() => setIsLockedAuthenticated(true)}
+            onLockSession={handleLockSession}
+            onThemeChange={setTheme}
+            onPhotosLoaded={setContextPhotos}
+            onScroll={handleScroll}
             onSearch={setActiveFilters}
             onUpload={handleUpload}
             onImportProgress={setImportStatus}
             sortMode={sortMode}
             onSortChange={setSortMode}
+            onUpdatePhotos={setPhotos}
+            onBulkFavorite={handleBulkFavorite}
+            onBulkArchive={handleBulkArchive}
+            onBulkDelete={handleBulkDelete}
+            onBulkLockToggle={handleBulkLockToggle}
+            onResetSuccess={handleResetSuccess}
           />
-        )}
 
-        <MainContent
-          currentView={currentView}
-          photos={displayedPhotos}
-          selectedIds={selectedIds}
-          isLockedAuthenticated={isLockedAuthenticated}
-          theme={theme}
-          scrollRef={scrollRef}
-          onPhotoClick={setSelectedPhoto}
-          onToggleSelection={handleToggleSelection}
-          onToggleGroupSelection={handleToggleGroupSelection}
-          onAuthenticate={() => setIsLockedAuthenticated(true)}
-          onLockSession={handleLockSession}
-          onThemeChange={setTheme}
-          onPhotosLoaded={setContextPhotos}
-          onScroll={handleScroll}
-          onSearch={setActiveFilters}
-          onUpload={handleUpload}
-          onImportProgress={setImportStatus}
-          sortMode={sortMode}
-          onSortChange={setSortMode}
-        />
+          <AnimatePresence>
+            {selectedIds.size > 0 && (
+              <BulkActionsBar
+                selectedCount={selectedIds.size}
+                currentView={currentView}
+                onClear={clearSelection}
+                onShare={onShare}
+                onAddToAlbum={onAddToAlbum}
+                onFavorite={handleBulkFavorite}
+                isFavorited={isFavorited}
+                onToggleLock={handleBulkLockToggle}
+                onArchive={handleBulkArchive}
+                onDelete={handleBulkDelete}
+              />
+            )}
+          </AnimatePresence>
+        </main>
 
         <AnimatePresence>
-          {selectedIds.size > 0 && (
-            <BulkActionsBar
-              selectedCount={selectedIds.size}
-              currentView={currentView}
-              onClear={clearSelection}
-              onShare={() => alert(`Sharing ${selectedIds.size} photos`)}
-              onAddToAlbum={() => {
-                const n = window.prompt("Album name:");
-                if (n) alert(`Added ${selectedIds.size} to ${n}`);
-              }}
-              onFavorite={() => handleBulkFavorite(selectedIds)}
-              isFavorited={Array.from(selectedIds).every(id => {
-                const p = photos.find(ph => String(ph.id) === id);
-                return p?.isFavorite || p?.is_favorite;
-              })}
-              onToggleLock={() => handleBulkLockToggle(selectedIds)}
-              onArchive={() => handleBulkArchive(selectedIds)}
-              onDelete={() => handleBulkDelete(selectedIds)}
+          {selectedPhoto && (
+            <Lightbox
+              photo={selectedPhoto}
+              onClose={() => setSelectedPhoto(null)}
+              onNext={handleNextPhoto}
+              onPrev={handlePrevPhoto}
             />
           )}
         </AnimatePresence>
-      </main>
 
-      <AnimatePresence>
-        {selectedPhoto && (
-          <Lightbox
-            photo={selectedPhoto}
-            onClose={() => setSelectedPhoto(null)}
-            onNext={handleNextPhoto}
-            onPrev={handlePrevPhoto}
-          />
-        )}
-      </AnimatePresence>
+        <AnimatePresence>
+          {isChatOpen && (
+            <ChatWindow
+              onClose={() => setIsChatOpen(false)}
+              onPhotoClick={setSelectedPhoto}
+            />
+          )}
+        </AnimatePresence>
 
-      <AnimatePresence>
-        {isChatOpen && (
-          <ChatWindow
-            onClose={() => setIsChatOpen(false)}
-            onPhotoClick={setSelectedPhoto}
-          />
-        )}
-      </AnimatePresence>
-
-      <FloatingActions
-        isChatOpen={isChatOpen}
-        onToggleChat={() => setIsChatOpen(!isChatOpen)}
-        importStatus={importStatus}
-        syncStatus={syncStatus}
-      />
-    </div>
+        <FloatingActions
+          isChatOpen={isChatOpen}
+          onToggleChat={() => setIsChatOpen(prev => !prev)}
+          importStatus={importStatus}
+          syncStatus={syncStatus}
+        />
+        
+        <ConfirmDialog />
+      </div>
+    </ErrorBoundary>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   ZoomIn,
   ZoomOut,
   Edit2,
+  Trash2,
 } from 'lucide-react';
 import { Photo } from '../../types';
 
@@ -19,6 +20,7 @@ interface ToolbarProps {
   onResetInteraction: () => void;
   onToggleShowInfo: () => void;
   onEdit?: () => void;
+  onTrash?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -31,6 +33,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onResetInteraction,
   onToggleShowInfo,
   onEdit,
+  onTrash,
 }) => {
   return (
     <div className="h-20 flex items-center justify-between px-8 shrink-0 z-20 bg-transparent font-sans">
@@ -44,9 +47,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
         </button>
         
         <div className="flex items-center gap-3">
-          <div className={`w-2 h-2 rounded-full ${highResStatus === 'loaded' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-600'}`} />
+          <div className={`w-2 h-2 rounded-full ${
+            highResStatus === 'loaded'
+              ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+              : highResStatus === 'loading'
+              ? 'bg-yellow-500 animate-pulse'
+              : 'bg-gray-600'
+          }`} />
           <span className="text-[10px] font-mono tracking-[0.3em] uppercase text-gray-500">
-            {highResStatus === 'loaded' ? 'Raw-Fidelity HD' : 'Optimizing Stream...'}
+            {highResStatus === 'loaded'
+              ? 'Raw-Fidelity HD'
+              : highResStatus === 'loading'
+              ? 'Optimizing Stream...'
+              : 'Preview Quality'}
           </span>
         </div>
 
@@ -92,6 +105,14 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           onClick={onEdit}
         >
           <Edit2 size={20} />
+        </button>
+
+        <button 
+          className="p-2 text-white/80 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+          title="Move to Trash"
+          onClick={onTrash}
+        >
+          <Trash2 size={20} />
         </button>
         
         <button 

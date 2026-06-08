@@ -5,6 +5,7 @@ from sqlalchemy import select, func
 
 from app.db import get_db
 from app.models import Person, PhotoPerson, Photo
+from app.api.albums.utils import photo_to_dict
 
 router = APIRouter()
 
@@ -67,23 +68,9 @@ async def get_person_photos(person_id: int, db: AsyncSession = Depends(get_db)):
     photos_list = []
     
     for photo, face_box_json in result.all():
-        photos_list.append({
-            "id": photo.id,
-            "filename": photo.filename,
-            "path": photo.path,
-            "url": photo.url,
-            "width": photo.width,
-            "height": photo.height,
-            "aspect_ratio": photo.aspect_ratio,
-            "date": photo.date,
-            "date_taken": photo.date_taken,
-            "upload_date": photo.upload_date,
-            "is_favorite": photo.is_favorite,
-            "is_archived": photo.is_archived,
-            "is_locked": photo.is_locked,
-            "is_trash": photo.is_trash,
-            "face_box": face_box_json  # Bounding box coordinates for frontend mapping
-        })
+        pd = photo_to_dict(photo)
+        pd["face_box"] = face_box_json
+        photos_list.append(pd)
         
     return {
         "person": {

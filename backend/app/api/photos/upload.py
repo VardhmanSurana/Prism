@@ -1,10 +1,11 @@
 """Photo upload and ingestion endpoints."""
 
 import os
+import asyncio
+import shutil
 import logging
 import time
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
-from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
@@ -18,21 +19,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Simple in-memory rate limiting
-_rate_limit_store = {}
+_rate_limit_store: dict[str, list[float]] = {}
 MAX_UPLOADS_PER_MINUTE = 10
 MAX_DIRECTORY_FILES = 1000  # Limit directory imports to prevent DoS
+_LAST_RATE_CLEANUP = time.time()
+_RATE_CLEANUP_INTERVAL = 300  # 5 minutes
 
 
 def _check_rate_limit(client_id: str) -> bool:
     """Check if client has exceeded upload rate limit."""
     now = time.time()
+    global _LAST_RATE_CLEANUP
+
     if client_id not in _rate_limit_store:
         _rate_limit_store[client_id] = []
     
     # Clean old entries (older than 60 seconds)
-    _rate_limit_store[client_id] = [
-        t for t in _rate_limit_store[client_id] if now - t < 60
-    ]
+    entries = _rate_limit_store[client_id]
+    entries = [t for t in entries if now - t < 60]
+    if entries:
+        _rate_limit_store[client_id] = entries
+    else:
+        del _rate_limit_store[client_id]
+        _rate_limit_store[client_id] = []
+    
+    # Periodic purge of all stale client keys
+    if now - _LAST_RATE_CLEANUP > _RATE_CLEANUP_INTERVAL:
+        for cid in list(_rate_limit_store):
+            _rate_limit_store[cid] = [t for t in _rate_limit_store[cid] if now - t < 60]
+            if not _rate_limit_store[cid]:
+                del _rate_limit_store[cid]
+        _LAST_RATE_CLEANUP = now
+    
+    if client_id not in _rate_limit_store:
+        _rate_limit_store[client_id] = []
     
     if len(_rate_limit_store[client_id]) >= MAX_UPLOADS_PER_MINUTE:
         return False
@@ -63,7 +83,6 @@ async def upload_photo(
     # Handle Directory
     if os.path.isdir(file_path):
         # Let's find all images in the folder recursively
-        import asyncio
         def _sync_walk():
             images = []
             found_files = []
@@ -120,8 +139,6 @@ async def upload_blob(
     save_as_path: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
-    import shutil
-    
     # Verify original path exists and is allowed
     if not os.path.exists(original_path):
         raise HTTPException(status_code=404, detail="Original file not found")

@@ -1,10 +1,10 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
 import {
   Adjustments,
 } from './filterEngine';
 
-// ── UI Group Definitions ──────────────────────────────────────────────────────
+// UI Group Definitions
 
 export type DetailKey = 'clarity' | 'sharpness' | 'noiseReduction';
 
@@ -62,7 +62,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     [adjustments, onChange],
   );
 
-  const items = DETAIL_GROUPS.flatMap(group => group.items);
+  const items = useMemo(() => DETAIL_GROUPS.flatMap(group => group.items), []);
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">

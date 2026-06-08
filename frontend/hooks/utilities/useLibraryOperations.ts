@@ -9,9 +9,10 @@ interface UseLibraryOperationsProps {
     onConfirm: () => void;
     type: 'primary' | 'rose';
   }) => void;
+  onResetSuccess?: () => void;
 }
 
-export const useLibraryOperations = ({ onConfirm }: UseLibraryOperationsProps) => {
+export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOperationsProps) => {
   const [isResetting, setIsResetting] = useState(false);
   const [systemStatus, setSystemStatus] = useState<string | null>(null);
 
@@ -37,7 +38,11 @@ export const useLibraryOperations = ({ onConfirm }: UseLibraryOperationsProps) =
       const data = await res.json();
       setSystemStatus(`✓ ${data.message}`);
       setTimeout(() => {
-        window.location.reload(); 
+        if (onResetSuccess) {
+          onResetSuccess();
+        } else {
+          window.location.reload();
+        }
       }, 1500);
     } catch (e) {
       console.error('Failed to reset library', e);

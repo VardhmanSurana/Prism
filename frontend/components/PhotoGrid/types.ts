@@ -1,18 +1,32 @@
-import React from 'react';
+import React, { Dispatch, SetStateAction } from 'react';
 import { Photo } from '../../types';
+import { SearchFilters, SortMode } from '../../types';
+
+export interface ImportProgressStatus {
+  is_scanning: boolean;
+  total_files: number;
+  processed_files: number;
+  progress: number;
+}
 
 export interface PhotoGridProps {
   photos: Photo[];
+  isLoading?: boolean;
   onPhotoClick: (photo: Photo) => void;
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
   scrollParentRef?: React.RefObject<HTMLDivElement | null>;
-  onSearch?: (filters: any) => void;
+  onSearch?: (filters: SearchFilters | null) => void;
   onUpload?: (photos: Photo[]) => void;
-  onImportProgress?: (status: any) => void;
-  sortMode?: any;
-  onSortChange?: (mode: any) => void;
+  onImportProgress?: (status: ImportProgressStatus) => void;
+  sortMode?: SortMode;
+  onSortChange?: (mode: SortMode) => void;
+  onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
+  onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkArchive?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
+  onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
 }
 
 export interface PhotoGridHeaderProps {
@@ -22,7 +36,7 @@ export interface PhotoGridHeaderProps {
   selectedIds: Set<string>;
   onToggleGroupSelection: (ids: string[]) => void;
   virtualRowStart: number;
-  virtualRowKey: string;
+  virtualRowKey: React.Key;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
 }
@@ -48,7 +62,7 @@ export interface PhotoGridRowProps {
   onPhotoClick: (photo: Photo) => void;
   onToggleSelection: (id: string) => void;
   virtualRowStart: number;
-  virtualRowKey: string;
+  virtualRowKey: React.Key;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
 }
@@ -60,3 +74,9 @@ export interface EmptyStateProps {
 export type RowItem =
   | { type: 'header'; dateKey: string; photoIds: string[]; location?: string }
   | { type: 'row'; photos: Photo[]; isFull: boolean };
+
+export type VirtualRowItem =
+  | RowItem
+  | { type: 'dashboard' }
+  | { type: 'empty' }
+  | { type: 'list-item'; photo: Photo };

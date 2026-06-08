@@ -112,26 +112,14 @@ class IngestionMixin:
                     return None
 
             # 5. Broadcast SSE creation event
-            photo_dict = {
-                "id": new_photo.id,
-                "filename": new_photo.filename,
-                "path": new_photo.path,
-                "url": new_photo.url,
-                "width": new_photo.width,
-                "height": new_photo.height,
-                "aspect_ratio": new_photo.aspect_ratio,
-                "location": new_photo.location,
-                "date": new_photo.date.isoformat(),
-                "date_taken": new_photo.date_taken.isoformat(),
-                "upload_date": new_photo.upload_date.isoformat(),
-                "is_favorite": new_photo.is_favorite,
-                "is_archived": new_photo.is_archived,
-                "is_locked": new_photo.is_locked,
-                "mime_type": new_photo.mime_type,
-                "file_type": new_photo.file_type,
-                "device_id": new_photo.device_id,
-                "is_external": new_photo.is_external
+            from app.api.albums.utils import photo_to_dict
+            broadcast_fields = {
+                "id", "filename", "path", "url", "width", "height",
+                "aspect_ratio", "location", "date", "date_taken",
+                "upload_date", "is_favorite", "is_archived", "is_locked",
+                "mime_type", "file_type", "device_id", "is_external"
             }
+            photo_dict = photo_to_dict(new_photo, include=broadcast_fields)
             self.broadcast({"type": "new_photo", "photo": photo_dict})
 
             # 6. Trigger debounced places sync task
@@ -157,6 +145,23 @@ class IngestionMixin:
                     await db.execute(delete(Photo).where(Photo.id == photo_id))
                     await db.commit()
                     self.broadcast({"type": "delete_photo", "photo_id": photo_id})
+                    self._cleanup_masks_for_photo(photo_id)
                     logger.info(f"Removed missing file from DB: {file_path}")
         except Exception as e:
             logger.error(f"Failed to delete photo record for {file_path}: {e}")
+
+    def _cleanup_masks_for_photo(self: "SyncService", photo_id: int) -> None:
+        """Best-effort removal of cached AI mask files for a deleted photo."""
+        try:
+            masks_dir = settings.THUMBNAILS_DIR / "masks"
+            if not masks_dir.exists():
+                return
+            prefix = f"mask_{photo_id}"
+            for entry in masks_dir.iterdir():
+                if entry.is_file() and entry.name.startswith(prefix):
+                    try:
+                        entry.unlink()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete mask {entry}: {e}")
+        except Exception as e:
+            logger.warning(f"Mask cleanup failed for photo {photo_id}: {e}")

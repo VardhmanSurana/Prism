@@ -12,11 +12,12 @@ def safe_int(val):
         return int(val)
     except Exception: return 0
 
-def photo_to_dict(photo: Photo) -> dict:
+def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
+    """Serialize a Photo model to dict. If include is set, only return those keys."""
     location_parts = [p for p in [photo.city, photo.state, photo.country] if p]
     photo_date = (photo.date_taken or photo.date or datetime.utcnow()).isoformat()
-    
-    return {
+
+    result = {
         "id": photo.id,
         "filename": photo.filename,
         "path": photo.path,
@@ -35,6 +36,15 @@ def photo_to_dict(photo: Photo) -> dict:
         "is_favorite": photo.is_favorite,
         "is_archived": photo.is_archived,
         "is_locked": photo.is_locked,
+        "is_trash": photo.is_trash,
         "mime_type": photo.mime_type,
         "file_type": photo.file_type,
+        "device_id": photo.device_id,
+        "is_external": photo.is_external,
+        "latitude": photo.latitude,
+        "longitude": photo.longitude,
     }
+
+    if include:
+        return {k: v for k, v in result.items() if k in include}
+    return result

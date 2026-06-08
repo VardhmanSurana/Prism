@@ -31,7 +31,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ photos, onDelete }) 
           <PhotoCard 
             key={photo.id} 
             photo={{
-              id: photo.id,
+              id: photo.id as number,
               url: photo.url,
               filename: photo.filename,
               ai_summary: photo.ai_summary

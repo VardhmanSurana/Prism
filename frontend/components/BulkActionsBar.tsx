@@ -70,7 +70,11 @@ export function BulkActionsBar({
         <button onClick={onArchive} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Archive">
           <Archive size={20} />
         </button>
-        <button onClick={onDelete} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" title="Delete">
+        <button 
+          onClick={onDelete} 
+          className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" 
+          title={currentView === 'trash' ? "Delete Permanently" : "Trash"}
+        >
           <Trash2 size={20} />
         </button>
       </div>

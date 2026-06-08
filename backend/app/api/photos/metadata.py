@@ -2,6 +2,8 @@
 
 import os
 import logging
+import cv2
+import numpy as np
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -9,9 +11,262 @@ from sqlalchemy.orm import selectinload
 
 from app.db import get_db
 from app.models import Photo, PhotoPerson
+from app.config import settings
+
+from app.services import face_sdk, FaceDetector, load_image
+from app.services.portrait_service import portrait_service
+from app.services.background_service import background_service
+
+from app.services.background_service import background_service
+from app.services.semantic_service import semantic_service
+import base64
+import time
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+face_detector = FaceDetector(face_sdk)
+
+
+@router.get("/semantic-masks/{photo_id}")
+async def get_semantic_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Analyzes the photo and returns masks for all detected semantic objects.
+    """
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    img = load_image(photo.path)
+    if img is None:
+        raise HTTPException(status_code=500, detail="Failed to load image")
+
+    # 1. Generate Masks
+    mask_results = semantic_service.get_semantic_masks(img)
+    if mask_results is None:
+        return {"regions": []}
+
+    # 2. Save masks and return URLs
+    response_data = []
+    mask_dir = os.path.join(settings.THUMBNAILS_DIR, "masks")
+    os.makedirs(mask_dir, exist_ok=True)
+
+    for name, mask_img in mask_results.items():
+        mask_filename = f"mask_{photo_id}_semantic_{name}.png"
+        mask_path = os.path.join(mask_dir, mask_filename)
+        cv2.imwrite(mask_path, mask_img)
+
+        response_data.append({
+            "id": f"{name}-{photo_id}",
+            "label": name.capitalize(),
+            "type": "custom",
+            "mask_url": f"/thumbnails/masks/{mask_filename}"
+        })
+
+    return {"regions": response_data}
+
+
+@router.get("/smart-crop/{photo_id}")
+async def get_smart_crop(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Suggests an optimal crop based on subject detection.
+    """
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+        
+    img = load_image(photo.path)
+    if img is None:
+        raise HTTPException(status_code=500, detail="Failed to load image")
+
+    # 1. Get Subject Mask
+    mask = background_service.get_background_mask(img)
+    if mask is None:
+        raise HTTPException(status_code=500, detail="Failed to analyze subject")
+        
+    # U2NetP outputs White for Background (we inverted it in the service).
+    # We need to invert it BACK or use the non-inverted version to find the subject.
+    # Actually, the service returns White=Background, Black=Subject.
+    # Let's find the bounding box of the SUBJECT (Black areas).
+    subject_mask = cv2.bitwise_not(mask)
+    
+    # Find bounding box of white pixels (the subject)
+    coords = cv2.findNonZero(subject_mask)
+    if coords is None:
+        # Fallback to center crop if no subject found
+        return {
+            "x": int(photo.width * 0.1),
+            "y": int(photo.height * 0.1),
+            "width": int(photo.width * 0.8),
+            "height": int(photo.height * 0.8)
+        }
+        
+    x, y, w, h = cv2.boundingRect(coords)
+    
+    # 2. Add padding (e.g. 20% on each side)
+    pad_w = int(w * 0.25)
+    pad_h = int(h * 0.25)
+    
+    nx = max(0, x - pad_w)
+    ny = max(0, y - pad_h)
+    nw = min(photo.width - nx, w + 2 * pad_w)
+    nh = min(photo.height - ny, h + 2 * pad_h)
+    
+    return {
+        "x": int(nx),
+        "y": int(ny),
+        "width": int(nw),
+        "height": int(nh)
+    }
+
+
+@router.get("/background-mask/{photo_id}")
+async def get_background_mask(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Generates a high-precision mask for the background.
+    """
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    mask_dir = os.path.join(settings.THUMBNAILS_DIR, "masks")
+    os.makedirs(mask_dir, exist_ok=True)
+    mask_filename = f"mask_{photo_id}_background.png"
+    mask_path = os.path.join(mask_dir, mask_filename)
+
+    # Return the cached mask if it already exists on disk
+    if os.path.exists(mask_path):
+        return {"mask_url": f"/thumbnails/masks/{mask_filename}"}
+
+    img = load_image(photo.path)
+    if img is None:
+        raise HTTPException(status_code=500, detail="Failed to load image")
+
+    # Generate Background Mask
+    mask_img = background_service.get_background_mask(img)
+    if mask_img is None:
+        raise HTTPException(status_code=500, detail="Failed to generate mask")
+
+    cv2.imwrite(mask_path, mask_img)
+
+    return {"mask_url": f"/thumbnails/masks/{mask_filename}"}
+
+
+@router.get("/portrait-masks/{photo_id}")
+async def get_portrait_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Detects faces and generates high-precision semantic masks.
+    """
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+        
+    img = load_image(photo.path)
+    if img is None:
+        raise HTTPException(status_code=500, detail="Failed to load image")
+
+    # 1. Detect faces
+    faces_data, _, scale, _ = face_detector.detect_faces(img)
+    if not faces_data:
+        return {"faces": []}
+
+    # Extract coordinates
+    faces_coords = []
+    for face in faces_data:
+        x1, y1, x2, y2 = face_detector.get_face_location_scaled(face, scale)
+        faces_coords.append((x1, y1, x2, y2))
+
+    # 2. Generate Masks
+    results = portrait_service.get_face_masks(img, faces_coords)
+    if not results:
+        return {"faces": []}
+
+    # 3. Save masks as static assets and return URLs
+    response_data = []
+    mask_dir = os.path.join(settings.THUMBNAILS_DIR, "masks")
+    os.makedirs(mask_dir, exist_ok=True)
+
+    for i, res in enumerate(results):
+        face_entry = {
+            "id": f"face_{i}",
+            "box": res["box"],
+            "masks": {}
+        }
+        
+        for mask_name, mask_img in res["masks"].items():
+            mask_filename = f"mask_{photo_id}_{i}_{mask_name}.png"
+            mask_path = os.path.join(mask_dir, mask_filename)
+            cv2.imwrite(mask_path, mask_img)
+            face_entry["masks"][mask_name] = f"/thumbnails/masks/{mask_filename}"
+            
+        response_data.append(face_entry)
+
+    return {"faces": response_data}
+
+
+@router.get("/auto-enhance/{photo_id}")
+async def get_auto_enhance_params(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Analyzes image and returns recommended adjustment parameters.
+    """
+    photo = await db.get(Photo, photo_id)
+    
+    if not photo:
+        raise HTTPException(status_code=404, detail=f"DEBUG: Photo {photo_id} not found in DB")
+        
+    # Load image for analysis (downscale for speed)
+    img = load_image(photo.path)
+    if img is None:
+        raise HTTPException(status_code=500, detail="Failed to load image for analysis")
+    
+    # Analyze image
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    h, s, v = cv2.split(hsv)
+    
+    # 1. Luminance Analysis
+    avg_v = np.mean(v)
+    std_v = np.std(v)
+    
+    # 2. Color Analysis
+    avg_s = np.mean(s)
+    
+    # Suggested Adjustments
+    params = {
+        "brightness": 0,
+        "exposure": 0,
+        "contrast": 0,
+        "highlights": 0,
+        "shadows": 0,
+        "saturation": 0,
+        "vibrance": 0,
+        "temperature": 0,
+        "whites": 0,
+        "blacks": 0
+    }
+
+    # Exposure / Brightness correction
+    if avg_v < 80: # Underexposed
+        params["exposure"] = int(min(45, (80 - avg_v) * 0.8))
+        params["shadows"] = int(min(30, (80 - avg_v) * 0.5))
+    elif avg_v > 180: # Overexposed
+        params["exposure"] = int(max(-40, (180 - avg_v) * 0.6))
+        params["highlights"] = int(max(-35, (180 - avg_v) * 0.4))
+
+    # Contrast correction
+    if std_v < 40: # Flat image
+        params["contrast"] = int(min(40, (50 - std_v) * 0.7))
+        params["whites"] = 10
+        params["blacks"] = 10
+
+    # Saturation correction
+    if avg_s < 50: # Dull colors
+        params["vibrance"] = 25
+        params["saturation"] = 10
+    elif avg_s > 150: # Oversaturated
+        params["saturation"] = -15
+
+    return params
 
 
 @router.get("/{photo_id}/metadata")

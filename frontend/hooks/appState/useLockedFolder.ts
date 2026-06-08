@@ -20,6 +20,7 @@ export function useLockedFolder() {
   }, []);
 
   const handleLockSession = async () => {
+    if (!isLockedAuthenticated) return;
     try {
       await fetch(`${API_BASE}/api/v1/settings/locked-folder/lock-session`, {
         method: 'POST'

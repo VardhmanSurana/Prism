@@ -11,6 +11,21 @@
  */
 
 import { CurveState, DEFAULT_CURVE } from './CurveEditor';
+// ── Regional Edits (AI Masks) ─────────────────────────────────────────────
+
+export interface RegionalAdjustment {
+  id: string;
+  type: 'face' | 'background' | 'subject' | 'custom';
+  maskUrl: string;
+  adjustments: {
+    brightness?: number;
+    contrast?:   number;
+    saturation?: number;
+    warmth?:     number;
+    blur?:       number;
+    sharpness?:  number;
+  };
+}
 
 // ── Combined State Type ──────────────────────────────────────────────────────
 
@@ -32,12 +47,16 @@ export interface Adjustments {
 
   // Detail
   clarity:        number; // -100 → 100
+  sharpness:      number; // 0 → 100
   noiseReduction: number; // 0 → 100
 
   // Effects
   ambiance:    number; // -100 → 100  (Snapseed-style local contrast + colour)
   curves:      CurveState;
   vignette:    number; // -100 → 100
+
+  // AI Regions
+  regions:     RegionalAdjustment[];
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -55,12 +74,13 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   hue:         0,
   temperature: 0,
   clarity:        0,
+  sharpness:      0,
   noiseReduction: 0,
   ambiance:    0,
   curves:      DEFAULT_CURVE,
   vignette:    0,
+  regions:     [],
 };
-
 // ── CSS Filter Conversion ────────────────────────────────────────────────────
 
 /**
@@ -149,16 +169,28 @@ export function toFilterString(adj: Adjustments): string {
     filters.push(`url(#curves-filter-${curvesHash})`);
   }
 
+  if (adj.regions && adj.regions.length > 0) {
+    adj.regions.forEach(region => {
+      const regHash = getStringHash(JSON.stringify(region.adjustments));
+      filters.push(`url(#region-filter-${region.id}-${regHash})`);
+    });
+  }
+
   return filters.join(' ');
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export const isDefaultAdjustments = (adj: Adjustments): boolean => {
-  return (Object.keys(adj) as (keyof Adjustments)[]).every(k => {
+  const isBaseDefault = (Object.keys(adj) as (keyof Adjustments)[]).every(k => {
     if (k === 'curves') {
       return adj.curves === DEFAULT_CURVE;
     }
+    if (k === 'regions') {
+      return !adj.regions || adj.regions.length === 0;
+    }
     return adj[k] === 0;
   });
+
+  return isBaseDefault;
 };

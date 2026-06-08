@@ -1,14 +1,27 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Photo } from '../../types';
 import { resolveUrl } from '../../constants';
-import { MapContainer, TileLayer, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+
+interface ChangeMapViewProps {
+  center: [number, number];
+  zoom: number;
+}
+
+const ChangeMapView: React.FC<ChangeMapViewProps> = ({ center, zoom }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+};
 
 interface InfoPanelProps {
   photo: Photo;
-  metadata: any;
+  metadata: Photo | null;
   isMetaLoading: boolean;
 }
 
@@ -86,52 +99,59 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, isMetaLoa
             </h3>
             
             {/* Mini Map */}
-            {(metadata?.latitude || photo.latitude) && (metadata?.longitude || photo.longitude) && (
-              <button
-                onClick={() => navigate('/map')}
-                className="w-full aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-primary/30 transition-all group relative block"
-              >
-                <div className="w-full h-full pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                  <MapContainer
-                    center={[Number(metadata?.latitude || photo.latitude), Number(metadata?.longitude || photo.longitude)]}
-                    zoom={13}
-                    style={{ width: '100%', height: '100%', background: '#f4f3f0' }}
-                    dragging={false}
-                    zoomControl={false}
-                    scrollWheelZoom={false}
-                    doubleClickZoom={false}
-                    boxZoom={false}
-                    keyboard={false}
-                    touchZoom={false}
-                  >
-                    <TileLayer
-                      attribution='&copy; OpenStreetMap'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    <Marker 
-                      position={[Number(metadata?.latitude || photo.latitude), Number(metadata?.longitude || photo.longitude)]} 
-                      icon={L.divIcon({
-                        className: 'custom-mini-marker',
-                        html: `
-                          <div class="relative flex items-center justify-center transform -translate-y-1/2">
-                            <svg class="w-7 h-7 filter drop-shadow-md" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
-                              <circle cx="12" cy="9" r="3" fill="#ffffff"/>
-                            </svg>
-                          </div>
-                        `,
-                        iconSize: [28, 28],
-                        iconAnchor: [14, 28]
-                      })}
-                    />
-                  </MapContainer>
-                </div>
-                <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-[1000] pointer-events-none" />
-                <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-[10px] text-white px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-[1000] pointer-events-none">
-                  Open Map →
-                </div>
-              </button>
-            )}
+            {(() => {
+              const lat = metadata?.latitude || photo.latitude;
+              const lng = metadata?.longitude || photo.longitude;
+              if (!lat || !lng) return null;
+              const center: [number, number] = [Number(lat), Number(lng)];
+              return (
+                <button
+                  onClick={() => navigate('/map')}
+                  className="w-full aspect-video rounded-xl overflow-hidden border border-white/10 hover:border-primary/30 transition-all group relative block"
+                >
+                  <div className="w-full h-full pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                    <MapContainer
+                      center={center}
+                      zoom={13}
+                      style={{ width: '100%', height: '100%', background: '#f4f3f0' }}
+                      dragging={false}
+                      zoomControl={false}
+                      scrollWheelZoom={false}
+                      doubleClickZoom={false}
+                      boxZoom={false}
+                      keyboard={false}
+                      touchZoom={false}
+                    >
+                      <ChangeMapView center={center} zoom={13} />
+                      <TileLayer
+                        attribution='&copy; OpenStreetMap'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <Marker 
+                        position={center} 
+                        icon={L.divIcon({
+                          className: 'custom-mini-marker',
+                          html: `
+                            <div class="relative flex items-center justify-center transform -translate-y-1/2">
+                              <svg class="w-7 h-7 filter drop-shadow-md" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2C8.13 2 5 5.13 5 9C5 14.25 12 22 12 22C12 22 19 14.25 19 9C19 5.13 15.87 2 12 2Z" fill="#2563eb" stroke="#ffffff" stroke-width="1.5"/>
+                                <circle cx="12" cy="9" r="3" fill="#ffffff"/>
+                              </svg>
+                            </div>
+                          `,
+                          iconSize: [28, 28],
+                          iconAnchor: [14, 28]
+                        })}
+                      />
+                    </MapContainer>
+                  </div>
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-[1000] pointer-events-none" />
+                  <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-[10px] text-white px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-[1000] pointer-events-none">
+                    Open Map →
+                  </div>
+                </button>
+              );
+            })()}
             
             <div className="flex flex-col gap-1">
               <p className="text-white font-bold text-lg leading-tight">{photo.location}</p>

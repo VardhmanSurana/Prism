@@ -3,6 +3,8 @@ import { API_BASE } from '../../../constants';
 import { Photo } from '../../../types';
 import { CleanupTab, BlurryPhoto, DuplicateCluster } from './types';
 
+import { customConfirm } from '../../../services/ConfirmService';
+
 export const useStorageCleanup = () => {
   const [activeSubTab, setActiveSubTab] = useState<CleanupTab>('blurry');
   const [blurryPhotos, setBlurryPhotos] = useState<BlurryPhoto[]>([]);
@@ -35,7 +37,7 @@ export const useStorageCleanup = () => {
   }, [fetchCleanupData]);
 
   const handleDeletePhoto = async (id: number) => {
-    if (!window.confirm("Are you sure you want to move this photo to trash?")) return;
+    if (!await customConfirm('Are you sure you want to move this photo to trash?', 'Confirm Trash')) return;
     try {
       await fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' });
       

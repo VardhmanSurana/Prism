@@ -1,6 +1,25 @@
-import { useCallback, Dispatch, SetStateAction } from 'react';
+import { useCallback, useMemo, Dispatch, SetStateAction } from 'react';
 import { Photo, ViewMode } from '../types';
 import { API_BASE } from '../constants';
+
+import { customConfirm } from '../services/ConfirmService';
+
+async function fetchInBatches<T>(
+  items: T[],
+  taskCreator: (item: T) => Promise<Response>,
+  concurrencyLimit = 6
+): Promise<PromiseSettledResult<Response>[]> {
+  const results: PromiseSettledResult<Response>[] = new Array(items.length);
+  for (let i = 0; i < items.length; i += concurrencyLimit) {
+    const chunk = items.slice(i, i + concurrencyLimit);
+    const chunkPromises = chunk.map(taskCreator);
+    const chunkResults = await Promise.allSettled(chunkPromises);
+    for (let j = 0; j < chunkResults.length; j++) {
+      results[i + j] = chunkResults[j];
+    }
+  }
+  return results;
+}
 
 interface UseBulkActionsProps {
   photos: Photo[];
@@ -8,6 +27,7 @@ interface UseBulkActionsProps {
   currentView: ViewMode;
   clearSelection: () => void;
   setSortMode: (mode: 'newest' | 'oldest' | 'added') => void;
+  selectedIds: Set<string>;
 }
 
 export function useBulkActions({
@@ -15,31 +35,128 @@ export function useBulkActions({
   setPhotos,
   currentView,
   clearSelection,
-  setSortMode
+  setSortMode,
+  selectedIds,
 }: UseBulkActionsProps) {
 
-  const handleBulkDelete = useCallback((selectedIds: Set<string>) => {
+  const isFavorited = useMemo(
+    () => Array.from(selectedIds).every(id => {
+      const p = photos.find(ph => String(ph.id) === id);
+      return p?.isFavorite || p?.is_favorite;
+    }),
+    [selectedIds, photos],
+  );
+
+  const onShare = useCallback(
+    () => alert(`Sharing ${selectedIds.size} photos`),
+    [selectedIds.size],
+  );
+
+  const onAddToAlbum = useCallback(() => {
+    const name = window.prompt('Album name:');
+    if (name) alert(`Added ${selectedIds.size} to ${name}`);
+  }, [selectedIds.size]);
+
+  const handleBulkDelete = useCallback(async () => {
     const isPermanent = currentView === 'trash';
     const message = isPermanent
       ? `Permanently delete ${selectedIds.size} items from Trash?`
       : `Move ${selectedIds.size} items to Trash?`;
 
-    if (window.confirm(message)) {
-      if (isPermanent) {
-        setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
-      } else {
-        setPhotos(prev => prev.map(p => selectedIds.has(String(p.id)) ? { ...p, isTrash: true } : p));
-      }
-      clearSelection();
+    if (!await customConfirm(message, 'Confirm Deletion')) return;
+
+    const idsArray = Array.from(selectedIds);
+    const originalPhotos = photos.filter(p => selectedIds.has(String(p.id)));
+
+    // Optimistic update
+    if (isPermanent) {
+      setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
+    } else {
+      setPhotos(prev => prev.map(p =>
+        selectedIds.has(String(p.id)) ? { ...p, isTrash: true, is_trash: true } : p
+      ));
     }
-  }, [currentView, setPhotos, clearSelection]);
-
-  const handleBulkArchive = useCallback((selectedIds: Set<string>) => {
-    setPhotos(prev => prev.map(p => selectedIds.has(String(p.id)) ? { ...p, isArchived: true } : p));
     clearSelection();
-  }, [setPhotos, clearSelection]);
 
-  const handleBulkFavorite = useCallback(async (selectedIds: Set<string>) => {
+    if (isPermanent) {
+      return;
+    }
+
+    // Call API for logical delete in chunks of 6
+    const results = await fetchInBatches(
+      idsArray,
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' })
+    );
+
+    // Rollback failed ones
+    const failedIds = new Set<string>();
+    results.forEach((r, idx) => {
+      const id = idsArray[idx];
+      if (r.status === 'rejected' || !r.value.ok) {
+        failedIds.add(id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setPhotos(prev => prev.map(p => {
+        const idStr = String(p.id);
+        if (failedIds.has(idStr)) {
+          const original = originalPhotos.find(op => String(op.id) === idStr);
+          return original ? { ...p, isTrash: original.isTrash, is_trash: original.is_trash } : p;
+        }
+        return p;
+      }));
+    }
+  }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
+
+  const handleBulkArchive = useCallback(async () => {
+    const idsArray = Array.from(selectedIds);
+
+    // Save original states
+    const originalStates = new Map<string, { isArchived?: boolean; is_archived?: boolean }>();
+    photos.forEach(p => {
+      if (selectedIds.has(String(p.id))) {
+        originalStates.set(String(p.id), {
+          isArchived: p.isArchived,
+          is_archived: p.is_archived
+        });
+      }
+    });
+
+    // Optimistic update
+    setPhotos(prev => prev.map(p =>
+      selectedIds.has(String(p.id)) ? { ...p, isArchived: true, is_archived: true } : p
+    ));
+    clearSelection();
+
+    // Call API in chunks of 6
+    const results = await fetchInBatches(
+      idsArray,
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/archive`, { method: 'POST' })
+    );
+
+    // Rollback failed ones
+    const failedIds = new Set<string>();
+    results.forEach((r, idx) => {
+      const id = idsArray[idx];
+      if (r.status === 'rejected' || !r.value.ok) {
+        failedIds.add(id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setPhotos(prev => prev.map(p => {
+        const idStr = String(p.id);
+        if (failedIds.has(idStr)) {
+          const original = originalStates.get(idStr);
+          return original ? { ...p, isArchived: original.isArchived, is_archived: original.is_archived } : p;
+        }
+        return p;
+      }));
+    }
+  }, [photos, setPhotos, clearSelection, selectedIds]);
+
+  const handleBulkFavorite = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
     const allFavorited = idsArray.every(id => {
       const p = photos.find(ph => String(ph.id) === id);
@@ -47,72 +164,115 @@ export function useBulkActions({
     });
     const targetFavorite = !allFavorited;
 
-    let successCount = 0;
-    for (const id of idsArray) {
-      const photo = photos.find(p => String(p.id) === id);
-      const alreadyCorrect = targetFavorite
-        ? (photo?.isFavorite || photo?.is_favorite)
-        : !(photo?.isFavorite || photo?.is_favorite);
-      if (alreadyCorrect) { successCount++; continue; }
-      try {
-        const res = await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
-        if (res.ok) successCount++;
-      } catch (e) {
-        console.error(`Failed to toggle favorite for photo ${id}:`, e);
-      }
-    }
-
-    if (successCount > 0) {
-      setPhotos(prev => prev.map(p =>
-        selectedIds.has(String(p.id)) ? { ...p, isFavorite: targetFavorite, is_favorite: targetFavorite } : p
-      ));
-    }
-    clearSelection();
-  }, [photos, setPhotos, clearSelection]);
-
-  const handleBulkLockToggle = useCallback(async (selectedIds: Set<string>) => {
-    const isLocking = currentView !== 'locked';
-    if (isLocking) {
-      if (!window.confirm(`Encrypt and move ${selectedIds.size} selected items to the Locked Folder?`)) return;
-    } else {
-      if (!window.confirm(`Decrypt and restore ${selectedIds.size} selected items to your general photos grid?`)) return;
-    }
-
-    const idsArray = Array.from(selectedIds);
-    let successCount = 0;
-
-    for (const id of idsArray) {
-      try {
-        const endpoint = isLocking ? `/lock` : `/unlock`;
-        const res = await fetch(`${API_BASE}/api/v1/photos/${id}${endpoint}`, {
-          method: 'POST'
+    // Save original states
+    const originalStates = new Map<string, { isFavorite?: boolean; is_favorite?: boolean }>();
+    photos.forEach(p => {
+      if (selectedIds.has(String(p.id))) {
+        originalStates.set(String(p.id), {
+          isFavorite: p.isFavorite,
+          is_favorite: p.is_favorite
         });
-        if (res.ok) {
-          successCount++;
-        } else {
-          console.error(`Failed to lock/unlock photo ${id}:`, await res.text());
-        }
-      } catch (e) {
-        console.error(`Error toggling lock state for photo ${id}:`, e);
       }
-    }
+    });
 
-    if (successCount > 0) {
+    // Optimistically update
+    setPhotos(prev => prev.map(p =>
+      selectedIds.has(String(p.id)) ? { ...p, isFavorite: targetFavorite, is_favorite: targetFavorite } : p
+    ));
+    clearSelection();
+
+    // Call API in chunks of 6
+    const results = await fetchInBatches(
+      idsArray,
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' })
+    );
+
+    // Rollback failed ones
+    const failedIds = new Set<string>();
+    results.forEach((r, idx) => {
+      const id = idsArray[idx];
+      if (r.status === 'rejected' || !r.value.ok) {
+        failedIds.add(id);
+      }
+    });
+
+    if (failedIds.size > 0) {
       setPhotos(prev => prev.map(p => {
-        if (selectedIds.has(String(p.id))) {
-          return { ...p, isLocked: isLocking };
+        const idStr = String(p.id);
+        if (failedIds.has(idStr)) {
+          const original = originalStates.get(idStr);
+          return original ? { ...p, isFavorite: original.isFavorite, is_favorite: original.is_favorite } : p;
         }
         return p;
       }));
     }
+  }, [photos, setPhotos, clearSelection, selectedIds]);
 
+  const handleBulkLockToggle = useCallback(async () => {
+    const isLocking = currentView !== 'locked';
+    if (isLocking) {
+      if (!await customConfirm(`Encrypt and move ${selectedIds.size} selected items to the Locked Folder?`, 'Confirm Lock')) return;
+    } else {
+      if (!await customConfirm(`Decrypt and restore ${selectedIds.size} selected items to your general photos grid?`, 'Confirm Unlock')) return;
+    }
+
+    const idsArray = Array.from(selectedIds);
+    const endpoint = isLocking ? `/lock` : `/unlock`;
+
+    // Save original states
+    const originalStates = new Map<string, { isLocked?: boolean; is_locked?: boolean }>();
+    photos.forEach(p => {
+      if (selectedIds.has(String(p.id))) {
+        originalStates.set(String(p.id), {
+          isLocked: p.isLocked,
+          is_locked: p.is_locked
+        });
+      }
+    });
+
+    // Optimistically update state
+    setPhotos(prev => prev.map(p => {
+      if (selectedIds.has(String(p.id))) {
+        return { ...p, isLocked: isLocking, is_locked: isLocking };
+      }
+      return p;
+    }));
     clearSelection();
-  }, [currentView, setPhotos, clearSelection]);
+
+    // Call API in chunks of 6
+    const results = await fetchInBatches(
+      idsArray,
+      id => fetch(`${API_BASE}/api/v1/photos/${id}${endpoint}`, { method: 'POST' })
+    );
+
+    // Rollback failed ones
+    const failedIds = new Set<string>();
+    results.forEach((r, idx) => {
+      const id = idsArray[idx];
+      if (r.status === 'rejected' || !r.value.ok) {
+        failedIds.add(id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setPhotos(prev => prev.map(p => {
+        const idStr = String(p.id);
+        if (failedIds.has(idStr)) {
+          const original = originalStates.get(idStr);
+          return original ? { ...p, isLocked: original.isLocked, is_locked: original.is_locked } : p;
+        }
+        return p;
+      }));
+    }
+  }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
 
   return {
     handleBulkDelete,
     handleBulkArchive,
     handleBulkFavorite,
-    handleBulkLockToggle
+    handleBulkLockToggle,
+    isFavorited,
+    onShare,
+    onAddToAlbum,
   };
 }

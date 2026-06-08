@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useCallback } from 'react';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../../types';
 
 interface UsePhotoSortingProps {
@@ -55,7 +55,7 @@ export function usePhotoSorting({
       case 'locked':
         result = result.filter(p => p.isLocked || p.is_locked);
         break;
-      case 'photos':
+      case 'gallery':
         result = result.filter(p => !(p.isArchived || p.is_archived) && !(p.isLocked || p.is_locked));
         break;
       default:
@@ -70,28 +70,28 @@ export function usePhotoSorting({
     });
   }, [currentView, activeFilters, photos, sortMode]);
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     if (scrollRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       if (scrollTop + clientHeight >= scrollHeight - 500) onFetchPhotos();
     }
-  };
+  }, [onFetchPhotos]);
 
-  const handleNextPhoto = () => {
-    if (!selectedPhoto) return;
+  const handleNextPhoto = useCallback(() => {
+    if (!selectedPhoto) return null;
     const photoList = contextPhotos || displayedPhotos;
     const idx = photoList.findIndex(p => String(p.id) === String(selectedPhoto.id));
     if (idx !== -1 && idx < photoList.length - 1) return photoList[idx + 1];
     return null;
-  };
+  }, [selectedPhoto, contextPhotos, displayedPhotos]);
 
-  const handlePrevPhoto = () => {
-    if (!selectedPhoto) return;
+  const handlePrevPhoto = useCallback(() => {
+    if (!selectedPhoto) return null;
     const photoList = contextPhotos || displayedPhotos;
     const idx = photoList.findIndex(p => String(p.id) === String(selectedPhoto.id));
     if (idx > 0) return photoList[idx - 1];
     return null;
-  };
+  }, [selectedPhoto, contextPhotos, displayedPhotos]);
 
   return {
     scrollRef,
