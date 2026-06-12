@@ -177,7 +177,7 @@ class LockedFolderService:
             try:
                 with open(file_path, "rb") as f:
                     header = f.read(13)
-                return header == b"Prism_ENC:"
+                return header.startswith(b"Prism_ENC:")
             except Exception:
                 return False
 

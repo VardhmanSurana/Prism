@@ -33,10 +33,10 @@ def _get_pipe(device: str = "cuda"):
         # Load parameters based on hardware device
         kwargs = {}
         if device == "cuda":
-            kwargs["torch_dtype"] = torch.float16
+            kwargs["dtype"] = torch.float16
             kwargs["variant"] = "fp16"
         else:
-            kwargs["torch_dtype"] = torch.float32
+            kwargs["dtype"] = torch.float32
             
         pipe = StableDiffusionInpaintPipeline.from_pretrained(
             "sd-legacy/stable-diffusion-inpainting",

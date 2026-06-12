@@ -43,6 +43,10 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN blur_score FLOAT"))
         if "file_size" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN file_size INTEGER"))
+        if "auto_tags" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN auto_tags TEXT"))
+        if "embedding" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN embedding TEXT"))
 
     # Initialize Sync Service
     await sync_service.initialize()

@@ -81,7 +81,7 @@ def test_build_metadata_string():
     }
     text = build_metadata_string(meta)
     assert "photo.jpg" in text
-    assert "1920 × 1080" in text
+    assert "1920 x 1080" in text
     assert "16:9" in text
     assert "JPEG" in text
     assert "500.0 KB" in text

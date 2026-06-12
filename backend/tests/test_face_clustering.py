@@ -135,11 +135,16 @@ async def test_face_service_clustering_new_and_match(db_session):
 @pytest.mark.asyncio
 async def test_sequential_import_queue():
     """Verify that enqueuing triggers the background worker loop sequentially."""
-    mock_summary = AsyncMock(return_value="A visual description")
+    mock_extract = MagicMock(return_value={
+        "detailed_caption": "A visual description",
+        "caption": "A visual description",
+        "tags": ["tag1"],
+        "embedding": [0.1] * 768
+    })
     mock_face_scan = AsyncMock(return_value=1)
 
     # Patch active analysis pipelines
-    with patch("app.services.processing_queue.generate_image_summary", mock_summary), \
+    with patch("app.services.processing_queue.extract_features_and_tags", mock_extract), \
          patch.object(face_service, "scan_and_cluster_face", mock_face_scan):
 
         # Enqueue item
@@ -152,5 +157,5 @@ async def test_sequential_import_queue():
         await processing_queue.shutdown()
 
         # Assert pipelines were executed
-        assert mock_summary.call_count == 1
+        assert mock_extract.call_count == 1
         assert mock_face_scan.call_count == 1

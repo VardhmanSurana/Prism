@@ -27,7 +27,7 @@ async def generate_image_summary(image_path: str) -> str:
     try:
         with open(image_path, "rb") as fh:
             header = fh.read(13)
-        if header == b"Prism_ENC:":
+        if header.startswith(b"Prism_ENC:"):
             return "Summary unavailable: this photo is stored encrypted in the Locked Folder."
     except FileNotFoundError:
         return "Error: Image file not found."

@@ -53,6 +53,8 @@ class Photo(Base):
 
     # AI Summary
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    auto_tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
 
     # Sharpness / Blur estimation
     blur_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)

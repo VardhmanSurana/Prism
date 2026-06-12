@@ -26,6 +26,8 @@ def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
         "height": photo.height,
         "aspect_ratio": photo.aspect_ratio,
         "caption": photo.caption,
+        "auto_tags": photo.auto_tags,
+        "ai_summary": photo.ai_summary,
         "location": ", ".join(location_parts) if location_parts else photo.location,
         "city": photo.city,
         "state": photo.state,
