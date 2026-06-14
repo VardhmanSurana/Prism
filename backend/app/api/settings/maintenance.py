@@ -10,6 +10,7 @@ from sqlalchemy.future import select
 from app.db import async_session, engine
 from app.models import Photo, Album, Base
 from app.config import settings
+from app.utils.security import safe_resolve_write
 from .helpers import _read_settings
 from .schemas import PurgeFolderRequest
 
@@ -39,7 +40,8 @@ def _delete_masks_for_photo(photo_id: int) -> int:
 @router.post("/purge-folder")
 async def purge_folder(req: PurgeFolderRequest):
     """Deletes all photos whose path starts with the given folder, plus their thumbnails."""
-    folder = req.folder_path.rstrip("/") + "/"
+    resolved_folder = safe_resolve_write(req.folder_path)
+    folder = str(resolved_folder).rstrip("/") + "/"
     deleted_count = 0
 
     async with async_session() as db:
@@ -60,7 +62,7 @@ async def purge_folder(req: PurgeFolderRequest):
 
         await db.commit()
 
-    return {"deleted": deleted_count, "folder": req.folder_path}
+    return {"deleted": deleted_count, "folder": str(resolved_folder)}
 
 
 @router.post("/vacuum")

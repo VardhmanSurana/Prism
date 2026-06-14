@@ -5,7 +5,6 @@ import { Header } from './components/Header';
 import { MainContent } from './components/MainContent';
 import { Lightbox } from './components/Lightbox';
 import { BulkActionsBar } from './components/BulkActionsBar';
-import { ChatWindow } from './components/ChatWindow';
 import { FloatingActions } from './components/FloatingActions';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -26,8 +25,6 @@ function App() {
     setTheme,
     isLockedAuthenticated,
     setIsLockedAuthenticated,
-    isChatOpen,
-    setIsChatOpen,
     sortMode,
     setSortMode,
     setContextPhotos,
@@ -81,7 +78,7 @@ function App() {
         />
 
         <main className="flex-1 flex flex-col min-w-0 relative z-10">
-          {currentView !== 'gallery' && (
+          {currentView !== 'gallery' && currentView !== 'agent' && (
             <Header
               onSearch={setActiveFilters}
               onUpload={handleUpload}
@@ -149,18 +146,7 @@ function App() {
           )}
         </AnimatePresence>
 
-        <AnimatePresence>
-          {isChatOpen && (
-            <ChatWindow
-              onClose={() => setIsChatOpen(false)}
-              onPhotoClick={setSelectedPhoto}
-            />
-          )}
-        </AnimatePresence>
-
         <FloatingActions
-          isChatOpen={isChatOpen}
-          onToggleChat={() => setIsChatOpen(prev => !prev)}
           importStatus={importStatus}
           syncStatus={syncStatus}
         />

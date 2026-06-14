@@ -30,14 +30,46 @@ async def lock_photo(photo_id: int, db: AsyncSession = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=500, detail="Failed to encrypt photo file")
         
-    # Delete the thumbnail to prevent unencrypted visual leak
+    # Process and delete the thumbnail to prevent unencrypted visual leak
     if photo.url and photo.url.startswith("/thumbnails/"):
-        thumb_path = settings.THUMBNAILS_DIR / photo.url.split("/thumbnails/")[-1]
+        thumb_name = photo.url.split("/thumbnails/")[-1]
+        thumb_path = settings.THUMBNAILS_DIR / thumb_name
         try:
             if thumb_path.exists():
+                # Read thumbnail data and save encrypted version
+                with open(thumb_path, "rb") as f:
+                    thumb_data = f.read()
+                
+                file_hash = photo.hash
+                if file_hash:
+                    enc_thumb_path = settings.THUMBNAILS_DIR / f"{file_hash}.webp.enc"
+                    await locked_service.encrypt_and_save_thumbnail(thumb_data, str(enc_thumb_path))
+                
                 os.remove(thumb_path)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to encrypt or delete thumbnail during lock: {e}")
+            
+    # Purge masks
+    masks_dir = settings.THUMBNAILS_DIR / "masks"
+    if masks_dir.exists():
+        prefix = f"mask_{photo_id}"
+        for entry in masks_dir.iterdir():
+            try:
+                if entry.is_file() and entry.name.startswith(prefix):
+                    entry.unlink()
+            except Exception:
+                pass
+
+    # Purge face thumbnails
+    face_dir = settings.THUMBNAILS_DIR / "Face_Thumbnail"
+    if face_dir.exists():
+        prefix = f"face_{photo_id}_"
+        for entry in face_dir.iterdir():
+            try:
+                if entry.is_file() and entry.name.startswith(prefix):
+                    entry.unlink()
+            except Exception:
+                pass
             
     # Mark as locked in the DB
     photo.is_locked = True
@@ -60,6 +92,23 @@ async def unlock_photo(photo_id: int, db: AsyncSession = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=500, detail="Failed to decrypt photo file")
         
+    # Restore the thumbnail from encrypted cache
+    file_hash = photo.hash
+    if file_hash:
+        enc_thumb_path = settings.THUMBNAILS_DIR / f"{file_hash}.webp.enc"
+        if enc_thumb_path.exists():
+            try:
+                decrypted_thumb = await locked_service.decrypt_encrypted_thumbnail(str(enc_thumb_path))
+                if decrypted_thumb:
+                    thumb_path = settings.THUMBNAILS_DIR / f"{file_hash}.webp"
+                    with open(thumb_path, "wb") as f:
+                        f.write(decrypted_thumb)
+                        f.flush()
+                        os.fsync(f.fileno())
+                    os.remove(enc_thumb_path)
+            except Exception as e:
+                logger.warning(f"Failed to restore thumbnail on unlock: {e}")
+                
     # Mark as unlocked in the DB
     photo.is_locked = False
     await db.commit()

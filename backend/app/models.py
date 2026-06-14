@@ -57,7 +57,7 @@ class Photo(Base):
     embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
 
     # Sharpness / Blur estimation
-    blur_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
+    blur_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None, index=True)
 
     # Pre-cached file size (bytes)
     file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
@@ -120,6 +120,51 @@ class PhotoPerson(Base):
     # Relationships
     photo: Mapped["Photo"] = relationship(back_populates="people")
     person: Mapped["Person"] = relationship(back_populates="photos")
+
+
+class PendingFaceAssignment(Base):
+    """Stores borderline face assignments awaiting user verification."""
+    __tablename__ = "pending_face_assignments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    photo_id: Mapped[int] = mapped_column(
+        ForeignKey("photos.id", ondelete="CASCADE"),
+        index=True
+    )
+    candidate_person_id: Mapped[int] = mapped_column(
+        ForeignKey("people.id", ondelete="CASCADE"),
+        index=True
+    )
+    best_score: Mapped[float] = mapped_column(Float)
+    face_box_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    thumb_filename: Mapped[str] = mapped_column(String(255))
+    face_embedding: Mapped[str] = mapped_column(Text)  # JSON representation of embedding feature array
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    photo: Mapped["Photo"] = relationship()
+    candidate_person: Mapped["Person"] = relationship()
+
+
+class BackgroundJob(Base):
+    __tablename__ = "background_jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    photo_id: Mapped[int] = mapped_column(
+        ForeignKey("photos.id", ondelete="CASCADE"),
+        index=True
+    )
+    job_type: Mapped[str] = mapped_column(String(50), index=True)  # e.g., "vision_pipeline" or "face_scan"
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | processing | completed | failed
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    photo: Mapped["Photo"] = relationship()
+
+
 
 
 

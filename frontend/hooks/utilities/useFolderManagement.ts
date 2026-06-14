@@ -2,25 +2,20 @@ import { useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 
 interface UseFolderManagementProps {
+  watchedFolders: string[];
+  onWatchedFoldersChange: (folders: string[]) => void;
   excludedFolders: string[];
-  onFoldersChange: (folders: string[]) => void;
+  onExcludedFoldersChange: (folders: string[]) => void;
 }
 
-export const useFolderManagement = ({ excludedFolders, onFoldersChange }: UseFolderManagementProps) => {
-  const [folderInput, setFolderInput] = useState('');
-
-  const handleAddFolder = () => {
-    if (folderInput && !excludedFolders.includes(folderInput)) {
-      const newFolders = [...excludedFolders, folderInput];
-      onFoldersChange(newFolders);
-      setFolderInput('');
-    }
-  };
-
-  const handleRemoveFolder = (folder: string) => {
-    const newFolders = excludedFolders.filter(f => f !== folder);
-    onFoldersChange(newFolders);
-  };
+export const useFolderManagement = ({
+  watchedFolders,
+  onWatchedFoldersChange,
+  excludedFolders,
+  onExcludedFoldersChange
+}: UseFolderManagementProps) => {
+  const [watchedInput, setWatchedInput] = useState('');
+  const [excludedInput, setExcludedInput] = useState('');
 
   const openBrowseDialog = async (title: string): Promise<string | null> => {
     try {
@@ -30,17 +25,53 @@ export const useFolderManagement = ({ excludedFolders, onFoldersChange }: UseFol
     return null;
   };
 
-  const handleBrowse = async () => {
+  const handleAddWatchedFolder = () => {
+    if (watchedInput && !watchedFolders.includes(watchedInput)) {
+      const newFolders = [...watchedFolders, watchedInput];
+      onWatchedFoldersChange(newFolders);
+      setWatchedInput('');
+    }
+  };
+
+  const handleRemoveWatchedFolder = (folder: string) => {
+    const newFolders = watchedFolders.filter(f => f !== folder);
+    onWatchedFoldersChange(newFolders);
+  };
+
+  const handleBrowseWatched = async () => {
+    const selected = await openBrowseDialog('Select Library Folder to Watch');
+    if (selected) setWatchedInput(selected);
+  };
+
+  const handleAddExcludedFolder = () => {
+    if (excludedInput && !excludedFolders.includes(excludedInput)) {
+      const newFolders = [...excludedFolders, excludedInput];
+      onExcludedFoldersChange(newFolders);
+      setExcludedInput('');
+    }
+  };
+
+  const handleRemoveExcludedFolder = (folder: string) => {
+    const newFolders = excludedFolders.filter(f => f !== folder);
+    onExcludedFoldersChange(newFolders);
+  };
+
+  const handleBrowseExcluded = async () => {
     const selected = await openBrowseDialog('Select Folder to Exclude');
-    if (selected) setFolderInput(selected);
+    if (selected) setExcludedInput(selected);
   };
 
   return {
-    folderInput,
-    setFolderInput,
-    handleAddFolder,
-    handleRemoveFolder,
-    handleBrowse,
+    watchedInput,
+    setWatchedInput,
+    handleAddWatchedFolder,
+    handleRemoveWatchedFolder,
+    handleBrowseWatched,
+    excludedInput,
+    setExcludedInput,
+    handleAddExcludedFolder,
+    handleRemoveExcludedFolder,
+    handleBrowseExcluded,
     openBrowseDialog
   };
 };

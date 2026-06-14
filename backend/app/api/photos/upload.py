@@ -13,6 +13,7 @@ from app.db import get_db
 from app.models import Photo
 from app.services.sync_service import sync_service, SUPPORTED_EXTENSIONS
 from app.services.processing_queue import processing_queue
+from app.utils.security import safe_resolve_read, safe_resolve_write
 from .schemas import UploadRequest
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ router = APIRouter()
 
 # Simple in-memory rate limiting
 _rate_limit_store: dict[str, list[float]] = {}
-MAX_UPLOADS_PER_MINUTE = 10
+MAX_UPLOADS_PER_MINUTE = 10000
 MAX_DIRECTORY_FILES = 1000  # Limit directory imports to prevent DoS
 _LAST_RATE_CLEANUP = time.time()
 _RATE_CLEANUP_INTERVAL = 300  # 5 minutes
@@ -75,6 +76,10 @@ async def upload_photo(
     file_path = req.file_path
     logger.info(f"Received upload request for: {file_path}")
 
+    # Validate path safely
+    resolved_path = safe_resolve_read(file_path)
+    file_path = str(resolved_path)
+
     # Verify path exists
     if not os.path.exists(file_path):
         logger.warning(f"Path not found on disk: {file_path}")
@@ -90,7 +95,13 @@ async def upload_photo(
                 for file in files:
                     found_files.append(file)
                     if file.lower().endswith(SUPPORTED_EXTENSIONS):
-                        images.append(os.path.join(root, file))
+                        full_p = os.path.join(root, file)
+                        try:
+                            # Verify sub-paths do not escape boundaries
+                            safe_resolve_read(full_p)
+                            images.append(full_p)
+                        except Exception:
+                            pass
             return images, found_files
 
         all_images, all_found_files = await asyncio.to_thread(_sync_walk)
@@ -139,18 +150,25 @@ async def upload_blob(
     save_as_path: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
-    # Verify original path exists and is allowed
+    # Verify original path is allowed and exists
+    resolved_orig = safe_resolve_read(original_path)
+    original_path = str(resolved_orig)
+    
     if not os.path.exists(original_path):
         raise HTTPException(status_code=404, detail="Original file not found")
         
     if is_save_as:
         if save_as_path:
-            target_path = save_as_path
+            resolved_target = safe_resolve_write(save_as_path)
+            target_path = str(resolved_target)
         else:
             base, ext = os.path.splitext(original_path)
             target_path = f"{base}_edited_{int(time.time())}.jpg"
+            resolved_target = safe_resolve_write(target_path)
+            target_path = str(resolved_target)
     else:
-        target_path = original_path
+        resolved_target = safe_resolve_write(original_path)
+        target_path = str(resolved_target)
         
     with open(target_path, "wb") as f:
         shutil.copyfileobj(file.file, f)

@@ -14,8 +14,10 @@ import { useConfirmDialog } from './useConfirmDialog';
 export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void } = {}) => {
   const { 
     syncEnabled, 
+    watchedFolders,
     excludedFolders, 
     isLoading, 
+    setWatchedFolders,
     setExcludedFolders, 
     handleToggleSync 
   } = useSyncConfig();
@@ -23,13 +25,23 @@ export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void }
   const { confirmDialog, setConfirmDialog, openConfirmDialog, closeConfirmDialog } = useConfirmDialog();
 
   const {
-    folderInput,
-    setFolderInput,
-    handleAddFolder,
-    handleRemoveFolder,
-    handleBrowse,
+    watchedInput,
+    setWatchedInput,
+    handleAddWatchedFolder,
+    handleRemoveWatchedFolder,
+    handleBrowseWatched,
+    excludedInput,
+    setExcludedInput,
+    handleAddExcludedFolder,
+    handleRemoveExcludedFolder,
+    handleBrowseExcluded,
     openBrowseDialog
-  } = useFolderManagement({ excludedFolders, onFoldersChange: setExcludedFolders });
+  } = useFolderManagement({ 
+    watchedFolders,
+    onWatchedFoldersChange: setWatchedFolders,
+    excludedFolders,
+    onExcludedFoldersChange: setExcludedFolders
+  });
 
   const {
     purgeInput,
@@ -49,9 +61,24 @@ export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void }
 
   return {
     syncEnabled,
+    watchedFolders,
     excludedFolders,
-    folderInput,
-    setFolderInput,
+    watchedInput,
+    setWatchedInput,
+    handleAddWatchedFolder,
+    handleRemoveWatchedFolder,
+    handleBrowseWatched,
+    excludedInput,
+    setExcludedInput,
+    handleAddExcludedFolder,
+    handleRemoveExcludedFolder,
+    handleBrowseExcluded,
+    // Backward compatibility:
+    folderInput: excludedInput,
+    setFolderInput: setExcludedInput,
+    handleAddFolder: handleAddExcludedFolder,
+    handleRemoveFolder: handleRemoveExcludedFolder,
+    handleBrowse: handleBrowseExcluded,
     purgeInput,
     setPurgeInput,
     purgeStatus,
@@ -60,9 +87,6 @@ export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void }
     confirmDialog,
     setConfirmDialog,
     handleToggleSync,
-    handleAddFolder,
-    handleRemoveFolder,
-    handleBrowse,
     handlePurgeBrowse,
     handlePurgeFolder,
     handleResetLibrary,

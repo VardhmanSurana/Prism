@@ -27,7 +27,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
 
   return (
     <>
-      {/* Thumbnail / Low-res image */}
+      {/* Thumbnail / Low-res fallback — always shown sharp as the base layer.
+          Fades to invisible once the high-res layer is fully loaded. */}
       <img
         src={resolveUrl(photo.url || `local://${photo.path}`)}
         alt="Thumbnail"
@@ -36,11 +37,10 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
         onDragStart={(e) => e.preventDefault()}
         className={`absolute object-contain shadow-2xl transition-all duration-700 select-none
           ${highResStatus === 'loaded' ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}
-          ${highResStatus === 'loading' ? 'blur-sm' : 'blur-0'}
         `}
       />
 
-      {/* High Resolution clean image */}
+      {/* High Resolution clean image — cross-fades in over the thumbnail */}
       {currentHighResUrl && (
         <img
           src={currentHighResUrl}

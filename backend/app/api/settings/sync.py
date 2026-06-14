@@ -1,11 +1,19 @@
 """Sync configuration endpoints."""
 from fastapi import APIRouter
+from pydantic import BaseModel
+from pathlib import Path
 
 from app.services.sync_service import sync_service
-from .helpers import _read_settings
+from app.utils.security import safe_resolve_write
+from .helpers import _read_settings, _write_settings
 from .schemas import SyncConfig
 
 router = APIRouter()
+
+
+class FoldersConfigRequest(BaseModel):
+    watched_folders: list[str]
+    excluded_folders: list[str]
 
 
 @router.get("/sync")
@@ -26,3 +34,42 @@ async def update_sync_config(config: SyncConfig):
 @router.get("/status")
 async def get_sync_status():
     return sync_service.get_status()
+
+
+@router.get("/folders")
+async def get_folders():
+    config = _read_settings()
+    watched = config.get("watched_folders")
+    if watched is None:
+        watched = [str(Path.home() / "Pictures")]
+    excluded = config.get("excluded_folders") or []
+    return {"watched_folders": watched, "excluded_folders": excluded}
+
+
+@router.post("/folders")
+async def update_folders(req: FoldersConfigRequest):
+    config = _read_settings()
+    
+    validated_watched = []
+    for f in req.watched_folders:
+        try:
+            resolved = safe_resolve_write(f)
+            validated_watched.append(str(resolved))
+        except Exception:
+            pass
+            
+    validated_excluded = []
+    for f in req.excluded_folders:
+        try:
+            resolved = safe_resolve_write(f)
+            validated_excluded.append(str(resolved))
+        except Exception:
+            pass
+
+    config["watched_folders"] = validated_watched
+    config["excluded_folders"] = validated_excluded
+    _write_settings(config)
+    
+    sync_service.excluded_folders = set(validated_excluded)
+    
+    return {"status": "success", "watched_folders": validated_watched, "excluded_folders": validated_excluded}

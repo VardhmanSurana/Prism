@@ -4,7 +4,8 @@ import json
 import logging
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import Photo, Person, PhotoPerson
+from app.config import settings
+from app.models import Photo, Person, PhotoPerson, PendingFaceAssignment
 from app.services.face_sdk import face_sdk
 from app.services.face_detection import FaceDetector
 from app.services.face_recognition import FaceRecognizer
@@ -90,10 +91,14 @@ class FaceClusteringService:
                     feat, existing_people, embedding_cache
                 )
 
-                # Determine if this is a match
+                # Determine if this is a match or uncertain or no match
                 matched_person = None
-                if best_match_person and self._recognizer.is_match(best_score):
-                    matched_person = best_match_person
+                uncertain_person = None
+                if best_match_person:
+                    if best_score > settings.FACE_MATCH_THRESHOLD:
+                        matched_person = best_match_person
+                    elif best_score > settings.FACE_UNCERTAIN_MATCH_THRESHOLD:
+                        uncertain_person = best_match_person
 
                 # Get scaled coordinates and crop thumbnail
                 x1, y1, x2, y2 = self._detector.get_face_location_scaled(face, scale)
@@ -105,6 +110,8 @@ class FaceClusteringService:
 
                 face_results.append({
                     "matched_person": matched_person,
+                    "uncertain_person": uncertain_person,
+                    "best_score": float(best_score),
                     "embedding": feat,
                     "box_json": box_json,
                     "confidence": float(face.detection_confidence),
@@ -124,6 +131,8 @@ class FaceClusteringService:
         try:
             for res in face_results:
                 matched_person = res["matched_person"]
+                uncertain_person = res["uncertain_person"]
+                best_score = res["best_score"]
                 feat = res["embedding"]
                 box_json = res["box_json"]
                 conf = res["confidence"]
@@ -141,20 +150,40 @@ class FaceClusteringService:
 
                     # Update running average face embedding
                     try:
-                        count_query = select(func.count()).select_from(PhotoPerson).where(
-                            PhotoPerson.person_id == matched_person.id
-                        )
-                        count_res = await db.execute(count_query)
-                        n_current = count_res.scalar() or 0
+                        assoc_stmt = select(PhotoPerson).where(PhotoPerson.person_id == matched_person.id)
+                        assoc_res = await db.execute(assoc_stmt)
+                        associations = assoc_res.scalars().all()
 
-                        if n_current > 0 and matched_person.id in embedding_cache:
+                        cumulative_weight = sum(
+                            self._recognizer.compute_face_weight(a.confidence, a.face_box_json)
+                            for a in associations
+                        )
+                        if cumulative_weight == 0:
+                            cumulative_weight = float(len(associations)) or 1.0
+
+                        new_weight = self._recognizer.compute_face_weight(conf, box_json)
+
+                        if len(associations) > 0 and matched_person.id in embedding_cache:
                             current_emb = embedding_cache[matched_person.id]
-                            new_emb = self._recognizer.update_running_average(current_emb, feat, n_current)
+                            new_emb = self._recognizer.update_running_average(
+                                current_emb, feat, cumulative_weight, new_weight
+                            )
 
                             matched_person.face_embedding = json.dumps(new_emb.tolist())
                             embedding_cache[matched_person.id] = new_emb
                     except Exception as e:
                         logger.exception(f"Failed to update running face centroid: {e}")
+                elif uncertain_person:
+                    # Insert into PendingFaceAssignment
+                    pending = PendingFaceAssignment(
+                        photo_id=photo_id,
+                        candidate_person_id=uncertain_person.id,
+                        best_score=best_score,
+                        face_box_json=box_json,
+                        thumb_filename=thumb_filename,
+                        face_embedding=json.dumps(feat.tolist())
+                    )
+                    db.add(pending)
                 else:
                     # Create a new person profile
                     count_stmt = select(func.count()).select_from(Person)

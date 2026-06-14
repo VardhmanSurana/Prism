@@ -15,7 +15,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
   const { people, isLoading: peopleLoading, fetchPeople, updatePersonName } = usePeople();
   const [selectedPerson, setSelectedPerson] = React.useState<Person | null>(null);
 
-  const { photos: personPhotos, isLoading: photosLoading } = usePersonPhotos(selectedPerson);
+  const { photos: personPhotos, isLoading: photosLoading, fetchPhotos: fetchPersonPhotos } = usePersonPhotos(selectedPerson);
 
   const handleRenameSuccess = useCallback(
     (personId: number, newName: string) => {
@@ -75,6 +75,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
         isLoading={photosLoading}
         onBack={handleBack}
         onPhotoClick={onPhotoClick}
+        onRefreshPhotos={fetchPersonPhotos}
       />
     );
   }

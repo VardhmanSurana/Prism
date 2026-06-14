@@ -3,7 +3,7 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 
 # SQLite async URL
-DATABASE_URL = f"sqlite+aiosqlite:///{settings.BASE_DIR}/Prism.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{settings.DATABASE_FILE}"
 
 # Enable WAL mode for better concurrent write performance
 engine = create_async_engine(

@@ -61,7 +61,7 @@ export interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'archived' | 'utilities' | 'locked' | 'map' | 'trash' | 'people';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'archived' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
@@ -113,10 +113,12 @@ export interface RawPhoto {
  * This prevents inconsistencies when backend changes field naming.
  */
 export function normalizePhoto(raw: RawPhoto): Photo {
+  const isLocked = raw.is_locked ?? raw.isLocked ?? false;
+  const resolvedUrl = isLocked ? `/api/v1/photos/${raw.id}/thumbnail` : (raw.url || '');
   return {
     ...raw,
     id: raw.id,
-    url: raw.url || '',
+    url: resolvedUrl,
     path: raw.path || '',
     width: raw.width || 0,
     height: raw.height || 0,
@@ -124,14 +126,14 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     // Boolean flags - prioritize snake_case from backend
     isFavorite: raw.is_favorite ?? raw.isFavorite ?? false,
     isArchived: raw.is_archived ?? raw.isArchived ?? false,
-    isLocked: raw.is_locked ?? raw.isLocked ?? false,
+    isLocked: isLocked,
     isTrash: raw.is_trash ?? raw.isTrash ?? false,
     // Date fields
     uploadDate: raw.upload_date ?? raw.uploadDate ?? raw.date,
     // Keep original fields for compatibility
     is_favorite: raw.is_favorite ?? raw.isFavorite ?? false,
     is_archived: raw.is_archived ?? raw.isArchived ?? false,
-    is_locked: raw.is_locked ?? raw.isLocked ?? false,
+    is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
     upload_date: raw.upload_date ?? raw.uploadDate ?? raw.date,
   };

@@ -7,6 +7,7 @@ import { MapView } from './MapView';
 import { PhotoGrid } from './PhotoGrid';
 import { LockedViewAuth } from './LockedViewAuth/index';
 import { LockedFolderView } from './LockedFolderView';
+import { AgentView } from './AgentView';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../types';
 import { ImportProgressStatus } from './PhotoGrid/types';
 
@@ -71,6 +72,8 @@ export function MainContent({
     switch (currentView) {
       case 'explore':
         return <ExploreView />;
+      case 'agent':
+        return <AgentView onPhotoClick={onPhotoClick} />;
       case 'albums':
         return <AlbumsView onPhotoClick={onPhotoClick} />;
       case 'people':

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Cloud, Settings2, Trash2 } from 'lucide-react';
+import { Cloud, Settings2, Trash2, Activity } from 'lucide-react';
 import { useUtilities } from '../hooks/utilities';
 
 // Sub-components
@@ -10,6 +10,7 @@ import { ThemeSettings } from './utilities/ThemeSettings';
 import { SystemIntegrity } from './utilities/SystemIntegrity';
 import { ConfirmationDialog } from './utilities/ConfirmationDialog';
 import { StorageCleanup } from './utilities/storageCleanup';
+import { DiagnosticsLogs } from './utilities/DiagnosticsLogs';
 
 interface UtilitiesViewProps {
   currentTheme: string;
@@ -18,13 +19,22 @@ interface UtilitiesViewProps {
 }
 
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onThemeChange, onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'storage' | 'system'>('storage');
+  const [activeTab, setActiveTab] = useState<'storage' | 'system' | 'diagnostics'>('storage');
   
   const {
     syncEnabled,
+    watchedFolders,
     excludedFolders,
-    folderInput,
-    setFolderInput,
+    watchedInput,
+    setWatchedInput,
+    handleAddWatchedFolder,
+    handleRemoveWatchedFolder,
+    handleBrowseWatched,
+    excludedInput,
+    setExcludedInput,
+    handleAddExcludedFolder,
+    handleRemoveExcludedFolder,
+    handleBrowseExcluded,
     purgeInput,
     setPurgeInput,
     purgeStatus,
@@ -33,9 +43,6 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
     confirmDialog,
     setConfirmDialog,
     handleToggleSync,
-    handleAddFolder,
-    handleRemoveFolder,
-    handleBrowse,
     handlePurgeBrowse,
     handlePurgeFolder,
     handleResetLibrary,
@@ -50,10 +57,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
       </header>
 
       {/* Premium Tab Switcher */}
-      <div className="flex items-center gap-1.5 bg-[#111] p-1.5 rounded-2xl border border-white/5 shadow-inner shrink-0 max-w-md">
+      <div className="flex items-center gap-1.5 bg-[#111] p-1.5 rounded-2xl border border-white/5 shadow-inner shrink-0 max-w-lg">
         <button 
           onClick={() => setActiveTab('storage')}
-          className={`flex-1 flex items-center justify-center gap-2.5 px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
+          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
             ${activeTab === 'storage' 
               ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
               : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
@@ -64,7 +71,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
 
         <button 
           onClick={() => setActiveTab('system')}
-          className={`flex-1 flex items-center justify-center gap-2.5 px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
+          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
             ${activeTab === 'system' 
               ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
               : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
@@ -72,23 +79,44 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
           <Settings2 size={14} />
           <span>Engine Settings</span>
         </button>
+
+        <button 
+          onClick={() => setActiveTab('diagnostics')}
+          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
+            ${activeTab === 'diagnostics' 
+              ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
+              : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+        >
+          <Activity size={14} />
+          <span>Diagnostics</span>
+        </button>
       </div>
 
       {/* Main Tab View Panels */}
       <div className="flex-1 overflow-y-auto pr-1 space-y-8 custom-scrollbar pb-8">
-        {activeTab === 'storage' ? (
+        {activeTab === 'storage' && (
           <StorageCleanup />
-        ) : (
+        )}
+
+        {activeTab === 'system' && (
           <div className="space-y-8">
             <SyncSettings 
               syncEnabled={syncEnabled}
               onToggleSync={handleToggleSync}
-              folderInput={folderInput}
-              setFolderInput={setFolderInput}
+              
+              watchedFolders={watchedFolders}
+              watchedInput={watchedInput}
+              setWatchedInput={setWatchedInput}
+              onBrowseWatched={handleBrowseWatched}
+              onAddWatchedFolder={handleAddWatchedFolder}
+              onRemoveWatchedFolder={handleRemoveWatchedFolder}
+
               excludedFolders={excludedFolders}
-              onBrowse={handleBrowse}
-              onAddFolder={handleAddFolder}
-              onRemoveFolder={handleRemoveFolder}
+              excludedInput={excludedInput}
+              setExcludedInput={setExcludedInput}
+              onBrowseExcluded={handleBrowseExcluded}
+              onAddExcludedFolder={handleAddExcludedFolder}
+              onRemoveExcludedFolder={handleRemoveExcludedFolder}
             />
 
             <FaceSettings 
@@ -115,6 +143,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
               systemStatus={systemStatus}
             />
           </div>
+        )}
+
+        {activeTab === 'diagnostics' && (
+          <DiagnosticsLogs />
         )}
       </div>
 

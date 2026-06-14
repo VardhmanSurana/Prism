@@ -15,7 +15,6 @@ class ChatRequest(BaseModel):
 
 @router.post("/chat")
 async def chat_with_agent(req: ChatRequest):
-    # Convert Pydantic history to LangChain format if needed
-    # For now, we'll just pass the raw message to keep it simple
-    response = await Prism_agent.chat(req.message)
+    history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else []
+    response = await Prism_agent.chat(req.message, history=history_dicts)
     return {"response": response}

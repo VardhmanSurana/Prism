@@ -114,3 +114,60 @@ export function usePersonRename(
     saveRename,
   };
 }
+
+
+export interface PendingFace {
+  id: number;
+  photo_id: number;
+  candidate_person_id: number;
+  best_score: number;
+  face_box_json: string;
+  thumb_filename: string;
+  created_at: string | null;
+}
+
+export function usePendingFaces(personId: number | null) {
+  const [pendingFaces, setPendingFaces] = useState<PendingFace[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchPendingFaces = useCallback(async () => {
+    if (personId === null) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/people/${personId}/pending-faces`);
+      if (response.ok) {
+        const data = await response.json();
+        setPendingFaces(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch pending faces', e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [personId]);
+
+  useEffect(() => {
+    fetchPendingFaces();
+  }, [fetchPendingFaces]);
+
+  const submitFeedback = useCallback(async (pendingId: number, decision: 'same' | 'different') => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/people/pending-faces/${pendingId}/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+      if (response.ok) {
+        // Remove from local list
+        setPendingFaces(prev => prev.filter(item => item.id !== pendingId));
+        return true;
+      }
+    } catch (e) {
+      console.error('Failed to submit feedback', e);
+    }
+    return false;
+  }, []);
+
+  return { pendingFaces, isLoading, fetchPendingFaces, submitFeedback };
+}
+

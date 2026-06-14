@@ -2,6 +2,8 @@ from pathlib import Path
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
 import urllib.parse
+from app.utils.security import safe_resolve_read
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
@@ -15,6 +17,7 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
+from loguru import logger as llogger
 
 class LogAccessFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -48,8 +51,72 @@ async def lifespan(app: FastAPI):
         if "embedding" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN embedding TEXT"))
 
+        # Create index on blur_score
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_blur_score ON photos (blur_score)"))
+
+        # Setup FTS5 Full Text Search Table and Triggers
+        await conn.execute(text("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS photos_fts USING fts5(
+                photo_id UNINDEXED,
+                filename,
+                caption,
+                location,
+                city,
+                country,
+                ai_summary,
+                auto_tags
+            )
+        """))
+
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS after_photo_insert AFTER INSERT ON photos
+            BEGIN
+                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags)
+                VALUES (new.id, new.filename, new.caption, new.location, new.city, new.country, new.ai_summary, new.auto_tags);
+            END;
+        """))
+
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS after_photo_delete AFTER DELETE ON photos
+            BEGIN
+                DELETE FROM photos_fts WHERE photo_id = old.id;
+            END;
+        """))
+
+        await conn.execute(text("""
+            CREATE TRIGGER IF NOT EXISTS after_photo_update AFTER UPDATE ON photos
+            BEGIN
+                UPDATE photos_fts SET
+                    filename = new.filename,
+                    caption = new.caption,
+                    location = new.location,
+                    city = new.city,
+                    country = new.country,
+                    ai_summary = new.ai_summary,
+                    auto_tags = new.auto_tags
+                WHERE photo_id = old.id;
+            END;
+        """))
+
+        # Check and populate FTS5 table if it's empty
+        res_fts = await conn.execute(text("SELECT COUNT(*) FROM photos_fts"))
+        if res_fts.scalar() == 0:
+            logger.info("FTS5 table is empty. Populating from existing photos table...")
+            await conn.execute(text("""
+                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags)
+                SELECT id, filename, caption, location, city, country, ai_summary, auto_tags FROM photos
+            """))
+
     # Initialize Sync Service
     await sync_service.initialize()
+
+    # Recover any interrupted file encryption/decryption operations
+    from app.services.locked_service import locked_service
+    try:
+        locked_service.recover_interrupted_files()
+    except Exception as e:
+        logger.error(f"Failed to recover interrupted files: {e}")
+
     logger.info(f"Prism Backend ready (PID: {os.getpid()})")
 
     yield
@@ -87,58 +154,120 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-def _is_path_allowed(file_path: str) -> bool:
-    """
-    Validate that the requested path is within allowed directories.
-    Prevents path traversal attacks like ../../../etc/passwd
-    """
-    try:
-        resolved_path = Path(file_path).resolve()
-        allowed_roots = [
-            settings.UPLOAD_DIR.resolve(),
-            settings.THUMBNAILS_DIR.resolve(),
-            (Path.home() / "Pictures").resolve(),
-        ]
-        # Include common posix external media mounts safely
-        if os.name == 'posix':
-            for mount in ["/media", "/run/media", "/Volumes", "/mnt"]:
-                if os.path.exists(mount):
-                    allowed_roots.append(Path(mount).resolve())
-                    
-        return any(resolved_path.is_relative_to(root) for root in allowed_roots)
-    except (ValueError, OSError):
-        return False
-
-
 # Serve local files directly
 @app.get("/local")
 async def serve_local_file(path: str):
     decoded_path = urllib.parse.unquote(path)
-    
-    # Validate path is within allowed directories
-    if not _is_path_allowed(decoded_path):
-        raise HTTPException(status_code=403, detail="Access denied: path outside allowed directories")
-    
-    if not os.path.exists(decoded_path):
+    llogger.debug(f"[/local] Requested path: {decoded_path!r}")
+
+    # Validate path is within allowed directories safely
+    # Raises HTTP 403 if outside allowed roots — log before raising for diagnostics
+    try:
+        resolved_path = safe_resolve_read(decoded_path)
+    except HTTPException as e:
+        from app.utils.security import get_allowed_read_roots
+        allowed = [str(r) for r in get_allowed_read_roots()]
+        llogger.warning(
+            f"[/local] DENIED path={decoded_path!r} | status={e.status_code} | "
+            f"reason={e.detail!r} | allowed_roots={allowed}"
+        )
+        raise
+
+    llogger.debug(f"[/local] Resolved to: {resolved_path}")
+
+    if not resolved_path.exists():
+        llogger.warning(f"[/local] File not found on disk: {resolved_path}")
         raise HTTPException(status_code=404, detail="File not found")
-        
+
     from app.services.locked_service import locked_service
-    is_encrypted = await locked_service.is_file_encrypted(decoded_path)
+    is_encrypted = await locked_service.is_file_encrypted(str(resolved_path))
     if is_encrypted:
+        if not locked_service.is_authenticated:
+            llogger.warning(f"[/local] Encrypted file requested but Locked Folder not authenticated: {resolved_path}")
+            raise HTTPException(status_code=403, detail="Locked Folder session not authenticated")
+
+        decrypted_data = await locked_service.decrypt_file_data(str(resolved_path))
+        if decrypted_data is None:
+            llogger.error(f"[/local] Decryption failed for: {resolved_path}")
+            raise HTTPException(status_code=500, detail="Failed to decrypt file")
+
+        import mimetypes
+        mime_type, _ = mimetypes.guess_type(str(resolved_path))
+        if not mime_type:
+            mime_type = "image/jpeg"
+        llogger.debug(f"[/local] Serving decrypted file ({mime_type}): {resolved_path}")
+        return Response(content=decrypted_data, media_type=mime_type)
+
+    llogger.debug(f"[/local] Serving file: {resolved_path}")
+    return FileResponse(str(resolved_path))
+
+
+# Serve thumbnail dynamically with authentication check if locked
+@app.get("/api/v1/photos/{photo_id}/thumbnail")
+async def serve_photo_thumbnail(photo_id: int):
+    from app.db import async_session
+    from app.models import Photo
+    async with async_session() as db:
+        photo = await db.get(Photo, photo_id)
+        
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+        
+    if photo.is_locked:
+        from app.services.locked_service import locked_service
         if not locked_service.is_authenticated:
             raise HTTPException(status_code=403, detail="Locked Folder session not authenticated")
             
-        decrypted_data = await locked_service.decrypt_file_data(decoded_path)
+        file_hash = photo.hash
+        if not file_hash:
+            resolved_path = safe_resolve_read(photo.path)
+            decrypted_data = await locked_service.decrypt_file_data(str(resolved_path))
+            if decrypted_data is None:
+                raise HTTPException(status_code=500, detail="Failed to decrypt file")
+            
+            import io
+            from PIL import Image
+            img = Image.open(io.BytesIO(decrypted_data))
+            img.thumbnail((400, 400))
+            out_bytes = io.BytesIO()
+            img.save(out_bytes, format="WEBP", quality=80)
+            return Response(content=out_bytes.getvalue(), media_type="image/webp")
+            
+        enc_thumb_path = settings.THUMBNAILS_DIR / f"{file_hash}.webp.enc"
+        if enc_thumb_path.exists():
+            decrypted_thumb = await locked_service.decrypt_encrypted_thumbnail(str(enc_thumb_path))
+            if decrypted_thumb:
+                return Response(content=decrypted_thumb, media_type="image/webp")
+                
+        resolved_path = safe_resolve_read(photo.path)
+        decrypted_data = await locked_service.decrypt_file_data(str(resolved_path))
         if decrypted_data is None:
             raise HTTPException(status_code=500, detail="Failed to decrypt file")
-            
-        import mimetypes
-        mime_type, _ = mimetypes.guess_type(decoded_path)
-        if not mime_type:
-            mime_type = "image/jpeg"
-        return Response(content=decrypted_data, media_type=mime_type)
         
-    return FileResponse(decoded_path)
+        import io
+        from PIL import Image
+        img = Image.open(io.BytesIO(decrypted_data))
+        img.thumbnail((400, 400))
+        out_bytes = io.BytesIO()
+        img.save(out_bytes, format="WEBP", quality=80)
+        
+        thumb_data = out_bytes.getvalue()
+        await locked_service.encrypt_and_save_thumbnail(thumb_data, str(enc_thumb_path))
+        
+        return Response(content=thumb_data, media_type="image/webp")
+        
+    else:
+        if photo.url and photo.url.startswith("/thumbnails/"):
+            thumb_name = photo.url.split("/thumbnails/")[-1]
+            thumb_path = settings.THUMBNAILS_DIR / thumb_name
+            if thumb_path.exists():
+                return FileResponse(str(thumb_path))
+                
+        resolved_path = safe_resolve_read(photo.path)
+        if not resolved_path.exists():
+            raise HTTPException(status_code=404, detail="Original photo file not found")
+        return FileResponse(str(resolved_path))
+
 
 # Mount uploads directory to serve static files
 app.mount("/uploads", StaticFiles(directory=str(settings.UPLOAD_DIR)), name="uploads")

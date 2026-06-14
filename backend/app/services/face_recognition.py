@@ -57,34 +57,58 @@ class FaceRecognizer:
             return None
         return feat
 
-    def find_best_match(self, feat, existing_people, embedding_cache):
+    def find_best_match(self, feat, existing_people, embedding_cache, top_k=5):
         """
-        Find the best matching person for a face embedding.
+        Find the best matching person for a face embedding using a two-stage approach:
+        Stage A (Fast Shortlist): Vectorized cosine similarity using numpy dot products.
+        Stage B (Accurate Scoring): Exact comparison using the SDK on the top-K shortlist.
 
         Args:
             feat: Face embedding numpy array
             existing_people: List of Person objects
             embedding_cache: Dict of person_id -> embedding array
+            top_k: Number of candidate matches to shortlist in Stage A
 
         Returns:
             tuple: (best_match_person, best_score) or (None, -1.0)
         """
+        if not existing_people or not embedding_cache:
+            return None, -1.0
+
+        # Stage A: Vectorized Cosine Similarity Shortlist
+        person_ids = []
+        embeddings_list = []
+        for person in existing_people:
+            if person.id in embedding_cache:
+                person_ids.append(person.id)
+                embeddings_list.append(embedding_cache[person.id])
+
+        if not embeddings_list:
+            return None, -1.0
+
+        # Stack into matrix of shape (N, 512) and compute dot products (cosine similarity since normalized)
+        matrix = np.vstack(embeddings_list)
+        scores = np.dot(matrix, feat)
+
+        # Get indices of top_k highest scores
+        top_indices = np.argsort(scores)[::-1][:top_k]
+
+        # Stage B: Accurate Scoring on Shortlist only
         best_match_person = None
         best_score = -1.0
+        person_map = {p.id: p for p in existing_people}
 
-        for person in existing_people:
-            if person.id not in embedding_cache:
+        for idx in top_indices:
+            pid = person_ids[idx]
+            person = person_map.get(pid)
+            if not person:
                 continue
             try:
-                ref_embedding = embedding_cache[person.id]
+                ref_embedding = embedding_cache[pid]
                 score = self._face_sdk.compare_features(feat, ref_embedding)
                 if score > best_score:
                     best_score = score
                     best_match_person = person
-
-                    # Early exit on high-confidence match
-                    if best_score > settings.FACE_EARLY_EXIT_SCORE:
-                        break
             except Exception:
                 continue
 
@@ -94,19 +118,45 @@ class FaceRecognizer:
         """Check if a similarity score exceeds the match threshold."""
         return best_score > settings.FACE_MATCH_THRESHOLD
 
-    def update_running_average(self, current_emb, new_emb, n_current):
+    def compute_face_weight(self, confidence: float, face_box_json: str) -> float:
         """
-        Update running average (centroid) face embedding.
+        Compute quality weight of a face based on detection confidence and bounding box area.
+
+        Args:
+            confidence: Face detection confidence score (0.0 to 1.0)
+            face_box_json: JSON string of face bounding box coordinates
+
+        Returns:
+            float: Quality weight
+        """
+        weight = confidence
+        if face_box_json:
+            try:
+                box = json.loads(face_box_json)
+                w = box.get("w", 0)
+                h = box.get("h", 0)
+                area = w * h
+                # Base scale: 100x100 face (10000 px area) gets size multiplier 1.0
+                size_mult = min(2.0, max(0.5, area / 10000.0))
+                weight *= size_mult
+            except Exception:
+                pass
+        return weight
+
+    def update_running_average(self, current_emb, new_emb, cumulative_weight, new_weight):
+        """
+        Update running average (centroid) face embedding using quality weights.
 
         Args:
             current_emb: Current average embedding
             new_emb: New embedding to incorporate
-            n_current: Current count of faces for this person
+            cumulative_weight: Combined quality weight of existing face mappings
+            new_weight: Quality weight of the new face mapping
 
         Returns:
             numpy array: Updated average embedding (normalized)
         """
-        new_avg = (n_current * current_emb + new_emb) / (n_current + 1)
+        new_avg = (cumulative_weight * current_emb + new_weight * new_emb) / (cumulative_weight + new_weight)
         # Re-normalize to unit sphere
         new_avg = new_avg / (np.linalg.norm(new_avg) + 1e-10)
         return new_avg

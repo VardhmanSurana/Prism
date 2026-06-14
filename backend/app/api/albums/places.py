@@ -46,6 +46,8 @@ async def get_place_photos(
     city: str | None = None,
     state: str | None = None,
     country: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
     from app.services.sync_service import sync_service
@@ -63,7 +65,7 @@ async def get_place_photos(
         q = q.where(Photo.state == state)
     if country:
         q = q.where(Photo.country == country)
-    result = await db.execute(q.order_by(Photo.date_taken.desc()))
+    result = await db.execute(q.order_by(Photo.date_taken.desc()).limit(limit).offset(offset))
     photos = result.scalars().all()
     return [photo_to_dict(p) for p in photos]
 

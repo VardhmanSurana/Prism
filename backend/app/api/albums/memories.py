@@ -51,7 +51,13 @@ async def list_memories(db: AsyncSession = Depends(get_db)):
     return memories
 
 @router.get("/photos")
-async def get_memory_photos(year: str, month: str, db: AsyncSession = Depends(get_db)):
+async def get_memory_photos(
+    year: str,
+    month: str,
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+):
     active_mounts = list(sync_service.active_mounts)
     result = await db.execute(
         select(Photo)
@@ -64,6 +70,8 @@ async def get_memory_photos(year: str, month: str, db: AsyncSession = Depends(ge
         .where(func.strftime("%Y", Photo.date_taken) == year)
         .where(func.strftime("%m", Photo.date_taken) == month)
         .order_by(Photo.date_taken.desc())
+        .limit(limit)
+        .offset(offset)
     )
     photos = result.scalars().all()
     return [photo_to_dict(p) for p in photos]

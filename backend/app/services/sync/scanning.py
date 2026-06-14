@@ -32,26 +32,23 @@ class ScanningMixin:
         self.total_files = 0
         self.processed_files = 0
 
-        paths_to_scan = [Path.home() / "Pictures", Path.home()]
-        if os.name == 'posix':
-            media_path = "/media" if os.path.exists("/media") else "/Volumes"
-            if os.path.exists(media_path):
-                paths_to_scan.append(Path(media_path))
+        # Load watched folders from settings.json
+        from app.api.settings.helpers import _read_settings
+        config = _read_settings()
+        watched = config.get("watched_folders")
+        if watched is None:
+            # Default only to Pictures directory
+            watched = [str(Path.home() / "Pictures")]
+            
+        paths_to_scan = [Path(w) for w in watched if os.path.exists(w)]
 
         for p in paths_to_scan:
             if p.exists():
                 self.total_files += await self._count_files(p)
 
-        pictures_path = Path.home() / "Pictures"
-        if pictures_path.exists():
-            await self.scan_path(pictures_path)
-
-        await self.scan_path(Path.home(), skip_paths=[pictures_path])
-
-        if os.name == 'posix':
-            media_path = "/media" if os.path.exists("/media") else "/Volumes"
-            if os.path.exists(media_path):
-                await self.scan_path(Path(media_path))
+        for p in paths_to_scan:
+            if p.exists():
+                await self.scan_path(p)
 
         await self.cleanup_missing_files()
         self.is_scanning = False

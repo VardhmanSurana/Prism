@@ -13,6 +13,7 @@ import {
   HardDrive,
   Sparkles,
   Users,
+  Bot,
 } from 'lucide-react';
 import { ViewMode } from '../types';
 import { useStats } from '../hooks/useStats';
@@ -29,6 +30,7 @@ const MAIN_NAV: NavItemData[] = [
   { view: 'gallery', icon: ImageIcon, label: 'Gallery' },
   { view: 'explore', icon: Compass, label: 'Explore' },
   { view: 'map', icon: MapIcon, label: 'Map' },
+  { view: 'agent', icon: Bot, label: 'Prism AI' },
 ];
 
 const LIBRARY_NAV: NavItemData[] = [
