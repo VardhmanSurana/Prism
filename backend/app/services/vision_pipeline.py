@@ -123,11 +123,48 @@ _florence_processor = None
 _siglip_model = None
 _siglip_processor = None
 
+import time
+
+def unload_models():
+    """Unloads Florence-2 and SigLIP2 models from memory/GPU."""
+    global _florence_model, _florence_processor, _siglip_model, _siglip_processor
+    logger.info("Unloading Florence-2 and SigLIP2 models from memory...")
+    _florence_model = None
+    _florence_processor = None
+    _siglip_model = None
+    _siglip_processor = None
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+    logger.info("Models successfully unloaded.")
+
+
 def _get_florence():
     global _florence_model, _florence_processor
+    if not settings.ENABLE_AI_CLIP:
+        raise RuntimeError("AI CLIP feature is disabled in config. Enable it to run vision analysis.")
+        
     if _florence_model is None:
         from transformers import AutoProcessor, AutoModelForCausalLM
+        start_time = time.time()
+        
+        # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
+        try:
+            from app.agent.service import PrismAgent
+            from app.services.face_sdk import face_sdk
+            from app.services.image_summary.llm import VisionManager
+            PrismAgent.unload_llm()
+            face_sdk.shutdown()
+            VisionManager.unload_vision()
+        except ImportError:
+            pass
+
         logger.info(f"Loading Florence-2 Model ({FLORENCE_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
+        
+        if torch.cuda.is_available():
+            vram_before = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+            logger.info(f"VRAM Allocated before loading Florence-2: {vram_before:.2f} MB")
+            
         _florence_processor = AutoProcessor.from_pretrained(
             FLORENCE_MODEL_ID, 
             trust_remote_code=True, 
@@ -140,14 +177,44 @@ def _get_florence():
             dtype=DTYPE
         ).to(DEVICE)
         _florence_model.eval()
-        logger.info("Florence-2 Model loaded successfully.")
+        
+        load_time = time.time() - start_time
+        logger.info(f"Florence-2 Model loaded successfully in {load_time:.2f} seconds.")
+        
+        if torch.cuda.is_available():
+            vram_after = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+            vram_used = vram_after - vram_before
+            logger.info(f"VRAM Allocated after loading Florence-2: {vram_after:.2f} MB (Used: {vram_used:.2f} MB)")
+            
     return _florence_model, _florence_processor
+
 
 def _get_siglip():
     global _siglip_model, _siglip_processor
+    if not settings.ENABLE_AI_CLIP:
+        raise RuntimeError("AI CLIP feature is disabled in config. Enable it to run vector search.")
+        
     if _siglip_model is None:
         from transformers import AutoProcessor, AutoModel
+        start_time = time.time()
+
+        # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
+        try:
+            from app.agent.service import PrismAgent
+            from app.services.face_sdk import face_sdk
+            from app.services.image_summary.llm import VisionManager
+            PrismAgent.unload_llm()
+            face_sdk.shutdown()
+            VisionManager.unload_vision()
+        except ImportError:
+            pass
+
         logger.info(f"Loading SigLIP2 Model ({SIGLIP_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
+        
+        if torch.cuda.is_available():
+            vram_before = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+            logger.info(f"VRAM Allocated before loading SigLIP2: {vram_before:.2f} MB")
+            
         _siglip_processor = AutoProcessor.from_pretrained(
             SIGLIP_MODEL_ID, 
             cache_dir=CACHE_DIR
@@ -158,7 +225,15 @@ def _get_siglip():
             dtype=DTYPE
         ).to(DEVICE)
         _siglip_model.eval()
-        logger.info("SigLIP2 Model loaded successfully.")
+        
+        load_time = time.time() - start_time
+        logger.info(f"SigLIP2 Model loaded successfully in {load_time:.2f} seconds.")
+        
+        if torch.cuda.is_available():
+            vram_after = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+            vram_used = vram_after - vram_before
+            logger.info(f"VRAM Allocated after loading SigLIP2: {vram_after:.2f} MB (Used: {vram_used:.2f} MB)")
+            
     return _siglip_model, _siglip_processor
 
 STOP_WORDS = {

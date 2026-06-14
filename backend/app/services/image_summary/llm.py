@@ -1,99 +1,135 @@
-"""Ollama vision client for image summarization.
+"""Local GGUF vision client for image summarization using Gemma 4 E2B."""
 
-Sends actual image data to Ollama vision models 
-for pixel-level analysis while preserving metadata extraction.
-"""
-
-import base64
 import logging
+import threading
 from pathlib import Path
+from llama_cpp import Llama
+from llama_cpp.llama_chat_format import Gemma4ChatHandler
 
-import httpx
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Default Ollama endpoint - can be overridden via config
-OLLAMA_BASE_URL = getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL = getattr(settings, "OLLAMA_VISION_MODEL", "moondream:latest").strip()
-OLLAMA_TIMEOUT = getattr(settings, "OLLAMA_TIMEOUT", 120)
+class VisionManager:
+    _llm = None
+    _lock = threading.Lock()
+    _model_path = Path(settings.BASE_DIR) / "models" / "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
+    _mmproj_path = Path(settings.BASE_DIR) / "models" / "mmproj-BF16.gguf"
 
+    @classmethod
+    def get_llm(cls) -> Llama:
+        """Lazily initialize the vision model with mutual exclusion."""
+        if cls._llm is not None:
+            return cls._llm
+            
+        with cls._lock:
+            if cls._llm is not None:
+                return cls._llm
+                
+            # Mutual Exclusion: Unload other models before loading Vision LLM
+            try:
+                from app.agent.service import PrismAgent
+                from app.services.vision_pipeline import unload_models
+                from app.services.face_sdk import face_sdk
+                PrismAgent.unload_llm()
+                unload_models()
+                face_sdk.shutdown()
+            except ImportError:
+                pass
+
+            if not cls._model_path.exists():
+                logger.error(f"Vision model not found at {cls._model_path}")
+                raise FileNotFoundError(f"Model file not found: {cls._model_path}")
+            
+            if not cls._mmproj_path.exists():
+                logger.error(f"Vision projector not found at {cls._mmproj_path}")
+                raise FileNotFoundError(f"Projector file not found: {cls._mmproj_path}")
+                
+            try:
+                logger.info(f"Loading Gemma 4 E2B Vision model: {cls._model_path}")
+
+                # Gemma 4 uses Gemma4ChatHandler which requires the mmproj (clip) path
+                chat_handler = Gemma4ChatHandler(clip_model_path=str(cls._mmproj_path))
+
+                cls._llm = Llama(
+                    model_path=str(cls._model_path),
+                    chat_handler=chat_handler,
+                    n_ctx=2048,
+                    n_threads=4,
+                    n_gpu_layers=-1, # Force to GPU
+                    flash_attn=True,
+                    verbose=False
+                )
+                logger.info("Vision model loaded successfully on GPU.")
+                return cls._llm
+
+            except Exception as e:
+                logger.error(f"Failed to load Vision model on GPU: {e}")
+                # Fallback to CPU if GPU fails
+                try:
+                    cls._llm = Llama(
+                        model_path=str(cls._model_path),
+                        chat_handler=chat_handler,
+                        n_ctx=2048,
+                        n_threads=4,
+                        n_gpu_layers=0,
+                        verbose=False
+                    )
+                    logger.info("Vision model loaded in CPU fallback mode.")
+                    return cls._llm
+                except Exception as ex:
+                    logger.critical(f"Critical failure loading Vision model: {ex}")
+                    raise ex
+
+    @classmethod
+    def unload_vision(cls):
+        """Release Vision VRAM."""
+        with cls._lock:
+            if cls._llm is not None:
+                logger.info("Unloading Vision LLM from VRAM...")
+                cls._llm = None
+                import gc
+                gc.collect()
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
 async def generate_ollama_summary(image_path: str) -> str:
     """
-    Generate image summary using Ollama vision model with actual image data.
-    Only the raw image pixels are sent — no metadata, EXIF, or location context
-    is injected into the prompt so the model analyses what it visually sees.
-
-    Args:
-        image_path: Absolute path to the image file
-
-    Returns:
-        Generated summary string describing the image content
+    Generate image summary using local Gemma 4 E2B vision model.
+    (Kept same function name for minimal disruption to service.py)
     """
-    image_path_obj = Path(image_path)
-    if not image_path_obj.exists():
-        raise FileNotFoundError(f"Image not found: {image_path}")
-
-    # Read and encode image as base64
     try:
-        with open(image_path, "rb") as f:
-            image_bytes = f.read()
-        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
-    except Exception as e:
-        logger.error(f"Failed to read/encode image {image_path}: {e}")
-        raise RuntimeError(f"Failed to encode image: {e}")
-
-    # Pure visual prompt — robust against self-referential UI screenshot text
-    prompt = "Describe what is shown in this image."
-    
-    # Call Ollama API with vision
-    try:
-        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
-            response = await client.post(
-                f"{OLLAMA_BASE_URL}/api/generate",
-                json={
-                    "model": OLLAMA_MODEL,
-                    "prompt": prompt,
-                    "images": [image_b64],
-                    "stream": False,
-                    "options": {
-                        "temperature": 0.2,
-                        "num_predict": 150,
-                    }
-                }
-            )
-            response.raise_for_status()
-            data = response.json()
-            
-            summary = data.get("response", "").strip()
-            # Clean up known hallucinated/nonsense outputs from smaller vision models
-            if not summary or summary.lower() in ("urn", "unknown", "error", "null", "none"):
-                logger.warning(f"Ollama returned empty or invalid summary for {image_path}: {summary}")
-                return "Could not generate description from image."
-            
-            logger.info(f"Generated Ollama summary for {image_path}: {summary[:100]}...")
-            return summary
-            
-    except httpx.ConnectError as e:
-        logger.error(f"Cannot connect to Ollama at {OLLAMA_BASE_URL}: {e}")
-        raise RuntimeError(
-            f"Ollama not available at {OLLAMA_BASE_URL}. "
-            "Please ensure Ollama is running and the vision model is pulled."
+        llm = VisionManager.get_llm()
+        
+        # In llama-cpp-python vision, we pass the path in a specific chat message format
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe this image in a single concise sentence focusing on the main subjects and setting."},
+                    {"type": "image_url", "image_url": {"url": f"file://{image_path}"}}
+                ]
+            }
+        ]
+        
+        # Note: llama-cpp-python handles the image loading/processing via the chat_handler
+        response = llm.create_chat_completion(
+            messages=messages,
+            max_tokens=150,
+            temperature=1.0, # Recommended for Gemma 4
+            top_p=0.95,      # Recommended for Gemma 4
+            top_k=64         # Recommended for Gemma 4
         )
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Ollama API error: {e.response.status_code} - {e.response.text}")
-        raise RuntimeError(f"Ollama API error: {e.response.text}")
-    except Exception as e:
-        logger.error(f"Unexpected error calling Ollama: {e}")
-        raise RuntimeError(f"Failed to generate summary: {e}")
+        
+        summary = response["choices"][0]["message"]["content"].strip()
+        logger.info(f"Generated GGUF summary for {image_path}: {summary[:100]}...")
+        return summary
 
+    except Exception as e:
+        logger.error(f"Local vision generation failed: {e}")
+        raise RuntimeError(f"Vision model error: {e}")
 
 def check_ollama_available() -> bool:
-    """Check if Ollama server is reachable."""
-    try:
-        import httpx
-        response = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5)
-        return response.status_code == 200
-    except Exception:
-        return False
+    """Check if local vision model file is available."""
+    return VisionManager._model_path.exists()

@@ -18,6 +18,17 @@ class FaceSDK:
     def _ensure_launched(self):
         """Lazy launch InspireFace SDK and create session on first request."""
         if not self._launched:
+            # Mutual Exclusion: Unload other models before starting Face SDK
+            try:
+                from app.agent.service import PrismAgent
+                from app.services.vision_pipeline import unload_models
+                from app.services.image_summary.llm import VisionManager
+                PrismAgent.unload_llm()
+                unload_models()
+                VisionManager.unload_vision()
+            except ImportError:
+                pass
+
             if not isf.query_launch_status():
                 # Launch using locally saved Pikachu model pack file dynamically resolved relative to this file
                 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

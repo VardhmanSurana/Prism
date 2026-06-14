@@ -26,15 +26,23 @@ else
       cd "$ROOT/backend"
 
       VENV_LIBS="$ROOT/backend/.venv/lib/python3.11/site-packages/nvidia"
+      SYSTEM_CUDA="/usr/local/cuda/lib64"
+      
+      NEW_LD_PATH=""
       if [ -d "$VENV_LIBS" ]; then
-        export LD_LIBRARY_PATH=\
-"$VENV_LIBS/cublas/lib:\
-$VENV_LIBS/cudnn/lib:\
-$VENV_LIBS/cuda_runtime/lib:\
-$VENV_LIBS/cufft/lib:\
-$VENV_LIBS/cusolver/lib:\
-$VENV_LIBS/cusparse/lib:\
-${LD_LIBRARY_PATH:-}"
+        NEW_LD_PATH="$VENV_LIBS/cublas/lib:$VENV_LIBS/cudnn/lib:$VENV_LIBS/cuda_runtime/lib:$VENV_LIBS/cufft/lib:$VENV_LIBS/cusolver/lib:$VENV_LIBS/cusparse/lib"
+      fi
+      
+      if [ -d "$SYSTEM_CUDA" ]; then
+        if [ -n "$NEW_LD_PATH" ]; then
+          NEW_LD_PATH="$NEW_LD_PATH:$SYSTEM_CUDA"
+        else
+          NEW_LD_PATH="$SYSTEM_CUDA"
+        fi
+      fi
+
+      if [ -n "$NEW_LD_PATH" ]; then
+        export LD_LIBRARY_PATH="$NEW_LD_PATH:${LD_LIBRARY_PATH:-}"
       fi
 
       export PYTHONUNBUFFERED=1
