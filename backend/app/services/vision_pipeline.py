@@ -296,14 +296,14 @@ def extract_features_and_tags(image_path: str) -> dict:
         detailed_caption = "Photo"
         try:
             # Reusing the summary function for the detailed caption
-            detailed_caption = asyncio.run(generate_ollama_summary(image_path))
+            detailed_caption = generate_ollama_summary(image_path)
         except Exception as e:
             logger.warning(f"Gemma captioning failed: {e}")
 
         tags = []
         try:
             # Using the new JSON tagging method
-            tags = asyncio.run(generate_tags_json(image_path))
+            tags = generate_tags_json(image_path)
         except Exception as e:
             logger.warning(f"Gemma tagging failed: {e}")
 

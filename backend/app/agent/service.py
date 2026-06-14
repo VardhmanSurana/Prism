@@ -6,8 +6,7 @@ from app.agent.search_tools import SearchTools
 
 
 class PrismAgent:
-    _llm = LlamaManager._llm
-    _lock = LlamaManager._lock
+    _llm = None
 
     def __init__(
         self,
@@ -32,7 +31,7 @@ class PrismAgent:
     def unload_llm(cls):
         """Releases the LLM from GPU VRAM."""
         LlamaManager.unload_llm()
-        cls._llm = LlamaManager._llm
+        cls._llm = None
 
     def heuristic_fallback(self, message: str) -> dict:
         return self.planner.heuristic_fallback(message)
