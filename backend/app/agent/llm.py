@@ -49,9 +49,11 @@ class LlamaManager:
                     flash_attn=True,
                     n_gpu_layers=-1,
                     use_mmap=True,
+                    type_k=8, # 8-bit KV Cache (GGML_TYPE_Q8_0)
+                    type_v=8, # 8-bit KV Cache (GGML_TYPE_Q8_0)
                     verbose=False,
                 )
-                logger.info("Successfully loaded model with GPU acceleration and Flash Attention.")
+                logger.info("Successfully loaded model with GPU acceleration, Flash Attention, and 8-bit KV Cache.")
             except Exception as e:
                 logger.warning(f"Failed to load model with GPU/FlashAttn ({e}). Trying GPU without Flash Attention...")
                 try:
@@ -62,9 +64,11 @@ class LlamaManager:
                         flash_attn=False,
                         n_gpu_layers=-1,
                         use_mmap=True,
+                        type_k=8, # 8-bit KV Cache
+                        type_v=8, # 8-bit KV Cache
                         verbose=False,
                     )
-                    logger.info("Successfully loaded model with GPU acceleration (Flash Attention disabled).")
+                    logger.info("Successfully loaded model with GPU acceleration (Flash Attention disabled, 8-bit KV Cache).")
                 except Exception as e2:
                     logger.warning(f"Failed to load model with GPU offloading ({e2}). Falling back to CPU mode.")
                     try:

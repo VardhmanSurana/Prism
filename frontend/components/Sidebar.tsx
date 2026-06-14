@@ -64,14 +64,16 @@ interface NavItemProps {
   view: ViewMode;
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
+  onMouseEnter?: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView, onChangeView }) => {
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView, onChangeView, onMouseEnter }) => {
   const isActive = currentView === view;
 
   return (
     <button
       onClick={() => onChangeView(view)}
+      onMouseEnter={onMouseEnter}
       className={`w-full flex items-center gap-4 px-6 py-3.5 text-sm transition-all duration-300 relative group
         ${isActive ? 'text-white' : 'text-gray-500 hover:text-white'}`}
     >
@@ -106,6 +108,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
   const totalBytes = stats?.total_size_bytes ?? 0;
   const usedLabel = formatBytes(totalBytes);
 
+  const handlePreloadAgent = async () => {
+    try {
+      await fetch('/api/v1/agent/preload', { method: 'POST' });
+    } catch (e) {
+      console.warn('Silent preload failed:', e);
+    }
+  };
+
   return (
     <aside className="w-64 h-screen bg-surface/50 backdrop-blur-3xl border-r border-white-[0.03] flex flex-col shrink-0 z-30">
       <div className="h-20 flex items-center px-8 gap-3">
@@ -117,7 +127,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
 
       <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
         {MAIN_NAV.map(item => (
-          <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
+          <NavItem 
+            key={item.view} 
+            {...item} 
+            currentView={currentView} 
+            onChangeView={onChangeView} 
+            onMouseEnter={item.view === 'agent' ? handlePreloadAgent : undefined}
+          />
         ))}
 
         <SectionHeader label="Library" />

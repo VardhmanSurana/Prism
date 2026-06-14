@@ -1,5 +1,6 @@
 """Local GGUF vision client for image summarization using Gemma 4 E2B."""
 
+import json
 import logging
 import threading
 from pathlib import Path
@@ -58,6 +59,8 @@ class VisionManager:
                     n_threads=4,
                     n_gpu_layers=-1, # Force to GPU
                     flash_attn=True,
+                    type_k=8, # 8-bit KV Cache (GGML_TYPE_Q8_0)
+                    type_v=8, # 8-bit KV Cache (GGML_TYPE_Q8_0)
                     verbose=False
                 )
                 logger.info("Vision model loaded successfully on GPU.")
@@ -129,6 +132,46 @@ async def generate_ollama_summary(image_path: str) -> str:
     except Exception as e:
         logger.error(f"Local vision generation failed: {e}")
         raise RuntimeError(f"Vision model error: {e}")
+
+async def generate_tags_json(image_path: str) -> list[str]:
+    """
+    Extract descriptive tags using Gemma 4 E2B in structured JSON format.
+    """
+    try:
+        llm = VisionManager.get_llm()
+        
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Extract 15 descriptive tags for this image as a JSON list of strings. Key: \"tags\". Return ONLY the JSON object."},
+                    {"type": "image_url", "image_url": {"url": f"file://{image_path}"}}
+                ]
+            }
+        ]
+        
+        response = llm.create_chat_completion(
+            messages=messages,
+            temperature=0.1, # Low temperature for structured output
+            response_format={"type": "json_object"}
+        )
+        
+        content = response["choices"][0]["message"]["content"].strip()
+        
+        # Clean markdown if model ignored the "ONLY JSON" instruction
+        if "```json" in content:
+            content = content.split("```json")[1].split("```")[0].strip()
+        elif "```" in content:
+            content = content.split("```")[1].split("```")[0].strip()
+            
+        data = json.loads(content)
+        tags = data.get("tags", [])
+        logger.info(f"Extracted {len(tags)} tags via GGUF for {image_path}")
+        return tags
+
+    except Exception as e:
+        logger.error(f"Local tag extraction failed: {e}")
+        return []
 
 def check_ollama_available() -> bool:
     """Check if local vision model file is available."""

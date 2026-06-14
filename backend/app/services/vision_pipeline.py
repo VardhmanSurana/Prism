@@ -1,3 +1,4 @@
+import asyncio
 import os
 import gc
 import json
@@ -288,8 +289,25 @@ def extract_features_and_tags(image_path: str) -> dict:
         raise RuntimeError(f"Could not load image: {e}")
 
     try:
-        # Load models
-        florence_model, florence_processor = _get_florence()
+        # ── Part 1: Gemma 4 E2B Vision (Captioning & Structured Tagging) ──
+        from app.services.image_summary.llm import generate_ollama_summary, generate_tags_json
+        
+        # We run these sequentially to ensure same model stays in VRAM
+        detailed_caption = "Photo"
+        try:
+            # Reusing the summary function for the detailed caption
+            detailed_caption = asyncio.run(generate_ollama_summary(image_path))
+        except Exception as e:
+            logger.warning(f"Gemma captioning failed: {e}")
+
+        tags = []
+        try:
+            # Using the new JSON tagging method
+            tags = asyncio.run(generate_tags_json(image_path))
+        except Exception as e:
+            logger.warning(f"Gemma tagging failed: {e}")
+
+        # ── Part 2: SigLIP 2 Embedding Generation ───────────────────
         siglip_model, siglip_processor = _get_siglip()
 
         def prepare_inputs(inputs_dict):
@@ -298,59 +316,6 @@ def extract_features_and_tags(image_path: str) -> dict:
                 for k, v in inputs_dict.items()
             }
 
-        # Florence-2 works best with a square image to avoid assertion errors in DaViT visual encoder
-        image_florence = image.resize((768, 768), Image.Resampling.LANCZOS)
-
-        # ── Part 1: Florence-2 Captioning & Tagging ─────────────────
-        # Detailed Caption
-        caption_prompt = "<DETAILED_CAPTION>"
-        inputs_caption = florence_processor(text=caption_prompt, images=image_florence, return_tensors="pt")
-        inputs_caption = prepare_inputs(inputs_caption)
-        
-        with torch.no_grad():
-            generated_ids = florence_model.generate(
-                input_ids=inputs_caption["input_ids"],
-                pixel_values=inputs_caption["pixel_values"],
-                max_new_tokens=256,
-                num_beams=3,
-                use_cache=False
-            )
-        
-        decoded_caption = florence_processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
-        parsed_caption = florence_processor.post_process_generation(
-            decoded_caption, 
-            task=caption_prompt, 
-            image_size=(image.width, image.height)
-        )
-        detailed_caption = parsed_caption.get(caption_prompt, "Photo").strip()
-
-        # Object Detection (OD) for tag generation
-        od_prompt = "<OD>"
-        inputs_od = florence_processor(text=od_prompt, images=image_florence, return_tensors="pt")
-        inputs_od = prepare_inputs(inputs_od)
-        
-        with torch.no_grad():
-            generated_ids_od = florence_model.generate(
-                input_ids=inputs_od["input_ids"],
-                pixel_values=inputs_od["pixel_values"],
-                max_new_tokens=256,
-                num_beams=3,
-                use_cache=False
-            )
-        
-        decoded_od = florence_processor.batch_decode(generated_ids_od, skip_special_tokens=False)[0]
-        parsed_od = florence_processor.post_process_generation(
-            decoded_od, 
-            task=od_prompt, 
-            image_size=(image.width, image.height)
-        )
-        od_result = parsed_od.get(od_prompt, {})
-        labels = od_result.get("labels", [])
-        
-        # Clean and compile final tags
-        tags = clean_tags(labels, detailed_caption)
-
-        # ── Part 2: SigLIP 2 Embedding Generation ───────────────────
         inputs_siglip = siglip_processor(images=image, return_tensors="pt")
         inputs_siglip = prepare_inputs(inputs_siglip)
         
