@@ -186,3 +186,126 @@ async def test_chat_stream_progress_and_combination(db_session):
     assert result["text"] == "Here is the dog photo."
     assert len(result["photos"]) == 1
     assert result["photos"][0]["id"] == 100
+
+
+def test_rerank_and_explain():
+    planner = MagicMock()
+    search_tools = MagicMock()
+    # Mock query embedding client
+    emb_client = MagicMock()
+    emb_client.get_query_embedding.return_value = [0.1] * 128
+    search_tools.embedding_client = emb_client
+    
+    orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
+    
+    # 1. Setup mock photos
+    photo1 = Photo(id=1, filename="sunset.jpg", caption="a beautiful sunset over goa", city="Goa", is_favorite=True, date_taken=None, embedding=None)
+    photo2 = Photo(id=2, filename="sunset2.jpg", caption="a sunset", is_favorite=False, date_taken=None, embedding=None)
+    photo3 = Photo(id=3, filename="cat.jpg", caption="my favorite cat", is_favorite=True, date_taken=None, embedding=None)
+    
+    # Mock people relationship on photo1
+    mock_person = Person(id=10, name="Rahul")
+    mock_photoperson = PhotoPerson(photo_id=1, person_id=10, person=mock_person)
+    photo1.people = [mock_photoperson]
+    photo2.people = []
+    photo3.people = []
+
+    # Mock embedding similarity check on photo2
+    photo2.embedding = json.dumps([0.1] * 128) # exact match
+
+    plan = {
+        "entities": {
+            "people": ["Rahul"],
+            "locations": ["Goa"],
+            "events": [],
+            "objects": ["sunset"]
+        }
+    }
+    
+    ranked = orchestrator.rerank_and_explain("favorite sunset with Rahul in Goa", [photo1, photo2, photo3], plan)
+    
+    # photo1 matches: Goa (+2.0), Rahul (+2.0), sunset in caption (+1.5), favorite (+2.0) -> high score
+    # photo2 matches: sunset in caption (+1.5), AI visual match (cos similarity 12.8 * 10 -> +12.8) -> high score
+    # photo3 matches: favorite (+2.0) -> low score
+    
+    assert len(ranked) == 3
+    assert ranked[0].id in [1, 2]
+    # Check explanations
+    assert hasattr(ranked[0], "search_explanation")
+    exp = ranked[0].search_explanation
+    assert "score" in exp
+    assert "matched" in exp
+    assert isinstance(exp["matched"], list)
+
+
+@pytest.mark.asyncio
+async def test_conversational_memory_refinement(db_session):
+    from datetime import datetime
+    planner = MagicMock()
+    search_tools = MagicMock()
+    
+    # Mock search tools to prevent await MagicMock errors
+    search_tools.search_metadata = AsyncMock(return_value=set())
+    search_tools.search_people = AsyncMock(return_value={20, 40})
+    search_tools.search_captions = AsyncMock(return_value=set())
+    search_tools.semantic_search = AsyncMock(return_value=set())
+    search_tools.search_albums = AsyncMock(return_value=set())
+    search_tools.search_ocr = AsyncMock(return_value=set())
+    
+    orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
+    
+    # Pre-populate session cache
+    session_key = orchestrator._get_session_key([], "show photos of goa")
+    orchestrator.session_cache[session_key] = {10, 20, 30}
+    
+    # Mock next query plan indicating refinement
+    planner.extract_search_parameters.return_value = {
+        "intent": "photo_search",
+        "is_locked": False,
+        "refine_previous": True,
+        "entities": {
+            "people": ["Rahul"]
+        },
+        "constraints": {
+            "must_match": ["people"]
+        },
+        "ranking": {}
+    }
+    
+    # Create Photo with required fields
+    p1 = Photo(
+        id=20, 
+        filename="p20.jpg", 
+        path="/p20.jpg", 
+        is_trash=False, 
+        is_locked=False, 
+        width=1, 
+        height=1, 
+        aspect_ratio=1.0, 
+        upload_date=datetime.utcnow(), 
+        date_taken=datetime.utcnow()
+    )
+    p1.people = []
+    p1.embedding = None
+    
+    mock_db_res = MagicMock()
+    mock_db_res.scalars.return_value.all.return_value = [p1]
+    
+    with patch("app.agent.orchestrator.async_session") as mock_session_ctx:
+        mock_db = AsyncMock()
+        mock_db.execute.return_value = mock_db_res
+        mock_session_ctx.return_value.__aenter__.return_value = mock_db
+        
+        events = []
+        async for event in orchestrator.chat_stream("only the ones with Rahul", history=[{"role": "user", "content": "show photos of goa"}]):
+            events.append(event)
+            
+        # Verify db was queried with the intersected photo ID: 20 (intersection of {10, 20, 30} and {20, 40})
+        called_stmt = mock_db.execute.call_args[0][0]
+        stmt_str = str(called_stmt)
+        assert "photos.id IN" in stmt_str
+        
+        # Verify the session cache was updated with the final returned ID: 20
+        new_session_key = orchestrator._get_session_key([{"role": "user", "content": "show photos of goa"}], "only the ones with Rahul")
+        assert orchestrator.session_cache[new_session_key] == {20}
+

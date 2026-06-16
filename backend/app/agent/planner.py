@@ -45,6 +45,7 @@ class Planner:
         cleaned = {
             "intent": str(data.get("intent", "photo_search")),
             "is_locked": False,
+            "refine_previous": False,
             "entities": {},
             "constraints": {},
             "ranking": {}
@@ -56,6 +57,13 @@ class Planner:
                 cleaned["is_locked"] = locked.lower() in ("true", "1", "yes")
             else:
                 cleaned["is_locked"] = bool(locked)
+                
+        refine = data.get("refine_previous")
+        if refine is not None:
+            if isinstance(refine, str):
+                cleaned["refine_previous"] = refine.lower() in ("true", "1", "yes")
+            else:
+                cleaned["refine_previous"] = bool(refine)
                 
         raw_entities = data.get("entities") or {}
         if not isinstance(raw_entities, dict):
@@ -138,6 +146,8 @@ class Planner:
 
         is_favorite = "favorite" in msg_lower or "starred" in msg_lower or "loved" in msg_lower
         is_locked = "locked" in msg_lower or "encrypted" in msg_lower or "private" in msg_lower
+        refine_keywords = {"only", "just", "now", "with", "without", "refine", "filter"}
+        refine_previous = any(w in refine_keywords for w in words)
 
         year = None
         for w in words:
@@ -149,6 +159,7 @@ class Planner:
         return {
             "intent": "photo_search",
             "is_locked": is_locked,
+            "refine_previous": refine_previous,
             "entities": {
                 "people": [],
                 "locations": [search_terms[0]] if search_terms else [],
@@ -194,6 +205,7 @@ class Planner:
                 "{\n"
                 "  \"intent\": \"photo_search\",\n"
                 "  \"is_locked\": boolean,\n"
+                "  \"refine_previous\": boolean (true if this request is a refinement/filter on the previous search results like 'only those with Rahul' or 'now show sunset shots'),\n"
                 "  \"entities\": {\n"
                 "    \"people\": [string] (names of people to search),\n"
                 "    \"locations\": [string] (places, cities, countries),\n"
@@ -215,6 +227,7 @@ class Planner:
                 "Response: {\n"
                 "  \"intent\": \"photo_search\",\n"
                 "  \"is_locked\": false,\n"
+                "  \"refine_previous\": false,\n"
                 "  \"entities\": {\n"
                 "    \"people\": [\"family\"],\n"
                 "    \"locations\": [\"Goa\"],\n"
@@ -235,6 +248,7 @@ class Planner:
                 "Response: {\n"
                 "  \"intent\": \"photo_search\",\n"
                 "  \"is_locked\": true,\n"
+                "  \"refine_previous\": false,\n"
                 "  \"entities\": {\n"
                 "    \"people\": [],\n"
                 "    \"locations\": [],\n"
@@ -249,6 +263,27 @@ class Planner:
                 "  \"ranking\": {\n"
                 "    \"prefer_favorites\": false,\n"
                 "    \"prefer_recent\": false\n"
+                "  }\n"
+                "}\n\n"
+                "User: Only the ones with Rahul\n"
+                "Response: {\n"
+                "  \"intent\": \"photo_search\",\n"
+                "  \"is_locked\": false,\n"
+                "  \"refine_previous\": true,\n"
+                "  \"entities\": {\n"
+                "    \"people\": [\"Rahul\"],\n"
+                "    \"locations\": [],\n"
+                "    \"events\": [],\n"
+                "    \"objects\": [],\n"
+                "    \"time_range\": null\n"
+                "  },\n"
+                "  \"constraints\": {\n"
+                "    \"must_match\": [\"people\"],\n"
+                "    \"soft_match\": []\n"
+                "  },\n"
+                "  \"ranking\": {\n"
+                "    \"prefer_favorites\": false,\n"
+                "    \"prefer_recent\": true\n"
                 "  }\n"
                 "}\n\n"
                 "You must output ONLY a valid raw JSON object. Do not include markdown code block formatting (like ```json), explanations, or trailing text.\n\n"
@@ -353,6 +388,7 @@ class Planner:
                 "{\n"
                 "  \"intent\": \"photo_search\",\n"
                 "  \"is_locked\": boolean,\n"
+                "  \"refine_previous\": boolean,\n"
                 "  \"entities\": {\n"
                 "    \"people\": [string],\n"
                 "    \"locations\": [string],\n"

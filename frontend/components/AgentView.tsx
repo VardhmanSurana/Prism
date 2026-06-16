@@ -277,12 +277,22 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
                       alt={photo.filename} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-end">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-end">
                       <span className="text-xs font-bold text-white truncate">{photo.filename}</span>
                       {photo.date && (
-                        <span className="text-[10px] text-gray-300 mt-1 font-medium">
+                        <span className="text-[10px] text-gray-300 mt-0.5 font-medium">
                           {new Date(photo.date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
                         </span>
+                      )}
+                      {photo.search_explanation && photo.search_explanation.matched.length > 0 && (
+                        <div className="mt-1.5 flex flex-col gap-0.5 border-t border-white/10 pt-1.5 text-[9px] text-gray-300">
+                          {photo.search_explanation.matched.slice(0, 3).map((reason, rIdx) => (
+                            <div key={rIdx} className="flex items-center gap-1 font-semibold">
+                              <span className="text-primary font-bold">✓</span>
+                              <span className="truncate">{reason}</span>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </motion.div>

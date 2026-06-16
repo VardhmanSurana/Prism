@@ -32,6 +32,7 @@ export interface Photo {
   city?: string;
   state?: string;
   country?: string;
+  search_explanation?: { score: number; matched: string[] };
 }
 
 export interface AlbumMetadata {
@@ -106,6 +107,7 @@ export interface RawPhoto {
   city?: string;
   state?: string;
   country?: string;
+  search_explanation?: { score: number; matched: string[] };
 }
 
 function sanitizeDateString(dateStr: string | undefined | null): string {
