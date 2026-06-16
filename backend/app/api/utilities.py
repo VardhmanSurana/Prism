@@ -18,7 +18,10 @@ from typing import List
 from app.db import get_db
 from app.models import Photo
 from app.api.albums.utils import photo_to_dict
-from app.services.sync_service import sync_service
+from app.services.sync_service import sync_service, SUPPORTED_EXTENSIONS
+from app.utils.security import safe_resolve_read, get_allowed_read_roots
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter()
 
@@ -255,3 +258,105 @@ async def restore_backup(file: UploadFile = File(...)):
         return {"status": "success", "message": "Backup successfully restored. Please restart the application."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to restore backup: {e}")
+
+
+class ListDirRequest(BaseModel):
+    path: Optional[str] = None
+    show_hidden: bool = False
+
+@router.post("/list-dir")
+async def list_directory_contents(req: ListDirRequest):
+    path_str = req.path
+    show_hidden = req.show_hidden
+    
+    # If no path is specified, default to user's home directory
+    if not path_str:
+        path_str = str(Path.home())
+        
+    # Check if the path is valid and within allowed boundaries
+    try:
+        resolved_path = safe_resolve_read(path_str)
+    except HTTPException:
+        # If access is denied, instead of throwing an error, we return the allowed roots list
+        roots = get_allowed_read_roots()
+        folders = []
+        for r in roots:
+            if r.exists():
+                name = r.name if r.name else str(r)
+                folders.append({
+                    "name": name,
+                    "path": str(r),
+                    "is_hidden": False
+                })
+        return {
+            "current_path": "",
+            "parent_path": None,
+            "folders": folders,
+            "files": [],
+            "is_root": True
+        }
+        
+    # Ensure it exists and is a directory
+    if not resolved_path.exists():
+        raise HTTPException(status_code=404, detail="Path not found")
+    if not resolved_path.is_dir():
+        raise HTTPException(status_code=400, detail="Path is not a directory")
+        
+    folders = []
+    files = []
+    
+    try:
+        for entry in os.scandir(resolved_path):
+            is_hidden = entry.name.startswith('.')
+            if is_hidden and not show_hidden:
+                continue
+                
+            if entry.is_dir(follow_symlinks=False):
+                folders.append({
+                    "name": entry.name,
+                    "path": entry.path,
+                    "is_hidden": is_hidden
+                })
+            elif entry.is_file(follow_symlinks=False):
+                # Check if the file is a supported image extension
+                is_supported_image = entry.name.lower().endswith(SUPPORTED_EXTENSIONS)
+                files.append({
+                    "name": entry.name,
+                    "path": entry.path,
+                    "is_hidden": is_hidden,
+                    "size_bytes": entry.stat().st_size,
+                    "is_image": is_supported_image
+                })
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied to access directory")
+        
+    # Sort folders and files alphabetically (case-insensitive)
+    folders.sort(key=lambda x: x["name"].lower())
+    files.sort(key=lambda x: x["name"].lower())
+    
+    # Determine the parent path
+    # If the current path is one of the allowed roots, or its parent is not relative to any allowed root, parent_path should go to the roots list ("")
+    parent = resolved_path.parent
+    roots = get_allowed_read_roots()
+    
+    parent_is_safe = False
+    try:
+        safe_resolve_read(parent)
+        parent_is_safe = True
+    except HTTPException:
+        pass
+        
+    parent_path = str(parent) if parent_is_safe else ""
+    
+    # Check if we are at one of the roots
+    is_at_root = any(resolved_path == r for r in roots)
+    if is_at_root:
+        parent_path = ""
+        
+    return {
+        "current_path": str(resolved_path),
+        "parent_path": parent_path if str(resolved_path) != parent_path else None,
+        "folders": folders,
+        "files": files,
+        "is_root": False
+    }

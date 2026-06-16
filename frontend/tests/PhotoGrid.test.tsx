@@ -49,9 +49,9 @@ vi.mock('../components/PhotoGrid/hooks/usePhotoGrid', () => ({
 
 vi.mock('../components/PhotoGrid/hooks/useTimeline', () => ({
   useTimeline: () => ({
-    timelineItems: [],
+    timelineItems: [] as any[],
     scrollState: { progress: 0, height: 0 },
-    activeId: null,
+    activeId: null as any,
   }),
 }));
 
@@ -79,7 +79,7 @@ describe('PhotoGrid Component', () => {
     selectedIds: new Set<string>(),
     onToggleSelection: vi.fn(),
     onToggleGroupSelection: vi.fn(),
-    scrollParentRef: { current: null },
+    scrollParentRef: { current: null } as any,
     onSearch: vi.fn(),
     onUpload: vi.fn(),
     onImportProgress: vi.fn(),

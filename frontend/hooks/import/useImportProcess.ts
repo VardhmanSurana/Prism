@@ -14,7 +14,7 @@ interface UseImportProcessProps {
 }
 
 export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProcessProps) => {
-  const startImport = async (filePaths: string[]) => {
+  const startImport = async (filePaths: string[], resizeWidth?: number) => {
     const total = filePaths.length;
     let processed = 0;
     const uploadedPhotos: Photo[] = [];
@@ -40,7 +40,7 @@ export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProces
               const response = await fetch(`${API_BASE}/api/v1/photos/upload`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: path }),
+                body: JSON.stringify({ file_path: path, resize_width: resizeWidth }),
               });
 
               if (response.ok) {

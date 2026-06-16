@@ -7,10 +7,10 @@
  *   - AdjustPanel.tsx   → ADJUSTMENT_GROUPS, AdjItem, AdjGroup
  *   - DetailPanel.tsx   → DETAIL_GROUPS, DetailItem, DetailGroup, DEFAULT_DETAIL
  *   - EffectsPanel.tsx  → EFFECTS_GROUPS, EffectsItem, EffectsGroup, DEFAULT_EFFECTS_SLIDERS
- *   - CurveEditor.tsx   → CurveState, DEFAULT_CURVE, getCurvesTableValues
+ *   - curves.ts         → CurveState, DEFAULT_CURVE, getCurvesTableValues
  */
 
-import { CurveState, DEFAULT_CURVE } from './CurveEditor';
+import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
 // ── Regional Edits (AI Masks) ─────────────────────────────────────────────
 
 export interface RegionalAdjustment {
@@ -164,7 +164,7 @@ export function toFilterString(adj: Adjustments): string {
 
 
 
-  if (adj.curves !== DEFAULT_CURVE) {
+  if (!isIdentityCurve(adj.curves)) {
     const curvesHash = getStringHash(JSON.stringify(adj.curves));
     filters.push(`url(#curves-filter-${curvesHash})`);
   }
@@ -184,7 +184,7 @@ export function toFilterString(adj: Adjustments): string {
 export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   const isBaseDefault = (Object.keys(adj) as (keyof Adjustments)[]).every(k => {
     if (k === 'curves') {
-      return adj.curves === DEFAULT_CURVE;
+      return isIdentityCurve(adj.curves);
     }
     if (k === 'regions') {
       return !adj.regions || adj.regions.length === 0;

@@ -8,6 +8,7 @@ import { BulkActionsBar } from './components/BulkActionsBar';
 import { FloatingActions } from './components/FloatingActions';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { FileFolderBrowserDialog } from './components/FileFolderBrowserDialog';
 import { useAppState } from './hooks/useAppState';
 import type { ViewMode } from './types';
 
@@ -42,12 +43,12 @@ function App() {
     handleToggleGroupSelection,
     clearSelection,
     isFavorited,
-    onShare,
     onAddToAlbum,
     handleBulkDelete,
     handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
+    handleBulkRestore,
     setPhotos,
   } = useAppState();
 
@@ -123,13 +124,13 @@ function App() {
                 selectedCount={selectedIds.size}
                 currentView={currentView}
                 onClear={clearSelection}
-                onShare={onShare}
                 onAddToAlbum={onAddToAlbum}
                 onFavorite={handleBulkFavorite}
                 isFavorited={isFavorited}
                 onToggleLock={handleBulkLockToggle}
                 onArchive={handleBulkArchive}
                 onDelete={handleBulkDelete}
+                onRestore={handleBulkRestore}
               />
             )}
           </AnimatePresence>
@@ -152,6 +153,7 @@ function App() {
         />
         
         <ConfirmDialog />
+        <FileFolderBrowserDialog />
       </div>
     </ErrorBoundary>
   );

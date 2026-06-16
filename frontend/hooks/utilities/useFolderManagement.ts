@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { open } from '@tauri-apps/plugin-dialog';
+import { openFileFolderBrowser } from '../../services/FileFolderBrowserService';
 
 interface UseFolderManagementProps {
   watchedFolders: string[];
@@ -17,10 +17,14 @@ export const useFolderManagement = ({
   const [watchedInput, setWatchedInput] = useState('');
   const [excludedInput, setExcludedInput] = useState('');
 
-  const openBrowseDialog = async (title: string): Promise<string | null> => {
+  const openBrowseDialog = async (title: string, multiple = false): Promise<string[] | null> => {
     try {
-      const selected = await open({ directory: true, multiple: false, title });
-      return typeof selected === 'string' ? selected : null;
+      const result = await openFileFolderBrowser({
+        title,
+        directoryOnly: true,
+        multiple
+      });
+      return result ? result.paths : null;
     } catch (e) { /* fallthrough */ }
     return null;
   };
@@ -39,8 +43,18 @@ export const useFolderManagement = ({
   };
 
   const handleBrowseWatched = async () => {
-    const selected = await openBrowseDialog('Select Library Folder to Watch');
-    if (selected) setWatchedInput(selected);
+    const selected = await openBrowseDialog('Select Library Folder(s) to Watch', true);
+    if (selected && selected.length > 0) {
+      const newFolders = [...watchedFolders];
+      selected.forEach(folder => {
+        if (!newFolders.includes(folder)) {
+          newFolders.push(folder);
+        }
+      });
+      onWatchedFoldersChange(newFolders);
+      // Populate input with the first selected folder just as visual feedback
+      setWatchedInput(selected[0]);
+    }
   };
 
   const handleAddExcludedFolder = () => {
@@ -57,8 +71,17 @@ export const useFolderManagement = ({
   };
 
   const handleBrowseExcluded = async () => {
-    const selected = await openBrowseDialog('Select Folder to Exclude');
-    if (selected) setExcludedInput(selected);
+    const selected = await openBrowseDialog('Select Folder(s) to Exclude', true);
+    if (selected && selected.length > 0) {
+      const newFolders = [...excludedFolders];
+      selected.forEach(folder => {
+        if (!newFolders.includes(folder)) {
+          newFolders.push(folder);
+        }
+      });
+      onExcludedFoldersChange(newFolders);
+      setExcludedInput(selected[0]);
+    }
   };
 
   return {

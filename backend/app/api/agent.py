@@ -13,11 +13,18 @@ class ChatRequest(BaseModel):
     message: str
     history: Optional[List[ChatMessage]] = []
 
+from fastapi.responses import StreamingResponse
+import json
+
 @router.post("/chat")
 async def chat_with_agent(req: ChatRequest):
     history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else []
-    response = await Prism_agent.chat(req.message, history=history_dicts)
-    return {"response": response}
+    
+    async def event_generator():
+        async for event in Prism_agent.chat_stream(req.message, history=history_dicts):
+            yield json.dumps(event) + "\n"
+            
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 
 @router.post("/preload")
 async def preload_agent():

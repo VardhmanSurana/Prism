@@ -42,7 +42,10 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             Cancel
           </button>
           <button 
-            onClick={onConfirm}
+            onClick={() => {
+              onConfirm();
+              onCancel();
+            }}
             className={`flex-1 px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95 ${type === 'rose' ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-primary hover:opacity-90 text-black'}`}
           >
             Confirm

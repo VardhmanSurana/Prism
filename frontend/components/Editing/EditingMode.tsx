@@ -16,7 +16,7 @@ import { Sidebar, ToolId } from './Sidebar';
 import { CanvasArea } from './CanvasArea';
 import { HistoryPanel } from './HistoryPanel';
 import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from './filterEngine';
-import { DEFAULT_CURVE, getCurvesTableValues } from './CurveEditor';
+import { DEFAULT_CURVE, getCurvesTableValues } from './curves';
 import { PortraitPanel } from './PortraitPanel';
 import { SelectivePanel } from './SelectivePanel';
 import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from './InpaintPanel';
@@ -834,26 +834,27 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           imageSmoothingQuality: 'high',
         });
 
-        const out  = document.createElement('canvas');
-        out.width  = cropped.width;
-        out.height = cropped.height;
-        const ctx  = out.getContext('2d')!;
-        // ctx.filter does not accept url(#...) references; we keep only the
-        // plain CSS filter functions for the ctx.filter step.
-        const cssSafeFilter = filterString.replace(/url\(#[^)]+\)/g, '').trim();
-        ctx.filter = cssSafeFilter || 'none';
-        ctx.drawImage(cropped, 0, 0);
-
-        out.toBlob(blob => {
-          if (blob) onSave(blob, isSaveAs);
-          setIsSaving(false);
-        }, 'image/jpeg', 0.95);
+        void import('./exportPipeline')
+          .then(({ exportEditedCanvas }) => exportEditedCanvas({
+            sourceCanvas: cropped,
+            adjustments,
+            mimeType: 'image/jpeg',
+            quality: 0.95,
+          }))
+          .then((blob) => {
+            onSave(blob, isSaveAs);
+            setIsSaving(false);
+          })
+          .catch((error) => {
+            console.error('Save failed:', error);
+            setIsSaving(false);
+          });
       } catch (err) {
         console.error('Save failed:', err);
         setIsSaving(false);
       }
     }, 50);
-  }, [isSaving, filterString, onSave]);
+  }, [adjustments, isSaving, onSave]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -883,10 +884,10 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   );
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#080808] flex flex-col font-sans">
+    <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden">
       <TopBar onClose={onClose} isSaving={isSaving} handleSave={handleSave} />
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
           {activeTool === 'transform' && (
             <TransformPanel

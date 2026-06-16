@@ -147,6 +147,8 @@ class IngestionMixin:
                     self.broadcast({"type": "delete_photo", "photo_id": photo_id})
                     self._cleanup_masks_for_photo(photo_id)
                     logger.info(f"Removed missing file from DB: {file_path}")
+                    from app.services.place_service import sync_all_places
+                    asyncio.create_task(sync_all_places())
         except Exception as e:
             logger.error(f"Failed to delete photo record for {file_path}: {e}")
 

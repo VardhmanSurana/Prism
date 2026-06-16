@@ -26,6 +26,7 @@ export const ThemeSettings: React.FC<ThemeSettingsProps> = ({ currentTheme, onTh
           <button
             key={theme.id}
             onClick={() => onThemeChange(theme.id)}
+            title={`Switch to ${theme.name} theme`}
             className={`group flex flex-col items-center gap-3 p-4 rounded-[2rem] border transition-all duration-500
               ${currentTheme === theme.id ? 'bg-primary/10 border-primary shadow-lg' : 'bg-surface border-white/5 hover:border-white/20'}
             `}

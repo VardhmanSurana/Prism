@@ -151,12 +151,9 @@ async def test_sequential_import_queue(db_session):
     db_session.add(bg_job)
     await db_session.commit()
 
-    mock_extract = MagicMock(return_value={
-        "detailed_caption": "A visual description",
-        "caption": "A visual description",
-        "tags": ["tag1"],
-        "embedding": [0.1] * 768
-    })
+    mock_summary = MagicMock(return_value="A visual description")
+    mock_tags = MagicMock(return_value=["tag1"])
+    mock_embedding = MagicMock(return_value=[0.1] * 768)
     mock_face_scan = AsyncMock(return_value=1)
 
     # Patch active analysis pipelines + file open so the worker doesn't fail
@@ -164,9 +161,15 @@ async def test_sequential_import_queue(db_session):
     # Also force ENABLE_AI_CLIP=True so the worker exercises the full pipeline
     # path (the test verifies queue wiring, not the AI-disabled skip logic).
     mock_file_data = b"\x00" * 13  # Non-encrypted header bytes
-    with patch("app.services.processing_queue.extract_features_and_tags", mock_extract), \
+    with patch("app.services.image_summary.llm.generate_ollama_summary", mock_summary), \
+         patch("app.services.image_summary.llm.generate_tags_json", mock_tags), \
+         patch("app.services.vision_pipeline.extract_siglip_embedding", mock_embedding), \
+         patch("app.services.vision_pipeline._get_siglip", MagicMock()), \
+         patch("app.services.vision_pipeline.unload_models", MagicMock()), \
          patch.object(face_service, "scan_and_cluster_face", mock_face_scan), \
-         patch("builtins.open", unittest.mock.mock_open(read_data=mock_file_data)), \
+         patch("app.services.processing_queue.open", unittest.mock.mock_open(read_data=mock_file_data)), \
+         patch("app.services.processing_queue.os.path.exists", return_value=True), \
+         patch("app.services.processing_queue.ProcessingQueue._reset_interrupted_jobs", AsyncMock()), \
          patch("app.services.processing_queue.settings") as mock_settings:
 
         mock_settings.ENABLE_AI_CLIP = True
@@ -185,7 +188,9 @@ async def test_sequential_import_queue(db_session):
         await processing_queue.shutdown()
 
         # Assert pipelines were executed exactly once
-        assert mock_extract.call_count == 1
+        assert mock_summary.call_count == 1
+        assert mock_tags.call_count == 1
+        assert mock_embedding.call_count == 1
         assert mock_face_scan.call_count == 1
 
 

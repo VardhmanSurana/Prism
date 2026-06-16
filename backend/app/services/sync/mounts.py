@@ -18,7 +18,11 @@ class MountMixin:
 
     async def period_mount_check(self: "SyncService"):
         while True:
+            old_mounts = self.active_mounts.copy()
             self.update_active_mounts()
+            if old_mounts != self.active_mounts:
+                from app.services.place_service import sync_all_places
+                asyncio.create_task(sync_all_places())
             await asyncio.sleep(5)
 
     def get_mount_point(self: "SyncService", path: str) -> str:

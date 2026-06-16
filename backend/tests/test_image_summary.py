@@ -28,11 +28,25 @@ TEST_IMAGES = [
 FAKE_SUMMARY = "A screenshot showing a social media feed with user interface elements and navigation bar."
 
 
-def _make_ollama_response(response_text: str):
-    """Build a mock httpx.Response for Ollama's /api/generate endpoint."""
+@pytest.fixture(autouse=True)
+def mock_orchestrator_start():
+    with patch("app.services.ai_orchestrator.AIOrchestrator.start_server", return_value=True):
+        yield
+
+def _make_server_response(response_text: str):
+    """Build a mock httpx.Response for llama-server completions/chat endpoint."""
     resp = MagicMock(spec=httpx.Response)
     resp.status_code = 200
-    resp.json.return_value = {"response": response_text}
+    resp.json.return_value = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": response_text
+                }
+            }
+        ]
+    }
     resp.raise_for_status.return_value = None
     return resp
 
@@ -105,7 +119,7 @@ def test_build_metadata_string_with_exif():
     assert "2025" in text
 
 
-# ── Async integration tests (with mocked Ollama HTTP client) ─────────────
+# ── Async integration tests (with mocked llama-server HTTP client) ─────────────
 
 
 @pytest.mark.parametrize("image_path", TEST_IMAGES, ids=[
@@ -114,10 +128,10 @@ def test_build_metadata_string_with_exif():
 ])
 @pytest.mark.asyncio
 async def test_returns_summary_for_each_format(image_path):
-    """Should extract metadata then call Ollama vision for summarization."""
-    mock_response = _make_ollama_response(FAKE_SUMMARY)
+    """Should extract metadata then call llama-server for summarization."""
+    mock_response = _make_server_response(FAKE_SUMMARY)
 
-    with patch("httpx.AsyncClient.post", return_value=mock_response):
+    with patch("httpx.Client.post", return_value=mock_response):
         result = await generate_image_summary(image_path)
 
     assert result == FAKE_SUMMARY
@@ -129,10 +143,10 @@ async def test_returns_summary_for_each_format(image_path):
 ])
 @pytest.mark.asyncio
 async def test_sends_image_to_ollama(image_path):
-    """Verify Ollama is called with image data and metadata context."""
-    mock_response = _make_ollama_response(FAKE_SUMMARY)
+    """Verify llama-server is called with image data and metadata context."""
+    mock_response = _make_server_response(FAKE_SUMMARY)
 
-    with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
+    with patch("httpx.Client.post", return_value=mock_response) as mock_post:
         await generate_image_summary(image_path)
 
         # Verify the API was called
@@ -142,11 +156,9 @@ async def test_sends_image_to_ollama(image_path):
         call_args, call_kwargs = mock_post.call_args
         json_payload = call_kwargs.get("json", {})
         
-        # Should have prompt and images
-        assert "prompt" in json_payload
-        assert "images" in json_payload
-        assert len(json_payload["images"]) == 1  # Base64 encoded image
-        assert json_payload["model"] == "moondream:latest"
+        # Should have messages key
+        assert "messages" in json_payload
+        assert len(json_payload["messages"]) == 1
 
 
 # ── Error handling tests ───────────────────────────────────────
@@ -162,7 +174,7 @@ async def test_error_on_file_not_found():
 
 @pytest.mark.asyncio
 async def test_error_on_ollama_failure():
-    """Should return an error when Ollama generation fails."""
+    """Should return an error when llama-server generation fails."""
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 500
     mock_response.text = "Model not found"
@@ -170,7 +182,7 @@ async def test_error_on_ollama_failure():
         "Model not found", request=MagicMock(), response=mock_response
     )
 
-    with patch("httpx.AsyncClient.post", return_value=mock_response):
+    with patch("httpx.Client.post", return_value=mock_response):
         result = await generate_image_summary(TEST_IMAGES[0])
 
     assert "Error" in result

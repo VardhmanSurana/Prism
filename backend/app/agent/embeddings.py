@@ -7,10 +7,18 @@ logger = logging.getLogger(__name__)
 
 
 class EmbeddingClient:
+    def __init__(self):
+        self._embedding_cache = {}
+
     def get_query_embedding(self, query: str) -> list[float] | None:
         """Encode natural language query using SigLIP model for semantic search."""
         if not settings.ENABLE_AI_CLIP:
             return None
+
+        q_clean = query.strip().lower()
+        if q_clean in self._embedding_cache:
+            return self._embedding_cache[q_clean]
+
         try:
             from app.services.vision_pipeline import _get_siglip, DEVICE, DTYPE
             import torch
@@ -26,7 +34,12 @@ class EmbeddingClient:
             with torch.no_grad():
                 text_outputs = siglip_model.get_text_features(**inputs)
                 text_features = text_outputs / text_outputs.norm(dim=-1, keepdim=True)
-                return text_features[0].cpu().numpy().tolist()
+                res = text_features[0].cpu().numpy().tolist()
+                
+                if len(self._embedding_cache) >= 1000:
+                    self._embedding_cache.clear()
+                self._embedding_cache[q_clean] = res
+                return res
         except Exception as e:
             logger.error(f"Failed to generate SigLIP query embedding: {e}")
             return None

@@ -15,17 +15,18 @@ export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
       photo.path?.toLowerCase().endsWith('.heic') ||
       photo.filename?.toLowerCase().endsWith('.heic');
 
-    // For HEIC, browsers can't display the raw file — use the pre-converted thumbnail URL.
+    // For HEIC, browsers can't display the raw file — use a high-res conversion from the backend.
     // For all other formats, prefer the original full-resolution file via /local.
-    const url =
-      isHeic && photo.url
-        ? photo.url
-        : photo.path
-        ? `local://${photo.path}`
-        : photo.url || '';
+    if (isHeic) {
+      return resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=2048`);
+    }
+
+    const url = photo.path
+      ? `local://${photo.path}`
+      : photo.url || '';
 
     return resolveUrl(url);
-  }, [photo.url, photo.path, photo.filename]);
+  }, [photo.url, photo.path, photo.filename, photo.id]);
 
   useEffect(() => {
     if (!highResUrl) {

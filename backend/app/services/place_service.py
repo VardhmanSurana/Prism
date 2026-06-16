@@ -28,6 +28,7 @@ async def sync_all_places():
                 func.max(Photo.url).label("cover_url"),
             )
             .where(Photo.city.isnot(None))
+            .where(Photo.is_trash == False)
             .where(
                 or_(
                     Photo.is_external == False,

@@ -27,6 +27,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [progressDetail, setProgressDetail] = useState<string | null>(null);
   const [currentPhotos, setCurrentPhotos] = useState<Photo[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +47,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
 
     setMessages(prev => [...prev, { role: 'user', content: query }]);
     setIsLoading(true);
-
+    setProgressDetail("Formulating search strategy...");
     try {
       const historyPayload = messages.map(m => ({
         role: m.role,
@@ -61,26 +62,78 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
           history: historyPayload
         })
       });
-      const data = await response.json();
-      
-      if (typeof data.response === 'object' && data.response !== null) {
-        const text = data.response.text;
-        const photos = data.response.photos || [];
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("No body reader on response");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let resultText = '';
+      let resultPhotos: Photo[] = [];
+      let hasResult = false;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const data = JSON.parse(line);
+            if (data.type === 'progress') {
+              setProgressDetail(data.detail || null);
+            } else if (data.type === 'result') {
+              resultText = data.text;
+              resultPhotos = data.photos || [];
+              hasResult = true;
+            }
+          } catch (err) {
+            console.error("Failed to parse progress chunk:", err);
+          }
+        }
+      }
+
+      if (buffer.trim()) {
+        try {
+          const data = JSON.parse(buffer);
+          if (data.type === 'progress') {
+            setProgressDetail(data.detail || null);
+          } else if (data.type === 'result') {
+            resultText = data.text;
+            resultPhotos = data.photos || [];
+            hasResult = true;
+          }
+        } catch (err) {
+          console.error("Failed to parse final progress chunk:", err);
+        }
+      }
+
+      if (hasResult) {
         setMessages(prev => [...prev, { 
           role: 'assistant', 
-          content: text,
-          photos: photos 
+          content: resultText,
+          photos: resultPhotos 
         }]);
-        if (photos.length > 0) {
-          setCurrentPhotos(photos);
+        if (resultPhotos.length > 0) {
+          setCurrentPhotos(resultPhotos);
         }
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: "Sorry, I couldn't retrieve a valid search response." 
+        }]);
       }
     } catch (e) {
       setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I encountered an issue accessing my search indexing brain." }]);
     } finally {
       setIsLoading(false);
+      setProgressDetail(null);
     }
   };
 
@@ -130,10 +183,16 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
               <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-primary">
                 <Bot size={16} />
               </div>
-              <div className="bg-white/5 p-4 rounded-2xl rounded-tl-none border border-white/5 flex gap-1.5 items-center">
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+              <div className="bg-white/5 p-4 rounded-2xl rounded-tl-none border border-white/5 flex flex-col gap-2 max-w-[80%] items-start">
+                <div className="flex gap-1.5 items-center">
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
+                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <span className="text-[11px] font-semibold text-primary/80 uppercase tracking-widest ml-1">AI Thinking</span>
+                </div>
+                <p className="text-xs text-gray-400 font-medium italic animate-pulse">
+                  {progressDetail || "Formulating search strategy..."}
+                </p>
               </div>
             </div>
           )}

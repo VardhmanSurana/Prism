@@ -8,9 +8,10 @@ from sqlalchemy.future import select
 from sqlalchemy import or_, and_
 
 from app.db import get_db
-from app.models import Photo, Person, Album
+from app.models import Photo, Person, PhotoPerson, Album
 from app.services.sync_service import sync_service
 from app.services.locked_service import locked_service
+from app.api.albums.utils import photo_to_dict
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,7 +56,7 @@ async def list_photos(
     result = await db.execute(stmt)
     photos = result.scalars().all()
     
-    return photos
+    return [photo_to_dict(p) for p in photos]
 
 
 @router.get("/stats")
@@ -85,8 +86,23 @@ async def get_photo_stats(db: AsyncSession = Depends(get_db)):
     res_total = await db.execute(total_stmt)
     total_photos = res_total.scalar() or 0
     
-    # 2. People Found
-    people_stmt = select(func.count(Person.id))
+    # 2. People Found: only count people who have ≥1 accessible (active mount) photo
+    people_filters = [
+        Photo.is_trash == False,
+        or_(
+            Photo.is_external == False,
+            Photo.device_id.in_(active_mounts)
+        )
+    ]
+    if not locked_service.is_authenticated:
+        people_filters.append(Photo.is_locked == False)
+
+    people_stmt = (
+        select(func.count(func.distinct(Person.id)))
+        .join(PhotoPerson, Person.id == PhotoPerson.person_id)
+        .join(Photo, PhotoPerson.photo_id == Photo.id)
+        .where(and_(*people_filters))
+    )
     res_people = await db.execute(people_stmt)
     people_found = res_people.scalar() or 0
     

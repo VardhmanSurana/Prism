@@ -3,7 +3,7 @@ import Cropper, { ReactCropperElement } from 'react-cropper';
 import { Check, Loader2 } from 'lucide-react';
 import { ToolId } from './Sidebar';
 import { Adjustments, getStringHash } from './filterEngine';
-import { DEFAULT_CURVE } from './CurveEditor';
+import { DEFAULT_CURVE, isIdentityCurve } from './curves';
 import { InpaintCanvas } from './InpaintCanvas';
 import { InpaintMode } from './InpaintPanel';
 
@@ -207,7 +207,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
         <defs>
 
-          {adjustments.curves !== DEFAULT_CURVE && (
+          {!isIdentityCurve(adjustments.curves) && (
             <filter id={`curves-filter-${getStringHash(JSON.stringify(adjustments.curves))}`} colorInterpolationFilters="sRGB">
               <feComponentTransfer>
                 <feFuncR type="table" tableValues={curvesTable.r} />

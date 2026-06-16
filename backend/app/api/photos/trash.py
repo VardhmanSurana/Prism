@@ -22,6 +22,12 @@ async def move_to_trash(photo_id: int, db: AsyncSession = Depends(get_db)):
     
     photo.is_trash = True
     await db.commit()
+    
+    if photo.city:
+        import asyncio
+        from app.services.place_service import sync_all_places
+        asyncio.create_task(sync_all_places())
+    
     return {"status": "success", "message": "Photo moved to trash"}
 
 
@@ -35,4 +41,10 @@ async def restore_from_trash(photo_id: int, db: AsyncSession = Depends(get_db)):
     
     photo.is_trash = False
     await db.commit()
+    
+    if photo.city:
+        import asyncio
+        from app.services.place_service import sync_all_places
+        asyncio.create_task(sync_all_places())
+    
     return {"status": "success", "message": "Photo restored from trash"}

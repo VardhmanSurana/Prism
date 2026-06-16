@@ -1,63 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Point,
-  createMonotoneCubicSpline,
-  generateLUT,
-  compositeLUTs,
   splineToSvgPath,
 } from './spline';
+import { CurveState, DEFAULT_CURVE } from './curves';
 
 // Re-export Point so consumers can import it from here if needed
 export type { Point } from './spline';
-
-// Curve State
-
-export type CurveState = {
-  master: Point[];
-  red:    Point[];
-  green:  Point[];
-  blue:   Point[];
-};
-
-export const DEFAULT_CURVE: CurveState = {
-  master: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
-  red:    [{ x: 0, y: 0 }, { x: 255, y: 255 }],
-  green:  [{ x: 0, y: 0 }, { x: 255, y: 255 }],
-  blue:   [{ x: 0, y: 0 }, { x: 255, y: 255 }],
-};
-
-/**
- * Compute the SVG `feFuncR/G/B` `tableValues` strings for the active curve set.
- * Composites each channel LUT over the master LUT. Returns identity strings
- * ('0 1') for the default curve to avoid needless filter work.
- */
-export function getCurvesTableValues(curves: CurveState): { r: string, g: string, b: string } {
-  if (curves === DEFAULT_CURVE) {
-    return { r: '0 1', g: '0 1', b: '0 1' };
-  }
-
-  const scalePoints = (pts: Point[]) => pts.map(p => ({ x: p.x / 255, y: p.y / 255 }));
-
-  const masterFn = createMonotoneCubicSpline(scalePoints(curves.master));
-  const rFn      = createMonotoneCubicSpline(scalePoints(curves.red));
-  const gFn      = createMonotoneCubicSpline(scalePoints(curves.green));
-  const bFn      = createMonotoneCubicSpline(scalePoints(curves.blue));
-
-  const masterLut = generateLUT(masterFn, 8);
-  const rLut      = generateLUT(rFn, 8);
-  const gLut      = generateLUT(gFn, 8);
-  const bLut      = generateLUT(bFn, 8);
-
-  const finalR = compositeLUTs(rLut, masterLut);
-  const finalG = compositeLUTs(gLut, masterLut);
-  const finalB = compositeLUTs(bLut, masterLut);
-
-  return {
-    r: finalR.map(v => v.toFixed(4)).join(' '),
-    g: finalG.map(v => v.toFixed(4)).join(' '),
-    b: finalB.map(v => v.toFixed(4)).join(' '),
-  };
-}
+export type { CurveState } from './curves';
+export { DEFAULT_CURVE } from './curves';
 
 interface CurveEditorProps {
   value: CurveState;

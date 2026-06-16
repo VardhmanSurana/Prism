@@ -308,36 +308,7 @@ def extract_features_and_tags(image_path: str) -> dict:
             logger.warning(f"Gemma tagging failed: {e}")
 
         # ── Part 2: SigLIP 2 Embedding Generation ───────────────────
-        siglip_model, siglip_processor = _get_siglip()
-
-        def prepare_inputs(inputs_dict):
-            return {
-                k: v.to(DEVICE).to(dtype=DTYPE) if v.is_floating_point() else v.to(DEVICE)
-                for k, v in inputs_dict.items()
-            }
-
-        inputs_siglip = siglip_processor(images=image, return_tensors="pt")
-        inputs_siglip = prepare_inputs(inputs_siglip)
-        
-        with torch.no_grad():
-            image_outputs = siglip_model.get_image_features(**inputs_siglip)
-            if hasattr(image_outputs, "pooler_output") and image_outputs.pooler_output is not None:
-                image_features = image_outputs.pooler_output
-            elif isinstance(image_outputs, torch.Tensor):
-                image_features = image_outputs
-            else:
-                try:
-                    image_features = image_outputs[0]
-                except Exception:
-                    image_features = image_outputs
-            
-            # L2 Normalize the features
-            image_features = image_features / image_features.norm(dim=-1, keepdim=True)
-            # If the resulting image_features still has batch dim, extract the first one
-            if len(image_features.shape) > 1:
-                embedding = image_features[0].cpu().numpy().tolist()
-            else:
-                embedding = image_features.cpu().numpy().tolist()
+        embedding = extract_siglip_embedding(image_path)
 
         # Clean GPU VRAM/memory cache
         if DEVICE == "cuda":
@@ -358,3 +329,53 @@ def extract_features_and_tags(image_path: str) -> dict:
             torch.cuda.empty_cache()
         gc.collect()
         raise e
+
+
+def extract_siglip_embedding(image_path: str) -> list[float]:
+    """
+    Extracts L2-normalized SigLIP 2 embedding from an image.
+    This runs synchronously and should be wrapped in an executor thread when called async.
+    """
+    # Guard: check if file exists
+    if not os.path.exists(image_path):
+        raise FileNotFoundError(f"Image file not found: {image_path}")
+
+    # Load PIL image
+    try:
+        image = Image.open(image_path).convert("RGB")
+    except Exception as e:
+        logger.error(f"Failed to open image {image_path}: {e}")
+        raise RuntimeError(f"Could not load image: {e}")
+
+    siglip_model, siglip_processor = _get_siglip()
+
+    def prepare_inputs(inputs_dict):
+        return {
+            k: v.to(DEVICE).to(dtype=DTYPE) if v.is_floating_point() else v.to(DEVICE)
+            for k, v in inputs_dict.items()
+        }
+
+    inputs_siglip = siglip_processor(images=image, return_tensors="pt")
+    inputs_siglip = prepare_inputs(inputs_siglip)
+
+    with torch.no_grad():
+        image_outputs = siglip_model.get_image_features(**inputs_siglip)
+        if hasattr(image_outputs, "pooler_output") and image_outputs.pooler_output is not None:
+            image_features = image_outputs.pooler_output
+        elif isinstance(image_outputs, torch.Tensor):
+            image_features = image_outputs
+        else:
+            try:
+                image_features = image_outputs[0]
+            except Exception:
+                image_features = image_outputs
+
+        # L2 Normalize the features
+        image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+        # If the resulting image_features still has batch dim, extract the first one
+        if len(image_features.shape) > 1:
+            embedding = image_features[0].cpu().numpy().tolist()
+        else:
+            embedding = image_features.cpu().numpy().tolist()
+
+    return embedding

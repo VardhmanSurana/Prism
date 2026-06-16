@@ -4,6 +4,8 @@ Uses Ollama vision models (moondream:latest , etc.) to analyze actual image pixe
 while preserving metadata extraction for context and database storage.
 """
 
+import asyncio
+
 from .metadata import extract_metadata
 from .llm import generate_ollama_summary
 
@@ -48,7 +50,7 @@ async def generate_image_summary(image_path: str) -> str:
 
     # ── Step 2: Send image to Ollama vision model (pixels only) ────────────────
     try:
-        summary = await generate_ollama_summary(image_path)
+        summary = await asyncio.to_thread(generate_ollama_summary, image_path)
     except RuntimeError as e:
         return f"Error: Ollama vision model failed — {str(e)}"
     except Exception as e:

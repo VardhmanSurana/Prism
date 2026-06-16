@@ -10,6 +10,121 @@ logger = logging.getLogger(__name__)
 class Planner:
     def __init__(self, llm_manager: LlamaManager | None = None):
         self.llm_manager = llm_manager or LlamaManager()
+        self._planner_cache = {}
+
+    def _parse_json_robustly(self, output_text: str) -> dict:
+        text = output_text.strip()
+        if text.startswith("```"):
+            lines = text.splitlines()
+            if lines[0].startswith("```"):
+                lines = lines[1:]
+            if lines[-1].startswith("```"):
+                lines = lines[:-1]
+            text = "\n".join(lines).strip()
+        
+        try:
+            return json.loads(text)
+        except Exception:
+            pass
+            
+        try:
+            start_idx = text.find("{")
+            end_idx = text.rfind("}")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                candidate = text[start_idx:end_idx + 1]
+                return json.loads(candidate)
+        except Exception:
+            pass
+            
+        raise ValueError("Could not parse valid JSON from LLM output")
+
+    def _validate_and_clean_planner_schema(self, data: dict) -> dict:
+        if not isinstance(data, dict):
+            raise ValueError("Parsed LLM output is not a JSON object")
+            
+        cleaned = {
+            "intent": str(data.get("intent", "photo_search")),
+            "is_locked": False,
+            "entities": {},
+            "constraints": {},
+            "ranking": {}
+        }
+        
+        locked = data.get("is_locked")
+        if locked is not None:
+            if isinstance(locked, str):
+                cleaned["is_locked"] = locked.lower() in ("true", "1", "yes")
+            else:
+                cleaned["is_locked"] = bool(locked)
+                
+        raw_entities = data.get("entities") or {}
+        if not isinstance(raw_entities, dict):
+            raw_entities = {}
+            
+        cleaned_entities = {}
+        for key in ["people", "locations", "events", "objects"]:
+            val = raw_entities.get(key) or []
+            if isinstance(val, str):
+                val = [val]
+            cleaned_entities[key] = [str(v) for v in val if v]
+            
+        tr = raw_entities.get("time_range")
+        if tr is not None:
+            if isinstance(tr, (int, float)):
+                cleaned_entities["time_range"] = int(tr)
+            elif isinstance(tr, str):
+                if tr.isdigit():
+                    cleaned_entities["time_range"] = int(tr)
+                else:
+                    cleaned_entities["time_range"] = tr
+            else:
+                cleaned_entities["time_range"] = None
+        else:
+            cleaned_entities["time_range"] = None
+            
+        cleaned["entities"] = cleaned_entities
+
+        raw_constraints = data.get("constraints") or {}
+        if not isinstance(raw_constraints, dict):
+            raw_constraints = {}
+            
+        cleaned_constraints = {}
+        valid_entity_keys = {"people", "locations", "events", "objects", "time_range"}
+        for key in ["must_match", "soft_match"]:
+            val = raw_constraints.get(key) or []
+            if isinstance(val, str):
+                val = [val]
+            cleaned_constraints[key] = [str(v) for v in val if v in valid_entity_keys]
+            
+        cleaned["constraints"] = cleaned_constraints
+
+        raw_ranking = data.get("ranking") or {}
+        if not isinstance(raw_ranking, dict):
+            raw_ranking = {}
+            
+        cleaned_ranking = {
+            "prefer_favorites": False,
+            "prefer_recent": True
+        }
+        
+        pref_fav = raw_ranking.get("prefer_favorites")
+        if pref_fav is not None:
+            if isinstance(pref_fav, str):
+                cleaned_ranking["prefer_favorites"] = pref_fav.lower() in ("true", "1", "yes")
+            else:
+                cleaned_ranking["prefer_favorites"] = bool(pref_fav)
+                
+        pref_recent = raw_ranking.get("prefer_recent")
+        if pref_recent is not None:
+            if isinstance(pref_recent, str):
+                cleaned_ranking["prefer_recent"] = pref_recent.lower() in ("true", "1", "yes")
+            else:
+                cleaned_ranking["prefer_recent"] = bool(pref_recent)
+                
+        cleaned["ranking"] = cleaned_ranking
+        cleaned["limit"] = raw_entities.get("limit") or data.get("limit") or 30
+
+        return cleaned
 
     def heuristic_fallback(self, message: str) -> dict:
         """Previous keyword-based heuristic parsing used as a robust fallback."""
@@ -32,15 +147,33 @@ class Planner:
                 break
 
         return {
-            "is_favorite": is_favorite,
+            "intent": "photo_search",
             "is_locked": is_locked,
-            "year": year,
-            "search_terms": search_terms,
-            "limit": None,
+            "entities": {
+                "people": [],
+                "locations": [search_terms[0]] if search_terms else [],
+                "events": [],
+                "objects": search_terms,
+                "time_range": year
+            },
+            "constraints": {
+                "must_match": ["locations"] if search_terms else [],
+                "soft_match": ["objects"]
+            },
+            "ranking": {
+                "prefer_favorites": is_favorite,
+                "prefer_recent": True
+            }
         }
 
     def extract_search_parameters(self, message: str, history: list = None) -> dict:
         """Query Planner: Convert natural language query and context into a structured JSON search plan."""
+        history_fingerprint = tuple((h.get("role"), h.get("content")) for h in history) if history else ()
+        cache_key = (message.strip().lower(), history_fingerprint)
+        if cache_key in self._planner_cache:
+            logger.info(f"Planner cache hit for key: {cache_key}")
+            return self._planner_cache[cache_key]
+
         try:
             llm = self.llm_manager.get_llm()
 
@@ -55,30 +188,69 @@ class Planner:
             prompt = (
                 "<start_of_turn>user\n"
                 "You are the query planner assistant for Prism Photos. Your job is to convert the user's request into a structured JSON query plan.\n"
-                "Resolve any reference pronouns using the conversation history context and place resolved values in the filters.\n"
-                "Available tools: search_metadata, search_people, search_captions, semantic_search, search_albums, search_ocr, similar_image.\n\n"
+                "Resolve any reference pronouns using the conversation history context and place resolved values in the entities.\n\n"
                 f"{history_context}"
                 "Output JSON schema:\n"
                 "{\n"
                 "  \"intent\": \"photo_search\",\n"
-                "  \"tools\": [\"tool_name_1\", \"tool_name_2\"],\n"
-                "  \"filters\": {\n"
-                "    \"location\": string or null,\n"
-                "    \"year\": integer or null,\n"
-                "    \"favorites\": boolean or null,\n"
-                "    \"is_locked\": boolean or null,\n"
-                "    \"names\": [string],\n"
-                "    \"query\": string (search text description),\n"
-                "    \"photo_id\": integer or null,\n"
-                "    \"limit\": integer,\n"
-                "    \"sort_order\": \"asc\" | \"desc\"\n"
+                "  \"is_locked\": boolean,\n"
+                "  \"entities\": {\n"
+                "    \"people\": [string] (names of people to search),\n"
+                "    \"locations\": [string] (places, cities, countries),\n"
+                "    \"events\": [string] (activities, holidays, occasions),\n"
+                "    \"objects\": [string] (objects, animals, elements like sunset, beach, car, dog),\n"
+                "    \"time_range\": string or integer or null (specific year, month, or relative date description)\n"
+                "  },\n"
+                "  \"constraints\": {\n"
+                "    \"must_match\": [string] (list of entity types that must strictly match, chosen from 'people', 'locations', 'time_range'),\n"
+                "    \"soft_match\": [string] (list of entity types that can match softly, chosen from 'events', 'objects')\n"
+                "  },\n"
+                "  \"ranking\": {\n"
+                "    \"prefer_favorites\": boolean,\n"
+                "    \"prefer_recent\": boolean (true for newest first, false for oldest/first photos)\n"
                 "  }\n"
                 "}\n\n"
                 "Examples:\n"
                 "User: Show family trips to Goa during sunset.\n"
-                "Response: {\"intent\": \"photo_search\", \"tools\": [\"search_metadata\", \"semantic_search\", \"search_people\"], \"filters\": {\"location\": \"Goa\", \"query\": \"sunset\", \"names\": [\"family\"], \"limit\": 30, \"sort_order\": \"desc\"}}\n\n"
-                "User: show the first image of yelagiri\n"
-                "Response: {\"intent\": \"photo_search\", \"tools\": [\"search_metadata\", \"semantic_search\"], \"filters\": {\"location\": \"yelagiri\", \"limit\": 1, \"sort_order\": \"asc\"}}\n\n"
+                "Response: {\n"
+                "  \"intent\": \"photo_search\",\n"
+                "  \"is_locked\": false,\n"
+                "  \"entities\": {\n"
+                "    \"people\": [\"family\"],\n"
+                "    \"locations\": [\"Goa\"],\n"
+                "    \"events\": [\"trip\"],\n"
+                "    \"objects\": [\"sunset\"],\n"
+                "    \"time_range\": null\n"
+                "  },\n"
+                "  \"constraints\": {\n"
+                "    \"must_match\": [\"locations\"],\n"
+                "    \"soft_match\": [\"people\", \"events\", \"objects\"]\n"
+                "  },\n"
+                "  \"ranking\": {\n"
+                "    \"prefer_favorites\": false,\n"
+                "    \"prefer_recent\": true\n"
+                "  }\n"
+                "}\n\n"
+                "User: show the first locked image of a dog\n"
+                "Response: {\n"
+                "  \"intent\": \"photo_search\",\n"
+                "  \"is_locked\": true,\n"
+                "  \"entities\": {\n"
+                "    \"people\": [],\n"
+                "    \"locations\": [],\n"
+                "    \"events\": [],\n"
+                "    \"objects\": [\"dog\"],\n"
+                "    \"time_range\": null\n"
+                "  },\n"
+                "  \"constraints\": {\n"
+                "    \"must_match\": [],\n"
+                "    \"soft_match\": [\"objects\"]\n"
+                "  },\n"
+                "  \"ranking\": {\n"
+                "    \"prefer_favorites\": false,\n"
+                "    \"prefer_recent\": false\n"
+                "  }\n"
+                "}\n\n"
                 "You must output ONLY a valid raw JSON object. Do not include markdown code block formatting (like ```json), explanations, or trailing text.\n\n"
                 f"User request: \"{message}\"\n\n"
                 "JSON response:\n"
@@ -97,35 +269,18 @@ class Planner:
             output_text = res["choices"][0]["text"].strip()
             logger.info(f"Gemma query planner plan: {output_text}")
 
-            if output_text.startswith("```"):
-                lines = output_text.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                output_text = "\n".join(lines).strip()
+            raw_data = self._parse_json_robustly(output_text)
+            data = self._validate_and_clean_planner_schema(raw_data)
 
-            data = json.loads(output_text)
+            if len(self._planner_cache) >= 500:
+                self._planner_cache.clear()
+            self._planner_cache[cache_key] = data
             return data
         except Exception as e:
             logger.error(f"Error during Gemma query planning: {e}. Falling back to heuristics.")
-            fallback_params = self.heuristic_fallback(message)
-            return {
-                "intent": "photo_search",
-                "tools": ["search_metadata", "search_captions"],
-                "tool_arguments": {
-                    "search_metadata": {
-                        "location": fallback_params.get("search_terms")[0] if fallback_params.get("search_terms") else None,
-                        "year": fallback_params.get("year"),
-                        "favorites": fallback_params.get("is_favorite"),
-                        "is_locked": fallback_params.get("is_locked"),
-                    },
-                    "search_captions": {
-                        "query": " ".join(fallback_params.get("search_terms")) if fallback_params.get("search_terms") else ""
-                    },
-                },
-                "limit": 30,
-            }
+            fallback_plan = self.heuristic_fallback(message)
+            self._planner_cache[cache_key] = fallback_plan
+            return fallback_plan
 
     def verify_photos_match(self, query: str, photos_metadata: list) -> list:
         """Ask Gemma to verify which photos strictly match the user's query intent."""
@@ -169,15 +324,7 @@ class Planner:
             )
             output_text = res["choices"][0]["text"].strip()
 
-            if output_text.startswith("```"):
-                lines = output_text.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                output_text = "\n".join(lines).strip()
-
-            data = json.loads(output_text)
+            data = self._parse_json_robustly(output_text)
             return data.get("matching_ids") or []
         except Exception as e:
             logger.error(f"Error during Gemma photo verification: {e}. Defaulting to allowing all matches.")
@@ -201,21 +348,25 @@ class Planner:
                 f"The user wants: \"{query}\"\n"
                 f"We previously executed search plan: {json.dumps(previous_plan)} but found no matching images.\n"
                 f"{history_context}"
-                "Please reformulate the search plan using broader filters, synonyms, or different tools (e.g. using semantic_search instead of search_captions) to locate the user's photos. "
+                "Please reformulate the search plan using broader constraints, broader entities, or synonyms to locate the user's photos.\n"
                 "You must output ONLY a valid raw JSON object matching the planner schema. Do not include explanations or markdown wrappers:\n"
                 "{\n"
                 "  \"intent\": \"photo_search\",\n"
-                "  \"tools\": [\"tool_name_1\", \"tool_name_2\"],\n"
-                "  \"filters\": {\n"
-                "    \"location\": string or null,\n"
-                "    \"year\": integer or null,\n"
-                "    \"favorites\": boolean or null,\n"
-                "    \"is_locked\": boolean or null,\n"
-                "    \"names\": [string],\n"
-                "    \"query\": string,\n"
-                "    \"photo_id\": integer or null,\n"
-                "    \"limit\": integer,\n"
-                "    \"sort_order\": \"asc\" | \"desc\"\n"
+                "  \"is_locked\": boolean,\n"
+                "  \"entities\": {\n"
+                "    \"people\": [string],\n"
+                "    \"locations\": [string],\n"
+                "    \"events\": [string],\n"
+                "    \"objects\": [string],\n"
+                "    \"time_range\": string or integer or null\n"
+                "  },\n"
+                "  \"constraints\": {\n"
+                "    \"must_match\": [string],\n"
+                "    \"soft_match\": [string]\n"
+                "  },\n"
+                "  \"ranking\": {\n"
+                "    \"prefer_favorites\": boolean,\n"
+                "    \"prefer_recent\": boolean\n"
                 "  }\n"
                 "}\n"
                 "<end_of_turn>\n"
@@ -231,15 +382,8 @@ class Planner:
             )
             output_text = res["choices"][0]["text"].strip()
 
-            if output_text.startswith("```"):
-                lines = output_text.splitlines()
-                if lines[0].startswith("```"):
-                    lines = lines[1:]
-                if lines[-1].startswith("```"):
-                    lines = lines[:-1]
-                output_text = "\n".join(lines).strip()
-
-            data = json.loads(output_text)
+            raw_data = self._parse_json_robustly(output_text)
+            data = self._validate_and_clean_planner_schema(raw_data)
             return data
         except Exception as e:
             logger.error(f"Error during Gemma query planner reformulation: {e}")

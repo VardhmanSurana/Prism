@@ -39,6 +39,7 @@ import {
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   isLoading,
+  currentView,
   onPhotoClick,
   selectedIds,
   onToggleSelection,
@@ -210,8 +211,18 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // Build rows depending on view layout — keep original 'header'/'row' types intact.
   // When the library is empty we still emit [ dashboard, empty ] so the header
   // (and Import button) are always visible regardless of photo count.
+  // In trash/archive views, hide the dashboard header.
   const gridRows = usePhotoGrid(filteredPhotos);
+  const isCompactView = currentView === 'trash' || currentView === 'archived';
   const rowItems = useMemo(() => {
+    if (isCompactView) {
+      if (photos.length === 0) {
+        return [{ type: 'empty' as const }];
+      }
+      return viewMode === 'grid'
+        ? gridRows
+        : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
+    }
     if (photos.length === 0) {
       // Dashboard always present; followed by a dedicated empty-state row
       return [
@@ -224,7 +235,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
 
     return [{ type: 'dashboard' as const }, ...baseItems];
-  }, [photos.length, filteredPhotos, gridRows, viewMode]);
+  }, [photos.length, filteredPhotos, gridRows, viewMode, isCompactView]);
 
   const rowVirtualizer = useVirtualizer({
     count: rowItems.length,
@@ -244,13 +255,14 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // Calculate dynamic date metadata for view controls
   const dateLabel = useMemo(() => {
     if (filteredPhotos.length === 0) return '0 photos';
+    if (isCompactView) return `${filteredPhotos.length} photos`;
     const firstPhotoDate = new Date(filteredPhotos[0].date);
     const today = new Date();
     const isToday = firstPhotoDate.getDate() === today.getDate() &&
                     firstPhotoDate.getMonth() === today.getMonth() &&
                     firstPhotoDate.getFullYear() === today.getFullYear();
     return `${isToday ? 'Today' : 'Library'} • ${filteredPhotos.length} photos`;
-  }, [filteredPhotos]);
+  }, [filteredPhotos, isCompactView]);
 
   // Keep timeline dial linked only to regular grid rows
   const gridRowsOnly = useMemo(() => {
@@ -490,10 +502,28 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                     <ImageIcon size={36} className="text-gray-500" />
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-semibold text-gray-300">Your library is empty</p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Click <span className="text-primary font-medium">Import</span> above to add photos from your device.
-                    </p>
+                    {currentView === 'trash' ? (
+                      <>
+                        <p className="text-lg font-semibold text-gray-300">Trash is empty</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          No photos in trash.
+                        </p>
+                      </>
+                    ) : currentView === 'archived' ? (
+                      <>
+                        <p className="text-lg font-semibold text-gray-300">No archived photos</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Archive photos to hide them from your main library.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-lg font-semibold text-gray-300">Your library is empty</p>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Click <span className="text-primary font-medium">Import</span> above to add photos from your device.
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

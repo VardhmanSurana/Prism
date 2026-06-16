@@ -1,7 +1,8 @@
 import React, { useCallback, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from './filterEngine';
-import { CurveEditor, CurveState, DEFAULT_CURVE } from './CurveEditor';
+import { CurveEditor } from './CurveEditor';
+import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
 
 // UI Group Definitions
 // Note: 'curves' is intentionally NOT a numeric slider here — it has its own
@@ -42,7 +43,7 @@ interface EffectsPanelProps {
 export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChange }) => {
   const isDefault =
     adjustments.ambiance === DEFAULT_ADJUSTMENTS.ambiance &&
-    adjustments.curves === DEFAULT_CURVE &&
+    isIdentityCurve(adjustments.curves) &&
     adjustments.vignette === DEFAULT_EFFECTS_SLIDERS.vignette;
 
   const handleResetEffects = () => {
@@ -99,32 +100,33 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChang
             : `${pct}%`;
 
           return (
-            <div key={item.key}>
+            <div key={item.key} className="group/item">
               <div className="flex justify-between items-baseline mb-2">
                 <label
                   htmlFor={`effects-${item.key}`}
-                  className="text-[11px] text-white/55 leading-none select-none cursor-pointer"
+                  className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors"
                 >
                   {item.label}
                 </label>
                 <span
-                  className={`text-[10px] tabular-nums w-9 text-right leading-none transition-colors duration-100 ${
-                    isChanged ? 'text-primary' : 'text-white/25'
+                  className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-all duration-200 ${
+                    isChanged ? 'text-primary scale-110' : 'text-white/20'
                   }`}
                 >
                   {val > 0 ? `+${val}` : val}
                 </span>
               </div>
 
-              <div className="relative h-[14px] flex items-center">
+              <div className="relative h-4 flex items-center group/slider">
+                <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
                 <div
                   aria-hidden
-                  className="absolute h-[2px] rounded-full pointer-events-none"
+                  className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
                   style={{
                     left:       fillLeft,
                     width:      fillWidth,
-                    background: `rgba(var(--color-primary), ${isChanged ? 0.75 : 0.25})`,
-                    transition: 'width 40ms linear, left 40ms linear',
+                    background: `rgba(var(--color-primary), ${isChanged ? 0.8 : 0.2})`,
+                    boxShadow: isChanged ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
                   }}
                 />
                 <input
@@ -134,7 +136,7 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChang
                   max={item.max}
                   value={val}
                   onChange={e => handleChange(item.key, Number(e.target.value))}
-                  className="adjustment-slider"
+                  className="adjustment-slider slider-thumb-premium"
                 />
               </div>
             </div>

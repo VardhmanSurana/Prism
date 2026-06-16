@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Photo, ViewMode, SearchFilters, SortMode, RawPhoto, normalizePhoto } from '../types';
+import { Photo, RawPhoto, normalizePhoto } from '../types';
 import { API_BASE } from '../constants';
 import { eventService } from '../services/EventService';
 
@@ -24,6 +24,7 @@ export function usePhotos() {
     try {
       const currentOffset = reset ? 0 : offset;
       const response = await fetch(`${API_BASE}/api/v1/photos/?limit=${PAGE_SIZE}&offset=${currentOffset}`);
+      if (!response.ok) throw new Error(`Photos API error: ${response.status}`);
       const data: RawPhoto[] = await response.json();
       
       const normalizedData = data.map(normalizePhoto);
@@ -49,7 +50,11 @@ export function usePhotos() {
     }
   }, [offset, hasMore]);
 
-  // Connect/disconnect and subscribe to events once on mount
+  // Stable ref so SSE callbacks always call the latest version without triggering dep loops
+  const fetchPhotosRef = useRef(fetchPhotos);
+  useEffect(() => { fetchPhotosRef.current = fetchPhotos; }, [fetchPhotos]);
+
+  // Connect/disconnect and subscribe to SSE events once on mount
   useEffect(() => {
     eventService.connect();
     
@@ -70,15 +75,22 @@ export function usePhotos() {
       setPhotos(prev => prev.filter(p => p.id !== data.photoId));
     });
 
+    // Re-fetch all photos when SSE reconnects (backend restart recovery)
+    const unsubReconnect = eventService.subscribe('reconnected', () => {
+      fetchPhotosRef.current(true);
+    });
+
     return () => {
       unsubStatus();
       unsubNewPhoto();
       unsubTrash();
+      unsubReconnect();
       eventService.disconnect();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch photos on mount, using fetchPhotos in dependency array and ref guard to prevent loop
+  // Fetch photos on mount once — ref guard prevents re-triggering when fetchPhotos identity changes
   const initialFetchDone = useRef(false);
   useEffect(() => {
     if (!initialFetchDone.current) {

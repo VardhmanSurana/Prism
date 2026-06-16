@@ -47,11 +47,6 @@ export function useBulkActions({
     [selectedIds, photos],
   );
 
-  const onShare = useCallback(
-    () => alert(`Sharing ${selectedIds.size} photos`),
-    [selectedIds.size],
-  );
-
   const onAddToAlbum = useCallback(() => {
     const name = window.prompt('Album name:');
     if (name) alert(`Added ${selectedIds.size} to ${name}`);
@@ -165,12 +160,12 @@ export function useBulkActions({
     const targetFavorite = !allFavorited;
 
     // Save original states
-    const originalStates = new Map<string, { isFavorite?: boolean; is_favorite?: boolean }>();
+    const originalStates = new Map<string, { isFavorite: boolean; is_favorite: boolean }>();
     photos.forEach(p => {
       if (selectedIds.has(String(p.id))) {
         originalStates.set(String(p.id), {
           isFavorite: p.isFavorite,
-          is_favorite: p.is_favorite
+          is_favorite: p.is_favorite ?? p.isFavorite
         });
       }
     });
@@ -266,13 +261,57 @@ export function useBulkActions({
     }
   }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
 
+  const handleBulkRestore = useCallback(async () => {
+    const idsArray = Array.from(selectedIds);
+
+    // Save original states
+    const originalStates = new Map<string, { isTrash?: boolean; is_trash?: boolean }>();
+    photos.forEach(p => {
+      if (selectedIds.has(String(p.id))) {
+        originalStates.set(String(p.id), {
+          isTrash: p.isTrash,
+          is_trash: p.is_trash
+        });
+      }
+    });
+
+    // Optimistic update - remove from view
+    setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
+    clearSelection();
+
+    // Call API in chunks of 6
+    const results = await fetchInBatches(
+      idsArray,
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/restore`, { method: 'POST' })
+    );
+
+    // Rollback failed ones
+    const failedIds = new Set<string>();
+    results.forEach((r, idx) => {
+      const id = idsArray[idx];
+      if (r.status === 'rejected' || !r.value.ok) {
+        failedIds.add(id);
+      }
+    });
+
+    if (failedIds.size > 0) {
+      setPhotos(prev => {
+        const restored = Array.from(failedIds).map(id => {
+          const original = originalStates.get(id);
+          return photos.find(p => String(p.id) === id) ? { ...photos.find(p => String(p.id) === id)!, isTrash: original?.isTrash, is_trash: original?.is_trash } : null;
+        }).filter(Boolean) as Photo[];
+        return [...prev, ...restored];
+      });
+    }
+  }, [photos, setPhotos, clearSelection, selectedIds]);
+
   return {
     handleBulkDelete,
     handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
+    handleBulkRestore,
     isFavorited,
-    onShare,
     onAddToAlbum,
   };
 }

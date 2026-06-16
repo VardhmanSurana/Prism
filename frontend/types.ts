@@ -108,6 +108,28 @@ export interface RawPhoto {
   country?: string;
 }
 
+function sanitizeDateString(dateStr: string | undefined | null): string {
+  if (!dateStr) return '';
+  let sanitized = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(sanitized)) {
+    sanitized = sanitized.replace(' ', 'T');
+    const dotIndex = sanitized.indexOf('.');
+    if (dotIndex !== -1) {
+      let endOfFraction = dotIndex + 1;
+      while (endOfFraction < sanitized.length && /\d/.test(sanitized[endOfFraction])) {
+        endOfFraction++;
+      }
+      const fraction = sanitized.substring(dotIndex + 1, endOfFraction);
+      const ms = fraction.substring(0, 3).padEnd(3, '0');
+      sanitized = sanitized.substring(0, dotIndex) + '.' + ms + sanitized.substring(endOfFraction);
+    }
+    if (!/[Zz]$/.test(sanitized) && !/[+-]\d{2}:?\d{2}$/.test(sanitized)) {
+      sanitized += 'Z';
+    }
+  }
+  return sanitized;
+}
+
 /**
  * Normalize photo data from backend to ensure both camelCase and snake_case fields exist.
  * This prevents inconsistencies when backend changes field naming.
@@ -115,6 +137,10 @@ export interface RawPhoto {
 export function normalizePhoto(raw: RawPhoto): Photo {
   const isLocked = raw.is_locked ?? raw.isLocked ?? false;
   const resolvedUrl = isLocked ? `/api/v1/photos/${raw.id}/thumbnail` : (raw.url || '');
+  const rawDate = raw.date || raw.date_taken || '';
+  const sanitizedDate = sanitizeDateString(rawDate);
+  const rawUploadDate = raw.upload_date ?? raw.uploadDate ?? rawDate;
+  const sanitizedUploadDate = sanitizeDateString(rawUploadDate);
   return {
     ...raw,
     id: raw.id,
@@ -122,19 +148,20 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     path: raw.path || '',
     width: raw.width || 0,
     height: raw.height || 0,
-    date: raw.date || raw.date_taken || '',
+    date: sanitizedDate,
+    date_taken: sanitizeDateString(raw.date_taken),
     // Boolean flags - prioritize snake_case from backend
     isFavorite: raw.is_favorite ?? raw.isFavorite ?? false,
     isArchived: raw.is_archived ?? raw.isArchived ?? false,
     isLocked: isLocked,
     isTrash: raw.is_trash ?? raw.isTrash ?? false,
     // Date fields
-    uploadDate: raw.upload_date ?? raw.uploadDate ?? raw.date,
+    uploadDate: sanitizedUploadDate,
     // Keep original fields for compatibility
     is_favorite: raw.is_favorite ?? raw.isFavorite ?? false,
     is_archived: raw.is_archived ?? raw.isArchived ?? false,
     is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
-    upload_date: raw.upload_date ?? raw.uploadDate ?? raw.date,
+    upload_date: sanitizedUploadDate,
   };
 }

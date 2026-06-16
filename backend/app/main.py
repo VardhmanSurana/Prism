@@ -202,9 +202,9 @@ async def serve_local_file(path: str):
     return FileResponse(str(resolved_path))
 
 
-# Serve thumbnail dynamically with authentication check if locked
+# Serve thumbnail dynamically with size parameter for high-res previews
 @app.get("/api/v1/photos/{photo_id}/thumbnail")
-async def serve_photo_thumbnail(photo_id: int):
+async def serve_photo_thumbnail(photo_id: int, size: int = 400):
     from app.db import async_session
     from app.models import Photo
     async with async_session() as db:
@@ -213,6 +213,9 @@ async def serve_photo_thumbnail(photo_id: int):
     if not photo:
         raise HTTPException(status_code=404, detail="Photo not found")
         
+    # Limit size to prevent abuse/OOM
+    size = min(max(size, 32), 4096)
+    
     if photo.is_locked:
         from app.services.locked_service import locked_service
         if not locked_service.is_authenticated:
@@ -228,11 +231,26 @@ async def serve_photo_thumbnail(photo_id: int):
             import io
             from PIL import Image
             img = Image.open(io.BytesIO(decrypted_data))
-            img.thumbnail((400, 400))
+            img.thumbnail((size, size))
             out_bytes = io.BytesIO()
             img.save(out_bytes, format="WEBP", quality=80)
             return Response(content=out_bytes.getvalue(), media_type="image/webp")
             
+        # For non-default sizes, we don't cache for now, just generate on the fly
+        if size != 400:
+            resolved_path = safe_resolve_read(photo.path)
+            decrypted_data = await locked_service.decrypt_file_data(str(resolved_path))
+            if decrypted_data is None:
+                raise HTTPException(status_code=500, detail="Failed to decrypt file")
+            
+            import io
+            from PIL import Image
+            img = Image.open(io.BytesIO(decrypted_data))
+            img.thumbnail((size, size))
+            out_bytes = io.BytesIO()
+            img.save(out_bytes, format="WEBP", quality=80)
+            return Response(content=out_bytes.getvalue(), media_type="image/webp")
+
         enc_thumb_path = settings.THUMBNAILS_DIR / f"{file_hash}.webp.enc"
         if enc_thumb_path.exists():
             decrypted_thumb = await locked_service.decrypt_encrypted_thumbnail(str(enc_thumb_path))
@@ -247,7 +265,7 @@ async def serve_photo_thumbnail(photo_id: int):
         import io
         from PIL import Image
         img = Image.open(io.BytesIO(decrypted_data))
-        img.thumbnail((400, 400))
+        img.thumbnail((size, size))
         out_bytes = io.BytesIO()
         img.save(out_bytes, format="WEBP", quality=80)
         
@@ -257,6 +275,33 @@ async def serve_photo_thumbnail(photo_id: int):
         return Response(content=thumb_data, media_type="image/webp")
         
     else:
+        # For non-default sizes or HEIC originals, generate on the fly if needed
+        is_heic = photo.path.lower().endswith('.heic') or photo.filename.lower().endswith('.heic')
+        if size != 400 or is_heic:
+            resolved_path = safe_resolve_read(photo.path)
+            if not resolved_path.exists():
+                raise HTTPException(status_code=404, detail="Original photo file not found")
+            
+            # If not HEIC and we just want default size, use existing cache if possible
+            if not is_heic and size == 400 and photo.url and photo.url.startswith("/thumbnails/"):
+                 thumb_name = photo.url.split("/thumbnails/")[-1]
+                 thumb_path = settings.THUMBNAILS_DIR / thumb_name
+                 if thumb_path.exists():
+                     return FileResponse(str(thumb_path))
+
+            import io
+            from PIL import Image
+            from pillow_heif import register_heif_opener
+            register_heif_opener()
+            
+            with Image.open(str(resolved_path)) as img:
+                from PIL import ImageOps
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((size, size))
+                out_bytes = io.BytesIO()
+                img.save(out_bytes, format="WEBP", quality=85)
+                return Response(content=out_bytes.getvalue(), media_type="image/webp")
+
         if photo.url and photo.url.startswith("/thumbnails/"):
             thumb_name = photo.url.split("/thumbnails/")[-1]
             thumb_path = settings.THUMBNAILS_DIR / thumb_name

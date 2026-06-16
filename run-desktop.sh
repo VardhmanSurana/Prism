@@ -25,6 +25,25 @@ else
     (
       cd "$ROOT/backend"
 
+      # ── Compiler Setup (Fix for llama-cpp-python and CUDA) ────────────────
+      # Use GCC 15 if available, as nvcc 13.2 doesn't support GCC 16 (default on this system)
+      # and the user's environment might be requesting a missing gcc-14.
+      if [ -x "/home/linuxbrew/.linuxbrew/bin/gcc-15" ]; then
+        export CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15 -DCMAKE_CUDA_HOST_COMPILER=gcc-15"
+        export CUDAHOSTCXX=gcc-15
+        # Ensure brew bin is in PATH so CMake can find gcc-15/g++-15
+        export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
+      fi
+
+      # ── Fix for inspireface library (executable stack issue) ──────────────
+      LIB_PATH=".venv/lib/python3.11/site-packages/inspireface/modules/core/libs/linux/x64/libInspireFace.so"
+      if [ -f "$LIB_PATH" ] && which execstack >/dev/null 2>&1; then
+        if execstack -q "$LIB_PATH" | grep -q "^X"; then
+          echo "[desktop] Fixing executable stack for inspireface library..."
+          execstack -c "$LIB_PATH"
+        fi
+      fi
+
       VENV_LIBS="$ROOT/backend/.venv/lib/python3.11/site-packages/nvidia"
       SYSTEM_CUDA="/usr/local/cuda/lib64"
       

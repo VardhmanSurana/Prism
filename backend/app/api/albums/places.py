@@ -12,6 +12,32 @@ router = APIRouter()
 
 @router.get("/")
 async def list_places(db: AsyncSession = Depends(get_db)):
+    from app.services.sync_service import sync_service
+    active_mounts = list(sync_service.active_mounts)
+
+    # Compute live photo counts per location to avoid stale cached values
+    count_result = await db.execute(
+        select(
+            Photo.city,
+            Photo.state,
+            Photo.country,
+            func.count(Photo.id).label("live_count"),
+        )
+        .where(Photo.city.isnot(None))
+        .where(Photo.is_trash == False)
+        .where(
+            or_(
+                Photo.is_external == False,
+                Photo.device_id.in_(active_mounts)
+            )
+        )
+        .group_by(Photo.city, Photo.state, Photo.country)
+    )
+    live_counts = {}
+    for row in count_result.all():
+        key = f"{row.city or ''}|{row.state or ''}|{row.country or ''}"
+        live_counts[key] = row.live_count
+
     result = await db.execute(
         select(Album)
         .where(Album.type == "places")
@@ -31,13 +57,15 @@ async def list_places(db: AsyncSession = Depends(get_db)):
     
     results = []
     for album in albums:
+        meta = json.loads(album.metadata_json) if album.metadata_json else {}
+        key = f"{meta.get('city') or ''}|{meta.get('state') or ''}|{meta.get('country') or ''}"
         results.append({
             "id": album.id,
             "name": album.name,
             "type": "places",
-            "photo_count": album.photo_count,
+            "photo_count": live_counts.get(key, 0),
             "cover_url": album.cover_url,
-            "metadata": json.loads(album.metadata_json) if album.metadata_json else {}
+            "metadata": meta,
         })
     return results
 
@@ -51,14 +79,18 @@ async def get_place_photos(
     db: AsyncSession = Depends(get_db)
 ):
     from app.services.sync_service import sync_service
+    from app.services.locked_service import locked_service
     active_mounts = list(sync_service.active_mounts)
 
     q = select(Photo).where(
+        Photo.is_trash == False,
         or_(
             Photo.is_external == False,
             Photo.device_id.in_(active_mounts)
         )
     )
+    if not locked_service.is_authenticated:
+        q = q.where(Photo.is_locked == False)
     if city:
         q = q.where(Photo.city == city)
     if state:

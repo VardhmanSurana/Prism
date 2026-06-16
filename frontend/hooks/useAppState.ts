@@ -70,8 +70,8 @@ export function useAppState() {
     handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
+    handleBulkRestore,
     isFavorited,
-    onShare,
     onAddToAlbum,
   } = useBulkActions({
     photos,
@@ -145,11 +145,11 @@ export function useAppState() {
     handleToggleGroupSelection,
     clearSelection,
     isFavorited,
-    onShare,
     onAddToAlbum,
     handleBulkDelete,
     handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
+    handleBulkRestore,
   };
 }

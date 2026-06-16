@@ -119,57 +119,93 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
                 </div>
 
                 {/* Skin Smoothing (Blur) */}
-                <div className="space-y-2">
+                <div className="space-y-2 group/item">
                   <div className="flex justify-between items-baseline">
-                    <label className="text-[11px] text-white/55">Skin Smoothing</label>
-                    <span className="text-[10px] tabular-nums text-primary">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Skin Smoothing</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
                       {region.adjustments.blur || 0}
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={region.adjustments.blur || 0}
-                    onChange={(e) => handleRegionChange(regionId, 'blur', Number(e.target.value))}
-                    className="adjustment-slider"
-                  />
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left:  '0%',
+                        width: `${region.adjustments.blur || 0}%`,
+                        background: `rgba(var(--color-primary), ${region.adjustments.blur !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.blur !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={region.adjustments.blur || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'blur', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
                 </div>
 
                 {/* Face Brightness */}
-                <div className="space-y-2">
+                <div className="space-y-2 group/item">
                   <div className="flex justify-between items-baseline">
-                    <label className="text-[11px] text-white/55">Face Brightness</label>
-                    <span className="text-[10px] tabular-nums text-primary">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Face Brightness</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
                       {region.adjustments.brightness || 0}
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="-50"
-                    max="50"
-                    value={region.adjustments.brightness || 0}
-                    onChange={(e) => handleRegionChange(regionId, 'brightness', Number(e.target.value))}
-                    className="adjustment-slider"
-                  />
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left:  `${Math.min(50, ((region.adjustments.brightness || 0) + 50))}%`,
+                        width: `${Math.abs(((region.adjustments.brightness || 0) + 50) - 50)}%`,
+                        background: `rgba(var(--color-primary), ${region.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.brightness !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={region.adjustments.brightness || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'brightness', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
                 </div>
 
                 {/* Face Glow (Saturation) */}
-                <div className="space-y-2">
+                <div className="space-y-2 group/item">
                   <div className="flex justify-between items-baseline">
-                    <label className="text-[11px] text-white/55">Skin Vibrance</label>
-                    <span className="text-[10px] tabular-nums text-primary">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Skin Vibrance</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
                       {region.adjustments.saturation || 0}
                     </span>
                   </div>
-                  <input
-                    type="range"
-                    min="-50"
-                    max="50"
-                    value={region.adjustments.saturation || 0}
-                    onChange={(e) => handleRegionChange(regionId, 'saturation', Number(e.target.value))}
-                    className="adjustment-slider"
-                  />
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left:  `${Math.min(50, ((region.adjustments.saturation || 0) + 50))}%`,
+                        width: `${Math.abs(((region.adjustments.saturation || 0) + 50) - 50)}%`,
+                        background: `rgba(var(--color-primary), ${region.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.saturation !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={region.adjustments.saturation || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'saturation', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
                 </div>
               </div>
             );

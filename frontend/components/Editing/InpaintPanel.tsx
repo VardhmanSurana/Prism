@@ -143,161 +143,160 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
       )}
 
       {/* ── Operation Mode ── */}
-      <div className="px-4 pt-4 pb-3">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">
-          Operation
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-4">
+          Core AI Operation
         </p>
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => handleOperationChange('remove')}
-            className={`py-2 px-2 rounded-lg text-[10px] font-medium transition-all border ${
+            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
               operation === 'remove'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
             }`}
           >
-            <Eraser size={12} className="mx-auto mb-1" />
+            <Eraser size={16} className="mx-auto mb-2" />
             Remove
           </button>
           <button
             onClick={() => handleOperationChange('replace')}
-            className={`py-2 px-2 rounded-lg text-[10px] font-medium transition-all border ${
+            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
               operation === 'replace'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
             }`}
           >
-            <Wand2 size={12} className="mx-auto mb-1" />
+            <Wand2 size={16} className="mx-auto mb-2" />
             Replace
           </button>
           <button
             onClick={() => handleOperationChange('outpaint')}
-            className={`py-2 px-2 rounded-lg text-[10px] font-medium transition-all border ${
+            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
               operation === 'outpaint'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
+                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
             }`}
           >
-            <Expand size={12} className="mx-auto mb-1" />
-            Outpaint
+            <Expand size={16} className="mx-auto mb-2" />
+            Expand
           </button>
         </div>
       </div>
 
       {/* ── Brush Tools ── */}
-      <div className="px-4 pb-3">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">
-          Brush Tools
+      <div className="px-5 pb-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-4">
+          Selection Tools
         </p>
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          <button
-            onClick={() => onModeChange('brush')}
-            className={`py-2 rounded-lg text-[10px] font-medium transition-all border ${
-              mode === 'brush'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-            }`}
-            title="Brush"
-          >
-            <Paintbrush size={12} className="mx-auto" />
-          </button>
-          <button
-            onClick={() => onModeChange('erase')}
-            className={`py-2 rounded-lg text-[10px] font-medium transition-all border ${
-              mode === 'erase'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-            }`}
-            title="Eraser"
-          >
-            <Eraser size={12} className="mx-auto" />
-          </button>
-          <button
-            onClick={() => onModeChange('interactive')}
-            className={`py-2 rounded-lg text-[10px] font-medium transition-all border ${
-              mode === 'interactive'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-            }`}
-            title="Interactive Segmentation"
-          >
-            <Wand2 size={12} className="mx-auto" />
-          </button>
-          <button
-            onClick={() => onModeChange('auto')}
-            className={`py-2 rounded-lg text-[10px] font-medium transition-all border ${
-              mode === 'auto'
-                ? 'bg-primary/20 text-primary border-primary/30'
-                : 'bg-white/5 text-white/60 border-white/10 hover:bg-white/10'
-            }`}
-            title="Auto Detect"
-          >
-            <Sparkles size={12} className="mx-auto" />
-          </button>
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          {[
+            { id: 'brush', icon: <Paintbrush size={14} />, title: 'Brush' },
+            { id: 'erase', icon: <Eraser size={14} />, title: 'Eraser' },
+            { id: 'interactive', icon: <Wand2 size={14} />, title: 'Interactive' },
+            { id: 'auto', icon: <Sparkles size={14} />, title: 'Auto' },
+          ].map(tool => (
+            <button
+              key={tool.id}
+              onClick={() => onModeChange(tool.id as InpaintMode)}
+              className={`h-11 rounded-xl flex items-center justify-center transition-all border ${
+                mode === tool.id
+                  ? 'bg-primary text-[#050505] border-primary shadow-lg shadow-primary/20'
+                  : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
+              }`}
+              title={tool.title}
+            >
+              {tool.icon}
+            </button>
+          ))}
         </div>
 
         {/* Brush Size */}
-        <div className="mb-4">
-          <div className="flex justify-between items-baseline mb-2">
-            <label className="text-[11px] text-white/55">Brush Size</label>
-            <span className="text-[10px] text-primary tabular-nums">{settings.brushSize}px</span>
+        <div className="mb-6 group/item">
+          <div className="flex justify-between items-baseline mb-3">
+            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Brush Size</label>
+            <span className="text-[10px] text-primary font-mono font-bold">{settings.brushSize}px</span>
           </div>
-          <input
-            type="range"
-            min={5}
-            max={200}
-            step={1}
-            value={settings.brushSize}
-            onChange={e => handleBrushSizeChange(Number(e.target.value))}
-            className="adjustment-slider"
-          />
+          <div className="relative h-4 flex items-center group/slider">
+            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+            <div
+              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+              style={{
+                left:  '0%',
+                width: `${(settings.brushSize / 200) * 100}%`,
+                background: `rgba(var(--color-primary), 0.8)`,
+                boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+              }}
+            />
+            <input
+              type="range"
+              min={5}
+              max={200}
+              step={1}
+              value={settings.brushSize}
+              onChange={e => handleBrushSizeChange(Number(e.target.value))}
+              className="adjustment-slider slider-thumb-premium"
+            />
+          </div>
         </div>
 
         {/* Brush Hardness */}
-        <div className="mb-4">
-          <div className="flex justify-between items-baseline mb-2">
-            <label className="text-[11px] text-white/55">Hardness</label>
-            <span className="text-[10px] text-primary tabular-nums">{settings.brushHardness}%</span>
+        <div className="mb-6 group/item">
+          <div className="flex justify-between items-baseline mb-3">
+            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Hardness</label>
+            <span className="text-[10px] text-primary font-mono font-bold">{settings.brushHardness}%</span>
           </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={1}
-            value={settings.brushHardness}
-            onChange={e => handleBrushHardnessChange(Number(e.target.value))}
-            className="adjustment-slider"
-          />
-        </div>
-
-        {/* Mask Visibility Toggle */}
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-[11px] text-white/55">Mask Preview</label>
-          <button
-            onClick={() => onSettingsChange({ ...settings, showMask: !settings.showMask })}
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] bg-white/5 hover:bg-white/10 transition-colors text-white/70"
-          >
-            {settings.showMask ? <Eye size={11} /> : <EyeOff size={11} />}
-            {settings.showMask ? 'Hide' : 'Show'}
-          </button>
-        </div>
-
-        {/* Mask Opacity */}
-        {settings.showMask && (
-          <div className="mb-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[11px] text-white/55">Mask Opacity</label>
-              <span className="text-[10px] text-primary tabular-nums">{settings.maskOpacity}%</span>
-            </div>
+          <div className="relative h-4 flex items-center group/slider">
+            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+            <div
+              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+              style={{
+                left:  '0%',
+                width: `${settings.brushHardness}%`,
+                background: `rgba(var(--color-primary), 0.8)`,
+                boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+              }}
+            />
             <input
               type="range"
               min={0}
               max={100}
-              step={5}
-              value={settings.maskOpacity}
-              onChange={e => onSettingsChange({ ...settings, maskOpacity: Number(e.target.value) })}
-              className="adjustment-slider"
+              step={1}
+              value={settings.brushHardness}
+              onChange={e => handleBrushHardnessChange(Number(e.target.value))}
+              className="adjustment-slider slider-thumb-premium"
             />
+          </div>
+        </div>
+
+        {/* Mask Opacity */}
+        {settings.showMask && (
+          <div className="mb-6 group/item">
+            <div className="flex justify-between items-baseline mb-3">
+              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Mask Opacity</label>
+              <span className="text-[10px] text-primary font-mono font-bold">{settings.maskOpacity}%</span>
+            </div>
+            <div className="relative h-4 flex items-center group/slider">
+              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+              <div
+                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                style={{
+                  left:  '0%',
+                  width: `${settings.maskOpacity}%`,
+                  background: `rgba(var(--color-primary), 0.8)`,
+                  boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+                }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={settings.maskOpacity}
+                onChange={e => onSettingsChange({ ...settings, maskOpacity: Number(e.target.value) })}
+                className="adjustment-slider slider-thumb-premium"
+              />
+            </div>
           </div>
         )}
 

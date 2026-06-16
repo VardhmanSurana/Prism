@@ -81,40 +81,40 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+    <div className="flex-1 overflow-y-auto p-5 space-y-8 custom-scrollbar">
 
       {/* AI Tools */}
-      <div className="space-y-3 pb-4 border-b border-white/5">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25">AI Tools</p>
+      <div className="space-y-4">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Intelligent Tools</p>
         <button
           onClick={handleSmartCrop}
           disabled={isSmartCropping || !photoId}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-xs font-bold cursor-pointer disabled:opacity-50"
+          className="group w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-all text-xs font-bold cursor-pointer disabled:opacity-50"
         >
-          {isSmartCropping ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-          Smart Crop
+          {isSmartCropping ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} className="group-hover:rotate-12 transition-transform" />}
+          AI Smart Crop
         </button>
       </div>
 
       {/* Crop Actions (Apply / Reset) */}
       {(hasCropSelection || isImageCropped) && (
-        <div className="space-y-2 pb-4 border-b border-white/5">
-          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25">Crop Actions</p>
+        <div className="space-y-3 p-4 glass-card animate-in fade-in zoom-in-95 duration-300">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Selection</p>
           <div className="flex flex-col gap-2">
             {hasCropSelection && (
               <button
                 onClick={handleApplyCrop}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-primary text-white hover:opacity-90 transition-all text-xs font-semibold shadow-lg shadow-primary/25 cursor-pointer animate-fade-in"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-[#050505] hover:brightness-110 transition-all text-xs font-bold shadow-xl shadow-primary/20 cursor-pointer"
               >
-                <Check size={13} strokeWidth={2.5} /> Apply Crop
+                <Check size={14} strokeWidth={3} /> Apply Changes
               </button>
             )}
             {isImageCropped && (
               <button
                 onClick={handleResetCrop}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-all text-xs font-medium cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/5 text-white/40 hover:text-white hover:bg-white/5 transition-all text-xs font-bold cursor-pointer"
               >
-                Reset Image
+                Reset Canvas
               </button>
             )}
           </div>
@@ -123,8 +123,8 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
 
       {/* Aspect ratio */}
       <div>
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Aspect Ratio</p>
-        <div className="flex flex-col gap-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-4">Proportions</p>
+        <div className="grid grid-cols-2 gap-2">
           {ASPECT_RATIOS.map(ratio => {
             const active =
               (isNaN(currentRatio) && isNaN(ratio.value)) ||
@@ -133,10 +133,10 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
               <button
                 key={ratio.label}
                 onClick={() => handleSetAspectRatio(ratio.value)}
-                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold text-left transition-all border ${
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold text-center transition-all border ${
                   active
-                    ? 'bg-primary/15 border-primary/40 text-primary'
-                    : 'bg-white/[0.03] border-transparent text-white/40 hover:text-white hover:bg-white/8'
+                    ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                    : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
                 }`}
               >
                 {ratio.label}
@@ -146,95 +146,93 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
         </div>
       </div>
 
-      {/* Rotate */}
-      <div>
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Rotate</p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => handleRotate(-90)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-white/[0.03] border border-transparent text-white/40 hover:text-white hover:bg-white/8 transition-colors text-xs font-medium"
-          >
-            <RotateCcw size={13} /> Left
-          </button>
-          <button
-            onClick={() => handleRotate(90)}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-white/[0.03] border border-transparent text-white/40 hover:text-white hover:bg-white/8 transition-colors text-xs font-medium"
-          >
-            <RotateCw size={13} /> Right
-          </button>
+      {/* Rotate & Flip */}
+      <div className="space-y-6">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-4">Orientation</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleRotate(-90)}
+              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+              title="Rotate Left"
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button
+              onClick={() => handleRotate(90)}
+              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+              title="Rotate Right"
+            >
+              <RotateCw size={16} />
+            </button>
+            <button
+              onClick={handleFlipH}
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-all ${
+                flipH
+                  ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                  : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
+              }`}
+              title="Flip Horizontal"
+            >
+              <FlipHorizontal size={16} />
+            </button>
+            <button
+              onClick={handleFlipV}
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-all ${
+                flipV
+                  ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
+                  : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
+              }`}
+              title="Flip Vertical"
+            >
+              <FlipVertical size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Straighten */}
+        <div>
+          <div className="flex justify-between items-baseline mb-4">
+             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Straighten</p>
+             <span className={`text-[11px] font-mono tabular-nums font-bold transition-all duration-300 ${
+               straightenAngle !== 0 ? 'text-primary scale-110' : 'text-white/20'
+             }`}>
+               {straightenAngle > 0 ? `+${straightenAngle.toFixed(1)}°` : `${straightenAngle.toFixed(1)}°`}
+             </span>
+          </div>
+          
+          <div className="relative h-4 flex items-center group/slider">
+            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+            <div
+              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+              style={{
+                left:  `${Math.min(50, ((straightenAngle + 45) / 90) * 100)}%`,
+                width: `${Math.abs(((straightenAngle + 45) / 90) * 100 - 50)}%`,
+                background: `rgba(var(--color-primary), ${straightenAngle !== 0 ? 0.8 : 0.2})`,
+                boxShadow: straightenAngle !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+              }}
+            />
+            <input
+              type="range"
+              min={-45}
+              max={45}
+              step={0.1}
+              value={straightenAngle}
+              onChange={e => handleStraighten(Number(e.target.value))}
+              className="adjustment-slider slider-thumb-premium"
+            />
+          </div>
+          
+          {straightenAngle !== 0 && (
+            <button
+              onClick={() => handleStraighten(0)}
+              className="mt-3 w-full text-[9px] font-bold uppercase tracking-widest text-white/20 hover:text-white/50 transition-colors"
+            >
+              Reset Level
+            </button>
+          )}
         </div>
       </div>
-
-      {/* Straighten */}
-      <div>
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Straighten</p>
-        <div className="mb-2 flex justify-between items-baseline">
-          <span className="text-[10px] text-white/35">−45°</span>
-          <span className={`text-[11px] tabular-nums font-medium transition-colors ${
-            straightenAngle !== 0 ? 'text-primary' : 'text-white/25'
-          }`}>
-            {straightenAngle > 0 ? `+${straightenAngle}°` : `${straightenAngle}°`}
-          </span>
-          <span className="text-[10px] text-white/35">+45°</span>
-        </div>
-        <div className="relative h-[14px] flex items-center">
-          {/* Centre fill */}
-          <div
-            className="absolute h-[2px] rounded-full pointer-events-none"
-            style={{
-              left:  `${Math.min(50, ((straightenAngle + 45) / 90) * 100)}%`,
-              width: `${Math.abs(((straightenAngle + 45) / 90) * 100 - 50)}%`,
-              background: `rgba(var(--color-primary), ${straightenAngle !== 0 ? 0.75 : 0.25})`,
-              transition: 'width 40ms linear, left 40ms linear',
-            }}
-          />
-          <input
-            type="range"
-            min={-45}
-            max={45}
-            step={0.5}
-            value={straightenAngle}
-            onChange={e => handleStraighten(Number(e.target.value))}
-            className="adjustment-slider"
-          />
-        </div>
-        {straightenAngle !== 0 && (
-          <button
-            onClick={() => handleStraighten(0)}
-            className="mt-2 w-full text-[10px] text-white/25 hover:text-white/60 transition-colors"
-          >
-            Reset straighten
-          </button>
-        )}
-      </div>
-
-      {/* Flip */}
-      <div>
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Flip</p>
-        <div className="flex gap-2">
-          <button
-            onClick={handleFlipH}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border transition-all text-xs font-medium ${
-              flipH
-                ? 'bg-primary/15 border-primary/40 text-primary'
-                : 'bg-white/[0.03] border-transparent text-white/40 hover:text-white hover:bg-white/8'
-            }`}
-          >
-            <FlipHorizontal size={13} /> Horizontal
-          </button>
-          <button
-            onClick={handleFlipV}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg border transition-all text-xs font-medium ${
-              flipV
-                ? 'bg-primary/15 border-primary/40 text-primary'
-                : 'bg-white/[0.03] border-transparent text-white/40 hover:text-white hover:bg-white/8'
-            }`}
-          >
-            <FlipVertical size={13} /> Vertical
-          </button>
-        </div>
-      </div>
-
     </div>
   );
 };

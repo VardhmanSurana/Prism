@@ -108,6 +108,7 @@ export function MainContent({
           <PhotoGrid
             photos={photos}
             isLoading={isLoading}
+            currentView={currentView}
             onPhotoClick={onPhotoClick}
             selectedIds={selectedIds}
             onToggleSelection={onToggleSelection}

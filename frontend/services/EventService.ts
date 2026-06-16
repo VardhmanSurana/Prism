@@ -19,6 +19,12 @@ class EventService {
 
         this.eventSource = new EventSource(`${API_BASE}/api/v1/settings/events`);
 
+        this.eventSource.onopen = () => {
+            // Emit a synthetic 'reconnected' event so subscribers (e.g. photo grid)
+            // can re-fetch data after a backend restart.
+            this.emit('reconnected', { type: 'reconnected' });
+        };
+
         this.eventSource.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data) as SSEEvent;

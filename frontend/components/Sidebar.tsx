@@ -4,7 +4,6 @@ import {
   Image as ImageIcon,
   Compass,
   Map as MapIcon,
-  Heart,
   FolderOpen,
   Archive,
   Trash2,
@@ -34,7 +33,6 @@ const MAIN_NAV: NavItemData[] = [
 ];
 
 const LIBRARY_NAV: NavItemData[] = [
-  { view: 'favorites', icon: Heart, label: 'Favorites' },
   { view: 'albums', icon: FolderOpen, label: 'Albums' },
   { view: 'people', icon: Users, label: 'People' },
   { view: 'archived', icon: Archive, label: 'Archive' },

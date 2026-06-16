@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2 } from 'lucide-react';
 
 interface TopBarProps {
   onClose: () => void;
@@ -43,62 +43,70 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose, isSaving, handleSave })
   };
 
   return (
-    <div className="h-14 flex items-center justify-between px-6 bg-[#040404] border-b border-white/5 shrink-0">
-      <button
-        onClick={onClose}
-        disabled={isSaving}
-        className="flex items-center gap-2 px-3 py-1.5 text-white/40 hover:text-white text-sm transition-colors rounded-lg hover:bg-white/5 disabled:opacity-50"
-      >
-        <X size={15} /> Cancel
-      </button>
+    <div className="h-16 flex items-center justify-between px-8 bg-[#050505] border-b border-white/5 shrink-0 z-50">
+      <div className="flex items-center gap-6">
+        <button
+          onClick={onClose}
+          disabled={isSaving}
+          className="group flex items-center gap-2 text-white/40 hover:text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+        >
+          <div className="p-2 rounded-full border border-white/5 group-hover:border-white/20 transition-colors">
+            <X size={14} /> 
+          </div>
+          Cancel
+        </button>
+      </div>
 
-      <span className="text-white/35 text-xs font-semibold uppercase tracking-widest">
-        Edit Photo
-      </span>
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
+        <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary),0.6)]" />
+        <span className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em]">
+          Studio Editor
+        </span>
+      </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         <div className="relative" ref={containerRef}>
-          {/* Split button: [ Save As ✓ ] [ ▼ ] */}
-          <div className="flex items-stretch rounded-full overflow-hidden shadow-lg shadow-primary/25">
+          {/* Refined split button */}
+          <div className="flex items-stretch rounded-xl overflow-hidden shadow-2xl shadow-primary/20 border border-primary/20">
             <button
               onClick={onSaveAs}
               disabled={isSaving}
-              className="pl-4 pr-3 py-1.5 bg-primary text-white hover:opacity-90 flex items-center gap-1.5 text-xs font-semibold transition-all disabled:opacity-50"
+              className="pl-5 pr-4 py-2 bg-primary text-[#050505] hover:brightness-110 flex items-center gap-2 text-xs font-bold transition-all disabled:opacity-50"
             >
-              <Check size={13} strokeWidth={3} /> Save As
+              {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              Export Copy
             </button>
             <button
               onClick={() => setDropdownOpen(o => !o)}
               disabled={isSaving}
-              aria-label="More save options"
-              aria-haspopup="true"
-              aria-expanded={dropdownOpen}
-              className="pr-3 pl-1.5 py-1.5 bg-primary text-white hover:opacity-90 border-l border-white/20 transition-all disabled:opacity-50"
+              className="pr-4 pl-3 py-2 bg-primary text-[#050505] hover:brightness-110 border-l border-black/10 transition-all disabled:opacity-50"
             >
               <ChevronDown
-                size={13}
+                size={14}
                 strokeWidth={3}
-                className={`transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                className={`transition-transform duration-300 ${dropdownOpen ? 'rotate-180' : ''}`}
               />
             </button>
           </div>
 
-          {/* Dropdown — hidden "Save" (overwrite) option */}
+          {/* Premium Dropdown */}
           {dropdownOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-1.5 w-52 rounded-xl bg-[#0f0f0f] border border-white/10 shadow-2xl shadow-black/60 overflow-hidden z-50"
+              className="absolute right-0 top-full mt-3 w-56 rounded-2xl bg-[#0c0c0c] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
             >
               <button
                 role="menuitem"
                 onClick={onOverwrite}
-                className="w-full px-3.5 py-2.5 text-left text-xs text-white/70 hover:text-white hover:bg-white/5 transition-colors flex items-start gap-2.5"
+                className="w-full px-4 py-4 text-left hover:bg-white/5 transition-all flex items-start gap-3 group"
               >
-                <Save size={13} className="text-white/40 mt-0.5 shrink-0" />
+                <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                  <Check size={14} />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium">Save</div>
-                  <div className="text-[10px] text-white/30 mt-0.5 leading-tight">
-                    Overwrites original file
+                  <div className="text-xs font-bold text-white/80 group-hover:text-white">Save Changes</div>
+                  <div className="text-[10px] text-white/20 group-hover:text-white/40 mt-1 leading-tight">
+                    Update original photo file
                   </div>
                 </div>
               </button>

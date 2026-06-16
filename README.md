@@ -1,152 +1,482 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/PRISM-000000?style=for-the-badge&logo=photo&logoColor=white" alt="Prism Logo" width="300" />
+  <img src="https://img.shields.io/badge/PRISM-000000?style=for-the-badge&logo=photo&logoColor=white" alt="Prism" width="300" />
 </p>
 
 <p align="center">
-  <strong>A high-performance, privacy-first, local-only desktop library organizer.</strong>
+  <strong>Privacy-first local photo library, search, organization, and editing desktop app.</strong>
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/status-alpha-orange?style=flat-square" alt="Status" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs Welcome" />
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform Support" />
-  <img src="https://img.shields.io/badge/Security-KEK%2FDEK%20Hardened-success?style=flat-square" alt="Security Hardened" />
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License" />
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/security-local%20encryption-success?style=flat-square" alt="Security" />
 </p>
 
 ---
 
-## 🔮 Introduction
+## Table of Contents
 
-**Prism** is a state-of-the-art, local-first desktop application designed for privacy-conscious photographers. It manages and indexes local photo catalogs with native processing speed. By combining face clustering, offline geographic metadata extraction, and local AI agent search into a highly optimized client interface, Prism delivers professional-grade organization tools while ensuring **100% of your data remains on your host machine**.
+- [What Prism Is](#what-prism-is)
+- [Core Features](#core-features)
+- [Technology Stack](#technology-stack)
+- [Architecture](#architecture)
+- [Project Layout](#project-layout)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [One-Click Startup](#one-click-startup)
+  - [Manual Development Setup](#manual-development-setup)
+  - [Useful Scripts](#useful-scripts)
+- [User Guide](#user-guide)
+- [Optional Local AI Features](#optional-local-ai-features)
+- [Security Boundaries](#security-boundaries)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Contribution](#contribution)
+- [Acknowledgements](#acknowledgements)
+- [Contact](#contact)
+- [License](#license)
 
 ---
 
-## 📋 Table of Contents
+## What Prism Is
 
-1. [🛠 Technology Stack](#-technology-stack)
-2. [🚀 Core Architectural Highlights](#-core-architectural-highlights)
-3. [🏁 Getting Started](#-getting-started)
-   - [Prerequisites](#prerequisites)
-   - [One-Click Startup](#one-click-startup)
-   - [Manual Setup](#manual-setup)
-4. [🔐 Security Boundary Enforcements](#-security-boundary-enforcements)
-5. [🧑‍💻 Contribution & Community](#-contribution--community)
-6. [🙏 Acknowledgements & Credits](#-acknowledgements--credits)
-7. [📜 License](#-license)
+**Prism** is a local-first desktop photo library for photographers and privacy-conscious users. It indexes images from watched folders, extracts metadata, generates thumbnails, supports fast search and browsing, groups photos by people/places/memories, and keeps private photos in an encrypted Locked Folder.
+
+The core product is designed so that normal library data, search indexes, thumbnails, metadata, and Locked Folder operations stay on the host machine.
 
 ---
 
-## 🛠 Technology Stack
+## Core Features
+
+- **Local library indexing:** Import individual files or folders and watch configured directories for new image changes.
+- **Supported image formats:** PNG, JPG, JPEG, WebP, HEIC, HEIF, DNG, TIFF, TIF, BMP, GIF.
+- **Fast browsing:** Virtualized React grid, lightbox preview, bulk selection, favorites, archive, trash, and sorting.
+- **Metadata extraction:** EXIF date, GPS coordinates, city/state/country, dimensions, MIME type, file size, content hash, and blur score.
+- **Offline reverse geocoding:** Places albums and map markers are powered by local metadata and `reverse-geocoder`.
+- **Albums:** Places, monthly memories, people albums, and On This Day highlights.
+- **People view:** Face clustering, person rename flow, pending face feedback, and per-person photo grids.
+- **Map view:** Leaflet-based geospatial browsing with selectable map styles.
+- **Utilities:** Watched folder configuration, face discovery trigger, purge folder, clear cache, vacuum database, reset indexed library, diagnostics, logs, backup export, and backup restore.
+- **Locked Folder:** In-memory authenticated session, Argon2id password verification, random DEK wrapped by a KEK, atomic encrypted file writes, and startup recovery for interrupted encryption/decryption operations.
+- **Local AI assistant:** Opt-in natural-language photo search with planner, search tools, verification, and result rendering.
+- **Local editing tools:** Crop, rotate, flip, straighten, adjustments, curves, effects, portrait/background tools, selective edits, inpainting, masks, and object detection UI.
+
+---
+
+## Technology Stack
 
 <p align="left">
   <img src="https://img.shields.io/badge/Tauri-v2-24C6C1?style=for-the-badge&logo=tauri&logoColor=white" alt="Tauri" />
-  <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
-  <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
-  <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
+  <img src="https://img.shields.io/badge/React-18.3-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
+  <img src="https://img.shields.io/badge/TypeScript-5.8-007ACC?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-6-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
+  <img src="https://img.shields.io/badge/FastAPI-0.136-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
+  <img src="https://img.shields.io/badge/SQLite-WAL-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite" />
   <img src="https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
 </p>
 
-- **Frontend Core:** React + TypeScript + Vite.
-- **Backend Service:** FastAPI, Python, SQLAlchemy (SQLite via asynchronous `aiosqlite`).
-- **Desktop Shell:** Tauri v2 desktop integration.
-- **Local AI Engines:** InspireFace C++ SDK (face clustering) and local Ollama Vision models.
+### Frontend
+
+- React, TypeScript, Vite, Tailwind CSS
+- Tauri v2 shell and dialog plugin
+- Zustand state stores
+- React Router
+- Framer Motion
+- TanStack Virtual
+- Leaflet and React Leaflet
+- Lucide icons
+- Cropper.js and React Cropper
+- Vitest, Testing Library, jsdom
+
+### Backend
+
+- FastAPI and Uvicorn
+- SQLAlchemy async sessions with SQLite `aiosqlite`
+- SQLite WAL mode, `synchronous=NORMAL`, 64 MB cache, memory temp store
+- SQLAlchemy model definitions and dynamic migration for photo search columns
+- OpenCV blur scoring, Pillow/Pillow-Heif metadata extraction, WebP thumbnail generation
+- Watchdog-based directory observer
+- Argon2 password verification and Fernet envelope encryption
+- Optional local inference paths for face detection, image summaries, embeddings, inpainting, and background removal
 
 ---
 
-## 🚀 Core Architectural Highlights
+## Architecture
 
-<details>
-  <summary>🔑 **1. Decoupled KEK/DEK Envelope Encryption (Locked Folder)** <em>(Click to Expand)</em></summary>
+```mermaid
+graph TD
+    subgraph Desktop Shell
+        Tauri[Tauri v2]
+        React[Vite React UI]
+        Zustand[Zustand Stores]
+    end
 
-  To guarantee industry-grade local security, the **Locked Folder** isolates and encrypts private photos:
-  - **The Design:** Decouples user passwords from file keys. Setup generates a cryptographically random 32-byte **Data Encryption Key (DEK)**. The user password derives a **Key Encryption Key (KEK)** using PBKDF2 with 100,000 rounds. The KEK encrypts the DEK, saving only the `encrypted_dek` to disk.
-  - **The Benefit:** Safe password updates are handled entirely by re-wrapping the DEK; **no file-system decryption/re-encryption loops on disk are required**.
-  - **Thread-Offloaded Execution:** All KDF and file encryption operations are offloaded to asynchronous worker threads, keeping the event loop responsive.
-</details>
+    subgraph Local API
+        FastAPI[FastAPI on 127.0.0.1:8000]
+        REST[REST Endpoints]
+        SSE[Server-Sent Events]
+    end
 
-<details>
-  <summary>⚡ **2. Performance Caching & Sub-Millisecond Search** <em>(Click to Expand)</em></summary>
+    subgraph Background Processing
+        Watchdog[Watchdog Observer]
+        Queue[Sequential Processing Queue]
+        Pool[ProcessPoolExecutor]
+    end
 
-  - **Background Multiprocess Pipeline:** Image sharpness (OpenCV Laplacian variance) and file sizes are extracted on ingestion inside the background process pool, completely avoiding FastAPI main thread blocking.
-  - **Sub-Millisecond Querying:** Metrics are cached in the database. Endpoints like `/blurry` and `/metadata` resolve instantly via rapid SQL queries rather than dynamically reading heavy image files from disk inside the API lifecycle.
-  - **Active SQLite Connection Pragmas:** bound directly to connection event listeners, keeping WAL operations, caches (`cache_size=-64000`), and temp stores locked at maximum concurrency.
-</details>
+    subgraph Storage and Index
+        SQLite[(SQLite WAL Database)]
+        FTS5[SQLite FTS5 Search]
+        Thumbs[Thumbnail Cache]
+        Settings[settings.json]
+    end
 
-<details>
-  <summary>🎨 **3. High-Performance Virtual Grid Memoization** <em>(Click to Expand)</em></summary>
+    subgraph Optional Local AI
+        Face[InspireFace Face Clustering]
+        Agent[llama-server Agent]
+        Vision[Florence-2 / SigLIP / Ollama Vision]
+        Inpaint[Stable Diffusion Inpainting]
+    end
 
-  - **Grid Cascade Elimination:** The virtualized photo rows (`PhotoGridRow`) implement custom `React.memo` comparison gates. A row only re-renders if the selection states of its specific child cells toggle—**preventing whole-page re-render loops**.
-  - **Framer Motion Layout Optimization:** Dynamic layout sweeps are removed from individual scrolling cells, guaranteeing a solid 60/120 FPS scrolling experience on massive catalogs.
-</details>
+    Tauri --> React
+    React --> Zustand
+    React -->|REST| FastAPI
+    FastAPI --> REST
+    FastAPI --> SSE
+    Watchdog --> Pool
+    Pool --> SQLite
+    Queue --> Face
+    Queue --> Vision
+    FastAPI --> SQLite
+    FastAPI --> FTS5
+    FastAPI --> Thumbs
+    FastAPI --> Settings
+    FastAPI -. optional .-> Agent
+    FastAPI -. optional .-> Inpaint
+```
 
 ---
 
-## 🏁 Getting Started
+## Project Layout
+
+```text
+.
+├── README.md
+├── DESIGN.md
+├── run-desktop.sh
+├── package.json
+├── pyproject.toml
+├── frontend/
+│   ├── package.json
+│   ├── bun.lock
+│   ├── index.tsx
+│   ├── App.tsx
+│   ├── components/
+│   ├── hooks/
+│   ├── services/
+│   ├── store/
+│   ├── tests/
+│   └── src-tauri/
+├── backend/
+│   ├── pyproject.toml
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── api/
+│   │   ├── agent/
+│   │   ├── models.py
+│   │   ├── config.py
+│   │   ├── db.py
+│   │   └── services/
+│   └── tests/
+```
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- **Project Launcher:** [Bun](https://bun.sh) v1.0+
-- **Python Engine:** [Python 3.11+](https://www.python.org/)
-- **Backend Manager:** [uv](https://github.com/astral-sh/uv) (for isolated fast dependency environment setups)
+- [Bun](https://bun.sh) v1.0+
+- [Python](https://www.python.org/) 3.11+
+- [uv](https://github.com/astral-sh/uv)
+- Tauri system dependencies for your OS
+- Optional: NVIDIA CUDA libraries and `llama-server` for GPU-backed AI features
 
 ### One-Click Startup
 
-To install dependencies and start both the frontend Vite client and the backend server concurrently under the Tauri environment shell:
+Install root dependencies and start the backend plus Tauri dev shell:
 
 ```bash
 bun install
 bun run desktop
 ```
 
-### Manual Setup
+`bun run desktop` starts the FastAPI backend on port `8000`, streams backend logs, and opens the Tauri desktop shell using the Vite frontend on port `3005`.
 
-If you prefer running development components in separate terminals:
+### Manual Development Setup
 
-**Terminal 1: Python API Backend**
+#### Terminal 1: Python API backend
+
 ```bash
 cd backend
 uv venv
 source .venv/bin/activate
 uv sync
-uv run python -m app.main
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
 ```
 
-**Terminal 2: Frontend Client**
+On Windows PowerShell, activate the virtual environment with:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+#### Terminal 2: Frontend client
+
 ```bash
 cd frontend
 bun install
 bun run dev
 ```
 
----
+The Vite dev server is pinned to port `3005` for the Tauri config.
 
-## 🔐 Security Boundary Enforcements
+### Useful Scripts
 
-Prism Photos operates on a strict zero-trust sandbox architecture for local APIs:
-1. **CORS Boundary Enforcement:** The API blocks all cross-origin requests by default. `allow_origins` is restricted strictly to local Tauri app scopes (`tauri://localhost`, `http://tauri.localhost`, `http://localhost:3005`). 
-2. **Directory Isolation:** File retrieval endpoints absolutely prevent path traversal. Access is bounded to standard application uploads, thumbnails, home `Pictures` directories, and Unix external mounts (`/media`, `/Volumes`, `/mnt`). Any out-of-boundary access immediately triggers a `403 Access Denied`.
-
----
-
-## 🧑‍💻 Contribution & Community
-
-We warmly welcome contributions to Prism Photos! 
-- Head over to `CONTRIBUTING.md` to read our coding style standards and workflow guidelines.
-- To report bugs, please open an Issue. For security concerns, contact the maintainers directly.
-
----
-
-## 🙏 Acknowledgements & Credits
-
-Prism Photos stands on the shoulders of these incredible open-source libraries:
-- **InspireFace:** Native C++ face detection and feature recognition.
-- **reversing_geocoder:** Lightning-fast offline reverse-geocoding via GeoNames K-D tree.
-- **Pillow & Pillow-Heif:** High-fidelity image parsing and EXIF metadata extraction.
-- **TanStack Virtual:** High-performance list and grid virtualization.
+| Command | Description |
+| --- | --- |
+| `bun run dev` | Run backend and frontend concurrently |
+| `bun run frontend` | Start Vite frontend dev server |
+| `bun run frontend:build` | Build frontend assets |
+| `bun run frontend:typecheck` | Run frontend TypeScript checks |
+| `bun run backend` | Start FastAPI backend with reload |
+| `bun run backend:test` | Run backend pytest suite |
+| `bun run backend:sync` | Install backend dependencies with frozen lockfile |
+| `bun run test` | Run frontend typecheck and backend tests |
+| `bun run desktop` | Start backend and Tauri desktop shell |
+| `bun run tauri` | Run Tauri CLI from the frontend package |
 
 ---
 
-## 📜 License
+## User Guide
 
-This project is licensed under the **MIT License**. Check out [LICENSE](LICENSE) for details.
+### Import photos
+
+Use the header import control or the folder browser to select files or folders. Single-file imports call `/api/v1/photos/upload`; directory imports scan supported image formats and ingest each new file.
+
+During ingestion, Prism:
+
+1. Validates the path against allowed read/write roots.
+2. Generates a WebP thumbnail.
+3. Extracts metadata, EXIF date, GPS coordinates, dimensions, MIME type, file size, blur score, and content hash.
+4. Checks path and content-hash duplicates.
+5. Writes the photo record to SQLite.
+6. Emits a `new_photo` SSE event to the UI.
+7. Enqueues optional background analysis jobs.
+
+### Browse and organize
+
+The sidebar provides:
+
+- **Gallery:** Main virtualized library grid.
+- **Explore:** Search and discovery view.
+- **Map:** Geotagged photos on a Leaflet map.
+- **Prism AI:** Optional local AI assistant.
+- **Favorites, Albums, People, Archive, Trash:** Curated library views.
+- **Utilities:** Sync, face discovery, purge, reset, diagnostics, and theme settings.
+- **Locked Folder:** Authenticated encrypted photo view.
+
+The lightbox opens selected photos and exposes bulk actions for selected images.
+
+### Search and filters
+
+The UI supports filtering by favorites, recent items, videos, and search terms. Backend search paths include metadata fields, captions, auto tags, FTS5 text search, people relationships, albums, OCR-like text queries, semantic embeddings, and similar-image lookup when embeddings exist.
+
+### Locked Folder
+
+The Locked Folder is configured and unlocked from the UI. The backend stores only password verification metadata and the encrypted DEK in `settings.json`. The decrypted DEK exists only in memory after authentication. Locking the session clears the in-memory key and blocks encrypted file/thumbnail access until the password is verified again.
+
+### Utilities
+
+The Utilities view exposes:
+
+- Watched folder and excluded folder configuration.
+- Face discovery trigger.
+- Folder purge from the indexed library.
+- Cache clearing.
+- Database vacuum.
+- Indexed library reset. Original photo files are not deleted by this operation.
+- Diagnostics and backend log tail.
+- Backup export and restore endpoints.
+
+---
+
+## Optional Local AI Features
+
+AI features are disabled by default through backend feature flags. Enable only the components you need and provide the required local model files or services.
+
+| Feature | Config flag | Current implementation |
+| --- | --- | --- |
+| Agent search | `ENABLE_AI_AGENT` | `llama-server` agent model, planner, search tools, and verification loop |
+| Face detection and clustering | `ENABLE_AI_FACE` | InspireFace SDK, face embeddings, people clustering, pending face feedback |
+| Vision summaries and embeddings | `ENABLE_AI_CLIP` | Florence-2 summaries, SigLIP2 embeddings, semantic search |
+| Inpainting | `ENABLE_AI_INPAINTING` | Stable Diffusion 1.5 inpainting with CPU fallback |
+| Background removal | `ENABLE_AI_REMBG` | rembg optional dependency group |
+
+Relevant backend defaults:
+
+| Setting | Default |
+| --- | --- |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` |
+| `OLLAMA_VISION_MODEL` | `moondream:latest` |
+| Agent server | `127.0.0.1:9090` |
+| Vision server | `127.0.0.1:9091` |
+| Backend API | `127.0.0.1:8000` |
+| Tauri dev URL | `http://localhost:3005` |
+
+The agent can use tools for metadata search, people search, caption/FTS search, semantic search, album search, OCR-like text search, and similar-image search.
+
+---
+
+## Security Boundaries
+
+### Local encryption
+
+The Locked Folder uses envelope encryption:
+
+```text
+Password -> Argon2id verification hash
+Password + salt -> KEK
+Random 32-byte DEK -> encrypted with KEK
+DEK -> encrypts Locked Folder files with Fernet
+```
+
+Encrypted files are written with a `Prism_ENC:` header using atomic replace. A temporary backup is kept during encryption/decryption and restored if the operation fails. Startup also recovers interrupted Locked Folder operations.
+
+### Path isolation
+
+File access is centralized in `backend/app/utils/security.py`. Read and write operations reject traversal parts, resolve symlinks, and require the final path to be inside allowed roots.
+
+Allowed read/write roots include:
+
+- Prism upload directory
+- Prism thumbnail directory
+- Prism data directory
+- User home directory
+- `~/Pictures`
+- External mount roots when present: `/media`, `/run/media`, `/Volumes`, `/mnt`
+
+Out-of-boundary requests return `403 Access Denied`.
+
+### CORS
+
+The API allows only local Tauri/Vite origins:
+
+- `tauri://localhost`
+- `http://tauri.localhost`
+- `http://localhost:3005`
+
+### Data storage
+
+Platform data directory resolution:
+
+| OS | Default data directory |
+| --- | --- |
+| Linux | `~/.local/share/prism` |
+| macOS | `~/Library/Application Support/prism` |
+| Windows | `%APPDATA%/prism` |
+
+Stored files include:
+
+- `Prism.db`
+- `settings.json`
+- `uploads/`
+- `thumbnails/`
+
+---
+
+## Testing
+
+Run the combined test entrypoint:
+
+```bash
+bun run test
+```
+
+Run checks separately:
+
+```bash
+bun run frontend:typecheck
+bun run backend:test
+```
+
+Frontend tests currently cover the photo grid, sidebar routing, and Locked Folder authentication form. Backend tests cover directory listing, vision pipeline, image summaries, face clustering, migrations, Locked Folder behavior, security boundaries, and pending face API flows.
+
+---
+
+## Troubleshooting
+
+### Backend is already running
+
+`bun run desktop` detects an active listener on port `8000` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
+
+### CUDA or native library issues
+
+`run-desktop.sh` sets common CUDA `LD_LIBRARY_PATH` entries, handles the local `gcc-15` compiler override when available, and fixes the executable-stack issue for the bundled InspireFace shared library when `execstack` is installed.
+
+### AI features are disabled
+
+Most AI components are behind feature flags and are not required for basic import, browsing, search, albums, maps, or Locked Folder usage.
+
+### Locked Folder access
+
+The Locked Folder session is memory-only. Locking the session or restarting the app requires password verification again. Failed verification attempts trigger lockout after three failures.
+
+### Library reset
+
+Resetting the indexed library removes photo records and generated thumbnails from Prism's data directory. It does not delete original photo files.
+
+---
+
+## Contribution
+
+Contributions are welcome. Good contribution areas include:
+
+- UI polish for browsing, editing, maps, and Locked Folder flows
+- Backend API stability and migration coverage
+- Face clustering performance and correctness
+- Optional AI feature gating and model loading behavior
+- Tests for import, search, security boundaries, and editing workflows
+
+Before submitting larger changes, run the relevant typecheck and test commands for the affected area.
+
+---
+
+## Acknowledgements
+
+Prism builds on many open-source projects, including:
+
+- Tauri, React, TypeScript, Vite, Tailwind CSS, Zustand, Framer Motion, TanStack Virtual
+- FastAPI, Uvicorn, SQLAlchemy, aiosqlite, SQLite
+- Pillow, Pillow-Heif, OpenCV, NumPy, SciPy
+- reverse-geocoder
+- Leaflet and React Leaflet
+- Cropper.js
+- llama.cpp / llama-server
+- Florence-2, SigLIP, Ollama Vision
+- Stable Diffusion inpainting, diffusers, rembg
+- InspireFace
+- Vitest and Testing Library
+
+---
+
+## Contact
+
+Use project issues for bugs, feature requests, and questions. For security concerns, contact the maintainers directly.
+
+---
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.

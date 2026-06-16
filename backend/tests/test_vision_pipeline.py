@@ -1,6 +1,6 @@
 import os
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 from PIL import Image
 
 from app.services.vision_pipeline import clean_tags, extract_features_and_tags
@@ -35,30 +35,20 @@ def test_extract_features_and_tags_file_not_found():
     with pytest.raises(FileNotFoundError):
         extract_features_and_tags("/nonexistent/file.jpg")
 
-@patch("app.services.vision_pipeline._get_florence")
+@patch("app.services.image_summary.llm.generate_ollama_summary")
+@patch("app.services.image_summary.llm.generate_tags_json")
 @patch("app.services.vision_pipeline._get_siglip")
 @patch("PIL.Image.open")
-def test_extract_features_and_tags_mocked(mock_image_open, mock_get_siglip, mock_get_florence):
+def test_extract_features_and_tags_mocked(mock_image_open, mock_get_siglip, mock_generate_tags_json, mock_generate_ollama_summary):
     # Mock PIL Image
     mock_image = MagicMock(spec=Image.Image)
     mock_image.width = 800
     mock_image.height = 600
     mock_image_open.return_value = mock_image
 
-    # Mock Florence model and processor
-    mock_florence_model = MagicMock()
-    mock_florence_processor = MagicMock()
-    mock_florence_processor.return_value = {
-        "input_ids": MagicMock(),
-        "pixel_values": MagicMock()
-    }
-    mock_get_florence.return_value = (mock_florence_model, mock_florence_processor)
-    
-    # Mock generated outputs
-    mock_florence_processor.post_process_generation.side_effect = [
-        {"<DETAILED_CAPTION>": "A cute cat sleeping on a sofa."},  # Caption call
-        {"<OD>": {"labels": ["cat", "sofa"]}}                    # OD call
-    ]
+    # Mock generated outputs for Gemma 4 E2B Vision
+    mock_generate_ollama_summary.return_value = "A cute cat sleeping on a sofa."
+    mock_generate_tags_json.return_value = ["cat", "sofa"]
     
     # Mock SigLIP model and processor
     mock_siglip_model = MagicMock()

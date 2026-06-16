@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_, and_
 import json
 import numpy as np
 
@@ -9,6 +9,8 @@ from app.db import get_db
 from app.models import Person, PhotoPerson, Photo, PendingFaceAssignment
 from app.api.albums.utils import photo_to_dict
 from app.services.face_clustering import face_service
+from app.services.sync_service import sync_service
+from app.services.locked_service import locked_service
 
 router = APIRouter()
 
@@ -20,8 +22,21 @@ async def list_people(db: AsyncSession = Depends(get_db)):
     """
     Get a list of all registered clustered people,
     including their unique face thumbnails, names, and total photo counts.
+    Only returns people with an active photo count > 0.
     """
-    # Query people with the count of associated photos
+    active_mounts = list(sync_service.active_mounts)
+    
+    # Base filter for active/visible photos
+    filters = [
+        Photo.is_trash == False,
+        or_(
+            Photo.is_external == False,
+            Photo.device_id.in_(active_mounts)
+        )
+    ]
+    if not locked_service.is_authenticated:
+        filters.append(Photo.is_locked == False)
+        
     stmt = (
         select(
             Person.id,
@@ -29,7 +44,9 @@ async def list_people(db: AsyncSession = Depends(get_db)):
             Person.cover_face_thumbnail,
             func.count(PhotoPerson.photo_id).label("photo_count")
         )
-        .outerjoin(PhotoPerson, Person.id == PhotoPerson.person_id)
+        .join(PhotoPerson, Person.id == PhotoPerson.person_id)
+        .join(Photo, PhotoPerson.photo_id == Photo.id)
+        .where(and_(*filters))
         .group_by(Person.id)
         .order_by(Person.name)
     )
@@ -64,11 +81,24 @@ async def get_person_photos(
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
 
+    active_mounts = list(sync_service.active_mounts)
+    
     # Fetch all photos joined on PhotoPerson relation
+    filters = [
+        PhotoPerson.person_id == person_id,
+        Photo.is_trash == False,
+        or_(
+            Photo.is_external == False,
+            Photo.device_id.in_(active_mounts)
+        )
+    ]
+    if not locked_service.is_authenticated:
+        filters.append(Photo.is_locked == False)
+
     stmt_photos = (
         select(Photo, PhotoPerson.face_box_json)
         .join(PhotoPerson, Photo.id == PhotoPerson.photo_id)
-        .where(PhotoPerson.person_id == person_id)
+        .where(and_(*filters))
         .order_by(Photo.date.desc())
         .limit(limit)
         .offset(offset)

@@ -164,18 +164,18 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
                 : `${pct}%`;
 
               return (
-                <div key={item.key}>
+                <div key={item.key} className="group/item">
                   {/* Label + value */}
                   <div className="flex justify-between items-baseline mb-2">
                     <label
                       htmlFor={`adj-${item.key}`}
-                      className="text-[11px] text-white/55 leading-none select-none cursor-pointer"
+                      className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors"
                     >
                       {item.label}
                     </label>
                     <span
-                      className={`text-[10px] tabular-nums w-9 text-right leading-none transition-colors duration-100 ${
-                        isChanged ? 'text-primary' : 'text-white/25'
+                      className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-all duration-200 ${
+                        isChanged ? 'text-primary scale-110' : 'text-white/20'
                       }`}
                     >
                       {val > 0 ? `+${val}` : val}
@@ -183,16 +183,19 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
                   </div>
 
                   {/* Slider with coloured fill track */}
-                  <div className="relative h-[14px] flex items-center">
+                  <div className="relative h-4 flex items-center group/slider">
+                    {/* Background track */}
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    
                     {/* Coloured fill */}
                     <div
                       aria-hidden
-                      className="absolute h-[2px] rounded-full pointer-events-none"
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
                       style={{
                         left:       fillLeft,
                         width:      fillWidth,
-                        background: `rgba(var(--color-primary), ${isChanged ? 0.75 : 0.25})`,
-                        transition: 'width 40ms linear, left 40ms linear',
+                        background: `rgba(var(--color-primary), ${isChanged ? 0.8 : 0.2})`,
+                        boxShadow: isChanged ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
                       }}
                     />
                     <input
@@ -203,7 +206,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
                       step={item.step ?? 1}
                       value={val}
                       onChange={e => handleChange(item.key, Number(e.target.value))}
-                      className="adjustment-slider"
+                      className="adjustment-slider slider-thumb-premium"
                     />
                   </div>
                 </div>

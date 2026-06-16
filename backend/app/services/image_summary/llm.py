@@ -98,7 +98,7 @@ def generate_ollama_summary(image_path: str) -> str:
         return summary
     except Exception as e:
         logger.error(f"Server vision generation failed: {e}")
-        return f"Error: {str(e)}"
+        raise RuntimeError(str(e))
 
 def generate_tags_json(image_path: str) -> list[str]:
     """Extract descriptive tags using local llama-server in JSON format (Synchronous)."""

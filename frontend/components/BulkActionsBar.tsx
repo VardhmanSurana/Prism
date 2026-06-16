@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, Share2, FolderPlus, Lock, Archive, Trash2, Heart } from 'lucide-react';
+import { X, FolderPlus, Lock, Archive, Trash2, Heart, RotateCcw } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface BulkActionsBarProps {
   selectedCount: number;
   currentView: ViewMode;
   onClear: () => void;
-  onShare: () => void;
   onAddToAlbum: () => void;
   onToggleLock: () => void;
   onFavorite: () => void;
   onArchive: () => void;
   onDelete: () => void;
+  onRestore?: () => void;
   isFavorited?: boolean;
 }
 
@@ -20,15 +20,17 @@ export function BulkActionsBar({
   selectedCount,
   currentView,
   onClear,
-  onShare,
   onAddToAlbum,
   onToggleLock,
   onFavorite,
   onArchive,
   onDelete,
+  onRestore,
   isFavorited
 }: BulkActionsBarProps) {
   if (selectedCount === 0) return null;
+
+  const isTrashView = currentView === 'trash';
 
   return (
     <motion.div 
@@ -45,38 +47,56 @@ export function BulkActionsBar({
         <span className="font-semibold text-white">{selectedCount} selected</span>
       </div>
       <div className="flex items-center gap-2">
-        <button
-          onClick={onFavorite}
-          className={`p-2 hover:bg-surfaceHover rounded-full transition-all ${
-            isFavorited ? 'text-rose-400' : 'text-gray-300 hover:text-rose-400'
-          }`}
-          title={isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-        >
-          <Heart size={20} className={isFavorited ? 'fill-rose-400' : ''} />
-        </button>
-        <button onClick={onShare} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Share">
-          <Share2 size={20} />
-        </button>
-        <button onClick={onAddToAlbum} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Add to Album">
-          <FolderPlus size={20} />
-        </button>
-        <button 
-          onClick={onToggleLock} 
-          className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" 
-          title={currentView === 'locked' ? "Unlock" : "Lock"}
-        >
-          <Lock size={20} className={currentView === 'locked' ? "text-primary" : ""} />
-        </button>
-        <button onClick={onArchive} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Archive">
-          <Archive size={20} />
-        </button>
-        <button 
-          onClick={onDelete} 
-          className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" 
-          title={currentView === 'trash' ? "Delete Permanently" : "Trash"}
-        >
-          <Trash2 size={20} />
-        </button>
+        {isTrashView ? (
+          <>
+            <button 
+              onClick={onRestore} 
+              className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-green-400" 
+              title="Restore to Gallery"
+            >
+              <RotateCcw size={20} />
+            </button>
+            <button 
+              onClick={onDelete} 
+              className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" 
+              title="Delete Permanently"
+            >
+              <Trash2 size={20} />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={onFavorite}
+              className={`p-2 hover:bg-surfaceHover rounded-full transition-all ${
+                isFavorited ? 'text-rose-400' : 'text-gray-300 hover:text-rose-400'
+              }`}
+              title={isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+            >
+              <Heart size={20} className={isFavorited ? 'fill-rose-400' : ''} />
+            </button>
+            <button onClick={onAddToAlbum} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Add to Album">
+              <FolderPlus size={20} />
+            </button>
+            <button 
+              onClick={onToggleLock} 
+              className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" 
+              title={currentView === 'locked' ? "Unlock" : "Lock"}
+            >
+              <Lock size={20} className={currentView === 'locked' ? "text-primary" : ""} />
+            </button>
+            <button onClick={onArchive} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Archive">
+              <Archive size={20} />
+            </button>
+            <button 
+              onClick={onDelete} 
+              className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" 
+              title="Trash"
+            >
+              <Trash2 size={20} />
+            </button>
+          </>
+        )}
       </div>
     </motion.div>
   );

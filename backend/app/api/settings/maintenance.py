@@ -18,6 +18,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+async def _cleanup_locked_folder_files():
+    """Remove encrypted Locked Folder files from uploads directory."""
+    from app.services.locked_service import locked_service
+    
+    deleted_count = 0
+    if settings.UPLOAD_DIR.exists():
+        for root, _, files in os.walk(settings.UPLOAD_DIR):
+            for f in files:
+                file_path = os.path.join(root, f)
+                try:
+                    is_enc = await locked_service.is_file_encrypted(file_path)
+                    if is_enc:
+                        os.remove(file_path)
+                        deleted_count += 1
+                        logger.info(f"Deleted encrypted Locked Folder file: {file_path}")
+                except Exception as e:
+                    logger.warning(f"Failed to check/delete encrypted file {file_path}: {e}")
+    return deleted_count
+
+
 def _delete_masks_for_photo(photo_id: int) -> int:
     """Delete any cached mask files for the given photo id. Returns count removed."""
     masks_dir = settings.THUMBNAILS_DIR / "masks"
@@ -130,7 +150,7 @@ async def reset_library():
     await engine.dispose()
 
     # 3. Delete the database files (WAL + SHM too)
-    db_path = settings.BASE_DIR / "Prism.db"
+    db_path = settings.DATABASE_FILE
     for suffix in ["", "-shm", "-wal"]:
         path = Path(str(db_path) + suffix)
         if path.exists():
@@ -160,5 +180,15 @@ async def reset_library():
                     except Exception as e:
                         logger.warning(f"Failed to delete {file_path}: {e}")
 
-    logger.info(f"Library reset complete. Deleted {deleted_assets} assets. settings.json preserved.")
-    return {"status": "success", "message": "Library completely reset (settings.json preserved)"}
+    # 6. Clean up Locked Folder encrypted files in uploads/
+    locked_deleted = await _cleanup_locked_folder_files()
+    logger.info(f"Deleted {locked_deleted} encrypted Locked Folder files from uploads/")
+
+    # 7. Broadcast SSE event for frontend notification
+    try:
+        sync_service.broadcast({"type": "library_reset", "data": {"deleted_assets": deleted_assets, "locked_files_deleted": locked_deleted}})
+    except Exception as e:
+        logger.warning(f"Failed to broadcast library_reset SSE event: {e}")
+
+    logger.info(f"Library reset complete. Deleted {deleted_assets} assets, {locked_deleted} locked files. settings.json preserved.")
+    return {"status": "success", "message": "Library completely reset (settings.json preserved)", "deleted_assets": deleted_assets, "locked_files_deleted": locked_deleted}

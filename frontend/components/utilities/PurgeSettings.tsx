@@ -41,6 +41,7 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
               />
               <button
                 onClick={onBrowse}
+                title="Browse for a folder to purge from the library"
                 className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-sm font-medium py-2 px-6 rounded-[4px] ml-4 transition-colors"
               >
                 Browse

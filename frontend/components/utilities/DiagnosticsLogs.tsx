@@ -39,6 +39,7 @@ export const DiagnosticsLogs: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<{ type: 'info' | 'success' | 'error'; message: string } | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +58,7 @@ export const DiagnosticsLogs: React.FC = () => {
       if (res.ok) {
         const json = await res.json();
         setData(json);
+        setLastRefreshed(new Date());
       }
     } catch (e) {
       console.error('Failed to fetch diagnostics', e);
@@ -292,6 +294,7 @@ export const DiagnosticsLogs: React.FC = () => {
             <button 
               onClick={handleExportBackup}
               disabled={isExporting}
+              title="Download a ZIP backup of your database and settings"
               className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20 text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98"
             >
               {isExporting ? (
@@ -304,6 +307,7 @@ export const DiagnosticsLogs: React.FC = () => {
 
             <button 
               onClick={handleImportClick}
+              title="Upload a previously exported Prism backup ZIP file"
               className="flex-1 flex items-center justify-center gap-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-bold uppercase tracking-wider py-3.5 px-6 rounded-2xl transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/15 active:scale-98"
             >
               <Upload size={14} />
@@ -344,7 +348,12 @@ export const DiagnosticsLogs: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+            {lastRefreshed && (
+              <span className="text-[9px] font-mono text-gray-600" title="Last refreshed timestamp">
+                {lastRefreshed.toLocaleTimeString()}
+              </span>
+            )}
+            <label className="flex items-center gap-2 cursor-pointer select-none" title="Toggle automatic 5-second refresh interval">
               <input 
                 type="checkbox" 
                 checked={autoRefresh} 
@@ -357,8 +366,8 @@ export const DiagnosticsLogs: React.FC = () => {
             <button 
               onClick={fetchLogs}
               disabled={isRefreshing}
+              title="Force refresh logs and diagnostics"
               className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 text-gray-400 hover:text-white rounded-lg transition-all active:scale-95 disabled:opacity-50"
-              title="Force Refresh Logs"
             >
               <RefreshCw size={12} className={isRefreshing ? 'animate-spin text-primary' : ''} />
             </button>

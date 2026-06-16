@@ -62,6 +62,43 @@ def _check_rate_limit(client_id: str) -> bool:
     return True
 
 
+def resize_and_save_image(file_path: str, max_width: int) -> str:
+    from PIL import Image
+    from PIL import ImageOps
+    from app.config import settings
+    import uuid
+    import os
+    
+    try:
+        from pillow_heif import register_heif_opener
+        register_heif_opener()
+    except ImportError:
+        pass
+
+    img = Image.open(file_path)
+    img = ImageOps.exif_transpose(img)
+    
+    width, height = img.size
+    if width > max_width:
+        aspect_ratio = height / width
+        new_width = max_width
+        new_height = int(new_width * aspect_ratio)
+        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+    base_name = os.path.basename(file_path)
+    root, ext = os.path.splitext(base_name)
+    if ext.lower() not in ['.jpg', '.jpeg', '.png', '.webp', '.tiff', '.tif', '.bmp', '.gif']:
+        ext = '.jpg'
+    
+    # Ensure upload directory exists
+    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    out_filename = f"{root}_resized_{uuid.uuid4().hex[:8]}{ext}"
+    out_path = settings.UPLOAD_DIR / out_filename
+    
+    img.save(str(out_path), quality=85)
+    return str(out_path)
+
+
 @router.post("/upload")
 async def upload_photo(
     req: UploadRequest,
@@ -74,7 +111,7 @@ async def upload_photo(
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Maximum 10 uploads per minute.")
     
     file_path = req.file_path
-    logger.info(f"Received upload request for: {file_path}")
+    logger.info(f"Received upload request for: {file_path} (resize_width: {req.resize_width})")
 
     # Validate path safely
     resolved_path = safe_resolve_read(file_path)
@@ -128,8 +165,16 @@ async def upload_photo(
                 check_stmt = await db.execute(select(Photo).where(Photo.path == img_path))
                 if check_stmt.scalar_one_or_none():
                     continue
+                
+                # Resize if requested
+                actual_path = img_path
+                if req.resize_width:
+                    try:
+                        actual_path = await asyncio.to_thread(resize_and_save_image, img_path, req.resize_width)
+                    except Exception as e:
+                        logger.error(f"Failed to resize image in folder: {img_path}: {e}")
                     
-                photo = await _internal_process_photo(img_path, db)
+                photo = await _internal_process_photo(actual_path, db)
                 if photo:
                     results.append(photo)
             except Exception as e:
@@ -137,9 +182,16 @@ async def upload_photo(
                 continue
         
         return results[0] if results else {"status": "skipped", "message": "All images already in library"}
-
+    
     # Handle Single File
-    return await _internal_process_photo(file_path, db)
+    actual_path = file_path
+    if req.resize_width:
+        try:
+            actual_path = await asyncio.to_thread(resize_and_save_image, file_path, req.resize_width)
+        except Exception as e:
+            logger.error(f"Failed to resize single image {file_path}: {e}")
+            
+    return await _internal_process_photo(actual_path, db)
 
 
 @router.post("/upload-blob")

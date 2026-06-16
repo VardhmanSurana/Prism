@@ -1,4 +1,4 @@
-import { open } from '@tauri-apps/plugin-dialog';
+import { openFileFolderBrowser, BrowseResult } from '../../services/FileFolderBrowserService';
 
 export const useFileSelection = () => {
   const extractPaths = (selected: string | string[] | null): string[] => {
@@ -10,35 +10,30 @@ export const useFileSelection = () => {
     });
   };
 
-  const handleFileUpload = async (): Promise<string[]> => {
+  const handleFileUpload = async (): Promise<BrowseResult | null> => {
     try {
-      const selected = await open({
+      return await openFileFolderBrowser({
+        title: 'Select Image File(s) to Upload',
         multiple: true,
-        directory: false,
-        filters: [{
-          name: 'Images',
-          extensions: ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif']
-        }]
+        directoryOnly: false,
+        allowedExtensions: ['png', 'jpg', 'jpeg', 'webp', 'heic', 'heif']
       });
-
-      return extractPaths(selected);
     } catch (e) {
-      console.error('Tauri open dialog failed', e);
-      return [];
+      console.error('Custom file open dialog failed', e);
+      return null;
     }
   };
 
-  const handleFolderSelection = async (): Promise<string[]> => {
+  const handleFolderSelection = async (): Promise<BrowseResult | null> => {
     try {
-      const selected = await open({
+      return await openFileFolderBrowser({
+        title: 'Select Folder(s) to Scan',
         multiple: true,
-        directory: true,
+        directoryOnly: true,
       });
-
-      return extractPaths(selected);
     } catch (e) {
-      console.error('Tauri open dialog failed', e);
-      return [];
+      console.error('Custom folder open dialog failed', e);
+      return null;
     }
   };
 

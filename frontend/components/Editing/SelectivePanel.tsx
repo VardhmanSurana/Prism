@@ -125,7 +125,7 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   onClick={() => handleToggleRegion(reg)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all border ${
                     active 
-                      ? 'bg-primary border-primary text-white shadow-lg shadow-primary/20' 
+                      ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20' 
                       : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'
                   }`}
                 >
@@ -158,60 +158,108 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   </div>
 
                   {/* Brightness */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] text-white/40">Brightness</label>
-                      <span className="text-[10px] tabular-nums text-primary font-mono">{reg.adjustments.brightness || 0}</span>
+                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Brightness</label>
+                      <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.brightness || 0}</span>
                     </div>
-                    <input
-                      type="range" min="-100" max="100"
-                      value={reg.adjustments.brightness || 0}
-                      onChange={(e) => handleRegionChange(reg.id, 'brightness', Number(e.target.value))}
-                      className="adjustment-slider"
-                    />
+                    <div className="relative h-4 flex items-center group/slider">
+                      <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                      <div
+                        className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                        style={{
+                          left:  `${Math.min(50, ((reg.adjustments.brightness || 0) + 100) / 2)}%`,
+                          width: `${Math.abs(((reg.adjustments.brightness || 0) + 100) / 2 - 50)}%`,
+                          background: `rgba(var(--color-primary), ${reg.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.brightness !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        }}
+                      />
+                      <input
+                        type="range" min="-100" max="100"
+                        value={reg.adjustments.brightness || 0}
+                        onChange={(e) => handleRegionChange(reg.id, 'brightness', Number(e.target.value))}
+                        className="adjustment-slider slider-thumb-premium"
+                      />
+                    </div>
                   </div>
 
                   {/* Contrast */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] text-white/40">Contrast</label>
-                      <span className="text-[10px] tabular-nums text-primary font-mono">{reg.adjustments.contrast || 0}</span>
+                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Contrast</label>
+                      <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.contrast || 0}</span>
                     </div>
-                    <input
-                      type="range" min="-100" max="100"
-                      value={reg.adjustments.contrast || 0}
-                      onChange={(e) => handleRegionChange(reg.id, 'contrast', Number(e.target.value))}
-                      className="adjustment-slider"
-                    />
+                    <div className="relative h-4 flex items-center group/slider">
+                      <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                      <div
+                        className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                        style={{
+                          left:  `${Math.min(50, ((reg.adjustments.contrast || 0) + 100) / 2)}%`,
+                          width: `${Math.abs(((reg.adjustments.contrast || 0) + 100) / 2 - 50)}%`,
+                          background: `rgba(var(--color-primary), ${reg.adjustments.contrast !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.contrast !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        }}
+                      />
+                      <input
+                        type="range" min="-100" max="100"
+                        value={reg.adjustments.contrast || 0}
+                        onChange={(e) => handleRegionChange(reg.id, 'contrast', Number(e.target.value))}
+                        className="adjustment-slider slider-thumb-premium"
+                      />
+                    </div>
                   </div>
 
                   {/* Saturation */}
-                  <div className="space-y-2">
+                  <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] text-white/40">Saturation</label>
-                      <span className="text-[10px] tabular-nums text-primary font-mono">{reg.adjustments.saturation || 0}</span>
+                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Saturation</label>
+                      <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.saturation || 0}</span>
                     </div>
-                    <input
-                      type="range" min="-100" max="100"
-                      value={reg.adjustments.saturation || 0}
-                      onChange={(e) => handleRegionChange(reg.id, 'saturation', Number(e.target.value))}
-                      className="adjustment-slider"
-                    />
+                    <div className="relative h-4 flex items-center group/slider">
+                      <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                      <div
+                        className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                        style={{
+                          left:  `${Math.min(50, ((reg.adjustments.saturation || 0) + 100) / 2)}%`,
+                          width: `${Math.abs(((reg.adjustments.saturation || 0) + 100) / 2 - 50)}%`,
+                          background: `rgba(var(--color-primary), ${reg.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.saturation !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        }}
+                      />
+                      <input
+                        type="range" min="-100" max="100"
+                        value={reg.adjustments.saturation || 0}
+                        onChange={(e) => handleRegionChange(reg.id, 'saturation', Number(e.target.value))}
+                        className="adjustment-slider slider-thumb-premium"
+                      />
+                    </div>
                   </div>
 
                   {/* Blur (Specific for Background) */}
                   {reg.type === 'background' && (
-                    <div className="space-y-2">
+                    <div className="space-y-2 group/item">
                       <div className="flex justify-between items-baseline">
-                        <label className="text-[11px] text-white/40">Blur (Bokeh)</label>
-                        <span className="text-[10px] tabular-nums text-primary font-mono">{reg.adjustments.blur || 0}</span>
+                        <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Blur (Bokeh)</label>
+                        <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.blur || 0}</span>
                       </div>
-                      <input
-                        type="range" min="0" max="100"
-                        value={reg.adjustments.blur || 0}
-                        onChange={(e) => handleRegionChange(reg.id, 'blur', Number(e.target.value))}
-                        className="adjustment-slider"
-                      />
+                      <div className="relative h-4 flex items-center group/slider">
+                        <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                        <div
+                          className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                          style={{
+                            left:  '0%',
+                            width: `${reg.adjustments.blur || 0}%`,
+                            background: `rgba(var(--color-primary), ${reg.adjustments.blur !== 0 ? 0.8 : 0.2})`,
+                            boxShadow: reg.adjustments.blur !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                          }}
+                        />
+                        <input
+                          type="range" min="0" max="100"
+                          value={reg.adjustments.blur || 0}
+                          onChange={(e) => handleRegionChange(reg.id, 'blur', Number(e.target.value))}
+                          className="adjustment-slider slider-thumb-premium"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

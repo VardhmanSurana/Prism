@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Zap, Search } from 'lucide-react';
+import { Users, Zap, Search, Loader2 } from 'lucide-react';
 
 interface FaceSettingsProps {
   onTriggerSync: () => void;
@@ -7,6 +7,7 @@ interface FaceSettingsProps {
 }
 
 export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, status }) => {
+  const isRunning = status?.includes('discovery') || status?.includes('Initiating');
   return (
     <section className="reveal-item" style={{ animationDelay: '0.25s' }}>
       <div className="flex items-center gap-4 mb-6">
@@ -33,10 +34,16 @@ export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, statu
           
           <button 
             onClick={onTriggerSync}
-            className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-white rounded-xl hover:bg-white/10 hover:border-white/20 transition-all font-bold text-sm whitespace-nowrap active:scale-95 group"
+            disabled={isRunning}
+            title={isRunning ? 'Face discovery in progress...' : 'Start a full-library face scan'}
+            className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-white rounded-xl hover:bg-white/10 hover:border-white/20 transition-all font-bold text-sm whitespace-nowrap active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Search size={18} className="group-hover:text-primary transition-colors" />
-            <span>Discover People</span>
+            {isRunning ? (
+              <Loader2 size={18} className="animate-spin text-primary" />
+            ) : (
+              <Search size={18} className="group-hover:text-primary transition-colors" />
+            )}
+            <span>{isRunning ? 'Scanning...' : 'Discover People'}</span>
           </button>
         </div>
 

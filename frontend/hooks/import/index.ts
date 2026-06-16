@@ -26,22 +26,22 @@ export const useImport = ({ onUpload, onImportProgress }: UseImportProps) => {
   const { expandDirectories } = useDirectoryExpansion({ onImportProgress });
 
   const handleFileUploadWithImport = async () => {
-    const paths = await handleFileUpload();
-    if (paths.length === 0) return;
-    await startImport(paths);
+    const result = await handleFileUpload();
+    if (!result || result.paths.length === 0) return;
+    await startImport(result.paths, result.resizeWidth);
   };
 
   const handleFolderImport = async () => {
-    const paths = await handleFolderSelection();
-    if (paths.length === 0) {
+    const result = await handleFolderSelection();
+    if (!result || result.paths.length === 0) {
       onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
       return;
     }
     
-    const allFiles = await expandDirectories(paths);
+    const allFiles = await expandDirectories(result.paths);
     
     if (allFiles.length > 0) {
-        await startImport(allFiles);
+        await startImport(allFiles, result.resizeWidth);
     } else {
         onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
         alert("No supported images found in the selected folders.");

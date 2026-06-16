@@ -5,7 +5,7 @@ import { open, confirm } from '@tauri-apps/plugin-dialog';
 import { customConfirm } from '../../services/ConfirmService';
 
 interface UsePurgeOperationsProps {
-  openBrowseDialog: (title: string) => Promise<string | null>;
+  openBrowseDialog: (title: string, multiple?: boolean) => Promise<string[] | null>;
 }
 
 export const usePurgeOperations = ({ openBrowseDialog }: UsePurgeOperationsProps) => {
@@ -13,8 +13,8 @@ export const usePurgeOperations = ({ openBrowseDialog }: UsePurgeOperationsProps
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
 
   const handlePurgeBrowse = async () => {
-    const selected = await openBrowseDialog('Select Folder to Purge from Library');
-    if (selected) setPurgeInput(selected);
+    const selected = await openBrowseDialog('Select Folder to Purge from Library', false);
+    if (selected && selected.length > 0) setPurgeInput(selected[0]);
   };
 
   const handlePurgeFolder = async () => {

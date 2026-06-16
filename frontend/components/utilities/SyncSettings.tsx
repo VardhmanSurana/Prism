@@ -77,6 +77,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
           </div>
           <button 
             onClick={onToggleSync}
+            title={syncEnabled ? 'Disable automatic sync' : 'Enable automatic sync'}
             className={`w-14 h-8 rounded-full transition-all duration-500 relative ${syncEnabled ? 'bg-primary' : 'bg-zinc-800'}`}
           >
             <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all duration-500 ${syncEnabled ? 'left-7' : 'left-1'}`} />
@@ -133,6 +134,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
                   </div>
                   <button 
                     onClick={() => removeW(folder)}
+                    title={`Remove ${folder} from watched folders`}
                     className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors"
                   >
                     <Trash2 size={13} />
@@ -193,6 +195,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
                   </div>
                   <button 
                     onClick={() => removeE(folder)}
+                    title={`Remove ${folder} from excluded folders`}
                     className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors"
                   >
                     <Trash2 size={13} />

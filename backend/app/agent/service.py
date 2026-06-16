@@ -46,23 +46,23 @@ class PrismAgent:
             is_locked=is_locked,
         )
 
-    async def search_people(self, db, names: list[str], min_confidence=0.8) -> set[int]:
-        return await self.search_tools.search_people(db, names=names, min_confidence=min_confidence)
+    async def search_people(self, db, names: list[str], min_confidence=0.8, is_locked=False) -> set[int]:
+        return await self.search_tools.search_people(db, names=names, min_confidence=min_confidence, is_locked=is_locked)
 
-    async def search_captions(self, db, query: str) -> set[int]:
-        return await self.search_tools.search_captions(db, query=query)
+    async def search_captions(self, db, query: str, is_locked=False) -> set[int]:
+        return await self.search_tools.search_captions(db, query=query, is_locked=is_locked)
 
     async def semantic_search(self, db, text_query: str, top_k=30, is_locked=False) -> set[int]:
         return await self.search_tools.semantic_search(db, text_query=text_query, top_k=top_k, is_locked=is_locked)
 
-    async def search_albums(self, db, query: str) -> set[int]:
-        return await self.search_tools.search_albums(db, query=query)
+    async def search_albums(self, db, query: str, is_locked=False) -> set[int]:
+        return await self.search_tools.search_albums(db, query=query, is_locked=is_locked)
 
-    async def search_ocr(self, db, query: str) -> set[int]:
-        return await self.search_tools.search_ocr(db, query=query)
+    async def search_ocr(self, db, query: str, is_locked=False) -> set[int]:
+        return await self.search_tools.search_ocr(db, query=query, is_locked=is_locked)
 
-    async def similar_image(self, db, photo_id: int, top_k=30) -> set[int]:
-        return await self.search_tools.similar_image(db, photo_id=photo_id, top_k=top_k)
+    async def similar_image(self, db, photo_id: int, top_k=30, is_locked=False) -> set[int]:
+        return await self.search_tools.similar_image(db, photo_id=photo_id, top_k=top_k, is_locked=is_locked)
 
     def extract_search_parameters(self, message: str, history: list = None) -> dict:
         return self.planner.extract_search_parameters(message, history=history)
@@ -81,6 +81,10 @@ class PrismAgent:
 
     async def chat(self, message: str, history: list = None):
         return await self.orchestrator.chat(message, history=history)
+
+    async def chat_stream(self, message: str, history: list = None):
+        async for event in self.orchestrator.chat_stream(message, history=history):
+            yield event
 
 
 Prism_agent = PrismAgent()

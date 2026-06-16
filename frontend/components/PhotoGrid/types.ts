@@ -1,6 +1,6 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { Photo } from '../../types';
-import { SearchFilters, SortMode } from '../../types';
+import { SearchFilters, SortMode, ViewMode } from '../../types';
 
 export interface ImportProgressStatus {
   is_scanning: boolean;
@@ -12,6 +12,7 @@ export interface ImportProgressStatus {
 export interface PhotoGridProps {
   photos: Photo[];
   isLoading?: boolean;
+  currentView?: ViewMode;
   onPhotoClick: (photo: Photo) => void;
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;

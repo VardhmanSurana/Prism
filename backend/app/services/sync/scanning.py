@@ -78,6 +78,8 @@ class ScanningMixin:
                         self._cleanup_masks_for_photo(photo.id)
                 if deleted_count > 0:
                     await db.commit()
+                    from app.services.place_service import sync_all_places
+                    asyncio.create_task(sync_all_places())
         except Exception as e:
             logger.error(f"Failed to cleanup missing files: {e}")
 
