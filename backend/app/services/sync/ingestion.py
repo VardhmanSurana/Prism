@@ -116,7 +116,7 @@ class IngestionMixin:
             broadcast_fields = {
                 "id", "filename", "path", "url", "width", "height",
                 "aspect_ratio", "location", "date", "date_taken",
-                "upload_date", "is_favorite", "is_archived", "is_locked",
+                "upload_date", "is_favorite", "is_locked",
                 "mime_type", "file_type", "device_id", "is_external"
             }
             photo_dict = photo_to_dict(new_photo, include=broadcast_fields)

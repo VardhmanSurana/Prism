@@ -8,6 +8,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { API_BASE } from '../../constants';
+import { Histogram } from './Histogram';
 
 export type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
@@ -72,9 +73,11 @@ interface AdjustPanelProps {
   adjustments: Adjustments;
   onChange:    (adj: Adjustments) => void;
   photoId?:    number | string;
+  imageSrc?:   string;
+  filterString?: string;
 }
 
-export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId }) => {
+export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId, imageSrc, filterString }) => {
   const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
   const items = useMemo(() => ADJUSTMENT_GROUPS.flatMap(group => group.items), []);
 
@@ -117,6 +120,11 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
+      {/* ── Live histogram ── */}
+      {imageSrc && (
+        <Histogram imageSrc={imageSrc} filterString={filterString || 'none'} />
+      )}
+
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-3 flex gap-2">
         <button

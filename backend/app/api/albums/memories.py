@@ -11,8 +11,8 @@ from datetime import datetime
 
 router = APIRouter()
 
-@router.get("/")
-async def list_memories(db: AsyncSession = Depends(get_db)):
+
+async def list_memories(db: AsyncSession):
     active_mounts = list(sync_service.active_mounts)
     result = await db.execute(
         select(
@@ -49,6 +49,7 @@ async def list_memories(db: AsyncSession = Depends(get_db)):
             "metadata": {"year": row.year, "month": row.month},
         })
     return memories
+
 
 @router.get("/photos")
 async def get_memory_photos(
@@ -90,7 +91,6 @@ async def get_memory_highlights(db: AsyncSession = Depends(get_db)):
     stmt_otd = select(Photo).where(
         Photo.is_locked == False,
         Photo.is_trash == False,
-        Photo.is_archived == False,
         or_(
             Photo.is_external == False,
             Photo.device_id.in_(active_mounts)
@@ -137,7 +137,6 @@ async def get_memory_highlights(db: AsyncSession = Depends(get_db)):
     ).where(
         Photo.is_locked == False,
         Photo.is_trash == False,
-        Photo.is_archived == False,
         Photo.city.isnot(None),
         or_(
             Photo.is_external == False,
@@ -152,7 +151,6 @@ async def get_memory_highlights(db: AsyncSession = Depends(get_db)):
         stmt_city_photos = select(Photo).where(
             Photo.is_locked == False,
             Photo.is_trash == False,
-            Photo.is_archived == False,
             Photo.city == city.city,
             or_(
                 Photo.is_external == False,

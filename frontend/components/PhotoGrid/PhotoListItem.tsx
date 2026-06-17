@@ -1,7 +1,7 @@
 import React from 'react';
 import { Photo } from '../../types';
 import { LazyImage } from '../LazyImage';
-import { Heart, Archive, Lock, Trash2, Check } from 'lucide-react';
+import { Heart, Lock, Trash2, Check } from 'lucide-react';
 
 interface PhotoListItemProps {
   photo: Photo;
@@ -11,7 +11,6 @@ interface PhotoListItemProps {
   onToggleSelection: (id: string) => void;
   onFavoriteToggle: (id: string | number, current: boolean) => void;
   onLockToggle: (id: string | number, current: boolean) => void;
-  onArchiveToggle: (id: string | number, current: boolean) => void;
   onDeleteToggle: (id: string | number) => void;
 }
 
@@ -23,7 +22,6 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
   onToggleSelection,
   onFavoriteToggle,
   onLockToggle,
-  onArchiveToggle,
   onDeleteToggle,
 }) => {
   const dateStr = new Date(photo.date).toLocaleDateString('en-US', {
@@ -40,7 +38,6 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
 
   const isFavorite = photo.isFavorite || photo.is_favorite;
   const isLocked = photo.isLocked || photo.is_locked;
-  const isArchived = photo.isArchived || photo.is_archived;
 
   return (
     <div
@@ -146,23 +143,6 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
           title="Move to Locked Folder"
         >
           <Lock size={16} />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onArchiveToggle(photo.id, isArchived);
-          }}
-          className={`p-2.5 rounded-xl border transition-all hover:scale-105 active:scale-95
-            ${
-              isArchived
-                ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 hover:bg-amber-500/20'
-                : 'bg-white/5 border-white/5 text-gray-400 hover:text-amber-500 hover:bg-amber-500/5'
-            }
-          `}
-          title="Archive"
-        >
-          <Archive size={16} />
         </button>
 
         <button

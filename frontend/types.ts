@@ -14,8 +14,6 @@ export interface Photo {
   filename?: string;
   isFavorite: boolean;
   is_favorite?: boolean;
-  isArchived?: boolean;
-  is_archived?: boolean;
   isLocked?: boolean;
   is_locked?: boolean;
   isTrash?: boolean;
@@ -62,7 +60,7 @@ export interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'archived' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
@@ -89,8 +87,6 @@ export interface RawPhoto {
   filename?: string;
   is_favorite?: boolean;
   isFavorite?: boolean;
-  is_archived?: boolean;
-  isArchived?: boolean;
   is_locked?: boolean;
   isLocked?: boolean;
   is_trash?: boolean;
@@ -154,14 +150,12 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     date_taken: sanitizeDateString(raw.date_taken),
     // Boolean flags - prioritize snake_case from backend
     isFavorite: raw.is_favorite ?? raw.isFavorite ?? false,
-    isArchived: raw.is_archived ?? raw.isArchived ?? false,
     isLocked: isLocked,
     isTrash: raw.is_trash ?? raw.isTrash ?? false,
     // Date fields
     uploadDate: sanitizedUploadDate,
     // Keep original fields for compatibility
     is_favorite: raw.is_favorite ?? raw.isFavorite ?? false,
-    is_archived: raw.is_archived ?? raw.isArchived ?? false,
     is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
     upload_date: sanitizedUploadDate,

@@ -5,7 +5,6 @@ import {
   Compass,
   Map as MapIcon,
   FolderOpen,
-  Archive,
   Trash2,
   Settings,
   Lock,
@@ -35,7 +34,6 @@ const MAIN_NAV: NavItemData[] = [
 const LIBRARY_NAV: NavItemData[] = [
   { view: 'albums', icon: FolderOpen, label: 'Albums' },
   { view: 'people', icon: Users, label: 'People' },
-  { view: 'archived', icon: Archive, label: 'Archive' },
   { view: 'trash', icon: Trash2, label: 'Trash' },
 ];
 

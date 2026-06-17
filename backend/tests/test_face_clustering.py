@@ -163,6 +163,8 @@ async def test_sequential_import_queue(db_session):
     mock_file_data = b"\x00" * 13  # Non-encrypted header bytes
     with patch("app.services.image_summary.llm.generate_ollama_summary", mock_summary), \
          patch("app.services.image_summary.llm.generate_tags_json", mock_tags), \
+         patch("app.services.image_summary.llm.VisionManager.get_llm", MagicMock(return_value=MagicMock())), \
+         patch("app.services.image_summary.llm.VisionManager.unload_vision", MagicMock()), \
          patch("app.services.vision_pipeline.extract_siglip_embedding", mock_embedding), \
          patch("app.services.vision_pipeline._get_siglip", MagicMock()), \
          patch("app.services.vision_pipeline.unload_models", MagicMock()), \

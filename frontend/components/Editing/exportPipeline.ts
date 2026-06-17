@@ -7,6 +7,9 @@ import magickWasmUrl from '@imagemagick/magick-wasm/magick.wasm?url';
 
 import { getCompositeCurveLuts, isIdentityCurve } from './curves';
 import { Adjustments } from './filterEngine';
+import { applyHslToCanvas } from './hslEngine';
+import { Annotation } from './AnnotationsPanel';
+import { isCtxFilterSupported, applyBaseFiltersToImageData, applyBlurFallback, applyNonLinearHighlightsAndShadows } from './filterFallback';
 
 const DEFAULT_EXPORT_MIME = 'image/jpeg';
 const DEFAULT_EXPORT_QUALITY = 0.95;
@@ -18,6 +21,7 @@ interface ExportEditedCanvasOptions {
   adjustments: Adjustments;
   mimeType?: string;
   quality?: number;
+  annotations?: Annotation[];
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -47,17 +51,15 @@ const getPreviewBaseFilter = (adj: Adjustments) => {
     1
       + adj.brightness / 100 * 0.55
       + adj.exposure / 100 * 0.5
-      + adj.highlights / 100 * 0.18
-      + adj.shadows / 100 * 0.14
       + adj.whites / 100 * 0.15
-      - adj.blacks / 100 * 0.13,
+      + adj.blacks / 100 * 0.13,
   );
 
   const contrastFactor = Math.max(
     0.05,
     1
       + adj.contrast / 100 * 0.65
-      + adj.blacks / 100 * 0.22
+      - adj.blacks / 100 * 0.22
       + adj.ambiance / 100 * 0.42
       + adj.clarity / 100 * 0.38,
   );
@@ -149,9 +151,14 @@ const createFeatheredMaskCanvas = async (maskUrl: string, width: number, height:
     throw new Error('Failed to get a 2D context for mask compositing.');
   }
 
-  maskCtx.filter = 'blur(3px)';
-  maskCtx.drawImage(bitmap, 0, 0, width, height);
-  maskCtx.filter = 'none';
+  if (!isCtxFilterSupported()) {
+    maskCtx.drawImage(bitmap, 0, 0, width, height);
+    applyBlurFallback(maskCanvas, 3);
+  } else {
+    maskCtx.filter = 'blur(3px)';
+    maskCtx.drawImage(bitmap, 0, 0, width, height);
+    maskCtx.filter = 'none';
+  }
   bitmap.close();
 
   return maskCanvas;
@@ -254,17 +261,29 @@ const applyRegionalAdjustments = async (canvas: HTMLCanvasElement, adjustments: 
   return canvas;
 };
 
-const renderCanvasWithFilter = (sourceCanvas: HTMLCanvasElement, filter: string) => {
+const renderCanvasWithFilter = (sourceCanvas: HTMLCanvasElement, filter: string, adjustments: Adjustments) => {
   const { canvas, ctx } = cloneCanvas(sourceCanvas);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.filter = filter || 'none';
-  ctx.drawImage(sourceCanvas, 0, 0);
-  ctx.filter = 'none';
+  if (isCtxFilterSupported()) {
+    ctx.filter = filter || 'none';
+    ctx.drawImage(sourceCanvas, 0, 0);
+    ctx.filter = 'none';
+  } else {
+    ctx.drawImage(sourceCanvas, 0, 0);
+    const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    applyBaseFiltersToImageData(imgData, adjustments);
+    ctx.putImageData(imgData, 0, 0);
+  }
   return canvas;
 };
 
-const applyBlur = (canvas: HTMLCanvasElement, radius: number) => {
+export const applyBlur = (canvas: HTMLCanvasElement, radius: number) => {
   if (radius <= 0) {
+    return canvas;
+  }
+
+  if (!isCtxFilterSupported()) {
+    applyBlurFallback(canvas, radius);
     return canvas;
   }
 
@@ -290,7 +309,7 @@ const applyBlur = (canvas: HTMLCanvasElement, radius: number) => {
   return canvas;
 };
 
-const applyUnsharpMask = (
+export const applyUnsharpMask = (
   canvas: HTMLCanvasElement,
   sharpness: number,
   blurRadius: number,
@@ -318,9 +337,13 @@ const applyUnsharpMask = (
     throw new Error('Failed to get a 2D context for unsharp blur.');
   }
 
-  blurredCtx.filter = `blur(${blurRadius}px)`;
-  blurredCtx.drawImage(canvas, 0, 0);
-  blurredCtx.filter = 'none';
+  if (!isCtxFilterSupported()) {
+    applyBlurFallback(blurredCanvas, blurRadius);
+  } else {
+    blurredCtx.filter = `blur(${blurRadius}px)`;
+    blurredCtx.drawImage(canvas, 0, 0);
+    blurredCtx.filter = 'none';
+  }
 
   const originalData = originalCtx.getImageData(0, 0, canvas.width, canvas.height);
   const blurredData = blurredCtx.getImageData(0, 0, canvas.width, canvas.height);
@@ -335,7 +358,7 @@ const applyUnsharpMask = (
   return canvas;
 };
 
-const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
+export const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
   if (!vignette) {
     return canvas;
   }
@@ -374,9 +397,13 @@ const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
     throw new Error('Failed to get a 2D context for vignette blur.');
   }
 
-  blurredCtx.filter = 'blur(2px)';
-  blurredCtx.drawImage(overlay, 0, 0);
-  blurredCtx.filter = 'none';
+  if (!isCtxFilterSupported()) {
+    applyBlurFallback(blurredOverlay, 2);
+  } else {
+    blurredCtx.filter = 'blur(2px)';
+    blurredCtx.drawImage(overlay, 0, 0);
+    blurredCtx.filter = 'none';
+  }
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {
@@ -390,7 +417,7 @@ const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
   return canvas;
 };
 
-const applyCurveLutsToCanvas = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+export const applyCurveLutsToCanvas = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   if (isIdentityCurve(adjustments.curves)) {
     return canvas;
   }
@@ -413,28 +440,590 @@ const applyCurveLutsToCanvas = (canvas: HTMLCanvasElement, adjustments: Adjustme
   return canvas;
 };
 
+export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const st = adjustments.splitToning;
+  if (!st || (st.shadows.saturation === 0 && st.highlights.saturation === 0)) {
+    return canvas;
+  }
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  
+  const shH = st.shadows.hue;
+  const shS = st.shadows.saturation / 100;
+  const hlH = st.highlights.hue;
+  const hlS = st.highlights.saturation / 100;
+  const balance = st.balance / 100; // -1 to 1
+
+  const pivot = 0.5 + balance * 0.2;
+  
+  const hslToRgb = (h: number, s: number, l: number) => {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    const m = l - c / 2;
+    let r = 0, g = 0, b = 0;
+    if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
+    else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
+    else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
+    else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
+    else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
+    else if (h >= 300 && h <= 360) { r = c; g = 0; b = x; }
+    return [r + m, g + m, b + m];
+  };
+
+  const [shR, shG, shB] = hslToRgb(shH, shS, 0.5);
+  const [hlR, hlG, hlB] = hslToRgb(hlH, hlS, 0.5);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+    
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    let t = 0;
+    
+    if (lum < pivot) {
+      t = (pivot - lum) / pivot;
+      const newR = r + (shR - 0.5) * t * shS;
+      const newG = g + (shG - 0.5) * t * shS;
+      const newB = b + (shB - 0.5) * t * shS;
+      data[i] = clamp(Math.round(newR * 255), 0, 255);
+      data[i + 1] = clamp(Math.round(newG * 255), 0, 255);
+      data[i + 2] = clamp(Math.round(newB * 255), 0, 255);
+    } else {
+      t = (lum - pivot) / (1 - pivot);
+      const newR = r + (hlR - 0.5) * t * hlS;
+      const newG = g + (hlG - 0.5) * t * hlS;
+      const newB = b + (hlB - 0.5) * t * hlS;
+      data[i] = clamp(Math.round(newR * 255), 0, 255);
+      data[i + 1] = clamp(Math.round(newG * 255), 0, 255);
+      data[i + 2] = clamp(Math.round(newB * 255), 0, 255);
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+};
+
+export const applyGrain = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const gState = adjustments.grain;
+  if (!gState || gState.amount === 0) {
+    return canvas;
+  }
+  
+  const width = canvas.width;
+  const height = canvas.height;
+  
+  let scale = 1;
+  if (gState.size === 'medium') scale = 2;
+  else if (gState.size === 'coarse') scale = 3;
+  
+  const noiseW = Math.ceil(width / scale);
+  const noiseH = Math.ceil(height / scale);
+  
+  const noiseCanvas = document.createElement('canvas');
+  noiseCanvas.width = noiseW;
+  noiseCanvas.height = noiseH;
+  const noiseCtx = noiseCanvas.getContext('2d');
+  if (!noiseCtx) return canvas;
+  
+  const imgData = noiseCtx.createImageData(noiseW, noiseH);
+  const data = imgData.data;
+  
+  const amount = gState.amount / 100 * 0.15;
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const val = Math.random() * 255;
+    if (gState.colored) {
+      data[i] = val;
+      data[i + 1] = Math.random() * 255;
+      data[i + 2] = Math.random() * 255;
+    } else {
+      data[i] = val;
+      data[i + 1] = val;
+      data[i + 2] = val;
+    }
+    data[i + 3] = Math.round(amount * 255);
+  }
+  noiseCtx.putImageData(imgData, 0, 0);
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+  
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  ctx.globalCompositeOperation = gState.colored ? 'soft-light' : 'overlay';
+  ctx.drawImage(noiseCanvas, 0, 0, noiseW, noiseH, 0, 0, width, height);
+  ctx.restore();
+  
+  return canvas;
+};
+
+export const applyLightLeak = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const leak = adjustments.lightLeak;
+  if (!leak || !leak.preset) return canvas;
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+  
+  const width = canvas.width;
+  const height = canvas.height;
+  const opacity = leak.opacity / 100 * 0.7;
+  
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  
+  let gradient: CanvasGradient;
+  
+  switch (leak.preset) {
+    case 'warm-left':
+      gradient = ctx.createLinearGradient(0, 0, width, 0);
+      gradient.addColorStop(0, `rgba(251, 146, 60, ${opacity})`);
+      gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+      break;
+      
+    case 'cool-top':
+      gradient = ctx.createLinearGradient(0, 0, 0, height);
+      gradient.addColorStop(0, `rgba(56, 189, 248, ${opacity})`);
+      gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      break;
+      
+    case 'rainbow-corner':
+      gradient = ctx.createRadialGradient(width, 0, 0, width, 0, Math.max(width, height) * 0.8);
+      gradient.addColorStop(0, `rgba(236, 72, 153, ${opacity})`);
+      gradient.addColorStop(0.3, `rgba(59, 130, 246, ${opacity * 0.8})`);
+      gradient.addColorStop(0.8, 'rgba(59, 130, 246, 0)');
+      break;
+      
+    case 'soft-glow':
+      gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.5);
+      gradient.addColorStop(0, `rgba(253, 224, 71, ${opacity})`);
+      gradient.addColorStop(1, 'rgba(253, 224, 71, 0)');
+      break;
+      
+    case 'sunset-bleed':
+      gradient = ctx.createRadialGradient(0, height, 0, 0, height, Math.max(width, height) * 0.7);
+      gradient.addColorStop(0, `rgba(239, 68, 68, ${opacity})`);
+      gradient.addColorStop(0.4, `rgba(249, 115, 22, ${opacity * 0.6})`);
+      gradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
+      break;
+      
+    case 'vintage-haze':
+      gradient = ctx.createLinearGradient(0, 0, width, height);
+      gradient.addColorStop(0, `rgba(217, 119, 6, ${opacity})`);
+      gradient.addColorStop(0.5, `rgba(16, 185, 129, ${opacity * 0.5})`);
+      gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      break;
+      
+    default:
+      ctx.restore();
+      return canvas;
+  }
+  
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+  return canvas;
+};
+
+const loadImage = (src: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (err) => reject(err);
+    img.src = src;
+  });
+};
+
+export const drawBlendOverlay = (
+  canvas: HTMLCanvasElement,
+  overlayImg: HTMLImageElement,
+  blend: NonNullable<Adjustments['blend']>
+) => {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+  
+  const w = canvas.width;
+  const h = canvas.height;
+  
+  ctx.save();
+  ctx.globalAlpha = blend.opacity / 100;
+  ctx.globalCompositeOperation = blend.mode;
+  
+  let targetX = 0, targetY = 0, targetW = w, targetH = h;
+  const imgW = overlayImg.naturalWidth;
+  const imgH = overlayImg.naturalHeight;
+  const imgRatio = imgW / imgH;
+  const canvasRatio = w / h;
+  
+  if (blend.fit === 'contain') {
+    if (imgRatio > canvasRatio) {
+      targetW = w;
+      targetH = w / imgRatio;
+      targetY = (h - targetH) / 2;
+    } else {
+      targetH = h;
+      targetW = h * imgRatio;
+      targetX = (w - targetW) / 2;
+    }
+  } else if (blend.fit === 'center') {
+    targetW = imgW;
+    targetH = imgH;
+    targetX = (w - imgW) / 2;
+    targetY = (h - imgH) / 2;
+  } else {
+    if (imgRatio > canvasRatio) {
+      targetH = h;
+      targetW = h * imgRatio;
+      targetX = (w - targetW) / 2;
+    } else {
+      targetW = w;
+      targetH = w / imgRatio;
+      targetY = (h - targetH) / 2;
+    }
+  }
+  
+  ctx.drawImage(overlayImg, targetX, targetY, targetW, targetH);
+  ctx.restore();
+  return canvas;
+};
+
+const applyBlendOverlay = async (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const blend = adjustments.blend;
+  if (!blend || !blend.blendImageSrc) return canvas;
+  
+  try {
+    const overlayImg = await loadImage(blend.blendImageSrc);
+    drawBlendOverlay(canvas, overlayImg, blend);
+  } catch (err) {
+    console.error('Failed to apply blend overlay at export:', err);
+  }
+  return canvas;
+};
+
+export const applyTiltShift = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const ts = adjustments.tiltShift;
+  if (!ts || !ts.enabled || ts.blurStrength === 0) return canvas;
+  
+  const w = canvas.width;
+  const h = canvas.height;
+  
+  const maxRadius = Math.max(w, h) * 0.025;
+  const blurRad = (ts.blurStrength / 100) * maxRadius;
+  
+  const { canvas: blurredCanvas } = cloneCanvas(canvas);
+  applyBlur(blurredCanvas, blurRad);
+  
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width = w;
+  maskCanvas.height = h;
+  const maskCtx = maskCanvas.getContext('2d');
+  if (!maskCtx) return canvas;
+  
+  const pos = ts.focusPosition / 100;
+  const widthPct = ts.focusWidth / 100;
+  
+  let gradient: CanvasGradient;
+  
+  if (ts.mode === 'linear') {
+    gradient = maskCtx.createLinearGradient(0, 0, 0, h);
+    
+    const sharpStart = clamp(pos - widthPct / 2, 0, 1);
+    const sharpEnd = clamp(pos + widthPct / 2, 0, 1);
+    const blurStart = clamp(sharpStart - 0.2, 0, 1);
+    const blurEnd = clamp(sharpEnd + 0.2, 0, 1);
+    
+    gradient.addColorStop(0, 'rgba(0,0,0,1)');
+    gradient.addColorStop(blurStart, 'rgba(0,0,0,1)');
+    gradient.addColorStop(sharpStart, 'rgba(0,0,0,0)');
+    gradient.addColorStop(sharpEnd, 'rgba(0,0,0,0)');
+    gradient.addColorStop(blurEnd, 'rgba(0,0,0,1)');
+    gradient.addColorStop(1, 'rgba(0,0,0,1)');
+  } else {
+    const cx = w / 2;
+    const cy = h * pos;
+    const maxDist = Math.max(w, h) * 0.5;
+    
+    const innerRadius = widthPct * maxDist;
+    const outerRadius = (widthPct + 0.25) * maxDist;
+    
+    gradient = maskCtx.createRadialGradient(cx, cy, innerRadius, cx, cy, outerRadius);
+    gradient.addColorStop(0, 'rgba(0,0,0,0)');
+    gradient.addColorStop(1, 'rgba(0,0,0,1)');
+  }
+  
+  maskCtx.fillStyle = gradient;
+  maskCtx.fillRect(0, 0, w, h);
+  
+  const maskedBlurred = document.createElement('canvas');
+  maskedBlurred.width = w;
+  maskedBlurred.height = h;
+  const mbCtx = maskedBlurred.getContext('2d');
+  if (!mbCtx) return canvas;
+  
+  mbCtx.drawImage(blurredCanvas, 0, 0);
+  mbCtx.globalCompositeOperation = 'destination-in';
+  mbCtx.drawImage(maskCanvas, 0, 0);
+  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return canvas;
+  
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.drawImage(maskedBlurred, 0, 0);
+  ctx.restore();
+  
+  return canvas;
+};
+
+const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[]): Promise<HTMLCanvasElement> => {
+  if (!annotations || annotations.length === 0) return Promise.resolve(canvas);
+  
+  return new Promise((resolve) => {
+    const w = canvas.width;
+    const h = canvas.height;
+    
+    let svgContent = '';
+    
+    annotations.forEach(ann => {
+      if (ann.type === 'freehand' && ann.points) {
+        const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round" />`;
+      } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
+        const start = ann.points[0];
+        const end = ann.points[ann.points.length - 1];
+        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const headLength = Math.max(20, ann.strokeWidth * 3.5);
+        const xTip = end.x;
+        const yTip = end.y;
+        const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
+        const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
+        const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
+        const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
+        
+        svgContent += `<g><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
+      } else if (ann.type === 'rect' && ann.bounds) {
+        const b = ann.bounds;
+        const x = b.w < 0 ? b.x + b.w : b.x;
+        const y = b.h < 0 ? b.y + b.h : b.y;
+        const wVal = Math.abs(b.w);
+        const hVal = Math.abs(b.h);
+        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" />`;
+      } else if (ann.type === 'circle' && ann.bounds) {
+        const b = ann.bounds;
+        const cx = b.x + b.w / 2;
+        const cy = b.y + b.h / 2;
+        const rx = Math.abs(b.w) / 2;
+        const ry = Math.abs(b.h) / 2;
+        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" />`;
+      } else if (ann.type === 'text' && ann.points && ann.text) {
+        const p = ann.points[0];
+        const fSize = ann.fontSize || 32;
+        const safeText = ann.text
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&apos;');
+        svgContent += `<text x="${p.x}" y="${p.y}" fill="${ann.color}" font-size="${fSize}" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`;
+      }
+    });
+    
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="${w}" height="${h}">${svgContent}</svg>`;
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+        }
+        resolve(canvas);
+      };
+      img.onerror = () => {
+        console.error('Failed to render SVG annotations image');
+        resolve(canvas);
+      };
+      img.src = reader.result as string;
+    };
+    reader.onerror = () => resolve(canvas);
+    reader.readAsDataURL(svgBlob);
+  });
+};
+
+const applyFrame = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
+  const frame = adjustments.frame;
+  if (!frame || frame.style === 'none') return canvas;
+  
+  const w = canvas.width;
+  const h = canvas.height;
+  
+  let newW = w;
+  let newH = h;
+  
+  if (frame.style === 'polaroid') {
+    const border = Math.max(w, h) * (frame.thickness / 100);
+    newW = w + border * 2;
+    newH = h + border * 4.5;
+  } else if (frame.style === 'matte') {
+    const border = Math.max(w, h) * (frame.thickness / 100);
+    newW = w + border * 2;
+    newH = h + border * 2;
+  } else if (frame.style === 'filmstrip') {
+    const border = Math.round(h * 0.14);
+    newW = w;
+    newH = h + border * 2;
+  } else if (frame.style === 'shadowbox') {
+    const border = Math.max(w, h) * 0.1;
+    newW = w + border * 2;
+    newH = h + border * 2;
+  }
+  
+  const framedCanvas = document.createElement('canvas');
+  framedCanvas.width = newW;
+  framedCanvas.height = newH;
+  const ctx = framedCanvas.getContext('2d');
+  if (!ctx) return canvas;
+  
+  ctx.save();
+  
+  if (frame.style === 'polaroid') {
+    const border = Math.max(w, h) * (frame.thickness / 100);
+    ctx.fillStyle = '#f8f8f6';
+    ctx.fillRect(0, 0, newW, newH);
+    
+    ctx.shadowColor = 'rgba(0,0,0,0.15)';
+    ctx.shadowBlur = Math.max(4, border * 0.2);
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = Math.max(1, border * 0.05);
+    
+    ctx.drawImage(canvas, border, border, w, h);
+  } else if (frame.style === 'matte') {
+    const border = Math.max(w, h) * (frame.thickness / 100);
+    ctx.fillStyle = frame.color;
+    ctx.fillRect(0, 0, newW, newH);
+    ctx.drawImage(canvas, border, border, w, h);
+  } else if (frame.style === 'filmstrip') {
+    const border = Math.round(h * 0.14);
+    ctx.fillStyle = '#080808';
+    ctx.fillRect(0, 0, newW, newH);
+    ctx.drawImage(canvas, 0, border, w, h);
+    
+    const spW = Math.max(10, w * 0.02);
+    const spH = border * 0.45;
+    const gap = spW * 1.5;
+    ctx.fillStyle = '#1c1c1c';
+    
+    for (let x = gap / 2; x < w; x += spW + gap) {
+      ctx.beginPath();
+      ctx.roundRect(x, border * 0.25, spW, spH, 3);
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.roundRect(x, newH - border * 0.7, spW, spH, 3);
+      ctx.fill();
+    }
+  } else if (frame.style === 'rounded') {
+    const r = Math.min(w, h) * 0.04;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, r);
+    ctx.clip();
+    ctx.drawImage(canvas, 0, 0);
+  } else if (frame.style === 'thinline') {
+    ctx.drawImage(canvas, 0, 0);
+    ctx.strokeStyle = frame.color;
+    ctx.lineWidth = Math.max(2, Math.min(w, h) * 0.006);
+    ctx.strokeRect(0, 0, w, h);
+  } else if (frame.style === 'shadowbox') {
+    const border = Math.max(w, h) * 0.1;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, newW, newH);
+    
+    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+    ctx.shadowBlur = border * 0.4;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = border * 0.15;
+    
+    ctx.drawImage(canvas, border, border, w, h);
+  }
+  
+  ctx.restore();
+  return framedCanvas;
+};
+
 export const exportEditedCanvas = async ({
   sourceCanvas,
   adjustments,
   mimeType = DEFAULT_EXPORT_MIME,
   quality = DEFAULT_EXPORT_QUALITY,
+  annotations,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
   let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
 
-  if (hasGlobalPreviewAdjustments(adjustments)) {
-    preparedCanvas = renderCanvasWithFilter(preparedCanvas, getPreviewBaseFilter(adjustments));
+  // Apply Detail Interaction Guard
+  const noise = adjustments.noiseReduction || 0;
+  const sharp = adjustments.sharpness || 0;
+  const effectiveNoise = Math.max(0, noise - sharp * 0.5);
+  const effectiveSharp = sharp > 0 ? Math.max(0, sharp - noise * 0.5) : sharp;
+
+  const effectiveAdj = {
+    ...adjustments,
+    noiseReduction: effectiveNoise,
+    sharpness: effectiveSharp,
+  };
+
+  if (hasGlobalPreviewAdjustments(effectiveAdj)) {
+    preparedCanvas = renderCanvasWithFilter(preparedCanvas, getPreviewBaseFilter(effectiveAdj), effectiveAdj);
   }
 
-  applyBlur(preparedCanvas, adjustments.noiseReduction / 100 * 1.2);
-  if (adjustments.sharpness > 0) {
-    applyUnsharpMask(preparedCanvas, adjustments.sharpness, 1.2, 2.5);
-  } else if (adjustments.sharpness < 0) {
-    applyBlur(preparedCanvas, Math.abs(adjustments.sharpness) / 100 * 1.5);
+  // Apply Non-linear Highlights & Shadows
+  if (adjustments.highlights !== 0 || adjustments.shadows !== 0) {
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      applyNonLinearHighlightsAndShadows(imgData, adjustments.highlights, adjustments.shadows);
+      ctx.putImageData(imgData, 0, 0);
+    }
   }
 
-  applyCurveLutsToCanvas(preparedCanvas, adjustments);
-  await applyRegionalAdjustments(preparedCanvas, adjustments);
+  // Apply per-band HSL adjustments (pixel-level, full quality)
+  applyHslToCanvas(preparedCanvas, effectiveAdj.hsl);
+
+  applyBlur(preparedCanvas, effectiveNoise / 100 * 1.2);
+  if (effectiveSharp > 0) {
+    applyUnsharpMask(preparedCanvas, effectiveSharp, 1.2, 2.5);
+  } else if (effectiveSharp < 0) {
+    applyBlur(preparedCanvas, Math.abs(effectiveSharp) / 100 * 1.5);
+  }
+
+  applyCurveLutsToCanvas(preparedCanvas, effectiveAdj);
+  await applyRegionalAdjustments(preparedCanvas, effectiveAdj);
+  
+  // Apply Split Toning
+  applySplitToning(preparedCanvas, effectiveAdj);
+  
+  // Apply Film Grain
+  applyGrain(preparedCanvas, adjustments);
+  
+  // Apply Light Leaks
+  applyLightLeak(preparedCanvas, adjustments);
+  
+  // Apply Double Exposure
+  await applyBlendOverlay(preparedCanvas, adjustments);
+  
+  // Apply Tilt-Shift Depth Blur
+  applyTiltShift(preparedCanvas, adjustments);
+  
+  // Apply Vignette
   applyVignette(preparedCanvas, adjustments.vignette);
+  
+  // Apply SVG Annotations
+  await applyAnnotations(preparedCanvas, annotations);
+  
+  // Apply Frame (extends canvas dimensions at the very end)
+  preparedCanvas = applyFrame(preparedCanvas, adjustments);
 
   try {
     await ensureImageMagick();

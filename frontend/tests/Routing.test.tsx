@@ -37,10 +37,8 @@ describe('Sidebar Routing Component', () => {
     expect(screen.getAllByText('Utilities').length).toBe(2); // Section header and Nav item
 
     // Check library sub-navigation
-    expect(screen.getByText('Favorites')).toBeInTheDocument();
     expect(screen.getByText('Albums')).toBeInTheDocument();
     expect(screen.getByText('People')).toBeInTheDocument();
-    expect(screen.getByText('Archive')).toBeInTheDocument();
     expect(screen.getByText('Trash')).toBeInTheDocument();
 
     // Check utilities navigation

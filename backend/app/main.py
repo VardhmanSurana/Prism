@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db import engine, init_db
 from app.models import Base
-from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, summaries as summaries_api, people as people_api, utilities as utilities_api
+from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api
 from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
@@ -32,6 +32,13 @@ logging.getLogger("uvicorn.access").addFilter(LogAccessFilter())
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Main app starting up...")
+    # Clean up any orphaned llama-server processes on startup to reclaim VRAM
+    try:
+        import subprocess
+        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+    except Exception as e:
+        logger.warning(f"Failed to clean up orphaned llama-server processes: {e}")
+
     # Initialize DB — setup WAL mode and create tables
     from app.db import init_db
     await init_db()
@@ -50,9 +57,12 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN auto_tags TEXT"))
         if "embedding" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN embedding TEXT"))
-
-        # Create index on blur_score
+        if "event_id" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN event_id INTEGER"))
+ 
+        # Create index on blur_score and event_id
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_blur_score ON photos (blur_score)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_event_id ON photos (event_id)"))
 
         # Setup FTS5 Full Text Search Table and Triggers
         await conn.execute(text("""
@@ -133,6 +143,13 @@ async def lifespan(app: FastAPI):
         face_service.shutdown()
     except Exception:
         pass
+    
+    # Clean up llama-server processes on shutdown
+    try:
+        import subprocess
+        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+    except Exception as e:
+        logger.warning(f"Failed to clean up llama-server processes on shutdown: {e}")
 
 
 app = FastAPI(
@@ -331,7 +348,6 @@ app.include_router(inpaint_api.router, tags=["inpaint"])
 app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings"])
 app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"])
 app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
-app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/summaries", tags=["summaries"])
 app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", tags=["people"])
 app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"])
 

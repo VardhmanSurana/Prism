@@ -32,7 +32,7 @@ class FaceSDK:
             if not isf.query_launch_status():
                 # Launch using locally saved Pikachu model pack file dynamically resolved relative to this file
                 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-                local_model_path = os.path.join(backend_dir, "models", "Pikachu")
+                local_model_path = os.path.join(backend_dir, "models", "face", "Pikachu")
                 isf.launch(resource_path=local_model_path)
             self._launched = True
 

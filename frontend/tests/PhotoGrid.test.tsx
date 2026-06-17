@@ -14,6 +14,7 @@ vi.mock('@tanstack/react-virtual', () => ({
       start: index * 100,
     })),
     measureElement: () => {},
+    measure: () => {},
   })),
 }));
 
@@ -65,7 +66,6 @@ describe('PhotoGrid Component', () => {
       height: 1080,
       date: '2026-06-14T10:00:00Z',
       isFavorite: false,
-      isArchived: false,
       isLocked: false,
       isTrash: false,
       filename: 'pic1.jpg',
@@ -99,6 +99,7 @@ describe('PhotoGrid Component', () => {
     expect(screen.getByPlaceholderText(/Search by people/i)).toBeInTheDocument();
 
     // Check statistics cards
+    fireEvent.click(screen.getByText('Show Stats'));
     expect(screen.getByText('10')).toBeInTheDocument(); // total photos stats count
     expect(screen.getByText('3')).toBeInTheDocument();  // people found stats count
     expect(screen.getByText('2')).toBeInTheDocument();  // albums count

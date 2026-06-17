@@ -205,7 +205,7 @@ def test_rerank_and_explain():
     
     # Mock people relationship on photo1
     mock_person = Person(id=10, name="Rahul")
-    mock_photoperson = PhotoPerson(photo_id=1, person_id=10, person=mock_person)
+    mock_photoperson = PhotoPerson(photo_id=1, person_id=10, person=mock_person, confidence=0.96)
     photo1.people = [mock_photoperson]
     photo2.people = []
     photo3.people = []
@@ -224,18 +224,22 @@ def test_rerank_and_explain():
     
     ranked = orchestrator.rerank_and_explain("favorite sunset with Rahul in Goa", [photo1, photo2, photo3], plan)
     
-    # photo1 matches: Goa (+2.0), Rahul (+2.0), sunset in caption (+1.5), favorite (+2.0) -> high score
-    # photo2 matches: sunset in caption (+1.5), AI visual match (cos similarity 12.8 * 10 -> +12.8) -> high score
-    # photo3 matches: favorite (+2.0) -> low score
+    # photo1 matches: Goa (+2.0), Rahul detected (0.96 * 2.0 = +1.92), sunset in caption (+1.5), goa in caption (+1.5), favorite (+2.0), filename sunset (+0.5) -> 9.42
+    # photo2 matches: sunset in caption (+1.5), AI visual match (cos similarity 1.28 * 10 -> +12.8), filename sunset (+0.5) -> 14.8
+    # photo3 matches: favorite (+2.0), favorite in caption (+1.5) -> 3.5
     
     assert len(ranked) == 3
-    assert ranked[0].id in [1, 2]
+    assert ranked[0].id == 2
+    assert ranked[1].id == 1
+    assert ranked[2].id == 3
+    
     # Check explanations
-    assert hasattr(ranked[0], "search_explanation")
-    exp = ranked[0].search_explanation
-    assert "score" in exp
-    assert "matched" in exp
-    assert isinstance(exp["matched"], list)
+    assert photo1.search_explanation["score"] == 9.42
+    assert "Rahul Detected" in photo1.search_explanation["matched"]
+    assert photo2.search_explanation["score"] == 14.8
+    assert "Ai Visual Match" in photo2.search_explanation["matched"]
+    assert photo3.search_explanation["score"] == 3.5
+    assert "Favorite" in photo3.search_explanation["matched"]
 
 
 @pytest.mark.asyncio
@@ -251,12 +255,17 @@ async def test_conversational_memory_refinement(db_session):
     search_tools.semantic_search = AsyncMock(return_value=set())
     search_tools.search_albums = AsyncMock(return_value=set())
     search_tools.search_ocr = AsyncMock(return_value=set())
+    search_tools.search_events = AsyncMock(return_value=set())
     
     orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
     
     # Pre-populate session cache
     session_key = orchestrator._get_session_key([], "show photos of goa")
-    orchestrator.session_cache[session_key] = {10, 20, 30}
+    orchestrator.session_cache[session_key] = {
+        "base_query": "show photos of goa",
+        "filters": [],
+        "photo_ids": {10, 20, 30}
+    }
     
     # Mock next query plan indicating refinement
     planner.extract_search_parameters.return_value = {
@@ -307,5 +316,94 @@ async def test_conversational_memory_refinement(db_session):
         
         # Verify the session cache was updated with the final returned ID: 20
         new_session_key = orchestrator._get_session_key([{"role": "user", "content": "show photos of goa"}], "only the ones with Rahul")
-        assert orchestrator.session_cache[new_session_key] == {20}
+        assert orchestrator.session_cache[new_session_key]["photo_ids"] == {20}
+        assert "only the ones with Rahul" in orchestrator.session_cache[new_session_key]["filters"]
+
+
+@pytest.mark.asyncio
+async def test_search_events(db_session):
+    from app.models import Event
+    from datetime import datetime
+
+    ev = Event(
+        title="Goa Trip 2025",
+        event_type="trip",
+        location="Goa",
+        start_date=datetime(2025, 1, 1),
+        end_date=datetime(2025, 1, 10),
+        summary="A fun beach holiday"
+    )
+    db_session.add(ev)
+    await db_session.flush()
+
+    photo_linked = Photo(
+        filename="linked.jpg",
+        path="/linked.jpg",
+        width=1,
+        height=1,
+        aspect_ratio=1.0,
+        event_id=ev.id,
+        upload_date=datetime.utcnow(),
+        date_taken=datetime(2025, 1, 5)
+    )
+    
+    photo_unlinked_goa = Photo(
+        filename="unlinked.jpg",
+        path="/unlinked.jpg",
+        width=1,
+        height=1,
+        aspect_ratio=1.0,
+        city="Goa",
+        upload_date=datetime.utcnow(),
+        date_taken=datetime(2025, 1, 3)
+    )
+
+    photo_other = Photo(
+        filename="other.jpg",
+        path="/other.jpg",
+        width=1,
+        height=1,
+        aspect_ratio=1.0,
+        city="Yelagiri",
+        upload_date=datetime.utcnow(),
+        date_taken=datetime(2024, 5, 5)
+    )
+
+    db_session.add_all([photo_linked, photo_unlinked_goa, photo_other])
+    await db_session.commit()
+
+    tools = SearchTools()
+    
+    results = await tools.search_events(db_session, "Goa Trip")
+    assert photo_linked.id in results
+    assert photo_unlinked_goa.id in results
+    assert photo_other.id not in results
+
+
+@pytest.mark.asyncio
+async def test_search_metadata_month_year(db_session):
+    from datetime import datetime
+    p1 = Photo(
+        id=500, filename="nov_2025.jpg", path="/nov_2025.jpg", width=1, height=1, aspect_ratio=1.0,
+        date_taken=datetime(2025, 11, 15)
+    )
+    p2 = Photo(
+        id=501, filename="jan_2026.jpg", path="/jan_2026.jpg", width=1, height=1, aspect_ratio=1.0,
+        date_taken=datetime(2026, 1, 12)
+    )
+    db_session.add_all([p1, p2])
+    await db_session.commit()
+
+    tools = SearchTools()
+    
+    # Check that search_metadata filters correctly by year and month
+    res_nov = await tools.search_metadata(db_session, year=2025, month=11)
+    assert 500 in res_nov
+    assert 501 not in res_nov
+
+    res_jan = await tools.search_metadata(db_session, year=2026, month=1)
+    assert 501 in res_jan
+    assert 500 not in res_jan
+
+
 

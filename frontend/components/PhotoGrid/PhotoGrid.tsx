@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { motion, AnimatePresence } from 'framer-motion';
 import { TimelineDial } from '../TimelineDial';
 import { PhotoGridProps, VirtualRowItem, RowItem } from './types';
 import { usePhotoGrid } from './hooks/usePhotoGrid';
@@ -33,7 +34,8 @@ import {
   Rows, 
   FolderUp,
   Check,
-  ChevronDown
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
@@ -52,7 +54,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onSortChange,
   onUpdatePhotos,
   onBulkFavorite,
-  onBulkArchive,
   onBulkDelete,
   onBulkLockToggle,
 }) => {
@@ -63,6 +64,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
 
   // Stats Integration
@@ -153,28 +155,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkLockToggle, onUpdatePhotos, refetchStats]);
 
-  const handleArchiveToggle = useCallback(async (id: string | number, current: boolean) => {
-    if (onBulkArchive) {
-      await onBulkArchive(new Set([String(id)]));
-      refetchStats();
-    } else {
-      const target = !current;
-      onUpdatePhotos?.(prev => prev.map(p =>
-        String(p.id) === String(id) ? { ...p, isArchived: target, is_archived: target } : p
-      ));
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/photos/${id}/archive`, { method: 'POST' });
-        if (!response.ok) throw new Error('API failed');
-        refetchStats();
-      } catch (e) {
-        onUpdatePhotos?.(prev => prev.map(p =>
-          String(p.id) === String(id) ? { ...p, isArchived: current, is_archived: current } : p
-        ));
-        console.error('Failed to toggle archive status', e);
-      }
-    }
-  }, [onBulkArchive, onUpdatePhotos, refetchStats]);
-
   const handleDeleteToggle = useCallback(async (id: string | number) => {
     if (onBulkDelete) {
       await onBulkDelete(new Set([String(id)]));
@@ -211,9 +191,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // Build rows depending on view layout — keep original 'header'/'row' types intact.
   // When the library is empty we still emit [ dashboard, empty ] so the header
   // (and Import button) are always visible regardless of photo count.
-  // In trash/archive views, hide the dashboard header.
+  // In trash views, hide the dashboard header.
   const gridRows = usePhotoGrid(filteredPhotos);
-  const isCompactView = currentView === 'trash' || currentView === 'archived';
+  const isCompactView = currentView === 'trash';
   const rowItems = useMemo(() => {
     if (isCompactView) {
       if (photos.length === 0) {
@@ -224,17 +204,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
     }
     if (photos.length === 0) {
-      // Dashboard always present; followed by a dedicated empty-state row
-      return [
-        { type: 'dashboard' as const },
-        { type: 'empty' as const },
-      ];
+      return [{ type: 'empty' as const }];
     }
     const baseItems: VirtualRowItem[] = viewMode === 'grid'
       ? gridRows
       : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
 
-    return [{ type: 'dashboard' as const }, ...baseItems];
+    return baseItems;
   }, [photos.length, filteredPhotos, gridRows, viewMode, isCompactView]);
 
   const rowVirtualizer = useVirtualizer({
@@ -243,14 +219,17 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     estimateSize: (index) => {
       const item = rowItems[index];
       if (!item) return ROW_HEIGHT;
-      if (item.type === 'dashboard') return DASHBOARD_ROW_HEIGHT;
-      if (item.type === 'empty')     return EMPTY_ROW_HEIGHT; // tall enough to feel spacious
+      if (item.type === 'empty')     return EMPTY_ROW_HEIGHT;
       if (item.type === 'header')    return HEADER_ROW_HEIGHT;
       if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
       return ROW_HEIGHT;
     },
     overscan: 10,
   });
+
+  useEffect(() => {
+    rowVirtualizer.measure();
+  }, [isStatsExpanded, rowVirtualizer]);
 
   // Calculate dynamic date metadata for view controls
   const dateLabel = useMemo(() => {
@@ -283,99 +262,106 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   }
 
   return (
-    <>
-      <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const item = rowItems[virtualRow.index];
-          if (!item) return null;
+    <div className="relative w-full">
+      {/* Dynamic Header (Dashboard) rendered outside virtualization */}
+      {!isCompactView && (
+        <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
+          {/* Top Section */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 select-none">
+            <div>
+              <h1 className="text-4xl font-extrabold text-white tracking-tight font-sans">
+                Library
+              </h1>
+              <div className="flex items-center gap-3 mt-1 select-none">
+                <p className="text-sm text-gray-500 font-medium">
+                  All your moments, organized locally on this device.
+                </p>
+                <span className="text-gray-600 font-bold">•</span>
+                <button
+                  onClick={() => setIsStatsExpanded(!isStatsExpanded)}
+                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-2.5 py-1 rounded-lg font-semibold active:scale-95 transition-all"
+                >
+                  <span>{isStatsExpanded ? 'Hide Stats' : 'Show Stats'}</span>
+                  {isStatsExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                </button>
+              </div>
+            </div>
 
-          // 1. Unified Dashboard Header
-          if (item.type === 'dashboard') {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={rowVirtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pl-10 pr-10 pt-8 pb-4 z-20"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
-              >
-                {/* Top Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 select-none">
-                  <div>
-                    <h1 className="text-4xl font-extrabold text-white tracking-tight font-sans">
-                      Library
-                    </h1>
-                    <p className="text-sm text-gray-500 font-medium mt-1">
-                      All your moments, organized locally on this device.
-                    </p>
-                  </div>
-
-                  {/* Search and Ingestion buttons */}
-                  <div className="flex items-center gap-4">
-                    {/* Integrated Search Bar */}
-                    <div className="relative group max-w-xs w-64">
-                      <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                        <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
-                      </div>
-                      <input
-                        type="text"
-                        className="w-full bg-surface border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-100 placeholder:text-gray-500 placeholder:text-xs focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-mono"
-                        placeholder="Search by people, places, things..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onKeyDown={handleSearchKeyDown}
-                      />
-                    </div>
-
-                    {/* Filter Setting Button */}
-                    <button
-                      className="p-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-400 hover:text-white rounded-xl transition-all active:scale-95"
-                      title="Advanced Filter Options"
-                    >
-                      <SlidersHorizontal size={18} />
-                    </button>
-
-                    {/* Integrated Import Dropdown Button */}
-                    <div className="relative" ref={importMenuRef}>
-                      <button
-                        onClick={() => setIsImportOpen(!isImportOpen)}
-                        className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black hover:brightness-110 font-bold rounded-xl text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(var(--color-primary),0.15)] transition-all active:scale-95"
-                      >
-                        <FolderUp size={15} />
-                        <span>Import</span>
-                        <ChevronDown size={12} className={`transition-transform duration-200 ${isImportOpen ? 'rotate-180' : ''}`} />
-                      </button>
-
-                      {isImportOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl p-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-                          <button
-                            onClick={() => {
-                              handleFileUpload();
-                              setIsImportOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
-                          >
-                            <ImageIcon size={16} className="text-purple-400" />
-                            <span>Import Files</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              handleFolderImport();
-                              setIsImportOpen(false);
-                            }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
-                          >
-                            <FolderOpen size={16} className="text-emerald-400" />
-                            <span>Import Folder</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            {/* Search and Ingestion buttons */}
+            <div className="flex items-center gap-4">
+              {/* Integrated Search Bar */}
+              <div className="relative group max-w-xs w-64">
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
                 </div>
+                <input
+                  type="text"
+                  className="w-full bg-surface border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-100 placeholder:text-gray-500 placeholder:text-xs focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-mono"
+                  placeholder="Search by people, places, things..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleSearchKeyDown}
+                />
+              </div>
 
-                {/* Dynamic Stats Cards Section */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 select-none">
+              {/* Filter Setting Button */}
+              <button
+                className="p-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-400 hover:text-white rounded-xl transition-all active:scale-95"
+                title="Advanced Filter Options"
+              >
+                <SlidersHorizontal size={18} />
+              </button>
+
+              {/* Integrated Import Dropdown Button */}
+              <div className="relative" ref={importMenuRef}>
+                <button
+                  onClick={() => setIsImportOpen(!isImportOpen)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black hover:brightness-110 font-bold rounded-xl text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(var(--color-primary),0.15)] transition-all active:scale-95"
+                >
+                  <FolderUp size={15} />
+                  <span>Import</span>
+                  <ChevronDown size={12} className={`transition-transform duration-200 ${isImportOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isImportOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl p-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <button
+                      onClick={() => {
+                        handleFileUpload();
+                        setIsImportOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
+                    >
+                      <ImageIcon size={16} className="text-purple-400" />
+                      <span>Import Files</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleFolderImport();
+                        setIsImportOpen(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
+                    >
+                      <FolderOpen size={16} className="text-emerald-400" />
+                      <span>Import Folder</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Stats Cards Section */}
+          <AnimatePresence initial={false}>
+            {isStatsExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0, marginBottom: 0 }}
+                animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
+                exit={{ height: 0, opacity: 0, marginBottom: 0 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                className="overflow-hidden w-full"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 select-none pt-1 pb-1">
                   {/* Card 1: Total Photos */}
                   <div className="p-6 bg-surface border border-border rounded-[1.5rem] flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
                     <div className="absolute -inset-px bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[1.5rem]" />
@@ -432,60 +418,71 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                     </span>
                   </div>
                 </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                {/* Sub Navigation and View Filters */}
-                <div className="flex items-center justify-between border-t border-b border-white/5 py-4 mb-4 select-none">
-                  {/* Category Pills on Left */}
-                  <div className="flex items-center gap-2 bg-[#111]/40 p-1 rounded-full border border-white/5">
-                    {(['all', 'favorites', 'recent', 'videos'] as const).map((pill) => (
-                      <button
-                        key={pill}
-                        onClick={() => setActivePill(pill)}
-                        className={`px-5 py-2 text-[10px] font-bold rounded-full uppercase tracking-wider transition-all duration-300
-                          ${
-                            activePill === pill
-                              ? 'bg-primary text-black font-extrabold shadow-[0_0_20px_rgba(var(--color-primary),0.2)]'
-                              : 'text-gray-500 hover:text-white hover:bg-white/5'
-                          }
-                        `}
-                      >
-                        {pill}
-                      </button>
-                    ))}
-                  </div>
+          {/* Sub Navigation and View Filters */}
+          <div className="flex items-center justify-between border-t border-b border-white/5 py-4 mb-4 select-none">
+            {/* Category Pills on Left */}
+            <div className="flex items-center gap-2 bg-[#111]/40 p-1 rounded-full border border-white/5">
+              {(['all', 'favorites', 'recent', 'videos'] as const).map((pill) => (
+                <button
+                  key={pill}
+                  onClick={() => setActivePill(pill)}
+                  className={`px-5 py-2 text-[10px] font-bold rounded-full uppercase tracking-wider transition-all duration-300
+                    ${
+                      activePill === pill
+                        ? 'bg-primary text-black font-extrabold shadow-[0_0_20px_rgba(var(--color-primary),0.2)]'
+                        : 'text-gray-500 hover:text-white hover:bg-white/5'
+                    }
+                  `}
+                >
+                  {pill}
+                </button>
+              ))}
+            </div>
 
-                  {/* Date label and Grid/List view switch on Right */}
-                  <div className="flex items-center gap-6">
-                    <span className="text-xs font-mono uppercase tracking-[0.15em] text-gray-500 font-bold">
-                      {dateLabel}
-                    </span>
+            {/* Date label and Grid/List view switch on Right */}
+            <div className="flex items-center gap-6">
+              <span className="text-xs font-mono uppercase tracking-[0.15em] text-gray-500 font-bold">
+                {dateLabel}
+              </span>
 
-                    {/* Layout switch controls */}
-                    <div className="flex items-center gap-1 bg-[#111]/40 p-1 rounded-full border border-white/5">
-                      <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-2 rounded-full transition-all duration-300 ${
-                          viewMode === 'grid' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
-                        }`}
-                        title="Grid View"
-                      >
-                        <LayoutGrid size={15} />
-                      </button>
-                      <button
-                        onClick={() => setViewMode('list')}
-                        className={`p-2 rounded-full transition-all duration-300 ${
-                          viewMode === 'list' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
-                        }`}
-                        title="List View"
-                      >
-                        <Rows size={15} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
+              {/* Layout switch controls */}
+              <div className="flex items-center gap-1 bg-[#111]/40 p-1 rounded-full border border-white/5">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-2 rounded-full transition-all duration-300 ${
+                    viewMode === 'grid' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
+                  }`}
+                  title="Grid View"
+                >
+                  <LayoutGrid size={15} />
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`p-2 rounded-full transition-all duration-300 ${
+                    viewMode === 'list' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
+                  }`}
+                  title="List View"
+                >
+                  <Rows size={15} />
+                </button>
               </div>
-            );
-          }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* The Virtualized Container */}
+      <div 
+        className="relative w-full" 
+        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const item = rowItems[virtualRow.index];
+          if (!item) return null;
 
           // 1b. Empty library state (shown below the dashboard when no photos)
           if (item.type === 'empty') {
@@ -507,13 +504,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                         <p className="text-lg font-semibold text-gray-300">Trash is empty</p>
                         <p className="text-sm text-gray-500 mt-1">
                           No photos in trash.
-                        </p>
-                      </>
-                    ) : currentView === 'archived' ? (
-                      <>
-                        <p className="text-lg font-semibold text-gray-300">No archived photos</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Archive photos to hide them from your main library.
                         </p>
                       </>
                     ) : (
@@ -548,7 +538,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
             );
           }
 
-          // 3. Grid Row (Grid Mode only) — original type from usePhotoGrid is 'row'
+          // 3. Grid Row (Grid Mode only)
           if (item.type === 'row') {
             return (
               <PhotoGridRow
@@ -587,7 +577,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   onToggleSelection={onToggleSelection}
                   onFavoriteToggle={handleFavoriteToggle}
                   onLockToggle={handleLockToggle}
-                  onArchiveToggle={handleArchiveToggle}
                   onDeleteToggle={handleDeleteToggle}
                 />
               </div>
@@ -605,6 +594,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
           scrollHeight={scrollState.height}
         />
       )}
-    </>
+    </div>
   );
 };

@@ -4,6 +4,14 @@ import os
 import sys
 import tempfile
 
+# Force offline mode for Hugging Face and transformers if local cache exists
+base_dir = Path(__file__).resolve().parent.parent
+cache_dir = base_dir / "models" / ".cache" / "huggingface"
+if cache_dir.exists():
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
+
 def get_user_data_dir() -> Path:
     """Resolve platform-specific user data directory."""
     if "pytest" in sys.modules or os.environ.get("PRISM_TEST") == "1":

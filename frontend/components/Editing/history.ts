@@ -4,6 +4,7 @@
  */
 
 import { Adjustments } from './filterEngine';
+import { Annotation } from './AnnotationsPanel';
 
 export type HistoryActionType = 
   | 'crop'
@@ -30,6 +31,14 @@ export type HistoryActionType =
   | 'vignette'
   | 'regions'
   | `regions_${string}`
+  | 'splitToning'
+  | 'grain'
+  | 'lightLeak'
+  | 'frame'
+  | 'blend'
+  | 'tiltShift'
+  | 'annotations'
+  | 'inpaint'
   | 'initial';
 
 export interface HistoryEntry {
@@ -46,6 +55,7 @@ export interface HistoryEntry {
   flipH: boolean;
   flipV: boolean;
   straightenAngle: number;
+  annotations?: Annotation[];
 }
 
 export function createHistoryEntry(
@@ -57,7 +67,8 @@ export function createHistoryEntry(
   flipH: boolean,
   flipV: boolean,
   straightenAngle: number,
-  value?: number
+  value?: number,
+  annotations?: Annotation[]
 ): HistoryEntry {
   return {
     id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -71,6 +82,7 @@ export function createHistoryEntry(
     flipH,
     flipV,
     straightenAngle,
+    annotations: annotations ? [...annotations] : [],
   };
 }
 
@@ -103,6 +115,13 @@ export function getActionColor(type: HistoryActionType): string {
     case 'curves':
     case 'vignette':
       return 'text-violet-400';
+    case 'splitToning': return 'text-rose-400';
+    case 'grain':
+    case 'lightLeak': return 'text-amber-400';
+    case 'frame': return 'text-emerald-400';
+    case 'blend': return 'text-indigo-400';
+    case 'tiltShift': return 'text-teal-400';
+    case 'annotations': return 'text-sky-400';
     case 'initial': return 'text-gray-400';
     default: return 'text-white';
   }
@@ -112,6 +131,10 @@ export function getAdjustmentLabel(type: HistoryActionType): string {
   if (typeof type === 'string' && type.startsWith('regions')) {
     return 'Regional Adjustment';
   }
+  if (type === 'splitToning') return 'Split Toning';
+  if (type === 'lightLeak') return 'Light Leak';
+  if (type === 'tiltShift') return 'Tilt Shift';
+  if (type === 'noiseReduction') return 'Noise Reduction';
   // Convert camelCase to Title Case
   return type.charAt(0).toUpperCase() + type.slice(1).replace(/([A-Z])/g, ' $1');
 }

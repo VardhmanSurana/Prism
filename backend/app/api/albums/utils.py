@@ -36,7 +36,6 @@ def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
         "date_taken": photo_date,
         "upload_date": photo.upload_date.isoformat(),
         "is_favorite": photo.is_favorite,
-        "is_archived": photo.is_archived,
         "is_locked": photo.is_locked,
         "is_trash": photo.is_trash,
         "mime_type": photo.mime_type,

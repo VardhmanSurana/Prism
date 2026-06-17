@@ -25,7 +25,6 @@ export interface PhotoGridProps {
   onSortChange?: (mode: SortMode) => void;
   onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
-  onBulkArchive?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
 }

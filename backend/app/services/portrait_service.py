@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class PortraitService:
     def __init__(self):
-        self.model_path = os.path.join(settings.BASE_DIR, "models", "face_parsing.onnx")
+        self.model_path = os.path.join(settings.BASE_DIR, "models", "face", "face_parsing.onnx")
         self.session = None
         self.input_size = (512, 512)
         self.mean = np.array([0.485, 0.456, 0.406]).reshape(1, 1, 3)

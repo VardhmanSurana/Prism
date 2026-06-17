@@ -67,7 +67,6 @@ export function useAppState() {
 
   const {
     handleBulkDelete,
-    handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
     handleBulkRestore,
@@ -147,7 +146,6 @@ export function useAppState() {
     isFavorited,
     onAddToAlbum,
     handleBulkDelete,
-    handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
     handleBulkRestore,

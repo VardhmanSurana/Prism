@@ -84,6 +84,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
     setError(null);
     setPreviewFile(null);
     setDimensions(null);
+    setImgLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/list-dir`, {
         method: 'POST',
@@ -188,6 +189,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
       } else {
         nextSelected.add(path);
         if (fileObj && fileObj.is_image) {
+          setImgLoading(true);
           setPreviewFile(fileObj);
         }
       }
@@ -195,6 +197,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
       nextSelected.clear();
       nextSelected.add(path);
       if (fileObj && fileObj.is_image) {
+        setImgLoading(true);
         setPreviewFile(fileObj);
       }
     }
@@ -523,7 +526,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
                 </div>
 
                 {/* Image Box */}
-                <div className="relative aspect-video max-h-40 rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
+                <div className="relative flex-1 min-h-[200px] rounded-xl overflow-hidden border border-white/10 bg-black/40 flex items-center justify-center">
                   {imgLoading && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <Loader2 className="animate-spin text-primary/70" size={16} />
@@ -541,23 +544,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
                   />
                 </div>
 
-                {/* Details list */}
-                <div className="mt-4 space-y-2 text-xs border-b border-white/5 pb-4">
-                  <div className="font-semibold text-white/90 truncate" title={previewFile.name}>
-                    {previewFile.name}
-                  </div>
-                  <div className="grid grid-cols-2 gap-y-1.5 text-white/50 text-[11px] font-mono">
-                    <div>Size:</div>
-                    <div className="text-white text-right">{formatSize(previewFile.size_bytes)}</div>
-                    <div>Resolution:</div>
-                    <div className="text-white text-right">
-                      {dimensions ? `${dimensions.width} × ${dimensions.height}px` : '...'}
-                    </div>
-                    <div>Format:</div>
-                    <div className="text-white text-right uppercase">
-                      {previewFile.name.split('.').pop() || 'Unknown'}
-                    </div>
-                  </div>
+                {/* Filename caption */}
+                <div className="mt-3 text-xs text-white/90 font-medium truncate text-center border-b border-white/5 pb-3" title={previewFile.name}>
+                  {previewFile.name}
                 </div>
 
                 {/* Resizer Section */}

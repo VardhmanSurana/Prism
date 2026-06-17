@@ -16,9 +16,9 @@ class SearchTools:
         self.embedding_client = embedding_client or EmbeddingClient()
         self._tool_cache = {}
 
-    async def search_metadata(self, db, date_range=None, location=None, favorites=None, year=None, is_locked=False) -> set[int]:
-        """Tool 1: Search metadata filters (location, year, favorites)."""
-        cache_key = ("search_metadata", location, favorites, year, is_locked)
+    async def search_metadata(self, db, date_range=None, location=None, favorites=None, year=None, month=None, is_locked=False) -> set[int]:
+        """Tool 1: Search metadata filters (location, year, month, favorites)."""
+        cache_key = ("search_metadata", location, favorites, year, month, is_locked)
         if cache_key in self._tool_cache:
             return set(self._tool_cache[cache_key])
 
@@ -34,6 +34,9 @@ class SearchTools:
 
         if year:
             filters.append(func.strftime("%Y", Photo.date_taken) == str(year))
+
+        if month:
+            filters.append(func.strftime("%m", Photo.date_taken) == f"{int(month):02d}")
 
         if location:
             loc = location.replace("%", "\\%").replace("_", "\\_")[:50]
@@ -346,3 +349,72 @@ class SearchTools:
         except Exception as e:
             logger.error(f"Similar image search tool failed: {e}")
             return set()
+
+    async def search_events(self, db, query: str, is_locked=False) -> set[int]:
+        """Tool 8: Find matching events (e.g., Goa Trip 2025, Rahul Birthday) and retrieve associated photos."""
+        if not query:
+            return set()
+
+        cache_key = ("search_events", query, is_locked)
+        if cache_key in self._tool_cache:
+            return set(self._tool_cache[cache_key])
+
+        from app.models import Event
+
+        terms = [t.strip("?,.!") for t in query.split()]
+        filters = []
+        for t in terms:
+            if len(t) > 2:
+                filters.append(or_(
+                    Event.title.ilike(f"%{t}%"),
+                    Event.location.ilike(f"%{t}%"),
+                    Event.summary.ilike(f"%{t}%")
+                ))
+        
+        res_set = set()
+        if filters:
+            stmt = select(Event).where(or_(*filters))
+            res = await db.execute(stmt)
+            matched_events = res.scalars().all()
+
+            for ev in matched_events:
+                # 1. Direct photo links
+                direct_stmt = select(Photo.id).where(
+                    Photo.event_id == ev.id,
+                    Photo.is_trash == False,
+                    Photo.is_locked == is_locked
+                )
+                direct_res = await db.execute(direct_stmt)
+                res_set.update(row[0] for row in direct_res.fetchall())
+
+                # 2. Heuristic overlap: date/location fallback
+                fallback_filters = [
+                    Photo.is_trash == False,
+                    Photo.is_locked == is_locked
+                ]
+                has_criteria = False
+                if ev.location:
+                    loc_clean = ev.location.replace("%", "\\%").replace("_", "\\_")[:50]
+                    fallback_filters.append(or_(
+                        Photo.city.ilike(f"%{loc_clean}%"),
+                        Photo.state.ilike(f"%{loc_clean}%"),
+                        Photo.country.ilike(f"%{loc_clean}%")
+                    ))
+                    has_criteria = True
+                if ev.start_date:
+                    fallback_filters.append(Photo.date_taken >= ev.start_date)
+                    has_criteria = True
+                if ev.end_date:
+                    fallback_filters.append(Photo.date_taken <= ev.end_date)
+                    has_criteria = True
+                
+                if has_criteria:
+                    fallback_stmt = select(Photo.id).where(and_(*fallback_filters))
+                    fallback_res = await db.execute(fallback_stmt)
+                    res_set.update(row[0] for row in fallback_res.fetchall())
+
+        if len(self._tool_cache) >= 1000:
+            self._tool_cache.clear()
+        self._tool_cache[cache_key] = res_set
+        return set(res_set)
+

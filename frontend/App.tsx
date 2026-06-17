@@ -45,7 +45,6 @@ function App() {
     isFavorited,
     onAddToAlbum,
     handleBulkDelete,
-    handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
     handleBulkRestore,
@@ -112,7 +111,6 @@ function App() {
             onSortChange={setSortMode}
             onUpdatePhotos={setPhotos}
             onBulkFavorite={handleBulkFavorite}
-            onBulkArchive={handleBulkArchive}
             onBulkDelete={handleBulkDelete}
             onBulkLockToggle={handleBulkLockToggle}
             onResetSuccess={handleResetSuccess}
@@ -128,7 +126,6 @@ function App() {
                 onFavorite={handleBulkFavorite}
                 isFavorited={isFavorited}
                 onToggleLock={handleBulkLockToggle}
-                onArchive={handleBulkArchive}
                 onDelete={handleBulkDelete}
                 onRestore={handleBulkRestore}
               />

@@ -51,11 +51,6 @@ async def get_locked_folder_status():
     }
 
 
-@router.post("/locked-folder/check-password")
-async def check_password(req: LockedSetupRequest):
-    return check_password_strength(req.password)
-
-
 @router.post("/locked-folder/setup")
 async def setup_locked_folder(req: LockedSetupRequest):
     if len(req.password) < 12:

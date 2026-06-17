@@ -29,7 +29,7 @@ class AIOrchestrator:
         except Exception as e:
             logger.warning(f"Error clearing VRAM before server start: {e}")
 
-        model_dir = Path(settings.BASE_DIR) / "models"
+        model_dir = Path(settings.BASE_DIR) / "models" / "llm"
         
         if mode == 'agent':
             model_path = model_dir / "gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"

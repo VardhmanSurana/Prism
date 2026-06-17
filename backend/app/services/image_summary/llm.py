@@ -11,7 +11,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 class VisionManager:
-    _model_path = Path(settings.BASE_DIR) / "models" / "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
+    _model_path = Path(settings.BASE_DIR) / "models" / "llm" / "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
 
     @classmethod
     def get_llm(cls):

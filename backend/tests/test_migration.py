@@ -28,7 +28,6 @@ async def test_dynamic_migration_and_data_preservation():
                 longitude FLOAT,
                 location VARCHAR(512),
                 is_favorite BOOLEAN,
-                is_archived BOOLEAN,
                 is_locked BOOLEAN,
                 is_trash BOOLEAN,
                 mime_type VARCHAR(50),
@@ -55,15 +54,18 @@ async def test_dynamic_migration_and_data_preservation():
         assert "file_size" not in columns
         assert "auto_tags" not in columns
         assert "embedding" not in columns
+        assert "event_id" not in columns
         
         # Run migrations
         await conn.execute(text("ALTER TABLE photos ADD COLUMN blur_score FLOAT"))
         await conn.execute(text("ALTER TABLE photos ADD COLUMN file_size INTEGER"))
         await conn.execute(text("ALTER TABLE photos ADD COLUMN auto_tags TEXT"))
         await conn.execute(text("ALTER TABLE photos ADD COLUMN embedding TEXT"))
+        await conn.execute(text("ALTER TABLE photos ADD COLUMN event_id INTEGER"))
         
         # Create indexes
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_blur_score ON photos (blur_score)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_event_id ON photos (event_id)"))
         
         # Create FTS5 virtual table
         await conn.execute(text("""
@@ -97,11 +99,13 @@ async def test_dynamic_migration_and_data_preservation():
         assert "file_size" in columns
         assert "auto_tags" in columns
         assert "embedding" in columns
+        assert "event_id" in columns
         
         # Verify index was created
         idx_res = await conn.execute(text("PRAGMA index_list(photos)"))
         indexes = [row[1] for row in idx_res.fetchall()]
         assert "idx_photos_blur_score" in indexes
+        assert "idx_photos_event_id" in indexes
         
         # Verify original seed data remains untouched
         data_res = await conn.execute(text("SELECT filename, is_favorite, blur_score FROM photos"))

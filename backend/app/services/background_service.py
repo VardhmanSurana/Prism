@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class BackgroundService:
     def __init__(self):
-        self.model_path = os.path.join(settings.BASE_DIR, "models", "u2netp.onnx")
+        self.model_path = os.path.join(settings.BASE_DIR, "models", "segmentation", "u2netp.onnx")
         self.session = None
         self.input_size = (320, 320)
 

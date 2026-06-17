@@ -47,16 +47,13 @@ export function usePhotoSorting({
 
     switch (currentView) {
       case 'favorites':
-        result = result.filter(p => (p.isFavorite || p.is_favorite) && !(p.isArchived || p.is_archived));
-        break;
-      case 'archived':
-        result = result.filter(p => p.isArchived || p.is_archived);
+        result = result.filter(p => (p.isFavorite || p.is_favorite));
         break;
       case 'locked':
         result = result.filter(p => p.isLocked || p.is_locked);
         break;
       case 'gallery':
-        result = result.filter(p => !(p.isArchived || p.is_archived) && !(p.isLocked || p.is_locked));
+        result = result.filter(p => !(p.isLocked || p.is_locked));
         break;
       default:
         break;

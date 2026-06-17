@@ -176,6 +176,11 @@
   filter: var(--cropper-filter, none);
 }
 
+.hide-cropper-image .cropper-canvas img,
+.hide-cropper-image .cropper-view-box img {
+  opacity: 0 !important;
+}
+
 /* Vignette effect overlay - only affects the cropper canvas */
 .with-vignette .cropper-canvas {
   position: relative;

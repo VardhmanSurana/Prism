@@ -36,13 +36,14 @@ class PrismAgent:
     def heuristic_fallback(self, message: str) -> dict:
         return self.planner.heuristic_fallback(message)
 
-    async def search_metadata(self, db, date_range=None, location=None, favorites=None, year=None, is_locked=False) -> set[int]:
+    async def search_metadata(self, db, date_range=None, location=None, favorites=None, year=None, month=None, is_locked=False) -> set[int]:
         return await self.search_tools.search_metadata(
             db,
             date_range=date_range,
             location=location,
             favorites=favorites,
             year=year,
+            month=month,
             is_locked=is_locked,
         )
 
@@ -63,6 +64,9 @@ class PrismAgent:
 
     async def similar_image(self, db, photo_id: int, top_k=30, is_locked=False) -> set[int]:
         return await self.search_tools.similar_image(db, photo_id=photo_id, top_k=top_k, is_locked=is_locked)
+
+    async def search_events(self, db, query: str, is_locked=False) -> set[int]:
+        return await self.search_tools.search_events(db, query=query, is_locked=is_locked)
 
     def extract_search_parameters(self, message: str, history: list = None) -> dict:
         return self.planner.extract_search_parameters(message, history=history)

@@ -11,7 +11,31 @@
  */
 
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
-// ── Regional Edits (AI Masks) ─────────────────────────────────────────────
+
+// ── HSL Per-Band Types ───────────────────────────────────────────────────────
+
+export type HslBand =
+  | 'reds' | 'oranges' | 'yellows' | 'greens'
+  | 'aquas' | 'blues'  | 'purples' | 'pinks';
+
+export interface HslChannelAdjustment {
+  hue:        number; // -180 → +180
+  saturation: number; // -100 → +100
+  luminance:  number; // -100 → +100
+}
+
+export type HslAdjustments = Record<HslBand, HslChannelAdjustment>;
+
+export const HSL_BAND_DEFAULTS: HslAdjustments = {
+  reds:    { hue: 0, saturation: 0, luminance: 0 },
+  oranges: { hue: 0, saturation: 0, luminance: 0 },
+  yellows: { hue: 0, saturation: 0, luminance: 0 },
+  greens:  { hue: 0, saturation: 0, luminance: 0 },
+  aquas:   { hue: 0, saturation: 0, luminance: 0 },
+  blues:   { hue: 0, saturation: 0, luminance: 0 },
+  purples: { hue: 0, saturation: 0, luminance: 0 },
+  pinks:   { hue: 0, saturation: 0, luminance: 0 },
+};
 
 export interface RegionalAdjustment {
   id: string;
@@ -57,6 +81,56 @@ export interface Adjustments {
 
   // AI Regions
   regions:     RegionalAdjustment[];
+
+  // HSL per-band
+  hsl:         HslAdjustments;
+
+  // New adjustments
+  splitToning: SplitToningAdjustments;
+  grain:       GrainAdjustments;
+  lightLeak:   LightLeakAdjustments;
+  frame:       FrameAdjustments;
+  blend:       BlendAdjustments;
+  tiltShift:   TiltShiftAdjustments;
+}
+
+export interface SplitToningAdjustments {
+  shadows:    { hue: number; saturation: number };
+  highlights: { hue: number; saturation: number };
+  balance:    number;
+}
+
+export interface GrainAdjustments {
+  amount:  number;
+  size:    'fine' | 'medium' | 'coarse';
+  colored: boolean;
+}
+
+export interface LightLeakAdjustments {
+  preset:  string | null;
+  opacity: number;
+}
+
+export interface FrameAdjustments {
+  style:     'none' | 'polaroid' | 'filmstrip' | 'matte' | 'rounded' | 'thinline' | 'shadowbox';
+  color:     string;
+  thickness: number;
+}
+
+export interface BlendAdjustments {
+  photoId:       number | null;
+  blendImageSrc: string | null;
+  mode:          GlobalCompositeOperation;
+  opacity:       number;
+  fit:           'cover' | 'contain' | 'center';
+}
+
+export interface TiltShiftAdjustments {
+  enabled:       boolean;
+  mode:          'linear' | 'radial';
+  blurStrength:  number;
+  focusPosition: number;
+  focusWidth:    number;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -80,6 +154,40 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   curves:      DEFAULT_CURVE,
   vignette:    0,
   regions:     [],
+  hsl:         { ...HSL_BAND_DEFAULTS },
+  splitToning: {
+    shadows:    { hue: 0, saturation: 0 },
+    highlights: { hue: 0, saturation: 0 },
+    balance:    0,
+  },
+  grain: {
+    amount:  0,
+    size:    'medium',
+    colored: false,
+  },
+  lightLeak: {
+    preset:  null,
+    opacity: 50,
+  },
+  frame: {
+    style:     'none',
+    color:     '#ffffff',
+    thickness: 5,
+  },
+  blend: {
+    photoId:       null,
+    blendImageSrc: null,
+    mode:          'screen',
+    opacity:       50,
+    fit:           'cover',
+  },
+  tiltShift: {
+    enabled:       false,
+    mode:          'linear',
+    blurStrength:  30,
+    focusPosition: 50,
+    focusWidth:    30,
+  },
 };
 // ── CSS Filter Conversion ────────────────────────────────────────────────────
 
@@ -115,16 +223,14 @@ export function toFilterString(adj: Adjustments): string {
     1
     + adj.brightness  / 100 * 0.55
     + adj.exposure    / 100 * 0.50
-    + adj.highlights  / 100 * 0.18
-    + adj.shadows     / 100 * 0.14
     + adj.whites      / 100 * 0.15
-    - adj.blacks      / 100 * 0.13,   // +blacks → crush → darker overall
+    + adj.blacks      / 100 * 0.13,   // +blacks → raise black point → brighter overall
   );
 
   const ct = Math.max(0.05,
     1
     + adj.contrast  / 100 * 0.65
-    + adj.blacks    / 100 * 0.22      // crushed blacks tighten contrast
+    - adj.blacks    / 100 * 0.22      // +blacks → softer contrast in shadows
     + adj.ambiance  / 100 * 0.42     // ambiance = clarity/local-contrast boost
     + (adj.clarity || 0)   / 100 * 0.38,   // Clarity adds mid-tone contrast
   );
@@ -182,15 +288,42 @@ export function toFilterString(adj: Adjustments): string {
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export const isDefaultAdjustments = (adj: Adjustments): boolean => {
-  const isBaseDefault = (Object.keys(adj) as (keyof Adjustments)[]).every(k => {
-    if (k === 'curves') {
-      return isIdentityCurve(adj.curves);
-    }
-    if (k === 'regions') {
-      return !adj.regions || adj.regions.length === 0;
-    }
-    return adj[k] === 0;
-  });
+  const baseKeys: (keyof Adjustments)[] = [
+    'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
+    'vibrance', 'saturation', 'hue', 'temperature', 'clarity', 'sharpness', 'noiseReduction',
+    'ambiance', 'vignette'
+  ];
+  const isBaseDefault = baseKeys.every(k => adj[k] === 0);
+  if (!isBaseDefault) return false;
 
-  return isBaseDefault;
+  if (!isIdentityCurve(adj.curves)) return false;
+  if (adj.regions && adj.regions.length > 0) return false;
+
+  // HSL check
+  const hasHsl = Object.values(adj.hsl).some(
+    ch => ch.hue !== 0 || ch.saturation !== 0 || ch.luminance !== 0
+  );
+  if (hasHsl) return false;
+
+  // Split Toning check
+  if (adj.splitToning && (adj.splitToning.shadows.saturation !== 0 || adj.splitToning.highlights.saturation !== 0)) {
+    return false;
+  }
+
+  // Grain check
+  if (adj.grain && adj.grain.amount !== 0) return false;
+
+  // Light leak check
+  if (adj.lightLeak && adj.lightLeak.preset !== null) return false;
+
+  // Frame check
+  if (adj.frame && adj.frame.style !== 'none') return false;
+
+  // Blend check
+  if (adj.blend && adj.blend.photoId !== null) return false;
+
+  // Tilt Shift check
+  if (adj.tiltShift && adj.tiltShift.enabled) return false;
+
+  return true;
 };

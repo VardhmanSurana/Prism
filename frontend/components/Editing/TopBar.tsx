@@ -1,13 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2 } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal } from 'lucide-react';
 
 interface TopBarProps {
   onClose: () => void;
   isSaving: boolean;
   handleSave: (isSaveAs: boolean) => void;
+  onCompareStart: () => void;
+  onCompareEnd: () => void;
+  isComparing: boolean;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ onClose, isSaving, handleSave }) => {
+export const TopBar: React.FC<TopBarProps> = ({ onClose, isSaving, handleSave, onCompareStart, onCompareEnd, isComparing }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +65,22 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose, isSaving, handleSave })
         <span className="text-white/30 text-[10px] font-bold uppercase tracking-[0.3em]">
           Studio Editor
         </span>
+
+        {/* Before/After comparison button — hold to compare */}
+        <button
+          onPointerDown={onCompareStart}
+          onPointerUp={onCompareEnd}
+          onPointerLeave={onCompareEnd}
+          title="Hold to compare with original (\\)"
+          className={`ml-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none ${
+            isComparing
+              ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
+              : 'bg-white/[0.03] border-white/8 text-white/25 hover:text-white/50 hover:bg-white/5'
+          }`}
+        >
+          <SplitSquareHorizontal size={12} strokeWidth={2} />
+          {isComparing ? 'Original' : 'Before / After'}
+        </button>
       </div>
 
       <div className="flex items-center gap-4">

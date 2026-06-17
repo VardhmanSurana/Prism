@@ -21,6 +21,15 @@ import { PortraitPanel } from './PortraitPanel';
 import { SelectivePanel } from './SelectivePanel';
 import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from './InpaintPanel';
 import { InpaintTutorial } from './InpaintTutorial';
+import { HslPanel } from './HslPanel';
+import { PresetsPanel } from './PresetsPanel';
+import { SplitToningPanel } from './SplitToningPanel';
+import { TexturePanel } from './TexturePanel';
+import { FramesPanel } from './FramesPanel';
+import { BlendPanel } from './BlendPanel';
+import { TiltShiftPanel } from './TiltShiftPanel';
+import { PalettePanel } from './PalettePanel';
+import { AnnotationsPanel, Annotation } from './AnnotationsPanel';
 
 import { HistoryEntry, HistoryActionType, createHistoryEntry } from './history';
 import { API_BASE, resolveUrl } from '../../constants';
@@ -44,6 +53,7 @@ const recomposeHistoryState = (history: HistoryEntry[], currentIndex: number) =>
     flipH: false,
     flipV: false,
     straightenAngle: 0,
+    annotations: [] as Annotation[],
   };
 
   // Process chronological entries up to the current index
@@ -67,10 +77,16 @@ const recomposeHistoryState = (history: HistoryEntry[], currentIndex: number) =>
       state.adjustments.curves = entry.adjustments.curves;
     } else if (entry.type === 'regions' || (typeof entry.type === 'string' && entry.type.startsWith('regions'))) {
       state.adjustments.regions = entry.adjustments.regions;
+    } else if (entry.type === 'annotations') {
+      state.annotations = entry.annotations ? [...entry.annotations] : [];
     } else {
       const key = entry.type as keyof Adjustments;
       if (key in state.adjustments) {
-        (state.adjustments as unknown as Record<string, number>)[key] = entry.value !== undefined ? entry.value : 0;
+        if (key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift' || key === 'hsl') {
+          state.adjustments[key] = { ...entry.adjustments[key] } as any;
+        } else {
+          (state.adjustments as unknown as Record<string, any>)[key] = entry.value !== undefined ? entry.value : 0;
+        }
       }
     }
   }
@@ -95,7 +111,13 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const cropperRef = useRef<ReactCropperElement>(null);
   const [currentRatio,    setCurrentRatio]    = useState<number>(NaN);
   const [totalRotation,   setTotalRotation]   = useState<number>(0);
-  const [activeTool,      setActiveTool]      = useState<'transform' | 'adjust' | 'detail' | 'effects' | 'portrait' | 'selective' | 'inpaint' | null>(null);
+  const [activeTool,      setActiveTool]      = useState<ToolId | null>(null);
+  
+  // Annotations state
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [activeDrawTool, setActiveDrawTool] = useState<'arrow' | 'circle' | 'rect' | 'freehand' | 'text' | 'eraser'>('freehand');
+  const [activeColor, setActiveColor] = useState<string>('#ef4444');
+  const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [adjustments,     setAdjustments]     = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
   const [flipH,           setFlipH]           = useState<boolean>(false);
   const [flipV,           setFlipV]           = useState<boolean>(false);
@@ -120,6 +142,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [isSaving,        setIsSaving]        = useState<boolean>(false);
   const savedCropBoxRef  = useRef<Cropper.CropBoxData | null>(null);
 
+  // Before/After compare state
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+
   // In-place Crop management
   const [currentImageSrc, setCurrentImageSrc] = useState<string>(src);
   const [hasCropSelection, setHasCropSelection] = useState<boolean>(false);
@@ -142,6 +167,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     straightenAngle,
     currentHistoryIndex,
     history,
+    annotations,
   });
   stateRef.current = {
     currentImageSrc,
@@ -152,10 +178,17 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     straightenAngle,
     currentHistoryIndex,
     history,
+    annotations,
   };
 
   // Helper to add a history entry
-  const addHistoryEntry = useCallback((type: HistoryActionType, description: string, value?: number, overrideImageSrc?: string) => {
+  const addHistoryEntry = useCallback((
+    type: HistoryActionType,
+    description: string,
+    value?: number,
+    overrideImageSrc?: string,
+    overrideAnnotations?: Annotation[]
+  ) => {
     if (isRestoringHistory.current) return;
 
     const s = stateRef.current;
@@ -168,33 +201,31 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       s.flipH,
       s.flipV,
       s.straightenAngle,
-      value
+      value,
+      overrideAnnotations || s.annotations
     );
+
+    const isCollapsible = type !== 'initial' && type !== 'crop' && type !== 'inpaint' && type !== 'rotate' && type !== 'flip' && type !== 'annotations';
 
     setHistory(prev => {
       // Remove any future history if we're not at the end
       let newHistory = prev.slice(0, s.currentHistoryIndex + 1);
 
-      // Check if the last entry is the same type (for adjustments)
-      // If so, replace it instead of adding a new one
-      const lastEntry = newHistory[newHistory.length - 1];
-      if (lastEntry && lastEntry.type === type && type !== 'crop' && type !== 'initial') {
-        // Replace the last entry of the same type
-        newHistory[newHistory.length - 1] = entry;
-        return newHistory;
+      if (isCollapsible) {
+        // Filter out any existing entry of the same type to keep only the latest change
+        newHistory = newHistory.filter(h => h.type !== type);
       }
 
-      // Otherwise, add new entry
+      // Append the new entry
       return [...newHistory, entry];
     });
 
     setCurrentHistoryIndex(prev => {
-      // Only increment if we're actually adding a new entry
-      const lastEntry = s.history[s.currentHistoryIndex];
-      if (lastEntry && lastEntry.type === type && type !== 'crop' && type !== 'initial') {
-        return prev; // Don't increment, we replaced
+      let newHistory = s.history.slice(0, s.currentHistoryIndex + 1);
+      if (isCollapsible) {
+        newHistory = newHistory.filter(h => h.type !== type);
       }
-      return prev + 1;
+      return newHistory.length;
     });
   }, []);
 
@@ -267,8 +298,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     const changes: Array<{ key: keyof Adjustments; value: number | string }> = [];
     
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
-      if (key === 'curves') {
-        if (prev.curves !== curr.curves) {
+      if (key === 'curves' || key === 'regions' || key === 'hsl' || key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift') {
+        if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
           changes.push({ key, value: 'modified' });
         }
       } else if (prev[key] !== curr[key]) {
@@ -323,6 +354,21 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               
               addHistoryEntry('regions', `Adjusted ${regionName}`);
             });
+          } else if (key === 'hsl') {
+            addHistoryEntry('hsl' as HistoryActionType, 'Adjusted Color Mixer');
+          } else if (key === 'splitToning') {
+            addHistoryEntry('splitToning' as HistoryActionType, 'Adjusted Split Toning');
+          } else if (key === 'grain') {
+            addHistoryEntry('grain' as HistoryActionType, `Film Grain: ${curr.grain.amount}% (${curr.grain.size})`);
+          } else if (key === 'lightLeak') {
+            const presetName = curr.lightLeak.preset ? curr.lightLeak.preset.replace('-', ' ') : '';
+            addHistoryEntry('lightLeak' as HistoryActionType, curr.lightLeak.preset ? `Light Leak: ${presetName}` : 'Removed Light Leak');
+          } else if (key === 'frame') {
+            addHistoryEntry('frame' as HistoryActionType, curr.frame.style !== 'none' ? `Frame: ${curr.frame.style}` : 'Removed Frame');
+          } else if (key === 'blend') {
+            addHistoryEntry('blend' as HistoryActionType, curr.blend.blendImageSrc ? 'Double Exposure Blended' : 'Removed Double Exposure');
+          } else if (key === 'tiltShift') {
+            addHistoryEntry('tiltShift' as HistoryActionType, curr.tiltShift.enabled ? `Tilt-Shift: ${curr.tiltShift.mode}` : 'Disabled Tilt-Shift');
           } else {
             addHistoryEntry(
               key as HistoryActionType, 
@@ -336,6 +382,27 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       return () => clearTimeout(timer);
     }
   }, [adjustments, addHistoryEntry]);
+
+  // Track annotations changes with debouncing
+  const previousAnnotationsRef = useRef<Annotation[]>([]);
+  useEffect(() => {
+    if (isRestoringHistory.current) return;
+    
+    const prev = previousAnnotationsRef.current;
+    const curr = annotations;
+    
+    if (prev.length !== curr.length || JSON.stringify(prev) !== JSON.stringify(curr)) {
+      previousAnnotationsRef.current = [...curr];
+      
+      const description = curr.length > prev.length 
+        ? 'Added Markup' 
+        : curr.length < prev.length 
+        ? 'Deleted Markup' 
+        : 'Modified Markup';
+        
+      addHistoryEntry('annotations', description, undefined, undefined, curr);
+    }
+  }, [annotations, addHistoryEntry]);
 
   // Track rotation changes
   useEffect(() => {
@@ -487,6 +554,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, [src]);
 
   const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
+  const deferredAdjustments = React.useDeferredValue(adjustments);
+  const deferredFilterString = useMemo(() => toFilterString(deferredAdjustments), [deferredAdjustments]);
 
   useEffect(() => {
     const cropper = cropperRef.current?.cropper;
@@ -629,6 +698,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     revokeLocalUrl();
     setCurrentImageSrc(recomposed.imageSrc);
     setAdjustments(recomposed.adjustments);
+    setAnnotations(recomposed.annotations || []);
+    previousAnnotationsRef.current = recomposed.annotations ? [...recomposed.annotations] : [];
     previousAdjustmentsRef.current = { ...recomposed.adjustments };
     previousRotationRef.current = recomposed.rotation;
     previousStraightenRef.current = recomposed.straightenAngle;
@@ -840,6 +911,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             adjustments,
             mimeType: 'image/jpeg',
             quality: 0.95,
+            annotations,
           }))
           .then((blob) => {
             onSave(blob, isSaveAs);
@@ -854,11 +926,57 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         setIsSaving(false);
       }
     }, 50);
-  }, [adjustments, isSaving, onSave]);
+  }, [adjustments, isSaving, onSave, annotations]);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Brush size shortcuts
+      // ── Ctrl+Z / Ctrl+Shift+Z: Undo / Redo ──────────────────────────────
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        const prevIndex = stateRef.current.currentHistoryIndex - 1;
+        if (prevIndex >= 0) handleJumpToHistory(prevIndex);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        const nextIndex = stateRef.current.currentHistoryIndex + 1;
+        if (nextIndex < stateRef.current.history.length) handleJumpToHistory(nextIndex);
+        return;
+      }
+
+      // ── Backslash: hold-to-compare (keydown fires repeatedly, guard with isComparing) ──
+      if (e.key === '\\' && !e.repeat) {
+        setIsComparing(true);
+        return;
+      }
+
+      // ── Ctrl+= / Ctrl+- / Ctrl+0: Zoom ─────────────────────────────────
+      if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        cropperRef.current?.cropper.zoom(0.1);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '-') {
+        e.preventDefault();
+        cropperRef.current?.cropper.zoom(-0.1);
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '0') {
+        e.preventDefault();
+        const cropper = cropperRef.current?.cropper;
+        if (cropper) {
+          const containerData = cropper.getContainerData();
+          const imageData     = cropper.getImageData();
+          const scale = Math.min(
+            (containerData.width  * 0.80) / imageData.naturalWidth,
+            (containerData.height * 0.80) / imageData.naturalHeight,
+          );
+          cropper.zoomTo(scale);
+        }
+        return;
+      }
+
+      // ── Brush size shortcuts (inpaint) ───────────────────────────────────
       if (activeTool === 'inpaint' && (inpaintMode === 'brush' || inpaintMode === 'erase')) {
         if (e.key === '[') {
           setInpaintSettings(prev => ({
@@ -874,18 +992,40 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       }
     };
 
+    const handleGlobalKeyUp = (e: KeyboardEvent) => {
+      if (e.key === '\\') {
+        setIsComparing(false);
+      }
+    };
+
     window.addEventListener('keydown', handleGlobalKeyDown);
-    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [activeTool, inpaintMode]);
+    window.addEventListener('keyup', handleGlobalKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeyDown);
+      window.removeEventListener('keyup', handleGlobalKeyUp);
+    };
+  }, [activeTool, inpaintMode, handleJumpToHistory]);
 
   const curvesTable = useMemo(
     () => getCurvesTableValues(adjustments.curves || DEFAULT_CURVE),
     [adjustments.curves],
   );
 
+  const deferredCurvesTable = useMemo(
+    () => getCurvesTableValues(deferredAdjustments.curves || DEFAULT_CURVE),
+    [deferredAdjustments.curves],
+  );
+
   return (
     <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden">
-      <TopBar onClose={onClose} isSaving={isSaving} handleSave={handleSave} />
+      <TopBar
+        onClose={onClose}
+        isSaving={isSaving}
+        handleSave={handleSave}
+        isComparing={isComparing}
+        onCompareStart={() => setIsComparing(true)}
+        onCompareEnd={() => setIsComparing(false)}
+      />
 
       <div className="flex-1 flex overflow-hidden relative">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
@@ -910,7 +1050,13 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           )}
 
           {activeTool === 'adjust' && (
-            <AdjustPanel adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />
+            <AdjustPanel
+              adjustments={adjustments}
+              onChange={handleAdjChange}
+              photoId={photoId}
+              imageSrc={currentImageSrc}
+              filterString={filterString}
+            />
           )}
 
           {activeTool === 'detail' && (
@@ -925,8 +1071,60 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             <SelectivePanel adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />
           )}
 
+          {activeTool === 'hsl' && (
+            <HslPanel
+              adjustments={adjustments}
+              onChange={handleAdjChange}
+              imageSrc={currentImageSrc}
+            />
+          )}
+
+          {activeTool === 'presets' && (
+            <PresetsPanel
+              adjustments={adjustments}
+              onChange={handleAdjChange}
+            />
+          )}
+
           {activeTool === 'effects' && (
             <EffectsPanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'splitToning' && (
+            <SplitToningPanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'texture' && (
+            <TexturePanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'frame' && (
+            <FramesPanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'blend' && (
+            <BlendPanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'tiltShift' && (
+            <TiltShiftPanel adjustments={adjustments} onChange={handleAdjChange} />
+          )}
+
+          {activeTool === 'palette' && (
+            <PalettePanel imageSrc={currentImageSrc} />
+          )}
+
+          {activeTool === 'annotations' && (
+            <AnnotationsPanel
+              annotations={annotations}
+              onChange={setAnnotations}
+              activeDrawTool={activeDrawTool}
+              setActiveDrawTool={setActiveDrawTool}
+              activeColor={activeColor}
+              setActiveColor={setActiveColor}
+              strokeWidth={strokeWidth}
+              setStrokeWidth={setStrokeWidth}
+            />
           )}
 
           {activeTool === 'inpaint' && (
@@ -957,22 +1155,28 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
         <CanvasArea
           currentImageSrc={currentImageSrc}
-          filterString={filterString}
+          filterString={deferredFilterString}
           cropperRef={cropperRef}
           handleCropEvent={handleCropEvent}
           handleReady={handleReady}
           hasCropSelection={hasCropSelection}
           activeTool={activeTool}
           handleApplyCrop={handleApplyCrop}
-          adjustments={adjustments}
+          adjustments={deferredAdjustments}
           isSaving={isSaving}
-          curvesTable={curvesTable}
+          curvesTable={deferredCurvesTable}
+          isComparing={isComparing}
           inpaintMode={inpaintMode}
           brushSize={inpaintSettings.brushSize}
           brushHardness={inpaintSettings.brushHardness}
           onInpaintMaskChange={setInpaintMask}
           showMaskPreview={inpaintSettings.showMask}
           maskOpacity={inpaintSettings.maskOpacity}
+          annotations={annotations}
+          onAnnotationsChange={setAnnotations}
+          activeDrawTool={activeDrawTool}
+          activeColor={activeColor}
+          strokeWidth={strokeWidth}
           />
 
         <HistoryPanel

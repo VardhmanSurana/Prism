@@ -38,20 +38,22 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     channel: Channel;
   } | null>(null);
 
-  // Helper to map mouse event to SVG coordinate system
-  const getCoordinates = (e: React.PointerEvent | PointerEvent): Point => {
+  const rafRef = useRef<number | undefined>(undefined);
+
+  // Helper to map mouse client coordinates to SVG coordinate system with float precision
+  const getCoordinates = (clientX: number, clientY: number): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
     const scaleX = SVG_SIZE / rect.width;
     const scaleY = SVG_SIZE / rect.height;
     
     // We flip Y because SVG (0,0) is top-left, but curves usually have (0,0) at bottom-left
-    let x = (e.clientX - rect.left) * scaleX - MARGIN;
-    let y = CANVAS_SIZE - ((e.clientY - rect.top) * scaleY - MARGIN);
+    let x = (clientX - rect.left) * scaleX - MARGIN;
+    let y = CANVAS_SIZE - ((clientY - rect.top) * scaleY - MARGIN);
 
-    // Clamp to valid area
-    x = Math.max(0, Math.min(CANVAS_SIZE, x));
-    y = Math.max(0, Math.min(CANVAS_SIZE, y));
+    // Only clamp, don't round (allows sub-pixel precision)
+    x = Math.max(0.0, Math.min(CANVAS_SIZE, x));
+    y = Math.max(0.0, Math.min(CANVAS_SIZE, y));
     
     return { x, y };
   };
@@ -65,25 +67,32 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragInfo) return;
     
-    const { x, y } = getCoordinates(e);
-    const { index, channel } = dragInfo;
-    const pts = [...value[channel]];
+    const clientX = e.clientX;
+    const clientY = e.clientY;
 
-    // Restrict movement based on neighbors
-    if (index === 0) {
-      // First point: lock X to 0
-      pts[index] = { x: 0, y };
-    } else if (index === pts.length - 1) {
-      // Last point: lock X to 255
-      pts[index] = { x: CANVAS_SIZE, y };
-    } else {
-      // Middle points: constrain X between neighbors
-      const minX = pts[index - 1].x + 1;
-      const maxX = pts[index + 1].x - 1;
-      pts[index] = { x: Math.max(minX, Math.min(maxX, x)), y };
-    }
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
 
-    onChange({ ...value, [channel]: pts });
+    rafRef.current = requestAnimationFrame(() => {
+      const { x, y } = getCoordinates(clientX, clientY);
+      const { index, channel } = dragInfo;
+      const pts = [...value[channel]];
+
+      // Restrict movement based on neighbors with sub-pixel precision (0.1px step)
+      if (index === 0) {
+        // First point: lock X to 0
+        pts[index] = { x: 0.0, y };
+      } else if (index === pts.length - 1) {
+        // Last point: lock X to 255
+        pts[index] = { x: CANVAS_SIZE, y };
+      } else {
+        // Middle points: constrain X between neighbors
+        const minX = pts[index - 1].x + 0.1;
+        const maxX = pts[index + 1].x - 0.1;
+        pts[index] = { x: Math.max(minX, Math.min(maxX, x)), y };
+      }
+
+      onChange({ ...value, [channel]: pts });
+    });
   }, [dragInfo, value, onChange]);
 
   const handlePointerUp = useCallback((e: PointerEvent) => {
@@ -99,13 +108,14 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
       return () => {
         window.removeEventListener('pointermove', handlePointerMove);
         window.removeEventListener('pointerup', handlePointerUp);
+        if (rafRef.current) cancelAnimationFrame(rafRef.current);
       };
     }
   }, [dragInfo, handlePointerMove, handlePointerUp]);
 
   const handleSvgClick = useCallback((e: React.PointerEvent) => {
     if (dragInfo) return;
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoordinates(e.clientX, e.clientY);
     
     const pts = [...value[activeChannel]];
     // Find where to insert
@@ -157,6 +167,8 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
         strokeWidth={strokeWidth}
         opacity={opacity}
         vectorEffect="non-scaling-stroke"
+        className="transition-all duration-75 ease-out"
+        style={{ pointerEvents: 'none' }}
       />
     );
   };

@@ -31,11 +31,6 @@ async def update_sync_config(config: SyncConfig):
     return {"status": "updated"}
 
 
-@router.get("/status")
-async def get_sync_status():
-    return sync_service.get_status()
-
-
 @router.get("/folders")
 async def get_folders():
     config = _read_settings()

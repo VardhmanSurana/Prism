@@ -19,7 +19,7 @@ CLASSES = {
 
 class SemanticService:
     def __init__(self):
-        self.model_path = os.path.join(settings.BASE_DIR, "models", "semantic.onnx")
+        self.model_path = os.path.join(settings.BASE_DIR, "models", "segmentation", "semantic.onnx")
         self.session = None
         self.input_size = (512, 512)
 

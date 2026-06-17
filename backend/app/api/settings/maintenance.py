@@ -85,6 +85,29 @@ async def purge_folder(req: PurgeFolderRequest):
     return {"deleted": deleted_count, "folder": str(resolved_folder)}
 
 
+@router.post("/trigger-face-sync")
+async def trigger_face_sync():
+    """Enqueue all photos missing face data for background face scanning."""
+    from app.services.processing_queue import processing_queue
+    from sqlalchemy import or_
+
+    async with async_session() as db:
+        stmt = select(Photo.id, Photo.path).where(
+            Photo.is_locked == False,
+            Photo.is_trash == False,
+            Photo.path.isnot(None),
+        )
+        result = await db.execute(stmt)
+        photos = result.all()
+
+    enqueued = 0
+    for photo_id, photo_path in photos:
+        processing_queue.enqueue(photo_id, photo_path)
+        enqueued += 1
+
+    return {"status": "success", "enqueued": enqueued}
+
+
 @router.post("/vacuum")
 async def vacuum_database():
     """Optimizes the SQLite database by running the VACUUM command."""

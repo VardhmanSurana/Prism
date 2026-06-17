@@ -29,7 +29,7 @@ export function createMonotoneCubicSpline(points: Point[]): (x: number) => numbe
     dys[i] = (ys[i + 1] - ys[i]) / dxs[i];
   }
 
-  // 2. Initialize tangents
+  // 2. Initialize tangents using average of adjacent secants, or 0 if opposite signs
   ms[0] = dys[0];
   for (let i = 1; i < n - 1; i++) {
     const m1 = dys[i - 1];
@@ -37,13 +37,28 @@ export function createMonotoneCubicSpline(points: Point[]): (x: number) => numbe
     if (m1 * m2 <= 0) {
       ms[i] = 0;
     } else {
-      const dx1 = dxs[i - 1];
-      const dx2 = dxs[i];
-      const common = dx1 + dx2;
-      ms[i] = 3 * common / ((common + dx2) / m1 + (common + dx1) / m2);
+      ms[i] = (m1 + m2) / 2;
     }
   }
   ms[n - 1] = dys[n - 2];
+
+  // Apply Fritsch-Carlson monotonicity correction
+  for (let i = 0; i < n - 1; i++) {
+    const d = dys[i];
+    if (d === 0) {
+      ms[i] = 0;
+      ms[i + 1] = 0;
+    } else {
+      const alpha = ms[i] / d;
+      const beta = ms[i + 1] / d;
+      const sumSq = alpha * alpha + beta * beta;
+      if (sumSq > 9) {
+        const tau = 3 / Math.sqrt(sumSq);
+        ms[i] = tau * alpha * d;
+        ms[i + 1] = tau * beta * d;
+      }
+    }
+  }
 
   // 3. Return the evaluation function
   return (x: number): number => {

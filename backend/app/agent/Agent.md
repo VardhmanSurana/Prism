@@ -23,8 +23,9 @@ graph TD
     Tools --> Albums[search_albums]
     Tools --> OCR[search_ocr]
     Tools --> Similar[similar_image]
+    Tools --> Events[search_events]
     
-    Metadata & Semantic & Captions & People & Albums & OCR & Similar --> Combine[Strict & Soft Result Combiner]
+    Metadata & Semantic & Captions & People & Albums & OCR & Similar & Events --> Combine[Strict & Soft Result Combiner]
     Combine --> DBQuery[DB Fetch: Top 100 Candidates]
     DBQuery --> Score[Local Python Reranker & Explanations]
     Score --> Filter[Slice Top 10 Photos]
@@ -147,9 +148,13 @@ The `is_locked` folder flag is consistently propagated to all SQL layers:
 
 ## 7. Conversational Memory Search
 
-Prism supports continuous search refinement (e.g. *"Show photos of Goa"* followed by *"Only the ones with Rahul"*).
+Prism supports continuous search refinement (e.g. *"Show photos of Goa"* followed by *"Only the ones with Rahul"* followed by *"Now show sunset shots"*).
 - **Session Identification**: A session key is generated based on the MD5 hash of the first user message in history to keep a stable session context for the thread.
-- **Cache Refinement**: The orchestrator caches the final photo IDs returned for each query turn. If the planner sets `refine_previous: true`, the current candidate set is intersected with the cached IDs from the preceding turn, creating a refined filter context without resetting state.
+- **Filter Stack State**: Instead of storing flat photo IDs, the session cache tracks a dynamic refinement stack containing:
+  - `base_query`: The original starting query (e.g. *"Goa"*).
+  - `filters`: A list of consecutive refined filters applied (e.g. `["Rahul", "Sunset", "Favorites"]`).
+  - `photo_ids`: The cumulative set of matching photo IDs resulting from these intersections.
+- **Intersection Pipeline**: If the planner sets `refine_previous: true`, the current query's candidates are intersected directly with the cumulative `photo_ids` set from the session cache and appended to the filter stack, making refinement fast and stable.
 
 ---
 

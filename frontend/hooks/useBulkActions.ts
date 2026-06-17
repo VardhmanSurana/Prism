@@ -104,53 +104,6 @@ export function useBulkActions({
     }
   }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
 
-  const handleBulkArchive = useCallback(async () => {
-    const idsArray = Array.from(selectedIds);
-
-    // Save original states
-    const originalStates = new Map<string, { isArchived?: boolean; is_archived?: boolean }>();
-    photos.forEach(p => {
-      if (selectedIds.has(String(p.id))) {
-        originalStates.set(String(p.id), {
-          isArchived: p.isArchived,
-          is_archived: p.is_archived
-        });
-      }
-    });
-
-    // Optimistic update
-    setPhotos(prev => prev.map(p =>
-      selectedIds.has(String(p.id)) ? { ...p, isArchived: true, is_archived: true } : p
-    ));
-    clearSelection();
-
-    // Call API in chunks of 6
-    const results = await fetchInBatches(
-      idsArray,
-      id => fetch(`${API_BASE}/api/v1/photos/${id}/archive`, { method: 'POST' })
-    );
-
-    // Rollback failed ones
-    const failedIds = new Set<string>();
-    results.forEach((r, idx) => {
-      const id = idsArray[idx];
-      if (r.status === 'rejected' || !r.value.ok) {
-        failedIds.add(id);
-      }
-    });
-
-    if (failedIds.size > 0) {
-      setPhotos(prev => prev.map(p => {
-        const idStr = String(p.id);
-        if (failedIds.has(idStr)) {
-          const original = originalStates.get(idStr);
-          return original ? { ...p, isArchived: original.isArchived, is_archived: original.is_archived } : p;
-        }
-        return p;
-      }));
-    }
-  }, [photos, setPhotos, clearSelection, selectedIds]);
-
   const handleBulkFavorite = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
     const allFavorited = idsArray.every(id => {
@@ -307,7 +260,6 @@ export function useBulkActions({
 
   return {
     handleBulkDelete,
-    handleBulkArchive,
     handleBulkFavorite,
     handleBulkLockToggle,
     handleBulkRestore,

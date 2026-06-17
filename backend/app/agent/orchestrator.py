@@ -92,7 +92,6 @@ class AgentOrchestrator:
                 matched.append(loc)
 
             # 4. People Detections
-            matched_people = set()
             try:
                 if p.people:
                     for pp in p.people:
@@ -100,13 +99,11 @@ class AgentOrchestrator:
                             name_lower = pp.person.name.lower()
                             people_entities = [n.lower() for n in entities.get("people", [])]
                             if any(kw in name_lower for kw in keywords) or any(name_lower in pe for pe in people_entities):
-                                matched_people.add(pp.person.name)
+                                confidence = pp.confidence if pp.confidence is not None else 1.0
+                                score += confidence * 2.0
+                                matched.append(f"{pp.person.name} detected")
             except Exception as e:
                 logger.error(f"Error accessing photo people in reranker: {e}")
-                
-            for name in matched_people:
-                score += 2.0
-                matched.append(name)
 
             # 5. Caption Matches
             matched_caption_terms = []
@@ -182,6 +179,15 @@ class AgentOrchestrator:
         last_plan = {}
         session_key = self._get_session_key(history, message)
         logger.info(f"Session key for conversational memory: {session_key}")
+        
+        # Get or initialize the session state featuring a conversational refinement filter stack
+        if session_key not in self.session_cache:
+            base_query = history[0].get("content", message) if history else message
+            self.session_cache[session_key] = {
+                "base_query": base_query,
+                "filters": [],
+                "photo_ids": set()
+            }
 
         for attempt in range(1, 4):
             # Yield progress state: planning
@@ -222,6 +228,14 @@ class AgentOrchestrator:
             last_plan = plan
             logger.info(f"Attempt {attempt} search plan: {plan}")
 
+            # Yield plan details
+            yield {
+                "type": "progress",
+                "state": "planning",
+                "detail": "Search strategy formulated.",
+                "plan": plan
+            }
+
             entities = plan.get("entities") or {}
             constraints = plan.get("constraints") or {}
             ranking = plan.get("ranking") or {}
@@ -232,13 +246,40 @@ class AgentOrchestrator:
             must_match = constraints.get("must_match") or []
             refine_previous = plan.get("refine_previous") or False
 
-            # Parse time range year
+            # Parse time range year and month
             time_range = entities.get("time_range")
             year_param = None
-            if isinstance(time_range, int):
-                year_param = time_range
-            elif isinstance(time_range, str) and time_range.isdigit():
-                year_param = int(time_range)
+            month_param = None
+            if time_range is not None:
+                import re
+                if isinstance(time_range, (int, float)):
+                    year_param = int(time_range)
+                elif isinstance(time_range, str):
+                    time_range_str = time_range.strip().lower()
+                    if time_range_str.isdigit():
+                        year_param = int(time_range_str)
+                    else:
+                        months = {
+                            "january": 1, "jan": 1,
+                            "february": 2, "feb": 2,
+                            "march": 3, "mar": 3,
+                            "april": 4, "apr": 4,
+                            "may": 5,
+                            "june": 6, "jun": 6,
+                            "july": 7, "jul": 7,
+                            "august": 8, "aug": 8,
+                            "september": 9, "sep": 9, "sept": 9,
+                            "october": 10, "oct": 10,
+                            "november": 11, "nov": 11,
+                            "december": 12, "dec": 12
+                        }
+                        for m_name, m_val in months.items():
+                            if re.search(r'\b' + re.escape(m_name) + r'\b', time_range_str):
+                                month_param = m_val
+                                break
+                        year_match = re.search(r'\b(20\d{2}|19\d{2})\b', time_range_str)
+                        if year_match:
+                            year_param = int(year_match.group(1))
 
             raw_limit = plan.get("limit") or 30
             try:
@@ -248,11 +289,15 @@ class AgentOrchestrator:
             except (ValueError, TypeError):
                 query_limit = 30
 
+            executed_tools = []
+
             # Yield progress state: running tools
             yield {
                 "type": "progress",
                 "state": "running_tools",
-                "detail": f"Scanning indexes dynamically..."
+                "detail": "Scanning indexes dynamically...",
+                "plan": plan,
+                "tools": list(executed_tools)
             }
 
             async with async_session() as db:
@@ -261,7 +306,7 @@ class AgentOrchestrator:
 
                 # 1. Metadata Search
                 locations = entities.get("locations") or []
-                if locations or year_param or prefer_favorites:
+                if locations or year_param or month_param or prefer_favorites:
                     location_val = locations[0] if locations else None
                     try:
                         res_set = await self.search_tools.search_metadata(
@@ -269,14 +314,34 @@ class AgentOrchestrator:
                             location=location_val,
                             favorites=prefer_favorites,
                             year=year_param,
+                            month=month_param,
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool search_metadata returned {len(res_set)} IDs.")
                         
+                        executed_tools.append({
+                            "name": "search_metadata",
+                            "params": {
+                                "location": location_val,
+                                "favorites": prefer_favorites,
+                                "year": year_param,
+                                "month": month_param,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning metadata indexes...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         is_strict = False
                         if "locations" in must_match and locations:
                             is_strict = True
-                        if "time_range" in must_match and year_param:
+                        if "time_range" in must_match and (year_param or month_param):
                             is_strict = True
                             
                         if is_strict:
@@ -297,6 +362,22 @@ class AgentOrchestrator:
                         )
                         logger.info(f"Tool search_people returned {len(res_set)} IDs.")
                         
+                        executed_tools.append({
+                            "name": "search_people",
+                            "params": {
+                                "names": people,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning identified faces...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         if "people" in must_match:
                             strict_results.append(res_set)
                         else:
@@ -314,6 +395,35 @@ class AgentOrchestrator:
                     text_query = " ".join(text_query_parts + locations)
 
                 if text_query:
+                    # search_events
+                    try:
+                        res_set = await self.search_tools.search_events(
+                            db,
+                            query=text_query,
+                            is_locked=is_locked,
+                        )
+                        logger.info(f"Tool search_events returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "search_events",
+                            "params": {
+                                "query": text_query,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning events and dates...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
+                        soft_results.append(res_set)
+                    except Exception as err:
+                        logger.error(f"Error running search_events: {err}")
+
                     # search_captions
                     try:
                         res_set = await self.search_tools.search_captions(
@@ -322,6 +432,23 @@ class AgentOrchestrator:
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool search_captions returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "search_captions",
+                            "params": {
+                                "query": text_query,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning captions database...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         soft_results.append(res_set)
                     except Exception as err:
                         logger.error(f"Error running search_captions: {err}")
@@ -335,6 +462,23 @@ class AgentOrchestrator:
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool semantic_search returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "semantic_search",
+                            "params": {
+                                "query": text_query,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Performing AI visual search...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         soft_results.append(res_set)
                     except Exception as err:
                         logger.error(f"Error running semantic_search: {err}")
@@ -347,6 +491,23 @@ class AgentOrchestrator:
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool search_albums returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "search_albums",
+                            "params": {
+                                "query": text_query,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning albums...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         soft_results.append(res_set)
                     except Exception as err:
                         logger.error(f"Error running search_albums: {err}")
@@ -359,6 +520,23 @@ class AgentOrchestrator:
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool search_ocr returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "search_ocr",
+                            "params": {
+                                "query": text_query,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Scanning OCR text in images...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         soft_results.append(res_set)
                     except Exception as err:
                         logger.error(f"Error running search_ocr: {err}")
@@ -374,6 +552,23 @@ class AgentOrchestrator:
                             is_locked=is_locked,
                         )
                         logger.info(f"Tool similar_image returned {len(res_set)} IDs.")
+                        
+                        executed_tools.append({
+                            "name": "similar_image",
+                            "params": {
+                                "photo_id": photo_id_param,
+                                "is_locked": is_locked
+                            },
+                            "count": len(res_set)
+                        })
+                        yield {
+                            "type": "progress",
+                            "state": "running_tools",
+                            "detail": "Finding visually similar images...",
+                            "plan": plan,
+                            "tools": list(executed_tools)
+                        }
+
                         soft_results.append(res_set)
                     except Exception as err:
                         logger.error(f"Error running similar_image: {err}")
@@ -405,16 +600,31 @@ class AgentOrchestrator:
 
                 logger.info(f"Initial combined IDs count: {len(combined_ids)} (mode: {combination_mode})")
 
-                # Apply conversational memory refinement if applicable
+                # Apply conversational memory refinement if applicable using the session filter stack
                 if refine_previous and session_key in self.session_cache:
-                    last_photo_ids = self.session_cache[session_key]
+                    session_state = self.session_cache[session_key]
+                    last_photo_ids = session_state.get("photo_ids")
+                    
+                    if message not in session_state["filters"]:
+                        session_state["filters"].append(message)
+                        
+                    logger.info(f"Refining search. Current stack: base='{session_state['base_query']}', filters={session_state['filters']}")
+                    
                     if last_photo_ids:
-                        logger.info(f"Refining search results. Previous set size: {len(last_photo_ids)}")
                         if combined_ids:
                             combined_ids = combined_ids.intersection(last_photo_ids)
                         else:
                             combined_ids = last_photo_ids
                         logger.info(f"After refinement intersection: {len(combined_ids)} IDs.")
+
+                yield {
+                    "type": "progress",
+                    "state": "running_tools",
+                    "detail": f"Fused results (Mode: {combination_mode}). Total: {len(combined_ids)} candidates.",
+                    "plan": plan,
+                    "tools": list(executed_tools),
+                    "total_candidates": len(combined_ids)
+                }
 
                 if combined_ids:
                     if prefer_recent:
@@ -444,7 +654,10 @@ class AgentOrchestrator:
             yield {
                 "type": "progress",
                 "state": "verifying",
-                "detail": f"Reranking candidate photo matches..."
+                "detail": f"Reranking {len(candidate_photos)} candidate photos using local neural scorer...",
+                "plan": plan,
+                "tools": list(executed_tools),
+                "total_candidates": len(combined_ids)
             }
 
             logger.info(f"Database returned {len(candidate_photos)} candidate photos. Reranking...")
@@ -464,14 +677,21 @@ class AgentOrchestrator:
         yield {
             "type": "progress",
             "state": "generating_response",
-            "detail": "Summarizing search outcomes..."
+            "detail": "Summarizing search outcomes...",
+            "plan": plan,
+            "tools": list(executed_tools),
+            "total_candidates": len(combined_ids)
         }
 
         # Store the returned photo IDs in the session cache to enable future refinements
         if verified_photos:
             final_ids = {p.id for p in verified_photos}
-            self.session_cache[session_key] = final_ids
-            logger.info(f"Saved {len(final_ids)} photo IDs to session cache for key: {session_key}")
+            if session_key in self.session_cache:
+                self.session_cache[session_key]["photo_ids"] = final_ids
+                logger.info(
+                    f"Saved {len(final_ids)} photo IDs to session cache for key: {session_key}. "
+                    f"Current filters: {self.session_cache[session_key]['filters']}"
+                )
 
             response_text = self.planner.generate_chat_response(message, verified_photos)
             photo_dicts = []

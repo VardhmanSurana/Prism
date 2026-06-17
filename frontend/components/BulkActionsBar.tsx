@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { X, FolderPlus, Lock, Archive, Trash2, Heart, RotateCcw } from 'lucide-react';
+import { X, FolderPlus, Lock, Trash2, Heart, RotateCcw } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface BulkActionsBarProps {
@@ -10,7 +10,6 @@ interface BulkActionsBarProps {
   onAddToAlbum: () => void;
   onToggleLock: () => void;
   onFavorite: () => void;
-  onArchive: () => void;
   onDelete: () => void;
   onRestore?: () => void;
   isFavorited?: boolean;
@@ -23,7 +22,6 @@ export function BulkActionsBar({
   onAddToAlbum,
   onToggleLock,
   onFavorite,
-  onArchive,
   onDelete,
   onRestore,
   isFavorited
@@ -84,9 +82,6 @@ export function BulkActionsBar({
               title={currentView === 'locked' ? "Unlock" : "Lock"}
             >
               <Lock size={20} className={currentView === 'locked' ? "text-primary" : ""} />
-            </button>
-            <button onClick={onArchive} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Archive">
-              <Archive size={20} />
             </button>
             <button 
               onClick={onDelete} 

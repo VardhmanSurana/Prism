@@ -33,7 +33,17 @@ class EmbeddingClient:
 
             with torch.no_grad():
                 text_outputs = siglip_model.get_text_features(**inputs)
-                text_features = text_outputs / text_outputs.norm(dim=-1, keepdim=True)
+                if hasattr(text_outputs, "pooler_output") and text_outputs.pooler_output is not None:
+                    text_features = text_outputs.pooler_output
+                elif isinstance(text_outputs, torch.Tensor):
+                    text_features = text_outputs
+                else:
+                    try:
+                        text_features = text_outputs[0]
+                    except Exception:
+                        text_features = text_outputs
+
+                text_features = text_features / text_features.norm(dim=-1, keepdim=True)
                 res = text_features[0].cpu().numpy().tolist()
                 
                 if len(self._embedding_cache) >= 1000:

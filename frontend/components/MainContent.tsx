@@ -34,7 +34,6 @@ interface MainContentProps {
   onSortChange?: (mode: SortMode) => void;
   onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
-  onBulkArchive?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
   onResetSuccess?: () => void;
@@ -63,7 +62,6 @@ export function MainContent({
   onSortChange,
   onUpdatePhotos,
   onBulkFavorite,
-  onBulkArchive,
   onBulkDelete,
   onBulkLockToggle,
   onResetSuccess
@@ -121,7 +119,6 @@ export function MainContent({
             onSortChange={onSortChange}
             onUpdatePhotos={onUpdatePhotos}
             onBulkFavorite={onBulkFavorite}
-            onBulkArchive={onBulkArchive}
             onBulkDelete={onBulkDelete}
             onBulkLockToggle={onBulkLockToggle}
           />

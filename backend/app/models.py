@@ -39,7 +39,6 @@ class Photo(Base):
 
     # Flags - indexed for common filtering
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
-    is_archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_locked: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     is_trash: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
@@ -64,7 +63,24 @@ class Photo(Base):
 
     # Relationships
     people: Mapped[list["PhotoPerson"]] = relationship("PhotoPerson", back_populates="photo", cascade="all, delete-orphan")
+    event_id: Mapped[Optional[int]] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), nullable=True, index=True)
+    event: Mapped[Optional["Event"]] = relationship("Event", back_populates="photos", foreign_keys=[event_id])
 
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), index=True)
+    event_type: Mapped[str] = mapped_column(String(50), default="trip")  # e.g., trip, birthday, holiday, wedding
+    start_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    end_date: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    location: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    cover_photo_id: Mapped[Optional[int]] = mapped_column(ForeignKey("photos.id", ondelete="SET NULL", use_alter=True, name="fk_events_cover_photo"), nullable=True)
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    # Relationships
+    photos: Mapped[list["Photo"]] = relationship("Photo", back_populates="event", foreign_keys="[Photo.event_id]")
 
 
 class Album(Base):

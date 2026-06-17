@@ -10,12 +10,11 @@ import json
 
 router = APIRouter()
 
-@router.get("/")
-async def list_places(db: AsyncSession = Depends(get_db)):
+
+async def list_places(db: AsyncSession):
     from app.services.sync_service import sync_service
     active_mounts = list(sync_service.active_mounts)
 
-    # Compute live photo counts per location to avoid stale cached values
     count_result = await db.execute(
         select(
             Photo.city,
@@ -54,7 +53,7 @@ async def list_places(db: AsyncSession = Depends(get_db)):
             .order_by(Album.photo_count.desc())
         )
         albums = result.scalars().all()
-    
+
     results = []
     for album in albums:
         meta = json.loads(album.metadata_json) if album.metadata_json else {}
@@ -68,6 +67,7 @@ async def list_places(db: AsyncSession = Depends(get_db)):
             "metadata": meta,
         })
     return results
+
 
 @router.get("/photos")
 async def get_place_photos(

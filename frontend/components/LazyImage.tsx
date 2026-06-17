@@ -1,4 +1,4 @@
-import { useState, useEffect, type FC } from 'react';
+import { useState, useEffect, useRef, type FC } from 'react';
 import { ImageOff } from 'lucide-react';
 import { resolveUrl } from '../constants';
 
@@ -13,12 +13,20 @@ export const LazyImage: FC<LazyImageProps> = ({ src, fallbackSrc, alt, className
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     setCurrentSrc(src);
     setStatus('loading');
     setIsUsingFallback(false);
   }, [src]);
+
+  // Check if image is already loaded from cache
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      setStatus('loaded');
+    }
+  }, [currentSrc]);
 
   const handleError = () => {
     if (fallbackSrc && !isUsingFallback) {
@@ -36,8 +44,8 @@ export const LazyImage: FC<LazyImageProps> = ({ src, fallbackSrc, alt, className
     <div className="relative w-full h-full overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
       {status !== 'error' && (
         <img
+          ref={imgRef}
           src={displayUrl}
-          loading="lazy"
           onLoad={() => setStatus('loaded')}
           onError={handleError}
           alt={alt}
