@@ -1,5 +1,4 @@
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -21,23 +20,22 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-surface border border-white/10 rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl scale-100 animate-in zoom-in-95 duration-200">
-        <div className="flex items-center gap-4 mb-6">
-          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${type === 'rose' ? 'bg-rose-500/20 text-rose-500' : 'bg-primary/20 text-primary'}`}>
-            <AlertCircle size={24} />
-          </div>
-          <h3 className="text-2xl font-serif italic text-white">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-[#0c0c0c] border border-[#23252a] rounded-2xl w-full max-w-md mx-4 shadow-2xl">
+        <div className="p-6">
+          <h3 className="font-serif italic text-[#f7f8f8] text-xl leading-tight">
+            {title}
+          </h3>
+          <p className="text-sm text-[#d0d6e0] mt-3 leading-relaxed">
+            {message}
+          </p>
         </div>
         
-        <p className="text-gray-400 text-sm leading-relaxed mb-8">
-          {message}
-        </p>
-        
-        <div className="flex gap-3">
+        <div className="flex gap-3 p-6 pt-0">
           <button 
             onClick={onCancel}
-            className="flex-1 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all"
+            className="flex-1 px-4 py-2.5 bg-[#0c0c0c] border border-[#23252a] text-[#d0d6e0] hover:bg-[#141516] rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
           >
             Cancel
           </button>
@@ -46,7 +44,11 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
               onConfirm();
               onCancel();
             }}
-            className={`flex-1 px-6 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-lg active:scale-95 ${type === 'rose' ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-primary hover:opacity-90 text-black'}`}
+            className={`flex-1 px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-colors ${
+              type === 'rose'
+                ? 'bg-[#e5484d] hover:bg-[#dc3d42]'
+                : 'bg-[#5e6ad2] hover:bg-[#828fff]'
+            }`}
           >
             Confirm
           </button>

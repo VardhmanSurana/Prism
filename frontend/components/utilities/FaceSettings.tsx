@@ -1,5 +1,4 @@
 import React from 'react';
-import { Users, Zap, Search, Loader2 } from 'lucide-react';
 
 interface FaceSettingsProps {
   onTriggerSync: () => void;
@@ -8,67 +7,60 @@ interface FaceSettingsProps {
 
 export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, status }) => {
   const isRunning = status?.includes('discovery') || status?.includes('Initiating');
+  
   return (
-    <section className="reveal-item" style={{ animationDelay: '0.25s' }}>
-      <div className="flex items-center gap-4 mb-6">
-        <div className="p-3 bg-primary/10 rounded-2xl text-primary border border-primary/20">
-          <Users size={24} />
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+      <div className="mb-5">
+        <div className="flex items-center gap-3">
+          <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
+            People Discovery
+          </h3>
+          <span className="px-2 py-0.5 bg-[#141516] border border-[#23252a] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
+            GPU Optimized
+          </span>
         </div>
-        <div>
-          <h3 className="text-xl font-bold text-white">People discovery</h3>
-          <p className="text-sm text-gray-500">Local facial recognition & clustering</p>
-        </div>
+        <p className="text-xs text-[#8a8f98] mt-1.5">
+          Local facial recognition & clustering
+        </p>
       </div>
 
-      <div className="bg-surface border border-white/5 rounded-[2rem] p-8 space-y-8">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="space-y-1 text-center sm:text-left">
-            <h4 className="font-bold text-white flex items-center gap-2 justify-center sm:justify-start">
-              Manual Scan
-              <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-tighter">GPU Optimized</span>
-            </h4>
-            <p className="text-xs text-gray-500 leading-relaxed max-w-sm">
+      <div className="space-y-5">
+        <div className="flex items-start justify-between bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div className="max-w-md">
+            <p className="text-sm font-medium text-[#f7f8f8]">Manual Scan</p>
+            <p className="text-xs text-[#8a8f98] mt-1 leading-relaxed">
               Triggers a full-library scan for faces using CenterFace. This will group detected faces into the People tab in your albums.
             </p>
           </div>
-          
           <button 
             onClick={onTriggerSync}
             disabled={isRunning}
-            title={isRunning ? 'Face discovery in progress...' : 'Start a full-library face scan'}
-            className="flex items-center gap-2 px-6 py-3 bg-white/5 border border-white/10 text-white rounded-xl hover:bg-white/10 hover:border-white/20 transition-all font-bold text-sm whitespace-nowrap active:scale-95 group disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`shrink-0 ml-4 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+              isRunning
+                ? 'bg-[#141516] text-[#62666d] border border-[#23252a] cursor-not-allowed'
+                : 'bg-[#5e6ad2] text-white hover:bg-[#828fff]'
+            }`}
           >
-            {isRunning ? (
-              <Loader2 size={18} className="animate-spin text-primary" />
-            ) : (
-              <Search size={18} className="group-hover:text-primary transition-colors" />
-            )}
-            <span>{isRunning ? 'Scanning...' : 'Discover People'}</span>
+            {isRunning ? 'Scanning...' : 'Discover People'}
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-           <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-              <Zap size={16} className="text-amber-400" />
-              <h5 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Engine</h5>
-              <p className="text-xs text-gray-500 italic">CenterFace ONNX</p>
-           </div>
-           <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-              <Search size={16} className="text-blue-400" />
-              <h5 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Clustering</h5>
-              <p className="text-xs text-gray-500 italic">DBSCAN Vector</p>
-           </div>
-           <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl space-y-2">
-              <Users size={16} className="text-primary" />
-              <h5 className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Privacy</h5>
-              <p className="text-xs text-gray-500 italic">100% Offline</p>
-           </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Engine', value: 'CenterFace ONNX' },
+            { label: 'Clustering', value: 'DBSCAN Vector' },
+            { label: 'Privacy', value: '100% Offline' },
+          ].map((item) => (
+            <div key={item.label} className="bg-[#050505] border border-[#23252a] rounded-lg p-3 text-center">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-1">{item.label}</p>
+              <p className="text-xs text-[#d0d6e0]">{item.value}</p>
+            </div>
+          ))}
         </div>
 
         {status && status.includes('discovery') && (
-          <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex items-center gap-3 animate-pulse">
-            <div className="w-2 h-2 bg-primary rounded-full" />
-            <p className="text-xs text-primary font-bold uppercase tracking-widest">{status}</p>
+          <div className="bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-lg px-4 py-3">
+            <p className="text-xs text-[#5e6ad2] font-mono">{status}</p>
           </div>
         )}
       </div>

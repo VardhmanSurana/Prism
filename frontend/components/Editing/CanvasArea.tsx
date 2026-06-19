@@ -48,9 +48,12 @@ interface CanvasAreaProps {
   // Annotations props
   annotations?: Annotation[];
   onAnnotationsChange?: (annotations: Annotation[]) => void;
-  activeDrawTool?: 'arrow' | 'circle' | 'rect' | 'freehand' | 'text' | 'eraser';
+  activeDrawTool?: 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter';
   activeColor?: string;
   strokeWidth?: number;
+  selectedAnnId?: string | null;
+  setSelectedAnnId?: (id: string | null) => void;
+  userChangedStyleRef?: React.MutableRefObject<boolean>;
 }
 
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
@@ -77,6 +80,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   activeDrawTool = 'freehand',
   activeColor = '#ef4444',
   strokeWidth = 4,
+  selectedAnnId = null,
+  setSelectedAnnId = (_id: string | null): void => {},
+  userChangedStyleRef,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [currentMask, setCurrentMask] = React.useState<string | null>(null);
@@ -574,6 +580,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             activeColor={activeColor}
             strokeWidth={strokeWidth}
             readOnly={false}
+            selectedAnnId={selectedAnnId}
+            setSelectedAnnId={setSelectedAnnId}
+            userChangedStyleRef={userChangedStyleRef}
           />
         </div>
       )}

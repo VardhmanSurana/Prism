@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, MapPin, Calendar, Sparkles } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, MapPin, Calendar, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { resolveUrl } from '../constants';
 import { Photo } from '../types';
+import { GlassMaterial } from './GlassMaterial';
+import { springs, motionTokens } from '../lib/motion-tokens';
+import { AgentLogo } from './AgentLogo';
 
 interface Highlight {
   id: string;
@@ -19,12 +22,40 @@ interface StoryViewerProps {
   onClose: () => void;
 }
 
+const WordReveal: React.FC<{ text: string }> = ({ text }) => {
+  const words = text.split(' ');
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{
+        visible: { transition: { staggerChildren: 0.03 } }
+      }}
+      className="flex flex-wrap"
+    >
+      {words.map((word, i) => (
+        <motion.span
+          key={i}
+          className="inline-block mr-1.5"
+          variants={{
+            hidden: { opacity: 0, filter: 'blur(4px)', y: 10 },
+            visible: { opacity: 1, filter: 'blur(0px)', y: 0, transition: springs.gentle as any }
+          }}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </motion.div>
+  );
+};
+
 export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMuted, setIsMuted] = useState(true);
   const photos = highlight.photos;
   const currentPhoto = photos[currentIndex];
   
-  const SLIDE_DURATION = 5000; // 5 seconds per slide
+  const SLIDE_DURATION = 6000;
 
   const handleNext = useCallback(() => {
     if (currentIndex < photos.length - 1) {
@@ -52,134 +83,175 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
   if (!currentPhoto) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col justify-between select-none">
-      <div className="absolute inset-0 z-0 overflow-hidden flex items-center justify-center">
-        {/* Blurry Background */}
-        <img 
-          src={resolveUrl(currentPhoto.url)} 
-          alt="blur background" 
-          className="absolute inset-0 w-full h-full object-cover scale-110 blur-3xl opacity-30 select-none pointer-events-none"
-        />
-        
-        {/* Main Image with Ken Burns Effect */}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between select-none overflow-hidden"
+    >
+      {/* Film Grain Overlay */}
+      <div className="absolute inset-0 z-50 pointer-events-none opacity-[0.03] mix-blend-overlay">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
+      </div>
+
+      {/* Atmospheric Background */}
+      <div className="absolute inset-0 z-0">
         <AnimatePresence mode="wait">
-          <motion.img 
-            key={currentPhoto.id}
-            src={resolveUrl(currentPhoto.url)} 
-            alt={currentPhoto.caption || "Story image"} 
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
+          <motion.div
+            key={`bg-${currentPhoto.id}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.4 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="max-h-full max-w-full object-contain z-10 animate-ken-burns select-none pointer-events-none"
-          />
+            transition={springs.gentle as any}
+            className="space-y-4"
+          >
+            <img 
+              src={resolveUrl(currentPhoto.url)} 
+              alt="blur background" 
+              className="w-full h-full object-cover scale-110 blur-[100px]"
+            />
+          </motion.div>
         </AnimatePresence>
       </div>
 
-      {/* Header Overlay (Progress Bars, Title, Close Button) */}
-      <div className="relative z-20 w-full p-4 bg-gradient-to-b from-black/85 via-black/40 to-transparent flex flex-col gap-3">
-        <style>{`
-          @keyframes storyProgress {
-            from { width: 0%; }
-            to { width: 100%; }
-          }
-        `}</style>
-        {/* Progress Ticks */}
-        <div className="flex gap-1.5 w-full">
+      {/* Main Image Container */}
+      <div className="absolute inset-0 z-10 flex items-center justify-center p-4 sm:p-12 md:p-20">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPhoto.id}
+            initial={{ opacity: 0, scale: 1.1, filter: 'blur(10px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 0.9, filter: 'blur(10px)' }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full h-full flex items-center justify-center"
+          >
+            <img 
+              src={resolveUrl(currentPhoto.url)} 
+              alt={currentPhoto.caption || "Story image"} 
+              className="max-h-full max-w-full object-contain rounded-lg shadow-[0_0_50px_rgba(0,0,0,0.5)]"
+            />
+          </motion.div>
+        </AnimatePresence>
+      </div>
+
+      {/* Header UI */}
+      <div className="relative z-[60] w-full p-8 flex flex-col gap-6">
+        {/* Progress System */}
+        <div className="flex gap-2 w-full">
           {photos.map((_, index) => (
-            <div key={index} className="flex-1 h-1 bg-white/20 rounded-full overflow-hidden">
-              <div 
-                key={`${index}-${currentIndex === index}`}
-                className="h-full bg-primary"
-                style={{ 
-                  width: index < currentIndex ? '100%' : '0%',
-                  animation: index === currentIndex ? `storyProgress ${SLIDE_DURATION}ms linear forwards` : 'none',
-                  backgroundColor: 'rgb(234, 179, 8)' // Gold theme
+            <div key={index} className="flex-1 h-[2px] bg-white/10 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-primary shadow-[0_0_8px_rgba(var(--color-primary),0.6)]"
+                initial={false}
+                animate={{ 
+                  width: index < currentIndex ? '100%' : index === currentIndex ? '100%' : '0%' 
                 }}
+                transition={index === currentIndex ? { duration: SLIDE_DURATION / 1000, ease: 'linear' } : { duration: 0.3 }}
               />
             </div>
           ))}
         </div>
 
-        {/* Title, Subtitle, & Close Button */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <AgentLogo className="scale-50 -ml-2" />
             <div>
-              <h3 className="text-white font-bold text-base tracking-tight drop-shadow">{highlight.title}</h3>
-              <p className="text-white/60 text-xs font-medium font-mono uppercase tracking-wider drop-shadow">{highlight.subtitle}</p>
+              <h3 className="text-white font-serif italic text-2xl tracking-tight drop-shadow-lg">{highlight.title}</h3>
+              <p className="text-primary/70 text-[10px] font-bold uppercase tracking-[0.3em] mt-0.5">{highlight.subtitle}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full border border-white/5 backdrop-blur-md transition-all shadow-lg"
-          >
-            <X size={18} />
-          </button>
+          
+          <div className="flex items-center gap-3">
+            <GlassMaterial intensity="subtle" interactive borderRadius="999px" className="p-2.5">
+               {isMuted ? <VolumeX size={18} className="text-white/60" onClick={() => setIsMuted(false)} /> : <Volume2 size={18} className="text-primary" onClick={() => setIsMuted(true)} />}
+            </GlassMaterial>
+            <GlassMaterial 
+              intensity="subtle" 
+              interactive 
+              borderRadius="999px" 
+              className="p-2.5"
+              onClick={onClose}
+            >
+              <X size={18} className="text-white" />
+            </GlassMaterial>
+          </div>
         </div>
       </div>
 
-      {/* Nav Tap Zones (Left/Right Tap to navigate) */}
-      <div className="absolute inset-0 z-10 flex">
-        <div 
-          onClick={handlePrev}
-          className="w-1/3 h-full cursor-w-resize"
-          title="Previous slide"
-        />
-        <div 
-          onClick={handleNext}
-          className="w-2/3 h-full cursor-e-resize"
-          title="Next slide"
-        />
+      {/* Navigation Zones */}
+      <div className="absolute inset-0 z-20 flex">
+        <div onClick={handlePrev} className="w-1/2 h-full cursor-w-resize" />
+        <div onClick={handleNext} className="w-1/2 h-full cursor-e-resize" />
       </div>
 
-      {/* Navigation Buttons (Left/Right Arrows for Desktop accessibility) */}
-      <div className="absolute left-6 top-1/2 -translate-y-1/2 z-20 hidden md:block">
-        {currentIndex > 0 && (
-          <button 
-            onClick={handlePrev}
-            className="p-3 bg-black/60 hover:bg-black/80 text-white rounded-full border border-white/10 backdrop-blur-md hover:scale-110 active:scale-95 transition-all shadow-xl"
+      {/* Bottom Metadata */}
+      <div className="relative z-[60] w-full p-8 sm:p-12 flex flex-col gap-4 max-w-4xl">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`meta-${currentPhoto.id}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={springs.gentle}
+            className="space-y-4"
           >
-            <ChevronLeft size={24} />
-          </button>
-        )}
+            {currentPhoto.location && (
+              <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-[0.2em]">
+                <MapPin size={12} />
+                <span>{currentPhoto.location}</span>
+              </div>
+            )}
+            
+            {currentPhoto.caption && (
+              <h2 className="text-white text-3xl font-serif italic leading-tight max-w-2xl">
+                {currentPhoto.caption}
+              </h2>
+            )}
+
+            {currentPhoto.ai_summary && !currentPhoto.ai_summary.startsWith("Error:") && (
+              <GlassMaterial intensity="regular" borderRadius="1.5rem" className="p-6 border-white/10 max-w-2xl bg-primary/5">
+                <div className="flex gap-4 items-start">
+                  <Sparkles size={16} className="text-primary shrink-0 mt-1 animate-pulse" />
+                  <div className="space-y-2">
+                    <p className="text-[10px] uppercase font-bold tracking-[0.3em] text-primary/80">Intelligent Perspective</p>
+                    <div className="text-sm text-gray-200 font-medium leading-relaxed italic">
+                      <WordReveal text={`"${currentPhoto.ai_summary}"`} />
+                    </div>
+                  </div>
+                </div>
+              </GlassMaterial>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
-      <div className="absolute right-6 top-1/2 -translate-y-1/2 z-20 hidden md:block">
-        <button 
+
+      {/* Desktop Arrows */}
+      <div className="absolute inset-y-0 left-0 z-[70] hidden md:flex items-center px-6 pointer-events-none">
+        <AnimatePresence>
+          {currentIndex > 0 && (
+            <GlassMaterial 
+              intensity="subtle" 
+              interactive 
+              borderRadius="999px" 
+              className="p-4 pointer-events-auto shadow-2xl"
+              onClick={handlePrev}
+            >
+              <ChevronLeft size={24} className="text-white" />
+            </GlassMaterial>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="absolute inset-y-0 right-0 z-[70] hidden md:flex items-center px-6 pointer-events-none">
+        <GlassMaterial 
+          intensity="subtle" 
+          interactive 
+          borderRadius="999px" 
+          className="p-4 pointer-events-auto shadow-2xl"
           onClick={handleNext}
-          className="p-3 bg-black/60 hover:bg-black/80 text-white rounded-full border border-white/10 backdrop-blur-md hover:scale-110 active:scale-95 transition-all shadow-xl"
         >
-          <ChevronRight size={24} />
-        </button>
+          <ChevronRight size={24} className="text-white" />
+        </GlassMaterial>
       </div>
-
-      {/* Bottom Photo Metadata Details */}
-      <div className="relative z-20 w-full p-6 sm:p-8 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col gap-2.5">
-        {currentPhoto.location && (
-          <div className="flex items-center gap-1.5 text-xs text-primary font-bold tracking-wide drop-shadow" style={{ color: '#EAB308' }}>
-            <MapPin size={13} />
-            <span>{currentPhoto.location}</span>
-          </div>
-        )}
-        
-        {currentPhoto.caption && (
-          <p className="text-white text-sm font-semibold tracking-tight leading-relaxed max-w-2xl drop-shadow">
-            {currentPhoto.caption}
-          </p>
-        )}
-
-        {/* Ollama Visual Summary Integration! */}
-        {currentPhoto.ai_summary && !currentPhoto.ai_summary.startsWith("Error:") && !currentPhoto.ai_summary.startsWith("Summary unavailable") && (
-          <div className="flex gap-2.5 items-start bg-black/40 border border-white/5 backdrop-blur-md rounded-2xl p-4 max-w-2xl mt-1 shadow-inner">
-            <Sparkles size={14} className="text-yellow-400 shrink-0 mt-0.5 animate-pulse" />
-            <div>
-              <p className="text-[10px] uppercase font-mono tracking-widest text-yellow-400 font-bold mb-1">Local AI Description</p>
-              <p className="text-xs text-gray-300 italic font-medium leading-relaxed">
-                "{currentPhoto.ai_summary}"
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    </motion.div>
   );
 };

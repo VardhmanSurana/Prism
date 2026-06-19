@@ -10,13 +10,13 @@ import { PhotoGridRow } from './PhotoGridRow';
 import { EmptyState } from './EmptyState';
 import { PhotoListItem } from './PhotoListItem';
 import { 
-  ROW_HEIGHT, 
   ROW_PADDING, 
   DASHBOARD_ROW_HEIGHT, 
   EMPTY_ROW_HEIGHT, 
   HEADER_ROW_HEIGHT, 
   LIST_ITEM_HEIGHT 
 } from './constants';
+import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
 import { useImport } from '../../hooks/import';
 import { API_BASE } from '../../constants';
@@ -41,6 +41,7 @@ import {
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   isLoading,
+  syncStatus,
   currentView,
   onPhotoClick,
   selectedIds,
@@ -66,6 +67,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const importMenuRef = useRef<HTMLDivElement>(null);
+
+  // Gallery layout settings
+  const { rowHeightPx, maxRowWidth } = useGalleryLayout();
 
   // Stats Integration
   const { stats, refetch: refetchStats } = useStats(photos);
@@ -192,7 +196,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // When the library is empty we still emit [ dashboard, empty ] so the header
   // (and Import button) are always visible regardless of photo count.
   // In trash views, hide the dashboard header.
-  const gridRows = usePhotoGrid(filteredPhotos);
+  const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth);
   const isCompactView = currentView === 'trash';
   const rowItems = useMemo(() => {
     if (isCompactView) {
@@ -218,11 +222,11 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     getScrollElement: () => scrollParentRef?.current || null,
     estimateSize: (index) => {
       const item = rowItems[index];
-      if (!item) return ROW_HEIGHT;
+      if (!item) return rowHeightPx;
       if (item.type === 'empty')     return EMPTY_ROW_HEIGHT;
       if (item.type === 'header')    return HEADER_ROW_HEIGHT;
       if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
-      return ROW_HEIGHT;
+      return rowHeightPx;
     },
     overscan: 10,
   });
@@ -249,7 +253,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   }, [gridRows]);
   const { timelineItems, scrollState, activeId } = useTimeline(gridRowsOnly, scrollParentRef);
 
-  if (isLoading && photos.length === 0) {
+  if (photos.length === 0 && (isLoading || syncStatus?.is_scanning)) {
     return (
       <div className="pl-10 pr-10 pt-28 pb-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -552,7 +556,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 virtualRowStart={virtualRow.start}
                 virtualRowKey={virtualRow.key}
                 virtualRowIndex={virtualRow.index}
-                rowHeight={ROW_HEIGHT}
+                rowHeight={rowHeightPx}
                 rowPadding={ROW_PADDING}
                 measureElement={rowVirtualizer.measureElement}
               />

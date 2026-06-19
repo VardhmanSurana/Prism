@@ -17,13 +17,12 @@ function App() {
     currentView,
     setCurrentView,
     isLoading,
+    isStatusLoading,
     syncStatus,
     selectedPhoto,
     setSelectedPhoto,
     activeFilters,
     setActiveFilters,
-    theme,
-    setTheme,
     isLockedAuthenticated,
     setIsLockedAuthenticated,
     sortMode,
@@ -92,16 +91,16 @@ function App() {
             currentView={currentView}
             photos={displayedPhotos}
             isLoading={isLoading}
+            isStatusLoading={isStatusLoading}
+            syncStatus={syncStatus}
             selectedIds={selectedIds}
             isLockedAuthenticated={isLockedAuthenticated}
-            theme={theme}
             scrollRef={scrollRef}
             onPhotoClick={setSelectedPhoto}
             onToggleSelection={handleToggleSelection}
             onToggleGroupSelection={handleToggleGroupSelection}
             onAuthenticate={() => setIsLockedAuthenticated(true)}
             onLockSession={handleLockSession}
-            onThemeChange={setTheme}
             onPhotosLoaded={setContextPhotos}
             onScroll={handleScroll}
             onSearch={setActiveFilters}

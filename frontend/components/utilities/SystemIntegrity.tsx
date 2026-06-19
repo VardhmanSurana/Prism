@@ -1,5 +1,4 @@
 import React from 'react';
-import { Shield, Loader2, ShieldAlert, Zap } from 'lucide-react';
 
 interface SystemIntegrityProps {
   isResetting: boolean;
@@ -13,75 +12,78 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
   systemStatus
 }) => {
   return (
-    <section className="reveal-item space-y-6" style={{ animationDelay: '0.3s' }}>
-      <div className="flex items-center gap-3 mb-2">
-        <Shield size={20} className="text-primary" />
-        <h3 className="text-xl font-serif italic text-white">Core Integrity</h3>
+    <section className="bg-[#0c0c0c] border border-[#e5484d]/20 rounded-xl p-6">
+      <div className="mb-5">
+        <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
+          Core Integrity
+        </h3>
       </div>
       
       <div 
         onClick={!isResetting ? onReset : undefined}
-        className={`bg-surface border border-white/5 rounded-[2.5rem] p-8 space-y-6 group transition-all ${isResetting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-white/20'}`}
+        className={`group border border-[#e5484d]/30 rounded-xl p-5 transition-all duration-200 ${
+          isResetting 
+            ? 'opacity-50 cursor-not-allowed' 
+            : 'cursor-pointer hover:bg-[#e5484d]/5 hover:border-[#e5484d]/40'
+        }`}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className={`w-16 h-16 rounded-[1.5rem] bg-white/5 flex items-center justify-center ${isResetting ? 'text-rose-500' : 'text-primary'}`}>
-              {isResetting ? <Loader2 size={28} className="animate-spin" /> : <ShieldAlert size={28} />}
-            </div>
-            <div>
-              <p className="text-white text-lg font-medium">System Reset</p>
-              <p className="text-xs text-gray-500 max-w-xs">Completely purge the thumbnail cache, clear the photo library database, and remove encrypted Locked Folder files. This action is irreversible.</p>
-            </div>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm font-medium text-[#f7f8f8]">System Reset</p>
+            <p className="text-xs text-[#8a8f98] mt-1.5 leading-relaxed max-w-lg">
+              Completely purge the thumbnail cache, clear the photo library database, and remove encrypted Locked Folder files. This action is irreversible.
+            </p>
           </div>
           {!isResetting && (
-            <div className="flex items-center gap-2 px-6 py-3 bg-rose-500/10 border border-rose-500/20 rounded-2xl group-hover:bg-rose-500 group-hover:border-rose-500 transition-all duration-300">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-rose-500 group-hover:text-white transition-colors">Execute Purge</span>
-              <Zap size={14} className="text-rose-500 group-hover:text-white transition-colors" />
+            <div className="shrink-0 ml-4 px-3 py-1.5 bg-[#e5484d] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider group-hover:bg-[#dc3d42] transition-colors">
+              Execute Purge
             </div>
           )}
         </div>
 
-        <div className="border-t border-white/5 pt-5">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-3">What gets removed vs preserved</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-rose-400">Removed</p>
-              <ul className="space-y-1">
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-rose-400 shrink-0" />
+        <div className="mt-5 border-t border-[#e5484d]/10 pt-5">
+          <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-3">
+            What gets removed vs preserved
+          </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#e5484d]/5 border border-[#e5484d]/10 rounded-lg p-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[#e5484d] mb-2">Removed</p>
+              <ul className="space-y-1.5">
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
                   Photo records & metadata
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-rose-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
                   Albums, people, face assignments
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-rose-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
                   Thumbnail cache & masks
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-rose-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
                   Encrypted Locked Folder files
                 </li>
               </ul>
             </div>
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Preserved</p>
-              <ul className="space-y-1">
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+            <div className="bg-[#27a644]/5 border border-[#27a644]/10 rounded-lg p-3">
+              <p className="text-[10px] font-mono uppercase tracking-wider text-[#27a644] mb-2">Preserved</p>
+              <ul className="space-y-1.5">
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#27a644]/50" />
                   Original photo files (never deleted)
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#27a644]/50" />
                   Watched folder configuration
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#27a644]/50" />
                   Locked Folder password & settings
                 </li>
-                <li className="flex items-center gap-1.5 text-[10px] font-mono text-gray-400">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0" />
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#27a644]/50" />
                   Theme & sync preferences
                 </li>
               </ul>
@@ -91,7 +93,7 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
       </div>
 
       {systemStatus && (
-        <p className={`text-xs font-mono tracking-wider animate-in fade-in pt-2 ${systemStatus.startsWith('✓') ? 'text-emerald-400' : systemStatus.startsWith('✗') ? 'text-rose-400' : 'text-gray-400'}`}>
+        <p className="text-xs text-[#8a8f98] mt-4 font-mono">
           {systemStatus}
         </p>
       )}

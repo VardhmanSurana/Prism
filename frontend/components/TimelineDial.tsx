@@ -1,4 +1,6 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect } from 'react';
+import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import { springs } from '../lib/motion-tokens';
 
 export interface TimelineItem {
   id: string;
@@ -14,101 +16,131 @@ interface TimelineDialProps {
   scrollHeight: number;
 }
 
+const RADIUS = 300;
+
+const TimelineDialItem: React.FC<{
+  item: TimelineItem;
+  isActive: boolean;
+  smoothProgress: any; // MotionValue
+  activeState: any; // MotionValue
+  effectiveScrollHeight: number;
+}> = ({ item, isActive, smoothProgress, activeState, effectiveScrollHeight }) => {
+  const isYear = item.type === 'year';
+
+  // Calculate position and rotation based on progress
+  // We use useTransform to create reactive dependencies on the motion values
+  const y = useTransform([smoothProgress, activeState], ([p, s]: any) => {
+    const pixelOffset = (item.progress - p) * effectiveScrollHeight;
+    const angle = pixelOffset / RADIUS;
+    
+    const activeY = Math.sin(angle) * RADIUS;
+    const restingY = pixelOffset;
+    
+    // Interpolate between active and resting Y based on activeState (s)
+    return activeY * s + restingY * (1 - s);
+  });
+
+  const z = useTransform([smoothProgress, activeState], ([p, s]: any) => {
+    const pixelOffset = (item.progress - p) * effectiveScrollHeight;
+    const angle = pixelOffset / RADIUS;
+    
+    const activeZ = Math.cos(angle) * RADIUS - RADIUS;
+    const restingZ = 0;
+    
+    return activeZ * s + restingZ * (1 - s);
+  });
+
+  const rotateX = useTransform([smoothProgress, activeState], ([p, s]: any) => {
+    const pixelOffset = (item.progress - p) * effectiveScrollHeight;
+    const angle = pixelOffset / RADIUS;
+    
+    const activeRotateX = -angle;
+    const restingRotateX = 0;
+    
+    return (activeRotateX * s + restingRotateX * (1 - s)) * (180 / Math.PI); // degrees for framer motion
+  });
+
+  const opacity = useTransform([smoothProgress, activeState], ([p, s]: any) => {
+    const pixelOffset = (item.progress - p) * effectiveScrollHeight;
+    const angle = pixelOffset / RADIUS;
+    
+    let op = 1;
+    if (s > 0.5) {
+       op = Math.max(0, 1 - Math.abs(angle) / (Math.PI / 2.5));
+    } else {
+       const screenHalf = window.innerHeight / 2;
+       op = Math.max(0, 1 - Math.abs(pixelOffset) / screenHalf);
+    }
+    
+    return (isActive ? 1 : op * 0.5);
+  });
+
+  return (
+    <motion.div
+      className="absolute right-0 flex items-center gap-3 transform-gpu origin-right pointer-events-none"
+      style={{
+        top: '50%',
+        y,
+        z,
+        rotateX,
+        opacity,
+      }}
+    >
+      <span 
+        className={`font-mono text-right transition-all duration-300
+          ${isActive ? 'text-primary font-bold scale-110' : 'text-gray-500 scale-100'}
+          ${isYear ? 'text-sm' : 'text-[10px] uppercase'}
+        `}
+        style={{ textShadow: isActive ? '0 0 10px rgba(var(--color-primary), 0.5)' : 'none' }}
+      >
+        {item.label}
+      </span>
+      <motion.div 
+        className={`bg-current rounded-l-full shadow-[0_0_10px_currentColor]
+          ${isActive ? 'text-primary' : 'text-white'}
+        `}
+        animate={{
+          width: isYear ? (isActive ? 32 : 24) : (isActive ? 16 : 8),
+          height: isYear ? 2 : 1
+        }}
+        transition={springs.snappy as any}
+      />
+    </motion.div>
+  );
+};
+
 export const TimelineDial: React.FC<TimelineDialProps> = ({ items, activeId, scrollProgress, scrollHeight }) => {
-  const [isScrolling, setIsScrolling] = useState(false);
+  const mvProgress = useMotionValue(scrollProgress);
+  const smoothProgress = useSpring(mvProgress, springs.smooth);
+  const activeState = useMotionValue(0); // 0 = resting, 1 = active
 
   useEffect(() => {
-    setIsScrolling(true);
-    const timeout = setTimeout(() => setIsScrolling(false), 300);
+    mvProgress.set(scrollProgress);
+    
+    // Trigger active state on scroll
+    activeState.set(1);
+    const timeout = setTimeout(() => {
+      activeState.set(0);
+    }, 500);
+    
     return () => clearTimeout(timeout);
   }, [scrollProgress]);
 
-  // Cylinder properties
-  const radius = 300;
-  // If scrollHeight is too small, we might want a minimum scale
   const effectiveScrollHeight = Math.max(scrollHeight, 1000);
 
   return (
     <div className="fixed right-0 top-0 bottom-0 w-32 pointer-events-none z-50 flex items-center justify-end overflow-visible" style={{ perspective: '2000px' }}>
       <div className="relative w-full h-full flex items-center justify-end">
-        {items.map((item) => {
-          // pixelOffset represents the physical pixel distance from the current center
-          const pixelOffset = (item.progress - scrollProgress) * effectiveScrollHeight;
-          
-          // angle in radians
-          const angle = pixelOffset / radius;
-          
-          // Limit rendering to only items within a reasonable angle/distance to save performance
-          if (Math.abs(angle) > Math.PI / 1.5 && Math.abs(pixelOffset) > window.innerHeight) {
-             return null;
-          }
-
-          // Active State (3D Drum)
-          const activeY = Math.sin(angle) * radius;
-          const activeZ = Math.cos(angle) * radius - radius;
-          const activeRotateX = -angle; // negative so scrolling down rolls the cylinder up
-
-          // Resting State (Flat Ruler)
-          // To keep it looking like a ruler, we space them linearly
-          // But to fit the screen, maybe we don't use full effectiveScrollHeight?
-          // If we just use pixelOffset, the ruler scrolls with the page perfectly.
-          const restingY = pixelOffset;
-          const restingZ = 0;
-          const restingRotateX = 0;
-
-          // Transition
-          const y = isScrolling ? activeY : restingY;
-          const z = isScrolling ? activeZ : restingZ;
-          const rotateX = isScrolling ? activeRotateX : restingRotateX;
-          
-          const isActive = item.id === activeId;
-          const isYear = item.type === 'year';
-
-          // Fade out as they go towards the back or far away
-          let opacity = 1;
-          if (isScrolling) {
-             opacity = Math.max(0, 1 - Math.abs(angle) / (Math.PI / 2.5));
-          } else {
-             // Fade out slightly at the top and bottom of screen
-             const screenHalf = window.innerHeight / 2;
-             opacity = Math.max(0, 1 - Math.abs(restingY) / screenHalf);
-          }
-          
-          if (opacity < 0.01) return null;
-
-          return (
-            <div
-              key={item.id}
-              className={`absolute right-0 flex items-center gap-3 transition-all transform-gpu origin-right
-                ${isScrolling ? 'duration-100 ease-linear' : 'duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]'}
-              `}
-              style={{
-                top: '50%',
-                transform: `translateY(calc(-50% + ${y}px)) translateZ(${z}px) rotateX(${rotateX}rad)`,
-                opacity: isActive ? 1 : opacity * 0.5,
-              }}
-            >
-              <span 
-                className={`font-mono text-right transition-all duration-300
-                  ${isActive ? 'text-primary font-bold scale-110' : 'text-gray-500 scale-100'}
-                  ${isYear ? 'text-sm' : 'text-[10px] uppercase'}
-                `}
-                style={{ textShadow: isActive ? '0 0 10px rgba(59, 130, 246, 0.5)' : 'none' }}
-              >
-                {item.label}
-              </span>
-              <div 
-                className={`bg-current rounded-l-full transition-all duration-300 shadow-[0_0_10px_currentColor]
-                  ${isActive ? 'text-primary' : 'text-white'}
-                `}
-                style={{
-                  width: isYear ? (isActive ? '32px' : '24px') : (isActive ? '16px' : '8px'),
-                  height: isYear ? '2px' : '1px'
-                }}
-              />
-            </div>
-          );
-        })}
+        {items.map((item) => (
+          <TimelineDialItem 
+            key={item.id}
+            item={item}
+            isActive={item.id === activeId}
+            smoothProgress={smoothProgress}
+            activeState={activeState}
+            effectiveScrollHeight={effectiveScrollHeight}
+          />
+        ))}
       </div>
     </div>
   );

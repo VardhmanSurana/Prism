@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ViewMode, SearchFilters, SortMode } from '../../types';
-
-const THEMES = ['theme-purple', 'theme-green', 'theme-orange', 'theme-rose'];
 
 export function useFilters() {
   const location = useLocation();
@@ -17,14 +15,7 @@ export function useFilters() {
 
   const [activeFilters, setActiveFilters] = useState<SearchFilters | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('newest');
-  const [theme, setTheme] = useState('default');
   const [isChatOpen, setIsChatOpen] = useState(false);
-
-  useEffect(() => {
-    const html = document.documentElement;
-    html.classList.remove(...THEMES);
-    if (theme !== 'default') html.classList.add(theme);
-  }, [theme]);
 
   return {
     currentView,
@@ -33,8 +24,6 @@ export function useFilters() {
     setActiveFilters,
     sortMode,
     setSortMode,
-    theme,
-    setTheme,
     isChatOpen,
     setIsChatOpen
   };

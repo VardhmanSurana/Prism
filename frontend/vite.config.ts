@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
         port: 3005,
         strictPort: true,
         host: '0.0.0.0',
+        watch: {
+          ignored: ['**/src-tauri/target/**'],
+        },
       },
       // prevent vite from obscuring rust errors
       clearScreen: false,
@@ -22,11 +25,6 @@ export default defineConfig(({ mode }) => {
       envPrefix: ['VITE_', 'TAURI_'],
       
       plugins: [react()],
-      
-      define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-      },
       
       resolve: {
         alias: {
@@ -37,7 +35,7 @@ export default defineConfig(({ mode }) => {
       test: {
         environment: 'jsdom',
         globals: true,
-        setupFiles: './tests/setup.ts',
+        setupFiles: [],
       },
       
       build: {

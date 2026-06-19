@@ -10,7 +10,7 @@ import { useSelection } from './useSelection';
 import { useBulkActions } from './useBulkActions';
 
 export function useAppState() {
-  const { photos, setPhotos, fetchPhotos, isLoading, syncStatus } = usePhotos();
+  const { photos, setPhotos, fetchPhotos, isLoading, isStatusLoading, syncStatus } = usePhotos();
   const [contextPhotos, setContextPhotos] = useState<Photo[] | null>(null);
 
   const {
@@ -20,8 +20,6 @@ export function useAppState() {
     setActiveFilters,
     sortMode,
     setSortMode,
-    theme,
-    setTheme,
     isChatOpen,
     setIsChatOpen,
   } = useFilters();
@@ -115,13 +113,12 @@ export function useAppState() {
     setPhotos,
     fetchPhotos,
     isLoading,
+    isStatusLoading,
     syncStatus,
     selectedPhoto,
     setSelectedPhoto,
     activeFilters,
     setActiveFilters,
-    theme,
-    setTheme,
     isLockedAuthenticated,
     setIsLockedAuthenticated,
     isChatOpen,

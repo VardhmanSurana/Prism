@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, Calendar, MapPin } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, Calendar, MapPin, ChevronRight } from 'lucide-react';
 import { API_BASE, resolveUrl } from '../constants';
 import { Photo } from '../types';
 import { StoryViewer } from './StoryViewer';
+import { GlassMaterial, GlassEffectContainer } from './GlassMaterial';
+import { springs, motionTokens } from '../lib/motion-tokens';
 
 interface Highlight {
   id: string;
@@ -13,6 +16,95 @@ interface Highlight {
   cover_url: string | null;
   photos: Photo[];
 }
+
+const MemoryCard: React.FC<{ 
+  highlight: Highlight; 
+  index: number; 
+  onClick: () => void;
+  isHero?: boolean;
+}> = ({ highlight, index, onClick, isHero = false }) => {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ ...springs.gentle, delay: index * 0.1 } as any}
+      whileHover={{ y: -8, scale: 1.02 }}
+      whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      className={`relative rounded-[2.5rem] overflow-hidden cursor-pointer group shrink-0 border border-white/5 shadow-2xl transition-shadow duration-500 hover:shadow-primary/10
+        ${isHero ? 'w-[28rem] h-[32rem]' : 'w-56 h-[24rem]'}`}
+    >
+      {highlight.cover_url ? (
+        <motion.img 
+          src={resolveUrl(highlight.cover_url)} 
+          alt={highlight.title}
+          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
+        />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center bg-surface/40 text-gray-500 gap-3">
+          {highlight.type === 'on_this_day' ? <Calendar size={isHero ? 48 : 32} /> : <MapPin size={isHero ? 48 : 32} />}
+          <span className="text-[10px] font-mono tracking-[0.3em] uppercase opacity-50">Memory</span>
+        </div>
+      )}
+      
+      {/* Ambient Depth Layer */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
+      <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+      
+      {/* Animated Mesh Highlight (Subtle) */}
+      <motion.div 
+        className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(var(--color-primary),0.08),transparent_50%)] pointer-events-none"
+        animate={{ 
+          rotate: [0, 360],
+          scale: [1, 1.2, 1]
+        }}
+        transition={{ 
+          duration: 20, 
+          repeat: Infinity, 
+          ease: "linear" 
+        }}
+      />
+
+      {/* Hero Badge */}
+      {isHero && (
+        <div className="absolute top-8 left-8 flex items-center gap-2">
+          <GlassMaterial intensity="subtle" borderRadius="999px" className="px-3 py-1 flex items-center gap-2 border-primary/20">
+             <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(var(--color-primary),0.8)]" />
+             <span className="text-[10px] font-bold text-primary uppercase tracking-widest">Featured Story</span>
+          </GlassMaterial>
+        </div>
+      )}
+
+      {/* Floating Badge */}
+      <div className={`absolute rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/90 group-hover:text-primary transition-all duration-500 group-hover:border-primary/30 group-hover:scale-110 shadow-xl
+        ${isHero ? 'top-8 right-8 w-12 h-12' : 'top-6 right-6 w-9 h-9'}`}>
+        {highlight.type === 'on_this_day' ? <Calendar size={isHero ? 20 : 14} /> : <MapPin size={isHero ? 20 : 14} />}
+      </div>
+
+      {/* Content Meta */}
+      <div className={`absolute bottom-0 left-0 right-0 p-8 flex flex-col gap-1`}>
+        <motion.div 
+          initial={false}
+          animate={{ x: 0 }}
+          whileHover={{ x: 5 }}
+          className="flex flex-col items-start"
+        >
+          <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary/80 mb-2 flex items-center gap-2">
+            <span className="w-4 h-[1px] bg-primary/30" />
+            {highlight.type === 'on_this_day' ? 'Retro Lookback' : 'Travel Log'} • {highlight.photo_count}
+          </p>
+          <h4 className={`text-white leading-tight font-serif italic tracking-normal transition-colors duration-500 group-hover:text-primary
+            ${isHero ? 'text-4xl' : 'text-xl'}`}>
+            {highlight.title}
+          </h4>
+          <p className="text-[11px] text-gray-400 font-medium mt-2 tracking-wide opacity-80 group-hover:opacity-100 transition-opacity">
+            {highlight.subtitle}
+          </p>
+        </motion.div>
+      </div>
+    </motion.div>
+  );
+};
 
 export const MemoriesCarousel: React.FC = () => {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
@@ -40,11 +132,12 @@ export const MemoriesCarousel: React.FC = () => {
 
   if (isLoading && highlights.length === 0) {
     return (
-      <div className="px-8 pt-6 pb-2 shrink-0 animate-pulse">
-        <div className="h-4 w-40 bg-white/5 rounded mb-4" />
-        <div className="flex gap-4 overflow-x-auto pb-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="w-44 h-56 rounded-3xl bg-white/5 border border-white/5 shrink-0" />
+      <div className="px-10 pt-12 pb-6 shrink-0 animate-pulse">
+        <div className="h-6 w-64 bg-white/5 rounded-full mb-8" />
+        <div className="flex gap-8 overflow-x-auto pb-6">
+          <div className="w-[28rem] h-[32rem] rounded-[2.5rem] bg-white/5 border border-white/5 shrink-0" />
+          {[1, 2].map((i) => (
+            <div key={i} className="w-56 h-[24rem] rounded-[2.5rem] bg-white/5 border border-white/5 mt-auto shrink-0" />
           ))}
         </div>
       </div>
@@ -54,60 +147,48 @@ export const MemoriesCarousel: React.FC = () => {
   if (highlights.length === 0) return null;
 
   return (
-    <div className="px-8 pt-6 pb-2 shrink-0 select-none">
-      <h3 className="text-xs font-mono font-bold uppercase tracking-[0.2em] text-gray-500 mb-3 flex items-center gap-1.5">
-        <Sparkles size={12} className="text-yellow-500 animate-pulse" />
-        Memories & Highlights
-      </h3>
-      <div className="flex gap-4 overflow-x-auto pb-3 custom-scrollbar scroll-smooth">
-        {highlights.map((highlight) => (
-          <div 
-            key={highlight.id}
-            onClick={() => setSelectedHighlight(highlight)}
-            className="relative w-44 h-56 rounded-3xl overflow-hidden cursor-pointer group shrink-0 border border-white/5 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+    <div className="px-10 pt-12 pb-6 shrink-0 select-none relative z-10">
+      <div className="flex items-end justify-between mb-8">
+        <div className="space-y-1">
+          <motion.div 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 text-primary/60"
           >
-            {highlight.cover_url ? (
-              <img 
-                src={resolveUrl(highlight.cover_url)} 
-                alt={highlight.title}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center bg-surfaceHover text-gray-500 gap-2">
-                {highlight.type === 'on_this_day' ? <Calendar size={24} /> : <MapPin size={24} />}
-                <span className="text-[10px] font-mono tracking-widest uppercase">Memory</span>
-              </div>
-            )}
-            
-            {/* Ambient Gradients */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            
-            {/* Badge Icon */}
-            <div className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/80 group-hover:text-primary transition-all">
-              {highlight.type === 'on_this_day' ? <Calendar size={12} /> : <MapPin size={12} />}
-            </div>
-
-            {/* Meta Text */}
-            <div className="absolute bottom-4 left-4 right-4">
-              <p className="text-[9px] uppercase tracking-wider font-bold text-yellow-500 mb-0.5">
-                {highlight.type === 'on_this_day' ? 'Retro' : 'Trip'} • {highlight.photo_count} items
-              </p>
-              <h4 className="text-xs font-bold text-white leading-tight group-hover:text-primary transition-colors truncate">
-                {highlight.title}
-              </h4>
-              <p className="text-[9px] text-gray-400 font-mono mt-0.5 truncate">{highlight.subtitle}</p>
-            </div>
-          </div>
-        ))}
+            <Sparkles size={14} />
+            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.4em]">Curated</span>
+          </motion.div>
+          <h3 className="text-4xl font-serif italic text-white tracking-tight">Your Memories</h3>
+        </div>
+        <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-primary transition-colors group">
+          View All Stories
+          <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+        </button>
       </div>
 
-      {selectedHighlight && (
-        <StoryViewer 
-          highlight={selectedHighlight} 
-          onClose={() => setSelectedHighlight(null)} 
-        />
-      )}
+      <div className="flex gap-8 overflow-x-auto pb-10 custom-scrollbar scroll-smooth items-end snap-x snap-mandatory">
+        <GlassEffectContainer className="flex gap-8 items-end">
+          {highlights.map((highlight, idx) => (
+            <div key={highlight.id} className="snap-start">
+              <MemoryCard 
+                highlight={highlight} 
+                index={idx} 
+                isHero={idx === 0}
+                onClick={() => setSelectedHighlight(highlight)} 
+              />
+            </div>
+          ))}
+        </GlassEffectContainer>
+      </div>
+
+      <AnimatePresence>
+        {selectedHighlight && (
+          <StoryViewer 
+            highlight={selectedHighlight} 
+            onClose={() => setSelectedHighlight(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

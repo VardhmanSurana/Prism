@@ -1,5 +1,4 @@
 import React from 'react';
-import { Database, Image, RefreshCw, Trash2, Loader2, HardDrive, CheckCircle2, XCircle } from 'lucide-react';
 import { useStorageCleanup } from './useStorageCleanup';
 import { Header } from './Header';
 import { TabSwitcher } from './TabSwitcher';
@@ -27,89 +26,63 @@ export const StorageCleanup: React.FC = () => {
   } = useStorageCleanup();
 
   return (
-    <div className="bg-[#111]/40 border border-white/5 rounded-3xl p-6 sm:p-8 space-y-8">
+    <div className="space-y-5">
       <Header />
 
-      {/* Storage Summary Cards */}
       {storageStats && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-2">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Database size={16} className="text-primary" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Database</span>
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            { label: 'Database', value: formatBytes(storageStats.database_size_bytes), sub: storageStats.database_path.replace(/\/home\/[^/]+/, '~') },
+            { label: 'Thumbnails', value: formatBytes(storageStats.thumbnail_cache_size_bytes), sub: 'Generated preview cache' },
+            { label: 'Total', value: formatBytes(storageStats.database_size_bytes + storageStats.thumbnail_cache_size_bytes), sub: 'Indexed library data' },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-4">
+              <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-2">
+                {stat.label}
+              </p>
+              <p className="text-lg font-serif italic text-[#f7f8f8]">{stat.value}</p>
+              <p className="text-[10px] font-mono text-[#8a8f98] mt-1 truncate" title={stat.sub}>{stat.sub}</p>
             </div>
-            <p className="text-2xl font-bold text-white">{formatBytes(storageStats.database_size_bytes)}</p>
-            <p className="text-[9px] font-mono text-gray-600 truncate" title={storageStats.database_path}>
-              {storageStats.database_path.replace(/\/home\/[^/]+/, '~')}
-            </p>
-          </div>
-
-          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-2">
-            <div className="flex items-center gap-2 text-gray-400">
-              <Image size={16} className="text-yellow-500" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Thumbnails</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{formatBytes(storageStats.thumbnail_cache_size_bytes)}</p>
-            <p className="text-[9px] font-mono text-gray-600">Generated preview cache</p>
-          </div>
-
-          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 space-y-2">
-            <div className="flex items-center gap-2 text-gray-400">
-              <HardDrive size={16} className="text-emerald-500" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Total</span>
-            </div>
-            <p className="text-2xl font-bold text-white">{formatBytes(storageStats.database_size_bytes + storageStats.thumbnail_cache_size_bytes)}</p>
-            <p className="text-[9px] font-mono text-gray-600">Indexed library data</p>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Maintenance Actions */}
-      <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2 text-gray-400 mb-1">
-          <HardDrive size={16} className="text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-wider">Database Maintenance</span>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleClearCache}
-            disabled={isClearingCache}
-            title="Delete all cached thumbnails to free disk space. Photos will need to be re-indexed."
-            className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white text-xs font-bold uppercase tracking-wider py-3 px-5 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98"
-          >
-            {isClearingCache ? (
-              <Loader2 size={14} className="animate-spin text-primary" />
-            ) : (
-              <Trash2 size={14} className="text-rose-400" />
-            )}
-            <span>Clear Thumbnail Cache</span>
-          </button>
+      {/* Database Maintenance */}
+      <div className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d]">
+              Database Maintenance
+            </span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleClearCache}
+              disabled={isClearingCache}
+              title="Delete all cached thumbnails to free disk space"
+              className="px-4 py-2 bg-[#050505] border border-[#23252a] text-[#d0d6e0] rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#141516] disabled:opacity-40 transition-colors"
+            >
+              {isClearingCache ? 'Clearing...' : 'Clear Thumbnail Cache'}
+            </button>
 
-          <button
-            onClick={handleVacuumDatabase}
-            disabled={isVacuuming}
-            title="Optimize the SQLite database to reclaim disk space and improve performance"
-            className="flex-1 flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white text-xs font-bold uppercase tracking-wider py-3 px-5 rounded-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed active:scale-98"
-          >
-            {isVacuuming ? (
-              <Loader2 size={14} className="animate-spin text-primary" />
-            ) : (
-              <RefreshCw size={14} className="text-blue-400" />
-            )}
-            <span>Vacuum Database</span>
-          </button>
+            <button
+              onClick={handleVacuumDatabase}
+              disabled={isVacuuming}
+              title="Optimize the SQLite database to reclaim disk space"
+              className="px-4 py-2 bg-[#050505] border border-[#23252a] text-[#d0d6e0] rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#141516] disabled:opacity-40 transition-colors"
+            >
+              {isVacuuming ? 'Vacuuming...' : 'Vacuum Database'}
+            </button>
+          </div>
         </div>
 
         {cacheActionStatus && (
-          <div className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-mono animate-in fade-in slide-in-from-top-1
-            ${cacheActionStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : ''}
-            ${cacheActionStatus.type === 'error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' : ''}
-            ${cacheActionStatus.type === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : ''}`}
-          >
-            {cacheActionStatus.type === 'success' && <CheckCircle2 size={14} />}
-            {cacheActionStatus.type === 'error' && <XCircle size={14} />}
-            {cacheActionStatus.type === 'info' && <Loader2 size={14} className="animate-spin" />}
-            <span>{cacheActionStatus.message}</span>
+          <div className={`mt-3 px-3 py-2 rounded-lg text-xs font-mono ${
+            cacheActionStatus.type === 'success' ? 'bg-[#27a644]/10 text-[#27a644]' :
+            cacheActionStatus.type === 'error' ? 'bg-[#e5484d]/10 text-[#e5484d]' :
+            'bg-[#5e6ad2]/10 text-[#5e6ad2]'
+          }`}>
+            {cacheActionStatus.message}
           </div>
         )}
       </div>
@@ -119,7 +92,7 @@ export const StorageCleanup: React.FC = () => {
       {isLoading ? (
         <LoadingState />
       ) : (
-        <div className="pt-2">
+        <div className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-5">
           {activeSubTab === 'blurry' && (
             <BlurryPhotosTab photos={blurryPhotos} onDelete={handleDeletePhoto} />
           )}

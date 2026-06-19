@@ -12,6 +12,7 @@ export interface ImportProgressStatus {
 export interface PhotoGridProps {
   photos: Photo[];
   isLoading?: boolean;
+  syncStatus?: ImportProgressStatus;
   currentView?: ViewMode;
   onPhotoClick: (photo: Photo) => void;
   selectedIds: Set<string>;

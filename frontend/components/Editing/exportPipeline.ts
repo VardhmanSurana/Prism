@@ -787,9 +787,14 @@ const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[])
     let svgContent = '';
     
     annotations.forEach(ann => {
+      const opacityAttr = ann.opacity != null && ann.opacity < 1 ? ` opacity="${ann.opacity}"` : '';
       if (ann.type === 'freehand' && ann.points) {
         const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round" />`;
+        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round"${opacityAttr} />`;
+      } else if (ann.type === 'highlighter' && ann.points) {
+        const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const hOpacity = ann.opacity ?? 0.4;
+        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${hOpacity}" style="mix-blend-mode: multiply" />`;
       } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
         const start = ann.points[0];
         const end = ann.points[ann.points.length - 1];
@@ -802,31 +807,21 @@ const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[])
         const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
         const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
         
-        svgContent += `<g><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
+        svgContent += `<g${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
       } else if (ann.type === 'rect' && ann.bounds) {
         const b = ann.bounds;
         const x = b.w < 0 ? b.x + b.w : b.x;
         const y = b.h < 0 ? b.y + b.h : b.y;
         const wVal = Math.abs(b.w);
         const hVal = Math.abs(b.h);
-        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" />`;
+        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
       } else if (ann.type === 'circle' && ann.bounds) {
         const b = ann.bounds;
         const cx = b.x + b.w / 2;
         const cy = b.y + b.h / 2;
         const rx = Math.abs(b.w) / 2;
         const ry = Math.abs(b.h) / 2;
-        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" />`;
-      } else if (ann.type === 'text' && ann.points && ann.text) {
-        const p = ann.points[0];
-        const fSize = ann.fontSize || 32;
-        const safeText = ann.text
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&apos;');
-        svgContent += `<text x="${p.x}" y="${p.y}" fill="${ann.color}" font-size="${fSize}" font-family="sans-serif" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${safeText}</text>`;
+        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
       }
     });
     

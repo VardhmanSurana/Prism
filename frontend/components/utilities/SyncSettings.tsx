@@ -1,5 +1,4 @@
 import React from 'react';
-import { RefreshCw, FolderMinus, FolderPlus, Trash2, FolderOpen } from 'lucide-react';
 
 interface SyncSettingsProps {
   syncEnabled: boolean;
@@ -26,6 +25,53 @@ interface SyncSettingsProps {
   onAddFolder?: () => void;
   onRemoveFolder?: (folder: string) => void;
 }
+
+const FolderInput: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  onBrowse: () => void;
+  onAdd: () => void;
+  placeholder: string;
+  disabled?: boolean;
+}> = ({ value, onChange, onBrowse, onAdd, placeholder, disabled }) => (
+  <div className="flex gap-2">
+    <div className="flex-1 flex gap-1.5 bg-[#050505] border border-[#23252a] rounded-lg overflow-hidden">
+      <input 
+        type="text" 
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1 bg-transparent px-3 py-2 text-sm text-[#d0d6e0] placeholder:text-[#62666d] outline-none font-mono text-[11px]"
+      />
+      <button 
+        onClick={onBrowse}
+        className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-[#d0d6e0] border-l border-[#23252a] transition-colors"
+      >
+        Browse
+      </button>
+    </div>
+    <button 
+      onClick={onAdd}
+      disabled={disabled}
+      className="px-4 py-2 bg-[#5e6ad2] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+    >
+      Add
+    </button>
+  </div>
+);
+
+const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder, onRemove }) => (
+  <div className="group flex items-center justify-between gap-3 bg-[#050505] border border-[#23252a] rounded-lg px-3 py-2 hover:border-[#34343a] transition-colors">
+    <span className="text-[11px] font-mono text-[#8a8f98] truncate">{folder}</span>
+    <button 
+      onClick={onRemove}
+      className="shrink-0 text-[#62666d] hover:text-[#e5484d] transition-colors text-sm"
+      title={`Remove ${folder}`}
+    >
+      ×
+    </button>
+  </div>
+);
 
 export const SyncSettings: React.FC<SyncSettingsProps> = ({
   syncEnabled,
@@ -63,144 +109,86 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   const removeE = onRemoveExcludedFolder || onRemoveFolder || (() => {});
 
   return (
-    <section className="reveal-item space-y-6" style={{ animationDelay: '0.1s' }}>
-      <div className="flex items-center gap-3 mb-2">
-        <RefreshCw size={20} className="text-primary" />
-        <h3 className="text-xl font-serif italic text-white">Auto Intelligence Sync</h3>
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+      <div className="mb-6">
+        <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
+          Auto Intelligence Sync
+        </h3>
       </div>
       
-      <div className="bg-surface border border-white/5 rounded-[2rem] p-8 space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="space-y-1">
-            <p className="text-white font-medium">Automatic System Scan</p>
-            <p className="text-xs text-gray-500">Automatically index all images from your watched folders, excluding hidden folders.</p>
+      <div className="space-y-6">
+        {/* Auto sync toggle */}
+        <div className="flex items-center justify-between bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div>
+            <p className="text-sm font-medium text-[#f7f8f8]">Automatic System Scan</p>
+            <p className="text-xs text-[#8a8f98] mt-1">Automatically index all images from your watched folders, excluding hidden folders.</p>
           </div>
           <button 
             onClick={onToggleSync}
             title={syncEnabled ? 'Disable automatic sync' : 'Enable automatic sync'}
-            className={`w-14 h-8 rounded-full transition-all duration-500 relative ${syncEnabled ? 'bg-primary' : 'bg-zinc-800'}`}
+            className={`relative shrink-0 w-10 h-5 rounded-full transition-colors duration-200 ${
+              syncEnabled ? 'bg-[#5e6ad2]' : 'bg-[#1c1d1f]'
+            }`}
           >
-            <div className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-lg transition-all duration-500 ${syncEnabled ? 'left-7' : 'left-1'}`} />
+            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
+              syncEnabled ? 'translate-x-5' : 'translate-x-0.5'
+            }`} />
           </button>
         </div>
 
-        {/* Watched Library Folders Section */}
-        <div className="space-y-4 pt-6 border-t border-white/5">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1">
-              <p className="text-white font-medium">Watched Library Territories</p>
-              <p className="text-xs text-gray-500">Specified directories containing photo assets that the background engine will index.</p>
+        {/* Watched folders */}
+        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium text-[#f7f8f8]">Watched Library Territories</p>
             </div>
-            
-            <div className="flex items-end gap-3 mt-2">
-              <div className="flex-1">
-                <div className="flex items-center w-full">
-                  <input 
-                    type="text" 
-                    value={wInput}
-                    onChange={(e) => setWInput(e.target.value)}
-                    placeholder="/home/user/Pictures"
-                    className="flex-1 bg-transparent border-b border-gray-600/50 hover:border-gray-500 text-sm text-gray-300 py-2 px-1 focus:outline-none focus:border-blue-500 transition-colors font-mono"
-                  />
-                  <button 
-                    onClick={browseW}
-                    className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold uppercase tracking-wider py-2 px-5 rounded-lg ml-4 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/10 active:scale-98"
-                  >
-                    Browse
-                  </button>
-                </div>
-              </div>
-              <button 
-                onClick={addW}
-                disabled={!wInput}
-                className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold uppercase tracking-wider py-2 px-5 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
+            <p className="text-xs text-[#8a8f98]">Specified directories containing photo assets that the background engine will index.</p>
           </div>
+          
+          <FolderInput
+            value={wInput}
+            onChange={setWInput}
+            onBrowse={browseW}
+            onAdd={addW}
+            placeholder="/home/user/Pictures"
+            disabled={!wInput}
+          />
 
-          <div className="space-y-2">
+          <div className="mt-3 space-y-1.5">
             {wFolders.length === 0 ? (
-              <div className="py-6 text-center border border-dashed border-white/5 rounded-2xl">
-                <p className="text-xs text-gray-600 font-mono uppercase tracking-widest">Defaulting to user Pictures directory</p>
-              </div>
+              <p className="text-[11px] text-[#62666d] font-mono py-2">Defaulting to user Pictures directory</p>
             ) : (
               wFolders.map((folder, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3.5 bg-white/[0.01] border border-white/5 rounded-xl group hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FolderPlus size={14} className="text-gray-500" />
-                    <span className="text-[10px] font-mono text-gray-300 truncate">{folder}</span>
-                  </div>
-                  <button 
-                    onClick={() => removeW(folder)}
-                    title={`Remove ${folder} from watched folders`}
-                    className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                <FolderTag key={idx} folder={folder} onRemove={() => removeW(folder)} />
               ))
             )}
           </div>
         </div>
 
-        {/* Excluded territories Section */}
-        <div className="space-y-4 pt-6 border-t border-white/5">
-          <div className="flex flex-col gap-3">
-            <div className="space-y-1">
-              <p className="text-white font-medium">Excluded Territories</p>
-              <p className="text-xs text-gray-500">Specified paths that will be ignored by the background indexer.</p>
+        {/* Excluded folders */}
+        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div className="mb-4">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-medium text-[#f7f8f8]">Excluded Territories</p>
             </div>
-            
-            <div className="flex items-end gap-3 mt-2">
-              <div className="flex-1">
-                <div className="flex items-center w-full">
-                  <input 
-                    type="text" 
-                    value={eInput}
-                    onChange={(e) => setEInput(e.target.value)}
-                    placeholder="/home/user/Downloads"
-                    className="flex-1 bg-transparent border-b border-gray-600/50 hover:border-gray-500 text-sm text-gray-300 py-2 px-1 focus:outline-none focus:border-blue-500 transition-colors font-mono"
-                  />
-                  <button 
-                    onClick={browseE}
-                    className="bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold uppercase tracking-wider py-2 px-5 rounded-lg ml-4 transition-all duration-200 hover:shadow-lg hover:shadow-blue-500/10 active:scale-98"
-                  >
-                    Browse
-                  </button>
-                </div>
-              </div>
-              <button 
-                onClick={addE}
-                disabled={!eInput}
-                className="bg-white/10 hover:bg-white/20 text-white text-xs font-semibold uppercase tracking-wider py-2 px-5 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Add
-              </button>
-            </div>
+            <p className="text-xs text-[#8a8f98]">Specified paths that will be ignored by the background indexer.</p>
           </div>
+          
+          <FolderInput
+            value={eInput}
+            onChange={setEInput}
+            onBrowse={browseE}
+            onAdd={addE}
+            placeholder="/home/user/Downloads"
+            disabled={!eInput}
+          />
 
-          <div className="space-y-2">
+          <div className="mt-3 space-y-1.5">
             {eFolders.length === 0 ? (
-              <div className="py-6 text-center border border-dashed border-white/5 rounded-2xl">
-                <p className="text-xs text-gray-600 font-mono uppercase tracking-widest">No exclusions defined</p>
-              </div>
+              <p className="text-[11px] text-[#62666d] font-mono py-2">No exclusions defined</p>
             ) : (
               eFolders.map((folder, idx) => (
-                <div key={idx} className="flex items-center justify-between p-3.5 bg-white/[0.01] border border-white/5 rounded-xl group hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <FolderMinus size={14} className="text-gray-500" />
-                    <span className="text-[10px] font-mono text-gray-400 truncate">{folder}</span>
-                  </div>
-                  <button 
-                    onClick={() => removeE(folder)}
-                    title={`Remove ${folder} from excluded folders`}
-                    className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/5 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                <FolderTag key={idx} folder={folder} onRemove={() => removeE(folder)} />
               ))
             )}
           </div>

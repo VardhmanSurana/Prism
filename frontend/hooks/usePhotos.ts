@@ -8,6 +8,7 @@ const PAGE_SIZE = 50;
 export function usePhotos() {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [syncStatus, setSyncStatus] = useState({
@@ -57,6 +58,24 @@ export function usePhotos() {
   // Connect/disconnect and subscribe to SSE events once on mount
   useEffect(() => {
     eventService.connect();
+
+    // Fetch initial status via REST API (fallback if SSE hasn't pushed yet)
+    const fetchInitialStatus = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/utilities/diagnostics`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.sync_status) {
+            setSyncStatus(data.sync_status);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch initial sync status', e);
+      } finally {
+        setIsStatusLoading(false);
+      }
+    };
+    fetchInitialStatus();
     
     const unsubStatus = eventService.subscribe('status', (data) => {
       const statusData = data.data as { is_scanning: boolean; total_files: number; processed_files: number; progress: number };
@@ -104,6 +123,7 @@ export function usePhotos() {
     setPhotos, 
     fetchPhotos, 
     isLoading,
+    isStatusLoading,
     syncStatus,
     hasMore 
   };

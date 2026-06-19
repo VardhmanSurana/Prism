@@ -4,6 +4,8 @@
  */
 
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+// @ts-ignore -- react-color-palette css side-effect import lacks types
+import 'react-color-palette/css';
 import ReactCropper, { ReactCropperElement } from 'react-cropper';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
@@ -115,14 +117,18 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   
   // Annotations state
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [activeDrawTool, setActiveDrawTool] = useState<'arrow' | 'circle' | 'rect' | 'freehand' | 'text' | 'eraser'>('freehand');
+  const [activeDrawTool, setActiveDrawTool] = useState<'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter'>('freehand');
+  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string>('#ef4444');
+  const [activeOpacity, setActiveOpacity] = useState<number>(1);
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
+  const userChangedStyleRef = useRef(false);
+
+
   const [adjustments,     setAdjustments]     = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
   const [flipH,           setFlipH]           = useState<boolean>(false);
   const [flipV,           setFlipV]           = useState<boolean>(false);
   const [straightenAngle, setStraightenAngle] = useState<number>(0);
-
   // Inpaint state
   const [inpaintMode, setInpaintMode] = useState<InpaintMode>('brush');
   const [inpaintOperation, setInpaintOperation] = useState<InpaintOperation>('remove');
@@ -287,6 +293,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const previousStraightenRef = useRef<number>(0);
   const previousFlipHRef = useRef<boolean>(false);
   const previousFlipVRef = useRef<boolean>(false);
+  const previousAnnotationsRef = useRef<Annotation[]>([]);
   
   useEffect(() => {
     if (isRestoringHistory.current) return;
@@ -382,27 +389,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       return () => clearTimeout(timer);
     }
   }, [adjustments, addHistoryEntry]);
-
-  // Track annotations changes with debouncing
-  const previousAnnotationsRef = useRef<Annotation[]>([]);
-  useEffect(() => {
-    if (isRestoringHistory.current) return;
-    
-    const prev = previousAnnotationsRef.current;
-    const curr = annotations;
-    
-    if (prev.length !== curr.length || JSON.stringify(prev) !== JSON.stringify(curr)) {
-      previousAnnotationsRef.current = [...curr];
-      
-      const description = curr.length > prev.length 
-        ? 'Added Markup' 
-        : curr.length < prev.length 
-        ? 'Deleted Markup' 
-        : 'Modified Markup';
-        
-      addHistoryEntry('annotations', description, undefined, undefined, curr);
-    }
-  }, [annotations, addHistoryEntry]);
 
   // Track rotation changes
   useEffect(() => {
@@ -945,7 +931,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       }
 
       // ── Backslash: hold-to-compare (keydown fires repeatedly, guard with isComparing) ──
-      if (e.key === '\\' && !e.repeat) {
+      if (e.key === '' && !e.repeat) {
         setIsComparing(true);
         return;
       }
@@ -993,7 +979,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     };
 
     const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if (e.key === '\\') {
+      if (e.key === '') {
         setIsComparing(false);
       }
     };
@@ -1118,16 +1104,21 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             <AnnotationsPanel
               annotations={annotations}
               onChange={setAnnotations}
-              activeDrawTool={activeDrawTool}
-              setActiveDrawTool={setActiveDrawTool}
+              activeDrawTool={activeDrawTool as any}
+              setActiveDrawTool={setActiveDrawTool as any}
               activeColor={activeColor}
               setActiveColor={setActiveColor}
               strokeWidth={strokeWidth}
               setStrokeWidth={setStrokeWidth}
+              selectedAnnId={selectedAnnId}
+              setSelectedAnnId={setSelectedAnnId}
+              activeOpacity={activeOpacity}
+              setActiveOpacity={setActiveOpacity}
+              markStyleChanged={() => { userChangedStyleRef.current = true; }}
             />
           )}
 
-          {activeTool === 'inpaint' && (
+             {activeTool === 'inpaint' && (
             <InpaintPanel
               mode={inpaintMode}
               operation={inpaintOperation}
@@ -1174,9 +1165,12 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           maskOpacity={inpaintSettings.maskOpacity}
           annotations={annotations}
           onAnnotationsChange={setAnnotations}
-          activeDrawTool={activeDrawTool}
+          activeDrawTool={activeDrawTool as any}
           activeColor={activeColor}
           strokeWidth={strokeWidth}
+          selectedAnnId={selectedAnnId}
+          setSelectedAnnId={setSelectedAnnId}
+          userChangedStyleRef={userChangedStyleRef}
           />
 
         <HistoryPanel

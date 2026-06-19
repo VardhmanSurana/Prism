@@ -1,25 +1,28 @@
 import React, { useState } from 'react';
-import { Cloud, Settings2, Trash2, Activity } from 'lucide-react';
 import { useUtilities } from '../hooks/utilities';
 
-// Sub-components
 import { SyncSettings } from './utilities/SyncSettings';
 import { FaceSettings } from './utilities/FaceSettings';
 import { PurgeSettings } from './utilities/PurgeSettings';
-import { ThemeSettings } from './utilities/ThemeSettings';
+import { Appearance } from './utilities/Appearance';
 import { SystemIntegrity } from './utilities/SystemIntegrity';
 import { ConfirmationDialog } from './utilities/ConfirmationDialog';
 import { StorageCleanup } from './utilities/storageCleanup';
 import { DiagnosticsLogs } from './utilities/DiagnosticsLogs';
 
 interface UtilitiesViewProps {
-  currentTheme: string;
-  onThemeChange: (theme: string) => void;
   onResetSuccess?: () => void;
 }
 
-export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onThemeChange, onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'storage' | 'system' | 'diagnostics'>('storage');
+const TABS = [
+  { id: 'storage' as const, label: 'Storage Cleanup' },
+  { id: 'system' as const, label: 'Engine Settings' },
+  { id: 'diagnostics' as const, label: 'Diagnostics' },
+  { id: 'appearance' as const, label: 'Appearance' },
+];
+
+export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
+  const [activeTab, setActiveTab] = useState<'storage' | 'system' | 'diagnostics' | 'appearance'>('storage');
   
   const {
     syncEnabled,
@@ -50,56 +53,41 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
   } = useUtilities({ onResetSuccess });
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl space-y-8 flex flex-col h-full overflow-hidden select-none">
-      <header className="reveal-item shrink-0">
-        <h2 className="text-4xl font-serif italic text-white tracking-tight mb-2">System Utilities</h2>
-        <p className="text-gray-500 font-mono text-[10px] uppercase tracking-[0.2em]">Engine management & environment optimization</p>
+    <div className="min-h-full bg-[#050505]">
+      <header className="max-w-5xl mx-auto px-8 pt-10 pb-8 text-center">
+        <h2 className="font-serif italic text-white text-[32px] leading-tight">
+          System Utilities
+        </h2>
+        <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-500 mt-3">
+          Engine management & environment optimization
+        </p>
       </header>
 
-      {/* Premium Tab Switcher */}
-      <div className="flex items-center gap-1.5 bg-[#111] p-1.5 rounded-2xl border border-white/5 shadow-inner shrink-0 max-w-lg">
-        <button 
-          onClick={() => setActiveTab('storage')}
-          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
-            ${activeTab === 'storage' 
-              ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
-              : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <Trash2 size={14} />
-          <span>Storage Cleanup</span>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('system')}
-          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
-            ${activeTab === 'system' 
-              ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
-              : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <Settings2 size={14} />
-          <span>Engine Settings</span>
-        </button>
-
-        <button 
-          onClick={() => setActiveTab('diagnostics')}
-          className={`flex-1 flex items-center justify-center gap-2.5 px-5 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
-            ${activeTab === 'diagnostics' 
-              ? 'bg-primary text-black shadow-lg shadow-primary/20 scale-105' 
-              : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
-        >
-          <Activity size={14} />
-          <span>Diagnostics</span>
-        </button>
+      <div className="max-w-5xl mx-auto px-8 pb-8 flex justify-center">
+        <div className="flex gap-1 bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-2xl p-1.5 shadow-2xl">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${
+                activeTab === tab.id
+                  ? 'bg-primary text-black shadow-[0_0_20px_rgba(var(--color-primary),0.3)]'
+                  : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Main Tab View Panels */}
-      <div className="flex-1 overflow-y-auto pr-1 space-y-8 custom-scrollbar pb-8">
+      <main className="max-w-5xl mx-auto px-8 pb-12 space-y-5">
         {activeTab === 'storage' && (
           <StorageCleanup />
         )}
 
         {activeTab === 'system' && (
-          <div className="space-y-8">
+          <div className="space-y-5">
             <SyncSettings 
               syncEnabled={syncEnabled}
               onToggleSync={handleToggleSync}
@@ -132,11 +120,6 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
               onPurge={handlePurgeFolder}
             />
 
-            <ThemeSettings 
-              currentTheme={currentTheme}
-              onThemeChange={onThemeChange}
-            />
-
             <SystemIntegrity 
               isResetting={isResetting}
               onReset={handleResetLibrary}
@@ -148,14 +131,25 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ currentTheme, onTh
         {activeTab === 'diagnostics' && (
           <DiagnosticsLogs />
         )}
-      </div>
 
-      <section className="reveal-item pt-4 opacity-20 hover:opacity-100 transition-opacity shrink-0">
-         <div className="flex items-center justify-center gap-2 text-gray-500">
-            <Cloud size={14} />
-            <span className="text-[9px] font-mono uppercase tracking-[0.3em]">Prism Engine v0.4.2 // Protocol Active</span>
-         </div>
-      </section>
+        {activeTab === 'appearance' && (
+          <Appearance />
+        )}
+      </main>
+
+      <footer className="max-w-5xl mx-auto px-8 pb-12">
+        <div className="border-t border-white/[0.05] pt-8 flex items-center justify-between opacity-50">
+          <span className="text-[10px] font-mono text-gray-500">
+            Prism Engine v0.4.2 // Protocol Active
+          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-mono text-gray-500 uppercase tracking-widest">
+              Operational
+            </span>
+          </div>
+        </div>
+      </footer>
 
       <ConfirmationDialog 
         isOpen={confirmDialog.isOpen}

@@ -6,22 +6,6 @@
   --color-primary: 255 255 255;
 }
 
-.theme-purple {
-  --color-primary: 168 85 247;
-}
-
-.theme-green {
-  --color-primary: 34 197 94;
-}
-
-.theme-orange {
-  --color-primary: 252 203 0;
-}
-
-.theme-rose {
-  --color-primary: 244 63 94;
-}
-
 @layer base {
   body {
     @apply bg-background text-gray-100;
@@ -235,4 +219,16 @@
 
 .timeline-dot-active {
   @apply bg-primary border-primary shadow-[0_0_8px_rgba(var(--color-primary),0.6)];
+}
+
+/* ── react-color-palette Dark Theme ──────────────────────────────────────── */
+.rcp-dark {
+  --rcp-background: #1a1a1a;
+  --rcp-border-color: #333;
+  --rcp-input-border-color: #444;
+  --rcp-input-text-color: #ddd;
+  --rcp-pointer-color: #fff;
+  --rcp-saturation-pointer-border-color: #fff;
+  --rcp-hue-pointer-border-color: #fff;
+  --rcp-alpha-pointer-border-color: #fff;
 }

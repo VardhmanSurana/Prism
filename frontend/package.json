@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "bunx tauri",
-    "test": "vitest run"
+    "test": "vitest run --environment jsdom"
   },
   "dependencies": {
     "@imagemagick/magick-wasm": "^0.0.40",

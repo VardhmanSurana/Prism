@@ -1,9 +1,11 @@
 import { useMemo } from 'react';
 import { Photo } from '../../../types';
 import { RowItem } from '../types';
-import { MAX_ROW_WIDTH } from '../constants';
+import { MAX_ROW_WIDTH as DEFAULT_MAX_ROW_WIDTH } from '../constants';
 
-export const usePhotoGrid = (photos: Photo[]) => {
+export const usePhotoGrid = (photos: Photo[], maxRowWidth?: number) => {
+  const effectiveMaxWidth = maxRowWidth ?? DEFAULT_MAX_ROW_WIDTH;
+
   const rowItems = useMemo(() => {
     const rows: RowItem[] = [];
 
@@ -32,7 +34,7 @@ export const usePhotoGrid = (photos: Photo[]) => {
         currentRow.push(photo);
         currentRowWidth += ar;
 
-        if (currentRowWidth >= MAX_ROW_WIDTH) {
+        if (currentRowWidth >= effectiveMaxWidth) {
           rows.push({ type: 'row', photos: currentRow, isFull: true });
           currentRow = [];
           currentRowWidth = 0;
@@ -45,7 +47,7 @@ export const usePhotoGrid = (photos: Photo[]) => {
     });
 
     return rows;
-  }, [photos]);
+  }, [photos, effectiveMaxWidth]);
 
   return rowItems;
 };

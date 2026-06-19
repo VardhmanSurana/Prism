@@ -15,16 +15,16 @@ interface MainContentProps {
   currentView: ViewMode;
   photos: Photo[];
   isLoading?: boolean;
+  isStatusLoading?: boolean;
+  syncStatus?: ImportProgressStatus;
   selectedIds: Set<string>;
   isLockedAuthenticated: boolean;
-  theme: string;
   scrollRef: React.RefObject<HTMLDivElement | null>;
   onPhotoClick: (photo: Photo | null) => void;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
   onAuthenticate: () => void;
   onLockSession: () => void;
-  onThemeChange: (theme: string) => void;
   onPhotosLoaded: (photos: Photo[] | null) => void;
   onScroll: () => void;
   onSearch?: (filters: SearchFilters | null) => void;
@@ -43,16 +43,16 @@ export function MainContent({
   currentView,
   photos,
   isLoading,
+  isStatusLoading,
+  syncStatus,
   selectedIds,
   isLockedAuthenticated,
-  theme,
   scrollRef,
   onPhotoClick,
   onToggleSelection,
   onToggleGroupSelection,
   onAuthenticate,
   onLockSession,
-  onThemeChange,
   onPhotosLoaded,
   onScroll,
   onSearch,
@@ -81,8 +81,6 @@ export function MainContent({
       case 'utilities':
         return (
           <UtilitiesView 
-            currentTheme={theme} 
-            onThemeChange={onThemeChange} 
             onResetSuccess={onResetSuccess}
           />
         );
@@ -105,7 +103,8 @@ export function MainContent({
         return (
           <PhotoGrid
             photos={photos}
-            isLoading={isLoading}
+            isLoading={isLoading || isStatusLoading}
+            syncStatus={syncStatus}
             currentView={currentView}
             onPhotoClick={onPhotoClick}
             selectedIds={selectedIds}

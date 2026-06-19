@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Bot, User, Sparkles, Image as ImageIcon, Heart, Calendar, Lock, ChevronDown, ChevronUp, Cpu, Terminal } from 'lucide-react';
+import { Send, User, Sparkles, Image as ImageIcon, Heart, Calendar, Lock, ChevronDown, ChevronUp, Cpu, Terminal } from 'lucide-react';
 import { API_BASE, resolveUrl } from '../constants';
 import { Photo } from '../types';
+import { AgentLogo } from './AgentLogo';
+import { springs, motionTokens } from '../lib/motion-tokens';
 
 interface Message {
   role: 'assistant' | 'user';
@@ -12,6 +14,34 @@ interface Message {
   tools?: any[];
   totalCandidates?: number;
 }
+
+const MessageReveal: React.FC<{ text: string; role: 'assistant' | 'user' }> = ({ text, role }) => {
+  if (role === 'user') return <>{text}</>;
+
+  const words = text.split(' ');
+  return (
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={{
+        visible: { transition: { staggerChildren: 0.02 } }
+      }}
+    >
+      {words.map((word, i) => (
+        <motion.span
+          key={i}
+          className="inline-block mr-1"
+          variants={{
+            hidden: { opacity: 0, y: 5 },
+            visible: { opacity: 1, y: 0, transition: springs.gentle as any }
+          }}
+        >
+          {word}
+        </motion.span>
+      ))}
+    </motion.div>
+  );
+};
 
 interface AgentDiagnosticsProps {
   plan: any;
@@ -29,129 +59,137 @@ const AgentDiagnostics: React.FC<AgentDiagnosticsProps> = ({
   if (!plan && (!tools || tools.length === 0)) return null;
 
   return (
-    <div className="mt-3 p-3.5 bg-black/40 border border-white/5 rounded-2xl text-[11px] text-gray-300 space-y-3 font-sans shadow-inner backdrop-blur-md w-full animate-in fade-in duration-300">
-      {/* Plan Header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-2">
-        <div className="flex items-center gap-1.5 font-bold text-primary/95 text-[10px] uppercase tracking-wider">
-          <Cpu size={12} className={isStreaming ? "animate-spin text-primary" : "text-primary"} />
-          <span>Agent Execution Log</span>
-        </div>
-        {totalCandidates !== null && (
-          <div className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
-            {totalCandidates} Candidates
+    <motion.div
+      initial={{ height: 0, opacity: 0 }}
+      animate={{ height: 'auto', opacity: 1 }}
+      exit={{ height: 0, opacity: 0 }}
+      transition={springs.gentle as any}
+      className="mt-3 overflow-hidden w-full"
+    >
+      <div className="p-3.5 bg-black/40 border border-white/5 rounded-2xl text-[11px] text-gray-300 space-y-3 font-sans shadow-inner backdrop-blur-md w-full">
+        {/* Plan Header */}
+        <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex items-center gap-1.5 font-bold text-primary/95 text-[10px] uppercase tracking-wider">
+            <Cpu size={12} className={isStreaming ? "animate-spin text-primary" : "text-primary"} />
+            <span>Agent Execution Log</span>
           </div>
-        )}
-      </div>
-
-      {/* Plan Details */}
-      {plan && (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-1">
-            {plan.intent && (
-              <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-[9px] font-semibold text-gray-400">
-                Intent: {plan.intent}
-              </span>
-            )}
-            {plan.is_locked && (
-              <span className="bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-rose-400 flex items-center gap-1">
-                <Lock size={9} /> Locked
-              </span>
-            )}
-            {plan.refine_previous && (
-              <span className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-cyan-400">
-                Refinement
-              </span>
-            )}
-            {plan.ranking?.prefer_favorites && (
-              <span className="bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-pink-400 flex items-center gap-1">
-                <Heart size={9} fill="currentColor" /> Favorites
-              </span>
-            )}
-          </div>
-
-          {plan.entities && (
-            <div className="bg-white/[0.01] border border-white/5 p-2 rounded-lg space-y-1.5">
-              <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Extracted Entities</div>
-              <div className="grid grid-cols-1 gap-1.5">
-                {plan.entities.people && plan.entities.people.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 w-16 select-none shrink-0">People:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {plan.entities.people.map((p: string, i: number) => (
-                        <span key={i} className="bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded text-[9px] text-purple-300 font-semibold">{p}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {plan.entities.locations && plan.entities.locations.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 w-16 select-none shrink-0">Locations:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {plan.entities.locations.map((l: string, i: number) => (
-                        <span key={i} className="bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[9px] text-emerald-300 font-semibold">{l}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {plan.entities.events && plan.entities.events.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 w-16 select-none shrink-0">Events:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {plan.entities.events.map((e: string, i: number) => (
-                        <span key={i} className="bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-semibold">{e}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {plan.entities.objects && plan.entities.objects.length > 0 && (
-                  <div className="flex items-start gap-2">
-                    <span className="text-gray-500 w-16 select-none shrink-0">Objects:</span>
-                    <div className="flex flex-wrap gap-1">
-                      {plan.entities.objects.map((o: string, i: number) => (
-                        <span key={i} className="bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded text-[9px] text-blue-300 font-semibold">{o}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {plan.entities.time_range && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-500 w-16 select-none shrink-0">Time Range:</span>
-                    <span className="bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded text-[9px] text-teal-300 font-semibold">{plan.entities.time_range}</span>
-                  </div>
-                )}
-              </div>
+          {totalCandidates !== null && (
+            <div className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+              {totalCandidates} Candidates
             </div>
           )}
         </div>
-      )}
 
-      {/* Tool Invocations */}
-      {tools && tools.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Tool Execution Timeline</div>
-          <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
-            {tools.map((t, idx) => (
-              <div key={idx} className="bg-black/30 border border-white/5 rounded-lg p-2 space-y-1">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 bg-primary rounded-full shrink-0" />
-                    <span className="font-mono text-[9px] font-bold text-white truncate max-w-[150px]">{t.name}</span>
-                  </div>
-                  <span className="text-[8px] font-semibold text-primary/80 bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 shrink-0">
-                    {t.count} matches
-                  </span>
+        {/* Plan Details */}
+        {plan && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {plan.intent && (
+                <span className="bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-[9px] font-semibold text-gray-400">
+                  Intent: {plan.intent}
+                </span>
+              )}
+              {plan.is_locked && (
+                <span className="bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-rose-400 flex items-center gap-1">
+                  <Lock size={9} /> Locked
+                </span>
+              )}
+              {plan.refine_previous && (
+                <span className="bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-cyan-400">
+                  Refinement
+                </span>
+              )}
+              {plan.ranking?.prefer_favorites && (
+                <span className="bg-pink-500/10 border border-pink-500/20 px-2 py-0.5 rounded-md text-[9px] font-semibold text-pink-400 flex items-center gap-1">
+                  <Heart size={9} fill="currentColor" /> Favorites
+                </span>
+              )}
+            </div>
+
+            {plan.entities && (
+              <div className="bg-white/[0.01] border border-white/5 p-2 rounded-lg space-y-1.5">
+                <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Extracted Entities</div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {plan.entities.people && plan.entities.people.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 w-16 select-none shrink-0">People:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {plan.entities.people.map((p: string, i: number) => (
+                          <span key={i} className="bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded text-[9px] text-purple-300 font-semibold">{p}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {plan.entities.locations && plan.entities.locations.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 w-16 select-none shrink-0">Locations:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {plan.entities.locations.map((l: string, i: number) => (
+                          <span key={i} className="bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded text-[9px] text-emerald-300 font-semibold">{l}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {plan.entities.events && plan.entities.events.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 w-16 select-none shrink-0">Events:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {plan.entities.events.map((e: string, i: number) => (
+                          <span key={i} className="bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-semibold">{e}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {plan.entities.objects && plan.entities.objects.length > 0 && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-500 w-16 select-none shrink-0">Objects:</span>
+                      <div className="flex flex-wrap gap-1">
+                        {plan.entities.objects.map((o: string, i: number) => (
+                          <span key={i} className="bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded text-[9px] text-blue-300 font-semibold">{o}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {plan.entities.time_range && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-500 w-16 select-none shrink-0">Time Range:</span>
+                      <span className="bg-teal-500/10 border border-teal-500/20 px-1.5 py-0.5 rounded text-[9px] text-teal-300 font-semibold">{plan.entities.time_range}</span>
+                    </div>
+                  )}
                 </div>
-                {t.params && Object.keys(t.params).length > 0 && (
-                  <pre className="text-[8px] font-mono text-gray-400 bg-black/25 p-1 rounded overflow-x-auto custom-scrollbar leading-tight border border-white/[0.02]">
-                    {JSON.stringify(t.params)}
-                  </pre>
-                )}
               </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* Tool Invocations */}
+        {tools && tools.length > 0 && (
+          <div className="space-y-1.5">
+            <div className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Tool Execution Timeline</div>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-0.5">
+              {tools.map((t, idx) => (
+                <div key={idx} className="bg-black/30 border border-white/5 rounded-lg p-2 space-y-1">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 bg-primary rounded-full shrink-0" />
+                      <span className="font-mono text-[9px] font-bold text-white truncate max-w-[150px]">{t.name}</span>
+                    </div>
+                    <span className="text-[8px] font-semibold text-primary/80 bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10 shrink-0">
+                      {t.count} matches
+                    </span>
+                  </div>
+                  {t.params && Object.keys(t.params).length > 0 && (
+                    <pre className="text-[8px] font-mono text-gray-400 bg-black/25 p-1 rounded overflow-x-auto custom-scrollbar leading-tight border border-white/[0.02]">
+                      {JSON.stringify(t.params)}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 };
 
@@ -183,7 +221,11 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const scrollElement = scrollRef.current;
+      scrollElement.scrollTo({
+        top: scrollElement.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, [messages, isLoading]);
 
@@ -333,9 +375,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
       <div className="w-[450px] border-r border-white/5 flex flex-col h-full bg-black/20 backdrop-blur-md">
         {/* Chat Title / Banner */}
         <div className="p-6 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
-            <Bot size={22} className="animate-pulse" />
-          </div>
+          <AgentLogo className="scale-75" />
           <div>
             <h2 className="text-md font-bold text-white tracking-wide">Prism AI Assistant</h2>
             <p className="text-[11px] text-gray-400 font-medium">Completely offline neural search helper</p>
@@ -348,7 +388,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
             <div key={idx} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-primary">
-                  <Bot size={16} />
+                  <AgentLogo className="scale-[0.4]" />
                 </div>
               )}
               <div className={`flex flex-col gap-2 max-w-[80%] ${m.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
@@ -357,7 +397,7 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
                     ? 'bg-primary text-black font-semibold rounded-tr-none shadow-[0_4px_20px_rgba(var(--color-primary),0.15)]' 
                     : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-none'
                 }`}>
-                  {m.content}
+                  <MessageReveal text={m.content} role={m.role} />
                 </div>
                 {m.role === 'assistant' && (m.plan || (m.tools && m.tools.length > 0)) && (
                   <div className="w-full">
@@ -369,13 +409,15 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
                       <span>{expandedLogs[idx] ? 'Hide execution details' : 'Show execution details'}</span>
                       {expandedLogs[idx] ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                     </button>
-                    {expandedLogs[idx] && (
-                      <AgentDiagnostics
-                        plan={m.plan}
-                        tools={m.tools || []}
-                        totalCandidates={m.totalCandidates || null}
-                      />
-                    )}
+                    <AnimatePresence>
+                      {expandedLogs[idx] && (
+                        <AgentDiagnostics
+                          plan={m.plan}
+                          tools={m.tools || []}
+                          totalCandidates={m.totalCandidates || null}
+                        />
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
               </div>
@@ -390,26 +432,40 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
           {isLoading && (
             <div className="flex gap-4 justify-start">
               <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-primary">
-                <Bot size={16} />
+                <AgentLogo className="scale-[0.4]" />
               </div>
               <div className="bg-white/5 p-4 rounded-2xl rounded-tl-none border border-white/5 flex flex-col gap-2 max-w-[80%] items-start w-full">
                 <div className="flex gap-1.5 items-center">
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.2s]" />
-                  <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:0.4s]" />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 1 }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 1, delay: 0.2 }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+                    transition={{ repeat: Infinity, duration: 1, delay: 0.4 }}
+                    className="w-2 h-2 bg-primary rounded-full" 
+                  />
                   <span className="text-[11px] font-semibold text-primary/80 uppercase tracking-widest ml-1">AI Thinking</span>
                 </div>
                 <p className="text-xs text-gray-400 font-medium italic animate-pulse">
                   {progressDetail || "Formulating search strategy..."}
                 </p>
-                {(currentPlan || (currentTools && currentTools.length > 0)) && (
-                  <AgentDiagnostics
-                    plan={currentPlan}
-                    tools={currentTools}
-                    totalCandidates={totalCandidates}
-                    isStreaming={true}
-                  />
-                )}
+                <AnimatePresence>
+                  {(currentPlan || (currentTools && currentTools.length > 0)) && (
+                    <AgentDiagnostics
+                      plan={currentPlan}
+                      tools={currentTools}
+                      totalCandidates={totalCandidates}
+                      isStreaming={true}
+                    />
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           )}
@@ -421,14 +477,17 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
             {SUGGESTIONS.map((s, idx) => {
               const Icon = s.icon;
               return (
-                <button
+                <motion.button
                   key={idx}
+                  whileHover={{ scale: motionTokens.scale.hover }}
+                   whileTap={{ scale: motionTokens.scale.press }}
+                  transition={springs.snappy as any}
                   onClick={() => handleSend(s.text)}
                   className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full border transition-all duration-300 ${s.color}`}
                 >
                   <Icon size={12} />
                   <span>{s.text}</span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -445,13 +504,16 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
               placeholder="Ask Prism to find something..."
               className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-4 pr-14 text-sm focus:outline-none focus:border-primary/50 transition-colors text-white placeholder-gray-500 font-semibold"
             />
-            <button 
-              onClick={() => handleSend()}
+             <motion.button
+               whileHover={{ scale: 1.1 }}
+               whileTap={{ scale: 0.9 }}
+               transition={springs.snappy as any}
+               onClick={() => handleSend()}
               disabled={!input.trim() || isLoading}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 p-2.5 bg-primary text-black rounded-xl hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100 transition-all shadow-md"
             >
               <Send size={18} />
-            </button>
+            </motion.button>
           </div>
         </div>
       </div>
@@ -486,8 +548,9 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
                   <motion.div
                     key={photo.id}
                     layoutId={`agent-photo-${photo.id}`}
+                    whileHover={{ y: -4, borderColor: 'rgba(var(--color-primary), 0.2)' }}
                     onClick={() => onPhotoClick(photo)}
-                    className="aspect-square rounded-2xl overflow-hidden cursor-pointer hover:shadow-[0_8px_30px_rgba(0,0,0,0.5)] border border-white/5 relative group transition-all duration-300 hover:-translate-y-1 hover:border-primary/20 bg-surface/40"
+                    className="aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-lg border border-white/5 relative group transition-colors duration-300 bg-surface/40"
                   >
                     <img 
                       src={resolveUrl(photo.url)} 
@@ -523,11 +586,11 @@ export const AgentView: React.FC<AgentViewProps> = ({ onPhotoClick }) => {
                 className="h-full flex flex-col items-center justify-center text-center p-8 space-y-6"
               >
                 <div className="w-16 h-16 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-center shadow-inner text-primary relative">
-                  <Bot size={32} />
+                  <AgentLogo />
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full animate-ping opacity-75" />
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-primary rounded-full" />
                 </div>
-                <div className="max-w-md space-y-2">
+                <div className="max-max-w-md space-y-2">
                   <h4 className="text-white font-bold tracking-tight">Interactive Local Agent Index</h4>
                   <p className="text-sm text-gray-400 font-medium">
                     Type a query or tap a suggestion in the left pane. Prism's local engine will scour metadata, tags, years, and favorites to instantly render matching results right here.

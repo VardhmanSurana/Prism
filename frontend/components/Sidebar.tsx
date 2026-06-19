@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ViewMode } from '../types';
 import { useStats } from '../hooks/useStats';
+import { GlassMaterial, GlassEffectContainer } from './GlassMaterial';
 
 // Data
 
@@ -76,18 +77,20 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView,
       {isActive && (
         <motion.div
           layoutId="activeIndicator"
-          className="absolute left-2 w-1.5 h-1.5 bg-primary rounded-full shadow-[0_0_10px_rgba(var(--color-primary),0.8)]"
+          className="absolute inset-y-1.5 left-2 right-2 bg-white/[0.05] rounded-xl border border-white/5 shadow-inner"
           transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-        />
+        >
+           <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-full blur-[1px]" />
+        </motion.div>
       )}
-      <Icon size={18} className={`transition-all duration-300 ${isActive ? 'text-primary' : 'group-hover:text-primary/50'}`} />
-      <span className={`tracking-tight ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+      <Icon size={18} className={`transition-all duration-300 relative z-10 ${isActive ? 'text-primary' : 'group-hover:text-primary/50'}`} />
+      <span className={`tracking-tight relative z-10 ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
     </button>
   );
 };
 
 const SectionHeader: React.FC<{ label: string }> = ({ label }) => (
-  <div className="px-6 pt-10 pb-3 text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.3em]">
+  <div className="px-6 pt-10 pb-3 text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.3em] relative z-20">
     {label}
   </div>
 );
@@ -113,59 +116,60 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView }) =
   };
 
   return (
-    <aside className="w-64 h-screen bg-surface/50 backdrop-blur-3xl border-r border-white-[0.03] flex flex-col shrink-0 z-30">
-      <div className="h-20 flex items-center px-8 gap-3">
-        <div className="w-9 h-9 bg-black border border-white/10 rounded-full flex items-center justify-center text-white shadow-2xl">
-          <Sparkles size={18} className="text-primary animate-pulse" />
+    <aside className="w-64 h-screen bg-transparent flex flex-col shrink-0 z-30 relative">
+      <GlassMaterial intensity="prominent" borderRadius="0" className="h-full border-r border-white-[0.03] shadow-2xl">
+        <div className="h-20 flex items-center px-8 gap-3 relative z-20">
+          <div className="w-9 h-9 bg-black border border-white/10 rounded-full flex items-center justify-center text-white shadow-2xl">
+            <Sparkles size={18} className="text-primary animate-pulse" />
+          </div>
+          <span className="text-2xl font-serif italic tracking-wide text-white">Prism</span>
         </div>
-        <span className="text-2xl font-serif italic tracking-wide text-white">Prism</span>
-      </div>
 
-      <div className="flex-1 overflow-y-auto py-2 custom-scrollbar">
-        {MAIN_NAV.map(item => (
-          <NavItem 
-            key={item.view} 
-            {...item} 
-            currentView={currentView} 
-            onChangeView={onChangeView} 
-            onMouseEnter={item.view === 'agent' ? handlePreloadAgent : undefined}
-          />
-        ))}
+        <div className="flex-1 overflow-y-auto py-2 custom-scrollbar relative z-20">
+          <GlassEffectContainer>
+            {MAIN_NAV.map(item => (
+              <NavItem 
+                key={item.view} 
+                {...item} 
+                currentView={currentView} 
+                onChangeView={onChangeView} 
+                onMouseEnter={item.view === 'agent' ? handlePreloadAgent : undefined}
+              />
+            ))}
 
-        <SectionHeader label="Library" />
-        {LIBRARY_NAV.map(item => (
-          <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
-        ))}
+            <SectionHeader label="Library" />
+            {LIBRARY_NAV.map(item => (
+              <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
+            ))}
 
-        <SectionHeader label="Utilities" />
-        {UTILITY_NAV.map(item => (
-          <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
-        ))}
-      </div>
-
-      <div className="p-6 border-t border-border">
-        <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
-          <HardDrive size={16} />
-          <span>Storage</span>
+            <SectionHeader label="Utilities" />
+            {UTILITY_NAV.map(item => (
+              <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
+            ))}
+          </GlassEffectContainer>
         </div>
-        <div className="w-full bg-gray-800 rounded-full h-1.5 mb-2 overflow-hidden">
-          {totalBytes > 0 && (
-            <motion.div
-              className="bg-primary h-1.5 rounded-full"
-              initial={{ width: 0 }}
-              animate={{ width: '100%' }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
-            />
-          )}
+
+        <div className="px-4 pb-8 relative z-20">
+          <GlassMaterial 
+            intensity="subtle" 
+            interactive 
+            borderRadius="1.25rem" 
+            className="p-4 group cursor-default"
+          >
+            <div className="flex items-center gap-2 text-sm text-gray-300 mb-1.5 transition-colors duration-300 group-hover:text-white">
+              <HardDrive size={16} className="text-gray-500 group-hover:text-primary transition-colors duration-300" />
+              <span className="font-medium">Storage</span>
+            </div>
+            <div className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors duration-300">
+              {totalBytes === 0
+                ? stats === null
+                  ? 'Calculating…'
+                  : 'No media stored yet'
+                : `${usedLabel} used`}
+            </div>
+          </GlassMaterial>
         </div>
-        <div className="text-xs text-gray-500">
-          {totalBytes === 0
-            ? stats === null
-              ? 'Calculating…'
-              : 'No media stored yet'
-            : `${usedLabel} used`}
-        </div>
-      </div>
+      </GlassMaterial>
     </aside>
   );
 };

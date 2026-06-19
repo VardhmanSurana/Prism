@@ -174,7 +174,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex flex-col bg-[#050505] overflow-hidden theme-orange"
+      className="fixed inset-0 z-50 flex flex-col bg-[#050505] overflow-hidden"
     >
       <Toolbar
         photo={photo}

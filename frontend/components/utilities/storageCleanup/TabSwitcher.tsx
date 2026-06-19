@@ -7,22 +7,23 @@ interface TabSwitcherProps {
 }
 
 const TABS: { id: CleanupTab; label: string }[] = [
-  { id: 'blurry', label: 'blurry' },
-  { id: 'duplicates', label: 'duplicates' },
-  { id: 'documents', label: 'documents' }
+  { id: 'blurry', label: 'Blurry' },
+  { id: 'duplicates', label: 'Duplicates' },
+  { id: 'documents', label: 'Documents' }
 ];
 
 export const TabSwitcher: React.FC<TabSwitcherProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="flex items-center gap-2 bg-[#0a0a0a] p-1 rounded-2xl border border-white/5 max-w-md">
+    <div className="flex gap-1 bg-[#050505] border border-[#23252a] rounded-xl p-1 w-fit">
       {TABS.map((tab) => (
         <button
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
-          className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider rounded-xl transition-all duration-300
-            ${activeTab === tab.id 
-              ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/10' 
-              : 'text-gray-400 hover:text-white'}`}
+          className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
+            activeTab === tab.id
+              ? 'bg-[#141516] text-[#d0d6e0] border border-[#23252a]'
+              : 'text-[#62666d] hover:text-[#8a8f98] border border-transparent'
+          }`}
         >
           {tab.label}
         </button>
