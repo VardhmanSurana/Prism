@@ -31,7 +31,7 @@ import { FramesPanel } from './FramesPanel';
 import { BlendPanel } from './BlendPanel';
 import { TiltShiftPanel } from './TiltShiftPanel';
 import { PalettePanel } from './PalettePanel';
-import { AnnotationsPanel, Annotation } from './AnnotationsPanel';
+import { AnnotationsPanel, Annotation, DrawToolId } from './AnnotationsPanel';
 
 import { HistoryEntry, HistoryActionType, createHistoryEntry } from './history';
 import { API_BASE, resolveUrl } from '../../constants';
@@ -117,13 +117,54 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   
   // Annotations state
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
-  const [activeDrawTool, setActiveDrawTool] = useState<'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter'>('freehand');
+  const [activeDrawTool, setActiveDrawTool] = useState<DrawToolId>('freehand');
   const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
   const [activeColor, setActiveColor] = useState<string>('#ef4444');
   const [activeOpacity, setActiveOpacity] = useState<number>(1);
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const userChangedStyleRef = useRef(false);
 
+  // Text layer settings state
+  const [fontFamily, setFontFamily] = useState<string>('Space Grotesk');
+  const [fontSize, setFontSize] = useState<number>(36);
+  const [fontWeight, setWeight] = useState<'normal' | 'bold'>('bold');
+  const [fontStyle, setStyle] = useState<'normal' | 'italic'>('normal');
+  const [textDecoration, setDecoration] = useState<'none' | 'underline' | 'line-through'>('none');
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center');
+  const [lineHeight, setLineHeight] = useState<number>(1.2);
+  const [letterSpacing, setLetterSpacing] = useState<number>(0);
+
+  // Text doodle settings state
+  const [doodleText, setDoodleText] = useState<string>('peace in the air');
+  const [doodleFontSize, setDoodleFontSize] = useState<number>(18);
+  const [doodleFontFamily, setDoodleFontFamily] = useState<string>('Space Grotesk');
+  const [showDoodleGuide, setShowDoodleGuide] = useState<boolean>(true);
+
+  // Synchronize sidebar state when selected annotation changes
+  useEffect(() => {
+    if (selectedAnnId) {
+      const selected = annotations.find(a => a.id === selectedAnnId);
+      if (selected && selected.type === 'text') {
+        setFontFamily(selected.fontFamily || 'Space Grotesk');
+        setFontSize(selected.fontSize || 36);
+        setWeight(selected.fontWeight || 'normal');
+        setStyle(selected.fontStyle || 'normal');
+        setDecoration(selected.textDecoration || 'none');
+        setTextAlign(selected.textAlign || 'center');
+        setLineHeight(selected.lineHeight || 1.2);
+        setLetterSpacing(selected.letterSpacing || 0);
+      }
+    }
+  }, [selectedAnnId, annotations]);
+
+  const onUpdateTextProps = useCallback((updatedProps: Partial<Annotation>) => {
+    if (!selectedAnnId) return;
+    setAnnotations(prev =>
+      prev.map(ann =>
+        ann.id === selectedAnnId ? { ...ann, ...updatedProps } : ann
+      )
+    );
+  }, [selectedAnnId]);
 
   const [adjustments,     setAdjustments]     = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
   const [flipH,           setFlipH]           = useState<boolean>(false);
@@ -266,6 +307,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       previousStraightenRef.current = 0;
       previousFlipHRef.current = false;
       previousFlipVRef.current = false;
+      setAnnotations([]);
       
       lastPhotoIdRef.current = photoId;
     } else {
@@ -431,6 +473,14 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       previousFlipVRef.current = flipV;
     }
   }, [flipV, addHistoryEntry]);
+
+  // Track annotation changes (No history entries for annotations as per user request)
+  useEffect(() => {
+    if (isRestoringHistory.current) return;
+    if (JSON.stringify(annotations) !== JSON.stringify(previousAnnotationsRef.current)) {
+      previousAnnotationsRef.current = [...annotations];
+    }
+  }, [annotations]);
 
   const revokeLocalUrl = () => {
     if (createdUrlRef.current) {
@@ -684,8 +734,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     revokeLocalUrl();
     setCurrentImageSrc(recomposed.imageSrc);
     setAdjustments(recomposed.adjustments);
-    setAnnotations(recomposed.annotations || []);
-    previousAnnotationsRef.current = recomposed.annotations ? [...recomposed.annotations] : [];
+    // Annotations are kept persistent across adjustment history jumps as they are managed separately
     previousAdjustmentsRef.current = { ...recomposed.adjustments };
     previousRotationRef.current = recomposed.rotation;
     previousStraightenRef.current = recomposed.straightenAngle;
@@ -1104,8 +1153,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             <AnnotationsPanel
               annotations={annotations}
               onChange={setAnnotations}
-              activeDrawTool={activeDrawTool as any}
-              setActiveDrawTool={setActiveDrawTool as any}
+              activeDrawTool={activeDrawTool}
+              setActiveDrawTool={setActiveDrawTool}
               activeColor={activeColor}
               setActiveColor={setActiveColor}
               strokeWidth={strokeWidth}
@@ -1115,6 +1164,33 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               activeOpacity={activeOpacity}
               setActiveOpacity={setActiveOpacity}
               markStyleChanged={() => { userChangedStyleRef.current = true; }}
+
+              fontFamily={fontFamily}
+              setFontFamily={setFontFamily}
+              fontSize={fontSize}
+              setFontSize={setFontSize}
+              fontWeight={fontWeight}
+              setWeight={setWeight}
+              fontStyle={fontStyle}
+              setStyle={setStyle}
+              textDecoration={textDecoration}
+              setDecoration={setDecoration}
+              textAlign={textAlign}
+              setTextAlign={setTextAlign}
+              lineHeight={lineHeight}
+              setLineHeight={setLineHeight}
+              letterSpacing={letterSpacing}
+              setLetterSpacing={setLetterSpacing}
+              onUpdateTextProps={onUpdateTextProps}
+
+              doodleText={doodleText}
+              setDoodleText={setDoodleText}
+              doodleFontSize={doodleFontSize}
+              setDoodleFontSize={setDoodleFontSize}
+              doodleFontFamily={doodleFontFamily}
+              setDoodleFontFamily={setDoodleFontFamily}
+              showDoodleGuide={showDoodleGuide}
+              setShowDoodleGuide={setShowDoodleGuide}
             />
           )}
 
@@ -1165,12 +1241,40 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           maskOpacity={inpaintSettings.maskOpacity}
           annotations={annotations}
           onAnnotationsChange={setAnnotations}
-          activeDrawTool={activeDrawTool as any}
+          activeDrawTool={activeDrawTool}
+          setActiveDrawTool={setActiveDrawTool}
           activeColor={activeColor}
           strokeWidth={strokeWidth}
           selectedAnnId={selectedAnnId}
           setSelectedAnnId={setSelectedAnnId}
           userChangedStyleRef={userChangedStyleRef}
+
+          fontFamily={fontFamily}
+          setFontFamily={setFontFamily}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          fontWeight={fontWeight}
+          setWeight={setWeight}
+          fontStyle={fontStyle}
+          setStyle={setStyle}
+          textDecoration={textDecoration}
+          setDecoration={setDecoration}
+          textAlign={textAlign}
+          setTextAlign={setTextAlign}
+          lineHeight={lineHeight}
+          setLineHeight={setLineHeight}
+          letterSpacing={letterSpacing}
+          setLetterSpacing={setLetterSpacing}
+          onUpdateTextProps={onUpdateTextProps}
+
+          doodleText={doodleText}
+          setDoodleText={setDoodleText}
+          doodleFontSize={doodleFontSize}
+          setDoodleFontSize={setDoodleFontSize}
+          doodleFontFamily={doodleFontFamily}
+          setDoodleFontFamily={setDoodleFontFamily}
+          showDoodleGuide={showDoodleGuide}
+          setShowDoodleGuide={setShowDoodleGuide}
           />
 
         <HistoryPanel

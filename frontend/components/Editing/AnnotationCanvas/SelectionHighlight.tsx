@@ -6,10 +6,9 @@ import { HandleId } from './types';
 interface SelectionHighlightProps {
   annotation: Annotation;
   onHandleStart?: (handleId: HandleId, e: React.PointerEvent) => void;
-  onRotateStart?: (e: React.PointerEvent) => void;
 }
 
-export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotation, onHandleStart, onRotateStart }) => {
+export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotation, onHandleStart }) => {
   const bbox = getAnnotationBBox(annotation);
   const isArrow = annotation.type === 'arrow';
 
@@ -18,12 +17,7 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
     onHandleStart?.(handleId, e);
   };
 
-  const handleRotateMouseDown = (e: React.PointerEvent) => {
-    e.preventDefault();
-    onRotateStart?.(e);
-  };
-
-  const HANDLE_R = 4;
+  const HANDLE_R = 5;
 
   const renderEndpointHandles = () => {
     if (!annotation.points || annotation.points.length < 2) return null;
@@ -34,13 +28,13 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
       <>
         <circle
           cx={p0.x} cy={p0.y} r={HANDLE_R}
-          fill="white" stroke="#84cc16" strokeWidth={2}
+          fill="white" stroke="#22c55e" strokeWidth={2}
           style={{ cursor: 'grab' }}
           onPointerDown={handleMouseDown('ep0')}
         />
         <circle
           cx={p1.x} cy={p1.y} r={HANDLE_R}
-          fill="white" stroke="#84cc16" strokeWidth={2}
+          fill="white" stroke="#22c55e" strokeWidth={2}
           style={{ cursor: 'grab' }}
           onPointerDown={handleMouseDown('ep1')}
         />
@@ -48,86 +42,79 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
     );
   };
 
-  const renderEdgeHandles = () => {
-    const minDim = 20;
-    const showTopBottom = bbox.h >= minDim;
-    const showLeftRight = bbox.w >= minDim;
+  const renderResizeHandles = () => {
+    const cornerSize = 6;
 
     return (
       <>
-        {showTopBottom && (
-          <>
-            <circle
-              cx={bbox.x + bbox.w / 2} cy={bbox.y} r={HANDLE_R}
-              fill="white" stroke="#84cc16" strokeWidth={2}
-              style={{ cursor: 'ns-resize' }}
-              onPointerDown={handleMouseDown('tm')}
-            />
-            <circle
-              cx={bbox.x + bbox.w / 2} cy={bbox.y + bbox.h} r={HANDLE_R}
-              fill="white" stroke="#84cc16" strokeWidth={2}
-              style={{ cursor: 'ns-resize' }}
-              onPointerDown={handleMouseDown('bm')}
-            />
-          </>
-        )}
-        {showLeftRight && (
-          <>
-            <circle
-              cx={bbox.x} cy={bbox.y + bbox.h / 2} r={HANDLE_R}
-              fill="white" stroke="#84cc16" strokeWidth={2}
-              style={{ cursor: 'ew-resize' }}
-              onPointerDown={handleMouseDown('lm')}
-            />
-            <circle
-              cx={bbox.x + bbox.w} cy={bbox.y + bbox.h / 2} r={HANDLE_R}
-              fill="white" stroke="#84cc16" strokeWidth={2}
-              style={{ cursor: 'ew-resize' }}
-              onPointerDown={handleMouseDown('rm')}
-            />
-          </>
-        )}
+        {/* Corner handles — circles */}
+        <rect
+          x={bbox.x - cornerSize / 2} y={bbox.y - cornerSize / 2}
+          width={cornerSize} height={cornerSize}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'nwse-resize' }}
+          onPointerDown={handleMouseDown('tl')}
+        />
+        <rect
+          x={bbox.x + bbox.w - cornerSize / 2} y={bbox.y - cornerSize / 2}
+          width={cornerSize} height={cornerSize}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'nesw-resize' }}
+          onPointerDown={handleMouseDown('tr')}
+        />
+        <rect
+          x={bbox.x - cornerSize / 2} y={bbox.y + bbox.h - cornerSize / 2}
+          width={cornerSize} height={cornerSize}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'nesw-resize' }}
+          onPointerDown={handleMouseDown('bl')}
+        />
+        <rect
+          x={bbox.x + bbox.w - cornerSize / 2} y={bbox.y + bbox.h - cornerSize / 2}
+          width={cornerSize} height={cornerSize}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'nwse-resize' }}
+          onPointerDown={handleMouseDown('br')}
+        />
+
+        {/* Side pill handles — left-middle, right-middle */}
+        <rect
+          x={bbox.x - 3} y={bbox.y + bbox.h / 2 - 6}
+          width={6} height={12}
+          rx={3} ry={3}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'ew-resize' }}
+          onPointerDown={handleMouseDown('lm')}
+        />
+        <rect
+          x={bbox.x + bbox.w - 3} y={bbox.y + bbox.h / 2 - 6}
+          width={6} height={12}
+          rx={3} ry={3}
+          fill="white" stroke="#22c55e" strokeWidth={2}
+          style={{ cursor: 'ew-resize' }}
+          onPointerDown={handleMouseDown('rm')}
+        />
       </>
     );
   };
 
   return (
     <g>
-      {/* Selection bounding box */}
+      {/* Selection bounding box — solid border with shadow */}
       <rect
-        x={bbox.x - 5}
-        y={bbox.y - 5}
-        width={bbox.w + 10}
-        height={bbox.h + 10}
+        x={bbox.x}
+        y={bbox.y}
+        width={bbox.w}
+        height={bbox.h}
         fill="none"
-        stroke="#84cc16"
-        strokeWidth={1.5}
-        strokeDasharray="4 4"
+        stroke="#22c55e"
+        strokeWidth={2}
         pointerEvents="none"
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.4))' }}
       />
 
       {/* Type-specific handles */}
-      {isArrow ? renderEndpointHandles() : renderEdgeHandles()}
-
-      {/* Rotate handle */}
-      <g onPointerDown={handleRotateMouseDown}>
-        <line
-          x1={bbox.x + bbox.w / 2}
-          y1={bbox.y - 5}
-          x2={bbox.x + bbox.w / 2}
-          y2={bbox.y - 22}
-          stroke="#84cc16"
-          strokeWidth={1.5}
-          pointerEvents="none"
-        />
-        <circle
-          cx={bbox.x + bbox.w / 2}
-          cy={bbox.y - 26}
-          r={HANDLE_R}
-          fill="white" stroke="#84cc16" strokeWidth={2}
-          style={{ cursor: 'grab' }}
-        />
-      </g>
+      {isArrow ? renderEndpointHandles() : renderResizeHandles()}
     </g>
   );
 };

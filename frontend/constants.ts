@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-export const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
+export const DEFAULT_API_BASE = 'http://127.0.0.1:8269';
 export const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_API_BASE;
 
 export const resolveUrl = (url: string) => {

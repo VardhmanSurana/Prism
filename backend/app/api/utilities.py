@@ -14,6 +14,9 @@ from app.db import engine
 import os
 import cv2
 from typing import List
+import time
+import logging
+import traceback
 
 from app.db import get_db
 from app.models import Photo
@@ -31,7 +34,6 @@ async def get_blurry_photos(
     offset: int = 0,
     db: AsyncSession = Depends(get_db)
 ):
-    # Query database directly for photos with blur_score below threshold (100.0)
     active_mounts = list(sync_service.active_mounts)
     stmt = select(Photo).where(
         Photo.is_locked == False,
@@ -268,16 +270,24 @@ class ListDirRequest(BaseModel):
 async def list_directory_contents(req: ListDirRequest):
     path_str = req.path
     show_hidden = req.show_hidden
-    
+
+    logger = logging.getLogger("prism.list-dir")
+    req_start = time.time()
+    req_id = f"list-dir:{int(req_start * 1000)}"
+
     # If no path is specified, default to user's home directory
     if not path_str:
         path_str = str(Path.home())
-        
+
+    resolved_path = None
     # Check if the path is valid and within allowed boundaries
     try:
+        logger.info(f"[{req_id}] start path_str={path_str!r} show_hidden={show_hidden}")
         resolved_path = safe_resolve_read(path_str)
+        logger.info(f"[{req_id}] resolved_path={str(resolved_path)!r}")
     except HTTPException:
         # If access is denied, instead of throwing an error, we return the allowed roots list
+        logger.warning(f"[{req_id}] safe_resolve_read denied for path_str={path_str!r}; returning allowed roots")
         roots = get_allowed_read_roots()
         folders = []
         for r in roots:
@@ -295,22 +305,33 @@ async def list_directory_contents(req: ListDirRequest):
             "files": [],
             "is_root": True
         }
-        
+
     # Ensure it exists and is a directory
     if not resolved_path.exists():
+        logger.error(f"[{req_id}] resolved_path does not exist: {str(resolved_path)!r}")
         raise HTTPException(status_code=404, detail="Path not found")
     if not resolved_path.is_dir():
+        logger.error(f"[{req_id}] resolved_path not a dir: {str(resolved_path)!r}")
         raise HTTPException(status_code=400, detail="Path is not a directory")
-        
+
     folders = []
     files = []
-    
+
+    scan_start = time.time()
     try:
+        logger.info(f"[{req_id}] scandir begin: {str(resolved_path)!r}")
+        scandir_iter_start = time.time()
+
+        scandir_entry_count = 0
+        matched_hidden_skipped = 0
+
         for entry in os.scandir(resolved_path):
+            scandir_entry_count += 1
             is_hidden = entry.name.startswith('.')
             if is_hidden and not show_hidden:
+                matched_hidden_skipped += 1
                 continue
-                
+
             if entry.is_dir(follow_symlinks=False):
                 folders.append({
                     "name": entry.name,
@@ -327,12 +348,27 @@ async def list_directory_contents(req: ListDirRequest):
                     "size_bytes": entry.stat().st_size,
                     "is_image": is_supported_image
                 })
+
+        scan_ms = int((time.time() - scan_start) * 1000)
+        iter_ms = int((time.time() - scandir_iter_start) * 1000)
+        logger.info(
+            f"[{req_id}] scandir end: {str(resolved_path)!r} "
+            f"scan_ms={scan_ms} iter_ms={iter_ms} entries_seen={scandir_entry_count} "
+            f"hidden_skipped={matched_hidden_skipped} folders={len(folders)} files={len(files)}"
+        )
     except PermissionError:
+        logger.exception(f"[{req_id}] PermissionError scanning directory: {str(resolved_path)!r}")
         raise HTTPException(status_code=403, detail="Permission denied to access directory")
-        
+    except Exception as e:
+        logger.error(f"[{req_id}] Unexpected error scanning directory: {str(resolved_path)!r}: {e!r}")
+        logger.error(traceback.format_exc())
+        raise
+
     # Sort folders and files alphabetically (case-insensitive)
     folders.sort(key=lambda x: x["name"].lower())
     files.sort(key=lambda x: x["name"].lower())
+
+    logger.info(f"[{req_id}] sorting done folders={len(folders)} files={len(files)} total_ms={int((time.time() - req_start) * 1000)}")
     
     # Determine the parent path
     # If the current path is one of the allowed roots, or its parent is not relative to any allowed root, parent_path should go to the roots list ("")

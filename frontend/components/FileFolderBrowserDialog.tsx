@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -59,6 +60,8 @@ export const FileFolderBrowserDialog: React.FC = () => {
   // Helpers
   const [homePath, setHomePath] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const showHiddenRef = useRef(showHidden);
+  showHiddenRef.current = showHidden;
 
   // Register with Global Service
   useEffect(() => {
@@ -68,15 +71,14 @@ export const FileFolderBrowserDialog: React.FC = () => {
       setPreviewFile(null);
       setResizeWidth(undefined);
       setSearchQuery('');
-      // Reset path or initialize to home
       setCurrentPath('');
-      fetchDirectory('', showHidden);
+      fetchDirectory('', showHiddenRef.current);
     });
 
     return () => {
       unregisterBrowserCallback();
     };
-  }, [showHidden]);
+  }, []);
 
   // Fetch folders and files from backend
   const fetchDirectory = async (path: string, showHiddenFiles: boolean) => {
@@ -85,13 +87,14 @@ export const FileFolderBrowserDialog: React.FC = () => {
     setPreviewFile(null);
     setDimensions(null);
     setImgLoading(true);
+
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/list-dir`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: path || null, show_hidden: showHiddenFiles })
       });
-      
+
       if (res.ok) {
         const data = await res.json();
         setCurrentPath(data.current_path);
@@ -99,7 +102,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
         setFolders(data.folders || []);
         setFiles(data.files || []);
         setIsRoot(data.is_root);
-        
+
         // Dynamically capture user's home directory if not set
         if (!homePath && data.current_path && !data.is_root) {
           const parts = data.current_path.split('/');
@@ -113,9 +116,8 @@ export const FileFolderBrowserDialog: React.FC = () => {
         const errData = await res.json();
         setError(errData.detail || 'Failed to list directory contents');
       }
-    } catch (err) {
-      console.error('Error listing directory:', err);
-      setError('Connection to backend failed');
+    } catch {
+      setError(`Connection to backend failed — is the backend running on port 8269?`);
     } finally {
       setIsLoading(false);
     }
@@ -255,7 +257,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
 
   // Local filtering
   const filteredFolders = folders.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
-  const filteredFiles = files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredFiles = files.filter(f => f.is_image && f.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   // Allowed shortcuts
   const shortcutList = [];
@@ -264,6 +266,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
     shortcutList.push({ name: 'Pictures', path: homePath + '/Pictures' });
     shortcutList.push({ name: 'Downloads', path: homePath + '/Downloads' });
   }
+  shortcutList.push({ name: 'External Drive', path: '/run/media/chotaxdon/New Volume' });
 
   // Generate local preview URL
   const getPreviewUrl = () => {

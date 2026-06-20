@@ -164,7 +164,8 @@ app.add_middleware(
     allow_origins=[
         "tauri://localhost",
         "http://tauri.localhost",
-        "http://localhost:3005",  # Tauri frontend dev URL
+        "http://localhost:3005",
+        "http://127.0.0.1:3005",  # Vite/Tauri frontend dev URL (127.0.0.1 variant)
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -362,4 +363,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8269, reload=True)

@@ -8,7 +8,7 @@ import { InpaintCanvas } from './InpaintCanvas';
 import { InpaintMode } from './InpaintPanel';
 import { ZoomControls } from './ZoomControls';
 import { AnnotationCanvas } from './AnnotationCanvas';
-import { Annotation } from './AnnotationsPanel';
+import { Annotation, DrawToolId } from './AnnotationsPanel';
 import { applyHslToImageData } from './hslEngine';
 import {
   applySplitToning,
@@ -48,12 +48,42 @@ interface CanvasAreaProps {
   // Annotations props
   annotations?: Annotation[];
   onAnnotationsChange?: (annotations: Annotation[]) => void;
-  activeDrawTool?: 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter';
+  activeDrawTool?: DrawToolId;
+  setActiveDrawTool?: (tool: DrawToolId) => void;
   activeColor?: string;
   strokeWidth?: number;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
   userChangedStyleRef?: React.MutableRefObject<boolean>;
+
+  // Text layer settings
+  fontFamily?: string;
+  setFontFamily?: (font: string) => void;
+  fontSize?: number;
+  setFontSize?: (size: number) => void;
+  fontWeight?: 'normal' | 'bold';
+  setWeight?: (w: 'normal' | 'bold') => void;
+  fontStyle?: 'normal' | 'italic';
+  setStyle?: (s: 'normal' | 'italic') => void;
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  setDecoration?: (d: 'none' | 'underline' | 'line-through') => void;
+  textAlign?: 'left' | 'center' | 'right';
+  setTextAlign?: (align: 'left' | 'center' | 'right') => void;
+  lineHeight?: number;
+  setLineHeight?: (val: number) => void;
+  letterSpacing?: number;
+  setLetterSpacing?: (val: number) => void;
+  onUpdateTextProps?: (updatedProps: Partial<Annotation>) => void;
+
+  // Text doodle settings
+  doodleText?: string;
+  setDoodleText?: (val: string) => void;
+  doodleFontSize?: number;
+  setDoodleFontSize?: (val: number) => void;
+  doodleFontFamily?: string;
+  setDoodleFontFamily?: (val: string) => void;
+  showDoodleGuide?: boolean;
+  setShowDoodleGuide?: (val: boolean) => void;
 }
 
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
@@ -78,15 +108,43 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   annotations = [],
   onAnnotationsChange = (_ann: Annotation[]): void => {},
   activeDrawTool = 'freehand',
+  setActiveDrawTool,
   activeColor = '#ef4444',
   strokeWidth = 4,
   selectedAnnId = null,
   setSelectedAnnId = (_id: string | null): void => {},
   userChangedStyleRef,
+
+  fontFamily,
+  setFontFamily,
+  fontSize,
+  setFontSize,
+  fontWeight,
+  setWeight,
+  fontStyle,
+  setStyle,
+  textDecoration,
+  setDecoration,
+  textAlign,
+  setTextAlign,
+  lineHeight,
+  setLineHeight,
+  letterSpacing,
+  setLetterSpacing,
+  onUpdateTextProps,
+  doodleText,
+  setDoodleText,
+  doodleFontSize,
+  setDoodleFontSize,
+  doodleFontFamily,
+  setDoodleFontFamily,
+  showDoodleGuide,
+  setShowDoodleGuide,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [currentMask, setCurrentMask] = React.useState<string | null>(null);
   const [imageRect, setImageRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const [isCtrlPressed, setIsCtrlPressed] = React.useState(false);
   const [zoomPercent, setZoomPercent] = React.useState(100);
 
   const [sourceImg, setSourceImg] = React.useState<HTMLImageElement | null>(null);
@@ -136,6 +194,51 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       active = false;
     };
   }, [adjustments.blend?.blendImageSrc]);
+
+  React.useEffect(() => {
+    if (activeTool !== 'annotations') {
+      setIsCtrlPressed(false);
+      return;
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(true);
+        const cropper = cropperRef.current?.cropper;
+        if (cropper) {
+          cropper.setDragMode('move');
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(false);
+        const cropper = cropperRef.current?.cropper;
+        if (cropper) {
+          cropper.setDragMode('none');
+        }
+      }
+    };
+
+    const handleBlur = () => {
+      setIsCtrlPressed(false);
+      const cropper = cropperRef.current?.cropper;
+      if (cropper) {
+        cropper.setDragMode('none');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [activeTool, cropperRef]);
 
   React.useEffect(() => {
     const canvas = liveCanvasRef.current;
@@ -428,7 +531,11 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       timeoutId = setTimeout(() => {
         const cropper = cropperRef.current?.cropper;
         if (cropper) {
-          (cropper as any).resize();
+          // Guard: cropper internals may not be mounted yet, causing "container.offsetWidth" crash
+          const innerContainer = (cropper as any).$container;
+          if (innerContainer && innerContainer.offsetWidth > 0) {
+            (cropper as any).resize();
+          }
         }
         updateImageRect();
       }, 50);
@@ -522,7 +629,10 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         cropBoxResizable={activeTool === 'transform'}
         center={activeTool === 'transform'}
         highlight={activeTool === 'transform'}
-        crop={handleCropEvent}
+        crop={() => {
+          handleCropEvent();
+          updateImageRect();
+        }}
         ready={onCropperReady}
         className={adjustments.vignette !== 0 && !isComparing ? 'with-vignette' : ''}
       />
@@ -571,18 +681,47 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             top: imageRect.top,
             width: imageRect.width,
             height: imageRect.height,
+            pointerEvents: isCtrlPressed ? 'none' : 'auto',
           }}
         >
           <AnnotationCanvas
             annotations={annotations}
             onChange={onAnnotationsChange}
             activeDrawTool={activeDrawTool}
+            setActiveDrawTool={setActiveDrawTool}
             activeColor={activeColor}
             strokeWidth={strokeWidth}
             readOnly={false}
             selectedAnnId={selectedAnnId}
             setSelectedAnnId={setSelectedAnnId}
             userChangedStyleRef={userChangedStyleRef}
+
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            fontSize={fontSize}
+            setFontSize={setFontSize}
+            fontWeight={fontWeight}
+            setWeight={setWeight}
+            fontStyle={fontStyle}
+            setStyle={setStyle}
+            textDecoration={textDecoration}
+            setDecoration={setDecoration}
+            textAlign={textAlign}
+            setTextAlign={setTextAlign}
+            lineHeight={lineHeight}
+            setLineHeight={setLineHeight}
+            letterSpacing={letterSpacing}
+            setLetterSpacing={setLetterSpacing}
+            onUpdateTextProps={onUpdateTextProps}
+
+            doodleText={doodleText}
+            setDoodleText={setDoodleText}
+            doodleFontSize={doodleFontSize}
+            setDoodleFontSize={setDoodleFontSize}
+            doodleFontFamily={doodleFontFamily}
+            setDoodleFontFamily={setDoodleFontFamily}
+            showDoodleGuide={showDoodleGuide}
+            setShowDoodleGuide={setShowDoodleGuide}
           />
         </div>
       )}

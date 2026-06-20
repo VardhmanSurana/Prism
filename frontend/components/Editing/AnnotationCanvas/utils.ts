@@ -34,7 +34,7 @@ export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: n
 };
 
 export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotation): number => {
-  if ((ann.type === 'freehand' || ann.type === 'highlighter') && ann.points) {
+  if ((ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath') && ann.points) {
     let minDist = Infinity;
     for (let i = 0; i < ann.points.length; i++) {
       const dist = pointDistance(p, ann.points[i]);
@@ -46,10 +46,11 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
     }
     return minDist;
   }
+
   if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
     return distToSegment(p, ann.points[0], ann.points[ann.points.length - 1]);
   }
-  if (ann.type === 'rect' && ann.bounds) {
+  if ((ann.type === 'rect' || ann.type === 'text') && ann.bounds) {
     const b = ann.bounds;
     const x0 = b.w < 0 ? b.x + b.w : b.x;
     const y0 = b.h < 0 ? b.y + b.h : b.y;
@@ -90,6 +91,7 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
 const HANDLE_THRESHOLD = 30;
 
 export const detectHandleClick = (x: number, y: number, ann: Annotation): HandleId | null => {
+  if (ann.type === 'text') return null;
   if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
     if (pointDistance({ x, y }, ann.points[0]) < HANDLE_THRESHOLD) return 'ep0';
     if (pointDistance({ x, y }, ann.points[ann.points.length - 1]) < HANDLE_THRESHOLD) return 'ep1';
@@ -100,8 +102,10 @@ export const detectHandleClick = (x: number, y: number, ann: Annotation): Handle
   if (bbox.w === 0 && bbox.h === 0) return null;
 
   const edgeHandles: [HandleId, { x: number; y: number }][] = [
-    ['tm', { x: bbox.x + bbox.w / 2, y: bbox.y }],
-    ['bm', { x: bbox.x + bbox.w / 2, y: bbox.y + bbox.h }],
+    ['tl', { x: bbox.x, y: bbox.y }],
+    ['tr', { x: bbox.x + bbox.w, y: bbox.y }],
+    ['bl', { x: bbox.x, y: bbox.y + bbox.h }],
+    ['br', { x: bbox.x + bbox.w, y: bbox.y + bbox.h }],
     ['lm', { x: bbox.x, y: bbox.y + bbox.h / 2 }],
     ['rm', { x: bbox.x + bbox.w, y: bbox.y + bbox.h / 2 }],
   ];
@@ -111,23 +115,4 @@ export const detectHandleClick = (x: number, y: number, ann: Annotation): Handle
   }
   return null;
 };
-
-export const computeResizeAnchor = (handleId: HandleId, ann: Annotation): { x: number; y: number } => {
-  if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
-    return handleId === 'ep0' ? ann.points[1] : ann.points[0];
-  }
-
-  const bbox = getAnnotationBBox(ann);
-  const cx = bbox.x + bbox.w / 2;
-  const cy = bbox.y + bbox.h / 2;
-
-  switch (handleId) {
-    case 'tm': return { x: cx, y: bbox.y + bbox.h };
-    case 'bm': return { x: cx, y: bbox.y };
-    case 'lm': return { x: bbox.x + bbox.w, y: cy };
-    case 'rm': return { x: bbox.x, y: cy };
-    default: return { x: cx, y: cy };
-  }
-};
-
 

@@ -8,12 +8,6 @@ from app.services.image_summary import generate_image_summary
 
 router = APIRouter()
 
-# Route ordering note: always declare more specific paths (e.g. /{id}/generate)
-# BEFORE generic /{id} catch-alls of the same HTTP method to avoid shadowing.
-# Here the two routes use different methods (GET vs POST) so ordering does not
-# currently matter, but it is kept explicit for clarity.
-
-
 @router.get("/{photo_id}")
 async def get_summary(photo_id: int, db: AsyncSession = Depends(get_db)):
     """

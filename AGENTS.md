@@ -9,7 +9,7 @@ Two subpackages, no monorepo tool. Root `package.json` scripts cd into each.
 | `bun install` (root) | Installs root tool deps only (`concurrently`). |
 | `cd backend && uv venv && uv sync` | First-time backend setup. Backend is Python 3.11 + `uv`. |
 | `cd frontend && bun install` | Frontend deps. |
-| `bun run desktop` | One-click: starts backend on `8000`, streams `backend/backend.log`, runs `bunx tauri dev`. Reuses existing backend if port 8000 is in use. |
+| `bun run desktop` | One-click: starts backend on `8269`, streams `backend/backend.log`, runs `bunx tauri dev`. Reuses existing backend if port 8269 is in use. |
 | `bun run dev` | Runs `bun run backend` and `bun run frontend` concurrently via `concurrently`. |
 | `bun run backend` | `cd backend` then `uv run uvicorn app.main:app --reload` with CUDA `LD_LIBRARY_PATH` tweaked for venv/system libs. |
 | `bun run frontend` | `cd frontend && bun run dev` (Vite on port `3005`). |
@@ -26,7 +26,7 @@ CI order: backend tests → frontend typecheck → frontend build. There is **no
 
 ## Ports and URLs
 
-- Backend FastAPI: `http://127.0.0.1:8000`
+- Backend FastAPI: `http://127.0.0.1:8269`
 - Tauri dev server: `http://localhost:3005` (pinned `strictPort: true` in `frontend/vite.config.ts` — fail-fast if collides).
 - Tauri config allows only these CORS origins: `tauri://localhost`, `http://tauri.localhost`, `http://localhost:3005`.
 

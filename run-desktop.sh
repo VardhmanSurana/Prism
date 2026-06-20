@@ -14,7 +14,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # ── Check if Backend is already running ─────────────────────────────────────
-BACKEND_PORT=8000
+BACKEND_PORT=8269
 if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "[desktop] Backend is already running on port $BACKEND_PORT."
     echo "[desktop] Reconnecting to active session logs..."

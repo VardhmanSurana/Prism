@@ -51,9 +51,11 @@ async def generate_image_summary(image_path: str) -> str:
     # ── Step 2: Send image to Ollama vision model (pixels only) ────────────────
     try:
         summary = await asyncio.to_thread(generate_ollama_summary, image_path)
+        if summary is None:
+            return "Error: Ollama vision model failed to generate description."
     except RuntimeError as e:
         return f"Error: Ollama vision model failed — {str(e)}"
     except Exception as e:
         return f"Error: Failed to generate summary — {str(e)}"
 
-    return summary if summary else "Could not generate description from image."
+    return summary

@@ -1,0 +1,6 @@
+{
+  "name": "Studio Editor",
+  "description": "A professional-grade image editor featuring canvas markup, sliders for lighting and color adjustments, interactive text/shapes, creative presets, and full historical undo/redo tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

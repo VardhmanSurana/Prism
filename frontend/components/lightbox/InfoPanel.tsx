@@ -59,6 +59,13 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, isMetaLoa
           <p className="text-[9px] text-gray-500 font-mono break-all leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{photo.path}</p>
         </section>
 
+        {/* Summary Section */}
+        {metadata?.summary && (
+          <section className="space-y-2 pt-6 border-t border-white/5">
+            <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">AI Summary</h3>
+            <p className="text-xs text-gray-400 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{metadata.summary}</p>
+          </section>
+        )}
 
         {/* People Section */}
         {metadata?.people && metadata.people.length > 0 && (

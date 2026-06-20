@@ -114,7 +114,7 @@ graph TD
     end
 
     subgraph Local API
-        FastAPI[FastAPI on 127.0.0.1:8000]
+        FastAPI[FastAPI on 127.0.0.1:8269]
         REST[REST Endpoints]
         SSE[Server-Sent Events]
     end
@@ -212,7 +212,7 @@ bun install
 bun run desktop
 ```
 
-`bun run desktop` starts the FastAPI backend on port `8000`, streams backend logs, and opens the Tauri desktop shell using the Vite frontend on port `3005`.
+`bun run desktop` starts the FastAPI backend on port `8269`, streams backend logs, and opens the Tauri desktop shell using the Vite frontend on port `3005`.
 
 ### Manual Development Setup
 
@@ -223,7 +223,7 @@ cd backend
 uv venv
 source .venv/bin/activate
 uv sync
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level info
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8269 --reload --log-level info
 ```
 
 On Windows PowerShell, activate the virtual environment with:
@@ -332,7 +332,7 @@ Relevant backend defaults:
 | `OLLAMA_VISION_MODEL` | `moondream:latest` |
 | Agent server | `127.0.0.1:9090` |
 | Vision server | `127.0.0.1:9091` |
-| Backend API | `127.0.0.1:8000` |
+| Backend API | `127.0.0.1:8269` |
 | Tauri dev URL | `http://localhost:3005` |
 
 The agent can use tools for metadata search, people search, caption/FTS search, semantic search, album search, OCR-like text search, and similar-image search.
@@ -419,7 +419,7 @@ Frontend tests currently cover the photo grid, sidebar routing, and Locked Folde
 
 ### Backend is already running
 
-`bun run desktop` detects an active listener on port `8000` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
+`bun run desktop` detects an active listener on port `8269` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
 
 ### CUDA or native library issues
 

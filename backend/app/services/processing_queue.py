@@ -189,55 +189,24 @@ class ProcessingQueue:
                         results[photo_id]["stage2_success"] = False
                         results[photo_id]["stage3_success"] = False
 
-                # ── Stage 1: Gemma 4 E2B Vision (Captioning & Structured Tagging) ──
+                # ══ RESTRUCTURED PIPELINE ORDER ═══════════════════════════════════════════
+                # New order: SigLIP2 (critical) → Face Detection (critical) → Gemma Vision (optional)
+                # This ensures embeddings and faces are saved even if AI captioning fails
+                
+                # ── Stage 1: SigLIP 2 Embedding Generation (CRITICAL - first for fast search) ──
                 if settings.ENABLE_AI_CLIP:
                     active_stage1_photos = [
                         j for j in job_infos 
                         if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage1_success"]
                     ]
                     if active_stage1_photos:
-                        from app.services.image_summary.llm import VisionManager, generate_ollama_summary, generate_tags_json
-                        
-                        logger.info("Stage 1: Starting Gemma-4-E2B Vision server for batch...")
-                        llm_func = VisionManager.get_llm()
-                        if not llm_func:
-                            for job in active_stage1_photos:
-                                pid = job["photo_id"]
-                                results[pid]["stage1_success"] = False
-                                results[pid]["errors"].append("Failed to start Gemma-4-E2B Vision server")
-                        else:
-                            for job in active_stage1_photos:
-                                pid = job["photo_id"]
-                                path = results[pid]["photo_path"]
-                                try:
-                                    summary = await asyncio.to_thread(generate_ollama_summary, path)
-                                    tags = await asyncio.to_thread(generate_tags_json, path)
-                                    results[pid]["summary"] = summary
-                                    results[pid]["caption"] = summary[:120] + ("..." if len(summary) > 120 else "")
-                                    results[pid]["tags_json"] = json.dumps(tags)
-                                except Exception as e:
-                                    logger.error(f"Gemma vision processing failed for photo {pid}: {e}")
-                                    results[pid]["errors"].append(f"Gemma vision error: {str(e)}")
-                                    results[pid]["stage1_success"] = False
-                        
-                        logger.info("Stage 1 complete. Unloading Vision LLM resources.")
-                        VisionManager.unload_vision()
-
-                # ── Stage 2: SigLIP 2 Embedding Generation ───────────────────
-                if settings.ENABLE_AI_CLIP:
-                    active_stage2_photos = [
-                        j for j in job_infos 
-                        if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage2_success"]
-                    ]
-                    if active_stage2_photos:
                         from app.services.vision_pipeline import _get_siglip, unload_models, extract_siglip_embedding
                         
-                        logger.info("Stage 2: Loading SigLIP2 Model for batch...")
+                        logger.info("Stage 1: Loading SigLIP2 Model for batch (CRITICAL)...")
                         try:
-                            # Preload model once
                             _get_siglip()
                             
-                            for job in active_stage2_photos:
+                            for job in active_stage1_photos:
                                 pid = job["photo_id"]
                                 path = results[pid]["photo_path"]
                                 try:
@@ -249,53 +218,28 @@ class ProcessingQueue:
                                     results[pid]["stage2_success"] = False
                         except Exception as e:
                             logger.error(f"Failed to load SigLIP2 model: {e}")
-                            for job in active_stage2_photos:
+                            for job in active_stage1_photos:
                                 pid = job["photo_id"]
                                 results[pid]["stage2_success"] = False
                                 results[pid]["errors"].append(f"Failed to load SigLIP: {str(e)}")
                         
-                        logger.info("Stage 2 complete. Unloading SigLIP resources.")
+                        logger.info("Stage 1 complete. Unloading SigLIP resources.")
                         unload_models()
 
-                # Update Photo fields in DB for all processed photos
-                for job in job_infos:
-                    pid = job["photo_id"]
-                    res = results[pid]
-                    if res["summary"] is not None or res["embedding_json"] is not None or res["is_encrypted"]:
-                        try:
-                            async with async_session() as db:
-                                photo = await db.get(Photo, pid)
-                                if photo:
-                                    if res["summary"] is not None:
-                                        photo.ai_summary = res["summary"]
-                                    if not res["is_encrypted"] and settings.ENABLE_AI_CLIP:
-                                        if res["caption"] is not None:
-                                            photo.caption = res["caption"]
-                                        if res["tags_json"] is not None:
-                                            photo.auto_tags = res["tags_json"]
-                                        if res["embedding_json"] is not None:
-                                            photo.embedding = res["embedding_json"]
-                                    await db.commit()
-                                    logger.info(f"Saved vision pipeline analysis for photo ID {pid}.")
-                        except Exception as e:
-                            logger.error(f"Failed to update Photo fields in DB for photo {pid}: {e}")
-                            res["errors"].append(f"DB update error: {str(e)}")
-
-                # ── Stage 3: Face Detection & Clustering (InspireFace) ──
-                active_stage3_photos = [
+                # ── Stage 2: Face Detection & Clustering (InspireFace) (CRITICAL) ──
+                active_stage2_photos = [
                     j for j in job_infos 
-                    if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage3_success"]
+                    if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage2_success"]
                 ]
-                if active_stage3_photos:
+                if active_stage2_photos:
                     from app.services.face_sdk import face_sdk
                     from app.services.face_clustering import face_service
                     
-                    logger.info("Stage 3: Initializing Face SDK for batch...")
+                    logger.info("Stage 2: Initializing Face SDK for batch (CRITICAL)...")
                     try:
-                        # Ensure launched once
                         session = face_sdk.session
                         
-                        for job in active_stage3_photos:
+                        for job in active_stage2_photos:
                             pid = job["photo_id"]
                             path = results[pid]["photo_path"]
                             try:
@@ -309,13 +253,100 @@ class ProcessingQueue:
                                 results[pid]["stage3_success"] = False
                     except Exception as e:
                         logger.error(f"Failed to launch Face SDK: {e}")
-                        for job in active_stage3_photos:
+                        for job in active_stage2_photos:
                             pid = job["photo_id"]
                             results[pid]["stage3_success"] = False
                             results[pid]["errors"].append(f"Failed to launch Face SDK: {str(e)}")
                     
-                    logger.info("Stage 3 complete. Shutting down Face SDK resources.")
+                    logger.info("Stage 2 complete. Shutting down Face SDK resources.")
                     face_sdk.shutdown()
+
+                # Update Photo fields in DB for CRITICAL stages (embeddings + faces)
+                for job in job_infos:
+                    pid = job["photo_id"]
+                    res = results[pid]
+                    if res["embedding_json"] is not None or res["is_encrypted"]:
+                        try:
+                            async with async_session() as db:
+                                photo = await db.get(Photo, pid)
+                                if photo:
+                                    if res["is_encrypted"]:
+                                        pass  # Skip AI fields for encrypted photos
+                                    elif settings.ENABLE_AI_CLIP:
+                                        if res["embedding_json"] is not None:
+                                            photo.embedding = res["embedding_json"]
+                                    await db.commit()
+                                    logger.info(f"Saved critical AI data (embeddings/faces) for photo ID {pid}.")
+                        except Exception as e:
+                            logger.error(f"Failed to update Photo fields in DB for photo {pid}: {e}")
+                            res["errors"].append(f"DB update error: {str(e)}")
+
+                # ── Stage 3: Gemma 4 E2B Vision (OPTIONAL - caption & tags, non-critical) ──
+                # This stage is NICE-TO-HAVE. Failures here do NOT fail the job.
+                if settings.ENABLE_AI_CLIP:
+                    active_stage3_photos = [
+                        j for j in job_infos 
+                        if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage3_success"]
+                    ]
+                    if active_stage3_photos:
+                        from app.services.image_summary.llm import VisionManager, generate_ollama_summary, generate_tags_json
+                        
+                        logger.info("Stage 3: Starting Gemma-4-E2B Vision server for batch (OPTIONAL)...")
+                        llm_func = VisionManager.get_llm()
+                        if not llm_func:
+                            logger.warning("Gemma Vision server failed to start - skipping caption/tag generation")
+                            for job in active_stage3_photos:
+                                pid = job["photo_id"]
+                                results[pid]["stage1_success"] = False
+                                results[pid]["errors"].append("Failed to start Gemma-4-E2B Vision server")
+                        else:
+                            for job in active_stage3_photos:
+                                pid = job["photo_id"]
+                                path = results[pid]["photo_path"]
+                                try:
+                                    summary = await asyncio.to_thread(generate_ollama_summary, path)
+                                    tags = await asyncio.to_thread(generate_tags_json, path)
+                                    # Handle Optional returns - None means failure
+                                    if summary is not None:
+                                        results[pid]["summary"] = summary
+                                        results[pid]["caption"] = summary[:120] + ("..." if len(summary) > 120 else "")
+                                    else:
+                                        logger.warning(f"Gemma summary returned None for photo {pid}")
+                                        results[pid]["stage1_success"] = False
+                                    if tags is not None:
+                                        results[pid]["tags_json"] = json.dumps(tags)
+                                    else:
+                                        logger.warning(f"Gemma tags returned None for photo {pid}")
+                                        results[pid]["stage1_success"] = False
+                                except Exception as e:
+                                    logger.error(f"Gemma vision processing failed for photo {pid}: {e}")
+                                    results[pid]["errors"].append(f"Gemma vision error: {str(e)}")
+                                    results[pid]["stage1_success"] = False
+                        
+                        logger.info("Stage 3 complete. Unloading Vision LLM resources.")
+                        VisionManager.unload_vision()
+
+                # Update Photo fields in DB for OPTIONAL Gemma Vision results (caption/tags)
+                for job in job_infos:
+                    pid = job["photo_id"]
+                    res = results[pid]
+                    # Save caption/tags if available (even if stage1_success is False, we may have partial results)
+                    if res["summary"] is not None or res["tags_json"] is not None:
+                        try:
+                            async with async_session() as db:
+                                photo = await db.get(Photo, pid)
+                                if photo:
+                                    if res["summary"] is not None:
+                                        photo.ai_summary = res["summary"]
+                                    if res["caption"] is not None:
+                                        photo.caption = res["caption"]
+                                    if res["tags_json"] is not None:
+                                        photo.auto_tags = res["tags_json"]
+                                    await db.commit()
+                                    logger.info(f"Saved Gemma Vision results (caption/tags) for photo ID {pid}.")
+                        except Exception as e:
+                            logger.error(f"Failed to update Gemma Vision fields in DB for photo {pid}: {e}")
+                            res["errors"].append(f"Gemma DB update error: {str(e)}")
 
                 # Update job statuses in database
                 for job in job_infos:
@@ -324,14 +355,19 @@ class ProcessingQueue:
                     attempt = job["attempt_count"]
                     res = results[pid]
                     
-                    stage1_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP
+                    # Gemma Vision (stage1) is optional - embeddings and face detection are critical
                     stage2_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP
+                    stage3_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP
                     
-                    s1_ok = res["stage1_success"] if stage1_needed else True
                     s2_ok = res["stage2_success"] if stage2_needed else True
-                    s3_ok = res["stage3_success"]
+                    s3_ok = res["stage3_success"] if stage3_needed else True
                     
-                    success = s1_ok and s2_ok and s3_ok
+                    # Job succeeds if SigLIP (embeddings) and Face detection succeed
+                    # Gemma Vision (caption/tags) is optional - warn but don't fail
+                    if not res["stage1_success"] and not res["is_encrypted"]:
+                        logger.warning(f"Gemma Vision failed for photo {pid}, but embeddings/faces succeeded. Job will complete.")
+                    
+                    success = s2_ok and s3_ok
                     err_msg = "\n".join(res["errors"]) if res["errors"] else None
                     
                     try:

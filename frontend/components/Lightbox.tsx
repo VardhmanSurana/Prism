@@ -135,6 +135,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   // Keyboard event handlers
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
+      if (isEditing) return; // Disable key navigation when in editing mode
+      
       if (e.key === 'Escape') {
         onClose();
       }
@@ -145,7 +147,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, handleNext, handlePrev, zoomScale]);
+  }, [onClose, handleNext, handlePrev, zoomScale, isEditing]);
 
   const aspect = useMemo(
     () => (photo.width && photo.height ? photo.width / photo.height : null),

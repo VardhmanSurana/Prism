@@ -2,8 +2,10 @@
 
 import json
 import logging
+import re
 import httpx
 import base64
+from typing import Optional
 from pathlib import Path
 from app.services.ai_orchestrator import AIOrchestrator
 from app.config import settings
@@ -70,12 +72,17 @@ class VisionManager:
         """Stops the llama-server to release VRAM."""
         AIOrchestrator.stop_server()
 
-def generate_ollama_summary(image_path: str) -> str:
-    """Generate image summary using local llama-server (Synchronous)."""
+def generate_ollama_summary(image_path: str) -> Optional[str]:
+    """Generate image summary using local llama-server (Synchronous).
+    
+    Returns:
+        Summary string on success, None on failure (allows caller to handle gracefully).
+    """
     try:
         llm_func = VisionManager.get_llm()
         if not llm_func:
-            return "Vision model failed to start."
+            logger.warning("Vision model failed to start for summary generation")
+            return None
 
         messages = [
             {
@@ -94,24 +101,35 @@ def generate_ollama_summary(image_path: str) -> str:
         if not summary and message.get("reasoning_content"):
             summary = message["reasoning_content"].strip()
 
+        if not summary:
+            logger.warning(f"Empty summary response for {image_path}")
+            return None
+            
         logger.info(f"Generated GGUF server summary for {image_path}: {summary[:100]}...")
         return summary
     except Exception as e:
         logger.error(f"Server vision generation failed: {e}")
-        raise RuntimeError(str(e))
+        return None
 
-def generate_tags_json(image_path: str) -> list[str]:
-    """Extract descriptive tags using local llama-server in JSON format (Synchronous)."""
+def generate_tags_json(image_path: str) -> Optional[list[str]]:
+    """Extract descriptive tags using local llama-server in JSON format (Synchronous).
+    
+    Returns:
+        List of tag strings on success, None on failure (allows caller to distinguish
+        empty result from error condition).
+    """
+    content = None
     try:
         llm_func = VisionManager.get_llm()
         if not llm_func:
-            return []
+            logger.warning("Vision manager not available for tag extraction")
+            return None
         
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": "Extract 15 descriptive tags for this image as a JSON list of strings. Key: \"tags\". Return ONLY the JSON object."},
+                    {"type": "text", "text": "Extract 15 descriptive tags from this image. Return ONLY a JSON object with a single key \"tags\" containing an array of tag strings. Example: {\"tags\": [\"person\", \"outdoor\", \"sunset\"]}"},
                     {"type": "image_url", "image_url": {"url": f"file://{image_path}"}}
                 ]
             }
@@ -120,7 +138,7 @@ def generate_tags_json(image_path: str) -> list[str]:
         response = llm_func(
             messages=messages,
             temperature=0.1,
-            response_format={"type": "json_object"}
+            max_tokens=800
         )
         
         message = response["choices"][0]["message"]
@@ -129,17 +147,49 @@ def generate_tags_json(image_path: str) -> list[str]:
         if not content and message.get("reasoning_content"):
             content = message["reasoning_content"].strip()
         
+        if not content:
+            logger.warning("Vision server returned empty content for tag extraction.")
+            return None
+        
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         elif "```" in content:
             content = content.split("```")[1].split("```")[0].strip()
-            
-        data = json.loads(content)
+        
+        if not content.strip():
+            logger.warning("Vision server returned empty content after code-fence stripping.")
+            return None
+        
+        if not content.lstrip().startswith("{"):
+            match = re.search(r'\[.*?\]', content, re.DOTALL)
+            if match:
+                content = match.group(0).strip()
+        
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            match = re.findall(r'\[.*?\]', content, re.DOTALL)
+            if match:
+                try:
+                    data = {"tags": json.loads(match[-1])}
+                except json.JSONDecodeError:
+                    logger.warning(f"Could not decode JSON tags from: {content[:200]}")
+                    return None
+            else:
+                logger.warning(f"No JSON found in vision response: {content[:200]}")
+                return None
+        
         tags = data.get("tags", [])
-        return tags
+        if not isinstance(tags, list):
+            logger.warning("Vision response tags field is not a list.")
+            return None
+        
+        return [t for t in tags if isinstance(t, str)][:20]
     except Exception as e:
         logger.error(f"Server tag extraction failed: {e}")
-        return []
+        if content:
+            logger.debug(f"Raw content on error: {content[:500]}")
+        return None
 
 def check_ollama_available() -> bool:
     return VisionManager._model_path.exists()

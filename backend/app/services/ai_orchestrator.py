@@ -44,13 +44,10 @@ class AIOrchestrator:
         cmd = [
             "llama-server",
             "-m", str(model_path.absolute()),
-            "--spec-draft-n-max", "2",
-            "-md", str(draft_path.absolute()),
             "--host", "0.0.0.0",
             "--port", str(port),
             "-ngl", "999",       # Full GPU offload
-            "-c", "2048",        # Context size
-            "-cb"                # Continuous batching
+            "-c", "8192",        # Context size (larger for vision)
         ]
 
         if mode == 'vision':
@@ -63,10 +60,14 @@ class AIOrchestrator:
         if "/usr/local/cuda/lib64" not in env.get("LD_LIBRARY_PATH", ""):
             env["LD_LIBRARY_PATH"] = f"/usr/local/cuda/lib64:{env.get('LD_LIBRARY_PATH', '')}"
         
+        # Capture stderr for debugging
+        import tempfile
+        stderr_file = tempfile.NamedTemporaryFile(mode='w+', suffix='.log', delete=False)
+        
         cls._process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=stderr_file,
             env=env,
             preexec_fn=os.setsid # Create process group for clean cleanup
         )
@@ -77,7 +78,11 @@ class AIOrchestrator:
         for i in range(max_retries):
             # Fail fast if process has terminated
             if cls._process and cls._process.poll() is not None:
-                logger.error(f"llama-server terminated unexpectedly during startup with code {cls._process.poll()}")
+                stderr_file.flush()
+                stderr_file.seek(0)
+                stderr_content = stderr_file.read() or "(empty)"
+                logger.error(f"llama-server terminated unexpectedly during startup with code {cls._process.poll()}. stderr: {stderr_content[:500]}")
+                stderr_file.close()
                 break
 
             try:
