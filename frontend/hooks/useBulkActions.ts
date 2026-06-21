@@ -28,6 +28,7 @@ interface UseBulkActionsProps {
   clearSelection: () => void;
   setSortMode: (mode: 'newest' | 'oldest' | 'added') => void;
   selectedIds: Set<string>;
+  onAddToAlbumClick?: () => void;
 }
 
 export function useBulkActions({
@@ -37,6 +38,7 @@ export function useBulkActions({
   clearSelection,
   setSortMode,
   selectedIds,
+  onAddToAlbumClick,
 }: UseBulkActionsProps) {
 
   const isFavorited = useMemo(
@@ -48,9 +50,13 @@ export function useBulkActions({
   );
 
   const onAddToAlbum = useCallback(() => {
-    const name = window.prompt('Album name:');
-    if (name) alert(`Added ${selectedIds.size} to ${name}`);
-  }, [selectedIds.size]);
+    if (onAddToAlbumClick) {
+      onAddToAlbumClick();
+    } else {
+      const name = window.prompt('Album name:');
+      if (name) alert(`Added ${selectedIds.size} to ${name}`);
+    }
+  }, [onAddToAlbumClick, selectedIds.size]);
 
   const handleBulkDelete = useCallback(async () => {
     const isPermanent = currentView === 'trash';
