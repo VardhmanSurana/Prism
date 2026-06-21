@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { FileFolderBrowserDialog } from './components/FileFolderBrowserDialog';
 import { useAppState } from './hooks/useAppState';
+import { AddToAlbumDialog } from './components/albums';
 import type { ViewMode } from './types';
 
 function App() {
@@ -48,6 +49,11 @@ function App() {
     handleBulkLockToggle,
     handleBulkRestore,
     setPhotos,
+    isAddToAlbumOpen,
+    setIsAddToAlbumOpen,
+    albums,
+    handleSelectAlbumToAdd,
+    handleCreateAlbumAndAdd,
   } = useAppState();
 
   const handleViewChange = useCallback((v: ViewMode) => {
@@ -148,6 +154,14 @@ function App() {
           syncStatus={syncStatus}
         />
         
+        <AddToAlbumDialog
+          isOpen={isAddToAlbumOpen}
+          onClose={() => setIsAddToAlbumOpen(false)}
+          albums={albums}
+          onSelectAlbum={handleSelectAlbumToAdd}
+          onCreateAlbum={handleCreateAlbumAndAdd}
+          selectedCount={selectedIds.size}
+        />
         <ConfirmDialog />
         <FileFolderBrowserDialog />
       </div>

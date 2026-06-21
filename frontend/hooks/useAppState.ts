@@ -8,6 +8,7 @@ import { usePhotoSorting } from './appState/usePhotoSorting';
 import { useImportStatus } from './appState/useImportStatus';
 import { useSelection } from './useSelection';
 import { useBulkActions } from './useBulkActions';
+import { useAlbums } from '../components/albums/hooks/useAlbums';
 
 export function useAppState() {
   const { photos, setPhotos, fetchPhotos, isLoading, isStatusLoading, syncStatus } = usePhotos();
@@ -63,6 +64,32 @@ export function useAppState() {
     clearSelection,
   } = useSelection();
 
+  const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
+  const { albums, createAlbum, addPhotosToAlbum } = useAlbums();
+
+  const handleAddToAlbumClick = useCallback(() => {
+    setIsAddToAlbumOpen(true);
+  }, []);
+
+  const handleSelectAlbumToAdd = useCallback(async (albumId: number) => {
+    const photoIds = Array.from(selectedIds).map(Number);
+    if (photoIds.length > 0) {
+      await addPhotosToAlbum(albumId, photoIds);
+    }
+    setIsAddToAlbumOpen(false);
+    clearSelection();
+  }, [selectedIds, addPhotosToAlbum, clearSelection]);
+
+  const handleCreateAlbumAndAdd = useCallback(async (name: string) => {
+    const album = await createAlbum(name);
+    if (album && selectedIds.size > 0) {
+      const photoIds = Array.from(selectedIds).map(Number);
+      await addPhotosToAlbum(album.id, photoIds);
+    }
+    setIsAddToAlbumOpen(false);
+    clearSelection();
+  }, [selectedIds, createAlbum, addPhotosToAlbum, clearSelection]);
+
   const {
     handleBulkDelete,
     handleBulkFavorite,
@@ -77,6 +104,7 @@ export function useAppState() {
     clearSelection,
     setSortMode,
     selectedIds,
+    onAddToAlbumClick: handleAddToAlbumClick,
   });
 
   const setCurrentView = useCallback((v: typeof currentView) => {
@@ -146,5 +174,10 @@ export function useAppState() {
     handleBulkFavorite,
     handleBulkLockToggle,
     handleBulkRestore,
+    isAddToAlbumOpen,
+    setIsAddToAlbumOpen,
+    albums,
+    handleSelectAlbumToAdd,
+    handleCreateAlbumAndAdd,
   };
 }
