@@ -99,6 +99,17 @@ export function useAppState() {
     clearSelection();
   }, [selectedAlbum, selectedIds, removePhotosFromAlbum, clearSelection]);
 
+  const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
+    if (!selectedAlbum) return;
+    await removePhotosFromAlbum(selectedAlbum.id, [photoId]);
+    setSelectedPhoto(null);
+  }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
+
+  const handleSetAlbumCover = useCallback(async (photoId: number) => {
+    if (!selectedAlbum) return;
+    await setAlbumCover(selectedAlbum.id, photoId);
+  }, [selectedAlbum, setAlbumCover]);
+
   const {
     handleBulkDelete,
     handleBulkFavorite,
@@ -190,5 +201,7 @@ export function useAppState() {
     handleCreateAlbumAndAdd,
     handleRemovePhotosFromActiveAlbum,
     selectedAlbum,
+    handleRemoveSingleFromActiveAlbum,
+    handleSetAlbumCover,
   };
 }

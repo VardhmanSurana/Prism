@@ -55,6 +55,9 @@ function App() {
     handleSelectAlbumToAdd,
     handleCreateAlbumAndAdd,
     handleRemovePhotosFromActiveAlbum,
+    selectedAlbum,
+    handleRemoveSingleFromActiveAlbum,
+    handleSetAlbumCover,
   } = useAppState();
 
   const handleViewChange = useCallback((v: ViewMode) => {
@@ -147,6 +150,12 @@ function App() {
               onClose={() => setSelectedPhoto(null)}
               onNext={handleNextPhoto}
               onPrev={handlePrevPhoto}
+              onRemoveFromAlbum={
+                selectedAlbum ? () => handleRemoveSingleFromActiveAlbum(selectedPhoto.id) : undefined
+              }
+              onSetAsCover={
+                selectedAlbum ? () => handleSetAlbumCover(selectedPhoto.id) : undefined
+              }
             />
           )}
         </AnimatePresence>

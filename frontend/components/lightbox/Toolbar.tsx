@@ -7,6 +7,8 @@ import {
   ZoomOut,
   Edit2,
   Trash2,
+  FolderMinus,
+  Image,
 } from 'lucide-react';
 import { Photo } from '../../types';
 
@@ -21,6 +23,8 @@ interface ToolbarProps {
   onToggleShowInfo: () => void;
   onEdit?: () => void;
   onTrash?: () => void;
+  onRemoveFromAlbum?: () => void;
+  onSetAsCover?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
@@ -34,6 +38,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onToggleShowInfo,
   onEdit,
   onTrash,
+  onRemoveFromAlbum,
+  onSetAsCover,
 }) => {
   return (
     <div className="h-20 flex items-center justify-between px-8 shrink-0 z-20 bg-transparent font-sans">
@@ -115,6 +121,26 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Trash2 size={20} />
         </button>
         
+        {onSetAsCover && (
+          <button 
+            onClick={onSetAsCover}
+            className="p-2 text-white/80 hover:text-primary hover:bg-white/10 rounded-full transition-colors"
+            title="Set as Album Cover"
+          >
+            <Image size={20} />
+          </button>
+        )}
+
+        {onRemoveFromAlbum && (
+          <button 
+            onClick={onRemoveFromAlbum}
+            className="p-2 text-white/80 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+            title="Remove from Album"
+          >
+            <FolderMinus size={20} />
+          </button>
+        )}
+
         <button 
           onClick={onToggleShowInfo}
           className={`p-2 transition-all rounded-full ${showInfo ? 'text-primary bg-primary/10' : 'text-white/80 hover:text-white hover:bg-white/10'}`}

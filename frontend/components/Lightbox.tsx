@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Photo } from '../types';
-import { API_BASE, resolveUrl } from '../constants';
+import { API_BASE } from '../constants';
 import { eventService } from '../services/EventService';
 
 import { customConfirm } from '../services/ConfirmService';
@@ -26,24 +26,26 @@ interface LightboxProps {
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
+  onRemoveFromAlbum?: () => void;
+  onSetAsCover?: () => void;
 }
 
 export const Lightbox: React.FC<LightboxProps> = ({
   photo,
   onClose,
   onNext,
-  onPrev
+  onPrev,
+  onRemoveFromAlbum,
+  onSetAsCover
 }) => {
   // UI State
   const [showInfo, setShowInfo] = useState(false);
   const [metadata, setMetadata] = useState<Photo | null>(null);
-  const [isMetaLoading, setIsMetaLoading] = useState(false);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
 
   // Refs
-  const containerRef = useRef<HTMLDivElement>(null);
   const displayRef = useRef<HTMLDivElement>(null);
 
   // Navigation handlers
@@ -95,15 +97,12 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [photo.id]);
 
   const fetchMetadata = useCallback(async () => {
-    setIsMetaLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/metadata`);
       const data = await res.json();
       setMetadata(data);
     } catch (e) {
       console.error("Failed to fetch metadata", e);
-    } finally {
-      setIsMetaLoading(false);
     }
   }, [photo.id]);
 
@@ -189,13 +188,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
         onToggleShowInfo={() => setShowInfo(!showInfo)}
         onEdit={() => setIsEditing(true)}
         onTrash={handleTrash}
+        onRemoveFromAlbum={onRemoveFromAlbum}
+        onSetAsCover={onSetAsCover}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {showInfo && <InfoPanel photo={photo} metadata={metadata} isMetaLoading={isMetaLoading} />}
+        {showInfo && <InfoPanel photo={photo} metadata={metadata} />}
 
         <div
-          ref={containerRef}
           key={photo.id}
           className={`flex-1 relative flex items-center justify-center p-4 sm:p-8 overflow-hidden touch-none transition-all duration-500
             ${lastNavDir === 'prev' ? 'animate-slide-from-left' : lastNavDir === 'next' ? 'animate-slide-from-right' : ''}
