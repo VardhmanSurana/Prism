@@ -20,21 +20,6 @@ logger = logging.getLogger(__name__)
 class IngestionMixin:
     """Handles photo ingestion, duplicate detection, and database operations."""
 
-    def trigger_place_sync_debounced(self: "SyncService"):
-        if self.place_sync_timer:
-            self.place_sync_timer.cancel()
-        self.place_sync_timer = asyncio.create_task(self._delayed_place_sync())
-
-    async def _delayed_place_sync(self: "SyncService"):
-        try:
-            await asyncio.sleep(2.0)
-            from app.services.place_service import sync_all_places
-            await sync_all_places()
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f"Error executing debounced place sync: {e}")
-
     async def ingest_photo(self: "SyncService", file_path: str, db: AsyncSession) -> Photo | None:
         """
         Unified, thread-safe ingestion pipeline for a single photo.
@@ -122,10 +107,6 @@ class IngestionMixin:
             photo_dict = photo_to_dict(new_photo, include=broadcast_fields)
             self.broadcast({"type": "new_photo", "photo": photo_dict})
 
-            # 6. Trigger debounced places sync task
-            if new_photo.city or new_photo.location:
-                self.trigger_place_sync_debounced()
-
             return new_photo
 
         except Exception as e:
@@ -147,8 +128,6 @@ class IngestionMixin:
                     self.broadcast({"type": "delete_photo", "photo_id": photo_id})
                     self._cleanup_masks_for_photo(photo_id)
                     logger.info(f"Removed missing file from DB: {file_path}")
-                    from app.services.place_service import sync_all_places
-                    asyncio.create_task(sync_all_places())
         except Exception as e:
             logger.error(f"Failed to delete photo record for {file_path}: {e}")
 
