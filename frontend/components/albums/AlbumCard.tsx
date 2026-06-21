@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderOpen, Edit2 } from 'lucide-react';
+import { FolderOpen, Edit2, Trash2 } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 import { Album } from '../../types';
 
@@ -7,13 +7,21 @@ interface AlbumCardProps {
   album: Album;
   onClick: (album: Album) => void;
   onRename?: (album: Album) => void;
+  onDelete?: (album: Album) => void;
 }
 
-export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename }) => {
+export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, onDelete }) => {
   const handleRename = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRename) {
       onRename(album);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDelete) {
+      onDelete(album);
     }
   };
 
@@ -38,15 +46,26 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename }
           </div>
         )}
         
-        {onRename && (
-          <div className="absolute bottom-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button 
-              onClick={handleRename}
-              className="p-2 bg-black/60 backdrop-blur-md text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-all shadow-lg"
-              title="Rename"
-            >
-              <Edit2 size={14} />
-            </button>
+        {(onRename || onDelete) && (
+          <div className="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            {onRename && (
+              <button 
+                onClick={handleRename}
+                className="p-2 bg-black/60 backdrop-blur-md text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-all shadow-lg"
+                title="Rename"
+              >
+                <Edit2 size={12} />
+              </button>
+            )}
+            {onDelete && (
+              <button 
+                onClick={handleDelete}
+                className="p-2 bg-black/60 backdrop-blur-md text-white/80 hover:text-red-400 rounded-full border border-white/10 hover:bg-white/10 transition-all shadow-lg"
+                title="Delete Album"
+              >
+                <Trash2 size={12} />
+              </button>
+            )}
           </div>
         )}
         

@@ -17,7 +17,9 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
     isLoading,
     fetchAlbums,
     fetchAlbumPhotos,
-    renameAlbum
+    renameAlbum,
+    createAlbum,
+    deleteAlbum
   } = useAlbums();
 
   const handleAlbumClick = async (album: typeof albums[0]) => {
@@ -29,6 +31,19 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
     const newName = window.prompt(`Enter name for this album:`, album.name);
     if (newName && newName !== album.name) {
       await renameAlbum(album, newName);
+    }
+  };
+
+  const handleCreateAlbum = async () => {
+    const name = window.prompt('Enter name for the new album:');
+    if (name && name.trim()) {
+      await createAlbum(name.trim());
+    }
+  };
+
+  const handleDeleteAlbum = async (album: typeof albums[0]) => {
+    if (window.confirm(`Are you sure you want to delete "${album.name}"?`)) {
+      await deleteAlbum(album.id);
     }
   };
 
@@ -46,10 +61,21 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
 
   return (
     <div className="p-4 sm:p-8 h-full flex flex-col">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-white">Albums</h2>
+        <button
+          onClick={handleCreateAlbum}
+          className="px-4 py-2 bg-primary hover:bg-primary/95 rounded-xl text-white text-sm font-semibold transition-colors shadow-md"
+        >
+          Create Album
+        </button>
+      </div>
       <AlbumsList
         albums={albums}
         onAlbumClick={handleAlbumClick}
         onRenameAlbum={handleRenameAlbum}
+        onDeleteAlbum={handleDeleteAlbum}
+        onCreateAlbum={handleCreateAlbum}
       />
     </div>
   );
