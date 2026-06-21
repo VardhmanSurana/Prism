@@ -9,6 +9,9 @@ interface AlbumDetailProps {
   isLoading: boolean;
   onPhotoClick: (photo: Photo) => void;
   onBack: () => void;
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string) => void;
+  onToggleGroupSelection: (ids: string[]) => void;
 }
 
 export const AlbumDetail: React.FC<AlbumDetailProps> = ({ 
@@ -16,7 +19,10 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
   photos, 
   isLoading, 
   onPhotoClick, 
-  onBack 
+  onBack,
+  selectedIds,
+  onToggleSelection,
+  onToggleGroupSelection
 }) => {
   const albumScrollRef = useRef<HTMLDivElement>(null);
 
@@ -43,9 +49,9 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
           <PhotoGrid 
             photos={photos} 
             onPhotoClick={onPhotoClick} 
-            selectedIds={new Set()} 
-            onToggleSelection={() => {}} 
-            onToggleGroupSelection={() => {}} 
+            selectedIds={selectedIds} 
+            onToggleSelection={onToggleSelection} 
+            onToggleGroupSelection={onToggleGroupSelection} 
             scrollParentRef={albumScrollRef} 
           />
         )}

@@ -6,9 +6,17 @@ import { AlbumDetail } from './AlbumDetail';
 
 interface AlbumsViewProps {
   onPhotoClick: (photo: Photo) => void;
+  selectedIds: Set<string>;
+  onToggleSelection: (id: string) => void;
+  onToggleGroupSelection: (ids: string[]) => void;
 }
 
-export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
+export const AlbumsView: React.FC<AlbumsViewProps> = ({ 
+  onPhotoClick,
+  selectedIds,
+  onToggleSelection,
+  onToggleGroupSelection
+}) => {
   const {
     albums,
     selectedAlbum,
@@ -55,6 +63,9 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({ onPhotoClick }) => {
         isLoading={isLoading}
         onPhotoClick={onPhotoClick}
         onBack={() => setSelectedAlbum(null)}
+        selectedIds={selectedIds}
+        onToggleSelection={onToggleSelection}
+        onToggleGroupSelection={onToggleGroupSelection}
       />
     );
   }

@@ -65,7 +65,7 @@ export function useAppState() {
   } = useSelection();
 
   const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
-  const { albums, createAlbum, addPhotosToAlbum } = useAlbums();
+  const { albums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum } = useAlbums();
 
   const handleAddToAlbumClick = useCallback(() => {
     setIsAddToAlbumOpen(true);
@@ -89,6 +89,15 @@ export function useAppState() {
     setIsAddToAlbumOpen(false);
     clearSelection();
   }, [selectedIds, createAlbum, addPhotosToAlbum, clearSelection]);
+
+  const handleRemovePhotosFromActiveAlbum = useCallback(async () => {
+    if (!selectedAlbum) return;
+    const photoIds = Array.from(selectedIds).map(Number);
+    if (photoIds.length > 0) {
+      await removePhotosFromAlbum(selectedAlbum.id, photoIds);
+    }
+    clearSelection();
+  }, [selectedAlbum, selectedIds, removePhotosFromAlbum, clearSelection]);
 
   const {
     handleBulkDelete,
@@ -179,5 +188,7 @@ export function useAppState() {
     albums,
     handleSelectAlbumToAdd,
     handleCreateAlbumAndAdd,
+    handleRemovePhotosFromActiveAlbum,
+    selectedAlbum,
   };
 }

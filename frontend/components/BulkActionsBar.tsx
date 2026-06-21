@@ -1,6 +1,5 @@
-import React from 'react';
 import { motion } from 'framer-motion';
-import { X, FolderPlus, Lock, Trash2, Heart, RotateCcw } from 'lucide-react';
+import { X, FolderPlus, FolderMinus, Lock, Trash2, Heart, RotateCcw } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface BulkActionsBarProps {
@@ -8,6 +7,7 @@ interface BulkActionsBarProps {
   currentView: ViewMode;
   onClear: () => void;
   onAddToAlbum: () => void;
+  onRemoveFromAlbum?: () => void;
   onToggleLock: () => void;
   onFavorite: () => void;
   onDelete: () => void;
@@ -20,6 +20,7 @@ export function BulkActionsBar({
   currentView,
   onClear,
   onAddToAlbum,
+  onRemoveFromAlbum,
   onToggleLock,
   onFavorite,
   onDelete,
@@ -73,6 +74,15 @@ export function BulkActionsBar({
             >
               <Heart size={20} className={isFavorited ? 'fill-rose-400' : ''} />
             </button>
+            {currentView === 'albums' && onRemoveFromAlbum && (
+              <button 
+                onClick={onRemoveFromAlbum} 
+                className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-red-400" 
+                title="Remove from Album"
+              >
+                <FolderMinus size={20} />
+              </button>
+            )}
             <button onClick={onAddToAlbum} className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-white" title="Add to Album">
               <FolderPlus size={20} />
             </button>

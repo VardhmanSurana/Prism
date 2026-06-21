@@ -73,7 +73,14 @@ export function MainContent({
       case 'agent':
         return <AgentView onPhotoClick={onPhotoClick} />;
       case 'albums':
-        return <AlbumsView onPhotoClick={onPhotoClick} />;
+        return (
+          <AlbumsView 
+            onPhotoClick={onPhotoClick} 
+            selectedIds={selectedIds}
+            onToggleSelection={onToggleSelection}
+            onToggleGroupSelection={onToggleGroupSelection}
+          />
+        );
       case 'people':
         return <PeopleView onPhotoClick={onPhotoClick} onPhotosLoaded={onPhotosLoaded} />;
       case 'map':

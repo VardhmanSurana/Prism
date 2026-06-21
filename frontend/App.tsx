@@ -54,6 +54,7 @@ function App() {
     albums,
     handleSelectAlbumToAdd,
     handleCreateAlbumAndAdd,
+    handleRemovePhotosFromActiveAlbum,
   } = useAppState();
 
   const handleViewChange = useCallback((v: ViewMode) => {
@@ -128,6 +129,7 @@ function App() {
                 currentView={currentView}
                 onClear={clearSelection}
                 onAddToAlbum={onAddToAlbum}
+                onRemoveFromAlbum={handleRemovePhotosFromActiveAlbum}
                 onFavorite={handleBulkFavorite}
                 isFavorited={isFavorited}
                 onToggleLock={handleBulkLockToggle}
