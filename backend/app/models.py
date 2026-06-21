@@ -99,6 +99,22 @@ class Album(Base):
     metadata_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
+class PhotoAlbum(Base):
+    """Many-to-Many association table linking Photos to custom Albums."""
+    __tablename__ = "photo_albums"
+    
+    photo_id: Mapped[int] = mapped_column(
+        ForeignKey("photos.id", ondelete="CASCADE"), 
+        primary_key=True,
+        index=True
+    )
+    album_id: Mapped[int] = mapped_column(
+        ForeignKey("albums.id", ondelete="CASCADE"), 
+        primary_key=True,
+        index=True
+    )
+
+
 class Person(Base):
     """Represents a unique clustered individual."""
     __tablename__ = "people"
