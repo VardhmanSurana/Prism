@@ -106,37 +106,10 @@ async def get_photo_stats(db: AsyncSession = Depends(get_db)):
     res_people = await db.execute(people_stmt)
     people_found = res_people.scalar() or 0
     
-    # 3. Albums: place-based + memories (calendar months)
-    places_stmt = select(func.count(Album.id)).where(Album.type == "places")
-    res_places = await db.execute(places_stmt)
-    places_count = res_places.scalar() or 0
-    
-    # Memories albums: count distinct year/month combinations from Photos
-    if locked_service.is_authenticated:
-        memories_stmt = select(
-            func.count(func.distinct(func.strftime("%Y-%m", Photo.date_taken)))
-        ).where(
-            Photo.is_trash == False,
-            or_(
-                Photo.is_external == False,
-                Photo.device_id.in_(active_mounts)
-            )
-        )
-    else:
-        memories_stmt = select(
-            func.count(func.distinct(func.strftime("%Y-%m", Photo.date_taken)))
-        ).where(
-            Photo.is_trash == False,
-            Photo.is_locked == False,
-            or_(
-                Photo.is_external == False,
-                Photo.device_id.in_(active_mounts)
-            )
-        )
-    res_memories = await db.execute(memories_stmt)
-    memories_count = res_memories.scalar() or 0
-    
-    albums_count = places_count + memories_count
+    # 3. Albums: count entries in Album table directly
+    albums_stmt = select(func.count(Album.id))
+    res_albums = await db.execute(albums_stmt)
+    albums_count = res_albums.scalar() or 0
     
     # 4. Locked & Encrypted count
     locked_stmt = select(func.count(Photo.id)).where(
