@@ -1,17 +1,15 @@
 import React from 'react';
-import { MapPin, Calendar, Edit2 } from 'lucide-react';
+import { FolderOpen, Edit2 } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 import { Album } from '../../types';
-import { AlbumType } from './hooks/useAlbums';
 
 interface AlbumCardProps {
   album: Album;
-  activeTab: AlbumType;
   onClick: (album: Album) => void;
   onRename?: (album: Album) => void;
 }
 
-export const AlbumCard: React.FC<AlbumCardProps> = ({ album, activeTab, onClick, onRename }) => {
+export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename }) => {
   const handleRename = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRename) {
@@ -36,11 +34,11 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, activeTab, onClick,
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600">
-            {activeTab === 'places' ? <MapPin size={40} /> : <Calendar size={40} />}
+            <FolderOpen size={40} />
           </div>
         )}
         
-        {activeTab === 'places' && onRename && (
+        {onRename && (
           <div className="absolute bottom-2 right-2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button 
               onClick={handleRename}
