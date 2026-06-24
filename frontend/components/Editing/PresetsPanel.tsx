@@ -8,9 +8,10 @@
  *  - "Save Current" button: prompts for a name and saves to localStorage.
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { BookMarked, Plus, Trash2, X, Check } from 'lucide-react';
-import { Adjustments } from './filterEngine';
+import { Adjustments, toFilterString } from './filterEngine';
+import { resolveUrl } from '../../constants';
 import {
   CURATED_PRESETS,
   Preset,
@@ -24,13 +25,21 @@ import {
 interface PresetsPanelProps {
   adjustments: Adjustments;
   onChange: (adj: Adjustments) => void;
+  imageSrc?: string;
 }
 
-export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChange }) => {
+export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChange, imageSrc }) => {
   const [userPresets, setUserPresets] = useState<UserPreset[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+
+  const previewUrl = useMemo(() => {
+    if (!imageSrc) return '';
+    const resolved = resolveUrl(imageSrc);
+    const separator = resolved.includes('?') ? '&' : '?';
+    return `${resolved}${separator}previewKey=${Date.now()}`;
+  }, [imageSrc]);
 
   useEffect(() => {
     setUserPresets(loadUserPresets());
@@ -117,17 +126,29 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
                   key={preset.id}
                   className={`group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-primary/10 border-primary/30'
-                      : 'bg-white/[0.02] border-white/5 hover:bg-white/5 hover:border-white/10'
+                      ? 'preset-card-selected border-white'
+                      : 'bg-[var(--bg-tertiary)] border-white/5 hover:bg-white/[0.04] hover:border-white/10'
                   }`}
                   onClick={() => handleApplyUser(preset)}
                 >
-                  {/* Color swatch */}
-                  <div
-                    className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center border border-white/10"
-                    style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                  >
-                    <BookMarked size={12} className="text-white/60" />
+                  {/* Color swatch or image preview */}
+                  <div className="w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-white/10 bg-black/30">
+                    {imageSrc ? (
+                      <img
+                        src={previewUrl}
+                        alt={preset.name}
+                        className="w-full h-full object-cover"
+                        style={{ filter: toFilterString(preset.adjustments) }}
+                        crossOrigin="anonymous"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex items-center justify-center"
+                        style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
+                      >
+                        <BookMarked size={12} className="text-white/60" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold truncate ${isActive ? 'text-primary' : 'text-white/70'}`}>
@@ -160,27 +181,39 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
               <button
                 key={preset.id}
                 onClick={() => handleApplyCurated(preset)}
-                className={`group relative flex flex-col items-start p-0 rounded-2xl border overflow-hidden transition-all duration-200 text-left ${
+                className={`group relative flex flex-col items-start p-0 rounded-2xl border overflow-hidden transition-all duration-200 text-left bg-[var(--bg-tertiary)] ${
                   isActive
-                    ? 'border-white/30 shadow-[0_0_20px_rgba(255,255,255,0.1)] scale-[1.02]'
+                    ? 'preset-card-selected border-white'
                     : 'border-white/5 hover:border-white/15 hover:scale-[1.01]'
                 }`}
               >
-                {/* Gradient swatch area */}
-                <div
-                  className="w-full h-14 shrink-0"
-                  style={{ background: preset.accent }}
-                />
+                {/* Image preview area with preset filter */}
+                <div className="w-full h-[90px] shrink-0 relative overflow-hidden bg-black/30">
+                  {imageSrc ? (
+                    <img
+                      src={previewUrl}
+                      alt={preset.name}
+                      className="w-full h-full object-cover"
+                      style={{ filter: toFilterString(applyPreset(adjustments, preset.adjustments)) }}
+                      crossOrigin="anonymous"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full"
+                      style={{ background: preset.accent }}
+                    />
+                  )}
+                </div>
 
                 {/* Active check overlay */}
                 {isActive && (
-                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-lg">
+                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-white flex items-center justify-center shadow-lg z-10">
                     <Check size={10} strokeWidth={3} className="text-black" />
                   </div>
                 )}
 
                 {/* Label */}
-                <div className="w-full px-2.5 py-2 bg-[#0d0d0d]">
+                <div className="w-full px-2.5 py-2 bg-[var(--bg-tertiary)]">
                   <p className={`text-[10px] font-bold truncate transition-colors ${isActive ? 'text-white' : 'text-white/50 group-hover:text-white/80'}`}>
                     {preset.name}
                   </p>

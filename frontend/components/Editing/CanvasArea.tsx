@@ -1,9 +1,9 @@
 import React from 'react';
 import Cropper, { ReactCropperElement } from 'react-cropper';
-import { Check, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ToolId } from './Sidebar';
 import { Adjustments, getStringHash, HslBand, toFilterString } from './filterEngine';
-import { DEFAULT_CURVE, isIdentityCurve } from './curves';
+import { isIdentityCurve } from './curves';
 import { InpaintCanvas } from './InpaintCanvas';
 import { InpaintMode } from './InpaintPanel';
 import { ZoomControls } from './ZoomControls';
@@ -26,12 +26,10 @@ import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighli
 interface CanvasAreaProps {
   currentImageSrc: string;
   filterString: string;
-  cropperRef: React.RefObject<ReactCropperElement>;
+  cropperRef: React.RefObject<ReactCropperElement | null>;
   handleCropEvent: () => void;
   handleReady: () => void;
-  hasCropSelection: boolean;
   activeTool: ToolId | null;
-  handleApplyCrop: () => void;
   adjustments: Adjustments;
   isSaving: boolean;
   curvesTable: { r: string; g: string; b: string };
@@ -40,7 +38,6 @@ interface CanvasAreaProps {
   // Inpaint props
   inpaintMode?: InpaintMode;
   brushSize?: number;
-  brushHardness?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
   showMaskPreview?: boolean;
   maskOpacity?: number;
@@ -52,9 +49,12 @@ interface CanvasAreaProps {
   setActiveDrawTool?: (tool: DrawToolId) => void;
   activeColor?: string;
   strokeWidth?: number;
+  eraserSize?: number;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
   userChangedStyleRef?: React.MutableRefObject<boolean>;
+  onStartGesture?: () => void;
+  onEndGesture?: () => void;
 
   // Text layer settings
   fontFamily?: string;
@@ -92,16 +92,13 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   cropperRef,
   handleCropEvent,
   handleReady,
-  hasCropSelection,
   activeTool,
-  handleApplyCrop,
   adjustments,
   isSaving,
   curvesTable,
   isComparing = false,
   inpaintMode = 'brush',
   brushSize = 50,
-  brushHardness = 80,
   onInpaintMaskChange = (_mask: string): void => {},
   showMaskPreview = true,
   maskOpacity = 60,
@@ -111,9 +108,12 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   setActiveDrawTool,
   activeColor = '#ef4444',
   strokeWidth = 4,
+  eraserSize = 35,
   selectedAnnId = null,
   setSelectedAnnId = (_id: string | null): void => {},
   userChangedStyleRef,
+  onStartGesture,
+  onEndGesture,
 
   fontFamily,
   setFontFamily,
@@ -142,9 +142,12 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   setShowDoodleGuide,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const [currentMask, setCurrentMask] = React.useState<string | null>(null);
   const [imageRect, setImageRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  const [isCtrlPressed, setIsCtrlPressed] = React.useState(false);
+  const latestImageRectRef = React.useRef(imageRect);
+  React.useEffect(() => {
+    latestImageRectRef.current = imageRect;
+  }, [imageRect]);
+
   const [zoomPercent, setZoomPercent] = React.useState(100);
 
   const [sourceImg, setSourceImg] = React.useState<HTMLImageElement | null>(null);
@@ -153,6 +156,49 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   // even when no other dep changed (e.g. first mount after imageRect is set).
   const [canvasDrawKey, setCanvasDrawKey] = React.useState(0);
   const liveCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const annotationsContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const inpaintContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const zoomDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup debouncing timers on unmount
+  React.useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
+    };
+  }, []);
+
+  const isDraggingSliderRef = React.useRef(false);
+
+  React.useEffect(() => {
+    const handleStartDrag = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'range')) {
+        isDraggingSliderRef.current = true;
+      }
+    };
+
+    const handleEndDrag = () => {
+      if (isDraggingSliderRef.current) {
+        isDraggingSliderRef.current = false;
+        // Trigger high-quality redraw when slider drag finishes
+        setCanvasDrawKey(k => k + 1);
+      }
+    };
+
+    window.addEventListener('mousedown', handleStartDrag, { passive: true });
+    window.addEventListener('touchstart', handleStartDrag, { passive: true });
+    window.addEventListener('mouseup', handleEndDrag, { passive: true });
+    window.addEventListener('touchend', handleEndDrag, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousedown', handleStartDrag);
+      window.removeEventListener('touchstart', handleStartDrag);
+      window.removeEventListener('mouseup', handleEndDrag);
+      window.removeEventListener('touchend', handleEndDrag);
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!currentImageSrc) {
@@ -189,56 +235,14 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     img.onerror = () => {
       if (active) setBlendImg(null);
     };
-    img.src = src;
+    const separator = src.includes('?') ? '&' : '?';
+    img.src = `${src}${separator}timestamp=${Date.now()}`;
     return () => {
       active = false;
     };
   }, [adjustments.blend?.blendImageSrc]);
 
-  React.useEffect(() => {
-    if (activeTool !== 'annotations') {
-      setIsCtrlPressed(false);
-      return;
-    }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(true);
-        const cropper = cropperRef.current?.cropper;
-        if (cropper) {
-          cropper.setDragMode('move');
-        }
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(false);
-        const cropper = cropperRef.current?.cropper;
-        if (cropper) {
-          cropper.setDragMode('none');
-        }
-      }
-    };
-
-    const handleBlur = () => {
-      setIsCtrlPressed(false);
-      const cropper = cropperRef.current?.cropper;
-      if (cropper) {
-        cropper.setDragMode('none');
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('blur', handleBlur);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, [activeTool, cropperRef]);
 
   React.useEffect(() => {
     const canvas = liveCanvasRef.current;
@@ -248,7 +252,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     if (!ctx) return;
 
     // 1. Calculate internal resolution (max bounding size of 1000px for speed)
-    const maxDim = 1000;
+    // Reduce resolution to 450px during active slider drag for 60fps real-time preview.
+    const maxDim = isDraggingSliderRef.current ? 450 : 1000;
     let drawW = sourceImg.naturalWidth;
     let drawH = sourceImg.naturalHeight;
     if (drawW > maxDim || drawH > maxDim) {
@@ -447,32 +452,168 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const cropper = cropperRef.current?.cropper;
     if (cropper) {
       const canvasData = cropper.getCanvasData();
-      // Only update if dimensions actually changed to avoid loop.
-      // When the rect changes (including first set), bump canvasDrawKey so the
-      // draw effect re-runs even if no other dep changed.
-      setImageRect(prev => {
-        if (prev && 
-            prev.left === canvasData.left && 
-            prev.top === canvasData.top && 
-            prev.width === canvasData.width && 
-            prev.height === canvasData.height) {
-          return prev;
-        }
-        // Bump the draw key on next tick so the canvas has been committed to
-        // the DOM before we try to draw into it.
-        setTimeout(() => setCanvasDrawKey(k => k + 1), 0);
-        return {
+
+      // Update DOM styles directly for sub-millisecond, butter-smooth visual scaling
+      const canvas = liveCanvasRef.current;
+      if (canvas) {
+        canvas.style.left = `${canvasData.left}px`;
+        canvas.style.top = `${canvasData.top}px`;
+        canvas.style.width = `${canvasData.width}px`;
+        canvas.style.height = `${canvasData.height}px`;
+      }
+
+      const annContainer = annotationsContainerRef.current;
+      if (annContainer) {
+        annContainer.style.left = `${canvasData.left}px`;
+        annContainer.style.top = `${canvasData.top}px`;
+        annContainer.style.width = `${canvasData.width}px`;
+        annContainer.style.height = `${canvasData.height}px`;
+      }
+
+      const inpContainer = inpaintContainerRef.current;
+      if (inpContainer) {
+        inpContainer.style.left = `${canvasData.left}px`;
+        inpContainer.style.top = `${canvasData.top}px`;
+        inpContainer.style.width = `${canvasData.width}px`;
+        inpContainer.style.height = `${canvasData.height}px`;
+      }
+
+      const prev = latestImageRectRef.current;
+      if (!prev) {
+        // First mount: set immediately to run first canvas draw
+        setImageRect({
           left: canvasData.left,
           top: canvasData.top,
           width: canvasData.width,
           height: canvasData.height,
-        };
-      });
+        });
+        setTimeout(() => setCanvasDrawKey(k => k + 1), 0);
+      } else if (
+        prev.left !== canvasData.left ||
+        prev.top !== canvasData.top ||
+        prev.width !== canvasData.width ||
+        prev.height !== canvasData.height
+      ) {
+        // Sub-sequent updates: debounce to avoid heavy tree re-renders
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          setImageRect({
+            left: canvasData.left,
+            top: canvasData.top,
+            width: canvasData.width,
+            height: canvasData.height,
+          });
+        }, 100);
+      }
     }
   }, [cropperRef]);
 
+  // ── Ctrl key panning state & logic ───────────────────────────────────────
+  const [isCtrlPressed, setIsCtrlPressed] = React.useState(false);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const dragStartRef = React.useRef<{ x: number; y: number } | null>(null);
+
+  // Monitor Ctrl key globally
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(true);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'Control') {
+        setIsCtrlPressed(false);
+        setIsDragging(false);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsCtrlPressed(false);
+      setIsDragging(false);
+    };
+
+    window.addEventListener('keydown', handleKeyDown, { passive: true });
+    window.addEventListener('keyup', handleKeyUp, { passive: true });
+    window.addEventListener('blur', handleBlur, { passive: true });
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, []);
+
+  // Prevent context menu when Ctrl is held
+  React.useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      if (isCtrlPressed) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('contextmenu', handleContextMenu, true);
+    return () => {
+      window.removeEventListener('contextmenu', handleContextMenu, true);
+    };
+  }, [isCtrlPressed]);
+
+  // Capture mousedown on the container for panning when Ctrl is held
+  React.useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleMouseDownCapture = (e: MouseEvent) => {
+      if (e.ctrlKey && (e.button === 0 || e.button === 2)) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        setIsDragging(true);
+        dragStartRef.current = { x: e.clientX, y: e.clientY };
+      }
+    };
+
+    container.addEventListener('mousedown', handleMouseDownCapture, true);
+    return () => {
+      container.removeEventListener('mousedown', handleMouseDownCapture, true);
+    };
+  }, [containerRef]);
+
+  // Window-level mousemove and mouseup for fluid offsite dragging
+  React.useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStartRef.current || !cropperRef.current) return;
+
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+
+      const cropper = cropperRef.current.cropper;
+      if (cropper) {
+        cropper.move(dx, dy);
+        updateImageRect();
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    window.addEventListener('mouseup', handleMouseUp, { passive: true });
+    window.addEventListener('blur', handleMouseUp, { passive: true });
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('blur', handleMouseUp);
+    };
+  }, [isDragging, cropperRef, updateImageRect]);
+
   const handleMaskChange = React.useCallback((maskDataUrl: string) => {
-    setCurrentMask(maskDataUrl);
     onInpaintMaskChange(maskDataUrl);
   }, [onInpaintMaskChange]);
 
@@ -485,19 +626,47 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       const canvasData = cropper.getCanvasData();
       if (imageData.naturalWidth > 0) {
         const pct = (canvasData.width / imageData.naturalWidth) * 100;
-        setZoomPercent(Math.round(pct));
+        // Debounce setZoomPercent to avoid heavy CanvasArea re-renders
+        if (zoomDebounceRef.current) {
+          clearTimeout(zoomDebounceRef.current);
+        }
+        zoomDebounceRef.current = setTimeout(() => {
+          setZoomPercent(Math.round(pct));
+        }, 100);
       }
     } catch { /* cropper not ready */ }
   }, [cropperRef]);
 
   const handleZoomIn = React.useCallback(() => {
-    cropperRef.current?.cropper.zoom(0.1);
-    setTimeout(() => { syncZoom(); updateImageRect(); }, 80);
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    const imageData = cropper.getImageData();
+    const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
+    const maxZoom = 500; // max 500%
+    if (currentZoom < maxZoom) {
+      // Smooth zoom using smaller increments
+      const targetZoom = Math.min(maxZoom, currentZoom + 15);
+      const scale = targetZoom / currentZoom;
+      cropper.zoom(scale - 1);
+      syncZoom();
+      updateImageRect();
+    }
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomOut = React.useCallback(() => {
-    cropperRef.current?.cropper.zoom(-0.1);
-    setTimeout(() => { syncZoom(); updateImageRect(); }, 80);
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    const imageData = cropper.getImageData();
+    const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
+    const minZoom = 10; // min 10%
+    if (currentZoom > minZoom) {
+      // Smooth zoom using smaller increments
+      const targetZoom = Math.max(minZoom, currentZoom - 15);
+      const scale = targetZoom / currentZoom;
+      cropper.zoom(scale - 1);
+      syncZoom();
+      updateImageRect();
+    }
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomReset = React.useCallback(() => {
@@ -506,11 +675,21 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const containerData = cropper.getContainerData();
     const imageData     = cropper.getImageData();
     const scale = Math.min(
-      (containerData.width  * 0.80) / imageData.naturalWidth,
-      (containerData.height * 0.80) / imageData.naturalHeight,
+      (containerData.width  * 0.95) / imageData.naturalWidth,
+      (containerData.height * 0.95) / imageData.naturalHeight,
     );
     cropper.zoomTo(scale);
-    setTimeout(() => { syncZoom(); updateImageRect(); }, 80);
+    syncZoom();
+    updateImageRect();
+  }, [cropperRef, syncZoom, updateImageRect]);
+
+  const handleZoomToPercent = React.useCallback((pct: number) => {
+    const cropper = cropperRef.current?.cropper;
+    if (!cropper) return;
+    const scale = pct / 100;
+    cropper.zoomTo(scale);
+    syncZoom();
+    updateImageRect();
   }, [cropperRef, syncZoom, updateImageRect]);
   // ──────────────────────────────────────────────────────────────────────
 
@@ -553,58 +732,57 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const cropper = cropperRef.current?.cropper;
     if (!cropper) return;
 
-    if (activeTool === 'transform') {
-      cropper.enable();
-      cropper.setDragMode('crop');
-      cropper.crop();
-      syncZoom();
-    } else {
-      // For inpaint and other tools, keep it enabled so it handles resize
-      // but disable interaction and clearing crop box
-      cropper.enable();
-      cropper.setDragMode('none');
-      cropper.clear();
-      // Defer updateImageRect to allow cropper to update internal state after clear()
-      setTimeout(() => {
-        updateImageRect();
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        (cropper as any).resize();
+      } catch {}
+
+      if (activeTool === 'transform') {
+        cropper.enable();
+        cropper.setDragMode('crop');
+        cropper.crop();
         syncZoom();
-      }, 50);
-    }
+      } else {
+        // For inpaint and other tools, keep it enabled so it handles resize
+        // but disable interaction and clearing crop box
+        cropper.enable();
+        cropper.setDragMode('none');
+        cropper.clear();
+        // Defer updateImageRect to allow cropper to update internal state after clear()
+        setTimeout(() => {
+          updateImageRect();
+          syncZoom();
+        }, 50);
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [activeTool, cropperRef, updateImageRect, syncZoom]);
 
-  // Scroll-to-zoom (disabled in transform/crop mode to not conflict with cropperjs)
-  React.useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      if (activeTool === 'transform') return; // let cropperjs handle its own mode
-      e.preventDefault();
-      const cropper = cropperRef.current?.cropper;
-      if (!cropper) return;
-      const delta = e.deltaY > 0 ? -0.08 : 0.08;
-      cropper.zoom(delta);
-      setTimeout(() => { syncZoom(); updateImageRect(); }, 80);
-    };
-
-    container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
-  }, [activeTool, cropperRef, syncZoom, updateImageRect]);
+  // Scroll-to-zoom disabled to prevent scroll/touchpad zooming
+  // Zoom is now only via buttons or keyboard shortcuts
 
   // The effective filter: blank when comparing so user sees original
   const effectiveFilter = isComparing ? 'none' : filterString;
 
   return (
-    <div
-      ref={containerRef}
-      className={`flex-1 relative bg-[#0a0a0a] overflow-hidden ${activeTool !== 'transform' ? 'hide-crop-ui' : ''} ${(activeTool !== 'transform' && sourceImg !== null) ? 'hide-cropper-image' : ''}`}
-      style={{
-        '--cropper-filter': effectiveFilter,
-        '--vignette-opacity': isComparing ? 0 : Math.min(0.9, Math.abs((adjustments.vignette || 0) / 100)),
-        '--vignette-color': adjustments.vignette < 0 ? '0, 0, 0' : '255, 255, 255',
-        '--vignette-blend-mode': adjustments.vignette < 0 ? 'multiply' : 'normal',
-      } as React.CSSProperties}
-    >
+    <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)] overflow-hidden">
+      <div
+        ref={containerRef}
+        className={`flex-1 min-w-0 relative bg-[var(--bg-primary)] overflow-hidden ${
+          activeTool !== 'transform' ? 'hide-crop-ui' : ''
+        } ${
+          (activeTool !== 'transform' && sourceImg !== null) ? 'hide-cropper-image' : ''
+        } ${
+          isCtrlPressed ? (isDragging ? 'ctrl-grabbing-active' : 'ctrl-grab-active') : ''
+        }`}
+        style={{
+          '--cropper-filter': effectiveFilter,
+          '--vignette-opacity': isComparing ? 0 : Math.min(0.9, Math.abs((adjustments.vignette || 0) / 100)),
+          '--vignette-color': adjustments.vignette < 0 ? '0, 0, 0' : '255, 255, 255',
+          '--vignette-blend-mode': adjustments.vignette < 0 ? 'multiply' : 'normal',
+        } as React.CSSProperties}
+      >
       
       <Cropper
         src={currentImageSrc}
@@ -651,77 +829,61 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         />
       )}
 
-      {/* ── Annotations Overlay (Drawing or Read-Only display) ── */}
-      {annotations && annotations.length > 0 && activeTool !== 'annotations' && imageRect && !isComparing && (
+      {/* ── Annotations Overlay (Preserved across tab switches to prevent unmounting issues) ── */}
+      {imageRect && !isComparing && (activeTool === 'annotations' || (annotations && annotations.length > 0 && activeTool !== 'transform')) && (
         <div
-          className="absolute pointer-events-none z-25"
+          ref={annotationsContainerRef}
+          className={`absolute ${activeTool === 'annotations' ? '' : 'pointer-events-none'}`}
           style={{
             left: imageRect.left,
             top: imageRect.top,
             width: imageRect.width,
             height: imageRect.height,
+            pointerEvents: activeTool === 'annotations' ? 'auto' : 'none',
+            zIndex: activeTool === 'annotations' ? 30 : 20,
           }}
         >
           <AnnotationCanvas
             annotations={annotations}
-            onChange={() => {}}
-            activeDrawTool="freehand"
-            activeColor=""
-            strokeWidth={1}
-            readOnly={true}
-          />
-        </div>
-      )}
+            onChange={activeTool === 'annotations' ? onAnnotationsChange : () => {}}
+            onStartGesture={activeTool === 'annotations' ? onStartGesture : undefined}
+            onEndGesture={activeTool === 'annotations' ? onEndGesture : undefined}
+            activeDrawTool={activeTool === 'annotations' ? activeDrawTool : 'freehand'}
+            setActiveDrawTool={activeTool === 'annotations' ? setActiveDrawTool : undefined}
+            activeColor={activeTool === 'annotations' ? activeColor : ''}
+            strokeWidth={activeTool === 'annotations' ? strokeWidth : 1}
+            eraserSize={activeTool === 'annotations' ? eraserSize : 35}
+            readOnly={activeTool !== 'annotations'}
+            selectedAnnId={activeTool === 'annotations' ? selectedAnnId : null}
+            setSelectedAnnId={activeTool === 'annotations' ? setSelectedAnnId : undefined}
+            userChangedStyleRef={activeTool === 'annotations' ? userChangedStyleRef : undefined}
 
-      {activeTool === 'annotations' && imageRect && !isComparing && (
-        <div
-          className="absolute z-30"
-          style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
-            pointerEvents: isCtrlPressed ? 'none' : 'auto',
-          }}
-        >
-          <AnnotationCanvas
-            annotations={annotations}
-            onChange={onAnnotationsChange}
-            activeDrawTool={activeDrawTool}
-            setActiveDrawTool={setActiveDrawTool}
-            activeColor={activeColor}
-            strokeWidth={strokeWidth}
-            readOnly={false}
-            selectedAnnId={selectedAnnId}
-            setSelectedAnnId={setSelectedAnnId}
-            userChangedStyleRef={userChangedStyleRef}
+            fontFamily={activeTool === 'annotations' ? fontFamily : undefined}
+            setFontFamily={activeTool === 'annotations' ? setFontFamily : undefined}
+            fontSize={activeTool === 'annotations' ? fontSize : undefined}
+            setFontSize={activeTool === 'annotations' ? setFontSize : undefined}
+            fontWeight={activeTool === 'annotations' ? fontWeight : undefined}
+            setWeight={activeTool === 'annotations' ? setWeight : undefined}
+            fontStyle={activeTool === 'annotations' ? fontStyle : undefined}
+            setStyle={activeTool === 'annotations' ? setStyle : undefined}
+            textDecoration={activeTool === 'annotations' ? textDecoration : undefined}
+            setDecoration={activeTool === 'annotations' ? setDecoration : undefined}
+            textAlign={activeTool === 'annotations' ? textAlign : undefined}
+            setTextAlign={activeTool === 'annotations' ? setTextAlign : undefined}
+            lineHeight={activeTool === 'annotations' ? lineHeight : undefined}
+            setLineHeight={activeTool === 'annotations' ? setLineHeight : undefined}
+            letterSpacing={activeTool === 'annotations' ? letterSpacing : undefined}
+            setLetterSpacing={activeTool === 'annotations' ? setLetterSpacing : undefined}
+            onUpdateTextProps={activeTool === 'annotations' ? onUpdateTextProps : undefined}
 
-            fontFamily={fontFamily}
-            setFontFamily={setFontFamily}
-            fontSize={fontSize}
-            setFontSize={setFontSize}
-            fontWeight={fontWeight}
-            setWeight={setWeight}
-            fontStyle={fontStyle}
-            setStyle={setStyle}
-            textDecoration={textDecoration}
-            setDecoration={setDecoration}
-            textAlign={textAlign}
-            setTextAlign={setTextAlign}
-            lineHeight={lineHeight}
-            setLineHeight={setLineHeight}
-            letterSpacing={letterSpacing}
-            setLetterSpacing={setLetterSpacing}
-            onUpdateTextProps={onUpdateTextProps}
-
-            doodleText={doodleText}
-            setDoodleText={setDoodleText}
-            doodleFontSize={doodleFontSize}
-            setDoodleFontSize={setDoodleFontSize}
-            doodleFontFamily={doodleFontFamily}
-            setDoodleFontFamily={setDoodleFontFamily}
-            showDoodleGuide={showDoodleGuide}
-            setShowDoodleGuide={setShowDoodleGuide}
+            doodleText={activeTool === 'annotations' ? doodleText : undefined}
+            setDoodleText={activeTool === 'annotations' ? setDoodleText : undefined}
+            doodleFontSize={activeTool === 'annotations' ? doodleFontSize : undefined}
+            setDoodleFontSize={activeTool === 'annotations' ? setDoodleFontSize : undefined}
+            doodleFontFamily={activeTool === 'annotations' ? doodleFontFamily : undefined}
+            setDoodleFontFamily={activeTool === 'annotations' ? setDoodleFontFamily : undefined}
+            showDoodleGuide={activeTool === 'annotations' ? showDoodleGuide : undefined}
+            setShowDoodleGuide={activeTool === 'annotations' ? setShowDoodleGuide : undefined}
           />
         </div>
       )}
@@ -730,19 +892,20 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       {activeTool === 'inpaint' && imageRect && (
         <>
           <div 
+            ref={inpaintContainerRef}
             className="absolute z-20"
             style={{
               left: imageRect.left,
               top: imageRect.top,
               width: imageRect.width,
               height: imageRect.height,
+              pointerEvents: 'auto',
             }}
           >
             <InpaintCanvas
               imageUrl={currentImageSrc}
               mode={inpaintMode}
               brushSize={brushSize}
-              brushHardness={brushHardness}
               onMaskChange={handleMaskChange}
               showMaskPreview={showMaskPreview}
               maskOpacity={maskOpacity}
@@ -768,15 +931,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         </div>
       )}
 
-      {/* Zoom HUD */}
-      {!isSaving && (
-        <ZoomControls
-          zoomPercent={zoomPercent}
-          onZoomIn={handleZoomIn}
-          onZoomOut={handleZoomOut}
-          onReset={handleZoomReset}
-        />
-      )}
+
 
       {/* ── Hidden SVG filters ── */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} xmlns="http://www.w3.org/2000/svg">
@@ -894,6 +1049,20 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
           </radialGradient>
         </defs>
       </svg>
+      </div>
+
+      {/* Dedicated Bottom Zoom/Ratio Status Toolbar */}
+      {!isSaving && (
+        <ZoomControls
+          zoomPercent={zoomPercent}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onReset={handleZoomReset}
+          onZoomTo={handleZoomToPercent}
+          minZoom={10}
+          maxZoom={500}
+        />
+      )}
     </div>
   );
 };

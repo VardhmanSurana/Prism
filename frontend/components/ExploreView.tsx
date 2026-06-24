@@ -1,5 +1,5 @@
 import React from 'react';
-import { MemoriesCarousel } from './MemoriesCarousel';
+import { MemoriesCarousel } from '@/components/ui/MemoriesCarousel';
 
 export const ExploreView: React.FC = () => {
   return (

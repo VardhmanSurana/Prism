@@ -48,10 +48,9 @@ const SLIDERS: SliderDef[] = [
 interface HslPanelProps {
   adjustments: Adjustments;
   onChange: (adj: Adjustments) => void;
-  imageSrc?: string;
 }
 
-export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange, imageSrc }) => {
+export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => {
   const [activeBand, setActiveBand] = useState<HslBand>('reds');
 
   const hsl: HslAdjustments = adjustments.hsl ?? { ...HSL_BAND_DEFAULTS };
@@ -100,13 +99,13 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange, image
             const isActive = activeBand === band.id;
             const isModified = isBandModified(band.id);
             return (
-              <button
+              <div
                 key={band.id}
                 onClick={() => setActiveBand(band.id)}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-xl text-[10px] font-bold transition-all duration-200 border ${
+                className={`relative flex items-center justify-center w-9 h-9 rounded-xl text-[10px] font-bold transition-all duration-200 select-none ${
                   isActive
-                    ? 'border-transparent text-white shadow-lg scale-110'
-                    : 'bg-white/[0.03] border-white/8 text-white/40 hover:text-white/70 hover:bg-white/5'
+                    ? 'text-white shadow-lg scale-110'
+                    : 'bg-white/[0.03] text-white/40 hover:text-white/70 hover:bg-white/5'
                 }`}
                 style={isActive ? {
                   background: band.color,
@@ -121,7 +120,7 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange, image
                     style={{ background: band.color }}
                   />
                 )}
-              </button>
+              </div>
             );
           })}
         </div>

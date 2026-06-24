@@ -7,6 +7,7 @@ from sqlalchemy import text
 from app.models import Base
 from app.db import get_db, engine, async_session
 from app.main import app
+from app.services.face_sdk import face_sdk
 
 @pytest.fixture(scope="session")
 def event_loop():
@@ -44,6 +45,13 @@ async def init_test_db():
     # Drop all after session
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+    # Explicitly shut down Face SDK while pytest is still capturing output;
+    # avoids C-level printf leaking to fd 1 after pytest closes its pipe.
+    try:
+        face_sdk.shutdown()
+    except Exception:
+        pass
 
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database():

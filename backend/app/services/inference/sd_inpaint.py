@@ -5,6 +5,7 @@ Lazy-loads the diffusers pipeline, supports remove/replace/outpaint operations.
 Optimized for 4GB VRAM GPUs (enables model CPU offloading) and includes automatic CPU fallback.
 """
 
+import gc
 import logging
 from typing import Optional
 
@@ -22,6 +23,18 @@ if torch.cuda.is_available():
     logger.info("cuDNN disabled (workaround for cuBLAS Lt bug on RTX 2050)")
 
 _pipes = {}
+
+
+def unload_sd():
+    """Unloads all Stable Diffusion pipelines from memory and clears VRAM/RAM."""
+    global _pipes
+    if _pipes:
+        logger.info("Unloading Stable Diffusion pipelines from memory...")
+        _pipes.clear()
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        logger.info("Stable Diffusion pipelines unloaded.")
 
 
 def _get_pipe(device: str = "cuda"):

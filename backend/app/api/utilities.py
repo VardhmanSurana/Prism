@@ -19,7 +19,7 @@ import logging
 import traceback
 
 from app.db import get_db
-from app.models import Photo
+from app.models import Photo, BackgroundJob
 from app.api.albums.utils import photo_to_dict
 from app.services.sync_service import sync_service, SUPPORTED_EXTENSIONS
 from app.utils.security import safe_resolve_read, get_allowed_read_roots
@@ -395,4 +395,83 @@ async def list_directory_contents(req: ListDirRequest):
         "folders": folders,
         "files": files,
         "is_root": False
+    }
+
+
+@router.get("/background-jobs/status")
+async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
+    # 1. Total photos
+    total_photos_stmt = select(func.count(Photo.id)).where(
+        Photo.is_locked == False,
+        Photo.is_trash == False
+    )
+    total_photos = (await db.execute(total_photos_stmt)).scalar() or 0
+
+    # 2. CLIP processed photos (photos with embedding)
+    clip_stmt = select(func.count(Photo.id)).where(
+        Photo.is_locked == False,
+        Photo.is_trash == False,
+        Photo.embedding.isnot(None)
+    )
+    clip_processed = (await db.execute(clip_stmt)).scalar() or 0
+
+    # 3. Gemma processed photos (photos with ai_summary)
+    gemma_stmt = select(func.count(Photo.id)).where(
+        Photo.is_locked == False,
+        Photo.is_trash == False,
+        Photo.ai_summary.isnot(None)
+    )
+    gemma_processed = (await db.execute(gemma_stmt)).scalar() or 0
+
+    # 4. Face processed photos (completed sequential_analysis background jobs)
+    face_stmt = select(func.count(BackgroundJob.id)).where(
+        BackgroundJob.job_type == "sequential_analysis",
+        BackgroundJob.status == "completed"
+    )
+    face_processed = (await db.execute(face_stmt)).scalar() or 0
+
+    # 5. Background queue status
+    queue_stmt = select(
+        BackgroundJob.status,
+        func.count(BackgroundJob.id)
+    ).group_by(BackgroundJob.status)
+    queue_res = await db.execute(queue_stmt)
+    
+    queue_counts = {"pending": 0, "processing": 0, "failed": 0, "completed": 0}
+    for row in queue_res.all():
+        status, count = row
+        if status in queue_counts:
+            queue_counts[status] = count
+
+    is_processing = queue_counts["pending"] > 0 or queue_counts["processing"] > 0
+
+    clip_processed = min(clip_processed, total_photos)
+    gemma_processed = min(gemma_processed, total_photos)
+    face_processed = min(face_processed, total_photos)
+
+    clip_progress = (clip_processed / total_photos * 100) if total_photos > 0 else 0
+    gemma_progress = (gemma_processed / total_photos * 100) if total_photos > 0 else 0
+    face_progress = (face_processed / total_photos * 100) if total_photos > 0 else 0
+
+    return {
+        "total_photos": total_photos,
+        "clip": {
+            "processed": clip_processed,
+            "total": total_photos,
+            "progress": round(clip_progress, 1),
+            "is_processing": is_processing and settings.ENABLE_AI_CLIP
+        },
+        "gemma": {
+            "processed": gemma_processed,
+            "total": total_photos,
+            "progress": round(gemma_progress, 1),
+            "is_processing": is_processing and settings.ENABLE_AI_CLIP
+        },
+        "face": {
+            "processed": face_processed,
+            "total": total_photos,
+            "progress": round(face_progress, 1),
+            "is_processing": is_processing
+        },
+        "queue": queue_counts
     }

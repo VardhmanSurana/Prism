@@ -1,21 +1,19 @@
 /**
  * ZoomControls.tsx
- * Floating zoom HUD rendered at the bottom-center of the canvas area.
- *
- * Provides:
- *  - Decrement / increment zoom buttons (−10% / +10%)
- *  - A numeric percentage readout that also acts as "click to reset to fit"
- *  - Keyboard shortcut hints on hover
+ * Bottom zoom toolbar rendered at the bottom-center of the canvas area.
  */
 
 import React from 'react';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 
 interface ZoomControlsProps {
   zoomPercent: number;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onReset: () => void;
+  onZoomTo: (pct: number) => void;
+  minZoom?: number;
+  maxZoom?: number;
 }
 
 export const ZoomControls: React.FC<ZoomControlsProps> = ({
@@ -23,54 +21,110 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
   onZoomIn,
   onZoomOut,
   onReset,
+  onZoomTo,
+  minZoom = 10,
+  maxZoom = 500,
 }) => {
-  const displayPercent = Math.round(zoomPercent);
+  const [localZoom, setLocalZoom] = React.useState(zoomPercent);
+
+  React.useEffect(() => {
+    setLocalZoom(zoomPercent);
+  }, [zoomPercent]);
+
+  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    setLocalZoom(val);
+    onZoomTo(val);
+  };
+
+  const displayPercent = Math.round(localZoom);
+  const isMin = localZoom <= minZoom;
+  const isMax = localZoom >= maxZoom;
 
   return (
-    <div
-      className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 
-                 px-3 py-1.5 rounded-2xl border border-white/8
-                 bg-black/70 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.6)]
-                 select-none animate-in fade-in zoom-in-95 duration-200"
-      style={{ borderColor: 'rgba(255,255,255,0.06)' }}
-    >
-      {/* Zoom out */}
-      <button
-        onClick={onZoomOut}
-        title="Zoom Out (Ctrl+-)"
-        className="p-1.5 rounded-xl text-white/40 hover:text-white/80 hover:bg-white/5 
-                   transition-all duration-150 active:scale-90"
-      >
-        <ZoomOut size={13} strokeWidth={2} />
-      </button>
+    <div className="h-12 bg-[var(--bg-primary)] border-t border-white/5 flex items-center justify-between px-6 shrink-0 z-30 select-none">
+      {/* Zoom Ratio Selection (Fit, 50%, 100%, 200%) */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={onReset}
+          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+            localZoom !== 50 && localZoom !== 100 && localZoom !== 200
+              ? 'bg-white text-[#050505] font-bold shadow-md'
+              : 'bg-[var(--bg-secondary)] text-white/50 border border-white/5 hover:text-white hover:bg-white/5'
+          }`}
+          title="Zoom to Fit (Ctrl+0)"
+        >
+          Fit
+        </button>
+        {[50, 100, 200].map(pct => {
+          const isActive = displayPercent === pct;
+          return (
+            <button
+              key={pct}
+              onClick={() => {
+                setLocalZoom(pct);
+                onZoomTo(pct);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? 'bg-white text-[#050505] font-bold shadow-md'
+                  : 'bg-[var(--bg-secondary)] text-white/50 border border-white/5 hover:text-white hover:bg-white/5'
+              }`}
+              title={`Zoom to ${pct}%`}
+            >
+              {pct}%
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Percentage readout — click to reset */}
-      <button
-        onClick={onReset}
-        title="Reset zoom to fit (Ctrl+0)"
-        className="group flex items-center gap-1.5 px-2 py-0.5 rounded-lg 
-                   text-white/60 hover:text-white/90 hover:bg-white/5 
-                   transition-all duration-150"
-      >
-        <span className="text-[11px] font-mono tabular-nums font-bold w-10 text-center">
+      {/* Slider Controls */}
+      <div className="flex items-center gap-4 w-72 max-w-full">
+        {/* Zoom Out Button */}
+        <button
+          onClick={onZoomOut}
+          disabled={isMin}
+          title="Zoom Out (Ctrl+-)"
+          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-all disabled:opacity-20 cursor-pointer"
+        >
+          <ZoomOut size={13} strokeWidth={2.5} />
+        </button>
+
+        {/* Range Slider */}
+        <div className="flex-1 relative h-4 flex items-center group/zoom-slider">
+          <div className="absolute w-full h-[2px] bg-white/10 rounded-full" />
+          <div
+            className="absolute h-[2px] rounded-full pointer-events-none bg-white/80"
+            style={{
+              left: '0%',
+              width: `${((localZoom - minZoom) / (maxZoom - minZoom)) * 100}%`,
+            }}
+          />
+          <input
+            type="range"
+            min={minZoom}
+            max={maxZoom}
+            value={localZoom}
+            onChange={handleSliderChange}
+            className="w-full appearance-none bg-transparent h-4 outline-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:shadow-[0_0_8px_rgba(255,255,255,0.5)] [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150 [&::-webkit-slider-thumb]:hover:scale-125"
+          />
+        </div>
+
+        {/* Zoom In Button */}
+        <button
+          onClick={onZoomIn}
+          disabled={isMax}
+          title="Zoom In (Ctrl+=)"
+          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-all disabled:opacity-20 cursor-pointer"
+        >
+          <ZoomIn size={13} strokeWidth={2.5} />
+        </button>
+
+        {/* Numeric Readout */}
+        <span className="text-[10px] font-mono tabular-nums font-bold text-white/60 w-12 text-right">
           {displayPercent}%
         </span>
-        <Maximize2
-          size={9}
-          strokeWidth={2.5}
-          className="text-white/20 group-hover:text-white/50 transition-colors shrink-0"
-        />
-      </button>
-
-      {/* Zoom in */}
-      <button
-        onClick={onZoomIn}
-        title="Zoom In (Ctrl+=)"
-        className="p-1.5 rounded-xl text-white/40 hover:text-white/80 hover:bg-white/5 
-                   transition-all duration-150 active:scale-90"
-      >
-        <ZoomIn size={13} strokeWidth={2} />
-      </button>
+      </div>
     </div>
   );
 };

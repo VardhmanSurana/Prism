@@ -27,7 +27,18 @@ const hexToRgba = (hex: string, opacity: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
 
-const ERASER_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ffffff' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m20 20-2.69 2.69a2 2 0 0 1-2.83 0L3.5 11.7a2 2 0 0 1 0-2.83L11.7 1.7a2 2 0 0 1 2.83 0L22 9.2a2 2 0 0 1 0 2.83Z'/><path d='m14 17-5-5'/></svg>") 4 20, auto`;
+const makeBrushCursor = (size: number): string => {
+  // Map SVG eraser radius (10-100) to a sensible pixel diameter (14-56px)
+  const px = Math.round(Math.max(14, Math.min(56, size * 0.56)));
+  const r = px / 2 - 1;
+  const svg = [
+    `<svg xmlns='http://www.w3.org/2000/svg' width='${px}' height='${px}' viewBox='0 0 ${px} ${px}'>`,
+    `<circle cx='${px / 2}' cy='${px / 2}' r='${r}' fill='none' stroke='black' stroke-width='2'/>`,
+    `<circle cx='${px / 2}' cy='${px / 2}' r='${r}' fill='none' stroke='white' stroke-width='1'/>`,
+    `</svg>`,
+  ].join('');
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${px / 2} ${px / 2}, crosshair`;
+};
 
 const PEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ffffff' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>") 2 22, auto`;
 
@@ -38,6 +49,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     activeDrawTool,
     activeColor,
     strokeWidth,
+    eraserSize = 35,
     selectedAnnId = null,
     setSelectedAnnId = () => {},
     readOnly = false,
@@ -46,16 +58,14 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
   } = props;
 
   const [scale, setScale] = useState(1);
-  const [aspectRatio, setAspectRatio] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { width, height } = entry.contentRect;
+        const { height } = entry.contentRect;
         setScale(height / 1000);
-        setAspectRatio(width / height);
       }
     });
     obs.observe(containerRef.current);
@@ -142,7 +152,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
         onPointerUp={readOnly ? undefined : handlePointerUp}
         onDoubleClick={readOnly ? undefined : handleDoubleClickWithEdit}
         onContextMenu={readOnly ? undefined : handleContextMenu}
-        className={`absolute inset-0 w-full h-full select-none ${readOnly ? 'z-25 pointer-events-none' : 'z-45 touch-none'}`}
+        className={`absolute inset-0 w-full h-full select-none ${readOnly ? 'pointer-events-none' : 'touch-none'}`}
         style={{
           cursor: (() => {
             if (readOnly) return 'default';
@@ -150,7 +160,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               case 'select':
                 return 'move';
               case 'eraser':
-                return ERASER_CURSOR;
+                return makeBrushCursor(eraserSize);
               case 'freehand':
               case 'highlighter':
                 return PEN_CURSOR;
@@ -162,6 +172,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             }
           })(),
           pointerEvents: readOnly ? 'none' : 'auto',
+          zIndex: readOnly ? 20 : 30,
         }}
       >
         {annotations.map((ann) => renderAnnotation(ann))}

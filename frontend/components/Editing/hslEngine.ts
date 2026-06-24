@@ -12,7 +12,7 @@
  * preview is also computed inside HslPanel for live feedback.
  */
 
-import { HslAdjustments, HslBand, HSL_BAND_DEFAULTS } from './filterEngine';
+import { HslAdjustments, HslBand } from './filterEngine';
 
 // ── Band hue ranges (in degrees, 0-360) ─────────────────────────────────────
 // Each band has a center hue and a soft-blend radius so edges blend smoothly.

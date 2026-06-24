@@ -4,15 +4,21 @@ export const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_API_BASE;
 
 export const resolveUrl = (url: string) => {
   if (!url) return '';
-  if (url.startsWith('/thumbnails/') || url.startsWith('/uploads/') || url.startsWith('/crop_face/') || url.startsWith('/api/v1/')) {
-    return `${API_BASE}${url}`;
+  const [base, query] = url.split('?');
+  let resolvedBase = base;
+
+  if (base.startsWith('/thumbnails/') || base.startsWith('/uploads/') || base.startsWith('/crop_face/') || base.startsWith('/api/v1/')) {
+    resolvedBase = `${API_BASE}${base}`;
+  } else if (base.startsWith('thumbnails/') || base.startsWith('uploads/') || base.startsWith('crop_face/') || base.startsWith('api/v1/')) {
+    resolvedBase = `${API_BASE}/${base}`;
+  } else if (base.startsWith('local://')) {
+    const path = base.replace('local://', '');
+    resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(path)}`;
   }
-  if (url.startsWith('thumbnails/') || url.startsWith('uploads/') || url.startsWith('crop_face/') || url.startsWith('api/v1/')) {
-    return `${API_BASE}/${url}`;
+
+  if (query) {
+    const separator = resolvedBase.includes('?') ? '&' : '?';
+    return `${resolvedBase}${separator}${query}`;
   }
-  if (url.startsWith('local://')) {
-    const path = url.replace('local://', '');
-    return `${API_BASE}/local?path=${encodeURIComponent(path)}`;
-  }
-  return url;
+  return resolvedBase;
 };

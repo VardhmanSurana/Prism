@@ -1,8 +1,10 @@
-import React from 'react';
-import { Photo } from '../../types';
+import React, { useState } from 'react';
+import { Photo, Album } from '../../types';
 import { useAlbums } from './hooks/useAlbums';
 import { AlbumsList } from './AlbumsList';
 import { AlbumDetail } from './AlbumDetail';
+import { AlbumNameDialog } from './AlbumNameDialog';
+import { DeleteConfirmDialog } from './DeleteConfirmDialog';
 
 interface AlbumsViewProps {
   onPhotoClick: (photo: Photo) => void;
@@ -11,11 +13,17 @@ interface AlbumsViewProps {
   onToggleGroupSelection: (ids: string[]) => void;
 }
 
-export const AlbumsView: React.FC<AlbumsViewProps> = ({ 
+type DialogState =
+  | { type: 'none' }
+  | { type: 'create' }
+  | { type: 'rename'; album: Album }
+  | { type: 'delete'; album: Album };
+
+export const AlbumsView: React.FC<AlbumsViewProps> = ({
   onPhotoClick,
   selectedIds,
   onToggleSelection,
-  onToggleGroupSelection
+  onToggleGroupSelection,
 }) => {
   const {
     albums,
@@ -23,36 +31,36 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
     setSelectedAlbum,
     albumPhotos,
     isLoading,
-    fetchAlbums,
     fetchAlbumPhotos,
     renameAlbum,
     createAlbum,
-    deleteAlbum
+    deleteAlbum,
   } = useAlbums();
 
-  const handleAlbumClick = async (album: typeof albums[0]) => {
+  const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
+
+  const handleAlbumClick = async (album: Album) => {
     setSelectedAlbum(album);
     await fetchAlbumPhotos(album);
   };
 
-  const handleRenameAlbum = async (album: typeof albums[0]) => {
-    const newName = window.prompt(`Enter name for this album:`, album.name);
-    if (newName && newName !== album.name) {
-      await renameAlbum(album, newName);
-    }
+  const handleRenameAlbum = (album: Album) => setDialog({ type: 'rename', album });
+  const handleDeleteAlbum = (album: Album) => setDialog({ type: 'delete', album });
+  const closeDialog = () => setDialog({ type: 'none' });
+
+  const handleConfirmCreate = async (name: string) => {
+    await createAlbum(name);
   };
 
-  const handleCreateAlbum = async () => {
-    const name = window.prompt('Enter name for the new album:');
-    if (name && name.trim()) {
-      await createAlbum(name.trim());
-    }
+  const handleConfirmRename = async (name: string) => {
+    if (dialog.type !== 'rename') return;
+    await renameAlbum(dialog.album, name);
   };
 
-  const handleDeleteAlbum = async (album: typeof albums[0]) => {
-    if (window.confirm(`Are you sure you want to delete "${album.name}"?`)) {
-      await deleteAlbum(album.id);
-    }
+  const handleConfirmDelete = async () => {
+    if (dialog.type !== 'delete') return;
+    await deleteAlbum(dialog.album.id);
+    closeDialog();
   };
 
   if (selectedAlbum) {
@@ -75,18 +83,44 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-white">Albums</h2>
         <button
-          onClick={handleCreateAlbum}
-          className="px-4 py-2 bg-primary hover:bg-primary/95 rounded-xl text-white text-sm font-semibold transition-colors shadow-md"
+          onClick={() => setDialog({ type: 'create' })}
+          className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 rounded-xl text-white text-sm font-semibold transition-colors shadow-md flex items-center gap-2"
         >
-          Create Album
+          <span>+</span> Create Album
         </button>
       </div>
+
       <AlbumsList
         albums={albums}
         onAlbumClick={handleAlbumClick}
         onRenameAlbum={handleRenameAlbum}
         onDeleteAlbum={handleDeleteAlbum}
-        onCreateAlbum={handleCreateAlbum}
+        onCreateAlbum={() => setDialog({ type: 'create' })}
+      />
+
+      {/* Create dialog */}
+      <AlbumNameDialog
+        isOpen={dialog.type === 'create'}
+        mode="create"
+        onConfirm={handleConfirmCreate}
+        onClose={closeDialog}
+      />
+
+      {/* Rename dialog */}
+      <AlbumNameDialog
+        isOpen={dialog.type === 'rename'}
+        mode="rename"
+        initialValue={dialog.type === 'rename' ? dialog.album.name : ''}
+        onConfirm={handleConfirmRename}
+        onClose={closeDialog}
+      />
+
+      {/* Delete confirmation */}
+      <DeleteConfirmDialog
+        isOpen={dialog.type === 'delete'}
+        albumName={dialog.type === 'delete' ? dialog.album.name : ''}
+        onConfirm={handleConfirmDelete}
+        onClose={closeDialog}
       />
     </div>
   );

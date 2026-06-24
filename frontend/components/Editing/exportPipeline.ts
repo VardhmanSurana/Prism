@@ -10,6 +10,7 @@ import { Adjustments } from './filterEngine';
 import { applyHslToCanvas } from './hslEngine';
 import { Annotation } from './AnnotationsPanel';
 import { isCtxFilterSupported, applyBaseFiltersToImageData, applyBlurFallback, applyNonLinearHighlightsAndShadows } from './filterFallback';
+import { smoothPath } from './AnnotationCanvas/utils';
 
 const DEFAULT_EXPORT_MIME = 'image/jpeg';
 const DEFAULT_EXPORT_QUALITY = 0.95;
@@ -559,6 +560,21 @@ export const applyGrain = (canvas: HTMLCanvasElement, adjustments: Adjustments) 
   return canvas;
 };
 
+const hexToRgbString = (hex: string): string => {
+  const cleaned = hex.replace('#', '');
+  let r = 251, g = 146, b = 60; // default warm-left color
+  if (cleaned.length === 3) {
+    r = parseInt(cleaned[0] + cleaned[0], 16);
+    g = parseInt(cleaned[1] + cleaned[1], 16);
+    b = parseInt(cleaned[2] + cleaned[2], 16);
+  } else if (cleaned.length === 6) {
+    r = parseInt(cleaned.slice(0, 2), 16);
+    g = parseInt(cleaned.slice(2, 4), 16);
+    b = parseInt(cleaned.slice(4, 6), 16);
+  }
+  return `${r}, ${g}, ${b}`;
+};
+
 export const applyLightLeak = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const leak = adjustments.lightLeak;
   if (!leak || !leak.preset) return canvas;
@@ -573,51 +589,72 @@ export const applyLightLeak = (canvas: HTMLCanvasElement, adjustments: Adjustmen
   ctx.save();
   ctx.globalCompositeOperation = 'screen';
   
+  // Determine color (use custom color if defined, otherwise fall back to preset default)
+  let rgbColor = '251, 146, 60'; // fallback
+  if (leak.color) {
+    rgbColor = hexToRgbString(leak.color);
+  } else {
+    // Preset default colors
+    if (leak.preset === 'cool-top') rgbColor = '56, 189, 248';
+    else if (leak.preset === 'rainbow-corner') rgbColor = '236, 72, 153';
+    else if (leak.preset === 'soft-glow') rgbColor = '253, 224, 71';
+    else if (leak.preset === 'sunset-bleed') rgbColor = '239, 68, 68';
+    else if (leak.preset === 'vintage-haze') rgbColor = '217, 119, 6';
+  }
+
+  const position = leak.position || (
+    leak.preset === 'warm-left' ? 'left' :
+    leak.preset === 'cool-top' ? 'top' :
+    leak.preset === 'rainbow-corner' ? 'top-right' :
+    leak.preset === 'soft-glow' ? 'center' :
+    leak.preset === 'sunset-bleed' ? 'bottom-left' :
+    'top-left' // default for vintage-haze
+  );
+  
   let gradient: CanvasGradient;
   
-  switch (leak.preset) {
-    case 'warm-left':
-      gradient = ctx.createLinearGradient(0, 0, width, 0);
-      gradient.addColorStop(0, `rgba(251, 146, 60, ${opacity})`);
-      gradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
-      break;
-      
-    case 'cool-top':
-      gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, `rgba(56, 189, 248, ${opacity})`);
-      gradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
-      break;
-      
-    case 'rainbow-corner':
-      gradient = ctx.createRadialGradient(width, 0, 0, width, 0, Math.max(width, height) * 0.8);
-      gradient.addColorStop(0, `rgba(236, 72, 153, ${opacity})`);
+  if (position === 'left') {
+    gradient = ctx.createLinearGradient(0, 0, width, 0);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'right') {
+    gradient = ctx.createLinearGradient(width, 0, 0, 0);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'top') {
+    gradient = ctx.createLinearGradient(0, 0, 0, height);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'bottom') {
+    gradient = ctx.createLinearGradient(0, height, 0, 0);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'top-right') {
+    gradient = ctx.createRadialGradient(width, 0, 0, width, 0, Math.max(width, height) * 0.8);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    if (leak.preset === 'rainbow-corner' && !leak.color) {
       gradient.addColorStop(0.3, `rgba(59, 130, 246, ${opacity * 0.8})`);
-      gradient.addColorStop(0.8, 'rgba(59, 130, 246, 0)');
-      break;
-      
-    case 'soft-glow':
-      gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.5);
-      gradient.addColorStop(0, `rgba(253, 224, 71, ${opacity})`);
-      gradient.addColorStop(1, 'rgba(253, 224, 71, 0)');
-      break;
-      
-    case 'sunset-bleed':
-      gradient = ctx.createRadialGradient(0, height, 0, 0, height, Math.max(width, height) * 0.7);
-      gradient.addColorStop(0, `rgba(239, 68, 68, ${opacity})`);
+    }
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'bottom-left') {
+    gradient = ctx.createRadialGradient(0, height, 0, 0, height, Math.max(width, height) * 0.8);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    if (leak.preset === 'sunset-bleed' && !leak.color) {
       gradient.addColorStop(0.4, `rgba(249, 115, 22, ${opacity * 0.6})`);
-      gradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
-      break;
-      
-    case 'vintage-haze':
-      gradient = ctx.createLinearGradient(0, 0, width, height);
-      gradient.addColorStop(0, `rgba(217, 119, 6, ${opacity})`);
+    }
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else if (position === 'center') {
+    gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.5);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
+  } else {
+    // Default (top-left or other)
+    gradient = ctx.createLinearGradient(0, 0, width, height);
+    gradient.addColorStop(0, `rgba(${rgbColor}, ${opacity})`);
+    if (leak.preset === 'vintage-haze' && !leak.color) {
       gradient.addColorStop(0.5, `rgba(16, 185, 129, ${opacity * 0.5})`);
-      gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
-      break;
-      
-    default:
-      ctx.restore();
-      return canvas;
+    }
+    gradient.addColorStop(1, `rgba(${rgbColor}, 0)`);
   }
   
   ctx.fillStyle = gradient;
@@ -632,7 +669,8 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
     img.crossOrigin = 'Anonymous';
     img.onload = () => resolve(img);
     img.onerror = (err) => reject(err);
-    img.src = src;
+    const separator = src.includes('?') ? '&' : '?';
+    img.src = `${src}${separator}timestamp=${Date.now()}`;
   });
 };
 
@@ -790,10 +828,12 @@ const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[])
       if (ann.visible === false) return;
       const opacityAttr = ann.opacity != null && ann.opacity < 1 ? ` opacity="${ann.opacity}"` : '';
       if (ann.type === 'freehand' && ann.points) {
-        const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const smoothed = smoothPath(ann.points);
+        const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round"${opacityAttr} />`;
       } else if (ann.type === 'highlighter' && ann.points) {
-        const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        const smoothed = smoothPath(ann.points);
+        const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         const hOpacity = ann.opacity ?? 0.4;
         svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${hOpacity}" style="mix-blend-mode: multiply" />`;
       } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
@@ -815,31 +855,34 @@ const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[])
         const y = b.h < 0 ? b.y + b.h : b.y;
         const wVal = Math.abs(b.w);
         const hVal = Math.abs(b.h);
-        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
+        const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
+        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}"${fillAttr} stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
       } else if (ann.type === 'circle' && ann.bounds) {
         const b = ann.bounds;
         const cx = b.x + b.w / 2;
         const cy = b.y + b.h / 2;
         const rx = Math.abs(b.w) / 2;
         const ry = Math.abs(b.h) / 2;
-        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
+        const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
+        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${fillAttr} stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
       } else if (ann.type === 'textPath' && ann.points && ann.points.length >= 2) {
         const pathId = `path-${ann.id}`;
-        const d = ann.points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+        const smoothed = smoothPath(ann.points);
+        const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
         const showGuide = ann.showGuidePath !== false;
         
         const text = ann.doodleText || 'peace in the air';
         // Compute path length
         let pathLen = 0;
-        for (let i = 1; i < ann.points.length; i++) {
-          const dx = ann.points[i].x - ann.points[i - 1].x;
-          const dy = ann.points[i].y - ann.points[i - 1].y;
+        for (let i = 1; i < smoothed.length; i++) {
+          const dx = smoothed[i].x - smoothed[i - 1].x;
+          const dy = smoothed[i].y - smoothed[i - 1].y;
           pathLen += Math.sqrt(dx * dx + dy * dy);
         }
         const fontSize = ann.fontSize || 18;
-        const charWidth = fontSize * 0.6;
-        const wordLen = text.length * charWidth + 15;
-        const repeats = Math.max(1, Math.ceil(pathLen / wordLen) + 1);
+        const charWidth = fontSize * 0.35;
+        const wordLen = text.length * charWidth + 10;
+        const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
         const repeatedText = Array(repeats).fill(text).join('   ');
         
         let subSvg = `<defs><path id="${pathId}" d="${d}" /></defs>`;

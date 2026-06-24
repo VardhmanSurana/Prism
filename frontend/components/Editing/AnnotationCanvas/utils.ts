@@ -116,3 +116,55 @@ export const detectHandleClick = (x: number, y: number, ann: Annotation): Handle
   return null;
 };
 
+export const simplifyPoints = (points: { x: number; y: number }[], tolerance: number = 2): { x: number; y: number }[] => {
+  if (points.length < 3) return points;
+  const result = [points[0]];
+  let last = points[0];
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i];
+    const dx = p.x - last.x;
+    const dy = p.y - last.y;
+    if (dx * dx + dy * dy > tolerance * tolerance) {
+      result.push(p);
+      last = p;
+    }
+  }
+  result.push(points[points.length - 1]);
+  return result;
+};
+
+export const smoothChaikin = (points: { x: number; y: number }[], iterations: number = 2): { x: number; y: number }[] => {
+  if (points.length < 3) return points;
+  let current = points;
+  for (let i = 0; i < iterations; i++) {
+    const next: { x: number; y: number }[] = [];
+    next.push(current[0]);
+    for (let j = 0; j < current.length - 1; j++) {
+      const p0 = current[j];
+      const p1 = current[j + 1];
+      
+      const q = {
+        x: 0.75 * p0.x + 0.25 * p1.x,
+        y: 0.75 * p0.y + 0.25 * p1.y,
+      };
+      const r = {
+        x: 0.25 * p0.x + 0.75 * p1.x,
+        y: 0.25 * p0.y + 0.75 * p1.y,
+      };
+      
+      next.push(q);
+      next.push(r);
+    }
+    next.push(current[current.length - 1]);
+    current = next;
+  }
+  return current;
+};
+
+export const smoothPath = (points: { x: number; y: number }[]): { x: number; y: number }[] => {
+  if (!points || points.length < 3) return points;
+  const simplified = simplifyPoints(points, 2.5);
+  return smoothChaikin(simplified, 2);
+};
+
+

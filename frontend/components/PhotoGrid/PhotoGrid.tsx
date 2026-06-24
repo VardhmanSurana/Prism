@@ -1,17 +1,15 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TimelineDial } from '../TimelineDial';
-import { PhotoGridProps, VirtualRowItem, RowItem } from './types';
+import { TimelineDial } from '@/components/ui/TimelineDial';
+import { PhotoGridProps, VirtualRowItem } from './types';
 import { usePhotoGrid } from './hooks/usePhotoGrid';
 import { useTimeline } from './hooks/useTimeline';
 import { PhotoGridHeader } from './PhotoGridHeader';
 import { PhotoGridRow } from './PhotoGridRow';
-import { EmptyState } from './EmptyState';
 import { PhotoListItem } from './PhotoListItem';
 import { 
   ROW_PADDING, 
-  DASHBOARD_ROW_HEIGHT, 
   EMPTY_ROW_HEIGHT, 
   HEADER_ROW_HEIGHT, 
   LIST_ITEM_HEIGHT 
@@ -20,6 +18,7 @@ import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
 import { useImport } from '../../hooks/import';
 import { API_BASE } from '../../constants';
+import { NotificationsButton } from '@/components/layout/header/NotificationsButton';
 
 import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
@@ -51,8 +50,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onSearch,
   onUpload,
   onImportProgress,
-  sortMode,
-  onSortChange,
   onUpdatePhotos,
   onBulkFavorite,
   onBulkDelete,
@@ -244,14 +241,12 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     const isToday = firstPhotoDate.getDate() === today.getDate() &&
                     firstPhotoDate.getMonth() === today.getMonth() &&
                     firstPhotoDate.getFullYear() === today.getFullYear();
-    return `${isToday ? 'Today' : 'Library'} • ${filteredPhotos.length} photos`;
+    return `${isToday ? 'Today' : 'Gallery'} • ${filteredPhotos.length} photos`;
   }, [filteredPhotos, isCompactView]);
 
-  // Keep timeline dial linked only to regular grid rows
-  const gridRowsOnly = useMemo(() => {
-    return gridRows.filter((item): item is RowItem => item.type === 'header' || item.type === 'row');
-  }, [gridRows]);
-  const { timelineItems, scrollState, activeId } = useTimeline(gridRowsOnly, scrollParentRef);
+  // Keep timeline dial linked to regular grid rows (header/row only).
+  // gridRows from usePhotoGrid already contains only those types.
+  const { timelineItems, scrollState, activeId } = useTimeline(gridRows, scrollParentRef);
 
   if (photos.length === 0 && (isLoading || syncStatus?.is_scanning)) {
     return (
@@ -274,7 +269,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 select-none">
             <div>
               <h1 className="text-4xl font-extrabold text-white tracking-tight font-sans">
-                Library
+                Gallery
               </h1>
               <div className="flex items-center gap-3 mt-1 select-none">
                 <p className="text-sm text-gray-500 font-medium">
@@ -315,6 +310,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               >
                 <SlidersHorizontal size={18} />
               </button>
+
+              {/* Notifications Button */}
+              <NotificationsButton syncStatus={syncStatus} />
 
               {/* Integrated Import Dropdown Button */}
               <div className="relative" ref={importMenuRef}>

@@ -3,7 +3,7 @@ import {
   Point,
   splineToSvgPath,
 } from './spline';
-import { CurveState, DEFAULT_CURVE } from './curves';
+import { CurveState } from './curves';
 
 // Re-export Point so consumers can import it from here if needed
 export type { Point } from './spline';
@@ -95,7 +95,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     });
   }, [dragInfo, value, onChange]);
 
-  const handlePointerUp = useCallback((e: PointerEvent) => {
+  const handlePointerUp = useCallback(() => {
     if (dragInfo) {
       setDragInfo(null);
     }

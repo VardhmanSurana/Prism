@@ -3,6 +3,10 @@ from pathlib import Path
 import os
 import sys
 import tempfile
+from dotenv import load_dotenv
+
+# Load .env file into os.environ
+load_dotenv()
 
 # Force offline mode for Hugging Face and transformers if local cache exists
 base_dir = Path(__file__).resolve().parent.parent

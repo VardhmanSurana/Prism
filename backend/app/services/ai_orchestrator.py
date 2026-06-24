@@ -82,6 +82,12 @@ class AIOrchestrator:
                 stderr_file.seek(0)
                 stderr_content = stderr_file.read() or "(empty)"
                 logger.error(f"llama-server terminated unexpectedly during startup with code {cls._process.poll()}. stderr: {stderr_content[:500]}")
+                if "OutOfDeviceMemory" in stderr_content or "failed to allocate" in stderr_content:
+                    logger.error(
+                        "TIP: llama-server failed due to low VRAM (ErrorOutOfDeviceMemory). "
+                        "You can specify which Vulkan device to use (e.g. GGML_VK_VISIBLE_DEVICES=0 for your Intel Graphics which has more free VRAM) "
+                        "by adding it to your backend/.env file."
+                    )
                 stderr_file.close()
                 break
 

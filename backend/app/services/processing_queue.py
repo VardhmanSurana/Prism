@@ -4,7 +4,7 @@ import json
 import os
 import traceback
 from loguru import logger
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func
 from datetime import datetime
 
 from app.config import settings
@@ -70,6 +70,7 @@ class ProcessingQueue:
                 
                 logger.info(f"Enqueued photo ID {photo_id} in database background jobs.")
                 self._wakeup_event.set()
+                asyncio.create_task(self._broadcast_status())
             except Exception as e:
                 logger.error(f"Failed to enqueue background job in database: {e}")
 
@@ -88,8 +89,93 @@ class ProcessingQueue:
                 await db.commit()
                 logger.info("Reset interrupted processing jobs to pending.")
                 self._wakeup_event.set()
+                await self._broadcast_status()
         except Exception as e:
             logger.error(f"Failed to reset interrupted jobs: {e}")
+
+    async def _broadcast_status(self, completed_batch=False):
+        """Fetch background jobs status and broadcast over SSE."""
+        try:
+            from app.services.sync_service import sync_service
+            async with async_session() as db:
+                total_photos_stmt = select(func.count(Photo.id)).where(
+                    Photo.is_locked == False,
+                    Photo.is_trash == False
+                )
+                total_photos = (await db.execute(total_photos_stmt)).scalar() or 0
+
+                clip_stmt = select(func.count(Photo.id)).where(
+                    Photo.is_locked == False,
+                    Photo.is_trash == False,
+                    Photo.embedding.isnot(None)
+                )
+                clip_processed = (await db.execute(clip_stmt)).scalar() or 0
+
+                gemma_stmt = select(func.count(Photo.id)).where(
+                    Photo.is_locked == False,
+                    Photo.is_trash == False,
+                    Photo.ai_summary.isnot(None)
+                )
+                gemma_processed = (await db.execute(gemma_stmt)).scalar() or 0
+
+                face_stmt = select(func.count(BackgroundJob.id)).where(
+                    BackgroundJob.job_type == "sequential_analysis",
+                    BackgroundJob.status == "completed"
+                )
+                face_processed = (await db.execute(face_stmt)).scalar() or 0
+
+                queue_stmt = select(
+                    BackgroundJob.status,
+                    func.count(BackgroundJob.id)
+                ).group_by(BackgroundJob.status)
+                queue_res = await db.execute(queue_stmt)
+                
+                queue_counts = {"pending": 0, "processing": 0, "failed": 0, "completed": 0}
+                for row in queue_res.all():
+                    status, count = row
+                    if status in queue_counts:
+                        queue_counts[status] = count
+
+            is_processing = queue_counts["pending"] > 0 or queue_counts["processing"] > 0
+
+            clip_processed = min(clip_processed, total_photos)
+            gemma_processed = min(gemma_processed, total_photos)
+            face_processed = min(face_processed, total_photos)
+
+            clip_progress = (clip_processed / total_photos * 100) if total_photos > 0 else 0
+            gemma_progress = (gemma_processed / total_photos * 100) if total_photos > 0 else 0
+            face_progress = (face_processed / total_photos * 100) if total_photos > 0 else 0
+
+            status_data = {
+                "total_photos": total_photos,
+                "clip": {
+                    "processed": clip_processed,
+                    "total": total_photos,
+                    "progress": round(clip_progress, 1),
+                    "is_processing": is_processing and settings.ENABLE_AI_CLIP
+                },
+                "gemma": {
+                    "processed": gemma_processed,
+                    "total": total_photos,
+                    "progress": round(gemma_progress, 1),
+                    "is_processing": is_processing and settings.ENABLE_AI_CLIP
+                },
+                "face": {
+                    "processed": face_processed,
+                    "total": total_photos,
+                    "progress": round(face_progress, 1),
+                    "is_processing": is_processing
+                },
+                "queue": queue_counts
+            }
+
+            sync_service.broadcast({"type": "background_job_status", "data": status_data})
+
+            if completed_batch and not is_processing:
+                sync_service.broadcast({"type": "background_job_completed", "data": status_data})
+
+        except Exception as e:
+            logger.error(f"Failed to broadcast background status: {e}")
 
     async def _get_pending_jobs(self) -> list[dict]:
         """Fetch all currently pending jobs from the database and mark them as processing."""
@@ -116,6 +202,7 @@ class ProcessingQueue:
                         "attempt_count": job.attempt_count
                     })
                 await db.commit()
+                asyncio.create_task(self._broadcast_status())
                 return job_infos
         except Exception as e:
             logger.error(f"Failed to fetch pending background jobs: {e}")
@@ -222,9 +309,9 @@ class ProcessingQueue:
                                 pid = job["photo_id"]
                                 results[pid]["stage2_success"] = False
                                 results[pid]["errors"].append(f"Failed to load SigLIP: {str(e)}")
-                        
-                        logger.info("Stage 1 complete. Unloading SigLIP resources.")
-                        unload_models()
+                        finally:
+                            logger.info("Stage 1 complete. Unloading SigLIP resources.")
+                            unload_models()
 
                 # ── Stage 2: Face Detection & Clustering (InspireFace) (CRITICAL) ──
                 active_stage2_photos = [
@@ -257,9 +344,9 @@ class ProcessingQueue:
                             pid = job["photo_id"]
                             results[pid]["stage3_success"] = False
                             results[pid]["errors"].append(f"Failed to launch Face SDK: {str(e)}")
-                    
-                    logger.info("Stage 2 complete. Shutting down Face SDK resources.")
-                    face_sdk.shutdown()
+                    finally:
+                        logger.info("Stage 2 complete. Shutting down Face SDK resources.")
+                        face_sdk.shutdown()
 
                 # Update Photo fields in DB for CRITICAL stages (embeddings + faces)
                 for job in job_infos:
@@ -292,39 +379,40 @@ class ProcessingQueue:
                         from app.services.image_summary.llm import VisionManager, generate_ollama_summary, generate_tags_json
                         
                         logger.info("Stage 3: Starting Gemma-4-E2B Vision server for batch (OPTIONAL)...")
-                        llm_func = VisionManager.get_llm()
-                        if not llm_func:
-                            logger.warning("Gemma Vision server failed to start - skipping caption/tag generation")
-                            for job in active_stage3_photos:
-                                pid = job["photo_id"]
-                                results[pid]["stage1_success"] = False
-                                results[pid]["errors"].append("Failed to start Gemma-4-E2B Vision server")
-                        else:
-                            for job in active_stage3_photos:
-                                pid = job["photo_id"]
-                                path = results[pid]["photo_path"]
-                                try:
-                                    summary = await asyncio.to_thread(generate_ollama_summary, path)
-                                    tags = await asyncio.to_thread(generate_tags_json, path)
-                                    # Handle Optional returns - None means failure
-                                    if summary is not None:
-                                        results[pid]["summary"] = summary
-                                        results[pid]["caption"] = summary[:120] + ("..." if len(summary) > 120 else "")
-                                    else:
-                                        logger.warning(f"Gemma summary returned None for photo {pid}")
-                                        results[pid]["stage1_success"] = False
-                                    if tags is not None:
-                                        results[pid]["tags_json"] = json.dumps(tags)
-                                    else:
-                                        logger.warning(f"Gemma tags returned None for photo {pid}")
-                                        results[pid]["stage1_success"] = False
-                                except Exception as e:
-                                    logger.error(f"Gemma vision processing failed for photo {pid}: {e}")
-                                    results[pid]["errors"].append(f"Gemma vision error: {str(e)}")
+                        try:
+                            llm_func = VisionManager.get_llm()
+                            if not llm_func:
+                                logger.warning("Gemma Vision server failed to start - skipping caption/tag generation")
+                                for job in active_stage3_photos:
+                                    pid = job["photo_id"]
                                     results[pid]["stage1_success"] = False
-                        
-                        logger.info("Stage 3 complete. Unloading Vision LLM resources.")
-                        VisionManager.unload_vision()
+                                    results[pid]["errors"].append("Failed to start Gemma-4-E2B Vision server")
+                            else:
+                                for job in active_stage3_photos:
+                                    pid = job["photo_id"]
+                                    path = results[pid]["photo_path"]
+                                    try:
+                                        summary = await asyncio.to_thread(generate_ollama_summary, path)
+                                        tags = await asyncio.to_thread(generate_tags_json, path)
+                                        # Handle Optional returns - None means failure
+                                        if summary is not None:
+                                            results[pid]["summary"] = summary
+                                            results[pid]["caption"] = summary[:120] + ("..." if len(summary) > 120 else "")
+                                        else:
+                                            logger.warning(f"Gemma summary returned None for photo {pid}")
+                                            results[pid]["stage1_success"] = False
+                                        if tags is not None:
+                                            results[pid]["tags_json"] = json.dumps(tags)
+                                        else:
+                                            logger.warning(f"Gemma tags returned None for photo {pid}")
+                                            results[pid]["stage1_success"] = False
+                                    except Exception as e:
+                                        logger.error(f"Gemma vision processing failed for photo {pid}: {e}")
+                                        results[pid]["errors"].append(f"Gemma vision error: {str(e)}")
+                                        results[pid]["stage1_success"] = False
+                        finally:
+                            logger.info("Stage 3 complete. Unloading Vision LLM resources.")
+                            VisionManager.unload_vision()
 
                 # Update Photo fields in DB for OPTIONAL Gemma Vision results (caption/tags)
                 for job in job_infos:
@@ -390,6 +478,7 @@ class ProcessingQueue:
 
                 # Trigger garbage collection between batches
                 gc.collect()
+                await self._broadcast_status(completed_batch=True)
 
             except asyncio.CancelledError:
                 break

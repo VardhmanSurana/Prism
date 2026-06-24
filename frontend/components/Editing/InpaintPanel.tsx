@@ -13,16 +13,10 @@ import {
   Redo2,
   Trash2,
   Sparkles,
-  Download,
   Settings,
   Loader2,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
   Expand,
   HelpCircle,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 
 export type InpaintMode = 'brush' | 'erase' | 'interactive' | 'auto';
@@ -53,7 +47,6 @@ interface InpaintPanelProps {
   canUndo: boolean;
   canRedo: boolean;
   isProcessing: boolean;
-  photoId?: number | string;
   onShowTutorial?: () => void;
 }
 
@@ -80,7 +73,6 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
   canUndo,
   canRedo,
   isProcessing,
-  photoId,
   onShowTutorial,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -224,8 +216,8 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
               style={{
                 left:  '0%',
                 width: `${(settings.brushSize / 200) * 100}%`,
-                background: `rgba(var(--color-primary), 0.8)`,
-                boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+                background: `rgb(var(--color-primary) / 0.8)`,
+                boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
               }}
             />
             <input
@@ -253,8 +245,8 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
               style={{
                 left:  '0%',
                 width: `${settings.brushHardness}%`,
-                background: `rgba(var(--color-primary), 0.8)`,
-                boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+                background: `rgb(var(--color-primary) / 0.8)`,
+                boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
               }}
             />
             <input
@@ -283,8 +275,8 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
                 style={{
                   left:  '0%',
                   width: `${settings.maskOpacity}%`,
-                  background: `rgba(var(--color-primary), 0.8)`,
-                  boxShadow: `0 0 8px rgba(var(--color-primary), 0.3)`,
+                  background: `rgb(var(--color-primary) / 0.8)`,
+                  boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
                 }}
               />
               <input

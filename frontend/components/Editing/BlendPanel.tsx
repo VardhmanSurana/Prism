@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { RotateCcw, Image, Trash2, FolderOpen } from 'lucide-react';
+import { RotateCcw, Trash2, FolderOpen } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { openFileFolderBrowser } from '../../services/FileFolderBrowserService';
 import { resolveUrl } from '../../constants';
@@ -159,6 +159,7 @@ export const BlendPanel: React.FC<BlendPanelProps> = ({ adjustments, onChange })
                 src={blend.blendImageSrc}
                 alt="Overlay preview"
                 className="w-full h-full object-cover"
+                crossOrigin="anonymous"
               />
             </div>
             
@@ -195,17 +196,24 @@ export const BlendPanel: React.FC<BlendPanelProps> = ({ adjustments, onChange })
             <label className="text-[11px] font-medium text-white/40 leading-none select-none">
               Blend Mode
             </label>
-            <select
-              value={blend.mode}
-              onChange={e => handleModeChange(e.target.value as GlobalCompositeOperation)}
-              className="w-full bg-[#141414] border border-white/10 rounded-xl px-3 py-2 text-xs text-white/80 focus:outline-none focus:border-primary/40 focus:ring-1 focus:ring-primary/20 select-none cursor-pointer"
-            >
-              {BLEND_MODES.map(mode => (
-                <option key={mode.value} value={mode.value} className="bg-[#141414]">
-                  {mode.label}
-                </option>
-              ))}
-            </select>
+            <div className="relative group">
+              <select
+                value={blend.mode}
+                onChange={e => handleModeChange(e.target.value as GlobalCompositeOperation)}
+                className="w-full appearance-none bg-[#111] border border-white/10 text-white/90 text-xs rounded-xl pl-3 pr-10 py-2.5 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all cursor-pointer group-hover:bg-[#161616]"
+              >
+                {BLEND_MODES.map(mode => (
+                  <option key={mode.value} value={mode.value} className="bg-[#111] text-white py-2">
+                    {mode.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 group-hover:text-white/60 transition-colors">
+                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Opacity Slider */}

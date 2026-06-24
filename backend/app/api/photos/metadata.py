@@ -16,8 +16,6 @@ from app.config import settings
 from app.services import face_sdk, FaceDetector, load_image
 from app.services.portrait_service import portrait_service
 from app.services.background_service import background_service
-
-from app.services.background_service import background_service
 from app.services.semantic_service import semantic_service
 import base64
 import time
@@ -66,59 +64,6 @@ async def get_semantic_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
 
     return {"regions": response_data}
 
-
-@router.get("/smart-crop/{photo_id}")
-async def get_smart_crop(photo_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    Suggests an optimal crop based on subject detection.
-    """
-    photo = await db.get(Photo, photo_id)
-    if not photo:
-        raise HTTPException(status_code=404, detail="Photo not found")
-        
-    img = load_image(photo.path)
-    if img is None:
-        raise HTTPException(status_code=500, detail="Failed to load image")
-
-    # 1. Get Subject Mask
-    mask = background_service.get_background_mask(img)
-    if mask is None:
-        raise HTTPException(status_code=500, detail="Failed to analyze subject")
-        
-    # U2NetP outputs White for Background (we inverted it in the service).
-    # We need to invert it BACK or use the non-inverted version to find the subject.
-    # Actually, the service returns White=Background, Black=Subject.
-    # Let's find the bounding box of the SUBJECT (Black areas).
-    subject_mask = cv2.bitwise_not(mask)
-    
-    # Find bounding box of white pixels (the subject)
-    coords = cv2.findNonZero(subject_mask)
-    if coords is None:
-        # Fallback to center crop if no subject found
-        return {
-            "x": int(photo.width * 0.1),
-            "y": int(photo.height * 0.1),
-            "width": int(photo.width * 0.8),
-            "height": int(photo.height * 0.8)
-        }
-        
-    x, y, w, h = cv2.boundingRect(coords)
-    
-    # 2. Add padding (e.g. 20% on each side)
-    pad_w = int(w * 0.25)
-    pad_h = int(h * 0.25)
-    
-    nx = max(0, x - pad_w)
-    ny = max(0, y - pad_h)
-    nw = min(photo.width - nx, w + 2 * pad_w)
-    nh = min(photo.height - ny, h + 2 * pad_h)
-    
-    return {
-        "x": int(nx),
-        "y": int(ny),
-        "width": int(nw),
-        "height": int(nh)
-    }
 
 
 @router.get("/background-mask/{photo_id}")

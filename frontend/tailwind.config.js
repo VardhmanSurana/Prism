@@ -15,7 +15,7 @@ export default {
         surfaceHover: "#161616",
         primary: "rgb(var(--color-primary) / <alpha-value>)",
         secondary: "#707070",
-        border: "rgba(255, 255, 255, 0.05)",
+        border: "rgba(11, 84, 230, 0.05)",
       },
       fontFamily: {
         sans: ["Sora", "system-ui", "sans-serif"],

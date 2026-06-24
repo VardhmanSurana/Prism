@@ -125,8 +125,8 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({ adjustments, onChang
                   style={{
                     left:       fillLeft,
                     width:      fillWidth,
-                    background: `rgba(var(--color-primary), ${isChanged ? 0.8 : 0.2})`,
-                    boxShadow: isChanged ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                    background: `rgb(var(--color-primary) / ${isChanged ? 0.8 : 0.2})`,
+                    boxShadow: isChanged ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                   }}
                 />
                 <input

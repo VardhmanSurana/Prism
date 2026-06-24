@@ -55,7 +55,7 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
           <button
             type="submit"
             disabled={!newAlbumName.trim()}
-            className="px-4 py-2 bg-primary hover:bg-primary/95 disabled:bg-primary/40 disabled:cursor-not-allowed rounded-xl text-white text-sm font-semibold flex items-center gap-1.5 transition-colors"
+            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 disabled:bg-indigo-500/30 disabled:cursor-not-allowed rounded-xl text-white text-sm font-semibold flex items-center gap-1.5 transition-colors"
           >
             <Plus size={16} />
             Create

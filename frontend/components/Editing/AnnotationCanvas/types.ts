@@ -18,8 +18,11 @@ export interface AnnotationCanvasProps {
   setStrokeWidth?: (width: number) => void;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
+  eraserSize?: number;
   readOnly?: boolean;
   userChangedStyleRef?: React.MutableRefObject<boolean>;
+  onStartGesture?: () => void;
+  onEndGesture?: () => void;
 
   // Text layer settings
   fontFamily?: string;

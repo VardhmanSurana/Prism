@@ -170,8 +170,8 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         style={{
                           left:  `${Math.min(50, ((reg.adjustments.brightness || 0) + 100) / 2)}%`,
                           width: `${Math.abs(((reg.adjustments.brightness || 0) + 100) / 2 - 50)}%`,
-                          background: `rgba(var(--color-primary), ${reg.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
-                          boxShadow: reg.adjustments.brightness !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                          background: `rgb(var(--color-primary) / ${reg.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.brightness !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                         }}
                       />
                       <input
@@ -196,8 +196,8 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         style={{
                           left:  `${Math.min(50, ((reg.adjustments.contrast || 0) + 100) / 2)}%`,
                           width: `${Math.abs(((reg.adjustments.contrast || 0) + 100) / 2 - 50)}%`,
-                          background: `rgba(var(--color-primary), ${reg.adjustments.contrast !== 0 ? 0.8 : 0.2})`,
-                          boxShadow: reg.adjustments.contrast !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                          background: `rgb(var(--color-primary) / ${reg.adjustments.contrast !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.contrast !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                         }}
                       />
                       <input
@@ -222,8 +222,8 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         style={{
                           left:  `${Math.min(50, ((reg.adjustments.saturation || 0) + 100) / 2)}%`,
                           width: `${Math.abs(((reg.adjustments.saturation || 0) + 100) / 2 - 50)}%`,
-                          background: `rgba(var(--color-primary), ${reg.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
-                          boxShadow: reg.adjustments.saturation !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                          background: `rgb(var(--color-primary) / ${reg.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
+                          boxShadow: reg.adjustments.saturation !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                         }}
                       />
                       <input
@@ -249,8 +249,8 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                           style={{
                             left:  '0%',
                             width: `${reg.adjustments.blur || 0}%`,
-                            background: `rgba(var(--color-primary), ${reg.adjustments.blur !== 0 ? 0.8 : 0.2})`,
-                            boxShadow: reg.adjustments.blur !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                            background: `rgb(var(--color-primary) / ${reg.adjustments.blur !== 0 ? 0.8 : 0.2})`,
+                            boxShadow: reg.adjustments.blur !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                           }}
                         />
                         <input

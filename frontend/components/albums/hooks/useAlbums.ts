@@ -139,7 +139,7 @@ export const useAlbums = (): UseAlbumsReturn => {
       if (response.ok) {
         fetchAlbums();
         if (selectedAlbum?.id === albumId) {
-          setAlbumPhotos(prev => prev.filter(p => !photoIds.includes(p.id)));
+          setAlbumPhotos(prev => prev.filter(p => !photoIds.includes(Number(p.id))));
         }
         return true;
       }

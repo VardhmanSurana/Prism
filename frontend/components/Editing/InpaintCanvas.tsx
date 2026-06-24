@@ -28,7 +28,6 @@ interface InpaintCanvasProps {
   imageUrl: string;
   mode: InpaintMode;
   brushSize: number;
-  brushHardness: number;
   onMaskChange: (maskDataUrl: string) => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -42,7 +41,6 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   imageUrl,
   mode,
   brushSize,
-  brushHardness,
   onMaskChange,
   showMaskPreview = true,
   maskOpacity = 60,
@@ -267,6 +265,7 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
 
   // Mouse move handler
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
     const point = getCanvasCoords(e);
     if (!point) return;
 
@@ -357,17 +356,22 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [clearMask]);
 
   return (
-    <div className="absolute inset-0 z-20 overflow-hidden">
+    <div 
+      className="absolute inset-0 z-20 overflow-hidden select-none"
+      style={{
+        cursor: (mode === 'brush' || mode === 'erase') ? 'none' : 'crosshair',
+      }}
+    >
       {/* Mask canvas (hidden, used for generating mask data) */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full pointer-events-none opacity-0"
+        className="absolute inset-0 w-full h-full pointer-events-none opacity-0 select-none"
       />
       
       {/* Overlay canvas (visible, shows cursor and interactive feedback) */}
       <canvas
         ref={overlayCanvasRef}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full select-none"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

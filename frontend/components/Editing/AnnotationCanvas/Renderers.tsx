@@ -1,5 +1,6 @@
 import React from 'react';
 import { Annotation } from '../AnnotationsPanel';
+import { smoothPath } from './utils';
 
 interface RendererProps {
   ann: Annotation;
@@ -7,7 +8,15 @@ interface RendererProps {
   aspectRatio?: number;
 }
 
-export const ArrowRenderer: React.FC<RendererProps> = ({ ann }) => {
+const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
+  return (
+    prev.ann === next.ann &&
+    prev.showGuide === next.showGuide &&
+    prev.aspectRatio === next.aspectRatio
+  );
+};
+
+export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const start = ann.points[0];
   const end = ann.points[ann.points.length - 1];
@@ -17,14 +26,10 @@ export const ArrowRenderer: React.FC<RendererProps> = ({ ann }) => {
 
   const xTip = end.x;
   const yTip = end.y;
-  const xLeft =
-    end.x - headLength * Math.cos(angle - Math.PI / 6);
-  const yLeft =
-    end.y - headLength * Math.sin(angle - Math.PI / 6);
-  const xRight =
-    end.x - headLength * Math.cos(angle + Math.PI / 6);
-  const yRight =
-    end.y - headLength * Math.sin(angle + Math.PI / 6);
+  const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
+  const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
+  const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
+  const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
 
   const xBase = end.x - headLength * Math.cos(angle) * 0.8;
   const yBase = end.y - headLength * Math.sin(angle) * 0.8;
@@ -46,14 +51,13 @@ export const ArrowRenderer: React.FC<RendererProps> = ({ ann }) => {
       />
     </g>
   );
-};
+}, arePropsEqual);
 
-export const FreehandRenderer: React.FC<RendererProps> = ({ ann }) => {
+export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
-  const pathData = ann.points
-    .map(
-      (p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`
-    )
+  const smoothed = smoothPath(ann.points);
+  const pathData = smoothed
+    .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
   return (
@@ -67,14 +71,13 @@ export const FreehandRenderer: React.FC<RendererProps> = ({ ann }) => {
       opacity={ann.opacity ?? 1}
     />
   );
-};
+}, arePropsEqual);
 
-export const HighlighterRenderer: React.FC<RendererProps> = ({ ann }) => {
+export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
-  const pathData = ann.points
-    .map(
-      (p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`
-    )
+  const smoothed = smoothPath(ann.points);
+  const pathData = smoothed
+    .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
   return (
@@ -89,9 +92,9 @@ export const HighlighterRenderer: React.FC<RendererProps> = ({ ann }) => {
       style={{ mixBlendMode: 'multiply' } as any}
     />
   );
-};
+}, arePropsEqual);
 
-export const RectRenderer: React.FC<RendererProps> = ({ ann }) => {
+export const RectRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
   const x = b.w < 0 ? b.x + b.w : b.x;
@@ -105,15 +108,16 @@ export const RectRenderer: React.FC<RendererProps> = ({ ann }) => {
       y={y}
       width={w}
       height={h}
-      fill="none"
+      fill={ann.fillShape ? ann.color : 'none'}
+      fillOpacity={ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined}
       stroke={ann.color}
       strokeWidth={ann.strokeWidth * 1.5}
       opacity={ann.opacity ?? 1}
     />
   );
-};
+}, arePropsEqual);
 
-export const CircleRenderer: React.FC<RendererProps> = ({ ann }) => {
+export const CircleRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
   const cx = b.x + b.w / 2;
@@ -127,13 +131,14 @@ export const CircleRenderer: React.FC<RendererProps> = ({ ann }) => {
       cy={cy}
       rx={rx}
       ry={ry}
-      fill="none"
+      fill={ann.fillShape ? ann.color : 'none'}
+      fillOpacity={ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined}
       stroke={ann.color}
       strokeWidth={ann.strokeWidth * 1.5}
       opacity={ann.opacity ?? 1}
     />
   );
-};
+}, arePropsEqual);
 
 const calculatePathLength = (points: { x: number; y: number }[]) => {
   let length = 0;
@@ -145,10 +150,11 @@ const calculatePathLength = (points: { x: number; y: number }[]) => {
   return length;
 };
 
-export const TextPathRenderer: React.FC<RendererProps> = ({ ann }) => {
+export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const pathId = `path-${ann.id}`;
-  const d = ann.points
+  const smoothed = smoothPath(ann.points);
+  const d = smoothed
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
@@ -156,11 +162,11 @@ export const TextPathRenderer: React.FC<RendererProps> = ({ ann }) => {
   
   // Repeat text to fill path length
   const text = ann.doodleText || 'peace in the air';
-  const pathLen = calculatePathLength(ann.points);
+  const pathLen = calculatePathLength(smoothed);
   const fontSize = ann.fontSize || 18;
-  const charWidth = fontSize * 0.6;
-  const wordLen = text.length * charWidth + 15;
-  const repeats = Math.max(1, Math.ceil(pathLen / wordLen) + 1);
+  const charWidth = fontSize * 0.35;
+  const wordLen = text.length * charWidth + 10;
+  const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
   const repeatedText = Array(repeats).fill(text).join('   ');
 
   return (
@@ -188,9 +194,9 @@ export const TextPathRenderer: React.FC<RendererProps> = ({ ann }) => {
       </text>
     </g>
   );
-};
+}, arePropsEqual);
 
-export const TextRenderer: React.FC<RendererProps> = ({ ann, aspectRatio }) => {
+export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
   const x = b.x;
@@ -266,4 +272,4 @@ export const TextRenderer: React.FC<RendererProps> = ({ ann, aspectRatio }) => {
       </text>
     </g>
   );
-};
+}, arePropsEqual);

@@ -1,14 +1,14 @@
 import React, { useCallback } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Sidebar } from './components/Sidebar';
-import { Header } from './components/Header';
+import { Sidebar } from './components/layout/sidebar/Sidebar';
+import { Header } from './components/layout/header/Header';
 import { MainContent } from './components/MainContent';
-import { Lightbox } from './components/Lightbox';
-import { BulkActionsBar } from './components/BulkActionsBar';
-import { FloatingActions } from './components/FloatingActions';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ConfirmDialog } from './components/ConfirmDialog';
-import { FileFolderBrowserDialog } from './components/FileFolderBrowserDialog';
+import { Lightbox } from './components/viewers/Lightbox';
+import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
+import { FloatingActions } from './components/layout/floating-actions/FloatingActions';
+import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
+import { ConfirmDialog } from './components/wrappers/ConfirmDialog';
+import { FileFolderBrowserDialog } from './components/FileFolderBrowser/FileFolderBrowserDialog';
 import { useAppState } from './hooks/useAppState';
 import { AddToAlbumDialog } from './components/albums';
 import type { ViewMode } from './types';
@@ -94,6 +94,7 @@ function App() {
               onImportProgress={setImportStatus}
               sortMode={sortMode}
               onSortChange={setSortMode}
+              syncStatus={syncStatus}
             />
           )}
 
@@ -151,10 +152,10 @@ function App() {
               onNext={handleNextPhoto}
               onPrev={handlePrevPhoto}
               onRemoveFromAlbum={
-                selectedAlbum ? () => handleRemoveSingleFromActiveAlbum(selectedPhoto.id) : undefined
+                selectedAlbum ? () => handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined
               }
               onSetAsCover={
-                selectedAlbum ? () => handleSetAlbumCover(selectedPhoto.id) : undefined
+                selectedAlbum ? () => handleSetAlbumCover(Number(selectedPhoto.id)) : undefined
               }
             />
           )}

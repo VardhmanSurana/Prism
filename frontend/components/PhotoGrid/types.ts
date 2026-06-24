@@ -1,4 +1,4 @@
-import React, { Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction, RefObject } from 'react';
 import { Photo } from '../../types';
 import { SearchFilters, SortMode, ViewMode } from '../../types';
 
@@ -18,12 +18,10 @@ export interface PhotoGridProps {
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
-  scrollParentRef?: React.RefObject<HTMLDivElement | null>;
+  scrollParentRef?: RefObject<HTMLDivElement | null>;
   onSearch?: (filters: SearchFilters | null) => void;
   onUpload?: (photos: Photo[]) => void;
   onImportProgress?: (status: ImportProgressStatus) => void;
-  sortMode?: SortMode;
-  onSortChange?: (mode: SortMode) => void;
   onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
@@ -68,9 +66,6 @@ export interface PhotoGridRowProps {
   measureElement: (element: HTMLElement | null) => void;
 }
 
-export interface EmptyStateProps {
-  message?: string;
-}
 
 export type RowItem =
   | { type: 'header'; dateKey: string; photoIds: string[]; location?: string }
@@ -78,6 +73,5 @@ export type RowItem =
 
 export type VirtualRowItem =
   | RowItem
-  | { type: 'dashboard' }
   | { type: 'empty' }
   | { type: 'list-item'; photo: Photo };

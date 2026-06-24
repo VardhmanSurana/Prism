@@ -1,5 +1,6 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { TimelineItem } from '../../TimelineDial';
+import { useMemo, useState, useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
+import { TimelineItem } from '@/components/ui/TimelineDial';
 import { RowItem } from '../types';
 import { ROW_HEIGHT } from '../constants';
 
@@ -7,7 +8,7 @@ const HEADER_HEIGHT = 80;
 
 export const useTimeline = (
   rowItems: RowItem[],
-  scrollParentRef?: React.RefObject<HTMLDivElement | null>
+  scrollParentRef?: RefObject<HTMLDivElement | null>
 ) => {
   const timelineItems = useMemo(() => {
     const items: TimelineItem[] = [];

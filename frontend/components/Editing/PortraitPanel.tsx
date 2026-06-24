@@ -133,8 +133,8 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
                       style={{
                         left:  '0%',
                         width: `${region.adjustments.blur || 0}%`,
-                        background: `rgba(var(--color-primary), ${region.adjustments.blur !== 0 ? 0.8 : 0.2})`,
-                        boxShadow: region.adjustments.blur !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        background: `rgb(var(--color-primary) / ${region.adjustments.blur !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.blur !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                       }}
                     />
                     <input
@@ -163,8 +163,8 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
                       style={{
                         left:  `${Math.min(50, ((region.adjustments.brightness || 0) + 50))}%`,
                         width: `${Math.abs(((region.adjustments.brightness || 0) + 50) - 50)}%`,
-                        background: `rgba(var(--color-primary), ${region.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
-                        boxShadow: region.adjustments.brightness !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        background: `rgb(var(--color-primary) / ${region.adjustments.brightness !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.brightness !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                       }}
                     />
                     <input
@@ -193,8 +193,8 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
                       style={{
                         left:  `${Math.min(50, ((region.adjustments.saturation || 0) + 50))}%`,
                         width: `${Math.abs(((region.adjustments.saturation || 0) + 50) - 50)}%`,
-                        background: `rgba(var(--color-primary), ${region.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
-                        boxShadow: region.adjustments.saturation !== 0 ? `0 0 8px rgba(var(--color-primary), 0.3)` : 'none',
+                        background: `rgb(var(--color-primary) / ${region.adjustments.saturation !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: region.adjustments.saturation !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
                       }}
                     />
                     <input

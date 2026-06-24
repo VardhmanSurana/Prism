@@ -65,7 +65,7 @@ export function useAppState() {
   } = useSelection();
 
   const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
-  const { albums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum } = useAlbums();
+  const { albums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum, setAlbumCover } = useAlbums();
 
   const handleAddToAlbumClick = useCallback(() => {
     setIsAddToAlbumOpen(true);
@@ -99,16 +99,6 @@ export function useAppState() {
     clearSelection();
   }, [selectedAlbum, selectedIds, removePhotosFromAlbum, clearSelection]);
 
-  const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
-    if (!selectedAlbum) return;
-    await removePhotosFromAlbum(selectedAlbum.id, [photoId]);
-    setSelectedPhoto(null);
-  }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
-
-  const handleSetAlbumCover = useCallback(async (photoId: number) => {
-    if (!selectedAlbum) return;
-    await setAlbumCover(selectedAlbum.id, photoId);
-  }, [selectedAlbum, setAlbumCover]);
 
   const {
     handleBulkDelete,
@@ -134,6 +124,17 @@ export function useAppState() {
   const setSelectedPhoto = useCallback((photo: Photo | null) => {
     setPhotoSelection(photo, () => setContextPhotos(null));
   }, [setPhotoSelection]);
+
+  const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
+    if (!selectedAlbum) return;
+    await removePhotosFromAlbum(selectedAlbum.id, [photoId]);
+    setSelectedPhoto(null);
+  }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
+
+  const handleSetAlbumCover = useCallback(async (photoId: number) => {
+    if (!selectedAlbum) return;
+    await setAlbumCover(selectedAlbum.id, photoId);
+  }, [selectedAlbum, setAlbumCover]);
 
   const handleUpload = useCallback((newPhotos: Photo[]) => {
     setPhotos(prev => {

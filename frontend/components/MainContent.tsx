@@ -2,12 +2,12 @@ import React, { Dispatch, SetStateAction } from 'react';
 import { ExploreView } from './ExploreView';
 import { AlbumsView } from './albums';
 import { PeopleView } from './PeopleView/index';
-import { UtilitiesView } from './UtilitiesView';
+import { UtilitiesView } from './utilities/UtilitiesView';
 import { MapView } from './MapView';
 import { PhotoGrid } from './PhotoGrid';
 import { LockedViewAuth } from './LockedViewAuth/index';
 import { LockedFolderView } from './LockedFolderView';
-import { AgentView } from './AgentView';
+import { AgentView } from './AgentView/AgentView';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../types';
 import { ImportProgressStatus } from './PhotoGrid/types';
 
@@ -121,8 +121,6 @@ export function MainContent({
             onSearch={onSearch}
             onUpload={onUpload}
             onImportProgress={onImportProgress}
-            sortMode={sortMode}
-            onSortChange={onSortChange}
             onUpdatePhotos={onUpdatePhotos}
             onBulkFavorite={onBulkFavorite}
             onBulkDelete={onBulkDelete}
@@ -136,7 +134,9 @@ export function MainContent({
     <div
       ref={scrollRef}
       onScroll={onScroll}
-      className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar relative"
+      className={`flex-1 scroll-smooth custom-scrollbar relative ${
+        currentView === 'agent' ? 'overflow-hidden h-full' : 'overflow-y-auto'
+      }`}
     >
       {renderContent()}
     </div>

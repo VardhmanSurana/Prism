@@ -3,6 +3,7 @@ photos/inpaint.py
 IOPaint-inspired inpainting/outpainting endpoints with support for multiple AI models.
 """
 
+import gc
 import logging
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
@@ -65,6 +66,7 @@ def encode_image_to_base64(image: Image.Image, format: str = "PNG") -> str:
 
 _simple_lama = None
 
+
 def _get_simple_lama():
     global _simple_lama
     if _simple_lama is None:
@@ -72,6 +74,33 @@ def _get_simple_lama():
         # Force CPU to avoid CUDA OOM and driver loading issues on the 4GB GPU
         _simple_lama = SimpleLama(device="cpu")
     return _simple_lama
+
+
+def unload_lama():
+    """Unloads the LaMa inpainting model from memory."""
+    global _simple_lama
+    if _simple_lama is not None:
+        logger.info("Unloading LaMa model from memory...")
+        _simple_lama = None
+        gc.collect()
+        logger.info("LaMa model unloaded.")
+
+
+def unload_all_inpaint():
+    """Unloads all inpainting models (LaMa, SD, SAM) from memory/VRAM.
+    Call this when the editor is closed to free all GPU/RAM resources.
+    """
+    unload_lama()
+    try:
+        from app.services.inference.sd_inpaint import unload_sd
+        unload_sd()
+    except Exception as e:
+        logger.warning(f"Error unloading SD pipeline: {e}")
+    try:
+        from app.services.inference.sam_seg import unload_sam
+        unload_sam()
+    except Exception as e:
+        logger.warning(f"Error unloading SAM model: {e}")
 
 
 async def run_lama_inpaint(image: Image.Image, mask: Image.Image) -> Image.Image:
@@ -207,3 +236,17 @@ async def process_inpaint(request: InpaintRequest):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Inpainting failed: {str(e)}")
+
+
+@router.post("/unload")
+async def unload_inpaint_models():
+    """
+    Unload all inpainting models (LaMa, Stable Diffusion, SAM) from memory/VRAM.
+    The frontend should call this when the editor is closed to free GPU resources.
+    """
+    try:
+        unload_all_inpaint()
+        return {"status": "ok", "message": "All inpainting models unloaded from memory"}
+    except Exception as e:
+        logger.error(f"Error unloading inpainting models: {e}")
+        raise HTTPException(status_code=500, detail=f"Unload failed: {str(e)}")

@@ -40,7 +40,15 @@ async def generate_summary(photo_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Photo not found")
 
     # Generate summary
-    summary = await generate_image_summary(photo.path)
+    try:
+        summary = await generate_image_summary(photo.path)
+    finally:
+        # Unload Vision LLM from VRAM after single-photo summary to keep GPU free
+        try:
+            from app.services.image_summary.llm import VisionManager
+            VisionManager.unload_vision()
+        except Exception:
+            pass
 
     # Save to ai_summary field
     photo.ai_summary = summary

@@ -21,8 +21,17 @@ async def chat_with_agent(req: ChatRequest):
     history_dicts = [{"role": h.role, "content": h.content} for h in req.history] if req.history else []
     
     async def event_generator():
-        async for event in Prism_agent.chat_stream(req.message, history=history_dicts):
-            yield json.dumps(event) + "\n"
+        try:
+            async for event in Prism_agent.chat_stream(req.message, history=history_dicts):
+                yield json.dumps(event) + "\n"
+        finally:
+            # Unload agent LLM and SigLIP from VRAM when the stream ends (success or error)
+            try:
+                from app.services.vision_pipeline import unload_models
+                Prism_agent.unload_llm()
+                unload_models()
+            except Exception:
+                pass
             
     return StreamingResponse(event_generator(), media_type="application/x-ndjson")
 

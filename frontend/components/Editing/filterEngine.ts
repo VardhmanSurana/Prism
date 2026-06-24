@@ -109,6 +109,8 @@ export interface GrainAdjustments {
 export interface LightLeakAdjustments {
   preset:  string | null;
   opacity: number;
+  color?:  string;
+  position?: 'left' | 'right' | 'top' | 'bottom' | 'top-right' | 'bottom-left' | 'center';
 }
 
 export interface FrameAdjustments {

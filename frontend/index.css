@@ -6,6 +6,16 @@
 
 :root {
   --color-primary: 255 255 255;
+  --bg-primary: #0F1115;
+  --bg-secondary: #161A20;
+  --bg-tertiary: #1E232B;
+  --accent: #2563eb;
+}
+
+.preset-card-selected {
+  border: 2px solid #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
+  transform: scale(1.02);
 }
 
 @layer base {
@@ -234,3 +244,22 @@
   --rcp-hue-pointer-border-color: #fff;
   --rcp-alpha-pointer-border-color: #fff;
 }
+
+/* ── Ctrl-key Panning grab/grabbing cursor overrides ── */
+.ctrl-grab-active,
+.ctrl-grab-active * {
+  cursor: grab !important;
+}
+
+.ctrl-grabbing-active,
+.ctrl-grabbing-active * {
+  cursor: grabbing !important;
+}
+
+/* Disable transition on slider highlight bars to prevent lagging behind the thumb */
+div:has(> .adjustment-slider) > div.pointer-events-none,
+div:has(> [type="range"]) > div.pointer-events-none {
+  transition: none !important;
+}
+
+

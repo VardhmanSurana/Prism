@@ -4,6 +4,7 @@ SAM (Segment Anything Model) via HuggingFace transformers.
 Uses facebook/sam-vit-base (ViT-B, 358MB, transformers-native).
 Supports point-prompted segmentation for interactive and smart-select flows.
 """
+import gc
 import logging
 from typing import List, Tuple, Optional
 
@@ -35,6 +36,19 @@ def _get_sam():
         _model.eval()
         logger.info(f"SAM loaded on {_device}")
     return _model, _processor
+
+
+def unload_sam():
+    """Unloads SAM model from memory and clears VRAM/RAM."""
+    global _model, _processor
+    if _model is not None or _processor is not None:
+        logger.info("Unloading SAM model from memory...")
+        _model = None
+        _processor = None
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        logger.info("SAM model unloaded.")
 
 
 def sam_segment_from_points(

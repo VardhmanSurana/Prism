@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderOpen, Plus } from 'lucide-react';
+import { FolderOpen } from 'lucide-react';
 import { Album } from '../../types';
 import { AlbumCard } from './AlbumCard';
 
@@ -31,7 +31,7 @@ export const AlbumsList: React.FC<AlbumsListProps> = ({
           </p>
           <button
             onClick={onCreateAlbum}
-            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors shadow-md hover:scale-105 duration-200"
+            className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-xl text-xs font-semibold uppercase tracking-wider transition-colors shadow-md hover:scale-105 duration-200"
           >
             Create First Album
           </button>
@@ -42,21 +42,7 @@ export const AlbumsList: React.FC<AlbumsListProps> = ({
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
-      {/* Create Album Card */}
-      <button
-        onClick={onCreateAlbum}
-        className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-white/10 hover:border-primary/50 bg-white/5 hover:bg-white/10 rounded-2xl p-4 text-gray-400 hover:text-white transition-all group gap-3"
-      >
-        <div className="p-3 bg-white/5 group-hover:bg-primary/10 rounded-xl transition-colors">
-          <Plus size={24} className="text-gray-400 group-hover:text-primary transition-colors" />
-        </div>
-        <div className="text-center">
-          <span className="block text-sm font-semibold">Create Album</span>
-          <span className="block text-[10px] text-gray-500 uppercase tracking-wider font-mono">New Custom</span>
-        </div>
-      </button>
-
-      {albums.map((album) => (
+{albums.map((album) => (
         <AlbumCard 
           key={album.id}
           album={album}

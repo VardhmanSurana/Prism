@@ -1,13 +1,104 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
+from sqlalchemy import delete, extract, and_, func
 from app.db import get_db
 from app.models import Album, Photo, PhotoAlbum
 from app.api.albums.utils import photo_to_dict
 from typing import List
+from datetime import datetime, timezone
 
 router = APIRouter()
+
+
+@router.get("/memories/highlights")
+async def get_memories_highlights(db: AsyncSession = Depends(get_db)):
+    """
+    Returns curated highlight groups for the Memories Carousel:
+      - "on_this_day": photos taken on today's month+day in past years (one highlight per year)
+      - "location": top locations with enough photos (one highlight per city/country)
+    Returns up to 5 highlights total. Each highlight contains up to 20 preview photos.
+    """
+    today = datetime.now(timezone.utc)
+    highlights = []
+
+    # ── 1. On This Day ────────────────────────────────────────────────────────
+    stmt_otd = (
+        select(Photo)
+        .where(
+            and_(
+                Photo.is_trash == False,
+                extract("month", Photo.date_taken) == today.month,
+                extract("day", Photo.date_taken) == today.day,
+                extract("year", Photo.date_taken) < today.year,
+            )
+        )
+        .order_by(Photo.date_taken.desc())
+    )
+    result_otd = await db.execute(stmt_otd)
+    otd_photos = result_otd.scalars().all()
+
+    # Group by year
+    by_year: dict[int, list[Photo]] = {}
+    for p in otd_photos:
+        yr = (p.date_taken or p.date).year
+        by_year.setdefault(yr, []).append(p)
+
+    for year, photos in sorted(by_year.items(), reverse=True):
+        if len(photos) < 1:
+            continue
+        cover = photos[0]
+        highlights.append({
+            "id": f"otd_{year}",
+            "title": f"{today.strftime('%B')} {today.day}, {year}",
+            "subtitle": f"{len(photos)} photo{'s' if len(photos) != 1 else ''} from {year}",
+            "type": "on_this_day",
+            "photo_count": len(photos),
+            "cover_url": f"/api/v1/photos/{cover.id}/thumbnail",
+            "photos": [photo_to_dict(p) for p in photos[:20]],
+        })
+        if len(highlights) >= 3:
+            break
+
+    # ── 2. Top Locations ──────────────────────────────────────────────────────
+    # Group by city (fall back to country) — pick top locations by photo count
+    stmt_loc = (
+        select(Photo)
+        .where(
+            and_(
+                Photo.is_trash == False,
+                Photo.city != None,
+            )
+        )
+        .order_by(Photo.date_taken.desc())
+    )
+    result_loc = await db.execute(stmt_loc)
+    loc_photos = result_loc.scalars().all()
+
+    by_location: dict[str, list[Photo]] = {}
+    for p in loc_photos:
+        key = p.city or p.country
+        if key:
+            by_location.setdefault(key, []).append(p)
+
+    # Sort by count desc, pick top 2
+    for loc_name, photos in sorted(by_location.items(), key=lambda x: len(x[1]), reverse=True)[:2]:
+        if len(photos) < 3:
+            continue
+        cover = photos[0]
+        parts = [p for p in [photos[0].city, photos[0].country] if p]
+        subtitle = ", ".join(parts) if parts else loc_name
+        highlights.append({
+            "id": f"loc_{loc_name.lower().replace(' ', '_')}",
+            "title": loc_name,
+            "subtitle": f"{len(photos)} photos • {subtitle}",
+            "type": "location",
+            "photo_count": len(photos),
+            "cover_url": f"/api/v1/photos/{cover.id}/thumbnail",
+            "photos": [photo_to_dict(p) for p in photos[:20]],
+        })
+
+    return highlights[:5]
 
 @router.get("/")
 async def list_albums(db: AsyncSession = Depends(get_db)):
