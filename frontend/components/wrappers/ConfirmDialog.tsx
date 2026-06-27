@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Lock, Unlock, AlertCircle, X } from 'lucide-react';
 import { registerConfirmCallback, unregisterConfirmCallback } from '@/services/ConfirmService';
@@ -37,12 +37,23 @@ export const ConfirmDialog: React.FC = () => {
     }
   }, [state?.isOpen]);
 
+  const handleConfirm = useCallback(() => {
+    state?.resolve(true);
+    setState(null);
+  }, [state]);
+
+  const handleCancel = useCallback(() => {
+    state?.resolve(false);
+    setState(null);
+  }, [state]);
+
   useEffect(() => {
     if (!state?.isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleCancel();
+        state?.resolve(false);
+        setState(null);
       }
     };
 
@@ -51,16 +62,6 @@ export const ConfirmDialog: React.FC = () => {
   }, [state]);
 
   if (!state || !state.isOpen) return null;
-
-  const handleConfirm = () => {
-    state.resolve(true);
-    setState(null);
-  };
-
-  const handleCancel = () => {
-    state.resolve(false);
-    setState(null);
-  };
 
   const titleText = state.title || 'Confirm Action';
   const messageText = state.message;

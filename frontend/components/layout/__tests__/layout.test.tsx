@@ -19,6 +19,18 @@ vi.mock('@/hooks/useStats', () => ({
   } as Record<string, unknown>),
 }));
 
+vi.mock('@/store/syncStore', () => ({
+  useSyncStore: (selector: (s: { syncStatus: { is_scanning: boolean; total_files: number; processed_files: number; progress: number } }) => unknown) =>
+    selector({
+      syncStatus: {
+        is_scanning: false,
+        total_files: 0,
+        processed_files: 0,
+        progress: 0,
+      },
+    }),
+}));
+
 describe('layout', () => {
   it('renders Header with search bar', () => {
     render(
@@ -28,12 +40,6 @@ describe('layout', () => {
         onImportProgress={vi.fn()}
         sortMode="newest"
         onSortChange={vi.fn()}
-        syncStatus={{
-          is_scanning: false,
-          total_files: 0,
-          processed_files: 0,
-          progress: 0,
-        }}
       />
     );
     expect(screen.getByPlaceholderText(/query deep library/i)).toBeTruthy();
@@ -85,12 +91,6 @@ describe('layout', () => {
           total_files: 10,
           processed_files: 3,
           progress: 30,
-        }}
-        syncStatus={{
-          is_scanning: false,
-          total_files: 0,
-          processed_files: 0,
-          progress: 0,
         }}
       />
     );

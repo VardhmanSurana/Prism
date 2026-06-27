@@ -1884,15 +1884,18 @@ wheels = [
 
 [[package]]
 name = "llama-cpp-python"
-version = "0.3.29"
-source = { registry = "https://pypi.org/simple" }
+version = "0.3.31"
+source = { registry = "https://abetlen.github.io/llama-cpp-python/whl/cu132" }
 dependencies = [
     { name = "diskcache" },
     { name = "jinja2" },
     { name = "numpy" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/83/0f/8e03877aa9ea79890cf64f6d12d47f4daced663d0dd6abe482fe6483e7e6/llama_cpp_python-0.3.29.tar.gz", hash = "sha256:21122165951bdc25ba27c0483a2f44082c860d89422945548c64df08b6029ce4", size = 70016946, upload-time = "2026-06-13T19:42:12.153Z" }
+wheels = [
+    { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.31-cu132/llama_cpp_python-0.3.31-py3-none-manylinux_2_35_x86_64.whl" },
+    { url = "https://github.com/abetlen/llama-cpp-python/releases/download/v0.3.31-cu132/llama_cpp_python-0.3.31-py3-none-win_amd64.whl" },
+]
 
 [[package]]
 name = "llvmlite"
@@ -3422,8 +3425,8 @@ requires-dist = [
     { name = "langchain-google-genai", marker = "extra == 'agent'", specifier = ">=4.2.2" },
     { name = "langchain-openai", marker = "extra == 'agent'", specifier = ">=0.2.0" },
     { name = "langgraph", marker = "extra == 'agent'", specifier = ">=1.1.9" },
-    { name = "llama-cpp-python", specifier = ">=0.3.23" },
-    { name = "llama-cpp-python", marker = "extra == 'agent'", specifier = ">=0.3.29" },
+    { name = "llama-cpp-python", specifier = ">=0.3.31" },
+    { name = "llama-cpp-python", marker = "extra == 'agent'", specifier = ">=0.3.31" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "onnxruntime", marker = "extra == 'rembg'", specifier = ">=1.16.0" },

@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-    const env = loadEnv(mode, '.', '');
+    const env = loadEnv(mode, '.', ['VITE_', 'TAURI_']);
     const isTauri = !!process.env.TAURI_ENV_DEBUG;
 
     return {
@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0',
         watch: {
           ignored: ['**/src-tauri/target/**'],
+        },
+        warmup: {
+          clientFiles: ['./index.tsx', './components/PhotoGrid/PhotoGrid.tsx'],
         },
       },
       // prevent vite from obscuring rust errors
@@ -45,6 +48,16 @@ export default defineConfig(({ mode }) => {
         minify: !process.env.TAURI_DEBUG ? 'esbuild' : false,
         // produce sourcemaps for debug builds
         sourcemap: !!process.env.TAURI_DEBUG,
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'react-vendor': ['react', 'react-dom'],
+              'motion-vendor': ['framer-motion'],
+              'map-vendor': ['leaflet', 'react-leaflet'],
+              'virtual-vendor': ['@tanstack/react-virtual'],
+            },
+          },
+        },
       },
     };
 });

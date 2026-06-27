@@ -11,7 +11,6 @@ import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import { AdjustPanel } from '../AdjustPanel';
 import { DetailPanel } from '../DetailPanel';
-import { EffectsPanel } from '../EffectsPanel';
 import { TransformPanel } from '../TransformPanel';
 import { TopBar } from '../TopBar';
 import { Sidebar, ToolId } from '../Sidebar';
@@ -25,11 +24,8 @@ import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '..
 import { InpaintTutorial } from '../InpaintTutorial';
 import { HslPanel } from '../HslPanel';
 import { PresetsPanel } from '../PresetsPanel';
-import { SplitToningPanel } from '../SplitToningPanel';
 import { TexturePanel } from '../TexturePanel';
 import { FramesPanel } from '../FramesPanel';
-import { BlendPanel } from '../BlendPanel';
-import { TiltShiftPanel } from '../TiltShiftPanel';
 import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
 
@@ -553,8 +549,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
-          {activeTool === 'transform' && (
-            <TransformPanel
+          {([
+            ['transform', <TransformPanel
+              key="transform"
               hasCropSelection={hasCropSelection}
               isImageCropped={isImageCropped}
               handleApplyCrop={handleApplyCrop}
@@ -568,85 +565,24 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               flipV={flipV}
               handleFlipH={handleFlipH}
               handleFlipV={handleFlipV}
-            />
-          )}
-
-          {activeTool === 'adjust' && (
-            <AdjustPanel
+            />],
+            ['adjust', <AdjustPanel
+              key="adjust"
               adjustments={adjustments}
               onChange={handleAdjChange}
               photoId={photoId}
               imageSrc={currentImageSrc}
               filterString={filterString}
-            />
-          )}
-
-          {activeTool === 'detail' && (
-            <DetailPanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'portrait' && (
-            <PortraitPanel adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />
-          )}
-
-          {activeTool === 'selective' && (
-            <SelectivePanel adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />
-          )}
-
-          {activeTool === 'hsl' && (
-            <HslPanel
-              adjustments={adjustments}
-              onChange={handleAdjChange}
-            />
-          )}
-
-          {activeTool === 'presets' && (
-            <PresetsPanel
-              adjustments={adjustments}
-              onChange={handleAdjChange}
-              imageSrc={currentImageSrc}
-            />
-          )}
-
-          {activeTool === 'effects' && (
-            <EffectsPanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'splitToning' && (
-            <SplitToningPanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'texture' && (
-            <TexturePanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'frame' && (
-            <FramesPanel
-              adjustments={adjustments}
-              onChange={handleAdjChange}
-              handleRotate={handleRotate}
-              handleFlipH={handleFlipH}
-              handleFlipV={handleFlipV}
-              flipH={flipH}
-              flipV={flipV}
-              imageSrc={currentImageSrc}
-            />
-          )}
-
-          {activeTool === 'blend' && (
-            <BlendPanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'tiltShift' && (
-            <TiltShiftPanel adjustments={adjustments} onChange={handleAdjChange} />
-          )}
-
-          {activeTool === 'palette' && (
-            <PalettePanel imageSrc={currentImageSrc} />
-          )}
-
-          {activeTool === 'annotations' && (
-            <AnnotationsPanel
+            />],
+            ['detail', <DetailPanel key="detail" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['portrait', <PortraitPanel key="portrait" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
+            ['selective', <SelectivePanel key="selective" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
+            ['hsl', <HslPanel key="hsl" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['presets', <PresetsPanel key="presets" adjustments={adjustments} onChange={handleAdjChange} imageSrc={currentImageSrc} />],
+            ['texture', <TexturePanel key="texture" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['frame', <FramesPanel key="frame" adjustments={adjustments} onChange={handleAdjChange} handleRotate={handleRotate} handleFlipH={handleFlipH} handleFlipV={handleFlipV} flipH={flipH} flipV={flipV} imageSrc={currentImageSrc} />],
+            ['palette', <PalettePanel key="palette" imageSrc={currentImageSrc} />],
+            ['annotations', <AnnotationsPanel key="annotations"
               annotations={annState.annotations}
               onChange={annState.updateAnnotations}
               activeDrawTool={activeDrawTool}
@@ -661,7 +597,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               markStyleChanged={() => { userChangedStyleRef.current = true; }}
               brushSize={brushSize}
               setBrushSize={setBrushSize}
-
               fontFamily={annState.fontFamily}
               setFontFamily={annState.setFontFamily}
               fontSize={annState.fontSize}
@@ -679,7 +614,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               letterSpacing={annState.letterSpacing}
               setLetterSpacing={annState.setLetterSpacing}
               onUpdateTextProps={annState.onUpdateTextProps}
-
               doodleText={annState.doodleText}
               setDoodleText={annState.setDoodleText}
               doodleFontSize={annState.doodleFontSize}
@@ -688,11 +622,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               setDoodleFontFamily={annState.setDoodleFontFamily}
               showDoodleGuide={annState.showDoodleGuide}
               setShowDoodleGuide={annState.setShowDoodleGuide}
-            />
-          )}
-
-          {activeTool === 'inpaint' && (
-            <InpaintPanel
+            />],
+            ['inpaint', <InpaintPanel key="inpaint"
               mode={inpaintMode}
               operation={inpaintOperation}
               settings={inpaintSettings}
@@ -712,8 +643,16 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               canRedo={false}
               isProcessing={isInpainting}
               onShowTutorial={() => setShowInpaintTutorial(true)}
-            />
-          )}
+            />],
+          ] as const).map(([toolId, panel]) => (
+            <div
+              key={toolId}
+              style={activeTool === toolId ? undefined : { visibility: 'hidden', position: 'absolute', pointerEvents: 'none' }}
+              className="flex-1 min-h-0 flex flex-col"
+            >
+              {panel}
+            </div>
+          ))}
         </Sidebar>
 
         <CanvasArea

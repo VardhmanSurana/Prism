@@ -1,17 +1,25 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo, Suspense } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
 import { MainContent } from './components/MainContent';
-import { Lightbox } from './components/viewers/Lightbox';
 import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
 import { FloatingActions } from './components/layout/floating-actions/FloatingActions';
 import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
-import { ConfirmDialog } from './components/wrappers/ConfirmDialog';
-import { FileFolderBrowserDialog } from './components/FileFolderBrowser/FileFolderBrowserDialog';
 import { useAppState } from './hooks/useAppState';
-import { AddToAlbumDialog } from './components/albums';
+import { API_BASE } from './constants';
+import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
 import type { ViewMode } from './types';
+
+const Lightbox = React.lazy(() =>
+  import('./components/viewers/Lightbox').then((m) => ({ default: m.Lightbox }))
+);
+const ConfirmDialog = React.lazy(() =>
+  import('./components/wrappers/ConfirmDialog').then((m) => ({ default: m.ConfirmDialog }))
+);
+const FileFolderBrowserDialog = React.lazy(() =>
+  import('./components/FileFolderBrowser/FileFolderBrowserDialog').then((m) => ({ default: m.FileFolderBrowserDialog }))
+);
 
 function App() {
   const {
@@ -19,7 +27,6 @@ function App() {
     setCurrentView,
     isLoading,
     isStatusLoading,
-    syncStatus,
     selectedPhoto,
     setSelectedPhoto,
     activeFilters,
@@ -75,6 +82,31 @@ function App() {
     clearSelection();
   }, [setPhotos, setSelectedPhoto, clearSelection]);
 
+  const handleLightboxToggleFavorite = useCallback(async (id: string | number) => {
+    await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
+    setPhotos(prev => prev.map(p =>
+      String(p.id) === String(id)
+        ? { ...p, isFavorite: !p.isFavorite, is_favorite: !p.is_favorite }
+        : p
+    ));
+  }, [setPhotos]);
+
+  const handleLightboxRemoveFromAlbum = useMemo(() =>
+    selectedAlbum ? () => selectedPhoto && handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined,
+    [selectedAlbum, selectedPhoto, handleRemoveSingleFromActiveAlbum]
+  );
+
+  const handleLightboxSetAsCover = useMemo(() =>
+    selectedAlbum ? () => selectedPhoto && handleSetAlbumCover(Number(selectedPhoto.id)) : undefined,
+    [selectedAlbum, selectedPhoto, handleSetAlbumCover]
+  );
+
+  const handleAuthenticate = useCallback(() => setIsLockedAuthenticated(true), [setIsLockedAuthenticated]);
+
+  const handleLightboxClose = useCallback(() => setSelectedPhoto(null), [setSelectedPhoto]);
+
+  const handleAddToAlbumClose = useCallback(() => setIsAddToAlbumOpen(false), [setIsAddToAlbumOpen]);
+
   return (
     <ErrorBoundary>
       <div className="relative flex h-screen w-screen overflow-hidden bg-background text-gray-100">
@@ -94,7 +126,6 @@ function App() {
               onImportProgress={setImportStatus}
               sortMode={sortMode}
               onSortChange={setSortMode}
-              syncStatus={syncStatus}
             />
           )}
 
@@ -103,14 +134,13 @@ function App() {
             photos={displayedPhotos}
             isLoading={isLoading}
             isStatusLoading={isStatusLoading}
-            syncStatus={syncStatus}
             selectedIds={selectedIds}
             isLockedAuthenticated={isLockedAuthenticated}
             scrollRef={scrollRef}
             onPhotoClick={setSelectedPhoto}
             onToggleSelection={handleToggleSelection}
             onToggleGroupSelection={handleToggleGroupSelection}
-            onAuthenticate={() => setIsLockedAuthenticated(true)}
+            onAuthenticate={handleAuthenticate}
             onLockSession={handleLockSession}
             onPhotosLoaded={setContextPhotos}
             onScroll={handleScroll}
@@ -144,38 +174,40 @@ function App() {
           </AnimatePresence>
         </main>
 
-        <AnimatePresence>
-          {selectedPhoto && (
-            <Lightbox
-              photo={selectedPhoto}
-              onClose={() => setSelectedPhoto(null)}
-              onNext={handleNextPhoto}
-              onPrev={handlePrevPhoto}
-              onRemoveFromAlbum={
-                selectedAlbum ? () => handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined
-              }
-              onSetAsCover={
-                selectedAlbum ? () => handleSetAlbumCover(Number(selectedPhoto.id)) : undefined
-              }
-            />
-          )}
-        </AnimatePresence>
+        <Suspense fallback={null}>
+          <AnimatePresence>
+            {selectedPhoto && (
+              <Lightbox
+                photo={selectedPhoto}
+                photos={displayedPhotos}
+                onClose={handleLightboxClose}
+                onNext={handleNextPhoto}
+                onPrev={handlePrevPhoto}
+                onPhotoSelect={setSelectedPhoto}
+                onToggleFavorite={handleLightboxToggleFavorite}
+                onRemoveFromAlbum={handleLightboxRemoveFromAlbum}
+                onSetAsCover={handleLightboxSetAsCover}
+              />
+            )}
+          </AnimatePresence>
+        </Suspense>
 
         <FloatingActions
           importStatus={importStatus}
-          syncStatus={syncStatus}
         />
-        
-        <AddToAlbumDialog
-          isOpen={isAddToAlbumOpen}
-          onClose={() => setIsAddToAlbumOpen(false)}
-          albums={albums}
-          onSelectAlbum={handleSelectAlbumToAdd}
-          onCreateAlbum={handleCreateAlbumAndAdd}
-          selectedCount={selectedIds.size}
-        />
-        <ConfirmDialog />
-        <FileFolderBrowserDialog />
+
+        <Suspense fallback={null}>
+          <AddToAlbumDialog
+            isOpen={isAddToAlbumOpen}
+            onClose={handleAddToAlbumClose}
+            albums={albums}
+            onSelectAlbum={handleSelectAlbumToAdd}
+            onCreateAlbum={handleCreateAlbumAndAdd}
+            selectedCount={selectedIds.size}
+          />
+          <ConfirmDialog />
+          <FileFolderBrowserDialog />
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

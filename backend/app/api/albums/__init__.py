@@ -67,7 +67,7 @@ async def get_memories_highlights(db: AsyncSession = Depends(get_db)):
         .where(
             and_(
                 Photo.is_trash == False,
-                Photo.city != None,
+                Photo.city.is_not(None),
             )
         )
         .order_by(Photo.date_taken.desc())

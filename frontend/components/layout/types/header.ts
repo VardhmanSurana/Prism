@@ -11,10 +11,4 @@ export interface HeaderProps {
   }) => void;
   sortMode: SortMode;
   onSortChange: (mode: SortMode) => void;
-  syncStatus: {
-    is_scanning: boolean;
-    total_files: number;
-    processed_files: number;
-    progress: number;
-  };
 }

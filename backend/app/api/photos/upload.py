@@ -69,21 +69,18 @@ def resize_and_save_image(file_path: str, max_width: int) -> str:
     import uuid
     import os
     
-    try:
-        from pillow_heif import register_heif_opener
-        register_heif_opener()
-    except ImportError:
-        pass
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
 
-    img = Image.open(file_path)
-    img = ImageOps.exif_transpose(img)
-    
-    width, height = img.size
-    if width > max_width:
-        aspect_ratio = height / width
-        new_width = max_width
-        new_height = int(new_width * aspect_ratio)
-        img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+    with Image.open(file_path) as raw_img:
+        img = ImageOps.exif_transpose(raw_img)
+        
+        width, height = img.size
+        if width > max_width:
+            aspect_ratio = height / width
+            new_width = max_width
+            new_height = int(new_width * aspect_ratio)
+            img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
         
     base_name = os.path.basename(file_path)
     root, ext = os.path.splitext(base_name)

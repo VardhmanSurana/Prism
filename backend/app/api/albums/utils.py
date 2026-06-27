@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models import Photo
 
 def safe_int(val):
@@ -15,7 +15,7 @@ def safe_int(val):
 def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
     """Serialize a Photo model to dict. If include is set, only return those keys."""
     location_parts = [p for p in [photo.city, photo.state, photo.country] if p]
-    photo_date = (photo.date_taken or photo.date or datetime.utcnow()).isoformat()
+    photo_date = (photo.date_taken or photo.date or datetime.now(timezone.utc)).isoformat()
 
     result = {
         "id": photo.id,

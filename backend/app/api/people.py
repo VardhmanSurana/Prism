@@ -3,14 +3,16 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, and_
 import json
+import logging
 import numpy as np
 
 from app.db import get_db
 from app.models import Person, PhotoPerson, Photo, PendingFaceAssignment
 from app.api.albums.utils import photo_to_dict
-from app.services.face_clustering import face_service
 from app.services.sync_service import sync_service
 from app.services.locked_service import locked_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -200,6 +202,7 @@ async def submit_feedback(pending_id: int, req: FeedbackRequest, db: AsyncSessio
         
         # Update centroid embedding
         try:
+            from app.services.face_clustering import face_service
             # Load all existing associations to calculate cumulative weight
             assoc_stmt = select(PhotoPerson).where(PhotoPerson.person_id == person.id)
             assoc_res = await db.execute(assoc_stmt)
@@ -221,10 +224,8 @@ async def submit_feedback(pending_id: int, req: FeedbackRequest, db: AsyncSessio
                     current_emb, feat, cumulative_weight, new_weight
                 )
                 person.face_embedding = json.dumps(new_emb.tolist())
-        except Exception:
-            # We don't fail the transaction if updating the embedding fails
-            pass
-            
+        except Exception as e:
+            logger.warning(f"Failed to update face embedding for person {person.id} from pending face {pending.id}: {e}")
         # Delete pending assignment
         await db.delete(pending)
         await db.commit()

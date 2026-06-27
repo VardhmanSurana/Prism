@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { create } from 'zustand';
 import { API_BASE } from '../constants';
 import { eventService } from '../services/EventService';
@@ -42,12 +42,22 @@ export const useStatsStore = create<StatsState>((set, get) => ({
   }
 }));
 
-export function useStats(photosDependency?: unknown) {
+export function useStats(photosCount?: number) {
   const { stats, isLoading, error, fetchStats } = useStatsStore();
+  const prevCountRef = useRef(photosCount);
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats, photosDependency]);
+  }, [fetchStats]);
+
+  useEffect(() => {
+    if (photosCount !== undefined && prevCountRef.current !== undefined) {
+      const diff = Math.abs(photosCount - prevCountRef.current);
+      if (diff < 5) return;
+    }
+    prevCountRef.current = photosCount;
+    fetchStats();
+  }, [photosCount, fetchStats]);
 
   useEffect(() => {
     const unsub = eventService.subscribe('photo_trashed', () => {

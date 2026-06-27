@@ -19,6 +19,7 @@ import { useStats } from '../../hooks/useStats';
 import { useImport } from '../../hooks/import';
 import { API_BASE } from '../../constants';
 import { NotificationsButton } from '@/components/layout/header/NotificationsButton';
+import { useSyncStore } from '@/store/syncStore';
 
 import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
@@ -37,11 +38,61 @@ import {
   ChevronUp
 } from 'lucide-react';
 
+const EmptyLibraryState: React.FC<{ isTrash: boolean }> = React.memo(({ isTrash }) => (
+  <div className="flex flex-col items-center gap-4 opacity-60">
+    <div className="w-24 h-24 rounded-2xl bg-surface border border-border flex items-center justify-center">
+      <ImageIcon size={40} className="text-gray-500" />
+    </div>
+    <div className="text-center">
+      {isTrash ? (
+        <>
+          <p className="text-lg font-semibold text-gray-300">Trash is empty</p>
+          <p className="text-sm text-gray-500 mt-1">
+            No photos in trash.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-lg font-semibold text-gray-300">Your library is empty</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Click <span className="text-primary font-medium">Import</span> above to add photos from your device.
+          </p>
+        </>
+      )}
+    </div>
+  </div>
+));
+EmptyLibraryState.displayName = 'EmptyLibraryState';
+
+interface StatsCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  gradient: string;
+  iconBg: string;
+}
+
+const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value, icon, gradient, iconBg }) => (
+  <div className="p-7 bg-surface border border-border rounded-2xl flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
+    <div className={`absolute -inset-px bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl`} />
+    <div className="flex items-center justify-between mb-4 relative z-10">
+      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
+      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>
+        {icon}
+      </div>
+    </div>
+    <span className="text-4xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
+      {value}
+    </span>
+  </div>
+));
+StatsCard.displayName = 'StatsCard';
+
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   isLoading,
-  syncStatus,
   currentView,
+  compact = false,
   onPhotoClick,
   selectedIds,
   onToggleSelection,
@@ -56,6 +107,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onBulkLockToggle,
 }) => {
   const isSelectionMode = selectedIds.size > 0;
+  const syncStatus = useSyncStore((s) => s.syncStatus);
   
   // Custom states for filtering and view layout
   const [activePill, setActivePill] = useState<'all' | 'favorites' | 'recent' | 'videos'>('all');
@@ -69,7 +121,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const { rowHeightPx, maxRowWidth } = useGalleryLayout();
 
   // Stats Integration
-  const { stats, refetch: refetchStats } = useStats(photos);
+  const { stats, refetch: refetchStats } = useStats(photos.length);
 
   // Ingestion drop-down handles
   const { handleFileUpload, handleFolderImport } = useImport({
@@ -87,24 +139,23 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         setIsImportOpen(false);
       }
     };
-    document.addEventListener('mousedown', clickOutside);
+    document.addEventListener('mousedown', clickOutside, { passive: true });
     return () => document.removeEventListener('mousedown', clickOutside);
   }, []);
 
   // Clientside Pill Filtering and sorting logic
   const filteredPhotos = useMemo(() => {
-    let result = [...photos];
+    if (activePill === 'all') return photos;
     if (activePill === 'favorites') {
-      result = result.filter(p => p.isFavorite || p.is_favorite);
+      return photos.filter(p => p.isFavorite || p.is_favorite);
     } else if (activePill === 'recent') {
-      // Show photos taken or added within the last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      result = result.filter(p => new Date(p.date) >= thirtyDaysAgo);
+      return photos.filter(p => new Date(p.date) >= thirtyDaysAgo);
     } else if (activePill === 'videos') {
-      result = result.filter(p => p.file_type === 'video' || p.mime_type?.startsWith('video/'));
+      return photos.filter(p => p.file_type === 'video' || p.mime_type?.startsWith('video/'));
     }
-    return result;
+    return photos;
   }, [photos, activePill]);
 
   // Handle Inline Toggles for List View
@@ -194,7 +245,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // (and Import button) are always visible regardless of photo count.
   // In trash views, hide the dashboard header.
   const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth);
-  const isCompactView = currentView === 'trash';
+  const isCompactView = compact || currentView === 'trash';
   const rowItems = useMemo(() => {
     if (isCompactView) {
       if (photos.length === 0) {
@@ -253,7 +304,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       <div className="pl-10 pr-10 pt-28 pb-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {Array.from({ length: 18 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-xl bg-white/5 animate-pulse" />
+            <div key={i} className="aspect-[3/4] rounded-lg bg-white/5 animate-pulse" />
           ))}
         </div>
       </div>
@@ -295,7 +346,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 </div>
                 <input
                   type="text"
-                  className="w-full bg-surface border border-border rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-100 placeholder:text-gray-500 placeholder:text-xs focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-mono"
+                  className="w-full bg-surface border border-border rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-100 placeholder:text-gray-500 placeholder:text-xs focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-mono"
                   placeholder="Search by people, places, things..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -305,20 +356,20 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
               {/* Filter Setting Button */}
               <button
-                className="p-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-400 hover:text-white rounded-xl transition-all active:scale-95"
+                className="p-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-400 hover:text-white rounded-lg transition-all active:scale-95"
                 title="Advanced Filter Options"
               >
                 <SlidersHorizontal size={18} />
               </button>
 
               {/* Notifications Button */}
-              <NotificationsButton syncStatus={syncStatus} />
+              <NotificationsButton />
 
               {/* Integrated Import Dropdown Button */}
               <div className="relative" ref={importMenuRef}>
                 <button
                   onClick={() => setIsImportOpen(!isImportOpen)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black hover:brightness-110 font-bold rounded-xl text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(var(--color-primary),0.15)] transition-all active:scale-95"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black hover:brightness-110 font-bold rounded-lg text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(var(--color-primary),0.15)] transition-all active:scale-95"
                 >
                   <FolderUp size={15} />
                   <span>Import</span>
@@ -326,13 +377,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 </button>
 
                 {isImportOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl p-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-lg shadow-2xl p-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
                     <button
                       onClick={() => {
                         handleFileUpload();
                         setIsImportOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-md transition-colors font-medium"
                     >
                       <ImageIcon size={16} className="text-purple-400" />
                       <span>Import Files</span>
@@ -342,7 +393,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                         handleFolderImport();
                         setIsImportOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-lg transition-colors font-medium"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-md transition-colors font-medium"
                     >
                       <FolderOpen size={16} className="text-emerald-400" />
                       <span>Import Folder</span>
@@ -364,61 +415,34 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 className="overflow-hidden w-full"
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 select-none pt-1 pb-1">
-                  {/* Card 1: Total Photos */}
-                  <div className="p-6 bg-surface border border-border rounded-[1.5rem] flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
-                    <div className="absolute -inset-px bg-gradient-to-r from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[1.5rem]" />
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">Total Photos</span>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-purple-500/10 text-purple-400">
-                        <ImageIcon size={16} />
-                      </div>
-                    </div>
-                    <span className="text-3xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
-                      {stats ? stats.total_photos.toLocaleString() : photos.length.toLocaleString()}
-                    </span>
-                  </div>
-
-                  {/* Card 2: People Found */}
-                  <div className="p-6 bg-surface border border-border rounded-[1.5rem] flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
-                    <div className="absolute -inset-px bg-gradient-to-r from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[1.5rem]" />
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">People Found</span>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-400">
-                        <Users size={16} />
-                      </div>
-                    </div>
-                    <span className="text-3xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
-                      {stats ? stats.people_found.toLocaleString() : '0'}
-                    </span>
-                  </div>
-
-                  {/* Card 3: Albums */}
-                  <div className="p-6 bg-surface border border-border rounded-[1.5rem] flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
-                    <div className="absolute -inset-px bg-gradient-to-r from-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[1.5rem]" />
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">Albums</span>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-orange-500/10 text-orange-400">
-                        <FolderOpen size={16} />
-                      </div>
-                    </div>
-                    <span className="text-3xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
-                      {stats ? stats.albums.toLocaleString() : '0'}
-                    </span>
-                  </div>
-
-                  {/* Card 4: Locked Folder */}
-                  <div className="p-6 bg-surface border border-border rounded-[1.5rem] flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
-                    <div className="absolute -inset-px bg-gradient-to-r from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-[1.5rem]" />
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">Locked Folder</span>
-                      <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-rose-500/10 text-rose-400">
-                        <Lock size={16} />
-                      </div>
-                    </div>
-                    <span className="text-3xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
-                      {stats ? stats.locked_encrypted.toLocaleString() : '0'}
-                    </span>
-                  </div>
+                  <StatsCard
+                    label="Total Photos"
+                    value={stats ? stats.total_photos.toLocaleString() : photos.length.toLocaleString()}
+                    icon={<ImageIcon size={18} className="text-purple-400" />}
+                    gradient="from-purple-500/5 to-transparent"
+                    iconBg="bg-purple-500/10"
+                  />
+                  <StatsCard
+                    label="People Found"
+                    value={stats ? stats.people_found.toLocaleString() : '0'}
+                    icon={<Users size={18} className="text-emerald-400" />}
+                    gradient="from-emerald-500/5 to-transparent"
+                    iconBg="bg-emerald-500/10"
+                  />
+                  <StatsCard
+                    label="Albums"
+                    value={stats ? stats.albums.toLocaleString() : '0'}
+                    icon={<FolderOpen size={18} className="text-orange-400" />}
+                    gradient="from-orange-500/5 to-transparent"
+                    iconBg="bg-orange-500/10"
+                  />
+                  <StatsCard
+                    label="Locked Folder"
+                    value={stats ? stats.locked_encrypted.toLocaleString() : '0'}
+                    icon={<Lock size={18} className="text-rose-400" />}
+                    gradient="from-rose-500/5 to-transparent"
+                    iconBg="bg-rose-500/10"
+                  />
                 </div>
               </motion.div>
             )}
@@ -427,12 +451,12 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
           {/* Sub Navigation and View Filters */}
           <div className="flex items-center justify-between border-t border-b border-white/5 py-4 mb-4 select-none">
             {/* Category Pills on Left */}
-            <div className="flex items-center gap-2 bg-[#111]/40 p-1 rounded-full border border-white/5">
+            <div className="flex items-center gap-1.5 bg-[#111]/40 p-1.5 rounded-xl border border-white/5">
               {(['all', 'favorites', 'recent', 'videos'] as const).map((pill) => (
                 <button
                   key={pill}
                   onClick={() => setActivePill(pill)}
-                  className={`px-5 py-2 text-[10px] font-bold rounded-full uppercase tracking-wider transition-all duration-300
+                  className={`px-5 py-2.5 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all duration-300
                     ${
                       activePill === pill
                         ? 'bg-primary text-black font-extrabold shadow-[0_0_20px_rgba(var(--color-primary),0.2)]'
@@ -452,10 +476,10 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               </span>
 
               {/* Layout switch controls */}
-              <div className="flex items-center gap-1 bg-[#111]/40 p-1 rounded-full border border-white/5">
+              <div className="flex items-center gap-1 bg-[#111]/40 p-1.5 rounded-xl border border-white/5">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded-full transition-all duration-300 ${
+                  className={`p-2.5 rounded-lg transition-all duration-300 ${
                     viewMode === 'grid' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
                   }`}
                   title="Grid View"
@@ -464,7 +488,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded-full transition-all duration-300 ${
+                  className={`p-2.5 rounded-lg transition-all duration-300 ${
                     viewMode === 'list' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
                   }`}
                   title="List View"
@@ -496,28 +520,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 className="absolute top-0 left-0 w-full flex flex-col items-center justify-center gap-5 select-none"
                 style={{ transform: `translateY(${virtualRow.start}px)`, minHeight: '380px' }}
               >
-                <div className="flex flex-col items-center gap-4 opacity-60">
-                  <div className="w-20 h-20 rounded-2xl bg-surface border border-border flex items-center justify-center">
-                    <ImageIcon size={36} className="text-gray-500" />
-                  </div>
-                  <div className="text-center">
-                    {currentView === 'trash' ? (
-                      <>
-                        <p className="text-lg font-semibold text-gray-300">Trash is empty</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          No photos in trash.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-lg font-semibold text-gray-300">Your library is empty</p>
-                        <p className="text-sm text-gray-500 mt-1">
-                          Click <span className="text-primary font-medium">Import</span> above to add photos from your device.
-                        </p>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <EmptyLibraryState isTrash={currentView === 'trash'} />
               </div>
             );
           }

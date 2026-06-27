@@ -9,25 +9,36 @@ import { useLightboxGestures } from '@/hooks/useLightboxGestures';
 import { useImageHighRes } from '@/hooks/useImageHighRes';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
 
-import { InfoPanel, Toolbar, PhotoMetadataDisplay, NavigationArrows, ImageDisplay } from './lightbox';
+import { InfoPanel } from './lightbox/InfoPanel';
+import { Toolbar } from './lightbox/Toolbar';
+import { PhotoMetadataDisplay } from './lightbox/PhotoMetadataDisplay';
+import { NavigationArrows } from './lightbox/NavigationArrows';
+import { ImageDisplay } from './lightbox/ImageDisplay';
+import { Filmstrip } from './lightbox/Filmstrip';
 import { EditingMode } from '@/components/Editing/EditingMode';
 
 interface LightboxProps {
   photo: Photo;
+  photos?: Photo[];
   onClose: () => void;
   onNext: () => void;
   onPrev: () => void;
+  onPhotoSelect?: (photo: Photo) => void;
   onRemoveFromAlbum?: () => void;
   onSetAsCover?: () => void;
+  onToggleFavorite?: (id: string | number) => void;
 }
 
 export const Lightbox: React.FC<LightboxProps> = ({
   photo,
+  photos,
   onClose,
   onNext,
   onPrev,
+  onPhotoSelect,
   onRemoveFromAlbum,
-  onSetAsCover
+  onSetAsCover,
+  onToggleFavorite,
 }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [metadata, setMetadata] = useState<Photo | null>(null);
@@ -35,24 +46,21 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
 
-  // Fire-and-forget: unload all inpainting models from GPU/RAM when editor closes
   const unloadInpaintModels = useCallback(() => {
-    fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {
-      // Ignore errors — best-effort cleanup
-    });
+    fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
   }, []);
 
   const displayRef = useRef<HTMLDivElement>(null);
 
   const handlePrev = useCallback(() => {
     setLastNavDir('prev');
-    onPrev();
-  }, [onPrev]);
+    onNext();
+  }, [onNext]);
 
   const handleNext = useCallback(() => {
     setLastNavDir('next');
-    onNext();
-  }, [onNext]);
+    onPrev();
+  }, [onPrev]);
 
   const {
     zoomScale, setZoomScale, offset, isDragging, resetInteraction,
@@ -119,6 +127,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
     }
   }, [photo.id, onClose]);
 
+  const handleToggleFavorite = useCallback(() => {
+    onToggleFavorite?.(photo.id);
+  }, [photo.id, onToggleFavorite]);
+
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (isEditing) return;
@@ -131,7 +143,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         if (e.key === 'ArrowLeft') handlePrev();
       }
     };
-    window.addEventListener('keydown', handleKey);
+    window.addEventListener('keydown', handleKey, { passive: true });
     return () => window.removeEventListener('keydown', handleKey);
   }, [onClose, handleNext, handlePrev, zoomScale, isEditing]);
 
@@ -145,7 +157,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     width: '100%',
     height: '100%',
     maxWidth: '100%',
-    maxHeight: '85vh',
+    maxHeight: '80vh',
   }), [aspect]);
 
   const editingSrc = useMemo(() => {
@@ -155,35 +167,45 @@ export const Lightbox: React.FC<LightboxProps> = ({
     return `${baseSrc}${sep}nocache=${photo.id}-${highRes.highResStatus}`;
   }, [photo.id, photo.url, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
 
+  const currentIndex = useMemo(
+    () => photos ? photos.findIndex((p) => String(p.id) === String(photo.id)) : 0,
+    [photos, photo.id],
+  );
+
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.25, ease: 'easeOut' }}
-      className="fixed inset-0 z-50 flex flex-col bg-[#050505] overflow-hidden"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex flex-col bg-[#0D0F14] overflow-hidden"
     >
+      {/* Top toolbar */}
       <Toolbar
         photo={photo}
         highResStatus={highRes.highResStatus}
         zoomScale={zoomScale}
         showInfo={showInfo}
+        currentIndex={currentIndex}
+        totalCount={photos?.length ?? 0}
         onClose={onClose}
         onSetZoomScale={setZoomScale}
         onResetInteraction={resetInteraction}
         onToggleShowInfo={() => setShowInfo(!showInfo)}
+        onToggleFavorite={handleToggleFavorite}
         onEdit={() => setIsEditing(true)}
         onTrash={handleTrash}
         onRemoveFromAlbum={onRemoveFromAlbum}
         onSetAsCover={onSetAsCover}
       />
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main content area */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
         {showInfo && <InfoPanel photo={photo} metadata={metadata} />}
 
         <div
           key={photo.id}
-          className={`flex-1 relative flex items-center justify-center p-4 sm:p-8 overflow-hidden touch-none transition-all duration-500
+          className={`flex-1 relative flex items-center justify-center overflow-hidden touch-none group
             ${lastNavDir === 'prev' ? 'animate-slide-from-left' : lastNavDir === 'next' ? 'animate-slide-from-right' : ''}
           `}
           onDoubleClick={handleDoubleClick}
@@ -210,16 +232,29 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
           <NavigationArrows
             zoomScale={zoomScale}
+            currentIndex={currentIndex}
+            totalCount={photos?.length ?? 0}
             onPrev={handlePrev}
             onNext={handleNext}
           />
         </div>
       </div>
 
-      <div className="shrink-0 pb-10 px-6 z-20 bg-gradient-to-t from-black/90 to-transparent">
-        <PhotoMetadataDisplay photo={photo} />
+      {/* Bottom metadata bar */}
+      <div className="shrink-0 px-6 py-3 bg-[#0D0F14]/90 backdrop-blur-md border-t border-white/5 z-20">
+        <PhotoMetadataDisplay photo={photo} metadata={metadata} />
       </div>
 
+      {/* Filmstrip */}
+      {photos && photos.length > 1 ? (
+        <Filmstrip
+          photos={photos}
+          currentPhotoId={photo.id}
+          onSelect={onPhotoSelect || (() => {})}
+        />
+      ) : null}
+
+      {/* Editing overlay */}
       {isEditing && (
         <EditingMode
           src={editingSrc}

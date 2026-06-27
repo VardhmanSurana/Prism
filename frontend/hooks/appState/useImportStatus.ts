@@ -8,12 +8,12 @@ export interface ImportStatus {
 }
 
 export function useImportStatus() {
-  const [importStatus, setImportStatus] = useState<ImportStatus>({
+  const [importStatus, setImportStatus] = useState<ImportStatus>(() => ({
     is_scanning: false,
     total_files: 0,
     processed_files: 0,
     progress: 0
-  });
+  }));
 
   return {
     importStatus,

@@ -84,6 +84,7 @@ class FaceClusteringService:
                 # Extract embedding
                 feat = self._recognizer.extract_embedding(stream, face)
                 if feat is None:
+                    logger.warning(f"Failed to extract embedding for face {idx} in photo {photo_id} ({photo_path})")
                     continue
 
                 # Find best matching person
@@ -129,6 +130,9 @@ class FaceClusteringService:
         # --- LOOP 2: Database Writes & Commits (Zero Image Memory / Async DB Work) ---
         # Wrap all DB operations in a transaction for atomicity
         try:
+            person_cumulative_weight_cache = {}
+            created_person_assocs = set()
+
             for res in face_results:
                 matched_person = res["matched_person"]
                 uncertain_person = res["uncertain_person"]
@@ -139,31 +143,36 @@ class FaceClusteringService:
                 thumb_filename = res["thumb_filename"]
 
                 if matched_person:
-                    # Link to existing person
-                    association = PhotoPerson(
-                        photo_id=photo_id,
-                        person_id=matched_person.id,
-                        confidence=conf,
-                        face_box_json=box_json
-                    )
-                    db.add(association)
+                    assoc_key = (photo_id, matched_person.id)
+                    if assoc_key not in created_person_assocs:
+                        association = PhotoPerson(
+                            photo_id=photo_id,
+                            person_id=matched_person.id,
+                            confidence=conf,
+                            face_box_json=box_json
+                        )
+                        db.add(association)
+                        created_person_assocs.add(assoc_key)
 
                     # Update running average face embedding
                     try:
-                        assoc_stmt = select(PhotoPerson).where(PhotoPerson.person_id == matched_person.id)
-                        assoc_res = await db.execute(assoc_stmt)
-                        associations = assoc_res.scalars().all()
+                        if matched_person.id not in person_cumulative_weight_cache:
+                            assoc_stmt = select(PhotoPerson).where(PhotoPerson.person_id == matched_person.id)
+                            assoc_res = await db.execute(assoc_stmt)
+                            associations = assoc_res.scalars().all()
 
-                        cumulative_weight = sum(
-                            self._recognizer.compute_face_weight(a.confidence, a.face_box_json)
-                            for a in associations
-                        )
-                        if cumulative_weight == 0:
-                            cumulative_weight = float(len(associations)) or 1.0
+                            cumulative_weight = sum(
+                                self._recognizer.compute_face_weight(a.confidence, a.face_box_json)
+                                for a in associations
+                            )
+                            if cumulative_weight == 0:
+                                cumulative_weight = float(len(associations)) or 1.0
+                            person_cumulative_weight_cache[matched_person.id] = cumulative_weight
 
+                        cumulative_weight = person_cumulative_weight_cache[matched_person.id]
                         new_weight = self._recognizer.compute_face_weight(conf, box_json)
 
-                        if len(associations) > 0 and matched_person.id in embedding_cache:
+                        if matched_person.id in embedding_cache:
                             current_emb = embedding_cache[matched_person.id]
                             new_emb = self._recognizer.update_running_average(
                                 current_emb, feat, cumulative_weight, new_weight

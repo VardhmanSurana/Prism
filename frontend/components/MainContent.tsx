@@ -16,7 +16,6 @@ interface MainContentProps {
   photos: Photo[];
   isLoading?: boolean;
   isStatusLoading?: boolean;
-  syncStatus?: ImportProgressStatus;
   selectedIds: Set<string>;
   isLockedAuthenticated: boolean;
   scrollRef: React.RefObject<HTMLDivElement | null>;
@@ -39,12 +38,11 @@ interface MainContentProps {
   onResetSuccess?: () => void;
 }
 
-export function MainContent({
+export const MainContent = React.memo(function MainContent({
   currentView,
   photos,
   isLoading,
   isStatusLoading,
-  syncStatus,
   selectedIds,
   isLockedAuthenticated,
   scrollRef,
@@ -111,7 +109,6 @@ export function MainContent({
           <PhotoGrid
             photos={photos}
             isLoading={isLoading || isStatusLoading}
-            syncStatus={syncStatus}
             currentView={currentView}
             onPhotoClick={onPhotoClick}
             selectedIds={selectedIds}
@@ -141,4 +138,4 @@ export function MainContent({
       {renderContent()}
     </div>
   );
-}
+});

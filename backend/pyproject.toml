@@ -23,12 +23,12 @@ dependencies = [
     "loguru>=0.7.3",
     "scipy>=1.11.0",
     "argon2-cffi>=25.1.0",
-    "llama-cpp-python>=0.3.23",
+    "llama-cpp-python>=0.3.31",
 ]
 
 [project.optional-dependencies]
 agent = [
-    "llama-cpp-python>=0.3.29",
+    "llama-cpp-python>=0.3.31",
     "huggingface-hub>=1.11.0",
     "langchain>=1.2.15",
     "langchain-community>=0.4.1",

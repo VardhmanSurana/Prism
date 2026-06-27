@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from app.config import settings
 from app.db import engine, init_db
 from app.models import Base
-from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api
+from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api
 from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
@@ -197,6 +197,26 @@ async def serve_local_file(path: str):
         llogger.warning(f"[/local] File not found on disk: {resolved_path}")
         raise HTTPException(status_code=404, detail="File not found")
 
+    # HEIC files need conversion — browsers can't decode them natively
+    is_heic = str(resolved_path).lower().endswith(('.heic', '.heif'))
+    if is_heic:
+        try:
+            import io
+            from PIL import Image
+            from pillow_heif import register_heif_opener
+            register_heif_opener()
+            from PIL import ImageOps
+
+            with Image.open(str(resolved_path)) as img:
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((800, 800))
+                out_bytes = io.BytesIO()
+                img.save(out_bytes, format="WEBP", quality=85)
+                return Response(content=out_bytes.getvalue(), media_type="image/webp")
+        except Exception as e:
+            llogger.error(f"[/local] HEIC conversion failed for {resolved_path}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to convert HEIC image")
+
     from app.services.locked_service import locked_service
     is_encrypted = await locked_service.is_file_encrypted(str(resolved_path))
     if is_encrypted:
@@ -351,6 +371,7 @@ app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", ta
 app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
 app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", tags=["people"])
 app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"])
+app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["summaries"])
 
 
 @app.get("/")

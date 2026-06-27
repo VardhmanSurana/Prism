@@ -10,6 +10,7 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 from fastapi import HTTPException
 from app.config import settings
+from app.api.settings.helpers import _read_settings, _write_settings
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +25,7 @@ class LockedFolderService:
         self.lockout_until = 0.0
 
     def is_password_set(self) -> bool:
-        data = self._read_settings()
+        data = _read_settings()
         return "locked_password_hash" in data
 
     async def setup_password(self, password: str) -> bool:
@@ -63,11 +64,11 @@ class LockedFolderService:
         encrypted_dek = fernet_kek.encrypt(dek).decode("utf-8")
         
         # Write password metadata and encrypted DEK to settings.json
-        data = self._read_settings()
+        data = _read_settings()
         data["locked_password_hash"] = p_hash
         data["locked_password_salt"] = salt.hex()
         data["encrypted_dek"] = encrypted_dek
-        self._write_settings(data)
+        _write_settings(data)
         
         # Auto-authenticate user immediately on password setup
         self.session_key = dek
@@ -86,7 +87,7 @@ class LockedFolderService:
                 detail=f"Too many failed verification attempts. Locked out for {remaining} seconds."
             )
 
-        data = self._read_settings()
+        data = _read_settings()
         p_hash = data.get("locked_password_hash")
         p_salt_hex = data.get("locked_password_salt")
         encrypted_dek = data.get("encrypted_dek")
@@ -348,24 +349,6 @@ class LockedFolderService:
                             logger.info(f"Successfully restored {main_path} from backup.")
                         except Exception as e:
                             logger.error(f"Failed to restore {main_path} from backup: {e}")
-
-    def _read_settings(self) -> dict:
-        try:
-            if settings.SETTINGS_FILE.exists():
-                with open(settings.SETTINGS_FILE, "r") as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.warning(f"Failed to read locked folder settings: {e}")
-        return {}
-
-    def _write_settings(self, data: dict) -> None:
-        try:
-            tmp = settings.SETTINGS_FILE.with_suffix(".json.tmp")
-            with open(tmp, "w") as f:
-                json.dump(data, f, indent=4)
-            tmp.replace(settings.SETTINGS_FILE)
-        except Exception:
-            pass
 
 
 locked_service = LockedFolderService()

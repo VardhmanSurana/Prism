@@ -150,15 +150,12 @@ def _get_florence():
         start_time = time.time()
         
         # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
-        try:
-            from app.agent.service import PrismAgent
-            from app.services.face_sdk import face_sdk
-            from app.services.image_summary.llm import VisionManager
-            PrismAgent.unload_llm()
-            face_sdk.shutdown()
-            VisionManager.unload_vision()
-        except ImportError:
-            pass
+        from app.agent.service import PrismAgent
+        from app.services.face_sdk import face_sdk
+        from app.services.image_summary.llm import VisionManager
+        PrismAgent.unload_llm()
+        face_sdk.shutdown()
+        VisionManager.unload_vision()
 
         logger.info(f"Loading Florence-2 Model ({FLORENCE_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
         
@@ -200,15 +197,12 @@ def _get_siglip():
         start_time = time.time()
 
         # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
-        try:
-            from app.agent.service import PrismAgent
-            from app.services.face_sdk import face_sdk
-            from app.services.image_summary.llm import VisionManager
-            PrismAgent.unload_llm()
-            face_sdk.shutdown()
-            VisionManager.unload_vision()
-        except ImportError:
-            pass
+        from app.agent.service import PrismAgent
+        from app.services.face_sdk import face_sdk
+        from app.services.image_summary.llm import VisionManager
+        PrismAgent.unload_llm()
+        face_sdk.shutdown()
+        VisionManager.unload_vision()
 
         logger.info(f"Loading SigLIP2 Model ({SIGLIP_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
         
@@ -283,7 +277,8 @@ def extract_features_and_tags(image_path: str) -> dict:
 
     # Load PIL image
     try:
-        image = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as raw_img:
+            image = raw_img.convert("RGB")
     except Exception as e:
         logger.error(f"Failed to open image {image_path}: {e}")
         raise RuntimeError(f"Could not load image: {e}")
@@ -342,7 +337,8 @@ def extract_siglip_embedding(image_path: str) -> list[float]:
 
     # Load PIL image
     try:
-        image = Image.open(image_path).convert("RGB")
+        with Image.open(image_path) as raw_img:
+            image = raw_img.convert("RGB")
     except Exception as e:
         logger.error(f"Failed to open image {image_path}: {e}")
         raise RuntimeError(f"Could not load image: {e}")

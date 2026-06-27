@@ -41,12 +41,22 @@ export function useBulkActions({
   onAddToAlbumClick,
 }: UseBulkActionsProps) {
 
+  const selectedPhotoMap = useMemo(() => {
+    const map = new Map<string, Photo>();
+    for (const p of photos) {
+      if (selectedIds.has(String(p.id))) {
+        map.set(String(p.id), p);
+      }
+    }
+    return map;
+  }, [photos, selectedIds]);
+
   const isFavorited = useMemo(
-    () => Array.from(selectedIds).every(id => {
-      const p = photos.find(ph => String(ph.id) === id);
+    () => selectedIds.size > 0 && Array.from(selectedIds).every(id => {
+      const p = selectedPhotoMap.get(id);
       return p?.isFavorite || p?.is_favorite;
     }),
-    [selectedIds, photos],
+    [selectedIds, selectedPhotoMap],
   );
 
   const onAddToAlbum = useCallback(() => {
@@ -67,7 +77,6 @@ export function useBulkActions({
     if (!await customConfirm(message, 'Confirm Deletion')) return;
 
     const idsArray = Array.from(selectedIds);
-    const originalPhotos = photos.filter(p => selectedIds.has(String(p.id)));
 
     // Optimistic update
     if (isPermanent) {
@@ -102,32 +111,30 @@ export function useBulkActions({
       setPhotos(prev => prev.map(p => {
         const idStr = String(p.id);
         if (failedIds.has(idStr)) {
-          const original = originalPhotos.find(op => String(op.id) === idStr);
+          const original = selectedPhotoMap.get(idStr);
           return original ? { ...p, isTrash: original.isTrash, is_trash: original.is_trash } : p;
         }
         return p;
       }));
     }
-  }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
+  }, [currentView, selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
 
   const handleBulkFavorite = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
     const allFavorited = idsArray.every(id => {
-      const p = photos.find(ph => String(ph.id) === id);
+      const p = selectedPhotoMap.get(id);
       return p?.isFavorite || p?.is_favorite;
     });
     const targetFavorite = !allFavorited;
 
     // Save original states
     const originalStates = new Map<string, { isFavorite: boolean; is_favorite: boolean }>();
-    photos.forEach(p => {
-      if (selectedIds.has(String(p.id))) {
-        originalStates.set(String(p.id), {
-          isFavorite: p.isFavorite,
-          is_favorite: p.is_favorite ?? p.isFavorite
-        });
-      }
-    });
+    for (const [id, p] of selectedPhotoMap) {
+      originalStates.set(id, {
+        isFavorite: p.isFavorite,
+        is_favorite: p.is_favorite ?? p.isFavorite
+      });
+    }
 
     // Optimistically update
     setPhotos(prev => prev.map(p =>
@@ -160,7 +167,7 @@ export function useBulkActions({
         return p;
       }));
     }
-  }, [photos, setPhotos, clearSelection, selectedIds]);
+  }, [selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
 
   const handleBulkLockToggle = useCallback(async () => {
     const isLocking = currentView !== 'locked';
@@ -175,14 +182,12 @@ export function useBulkActions({
 
     // Save original states
     const originalStates = new Map<string, { isLocked?: boolean; is_locked?: boolean }>();
-    photos.forEach(p => {
-      if (selectedIds.has(String(p.id))) {
-        originalStates.set(String(p.id), {
-          isLocked: p.isLocked,
-          is_locked: p.is_locked
-        });
-      }
-    });
+    for (const [id, p] of selectedPhotoMap) {
+      originalStates.set(id, {
+        isLocked: p.isLocked,
+        is_locked: p.is_locked
+      });
+    }
 
     // Optimistically update state
     setPhotos(prev => prev.map(p => {
@@ -218,21 +223,19 @@ export function useBulkActions({
         return p;
       }));
     }
-  }, [currentView, photos, setPhotos, clearSelection, selectedIds]);
+  }, [currentView, selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
 
   const handleBulkRestore = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
 
     // Save original states
     const originalStates = new Map<string, { isTrash?: boolean; is_trash?: boolean }>();
-    photos.forEach(p => {
-      if (selectedIds.has(String(p.id))) {
-        originalStates.set(String(p.id), {
-          isTrash: p.isTrash,
-          is_trash: p.is_trash
-        });
-      }
-    });
+    for (const [id, p] of selectedPhotoMap) {
+      originalStates.set(id, {
+        isTrash: p.isTrash,
+        is_trash: p.is_trash
+      });
+    }
 
     // Optimistic update - remove from view
     setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
@@ -255,14 +258,18 @@ export function useBulkActions({
 
     if (failedIds.size > 0) {
       setPhotos(prev => {
-        const restored = Array.from(failedIds).map(id => {
+        const restored: Photo[] = [];
+        for (const id of failedIds) {
           const original = originalStates.get(id);
-          return photos.find(p => String(p.id) === id) ? { ...photos.find(p => String(p.id) === id)!, isTrash: original?.isTrash, is_trash: original?.is_trash } : null;
-        }).filter(Boolean) as Photo[];
+          const photo = selectedPhotoMap.get(id);
+          if (photo) {
+            restored.push({ ...photo, isTrash: original?.isTrash, is_trash: original?.is_trash });
+          }
+        }
         return [...prev, ...restored];
       });
     }
-  }, [photos, setPhotos, clearSelection, selectedIds]);
+  }, [selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
 
   return {
     handleBulkDelete,

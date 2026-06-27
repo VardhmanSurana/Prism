@@ -10,7 +10,6 @@ from datetime import datetime
 from app.config import settings
 from app.db import async_session
 from app.models import Photo, BackgroundJob
-from app.services import face_service
 from app.services.vision_pipeline import extract_features_and_tags
 
 

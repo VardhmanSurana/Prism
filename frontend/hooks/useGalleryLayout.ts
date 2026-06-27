@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'prism_gallery_layout';
+const STORAGE_VERSION = 1;
 
 export type RowHeight = 'compact' | 'default' | 'spacious';
 export type PhotoDensity = 'relaxed' | 'default' | 'compact';
 
 export interface GalleryLayoutSettings {
+  version: number;
   rowHeight: RowHeight;
   photoDensity: PhotoDensity;
 }
@@ -27,13 +29,18 @@ function loadSettings(): GalleryLayoutSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<GalleryLayoutSettings>;
+      if (parsed.version !== STORAGE_VERSION) {
+        localStorage.removeItem(STORAGE_KEY);
+        return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default' };
+      }
       return {
+        version: STORAGE_VERSION,
         rowHeight: parsed.rowHeight && ROW_HEIGHT_MAP[parsed.rowHeight] !== undefined ? parsed.rowHeight : 'default',
         photoDensity: parsed.photoDensity && DENSITY_MAP[parsed.photoDensity] !== undefined ? parsed.photoDensity : 'default',
       };
     }
   } catch {}
-  return { rowHeight: 'default', photoDensity: 'default' };
+  return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default' };
 }
 
 function saveSettings(settings: GalleryLayoutSettings) {

@@ -9,6 +9,8 @@ import { RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { API_BASE } from '../../constants';
 import { Histogram } from './Histogram';
+import { CurveEditor } from './CurveEditor';
+import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
 
 export type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
@@ -84,13 +86,17 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   const isDefault = useMemo(
     () => items.every(
       item => adjustments[item.key] === DEFAULT_ADJUST_SLIDERS[item.key as keyof typeof DEFAULT_ADJUST_SLIDERS]
-    ),
+    ) && isIdentityCurve(adjustments.curves),
     [items, adjustments],
   );
 
   const handleReset = () => {
-    onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS });
+    onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS, curves: DEFAULT_CURVE });
   };
+
+  const handleCurvesChange = useCallback((val: CurveState) => {
+    onChange({ ...adjustments, curves: val });
+  }, [adjustments, onChange]);
 
   const handleAutoEnhance = async () => {
     if (!photoId) return;
@@ -223,6 +229,19 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
           </div>
         </div>
       ))}
+      
+      {/* ── Curves Editor ── */}
+      <div className="px-4 pb-5">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-4">
+          Curves
+        </p>
+        <div className="pt-2 pb-4">
+          <CurveEditor
+            value={adjustments.curves}
+            onChange={handleCurvesChange}
+          />
+        </div>
+      </div>
     </div>
   );
 };

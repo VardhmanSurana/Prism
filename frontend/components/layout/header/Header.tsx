@@ -13,7 +13,6 @@ export const Header: React.FC<HeaderProps> = ({
   onImportProgress,
   sortMode,
   onSortChange,
-  syncStatus,
 }) => {
   const { handleFileUpload, handleFolderImport } = useImport({ onUpload, onImportProgress });
 
@@ -33,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
             onFileUpload={handleFileUpload}
             onFolderImport={handleFolderImport}
           />
-          <NotificationsButton syncStatus={syncStatus} />
+          <NotificationsButton />
           <UserProfile />
         </div>
       </div>

@@ -29,7 +29,7 @@ async def test_face_database_models(db_session):
     # 2. Create a dummy person profile
     person = Person(
         name="Person 1",
-        cover_face_thumbnail="thumbnails/Face_Thumbnail/test_face.jpg",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
         face_embedding=json.dumps([0.1] * 512)
     )
     db_session.add(person)
@@ -213,7 +213,7 @@ async def test_face_service_clustering_uncertain_and_feedback(db_session):
     # Create a dummy person profile
     person = Person(
         name="Person 1",
-        cover_face_thumbnail="thumbnails/Face_Thumbnail/test_face.jpg",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
         face_embedding=json.dumps([0.1] * 512)
     )
     db_session.add(person)
@@ -294,5 +294,130 @@ def test_weighted_average_calculation():
     expected = (2.0 * emb1 + 1.0 * emb2) / 3.0
     expected = expected / np.linalg.norm(expected)
     assert np.allclose(new_emb_weighted, expected)
+
+
+@pytest.mark.asyncio
+async def test_face_service_clustering_multiple_faces_same_person(db_session):
+    """
+    Verify that multiple faces matching the same person in one photo
+    does not trigger N+1 cumulative weight queries.
+    """
+    photo = Photo(filename="p1.jpg", path="/p1.jpg", url="local:///p1.jpg", width=1600, height=1200, aspect_ratio=1.33)
+    db_session.add(photo)
+    await db_session.flush()
+
+    existing_person = Person(
+        name="Person 1",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
+        face_embedding=json.dumps([0.5] * 512)
+    )
+    db_session.add(existing_person)
+    await db_session.commit()
+
+    mock_cv2_imread = MagicMock(return_value=np.zeros((1200, 1600, 3), dtype=np.uint8))
+    mock_cv2_imwrite = MagicMock(return_value=True)
+    mock_exists = MagicMock(return_value=True)
+
+    mock_face1 = MagicMock()
+    mock_face1.location = (100, 100, 200, 200)
+    mock_face1.detection_confidence = 0.88
+
+    mock_face2 = MagicMock()
+    mock_face2.location = (400, 400, 500, 500)
+    mock_face2.detection_confidence = 0.92
+
+    with patch("os.path.exists", mock_exists), \
+         patch("cv2.imread", mock_cv2_imread), \
+         patch("cv2.imwrite", mock_cv2_imwrite), \
+         patch.object(face_service._face_sdk, "_ensure_launched", MagicMock()), \
+         patch("inspireface.ImageStream.load_from_cv_image") as mock_stream_load, \
+         patch("inspireface.feature_comparison", return_value=0.90):
+
+        mock_stream = MagicMock()
+        mock_stream_load.return_value = mock_stream
+        session_mock = MagicMock()
+        session_mock.face_detection.return_value = [mock_face1, mock_face2]
+        session_mock.face_feature_extract.return_value = np.array([0.5] * 512, dtype=np.float32)
+        face_service._face_sdk._session = session_mock
+
+        original_execute = db_session.execute
+
+        call_count = 0
+        async def counting_execute(*args, **kwargs):
+            nonlocal call_count
+            stmt = args[0] if args else kwargs.get("statement")
+            from sqlalchemy.sql import Select as SA_Select
+            if isinstance(stmt, SA_Select):
+                where_text = str(stmt.whereclause) if hasattr(stmt, 'whereclause') else ""
+                froms_text = ""
+                if hasattr(stmt, 'get_final_froms'):
+                    froms_text = str(stmt.get_final_froms()).lower()
+                elif hasattr(stmt, 'froms'):
+                    froms_text = str(stmt.froms).lower()
+                if "person_id" in where_text and "photo_people" in froms_text:
+                    call_count += 1
+            return await original_execute(*args, **kwargs)
+
+        with patch.object(db_session, "execute", side_effect=counting_execute):
+            res_count = await face_service.scan_and_cluster_face(photo.id, "/p1.jpg", db_session)
+
+        assert res_count == 2
+        assert call_count == 1
+
+        assoc_stmt = select(PhotoPerson).where(PhotoPerson.photo_id == photo.id)
+        res_assoc = await db_session.execute(assoc_stmt)
+        assocs = res_assoc.scalars().all()
+        assert len(assocs) == 1
+        assert assocs[0].person_id == existing_person.id
+
+
+@pytest.mark.asyncio
+async def test_load_embedding_cache_corrupt_json(db_session, caplog):
+    """Verify that corrupt embeddings in Person records are logged and skipped."""
+    photo = Photo(filename="p1.jpg", path="/p1.jpg", url="local:///p1.jpg", width=800, height=800, aspect_ratio=1.0)
+    db_session.add(photo)
+    await db_session.flush()
+
+    good_person = Person(
+        name="Good Person",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
+        face_embedding=json.dumps([0.1] * 512)
+    )
+    corrupt_person = Person(
+        name="Corrupt Person",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
+        face_embedding="not valid json {{{"
+    )
+    db_session.add_all([good_person, corrupt_person])
+    await db_session.commit()
+
+    cache, people = await face_service._recognizer.load_embedding_cache(db_session)
+
+    assert good_person.id in cache
+    assert corrupt_person.id not in cache
+    assert corrupt_person in people
+    assert "Failed to load embedding for person" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_extract_embedding_logs_on_failure(db_session, caplog):
+    """Verify that extract_embedding logs a warning when SDK returns None or bad shape."""
+    recognizer = face_service._recognizer
+
+    mock_stream_none = MagicMock()
+    face_none = MagicMock()
+    with patch.object(face_service._face_sdk, "extract_feature", return_value=None):
+        with caplog.at_level("WARNING"):
+            result = recognizer.extract_embedding(mock_stream_none, face_none)
+            assert result is None
+            assert "Face SDK returned None embedding" in caplog.text
+
+    mock_stream = MagicMock()
+    face = MagicMock()
+    with patch.object(face_service._face_sdk, "extract_feature", return_value=np.zeros((128,), dtype=np.float32)):
+        with caplog.at_level("WARNING"):
+            result = recognizer.extract_embedding(mock_stream, face)
+            assert result is None
+            assert "unexpected shape" in caplog.text
 
 

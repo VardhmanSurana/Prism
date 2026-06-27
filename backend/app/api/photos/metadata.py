@@ -13,18 +13,16 @@ from app.db import get_db
 from app.models import Photo, PhotoPerson
 from app.config import settings
 
-from app.services import face_sdk, FaceDetector, load_image
 from app.services.portrait_service import portrait_service
 from app.services.background_service import background_service
 from app.services.semantic_service import semantic_service
+from app.services.face_utils import load_image
 import base64
 import time
 from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-face_detector = FaceDetector(face_sdk)
 
 
 @router.get("/semantic-masks/{photo_id}")
@@ -111,15 +109,17 @@ async def get_portrait_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
     if img is None:
         raise HTTPException(status_code=500, detail="Failed to load image")
 
-    # 1. Detect faces
-    faces_data, _, scale, _ = face_detector.detect_faces(img)
+    # 1. Detect faces (lazy import - only when endpoint is called)
+    from app.services import face_sdk, FaceDetector
+    detector = FaceDetector(face_sdk)
+    faces_data, _, scale, _ = detector.detect_faces(img)
     if not faces_data:
         return {"faces": []}
 
     # Extract coordinates
     faces_coords = []
     for face in faces_data:
-        x1, y1, x2, y2 = face_detector.get_face_location_scaled(face, scale)
+        x1, y1, x2, y2 = detector.get_face_location_scaled(face, scale)
         faces_coords.append((x1, y1, x2, y2))
 
     # 2. Generate Masks

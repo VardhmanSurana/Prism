@@ -5,13 +5,7 @@ import { GlassMaterial } from '@/components/GlassMaterial';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { API_BASE } from '@/constants';
 import { eventService } from '@/services/EventService';
-
-interface SyncStatus {
-  is_scanning: boolean;
-  total_files: number;
-  processed_files: number;
-  progress: number;
-}
+import { useSyncStore } from '@/store/syncStore';
 
 interface ServiceStatus {
   processed: number;
@@ -33,12 +27,8 @@ interface JobStatus {
   };
 }
 
-interface NotificationsButtonProps {
-  syncStatus?: SyncStatus;
-}
-
-export const NotificationsButton: React.FC<NotificationsButtonProps> = ({ syncStatus: propSyncStatus }) => {
-  const syncStatus = propSyncStatus || { is_scanning: false, total_files: 0, processed_files: 0, progress: 0 };
+export const NotificationsButton: React.FC = () => {
+  const syncStatus = useSyncStore((s) => s.syncStatus);
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewCompletion, setHasNewCompletion] = useState(false);
   const [status, setStatus] = useState<JobStatus | null>(null);
@@ -92,7 +82,7 @@ export const NotificationsButton: React.FC<NotificationsButtonProps> = ({ syncSt
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside, { passive: true });
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 

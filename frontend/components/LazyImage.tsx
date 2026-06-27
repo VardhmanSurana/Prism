@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type FC } from 'react';
+import { useState, useEffect, useRef, memo, type FC } from 'react';
 import { ImageOff } from 'lucide-react';
 import { resolveUrl } from '../constants';
 
@@ -9,7 +9,7 @@ interface LazyImageProps {
   className: string;
 }
 
-export const LazyImage: FC<LazyImageProps> = ({ src, fallbackSrc, alt, className }) => {
+export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fallbackSrc, alt, className }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
@@ -68,4 +68,4 @@ export const LazyImage: FC<LazyImageProps> = ({ src, fallbackSrc, alt, className
       )}
     </div>
   );
-};
+});

@@ -53,7 +53,11 @@ class FaceRecognizer:
             numpy array or None if extraction fails
         """
         feat = self._face_sdk.extract_feature(stream, face)
-        if feat is None or feat.shape != (512,):
+        if feat is None:
+            logger.warning(f"Face SDK returned None embedding for face")
+            return None
+        if feat.shape != (512,):
+            logger.warning(f"Face embedding has unexpected shape {feat.shape}, expected (512,)")
             return None
         return feat
 

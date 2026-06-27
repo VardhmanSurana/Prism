@@ -62,13 +62,9 @@ class ObjectDetector:
     
     def _initialize_model(self):
         """Initialize the object detection model."""
-        try:
-            import torch
-            self.model_type = "sam"
-            logger.info("Object detector initialized in SAM mode (lazy-loaded)")
-        except ImportError:
-            logger.warning("PyTorch not available, using simple blob detection")
-            self.model_type = "simple"
+        import torch
+        self.model_type = "sam"
+        logger.info("Object detector initialized in SAM mode (lazy-loaded)")
     
     async def detect_objects(
         self,

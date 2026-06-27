@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlalchemy import String, Integer, DateTime, Boolean, Float, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, DeclarativeBase, relationship
@@ -33,9 +33,9 @@ class Photo(Base):
     # Legacy single-string location for backwards compatibility (auto-computed)
     location: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
-    date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    date_taken: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
-    upload_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
+    date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    date_taken: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    upload_date: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
     # Flags - indexed for common filtering
     is_favorite: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
@@ -171,7 +171,7 @@ class PendingFaceAssignment(Base):
     face_box_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     thumb_filename: Mapped[str] = mapped_column(String(255))
     face_embedding: Mapped[str] = mapped_column(Text)  # JSON representation of embedding feature array
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     photo: Mapped["Photo"] = relationship()
@@ -190,8 +190,8 @@ class BackgroundJob(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | processing | completed | failed
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     # Relationships
     photo: Mapped["Photo"] = relationship()

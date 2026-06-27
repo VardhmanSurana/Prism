@@ -60,15 +60,12 @@ class FaceSDK:
             return
 
         if not self._launched:
-            try:
-                from app.agent.service import PrismAgent
-                from app.services.vision_pipeline import unload_models
-                from app.services.image_summary.llm import VisionManager
-                PrismAgent.unload_llm()
-                unload_models()
-                VisionManager.unload_vision()
-            except ImportError:
-                pass
+            from app.agent.service import PrismAgent
+            from app.services.vision_pipeline import unload_models
+            from app.services.image_summary.llm import VisionManager
+            PrismAgent.unload_llm()
+            unload_models()
+            VisionManager.unload_vision()
 
             if not isf.query_launch_status():
                 backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

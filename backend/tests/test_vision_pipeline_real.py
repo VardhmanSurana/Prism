@@ -12,6 +12,11 @@ import pytest
 # Set up test environment
 os.environ["PRISM_TEST"] = "1"
 
+pytestmark = pytest.mark.skipif(
+    not os.environ.get("PRISM_TEST_VISION"),
+    reason="Set PRISM_TEST_VISION=1 to run real vision integration tests (requires a running Ollama vision model)"
+)
+
 from app.services.image_summary.llm import (
     VisionManager,
     generate_ollama_summary,

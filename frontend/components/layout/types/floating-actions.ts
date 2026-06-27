@@ -7,5 +7,4 @@ export interface ImportStatus {
 
 export interface FloatingActionsProps {
   importStatus: ImportStatus;
-  syncStatus: ImportStatus;
 }

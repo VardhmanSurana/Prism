@@ -9,9 +9,11 @@ import { useImportStatus } from './appState/useImportStatus';
 import { useSelection } from './useSelection';
 import { useBulkActions } from './useBulkActions';
 import { useAlbums } from '../components/albums/hooks/useAlbums';
+import { useSyncStore } from '../store/syncStore';
 
 export function useAppState() {
-  const { photos, setPhotos, fetchPhotos, isLoading, isStatusLoading, syncStatus } = usePhotos();
+  const { photos, setPhotos, fetchPhotos, isLoading, isStatusLoading } = usePhotos();
+  const syncStatus = useSyncStore((s) => s.syncStatus);
   const [contextPhotos, setContextPhotos] = useState<Photo[] | null>(null);
 
   const {

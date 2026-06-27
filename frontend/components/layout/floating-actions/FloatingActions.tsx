@@ -1,7 +1,10 @@
 import { ProgressBar } from '@/components/ui/ProgressBar';
+import { useSyncStore } from '@/store/syncStore';
 import type { FloatingActionsProps } from '../types/floating-actions';
 
-export function FloatingActions({ importStatus, syncStatus }: FloatingActionsProps) {
+export function FloatingActions({ importStatus }: FloatingActionsProps) {
+  const syncStatus = useSyncStore((s) => s.syncStatus);
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-4 items-end">
       <ProgressBar

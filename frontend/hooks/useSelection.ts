@@ -1,7 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
+
+const EMPTY_SET: ReadonlySet<string> = new Set();
 
 export function useSelection() {
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const emptySetRef = useRef(EMPTY_SET);
 
   const handleToggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -30,7 +33,7 @@ export function useSelection() {
   }, []);
 
   return {
-    selectedIds,
+    selectedIds: selectedIds.size === 0 ? (emptySetRef.current as Set<string>) : selectedIds,
     setSelectedIds,
     handleToggleSelection,
     handleToggleGroupSelection,

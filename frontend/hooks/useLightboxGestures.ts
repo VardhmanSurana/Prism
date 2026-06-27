@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, type PointerEvent, type MouseEvent, type WheelEvent } from 'react';
 import { useEditorUIStore } from '../store/uiStore';
 
 interface UseLightboxGesturesProps {
@@ -17,7 +17,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const dragStartOffset = useRef({ x: 0, y: 0 });
-  const pointers = useRef<Map<number, React.PointerEvent<HTMLDivElement>>>(new Map());
+  const pointers = useRef<Map<number, PointerEvent<HTMLDivElement>>>(new Map());
   const lastPinchDistance = useRef<number | null>(null);
 
   const zoomScale = zoom.scale;
@@ -45,7 +45,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   }, [setZoom]);
 
-  const handleDoubleClick = (e: React.MouseEvent) => {
+  const handleDoubleClick = (e: MouseEvent) => {
     if (zoomScale > 1) {
       resetInteraction();
     } else {
@@ -53,7 +53,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     pointers.current.set(e.pointerId, e);
 
     if (pointers.current.size === 1) {
@@ -64,7 +64,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     pointers.current.set(e.pointerId, e);
 
     if (isDragging && pointers.current.size === 1) {
@@ -80,7 +80,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
 
     if (pointers.current.size === 2) {
-      const pts = Array.from(pointers.current.values()) as React.PointerEvent<HTMLDivElement>[];
+      const pts = Array.from(pointers.current.values()) as PointerEvent<HTMLDivElement>[];
       const dist = Math.hypot(pts[0].clientX - pts[1].clientX, pts[0].clientY - pts[1].clientY);
 
       if (lastPinchDistance.current !== null) {
@@ -110,7 +110,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
+  const handlePointerUp = (e: PointerEvent) => {
     if (isDragging && zoomScale === 1 && pointers.current.size === 1) {
       const diffX = e.clientX - dragStart.current.x;
       if (Math.abs(diffX) > 60) {
@@ -124,7 +124,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     if (pointers.current.size === 0) setIsDragging(false);
   };
 
-  const handleWheel = (e: React.WheelEvent) => {
+  const handleWheel = (e: WheelEvent) => {
     e.preventDefault();
     const delta = -e.deltaY * 0.001;
     const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomScale * (1 + delta)));

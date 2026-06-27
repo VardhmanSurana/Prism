@@ -11,6 +11,32 @@ export interface ImageDisplayProps {
 
 export interface NavigationArrowsProps {
   zoomScale: number;
+  currentIndex: number;
+  totalCount: number;
   onPrev: () => void;
   onNext: () => void;
+}
+
+export interface FilmstripProps {
+  photos: Photo[];
+  currentPhotoId: string | number;
+  onSelect: (photo: Photo) => void;
+}
+
+export interface ToolbarProps {
+  photo: Photo;
+  highResStatus: 'loading' | 'loaded' | 'error';
+  zoomScale: number;
+  showInfo: boolean;
+  currentIndex: number;
+  totalCount: number;
+  onClose: () => void;
+  onSetZoomScale: (scale: number) => void;
+  onResetInteraction: () => void;
+  onToggleShowInfo: () => void;
+  onToggleFavorite?: () => void;
+  onEdit?: () => void;
+  onTrash?: () => void;
+  onRemoveFromAlbum?: () => void;
+  onSetAsCover?: () => void;
 }

@@ -12,8 +12,8 @@ export interface ImportProgressStatus {
 export interface PhotoGridProps {
   photos: Photo[];
   isLoading?: boolean;
-  syncStatus?: ImportProgressStatus;
   currentView?: ViewMode;
+  compact?: boolean;
   onPhotoClick: (photo: Photo) => void;
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;

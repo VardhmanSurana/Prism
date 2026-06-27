@@ -12,7 +12,7 @@ async def test_pending_faces_and_feedback_api(db_session):
     photo = Photo(filename="test.jpg", path="/test.jpg", url="local:///test.jpg", width=800, height=800, aspect_ratio=1.0)
     person = Person(
         name="Candidate Person",
-        cover_face_thumbnail="thumbnails/Face_Thumbnail/test_face.jpg",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
         face_embedding=json.dumps([0.1] * 512)
     )
     db_session.add_all([photo, person])
@@ -71,7 +71,7 @@ async def test_pending_faces_feedback_different(db_session):
     photo = Photo(filename="test.jpg", path="/test.jpg", url="local:///test.jpg", width=800, height=800, aspect_ratio=1.0)
     person = Person(
         name="Candidate Person",
-        cover_face_thumbnail="thumbnails/Face_Thumbnail/test_face.jpg",
+        cover_face_thumbnail="/thumbnails/Face_Thumbnail/test_face.jpg",
         face_embedding=json.dumps([0.1] * 512)
     )
     db_session.add_all([photo, person])

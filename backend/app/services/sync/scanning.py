@@ -15,6 +15,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Project root — never scan images from inside the Prism source tree
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent.parent
+
 
 class ScanningMixin:
     """Handles file system scanning, counting, and cleanup of missing files."""
@@ -82,9 +85,15 @@ class ScanningMixin:
 
         def _sync_count():
             count = 0
+            project_root_str = str(_PROJECT_ROOT)
             for root, dirs, files in os.walk(start_path):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and os.path.join(root, d) not in excluded]
-                count += sum(1 for f in files if f.lower().endswith(SUPPORTED_EXTENSIONS))
+                for f in files:
+                    if f.lower().endswith(SUPPORTED_EXTENSIONS):
+                        full_path = os.path.join(root, f)
+                        if full_path.startswith(project_root_str):
+                            continue
+                        count += 1
             return count
 
         return await asyncio.to_thread(_sync_count)
@@ -96,11 +105,16 @@ class ScanningMixin:
 
         def _sync_scan():
             batch_paths = []
+            project_root_str = str(_PROJECT_ROOT)
             for root, dirs, files in os.walk(start_path):
                 dirs[:] = [d for d in dirs if not d.startswith('.') and os.path.join(root, d) not in excluded and os.path.join(root, d) not in skip_paths_str]
                 for file in files:
                     if file.lower().endswith(SUPPORTED_EXTENSIONS):
-                        batch_paths.append(os.path.join(root, file))
+                        full_path = os.path.join(root, file)
+                        # Skip files inside the Prism project directory
+                        if full_path.startswith(project_root_str):
+                            continue
+                        batch_paths.append(full_path)
             return batch_paths
 
         collected = await asyncio.to_thread(_sync_scan)

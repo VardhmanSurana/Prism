@@ -1,5 +1,5 @@
-import React, { useRef } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import React, { useRef, useCallback } from 'react';
+import { ArrowLeft, CheckSquare } from 'lucide-react';
 import { Album, Photo } from '../../types';
 import { PhotoGrid } from '../PhotoGrid';
 
@@ -26,6 +26,21 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
 }) => {
   const albumScrollRef = useRef<HTMLDivElement>(null);
 
+  const allSelected = photos.length > 0 && photos.every(p => selectedIds.has(String(p.id)));
+
+  const handleSelectAll = useCallback(() => {
+    if (allSelected) {
+      onToggleGroupSelection(photos.map(p => String(p.id)));
+    } else {
+      const idsToSelect = photos
+        .filter(p => !selectedIds.has(String(p.id)))
+        .map(p => String(p.id));
+      if (idsToSelect.length > 0) {
+        onToggleGroupSelection(idsToSelect);
+      }
+    }
+  }, [photos, selectedIds, allSelected, onToggleGroupSelection]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-4 p-6 sm:px-8 shrink-0 bg-background/50 backdrop-blur-md sticky top-0 z-20">
@@ -35,10 +50,23 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
         >
           <ArrowLeft size={20} />
         </button>
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="text-2xl font-bold text-white">{album.name}</h2>
           <p className="text-sm text-gray-400">{photos.length} photos</p>
         </div>
+        {photos.length > 0 && (
+          <button
+            onClick={handleSelectAll}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              allSelected
+                ? 'bg-primary/10 text-primary border border-primary/20'
+                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+            }`}
+          >
+            <CheckSquare size={14} />
+            {allSelected ? 'Deselect All' : 'Select All'}
+          </button>
+        )}
       </div>
       <div ref={albumScrollRef} className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8">
         {isLoading ? (
@@ -48,6 +76,7 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
         ) : (
           <PhotoGrid 
             photos={photos} 
+            compact
             onPhotoClick={onPhotoClick} 
             selectedIds={selectedIds} 
             onToggleSelection={onToggleSelection} 

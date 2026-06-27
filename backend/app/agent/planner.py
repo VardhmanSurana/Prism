@@ -190,11 +190,11 @@ class Planner:
 
             history_context = ""
             if history:
-                history_context = "Previous conversation turns for reference context:\n"
+                history_lines = ["Previous conversation turns for reference context:"]
                 for h in history[-4:]:
                     role = "User" if h.get("role") == "user" else "Assistant"
-                    history_context += f"- {role}: {h.get('content')}\n"
-                history_context += "\n"
+                    history_lines.append(f"- {role}: {h.get('content')}")
+                history_context = "\n".join(history_lines) + "\n\n"
 
             prompt = (
                 "<start_of_turn>user\n"
@@ -321,7 +321,7 @@ class Planner:
         """Ask Gemma to verify which photos strictly match the user's query intent."""
         try:
             llm = self.llm_manager.get_llm()
-            photo_context = ""
+            photo_lines = []
             for p in photos_metadata:
                 details = []
                 if p.caption:
@@ -332,7 +332,8 @@ class Planner:
                     details.append(f"Date: {p.date_taken}")
                 if p.ai_summary:
                     details.append(f"AI description: {p.ai_summary}")
-                photo_context += f"- ID: {p.id} | Filename: {p.filename} | Details: {'; '.join(details)}\n"
+                photo_lines.append(f"- ID: {p.id} | Filename: {p.filename} | Details: {'; '.join(details)}")
+            photo_context = "\n".join(photo_lines)
 
             prompt = (
                 "<start_of_turn>user\n"
@@ -371,11 +372,11 @@ class Planner:
             llm = self.llm_manager.get_llm()
             history_context = ""
             if history:
-                history_context = "Previous conversation turns for reference context:\n"
+                history_lines = ["Previous conversation turns for reference context:"]
                 for h in history[-4:]:
                     role = "User" if h.get("role") == "user" else "Assistant"
-                    history_context += f"- {role}: {h.get('content')}\n"
-                history_context += "\n"
+                    history_lines.append(f"- {role}: {h.get('content')}")
+                history_context = "\n".join(history_lines) + "\n\n"
 
             prompt = (
                 "<start_of_turn>user\n"
