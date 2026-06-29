@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Privacy-first local photo library, search, organization, and editing desktop app.</strong>
+  <strong>Privacy-first local photo and video library, search, organization, and editing desktop app.</strong>
 </p>
 
 <p align="center">
@@ -42,7 +42,7 @@
 
 ## What Prism Is
 
-**Prism** is a local-first desktop photo library for photographers and privacy-conscious users. It indexes images from watched folders, extracts metadata, generates thumbnails, supports fast search and browsing, groups photos by people/places/memories, and keeps private photos in an encrypted Locked Folder.
+**Prism** is a local-first desktop photo and video library for photographers and privacy-conscious users. It indexes images and videos from watched folders, extracts metadata, generates thumbnails, supports fast search and browsing, groups photos by people/places/memories, and keeps private photos in an encrypted Locked Folder.
 
 The core product is designed so that normal library data, search indexes, thumbnails, metadata, and Locked Folder operations stay on the host machine.
 
@@ -50,13 +50,15 @@ The core product is designed so that normal library data, search indexes, thumbn
 
 ## Core Features
 
-- **Local library indexing:** Import individual files or folders and watch configured directories for new image changes.
-- **Supported image formats:** PNG, JPG, JPEG, WebP, HEIC, HEIF, DNG, TIFF, TIF, BMP, GIF.
+- **Local library indexing:** Import individual files or folders and watch configured directories for new image and video changes.
+- **Supported media formats:** PNG, JPG, JPEG, WebP, HEIC, HEIF, DNG, TIFF, TIF, BMP, GIF, MP4, MOV, M4V, AVI, MKV, WebM, 3GP.
 - **Fast browsing:** Virtualized React grid, lightbox preview, bulk selection, favorites, archive, trash, and sorting.
-- **Metadata extraction:** EXIF date, GPS coordinates, city/state/country, dimensions, MIME type, file size, content hash, and blur score.
+- **Video playback:** Rich custom player with keyboard shortcuts, speed control (0.25x–2x), picture-in-picture, progress bar, and hover preview in grid.
+- **Video thumbnails:** Animated WebP preview thumbnails generated via ffmpeg scene detection and frame extraction.
+- **Metadata extraction:** EXIF date, GPS coordinates, city/state/country, dimensions, MIME type, file size, content hash, and blur score. For videos: duration, FPS, codec, and audio codec.
 - **Offline reverse geocoding:** Places albums and map markers are powered by local metadata and `reverse-geocoder`.
 - **Albums:** Places, monthly memories, people albums, and On This Day highlights.
-- **People view:** Face clustering, person rename flow, pending face feedback, and per-person photo grids.
+- **People view:** Face clustering for photos and videos (hybrid scene-change + uniform frame sampling with cross-frame deduplication), person rename flow, pending face feedback, and per-person photo grids.
 - **Map view:** Leaflet-based geospatial browsing with selectable map styles.
 - **Utilities:** Watched folder configuration, face discovery trigger, purge folder, clear cache, vacuum database, reset indexed library, diagnostics, logs, backup export, and backup restore.
 - **Locked Folder:** In-memory authenticated session, Argon2id password verification, random DEK wrapped by a KEK, atomic encrypted file writes, and startup recovery for interrupted encryption/decryption operations.
@@ -99,6 +101,7 @@ The core product is designed so that normal library data, search indexes, thumbn
 - SQLite WAL mode, `synchronous=NORMAL`, 64 MB cache, memory temp store
 - SQLAlchemy model definitions and dynamic migration for photo search columns
 - OpenCV blur scoring, Pillow/Pillow-Heif metadata extraction, WebP thumbnail generation
+- ffmpeg/ffprobe for video metadata extraction, frame sampling, and animated WebP thumbnail generation
 - Watchdog-based directory observer
 - Argon2 password verification and Fernet envelope encryption
 - Optional local inference paths for face detection, image summaries, embeddings, inpainting, background removal, and OCR text extraction
@@ -140,6 +143,7 @@ graph TD
         Vision[Florence-2 / SigLIP / Ollama Vision]
         OCR[PaddleOCR-VL Text Extraction]
         Inpaint[Stable Diffusion Inpainting]
+        Video[ffmpeg/ffprobe Video Processing]
     end
 
     Tauri --> React
@@ -158,6 +162,7 @@ graph TD
     FastAPI --> Settings
     FastAPI -. optional .-> Agent
     FastAPI -. optional .-> Inpaint
+    Pool -.-> Video
 ```
 
 ---
@@ -204,6 +209,7 @@ graph TD
 - [Bun](https://bun.sh) v1.0+
 - [Python](https://www.python.org/) 3.11+
 - [uv](https://github.com/astral-sh/uv)
+- [ffmpeg](https://ffmpeg.org/) and ffprobe (for video thumbnails and metadata extraction)
 - Tauri system dependencies for your OS
 - Optional: NVIDIA CUDA libraries and `llama-server` for GPU-backed AI features
 
@@ -265,19 +271,19 @@ The Vite dev server is pinned to port `3005` for the Tauri config.
 
 ## User Guide
 
-### Import photos
+### Import photos and videos
 
-Use the header import control or the folder browser to select files or folders. Single-file imports call `/api/v1/photos/upload`; directory imports scan supported image formats and ingest each new file.
+Use the header import control or the folder browser to select files or folders. Single-file imports call `/api/v1/photos/upload`; directory imports scan supported image and video formats and ingest each new file.
 
 During ingestion, Prism:
 
 1. Validates the path against allowed read/write roots.
-2. Generates a WebP thumbnail.
-3. Extracts metadata, EXIF date, GPS coordinates, dimensions, MIME type, file size, blur score, and content hash.
+2. Generates a WebP thumbnail (animated WebP for videos via ffmpeg frame extraction).
+3. Extracts metadata, EXIF date, GPS coordinates, dimensions, MIME type, file size, blur score, and content hash. For videos: duration, FPS, video codec, and audio codec.
 4. Checks path and content-hash duplicates.
 5. Writes the photo record to SQLite.
 6. Emits a `new_photo` SSE event to the UI.
-7. Enqueues optional background analysis jobs.
+7. Enqueues optional background analysis jobs (face detection for both photos and videos, AI summaries for images only).
 
 ### Browse and organize
 
@@ -323,7 +329,7 @@ AI features are disabled by default through backend feature flags. Enable only t
 | Feature | Config flag | Current implementation |
 | --- | --- | --- |
 | Agent search | `ENABLE_AI_AGENT` | `llama-server` agent model, planner, search tools, and verification loop |
-| Face detection and clustering | `ENABLE_AI_FACE` | InspireFace SDK, face embeddings, people clustering, pending face feedback |
+| Face detection and clustering | `ENABLE_AI_FACE` | InspireFace SDK, face embeddings, people clustering, pending face feedback. For videos: hybrid frame sampling (scene-change + uniform) with cross-frame face deduplication |
 | Vision summaries and embeddings | `ENABLE_AI_CLIP` | Florence-2 summaries, SigLIP2 embeddings, semantic search |
 | Inpainting | `ENABLE_AI_INPAINTING` | Stable Diffusion 1.5 inpainting with CPU fallback |
 | Background removal | `ENABLE_AI_REMBG` | rembg optional dependency group |
@@ -446,6 +452,10 @@ Frontend tests currently cover the photo grid, sidebar routing, and Locked Folde
 
 Most AI components are behind feature flags and are not required for basic import, browsing, search, albums, maps, or Locked Folder usage.
 
+### Video thumbnails not generating
+
+Video thumbnail generation requires `ffmpeg` and `ffprobe` to be installed and available on your PATH. If these are not installed, videos will still be imported but without animated preview thumbnails. Install ffmpeg via your system package manager (e.g., `apt install ffmpeg`, `brew install ffmpeg`).
+
 ### Locked Folder access
 
 The Locked Folder session is memory-only. Locking the session or restarting the app requires password verification again. Failed verification attempts trigger lockout after three failures.
@@ -477,6 +487,7 @@ Prism builds on many open-source projects, including:
 - Tauri, React, TypeScript, Vite, Tailwind CSS, Zustand, Framer Motion, TanStack Virtual
 - FastAPI, Uvicorn, SQLAlchemy, aiosqlite, SQLite
 - Pillow, Pillow-Heif, OpenCV, NumPy, SciPy
+- ffmpeg and ffprobe
 - reverse-geocoder
 - Leaflet and React Leaflet
 - Cropper.js
