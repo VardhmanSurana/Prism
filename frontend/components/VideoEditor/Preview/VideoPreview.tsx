@@ -107,7 +107,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
       </div>
 
       {/* Floating Transport Controls */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#070709]/90 backdrop-blur-md px-5 py-1.5 rounded-full border border-white/5 shadow-2xl flex items-center w-[480px] max-w-[90%]">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#070709]/90 backdrop-blur-xl px-4 py-1.5 rounded-full border border-white/5 shadow-2xl flex items-center gap-3 w-[480px] max-w-[90%]">
         <TransportControls
           isPlaying={isPlaying}
           currentTime={currentTime}
