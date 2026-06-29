@@ -9,6 +9,11 @@ import {
   Trash2,
   Plus,
   ChevronDown,
+  Scissors,
+  Copy,
+  Clipboard,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { useVideoEditorStore, ClipType } from '@/store/videoEditorStore';
 import type { TimelineProps } from '../types';
@@ -50,6 +55,10 @@ export const Timeline: React.FC<TimelineProps> = ({
   const clipAreaRef = useRef<HTMLDivElement>(null);
 
   const { addTrack, updateTrack, removeTrack } = useVideoEditorStore();
+  const setZoom = useVideoEditorStore((s) => s.setZoom);
+
+  const selectedTrack = tracks.find((t) => t.clips.some((c) => c.id === selectedClipId));
+  const selectedTrackId = selectedTrack?.id;
 
   const totalWidth = duration * zoom;
   const trackAreaHeight = tracks.length * TRACK_HEIGHT;
@@ -77,8 +86,99 @@ export const Timeline: React.FC<TimelineProps> = ({
     [onClipUpdate],
   );
 
+  const formatTime = (seconds: number): string => {
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-[#070709]">
+      {/* Timeline Header */}
+      <div className="h-11 shrink-0 border-b border-white/5 bg-[#070709]/60 backdrop-blur-xl px-4 flex items-center justify-between select-none">
+        {/* Left: Tools */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              if (selectedTrackId && selectedClipId) {
+                onClipSplit(selectedTrackId, selectedClipId, currentTime);
+              }
+            }}
+            disabled={!selectedClipId}
+            title="Split Clip (S)"
+            className="p-1.5 rounded text-white/40 hover:text-white disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Scissors size={14} />
+          </button>
+          <button
+            onClick={() => {
+              if (selectedTrackId && selectedClipId) {
+                onClipDelete(selectedTrackId, selectedClipId);
+              }
+            }}
+            disabled={!selectedClipId}
+            title="Delete Clip (Backspace)"
+            className="p-1.5 rounded text-white/40 hover:text-white disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Trash2 size={14} />
+          </button>
+
+          <div className="w-px h-4 bg-white/10 mx-1" />
+
+          {/* Placeholders */}
+          <button
+            disabled
+            title="Copy (Ctrl+C)"
+            className="p-1.5 rounded text-white/40 disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Copy size={14} />
+          </button>
+          <button
+            disabled
+            title="Paste (Ctrl+V)"
+            className="p-1.5 rounded text-white/40 disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Clipboard size={14} />
+          </button>
+          <button
+            disabled
+            title="Undo (Ctrl+Z)"
+            className="p-1.5 rounded text-white/40 disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Undo2 size={14} />
+          </button>
+          <button
+            disabled
+            title="Redo (Ctrl+Y)"
+            className="p-1.5 rounded text-white/40 disabled:opacity-20 disabled:pointer-events-none hover:bg-white/5 transition-all hover:scale-105 active:scale-95"
+          >
+            <Redo2 size={14} />
+          </button>
+        </div>
+
+        {/* Center: Playhead time counter */}
+        <div className="text-[11px] text-white/50 font-mono tracking-wide tabular-nums">
+          {formatTime(currentTime)}
+          <span className="text-white/20 mx-1.5">/</span>
+          {formatTime(duration)}
+        </div>
+
+        {/* Right: Zoom controls */}
+        <div className="flex items-center gap-2 text-white/40">
+          <span className="text-[10px] uppercase font-bold tracking-wider select-none">Zoom</span>
+          <input
+            type="range"
+            min="10"
+            max="500"
+            value={zoom}
+            onChange={(e) => setZoom(Number(e.target.value))}
+            className="w-20 h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white hover:accent-primary [&::-webkit-slider-runnable-track]:bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white"
+          />
+          <span className="text-[10px] font-mono w-8 text-right select-none">{zoom}%</span>
+        </div>
+      </div>
+
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Track Headers */}
         <div className="flex-shrink-0 border-r border-white/5 overflow-y-auto custom-scrollbar" style={{ width: TRACK_WIDTH }}>
