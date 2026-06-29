@@ -4,8 +4,6 @@ import {
   Type,
   Music,
   Subtitles,
-  Sparkles,
-  ArrowRightLeft,
   Square,
   Film,
   Image,
@@ -18,8 +16,6 @@ const MediaPanel = React.lazy(() => import('./MediaPanel').then(m => ({ default:
 const TextPanel = React.lazy(() => import('./TextPanel').then(m => ({ default: m.TextPanel })));
 const AudioPanel = React.lazy(() => import('./AudioPanel').then(m => ({ default: m.AudioPanel })));
 const SubtitlesPanel = React.lazy(() => import('./SubtitlesPanel').then(m => ({ default: m.SubtitlesPanel })));
-const EffectsPanel = React.lazy(() => import('./EffectsPanel').then(m => ({ default: m.EffectsPanel })));
-const TransitionsPanel = React.lazy(() => import('./TransitionsPanel').then(m => ({ default: m.TransitionsPanel })));
 
 const TOOL_TABS: { id: SidebarTool; icon: React.ReactNode; label: string }[] = [
   { id: 'media', icon: <FolderOpen size={18} strokeWidth={1.5} />, label: 'Uploads' },
@@ -79,7 +75,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({ activeTool, onTool
             </h2>
             <button
               onClick={() => onToolChange(null as any)}
-              className="p-1 rounded hover:bg-white/5 text-white/30 hover:text-white/60 transition-colors"
+              className="p-1 rounded hover:bg-white/5 text-white/30 hover:text-white/60 transition-all hover:scale-105 active:scale-95"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="15 18 9 12 15 6" />
@@ -207,28 +203,6 @@ function PanelContent({ activeTool }: { activeTool: SidebarTool }) {
           onUpdateSubtitle={(trackId, clipId, updates) => updateClip(trackId, clipId, updates)}
           onDeleteSubtitle={(trackId, clipId) => removeClip(trackId, clipId)}
           videoPath={project?.tracks.find(t => t.type === 'video')?.clips[0]?.sourcePath ?? ''}
-        />
-      );
-    case 'effects':
-      return (
-        <EffectsPanel
-          selectedClip={selectedClip}
-          onUpdate={(updates) => {
-            if (!project || !project.selectedClipId) return;
-            const track = project.tracks.find(t => t.clips.some(c => c.id === project.selectedClipId));
-            if (track) updateClip(track.id, project.selectedClipId, updates);
-          }}
-        />
-      );
-    case 'transitions':
-      return (
-        <TransitionsPanel
-          selectedClip={selectedClip}
-          onUpdate={(updates) => {
-            if (!project || !project.selectedClipId) return;
-            const track = project.tracks.find(t => t.clips.some(c => c.id === project.selectedClipId));
-            if (track) updateClip(track.id, project.selectedClipId, updates);
-          }}
         />
       );
     default:

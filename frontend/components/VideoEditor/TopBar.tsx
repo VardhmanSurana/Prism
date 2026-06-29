@@ -65,14 +65,14 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
           <button
             disabled
             title="Undo (Ctrl+Z)"
-            className="p-1.5 rounded-lg text-white/40 disabled:opacity-20 disabled:pointer-events-none transition-all hover:bg-white/[0.02] hover:text-white cursor-pointer"
+            className="p-1.5 rounded-lg text-white/40 disabled:opacity-20 disabled:pointer-events-none transition-all hover:scale-105 active:scale-95 hover:bg-white/[0.02] hover:text-white cursor-pointer"
           >
             <Undo2 size={14} strokeWidth={2} />
           </button>
           <button
             disabled
             title="Redo (Ctrl+Y)"
-            className="p-1.5 rounded-lg text-white/40 disabled:opacity-20 disabled:pointer-events-none transition-all hover:bg-white/[0.02] hover:text-white cursor-pointer"
+            className="p-1.5 rounded-lg text-white/40 disabled:opacity-20 disabled:pointer-events-none transition-all hover:scale-105 active:scale-95 hover:bg-white/[0.02] hover:text-white cursor-pointer"
           >
             <Redo2 size={14} strokeWidth={2} />
           </button>
