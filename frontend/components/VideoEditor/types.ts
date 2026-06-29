@@ -53,6 +53,7 @@ export interface VideoPreviewProps {
   duration: number;
   onTimeUpdate: (time: number) => void;
   onSeek: (time: number) => void;
+  onPlayPause: () => void;
 }
 
 export interface EditorSidebarProps {

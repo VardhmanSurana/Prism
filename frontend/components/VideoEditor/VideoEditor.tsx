@@ -7,7 +7,6 @@ import { TopBar } from './TopBar';
 const Timeline = React.lazy(() => import('./Timeline/Timeline').then(m => ({ default: m.Timeline })));
 const VideoPreview = React.lazy(() => import('./Preview/VideoPreview').then(m => ({ default: m.VideoPreview })));
 const EditorSidebar = React.lazy(() => import('./Sidebar/EditorSidebar').then(m => ({ default: m.EditorSidebar })));
-const TransportControls = React.lazy(() => import('./Timeline/TransportControls').then(m => ({ default: m.TransportControls })));
 
 const LoadingFallback = () => (
   <div className="flex-1 flex items-center justify-center">
@@ -74,19 +73,7 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ photo, photos, onClose
                 duration={project.duration}
                 onTimeUpdate={setCurrentTime}
                 onSeek={setCurrentTime}
-              />
-            </React.Suspense>
-          </div>
-
-          {/* Transport controls — above timeline */}
-          <div className="shrink-0 border-t border-white/5">
-            <React.Suspense fallback={<LoadingFallback />}>
-              <TransportControls
-                isPlaying={project.isPlaying}
-                currentTime={project.currentTime}
-                duration={project.duration}
                 onPlayPause={() => setPlaying(!project.isPlaying)}
-                onSeek={setCurrentTime}
               />
             </React.Suspense>
           </div>

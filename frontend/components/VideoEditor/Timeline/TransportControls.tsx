@@ -57,7 +57,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
   }, [onSpeedChange]);
 
   return (
-    <div className="bg-[#070709]/95 h-11 flex items-center justify-between px-6 select-none border-t border-white/5">
+    <div className="w-full flex items-center justify-between select-none">
       {/* Left: Transport buttons */}
       <div className="flex items-center gap-0.5">
         <button

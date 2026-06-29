@@ -3,6 +3,7 @@ import { VideoPreviewProps } from '../types';
 import { resolveUrl } from '@/constants';
 import { renderTextOverlays } from './TextOverlayRenderer';
 import { renderEffects } from './EffectsRenderer';
+import { TransportControls } from '../Timeline/TransportControls';
 
 export const VideoPreview: React.FC<VideoPreviewProps> = ({
   videoSrc,
@@ -12,6 +13,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   duration,
   onTimeUpdate,
   onSeek,
+  onPlayPause,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -101,6 +103,17 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
           ref={canvasRef}
           className="absolute inset-0 w-full h-full pointer-events-none"
           style={{ maxWidth: '100%', maxHeight: '100%' }}
+        />
+      </div>
+
+      {/* Floating Transport Controls */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#070709]/90 backdrop-blur-md px-5 py-1.5 rounded-full border border-white/5 shadow-2xl flex items-center w-[480px] max-w-[90%]">
+        <TransportControls
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={duration}
+          onPlayPause={onPlayPause}
+          onSeek={onSeek}
         />
       </div>
     </div>
