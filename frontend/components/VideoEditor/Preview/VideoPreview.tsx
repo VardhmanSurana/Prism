@@ -86,12 +86,13 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   const resolvedSrc = resolveUrl(`local://${videoSrc}`);
 
   return (
-    <div className="flex-1 flex items-center justify-center bg-[#020202] relative">
-      <div className="relative max-w-full max-h-full">
+    <div className="w-full h-full flex items-center justify-center bg-[#020202] relative overflow-hidden p-4">
+      <div className="relative w-full h-full flex items-center justify-center">
         <video
           ref={videoRef}
           src={resolvedSrc}
           className="max-w-full max-h-full object-contain"
+          style={{ maxWidth: '100%', maxHeight: '100%' }}
           onTimeUpdate={handleTimeUpdate}
           onSeeked={handleSeeked}
           muted
@@ -99,6 +100,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
         <canvas
           ref={canvasRef}
           className="absolute inset-0 w-full h-full pointer-events-none"
+          style={{ maxWidth: '100%', maxHeight: '100%' }}
         />
       </div>
     </div>
