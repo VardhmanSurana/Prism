@@ -14,6 +14,7 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
   onTimeUpdate,
   onSeek,
   onPlayPause,
+  selectedClipId,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -37,8 +38,8 @@ export const VideoPreview: React.FC<VideoPreviewProps> = ({
 
     ctx.clearRect(0, 0, w, h);
     renderEffects(ctx, tracks, currentTime, w, h);
-    renderTextOverlays(ctx, tracks, currentTime, w, h);
-  }, [tracks, currentTime]);
+    renderTextOverlays(ctx, tracks, currentTime, w, h, selectedClipId);
+  }, [tracks, currentTime, selectedClipId]);
 
   useEffect(() => {
     const video = videoRef.current;

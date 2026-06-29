@@ -74,6 +74,7 @@ export const VideoEditor: React.FC<VideoEditorProps> = ({ photo, photos, onClose
                 onTimeUpdate={setCurrentTime}
                 onSeek={setCurrentTime}
                 onPlayPause={() => setPlaying(!project.isPlaying)}
+                selectedClipId={project.selectedClipId}
               />
             </React.Suspense>
           </div>
