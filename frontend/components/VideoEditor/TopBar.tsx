@@ -8,7 +8,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
   const [activeCursor, setActiveCursor] = useState<'select' | 'hand'>('select');
 
   return (
-    <div className="h-14 flex items-center justify-between px-6 bg-[var(--bg-primary)] border-b border-white/5 shrink-0 z-50 relative">
+    <div className="h-14 flex items-center justify-between px-6 bg-[#070709]/80 backdrop-blur-xl border-b border-white/5 shrink-0 z-50 relative">
       <div className="flex items-center gap-4">
         {/* macOS-style window control dots */}
         <div className="flex items-center gap-1.5 mr-1 select-none">
@@ -19,7 +19,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
 
         <button
           onClick={onClose}
-          className="group flex items-center gap-2 text-white/45 hover:text-white text-xs font-bold uppercase tracking-widest transition-all"
+          className="group flex items-center gap-2 text-white/45 hover:text-white text-xs font-bold uppercase tracking-widest transition-all hover:scale-105 active:scale-95"
         >
           <div className="p-2 rounded-full border border-white/5 group-hover:border-white/20 transition-colors bg-[var(--bg-secondary)]">
             <X size={14} />
@@ -39,7 +39,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
           <button
             onClick={() => setActiveCursor('select')}
             title="Select Tool (V)"
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1.5 rounded-lg transition-all hover:scale-105 active:scale-95 ${
               activeCursor === 'select'
                 ? 'bg-white/10 text-white shadow-sm'
                 : 'text-white/40 hover:text-white/70 hover:bg-white/[0.02]'
@@ -50,7 +50,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
           <button
             onClick={() => setActiveCursor('hand')}
             title="Hand Tool (H)"
-            className={`p-1.5 rounded-lg transition-all ${
+            className={`p-1.5 rounded-lg transition-all hover:scale-105 active:scale-95 ${
               activeCursor === 'hand'
                 ? 'bg-white/10 text-white shadow-sm'
                 : 'text-white/40 hover:text-white/70 hover:bg-white/[0.02]'
@@ -107,7 +107,7 @@ export const TopBar: React.FC<TopBarProps> = ({ onClose }) => {
 
         <button
           disabled
-          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary text-[#050505] text-xs font-bold transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-primary/20 bg-primary text-[#050505] text-xs font-bold transition-all disabled:opacity-50 disabled:pointer-events-none hover:scale-105 active:scale-95"
         >
           <Download size={14} />
           Export

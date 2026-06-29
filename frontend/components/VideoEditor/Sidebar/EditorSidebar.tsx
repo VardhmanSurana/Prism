@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense } from 'react';
 import {
   FolderOpen,
   Type,
@@ -42,8 +42,8 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({ activeTool, onTool
   return (
     <div className="flex h-full shrink-0 relative z-30">
       {/* Icon strip with labels */}
-      <div className="w-[64px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-4 space-y-1 h-full">
-        <div className="w-[44px] h-[44px] rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white/60 hover:text-white cursor-pointer transition-all mb-4">
+      <div className="w-[64px] shrink-0 bg-[#070709]/80 backdrop-blur-xl border-r border-white/5 flex flex-col items-center py-4 space-y-1 h-full">
+        <div className="w-[44px] h-[44px] rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white/60 hover:text-white cursor-pointer transition-all mb-4 hover:scale-105 active:scale-95">
           <Plus size={16} />
         </div>
         {TOOL_TABS.map((tab) => {
@@ -72,7 +72,7 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({ activeTool, onTool
 
       {/* Panel content */}
       {activeTool && (
-        <div className="w-[280px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col overflow-hidden">
+        <div className="w-[280px] shrink-0 bg-[#070709]/60 backdrop-blur-xl border-r border-white/5 flex flex-col overflow-hidden">
           <div className="px-5 py-4 shrink-0 border-b border-white/5 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-white/90">
               {TOOL_TABS.find(t => t.id === activeTool)?.label}
