@@ -57,12 +57,12 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
   }, [onSpeedChange]);
 
   return (
-    <div className="bg-[#0a0a0c] h-11 flex items-center gap-1 px-4 select-none">
+    <div className="bg-[#070709]/95 h-11 flex items-center justify-between px-6 select-none border-t border-white/5">
       {/* Left: Transport buttons */}
       <div className="flex items-center gap-0.5">
         <button
           onClick={skipToStart}
-          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
           title="Skip to start"
         >
           <SkipBack size={15} />
@@ -70,7 +70,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
         <button
           onClick={stepBack}
-          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
           title="Step back"
         >
           <StepBack size={15} />
@@ -78,7 +78,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
         <button
           onClick={onPlayPause}
-          className="p-2 rounded-full bg-white/10 text-white hover:bg-white/15 transition-colors mx-1"
+          className="p-2 rounded-full bg-white/10 text-white hover:bg-white/15 active:scale-95 transition-all mx-1"
           title={isPlaying ? 'Pause' : 'Play'}
         >
           {isPlaying ? <Pause size={16} /> : <Play size={16} className="ml-0.5" />}
@@ -86,7 +86,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
         <button
           onClick={stepForward}
-          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
           title="Step forward"
         >
           <StepForward size={15} />
@@ -94,7 +94,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
 
         <button
           onClick={skipToEnd}
-          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 active:scale-95 transition-all"
           title="Skip to end"
         >
           <SkipForward size={15} />
@@ -104,7 +104,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
         <div className="relative ml-2" ref={menuRef}>
           <button
             onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-            className="px-2 py-1 rounded text-[11px] text-white/40 hover:text-white/70 hover:bg-white/5 transition-colors font-mono flex items-center gap-0.5"
+            className="px-2 py-1 rounded text-[11px] text-white/40 hover:text-white/70 hover:bg-white/5 active:scale-95 transition-all font-mono flex items-center gap-0.5"
           >
             {speed}x
             <ChevronDown size={9} />
@@ -140,7 +140,7 @@ export const TransportControls: React.FC<TransportControlsProps> = ({
       {/* Right: Fullscreen */}
       <div className="flex items-center">
         <button
-          className="p-1.5 rounded-md text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
+          className="p-1.5 rounded-md text-white/30 hover:text-white/60 hover:bg-white/5 active:scale-95 transition-all"
           title="Fullscreen"
         >
           <Maximize size={14} />
