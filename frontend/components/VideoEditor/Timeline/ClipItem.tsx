@@ -4,32 +4,32 @@ import type { ClipProps } from '../types';
 
 const TYPE_STYLES = {
   video: {
-    bg: 'bg-blue-500/80',
-    border: 'border-blue-400/50',
-    hoverBg: 'hover:bg-blue-500/90',
-    handleBg: 'bg-blue-700/60',
-    selectedBg: 'bg-blue-400/20',
+    bg: 'bg-gradient-to-r from-blue-600 to-blue-500',
+    border: 'border-blue-400/40',
+    hoverBg: 'hover:from-blue-500 hover:to-blue-400',
+    handleBg: 'bg-blue-300/30',
+    selectedBg: 'ring-2 ring-blue-400 shadow-[0_0_12px_rgba(96,165,250,0.4)]',
   },
   audio: {
-    bg: 'bg-green-500/80',
-    border: 'border-green-400/50',
-    hoverBg: 'hover:bg-green-500/90',
-    handleBg: 'bg-green-700/60',
-    selectedBg: 'bg-green-400/20',
+    bg: 'bg-gradient-to-r from-emerald-600 to-emerald-500',
+    border: 'border-emerald-400/40',
+    hoverBg: 'hover:from-emerald-500 hover:to-emerald-400',
+    handleBg: 'bg-emerald-300/30',
+    selectedBg: 'ring-2 ring-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.4)]',
   },
   text: {
-    bg: 'bg-purple-500/80',
-    border: 'border-purple-400/50',
-    hoverBg: 'hover:bg-purple-500/90',
-    handleBg: 'bg-purple-700/60',
-    selectedBg: 'bg-purple-400/20',
+    bg: 'bg-gradient-to-r from-violet-600 to-violet-500',
+    border: 'border-violet-400/40',
+    hoverBg: 'hover:from-violet-500 hover:to-violet-400',
+    handleBg: 'bg-violet-300/30',
+    selectedBg: 'ring-2 ring-violet-400 shadow-[0_0_12px_rgba(167,139,250,0.4)]',
   },
   subtitle: {
-    bg: 'bg-teal-500/80',
-    border: 'border-teal-400/50',
-    hoverBg: 'hover:bg-teal-500/90',
-    handleBg: 'bg-teal-700/60',
-    selectedBg: 'bg-teal-400/20',
+    bg: 'bg-gradient-to-r from-cyan-600 to-cyan-500',
+    border: 'border-cyan-400/40',
+    hoverBg: 'hover:from-cyan-500 hover:to-cyan-400',
+    handleBg: 'bg-cyan-300/30',
+    selectedBg: 'ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.4)]',
   },
 };
 
@@ -47,22 +47,23 @@ function getClipLabel(clip: Clip): string {
 }
 
 function WaveformPlaceholder() {
-  const bars = 20;
+  const bars = 40;
   return (
     <svg
-      className="w-full h-full opacity-30"
-      viewBox={`0 0 ${bars * 4} 20`}
+      className="w-full h-full opacity-40"
+      viewBox={`0 0 ${bars * 3} 24`}
       preserveAspectRatio="none"
     >
       {Array.from({ length: bars }, (_, i) => {
-        const h = 4 + Math.sin(i * 0.8) * 3 + Math.cos(i * 1.3) * 4;
+        const h = 3 + Math.sin(i * 0.5) * 4 + Math.cos(i * 1.1) * 5 + Math.sin(i * 2.3) * 2;
+        const clamped = Math.max(2, Math.min(20, h));
         return (
           <rect
             key={i}
-            x={i * 4}
-            y={10 - h / 2}
+            x={i * 3}
+            y={12 - clamped / 2}
             width={2}
-            height={h}
+            height={clamped}
             rx={1}
             fill="currentColor"
           />
@@ -73,15 +74,23 @@ function WaveformPlaceholder() {
 }
 
 function ThumbnailStrip() {
+  const colors = [
+    'hsl(210, 50%, 20%)',
+    'hsl(215, 55%, 22%)',
+    'hsl(220, 50%, 25%)',
+    'hsl(205, 45%, 28%)',
+    'hsl(200, 40%, 30%)',
+    'hsl(210, 50%, 24%)',
+    'hsl(218, 52%, 26%)',
+    'hsl(212, 48%, 22%)',
+  ];
   return (
-    <div className="flex gap-px h-full w-full">
-      {Array.from({ length: 6 }, (_, i) => (
+    <div className="flex h-full w-full opacity-50">
+      {colors.map((color, i) => (
         <div
           key={i}
-          className="flex-1 h-full opacity-30"
-          style={{
-            backgroundColor: `hsl(${210 + i * 8}, 60%, ${25 + i * 3}%)`,
-          }}
+          className="flex-1 h-full"
+          style={{ backgroundColor: color }}
         />
       ))}
     </div>
@@ -153,11 +162,11 @@ export const ClipItem: React.FC<ClipProps> = ({
 
   return (
     <div
-      className={`absolute top-1 bottom-1 rounded-md border cursor-grab select-none overflow-hidden transition-shadow ${
+      className={`absolute top-1 bottom-1 rounded-lg border flex flex-col justify-between overflow-hidden cursor-grab active:cursor-grabbing select-none transition-all duration-200 ${
         styles.bg
-      } ${styles.border} ${isSelected ? 'ring-2 ring-primary shadow-lg shadow-primary/10' : ''} ${
-        isDragging ? 'cursor-grabbing z-10' : ''
-      }`}
+      } ${styles.hoverBg} ${
+        isSelected ? styles.selectedBg : styles.border
+      } ${isDragging ? 'cursor-grabbing z-10' : ''}`}
       style={{ left, width }}
       onMouseDown={(e) => handleMouseDown(e, 'move')}
     >

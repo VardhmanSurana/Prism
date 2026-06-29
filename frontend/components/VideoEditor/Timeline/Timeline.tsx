@@ -16,8 +16,8 @@ import { TrackRow } from './TrackRow';
 import { Playhead } from './Playhead';
 import { TimeRuler } from './TimeRuler';
 
-const TRACK_WIDTH = 180;
-const TRACK_HEIGHT = 64;
+const TRACK_WIDTH = 140;
+const TRACK_HEIGHT = 72;
 
 const TYPE_ICONS: Record<ClipType, React.FC<{ size?: number; className?: string }>> = {
   video: Video,
@@ -78,10 +78,10 @@ export const Timeline: React.FC<TimelineProps> = ({
   );
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-[#050505]">
+    <div className="flex flex-col flex-1 min-h-0 bg-[#070709]">
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Track Headers */}
-        <div className="flex-shrink-0 border-r border-white/5 overflow-y-auto" style={{ width: TRACK_WIDTH }}>
+        <div className="flex-shrink-0 border-r border-white/5 overflow-y-auto custom-scrollbar" style={{ width: TRACK_WIDTH }}>
           {tracks.map((track, idx) => {
             const Icon = TYPE_ICONS[track.type] || Video;
             return (
@@ -152,7 +152,7 @@ export const Timeline: React.FC<TimelineProps> = ({
         {/* Scrollable Clip Area */}
         <div
           ref={clipAreaRef}
-          className="flex-1 overflow-x-auto overflow-y-auto min-w-0"
+          className="flex-1 overflow-x-auto overflow-y-auto min-w-0 custom-scrollbar"
         >
           <div className="relative" style={{ width: totalWidth, height: trackAreaHeight }}>
             {tracks.map((track, idx) => (

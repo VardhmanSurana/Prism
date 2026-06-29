@@ -44,18 +44,18 @@ export const Playhead: React.FC<PlayheadProps> = ({ currentTime, zoom, onSeek, t
       className="absolute top-0 z-30 pointer-events-none"
       style={{ left, height: trackHeight + 32 }}
     >
-      <div className="relative w-px bg-red-500 h-full pointer-events-none" />
+      <div className="relative w-px bg-red-500 h-full pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.7)]" />
       <div
-        className="absolute -top-0 left-1/2 -translate-x-1/2 pointer-events-auto cursor-col-resize"
+        className="absolute -top-1 left-1/2 -translate-x-1/2 pointer-events-auto cursor-col-resize"
         onMouseDown={handleMouseDown}
       >
         <svg
           width="12"
-          height="10"
-          viewBox="0 0 12 10"
-          className={`transition-transform duration-75 ${isDragging ? 'scale-110' : ''}`}
+          height="12"
+          viewBox="0 0 12 12"
+          className={`transition-all duration-150 ${isDragging ? 'scale-110 text-red-400' : 'hover:scale-110 text-red-500'}`}
         >
-          <polygon points="0,0 12,0 6,10" fill="rgb(239,68,68)" />
+          <polygon points="6,0 12,6 6,12 0,6" fill="currentColor" />
         </svg>
       </div>
     </div>
