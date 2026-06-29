@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import {
   FolderOpen,
   Type,
@@ -17,12 +17,12 @@ const EffectsPanel = React.lazy(() => import('./EffectsPanel').then(m => ({ defa
 const TransitionsPanel = React.lazy(() => import('./TransitionsPanel').then(m => ({ default: m.TransitionsPanel })));
 
 const TOOL_TABS: { id: SidebarTool; icon: React.ReactNode; label: string }[] = [
-  { id: 'media', icon: <FolderOpen size={20} strokeWidth={1.5} />, label: 'Media' },
-  { id: 'text', icon: <Type size={20} strokeWidth={1.5} />, label: 'Text' },
-  { id: 'audio', icon: <Music size={20} strokeWidth={1.5} />, label: 'Audio' },
-  { id: 'subtitles', icon: <Subtitles size={20} strokeWidth={1.5} />, label: 'Subtitles' },
-  { id: 'effects', icon: <Sparkles size={20} strokeWidth={1.5} />, label: 'Effects' },
-  { id: 'transitions', icon: <ArrowRightLeft size={20} strokeWidth={1.5} />, label: 'Transitions' },
+  { id: 'media', icon: <FolderOpen size={18} strokeWidth={1.5} />, label: 'Uploads' },
+  { id: 'text', icon: <Type size={18} strokeWidth={1.5} />, label: 'Text' },
+  { id: 'audio', icon: <Music size={18} strokeWidth={1.5} />, label: 'Audios' },
+  { id: 'subtitles', icon: <Subtitles size={18} strokeWidth={1.5} />, label: 'Subtitles' },
+  { id: 'effects', icon: <Sparkles size={18} strokeWidth={1.5} />, label: 'Effects' },
+  { id: 'transitions', icon: <ArrowRightLeft size={18} strokeWidth={1.5} />, label: 'Transitions' },
 ];
 
 const PanelFallback = () => (
@@ -34,41 +34,49 @@ const PanelFallback = () => (
 export const EditorSidebar: React.FC<EditorSidebarProps> = ({ activeTool, onToolChange }) => {
   return (
     <div className="flex h-full shrink-0 relative z-30">
-      <div className="w-[56px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-6 space-y-4 h-full">
+      {/* Icon strip with labels */}
+      <div className="w-[64px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-4 space-y-1 h-full">
         {TOOL_TABS.map((tab) => {
           const isActive = activeTool === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => onToolChange(tab.id)}
-              className={`group w-[40px] h-[40px] shrink-0 flex flex-col items-center justify-center transition-all duration-300 rounded-xl relative ${
+              onClick={() => onToolChange(isActive ? null as any : tab.id)}
+              className={`group w-full flex flex-col items-center gap-1 py-2 px-1 transition-all duration-200 rounded-lg relative ${
                 isActive
-                  ? 'text-primary'
-                  : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                  ? 'text-white bg-white/[0.06]'
+                  : 'text-white/40 hover:text-white/70 hover:bg-white/[0.03]'
               }`}
             >
               {isActive && (
-                <div className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--color-primary),0.5)]" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-primary rounded-r-full" />
               )}
-              <div className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+              <div className={`transition-transform duration-200 ${isActive ? 'scale-105' : 'group-hover:scale-105'}`}>
                 {tab.icon}
               </div>
-              <div className="absolute left-[64px] bg-[#1e232b] text-white px-3 py-2 rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-2xl z-50 border border-white/10 whitespace-nowrap">
-                <span className="text-[11px] font-bold tracking-wide">{tab.label}</span>
-              </div>
+              <span className="text-[9px] font-medium tracking-wide leading-none">{tab.label}</span>
             </button>
           );
         })}
       </div>
 
+      {/* Panel content */}
       {activeTool && (
-        <div className="w-[260px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col overflow-hidden">
-          <div className="px-5 py-4 shrink-0 border-b border-white/5">
-            <h2 className="text-[10px] font-bold tracking-[0.2em] uppercase text-white/20">
+        <div className="w-[280px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col overflow-hidden">
+          <div className="px-5 py-4 shrink-0 border-b border-white/5 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white/90">
               {TOOL_TABS.find(t => t.id === activeTool)?.label}
             </h2>
+            <button
+              onClick={() => onToolChange(null as any)}
+              className="p-1 rounded hover:bg-white/5 text-white/30 hover:text-white/60 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 space-y-8">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
             <Suspense fallback={<PanelFallback />}>
               <PanelContent activeTool={activeTool} />
             </Suspense>

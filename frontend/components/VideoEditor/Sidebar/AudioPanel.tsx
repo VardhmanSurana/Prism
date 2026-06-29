@@ -48,7 +48,7 @@ export const AudioPanel: React.FC<AudioPanelProps> = ({ tracks, onVolumeChange, 
                 value={Math.round(track.volume * 100)}
                 onChange={(e) => onVolumeChange(track.id, Number(e.target.value) / 100)}
                 disabled={track.muted}
-                className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer disabled:opacity-30 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer disabled:[&::-webkit-slider-thumb]:bg-white/20"
+                className="adjustment-slider"
               />
             </div>
 

@@ -33,7 +33,7 @@ export const TransitionsPanel: React.FC<TransitionsPanelProps> = ({ selectedClip
                 key={t.id}
                 onClick={() => onUpdate({ transitionIn: t.id })}
                 disabled={!selectedClip}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-left disabled:opacity-30 disabled:pointer-events-none ${
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 hover:scale-[1.01] active:scale-[0.99] text-left disabled:opacity-30 disabled:pointer-events-none ${
                   isActive
                     ? 'bg-primary/10 border border-primary/30 text-primary'
                     : 'bg-white/[0.02] border border-white/5 text-white/40 hover:text-white/60 hover:bg-white/[0.05] hover:border-white/10'
@@ -66,7 +66,7 @@ export const TransitionsPanel: React.FC<TransitionsPanelProps> = ({ selectedClip
               step={0.1}
               value={currentDuration}
               onChange={(e) => onUpdate({ transitionDuration: Number(e.target.value) })}
-              className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer"
+              className="adjustment-slider"
             />
             <div className="flex justify-between">
               <span className="text-[9px] text-white/15">0.1s</span>

@@ -41,10 +41,10 @@ export const EffectsPanel: React.FC<EffectsPanelProps> = ({ selectedClip, onUpda
                 key={preset.id}
                 onClick={() => handlePresetClick(preset.id)}
                 disabled={!selectedClip}
-                className={`relative rounded-lg border overflow-hidden transition-all disabled:opacity-30 disabled:pointer-events-none ${
+                className={`relative rounded-lg border overflow-hidden transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 disabled:pointer-events-none ${
                   isActive
-                    ? 'border-primary/40 ring-1 ring-primary/20'
-                    : 'border-white/5 hover:border-white/15'
+                    ? 'border-primary/40 ring-1 ring-primary/20 bg-white/[0.04]'
+                    : 'border-white/5 hover:border-white/15 bg-white/[0.01]'
                 }`}
               >
                 <div
