@@ -60,7 +60,7 @@ export interface EditorSidebarProps {
   onToolChange: (tool: SidebarTool) => void;
 }
 
-export type SidebarTool = 'media' | 'text' | 'audio' | 'subtitles' | 'effects' | 'transitions';
+export type SidebarTool = 'media' | 'canvas' | 'text' | 'video_files' | 'audio' | 'photos' | 'records' | 'subtitles' | 'effects' | 'transitions';
 
 export interface MediaPanelProps {
   onSelectMedia: (path: string, duration: number) => void;

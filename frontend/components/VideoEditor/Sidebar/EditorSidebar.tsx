@@ -6,6 +6,11 @@ import {
   Subtitles,
   Sparkles,
   ArrowRightLeft,
+  Square,
+  Film,
+  Image,
+  Mic,
+  Plus,
 } from 'lucide-react';
 import { EditorSidebarProps, SidebarTool } from '../types';
 
@@ -18,11 +23,13 @@ const TransitionsPanel = React.lazy(() => import('./TransitionsPanel').then(m =>
 
 const TOOL_TABS: { id: SidebarTool; icon: React.ReactNode; label: string }[] = [
   { id: 'media', icon: <FolderOpen size={18} strokeWidth={1.5} />, label: 'Uploads' },
+  { id: 'canvas', icon: <Square size={18} strokeWidth={1.5} />, label: 'Canvas' },
   { id: 'text', icon: <Type size={18} strokeWidth={1.5} />, label: 'Text' },
+  { id: 'video_files', icon: <Film size={18} strokeWidth={1.5} />, label: 'Videos' },
   { id: 'audio', icon: <Music size={18} strokeWidth={1.5} />, label: 'Audios' },
+  { id: 'photos', icon: <Image size={18} strokeWidth={1.5} />, label: 'Photos' },
+  { id: 'records', icon: <Mic size={18} strokeWidth={1.5} />, label: 'Records' },
   { id: 'subtitles', icon: <Subtitles size={18} strokeWidth={1.5} />, label: 'Subtitles' },
-  { id: 'effects', icon: <Sparkles size={18} strokeWidth={1.5} />, label: 'Effects' },
-  { id: 'transitions', icon: <ArrowRightLeft size={18} strokeWidth={1.5} />, label: 'Transitions' },
 ];
 
 const PanelFallback = () => (
@@ -36,6 +43,9 @@ export const EditorSidebar: React.FC<EditorSidebarProps> = ({ activeTool, onTool
     <div className="flex h-full shrink-0 relative z-30">
       {/* Icon strip with labels */}
       <div className="w-[64px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-4 space-y-1 h-full">
+        <div className="w-[44px] h-[44px] rounded-full bg-white/10 hover:bg-white/15 flex items-center justify-center text-white/60 hover:text-white cursor-pointer transition-all mb-4">
+          <Plus size={16} />
+        </div>
         {TOOL_TABS.map((tab) => {
           const isActive = activeTool === tab.id;
           return (
@@ -127,6 +137,16 @@ function PanelContent({ activeTool }: { activeTool: SidebarTool }) {
           }}
         />
       );
+    case 'canvas':
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px] select-none">
+          <Square className="w-10 h-10 text-white/20 mb-4 animate-pulse" strokeWidth={1.2} />
+          <h3 className="text-xs font-semibold text-white/80 mb-2">Canvas Settings</h3>
+          <p className="text-[11px] text-white/40 max-w-[200px] leading-relaxed">
+            Customize aspect ratio, background gradients, and export boundaries.
+          </p>
+        </div>
+      );
     case 'text':
       return (
         <TextPanel
@@ -138,6 +158,16 @@ function PanelContent({ activeTool }: { activeTool: SidebarTool }) {
           }}
         />
       );
+    case 'video_files':
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px] select-none">
+          <Film className="w-10 h-10 text-white/20 mb-4 animate-pulse" strokeWidth={1.2} />
+          <h3 className="text-xs font-semibold text-white/80 mb-2">Videos Library</h3>
+          <p className="text-[11px] text-white/40 max-w-[200px] leading-relaxed">
+            Access stock footage, overlays, and background video materials.
+          </p>
+        </div>
+      );
     case 'audio':
       return (
         <AudioPanel
@@ -148,6 +178,26 @@ function PanelContent({ activeTool }: { activeTool: SidebarTool }) {
             if (track) updateTrack(trackId, { muted: !track.muted });
           }}
         />
+      );
+    case 'photos':
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px] select-none">
+          <Image className="w-10 h-10 text-white/20 mb-4 animate-pulse" strokeWidth={1.2} />
+          <h3 className="text-xs font-semibold text-white/80 mb-2">Photos Library</h3>
+          <p className="text-[11px] text-white/40 max-w-[200px] leading-relaxed">
+            Browse stock images, graphics, patterns, and background layers.
+          </p>
+        </div>
+      );
+    case 'records':
+      return (
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center h-full min-h-[300px] select-none">
+          <Mic className="w-10 h-10 text-white/20 mb-4 animate-pulse" strokeWidth={1.2} />
+          <h3 className="text-xs font-semibold text-white/80 mb-2">Record Audio & Screen</h3>
+          <p className="text-[11px] text-white/40 max-w-[200px] leading-relaxed">
+            Record voiceovers, screen captures, or webcam directly to your timeline.
+          </p>
+        </div>
       );
     case 'subtitles':
       return (
