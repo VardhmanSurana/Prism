@@ -1,5 +1,6 @@
 import React from 'react';
 import { RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Check } from 'lucide-react';
+import { Adjustments } from './filterEngine';
 
 const ASPECT_RATIOS = [
   { label: 'Free',  value: NaN       },
@@ -25,6 +26,8 @@ interface TransformPanelProps {
   flipV: boolean;
   handleFlipH: () => void;
   handleFlipV: () => void;
+  adjustments: Adjustments;
+  onAdjustmentsChange: (adj: Adjustments) => void;
 }
 
 export const TransformPanel: React.FC<TransformPanelProps> = ({
@@ -41,6 +44,8 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
   flipV,
   handleFlipH,
   handleFlipV,
+  adjustments,
+  onAdjustmentsChange,
 }) => {
 
   return (
@@ -181,6 +186,61 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
               Reset Level
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Geometry Corrections */}
+      <div className="space-y-6">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-4">Geometry</p>
+          <div className="space-y-5">
+            {[
+              { key: 'perspective' as const, label: 'Horizontal Perspective' },
+              { key: 'verticalPerspective' as const, label: 'Vertical Perspective' },
+            ].map(({ key, label }) => {
+              const val = adjustments[key];
+              const pct = ((val + 100) / 200) * 100;
+              const isChanged = val !== 0;
+              const fillLeft = `${Math.min(50, pct)}%`;
+              const fillWidth = `${Math.abs(pct - 50)}%`;
+
+              return (
+                <div key={key}>
+                  <div className="flex justify-between items-baseline mb-2">
+                    <label className="text-[11px] font-medium text-white/40 leading-none select-none">
+                      {label}
+                    </label>
+                    <span className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-all duration-200 ${
+                      isChanged ? 'text-primary scale-110' : 'text-white/20'
+                    }`}>
+                      {val > 0 ? `+${val}` : val}
+                    </span>
+                  </div>
+                  <div className="relative h-4 flex items-center">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      aria-hidden
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left: fillLeft,
+                        width: fillWidth,
+                        background: `rgb(var(--color-primary) / ${isChanged ? 0.8 : 0.2})`,
+                        boxShadow: isChanged ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min={-100}
+                      max={100}
+                      value={val}
+                      onChange={e => onAdjustmentsChange({ ...adjustments, [key]: Number(e.target.value) })}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

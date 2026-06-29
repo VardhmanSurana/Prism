@@ -41,6 +41,10 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
 
   return (
     <div
+      tabIndex={0}
+      role="button"
+      aria-label={photo.filename || photo.path.split('/').pop()}
+      aria-pressed={isSelected}
       onClick={(e) => {
         if (isSelectionMode || e.shiftKey) {
           onToggleSelection(String(photo.id));
@@ -48,7 +52,19 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
           onPhotoClick(photo);
         }
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (isSelectionMode || e.shiftKey) {
+            onToggleSelection(String(photo.id));
+          } else {
+            onPhotoClick(photo);
+          }
+        }
+      }}
       className={`flex items-center gap-6 p-4 rounded-3xl border transition-all duration-300 group cursor-pointer
+        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
+        active:scale-[0.98]
         ${
           isSelected
             ? 'bg-primary/5 border-primary/30 shadow-lg'

@@ -20,7 +20,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; img-src 'self' http://127.0.0.1:8269 http://localhost:8269 data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:8269 http://localhost:8269 ws://localhost:* http://localhost:*"
     }
   },
   "bundle": {

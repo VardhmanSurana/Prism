@@ -62,6 +62,8 @@ The core product is designed so that normal library data, search indexes, thumbn
 - **Locked Folder:** In-memory authenticated session, Argon2id password verification, random DEK wrapped by a KEK, atomic encrypted file writes, and startup recovery for interrupted encryption/decryption operations.
 - **Local AI assistant:** Opt-in natural-language photo search with planner, search tools, verification, and result rendering.
 - **Local editing tools:** Crop, rotate, flip, straighten, adjustments, curves, effects, portrait/background tools, selective edits, inpainting, masks, and object detection UI.
+- **Explore view:** AI-powered theme collections, event timeline, On This Day memories, and seasonal photo groupings.
+- **OCR text extraction:** Opt-in PaddleOCR-VL integration for extracting visible text from images, stored and searchable via FTS5.
 
 ---
 
@@ -99,7 +101,7 @@ The core product is designed so that normal library data, search indexes, thumbn
 - OpenCV blur scoring, Pillow/Pillow-Heif metadata extraction, WebP thumbnail generation
 - Watchdog-based directory observer
 - Argon2 password verification and Fernet envelope encryption
-- Optional local inference paths for face detection, image summaries, embeddings, inpainting, and background removal
+- Optional local inference paths for face detection, image summaries, embeddings, inpainting, background removal, and OCR text extraction
 
 ---
 
@@ -136,6 +138,7 @@ graph TD
         Face[InspireFace Face Clustering]
         Agent[llama-server Agent]
         Vision[Florence-2 / SigLIP / Ollama Vision]
+        OCR[PaddleOCR-VL Text Extraction]
         Inpaint[Stable Diffusion Inpainting]
     end
 
@@ -148,6 +151,7 @@ graph TD
     Pool --> SQLite
     Queue --> Face
     Queue --> Vision
+    Queue --> OCR
     FastAPI --> SQLite
     FastAPI --> FTS5
     FastAPI --> Thumbs
@@ -280,7 +284,7 @@ During ingestion, Prism:
 The sidebar provides:
 
 - **Gallery:** Main virtualized library grid.
-- **Explore:** Search and discovery view.
+- **Explore:** AI-powered discovery view with themed collections, event timeline, On This Day memories, and seasonal groupings.
 - **Map:** Geotagged photos on a Leaflet map.
 - **Prism AI:** Optional local AI assistant.
 - **Favorites, Albums, People, Archive, Trash:** Curated library views.
@@ -323,6 +327,7 @@ AI features are disabled by default through backend feature flags. Enable only t
 | Vision summaries and embeddings | `ENABLE_AI_CLIP` | Florence-2 summaries, SigLIP2 embeddings, semantic search |
 | Inpainting | `ENABLE_AI_INPAINTING` | Stable Diffusion 1.5 inpainting with CPU fallback |
 | Background removal | `ENABLE_AI_REMBG` | rembg optional dependency group |
+| OCR text extraction | `ENABLE_AI_OCR` | PaddleOCR-VL via `llama-server` on port 9092, background pipeline Stage 4 |
 
 Relevant backend defaults:
 
@@ -332,6 +337,7 @@ Relevant backend defaults:
 | `OLLAMA_VISION_MODEL` | `moondream:latest` |
 | Agent server | `127.0.0.1:9090` |
 | Vision server | `127.0.0.1:9091` |
+| OCR server | `127.0.0.1:9092` |
 | Backend API | `127.0.0.1:8269` |
 | Tauri dev URL | `http://localhost:3005` |
 
@@ -363,11 +369,14 @@ Allowed read/write roots include:
 - Prism upload directory
 - Prism thumbnail directory
 - Prism data directory
-- User home directory
 - `~/Pictures`
 - External mount roots when present: `/media`, `/run/media`, `/Volumes`, `/mnt`
 
 Out-of-boundary requests return `403 Access Denied`.
+
+### API authentication
+
+Set `API_KEY` in `backend/.env` to enable token-based authentication. All API endpoints require an `X-API-Key` header when enabled. When the key is empty (default), the API is open for local development.
 
 ### CORS
 
@@ -376,6 +385,14 @@ The API allows only local Tauri/Vite origins:
 - `tauri://localhost`
 - `http://tauri.localhost`
 - `http://localhost:3005`
+
+### Tauri Content Security Policy
+
+The Tauri webview enforces a strict CSP that restricts script, style, and connection sources to the local backend and self origins.
+
+### Rate limiting
+
+Photo upload endpoints enforce per-client rate limiting (100 uploads per minute) to prevent abuse.
 
 ### Data storage
 
@@ -465,6 +482,7 @@ Prism builds on many open-source projects, including:
 - Cropper.js
 - llama.cpp / llama-server
 - Florence-2, SigLIP, Ollama Vision
+- PaddleOCR-VL
 - Stable Diffusion inpainting, diffusers, rembg
 - InspireFace
 - Vitest and Testing Library

@@ -154,7 +154,7 @@ export const BrowserList: React.FC<BrowserListProps> = ({
                 )}
               </span>
               
-              <span className={`shrink-0 ${isSelected ? 'text-primary' : 'text-blue-400/70'}`}>🖼️</span>
+              <span className={`shrink-0 ${isSelected ? 'text-primary' : file.is_video ? 'text-green-400/70' : 'text-blue-400/70'}`}>{file.is_video ? '🎬' : '🖼️'}</span>
               <span className="truncate pr-4">{file.name}</span>
             </div>
             

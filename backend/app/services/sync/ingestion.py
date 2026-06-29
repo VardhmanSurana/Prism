@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Photo
 from app.config import settings
 from app.services.sync.tasks import process_image_task
+from app.services.sync.handler import is_video_file
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -35,9 +36,14 @@ class IngestionMixin:
 
             # 2. Extract metadata and generate thumbnail in Process Pool
             loop = asyncio.get_running_loop()
+            if is_video_file(file_path):
+                from app.services.sync.tasks import process_video_task
+                task_fn = process_video_task
+            else:
+                task_fn = process_image_task
             pool_result = await loop.run_in_executor(
                 self.process_pool,
-                process_image_task,
+                task_fn,
                 file_path,
                 str(settings.THUMBNAILS_DIR)
             )
@@ -70,7 +76,7 @@ class IngestionMixin:
                     height=metadata["height"],
                     aspect_ratio=metadata["aspect_ratio"],
                     mime_type=metadata["mime_type"],
-                    file_type="image",
+                    file_type=metadata.get("file_type", "image"),
                     caption=metadata.get("caption"),
                     date=metadata.get("date_taken", datetime.utcnow()),
                     date_taken=metadata.get("date_taken", datetime.utcnow()),
@@ -84,7 +90,11 @@ class IngestionMixin:
                     device_id=mount_point,
                     is_external=is_external,
                     blur_score=metadata.get("blur_score"),
-                    file_size=metadata.get("file_size")
+                    file_size=metadata.get("file_size"),
+                    duration=metadata.get("duration"),
+                    fps=metadata.get("fps"),
+                    codec=metadata.get("codec"),
+                    audio_codec=metadata.get("audio_codec"),
                 )
 
                 try:
@@ -102,7 +112,8 @@ class IngestionMixin:
                 "id", "filename", "path", "url", "width", "height",
                 "aspect_ratio", "location", "date", "date_taken",
                 "upload_date", "is_favorite", "is_locked",
-                "mime_type", "file_type", "device_id", "is_external"
+                "mime_type", "file_type", "device_id", "is_external",
+                "duration", "fps", "codec", "audio_codec"
             }
             photo_dict = photo_to_dict(new_photo, include=broadcast_fields)
             self.broadcast({"type": "new_photo", "photo": photo_dict})

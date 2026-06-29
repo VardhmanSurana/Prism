@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, Play } from 'lucide-react';
 import { PhotoItemProps } from './types';
 import { LazyImage } from '../LazyImage';
+import { formatDuration } from '@/utils/formatDuration';
+import { resolveUrl } from '@/constants';
 
 export const PhotoItem = React.memo<PhotoItemProps>(({
   photo,
@@ -15,10 +17,31 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
   onToggleSelection,
 }) => {
   const aspectRatio = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
+  const [isHovering, setIsHovering] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const isVideo = photo.type === 'video' || photo.file_type === 'video';
 
   return (
     <motion.div
       key={photo.id}
+      tabIndex={0}
+      role="button"
+      aria-label={photo.caption || 'Photo'}
+      aria-pressed={isSelected}
+      onMouseEnter={() => {
+        setIsHovering(true);
+        if (isVideo && videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(() => {});
+        }
+      }}
+      onMouseLeave={() => {
+        setIsHovering(false);
+        if (videoRef.current) {
+          videoRef.current.pause();
+          videoRef.current.currentTime = 0;
+        }
+      }}
       onClick={(e) => {
         if (isSelectionMode || e.shiftKey) {
           e.preventDefault();
@@ -27,18 +50,28 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           onPhotoClick(photo);
         }
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          if (isSelectionMode || e.shiftKey) {
+            onToggleSelection(String(photo.id));
+          } else {
+            onPhotoClick(photo);
+          }
+        }
+      }}
       style={{
         flex: isFullRow ? `${aspectRatio} 1 0%` : `0 0 auto`,
         width: isFullRow ? undefined : `calc(${rowHeight - rowPadding}px * ${aspectRatio})`,
         maxWidth: '100%',
       }}
       className={`relative group cursor-pointer overflow-hidden rounded-[1.5rem] bg-[#0c0c0c]
-      transition-all duration-500 will-change-transform
-      hover:z-10 hover:shadow-[0_10px_20px_-5px_rgba(0,0,0,0.8)]
+      transition-all duration-500 will-change-transform photo-item-hover
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
       ${
         isSelected
-          ? 'ring-4 ring-primary scale-[0.98] shadow-xl'
-          : 'hover:ring-1 hover:ring-white/20 active:scale-[0.99]'
+          ? 'photo-item-selected ring-4 ring-primary scale-[0.98] shadow-xl'
+          : 'active:scale-[0.97]'
       }
   `}
     >
@@ -48,9 +81,40 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         alt={photo.caption || 'Photo'}
         className="w-full h-full object-cover transition-transform duration-500"
       />
+      {/* Hover video preview for videos */}
+      {isHovering && isVideo && (
+        <video
+          ref={videoRef}
+          src={resolveUrl(`local://${photo.path}`)}
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover z-[1]"
+        />
+      )}
+
+      {/* Video play icon + duration badge */}
+      {isVideo && (
+        <>
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center
+                         group-hover:scale-110 transition-transform duration-300">
+              <Play size={18} fill="white" className="text-white ml-0.5" />
+            </div>
+          </div>
+          {photo.duration != null && (
+            <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+              <span className="bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                {formatDuration(photo.duration)}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+
       <div
         className={`absolute inset-0 transition-colors duration-300 ${
-          isSelected ? 'bg-primary/10' : 'bg-black/0 group-hover:bg-black/20'
+          isSelected ? 'bg-primary/10' : 'bg-black/0'
         }`}
       />
       <div

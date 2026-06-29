@@ -48,6 +48,9 @@ export interface RegionalAdjustment {
     warmth?:     number;
     blur?:       number;
     sharpness?:  number;
+    eyeWhitening?: number;
+    teethWhitening?: number;
+    faceReshape?: number;
   };
 }
 
@@ -73,6 +76,11 @@ export interface Adjustments {
   clarity:        number; // -100 → 100
   sharpness:      number; // 0 → 100
   noiseReduction: number; // 0 → 100
+  dehaze:         number; // -100 → 100
+
+  // Geometry
+  perspective:         number; // -100 → 100
+  verticalPerspective: number; // -100 → 100
 
   // Effects
   ambiance:    number; // -100 → 100  (Snapseed-style local contrast + colour)
@@ -152,6 +160,9 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   clarity:        0,
   sharpness:      0,
   noiseReduction: 0,
+  dehaze:         0,
+  perspective:         0,
+  verticalPerspective: 0,
   ambiance:    0,
   curves:      DEFAULT_CURVE,
   vignette:    0,
@@ -272,6 +283,13 @@ export function toFilterString(adj: Adjustments): string {
 
 
 
+  if (adj.dehaze && adj.dehaze !== 0) {
+    const f = adj.dehaze / 100;
+    filters.push(`contrast(${(1 + f * 0.5).toFixed(4)})`);
+    filters.push(`saturate(${(1 + f * 0.3).toFixed(4)})`);
+    filters.push(`brightness(${(1 + f * 0.1).toFixed(4)})`);
+  }
+
   if (!isIdentityCurve(adj.curves)) {
     const curvesHash = getStringHash(JSON.stringify(adj.curves));
     filters.push(`url(#curves-filter-${curvesHash})`);
@@ -293,7 +311,7 @@ export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   const baseKeys: (keyof Adjustments)[] = [
     'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
     'vibrance', 'saturation', 'hue', 'temperature', 'clarity', 'sharpness', 'noiseReduction',
-    'ambiance', 'vignette'
+    'ambiance', 'vignette', 'dehaze', 'perspective', 'verticalPerspective'
   ];
   const isBaseDefault = baseKeys.every(k => adj[k] === 0);
   if (!isBaseDefault) return false;

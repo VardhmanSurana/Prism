@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-27T00:00:00Z",
+  "title": "Design System: Prism",
+  "extensions": {
+    "colorMeta": {
+      "ink": {
+        "role": "primary",
+        "displayName": "Ink White",
+        "canonical": "#ffffff",
+        "tonalRamp": ["#1a1a1a", "#333333", "#4d4d4d", "#666666", "#808080", "#999999", "#cccccc", "#ffffff"]
+      },
+      "surface-deep": {
+        "role": "neutral",
+        "displayName": "OLED Black",
+        "canonical": "#050505",
+        "tonalRamp": ["#020202", "#050505", "#080808", "#0a0a0a", "#0c0c0c", "#101010", "#141414", "#181818"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#0c0c0c",
+        "tonalRamp": ["#050505", "#080808", "#0a0a0a", "#0c0c0c", "#0e0e0e", "#101010", "#121212", "#141414"]
+      },
+      "surface-raised": {
+        "role": "neutral",
+        "displayName": "Surface Raised",
+        "canonical": "#161616",
+        "tonalRamp": ["#0a0a0a", "#0e0e0e", "#111111", "#131313", "#161616", "#1a1a1a", "#1e1e1e", "#222222"]
+      },
+      "surface-overlay": {
+        "role": "neutral",
+        "displayName": "Surface Overlay",
+        "canonical": "#1E232B",
+        "tonalRamp": ["#0f1215", "#13171c", "#161a20", "#1a1e25", "#1E232B", "#222830", "#272d36", "#2c333c"]
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Prism Blue",
+        "canonical": "#2563eb",
+        "tonalRamp": ["#0c2d6b", "#123d8f", "#1a4eae", "#2060d0", "#2563eb", "#4a82f0", "#6ea1f5", "#93bffa"]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted Gray",
+        "canonical": "#707070",
+        "tonalRamp": ["#2a2a2a", "#3a3a3a", "#4a4a4a", "#5a5a5a", "#707070", "#8a8a8a", "#a0a0a0", "#b8b8b8"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The Prism wordmark only. Never for section headings."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All functional UI text — headings, body, labels, navigation."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Section dividers, stat labels, eyebrow text. Uppercase with wide tracking."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "File paths, diagnostic output, code-like data."
+      }
+    },
+    "shadows": [
+      { "name": "ambient-lift", "value": "0 4px 24px rgba(0,0,0,0.5)", "purpose": "Cards and containers at rest. Subtle natural light falloff." },
+      { "name": "hover-lift", "value": "0 8px 40px rgba(0,0,0,0.7)", "purpose": "Interactive elements on hover. Deepens shadow to signal elevation." },
+      { "name": "glass-panel", "value": "10px 0 30px -15px rgba(0,0,0,0.5)", "purpose": "Sidebar and overlay panels. Directional shadow suggesting ambient light." },
+      { "name": "inset-glow", "value": "inset 0 0 12px rgba(255,255,255,0.06)", "purpose": "Active sidebar nav items. Soft inner glow for selection." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for state transitions — fast out, smooth settle." },
+      { "name": "ease-hover", "value": "cubic-bezier(0.34, 1.56, 0.64, 1)", "purpose": "Hover micro-interactions — slight overshoot for tactile feel." },
+      { "name": "duration-fast", "value": "150ms", "purpose": "Button hover, focus ring, input focus." },
+      { "name": "duration-normal", "value": "200ms", "purpose": "Card hover, nav active, general transitions." },
+      { "name": "duration-slow", "value": "400ms", "purpose": "Panel open/close, dialog entrance, complex state changes." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": "sidebar-nav",
+      "description": "Vertical navigation link with icon. Active state uses inset glow and white text.",
+      "html": "<a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/></svg><span>Gallery</span></a>",
+      "css": ".ds-nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-radius: 6px; color: #707070; font-family: Sora, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; text-decoration: none; transition: all 200ms cubic-bezier(0.16, 1, 0.3, 1); cursor: pointer; } .ds-nav-item:hover { color: #ffffff; background: rgba(255, 255, 255, 0.03); } .ds-nav-item.active { color: #ffffff; background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.06); }"
+    },
+    {
+      "name": "Photo Grid Card",
+      "kind": "card",
+      "refersTo": "photo-card",
+      "description": "Minimal container for photo thumbnails. Image fills completely, shadow lifts on hover.",
+      "html": "<div class=\"ds-photo-card\"><img src=\"placeholder.jpg\" alt=\"Photo\" /></div>",
+      "css": ".ds-photo-card { position: relative; border-radius: 12px; overflow: hidden; background: #0c0c0c; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5); transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-photo-card:hover { transform: scale(1.02); box-shadow: 0 8px 40px rgba(0, 0, 0, 0.7); } .ds-photo-card img { display: block; width: 100%; height: 100%; object-fit: cover; }"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Blue accent button for primary actions. Brightens on hover with lift shadow.",
+      "html": "<button class=\"ds-btn-primary\">Import Photos</button>",
+      "css": ".ds-btn-primary { background: #2563eb; color: #ffffff; padding: 10px 24px; border-radius: 8px; border: none; font-family: Sora, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 150ms ease, box-shadow 150ms ease, transform 150ms ease; } .ds-btn-primary:hover { background: #3b7af5; box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3); transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; } .ds-btn-primary:active { transform: translateY(0); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Transparent button with subtle border. Used for secondary actions.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: #ffffff; padding: 10px 24px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); font-family: Sora, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 150ms ease, border-color 150ms ease; } .ds-btn-ghost:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.15); } .ds-btn-ghost:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "text-input",
+      "description": "Dark surface input with blue focus glow. Used for search, forms, and auth.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search photos...\" />",
+      "css": ".ds-input { background: #0c0c0c; color: #ffffff; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 10px 14px; font-family: Sora, system-ui, sans-serif; font-size: 0.875rem; outline: none; transition: border-color 150ms ease, box-shadow 150ms ease; width: 100%; } .ds-input::placeholder { color: #707070; } .ds-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); }"
+    },
+    {
+      "name": "Stats Card",
+      "kind": "card",
+      "refersTo": "stats-card",
+      "description": "Dense data container with gradient hover accent. Used for library stats overview.",
+      "html": "<div class=\"ds-stats-card\"><span class=\"ds-stats-label\">PHOTOS</span><span class=\"ds-stats-value\">2,847</span></div>",
+      "css": ".ds-stats-card { position: relative; padding: 28px; background: #0c0c0c; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; overflow: hidden; transition: transform 500ms ease, background 500ms ease, box-shadow 500ms ease; } .ds-stats-card:hover { transform: translateY(-4px); background: #161616; box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.8); } .ds-stats-label { display: block; font-family: JetBrains Mono, monospace; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: #707070; margin-bottom: 12px; } .ds-stats-value { display: block; font-family: Sora, system-ui, sans-serif; font-size: 2rem; font-weight: 700; color: #ffffff; }"
+    },
+    {
+      "name": "Section Header",
+      "kind": "label",
+      "refersTo": "section-header",
+      "description": "Uppercase tracked label for sidebar section dividers. Functional, not decorative.",
+      "html": "<div class=\"ds-section-header\">Library</div>",
+      "css": ".ds-section-header { font-family: Sora, system-ui, sans-serif; font-size: 0.6875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.15em; color: #707070; padding: 20px 16px 8px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Living Album",
+    "overview": "Prism should feel like opening a personal photo album in a dim, warm room — the kind of space where photos are the light source. The UI is a quiet envelope around the collection: dark enough that images glow, textured enough that the interface feels handcrafted rather than manufactured. The analog warmth of the grain overlay, the serif italic logo, and the glass panels evoke physical photo viewing — not a digital tool, but a personal museum at night. This system explicitly rejects the generic SaaS dashboard: no cream backgrounds, no identical card grids, no gradient text, no numbered eyebrow scaffolding.",
+    "keyCharacteristics": [
+      "OLED-black canvas where photos are the primary light source",
+      "Grain texture and mesh atmosphere for analog warmth",
+      "Glass luminance for depth, not decorative glassmorphism",
+      "Serif italic wordmark paired with geometric sans body",
+      "Tactile interactions: glow, blur-shift, and shadow response on hover/focus"
+    ],
+    "rules": [
+      { "name": "The Darkness Rule", "body": "The background is OLED black (#050505). This is not a dark theme applied to a light-mode product — the darkness IS the product. Photos are the light source. Never lighten the body background to 'feel warmer'; warmth comes from grain, serif typography, and imagery.", "section": "colors" },
+      { "name": "The Accent Scarcity Rule", "body": "Prism Blue is used on ≤10% of any given screen. Its rarity is its power. Never use it for decoration, backgrounds, or large surface fills.", "section": "colors" },
+      { "name": "The Receding Chrome Rule", "body": "Typography exists to serve the photos, not to be admired. Headings are functional, not decorative. The display font appears only on the wordmark — never on section headers or stats.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. Shadows appear only as a response to state (hover, elevation, focus) or for structural separation (sidebar, modals). No decorative shadows.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the body background OLED black (#050505). This is the product's identity — photos are the light source.",
+      "Do use grain texture and mesh atmosphere to add analog warmth. These are Prism's signature textures.",
+      "Do keep the serif italic wordmark as the only display-font moment. Everything else is Sora.",
+      "Do verify contrast: body text ≥ 4.5:1 against dark backgrounds, large text ≥ 3:1.",
+      "Do use shadows sparingly — flat by default, shadow on hover/focus only.",
+      "Do keep Prism Blue (accent) to ≤10% of any screen surface. Its rarity is its power.",
+      "Do let photos be the brightest, most colorful element on every screen."
+    ],
+    "donts": [
+      "Don't lighten the background to 'feel warmer.' Warmth comes from grain, serif type, and imagery — not from a lighter body.",
+      "Don't use gradient text (background-clip: text). Use a single solid color. Emphasis via weight or size.",
+      "Don't put glass morphism on every card or container. Glass is a signature treatment for the sidebar and key overlays, not a universal pattern.",
+      "Don't add tiny uppercase tracked eyebrows above every section. One named kicker is voice; an eyebrow on every section is AI grammar.",
+      "Don't use numbered section markers (01 / 02 / 03) as scaffolding. Numbers earn their place only when the section is a real ordered sequence.",
+      "Don't use side-stripe borders (border-left > 1px colored accent) on cards or list items. Never intentional.",
+      "Don't use the hero-metric template (big number, small label, gradient accent). It's a SaaS cliché.",
+      "Don't use identical card grids with icon + heading + text repeated endlessly.",
+      "Don't put display fonts in UI labels, buttons, or data.",
+      "Don't use bounce or elastic easing curves. Ease out with exponential curves (ease-out-quart/quint/expo).",
+      "Don't make Prism feel like a generic SaaS dashboard, a Google Photos clone, or a Lightroom competitor. It's a personal, intimate photo album — a private museum at night."
+    ]
+  }
+}

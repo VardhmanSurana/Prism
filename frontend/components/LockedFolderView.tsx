@@ -31,7 +31,7 @@ export function LockedFolderView({
           </div>
           <div>
             <h2 className="text-lg font-bold text-white tracking-tight">Locked Folder</h2>
-            <p className="text-[10px] text-gray-500 font-mono">Military-grade AES encryption active</p>
+            <p className="text-[10px] text-gray-500 font-mono">Session-locked · visible only to you</p>
           </div>
         </div>
         <button

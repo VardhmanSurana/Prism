@@ -15,6 +15,7 @@ import { PhotoMetadataDisplay } from './lightbox/PhotoMetadataDisplay';
 import { NavigationArrows } from './lightbox/NavigationArrows';
 import { ImageDisplay } from './lightbox/ImageDisplay';
 import { Filmstrip } from './lightbox/Filmstrip';
+import { VideoPlayer } from './lightbox/VideoPlayer';
 import { EditingMode } from '@/components/Editing/EditingMode';
 
 interface LightboxProps {
@@ -68,6 +69,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   } = useLightboxGestures({ onNext: handleNext, onPrev: handlePrev });
 
   const highRes = useImageHighRes({ photo });
+  const isVideo = photo.type === 'video' || photo.file_type === 'video';
   useZoomShortcuts();
 
   useEffect(() => {
@@ -138,14 +140,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
       if (e.key === 'Escape') {
         onClose();
       }
-      if (zoomScale === 1) {
+      if (!isVideo && zoomScale === 1) {
         if (e.key === 'ArrowRight') handleNext();
         if (e.key === 'ArrowLeft') handlePrev();
       }
     };
     window.addEventListener('keydown', handleKey, { passive: true });
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, handleNext, handlePrev, zoomScale, isEditing]);
+  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isVideo]);
 
   const aspect = useMemo(
     () => (photo.width && photo.height ? photo.width / photo.height : null),
@@ -208,26 +210,35 @@ export const Lightbox: React.FC<LightboxProps> = ({
           className={`flex-1 relative flex items-center justify-center overflow-hidden touch-none group
             ${lastNavDir === 'prev' ? 'animate-slide-from-left' : lastNavDir === 'next' ? 'animate-slide-from-right' : ''}
           `}
-          onDoubleClick={handleDoubleClick}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          onWheel={handleWheel}
+          onDoubleClick={!isVideo ? handleDoubleClick : undefined}
+          onPointerDown={!isVideo ? handlePointerDown : undefined}
+          onPointerMove={!isVideo ? handlePointerMove : undefined}
+          onPointerUp={!isVideo ? handlePointerUp : undefined}
+          onPointerCancel={!isVideo ? handlePointerUp : undefined}
+          onWheel={!isVideo ? handleWheel : undefined}
         >
           <div
             ref={displayRef}
             style={displayContainerStyle}
             className="relative transition-all duration-500 ease-out bg-transparent"
           >
-            <ImageDisplay
-              photo={photo}
-              zoomScale={zoomScale}
-              offset={offset}
-              isDragging={isDragging}
-              highResStatus={highRes.highResStatus}
-              currentHighResUrl={editedPhotoUrl || highRes.currentHighResUrl}
-            />
+            {isVideo ? (
+              <VideoPlayer
+                photo={photo}
+                onClose={onClose}
+                onPrev={handlePrev}
+                onNext={handleNext}
+              />
+            ) : (
+              <ImageDisplay
+                photo={photo}
+                zoomScale={zoomScale}
+                offset={offset}
+                isDragging={isDragging}
+                highResStatus={highRes.highResStatus}
+                currentHighResUrl={editedPhotoUrl || highRes.currentHighResUrl}
+              />
+            )}
           </div>
 
           <NavigationArrows

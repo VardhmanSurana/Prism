@@ -27,7 +27,7 @@ const MemoryCard: React.FC<{
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ ...springs.gentle, delay: index * 0.1 } as any}
+      transition={{ ...springs.gentle, delay: index * 0.06 } as any}
       whileHover={{ y: -8, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
@@ -50,18 +50,7 @@ const MemoryCard: React.FC<{
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-80" />
       <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
-      <motion.div
-        className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(var(--color-primary),0.08),transparent_50%)] pointer-events-none"
-        animate={{
-          rotate: [0, 360],
-          scale: [1, 1.2, 1]
-        }}
-        transition={{
-          duration: 20,
-          repeat: Infinity,
-          ease: "linear"
-        }}
-      />
+      <div className="absolute -inset-[100%] bg-[radial-gradient(circle_at_50%_50%,rgba(var(--color-primary),0.06),transparent_50%)] pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
 
       {isHero && (
         <div className="absolute top-8 left-8 flex items-center gap-2">

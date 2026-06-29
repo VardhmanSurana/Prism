@@ -16,7 +16,7 @@ export type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
   | 'highlights' | 'shadows'    | 'whites'    | 'blacks'
   | 'vibrance'   | 'saturation' | 'hue'       | 'temperature'
-  | 'ambiance';
+  | 'ambiance'   | 'dehaze';
 
 export interface AdjItem {
   key:   AdjustSliderKey;
@@ -43,6 +43,7 @@ export const ADJUSTMENT_GROUPS: AdjGroup[] = [
       { key: 'whites',     label: 'White',      min: -100, max: 100 },
       { key: 'blacks',     label: 'Black',      min: -100, max: 100 },
       { key: 'ambiance',   label: 'Ambiance',   min: -100, max: 100 },
+      { key: 'dehaze',     label: 'Dehaze',     min: -100, max: 100 },
     ],
   },
   {
@@ -69,6 +70,7 @@ export const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
   hue:         0,
   temperature: 0,
   ambiance:    0,
+  dehaze:      0,
 };
 
 interface AdjustPanelProps {
@@ -124,11 +126,29 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     [adjustments, onChange],
   );
 
+  const handleHistogramBlackPoint = useCallback((value: number) => {
+    onChange({ ...adjustments, blacks: Math.max(-100, Math.min(100, (adjustments.blacks || 0) + value)) });
+  }, [adjustments, onChange]);
+
+  const handleHistogramWhitePoint = useCallback((value: number) => {
+    onChange({ ...adjustments, whites: Math.max(-100, Math.min(100, (adjustments.whites || 0) + value)) });
+  }, [adjustments, onChange]);
+
+  const handleHistogramReset = useCallback(() => {
+    onChange({ ...adjustments, blacks: 0, whites: 0, exposure: 0 });
+  }, [adjustments, onChange]);
+
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       {/* ── Live histogram ── */}
       {imageSrc && (
-        <Histogram imageSrc={imageSrc} filterString={filterString || 'none'} />
+        <Histogram
+          imageSrc={imageSrc}
+          filterString={filterString || 'none'}
+          onBlackPointSet={handleHistogramBlackPoint}
+          onWhitePointSet={handleHistogramWhitePoint}
+          onReset={handleHistogramReset}
+        />
       )}
 
       {/* ── Action buttons ── */}

@@ -7,7 +7,7 @@
     "frontend": "cd frontend && bun run dev",
     "frontend:build": "cd frontend && bun run build",
     "frontend:typecheck": "cd frontend && bunx tsc --noEmit",
-    "backend": "cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8269",
+    "backend": "cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8269 --log-file backend.log",
     "backend:test": "cd backend && uv run pytest tests -q",
     "backend:sync": "cd backend && uv sync --frozen",
     "test": "bun run frontend:typecheck && bun run backend:test",

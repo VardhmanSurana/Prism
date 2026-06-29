@@ -80,7 +80,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
                     onSortChange(option.value);
                     setIsSortOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors
+                  className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors active:scale-[0.98]
                     ${sortMode === option.value ? 'bg-primary/10 text-primary font-medium' : 'text-gray-300 hover:bg-surfaceHover'}
                   `}
                 >

@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, History } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, History, ClipboardCopy } from 'lucide-react';
 
 interface TopBarProps {
   onClose: () => void;
   isSaving: boolean;
-  handleSave: (isSaveAs: boolean) => void;
+  handleSave: (isSaveAs: boolean, format?: string, quality?: number) => void;
   handleCopy: () => void;
   onCompareStart: () => void;
   onCompareEnd: () => void;
@@ -16,6 +16,9 @@ interface TopBarProps {
   showHistory?: boolean;
   setShowHistory?: (show: boolean) => void;
   historyCount?: number;
+  exportProgress?: { step: string; current: number; total: number } | null;
+  onCopyEdits?: () => void;
+  hasCopiedEdits?: boolean;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -33,8 +36,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   showHistory = false,
   setShowHistory,
   historyCount = 0,
+  exportProgress,
+  onCopyEdits,
+  hasCopiedEdits,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState('jpeg');
+  const [exportQuality, setExportQuality] = useState(95);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Close on outside click or Escape
@@ -59,12 +67,16 @@ export const TopBar: React.FC<TopBarProps> = ({
   }, [dropdownOpen]);
 
   const onSaveAs = () => {
-    handleSave(true);
+    const mime = exportFormat === 'png' ? 'image/png' : exportFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+    const q = exportFormat === 'png' ? 1 : exportQuality / 100;
+    handleSave(true, mime, q);
     setDropdownOpen(false);
   };
 
   const onOverwrite = () => {
-    handleSave(false);
+    const mime = exportFormat === 'png' ? 'image/png' : exportFormat === 'webp' ? 'image/webp' : 'image/jpeg';
+    const q = exportFormat === 'png' ? 1 : exportQuality / 100;
+    handleSave(false, mime, q);
     setDropdownOpen(false);
   };
 
@@ -148,6 +160,23 @@ export const TopBar: React.FC<TopBarProps> = ({
           <SplitSquareHorizontal size={12} strokeWidth={2} />
           {isComparing ? 'Original' : 'Compare'}
         </button>
+
+        <div className="h-4 w-px bg-white/10" />
+
+        {/* Copy Edits button */}
+        <button
+          onClick={onCopyEdits}
+          disabled={isSaving}
+          title="Copy current edits"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+            hasCopiedEdits
+              ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(var(--color-primary),0.15)]'
+              : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
+          } disabled:opacity-20 disabled:pointer-events-none`}
+        >
+          <ClipboardCopy size={12} strokeWidth={2.5} />
+          Copy Edits
+        </button>
       </div>
 
       <div className="flex items-center gap-4">
@@ -179,8 +208,58 @@ export const TopBar: React.FC<TopBarProps> = ({
           {dropdownOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-3 w-56 rounded-2xl bg-[var(--bg-secondary)] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
+              className="absolute right-0 top-full mt-3 w-64 rounded-2xl bg-[var(--bg-secondary)] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
             >
+              <div className="px-4 pt-4 pb-3 border-b border-white/5">
+                <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Export Format</p>
+                <div className="flex bg-white/[0.02] border border-white/5 rounded-lg p-0.5 mb-3">
+                  {(['jpeg', 'png', 'webp'] as const).map(fmt => (
+                    <button
+                      key={fmt}
+                      onClick={() => setExportFormat(fmt)}
+                      className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                        exportFormat === fmt
+                          ? 'bg-white/10 text-white border border-white/5'
+                          : 'text-white/30 hover:text-white/50 border border-transparent'
+                      }`}
+                    >
+                      {fmt}
+                    </button>
+                  ))}
+                </div>
+                {exportFormat !== 'png' && (
+                  <div>
+                    <div className="flex justify-between items-baseline mb-1.5">
+                      <span className="text-[10px] text-white/40">Quality</span>
+                      <span className="text-[10px] text-primary font-mono font-bold">{exportQuality}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={50}
+                      max={100}
+                      value={exportQuality}
+                      onChange={e => setExportQuality(Number(e.target.value))}
+                      className="adjustment-slider w-full"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {exportProgress && (
+                <div className="px-4 py-2 border-b border-white/5">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[9px] text-white/40 truncate">{exportProgress.step}</span>
+                    <span className="text-[9px] text-primary font-mono">{Math.round((exportProgress.current / exportProgress.total) * 100)}%</span>
+                  </div>
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <button
                 role="menuitem"
                 onClick={onCopy}

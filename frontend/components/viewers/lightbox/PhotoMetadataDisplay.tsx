@@ -1,6 +1,7 @@
 import React from 'react';
-import { MapPin, Camera, Tag } from 'lucide-react';
+import { MapPin, Camera, Tag, Video } from 'lucide-react';
 import { Photo } from '@/types';
+import { formatDuration } from '@/utils/formatDuration';
 
 interface PhotoMetadataDisplayProps {
   photo: Photo;
@@ -28,6 +29,12 @@ export const PhotoMetadataDisplay: React.FC<PhotoMetadataDisplayProps> = ({ phot
         <span className="text-xs text-white/50 font-mono tabular-nums">
           {dateStr} &middot; {timeStr}
         </span>
+        {photo.type === 'video' && photo.duration != null && (
+          <span className="flex items-center gap-1 text-xs text-white/50 font-mono tabular-nums">
+            <Video size={11} />
+            {formatDuration(photo.duration)}
+          </span>
+        )}
         {photo.location && (
           <span className="flex items-center gap-1.5 text-[11px] text-primary/60 font-mono truncate">
             <MapPin size={11} className="shrink-0" />

@@ -25,6 +25,7 @@ from app.services.sync_service import sync_service, SUPPORTED_EXTENSIONS
 from app.utils.security import safe_resolve_read, get_allowed_read_roots
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime, timezone, timedelta
 
 router = APIRouter()
 
@@ -341,12 +342,15 @@ async def list_directory_contents(req: ListDirRequest):
             elif entry.is_file(follow_symlinks=False):
                 # Check if the file is a supported image extension
                 is_supported_image = entry.name.lower().endswith(SUPPORTED_EXTENSIONS)
+                ext_lower = entry.name.lower()
+                is_supported_video = ext_lower.endswith(('.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.3gp'))
                 files.append({
                     "name": entry.name,
                     "path": entry.path,
                     "is_hidden": is_hidden,
                     "size_bytes": entry.stat().st_size,
-                    "is_image": is_supported_image
+                    "is_image": is_supported_image,
+                    "is_video": is_supported_video
                 })
 
         scan_ms = int((time.time() - scan_start) * 1000)
@@ -475,3 +479,31 @@ async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
         },
         "queue": queue_counts
     }
+
+
+@router.post("/purge-trash")
+async def purge_old_trash(days: int = 30, db: AsyncSession = Depends(get_db)):
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    stmt = select(Photo).where(and_(Photo.is_trash == True, Photo.upload_date < cutoff))
+    result = await db.execute(stmt)
+    old_trash = result.scalars().all()
+    deleted = 0
+    for photo in old_trash:
+        try:
+            if photo.path and os.path.exists(photo.path):
+                os.remove(photo.path)
+        except Exception:
+            pass
+        if photo.hash:
+            for suffix in (".webp", ".webp.enc"):
+                try:
+                    thumb = settings.THUMBNAILS_DIR / f"{photo.hash}{suffix}"
+                    if thumb.exists():
+                        os.remove(thumb)
+                except Exception:
+                    pass
+        await db.delete(photo)
+        deleted += 1
+    if deleted > 0:
+        await db.commit()
+    return {"status": "success", "deleted": deleted, "cutoff_date": cutoff.isoformat()}

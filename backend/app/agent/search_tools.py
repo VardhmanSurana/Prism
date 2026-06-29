@@ -1,4 +1,5 @@
 import logging
+import re
 
 from sqlalchemy import and_, func, or_, text
 from sqlalchemy.future import select
@@ -9,6 +10,18 @@ from app.agent.embeddings import EmbeddingClient
 
 
 logger = logging.getLogger(__name__)
+
+
+def sanitize_fts5_query(query: str) -> str:
+    """Escape FTS5 special characters and wrap terms in double quotes for literal matching."""
+    fts5_special = re.compile(r'[*"{}]')
+    clean_terms = []
+    for t in query.split():
+        cleaned = fts5_special.sub("", t)
+        cleaned = "".join(c for c in cleaned if c.isalnum() or c in " -")
+        if cleaned.strip():
+            clean_terms.append(f'"{cleaned.strip()}"')
+    return " OR ".join(clean_terms)
 
 
 class SearchTools:
@@ -96,12 +109,7 @@ class SearchTools:
         if cache_key in self._tool_cache:
             return set(self._tool_cache[cache_key])
 
-        clean_terms = []
-        for t in query.split():
-            cleaned = "".join(c for c in t if c.isalnum() or c in " -")
-            if cleaned.strip():
-                clean_terms.append(f'"{cleaned.strip()}*"')
-        fts_query = " OR ".join(clean_terms)
+        fts_query = sanitize_fts5_query(query)
 
         res_set = None
         if fts_query:
@@ -274,6 +282,7 @@ class SearchTools:
                 Photo.filename.ilike(f"%{loc_query}%"),
                 Photo.caption.ilike(f"%{loc_query}%"),
                 Photo.ai_summary.ilike(f"%{loc_query}%"),
+                Photo.ocr_text.ilike(f"%{loc_query}%"),
             ),
             Photo.is_trash == False,
             Photo.is_locked == is_locked,

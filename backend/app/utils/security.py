@@ -10,11 +10,10 @@ def get_allowed_read_roots() -> list[Path]:
         settings.UPLOAD_DIR.resolve(),
         settings.THUMBNAILS_DIR.resolve(),
         settings.DATA_DIR.resolve(),
-        # Allow the full user home directory so photos stored anywhere
-        # (~/Downloads, ~/Documents, ~/Desktop, custom paths, etc.) are
-        # accessible via the /local endpoint without false 403 denials.
-        Path.home().resolve(),
         (Path.home() / "Pictures").resolve(),
+        (Path.home() / "Downloads").resolve(),
+        (Path.home() / "Documents").resolve(),
+        (Path.home() / "Desktop").resolve(),
     ]
     # Include common posix external media mounts safely
     if os.name == 'posix':

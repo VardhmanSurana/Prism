@@ -123,6 +123,13 @@ class ProcessingQueue:
                 )
                 face_processed = (await db.execute(face_stmt)).scalar() or 0
 
+                ocr_stmt = select(func.count(Photo.id)).where(
+                    Photo.is_locked == False,
+                    Photo.is_trash == False,
+                    Photo.ocr_text.isnot(None)
+                )
+                ocr_processed = (await db.execute(ocr_stmt)).scalar() or 0
+
                 queue_stmt = select(
                     BackgroundJob.status,
                     func.count(BackgroundJob.id)
@@ -140,6 +147,7 @@ class ProcessingQueue:
             clip_processed = min(clip_processed, total_photos)
             gemma_processed = min(gemma_processed, total_photos)
             face_processed = min(face_processed, total_photos)
+            ocr_processed = min(ocr_processed, total_photos)
 
             clip_progress = (clip_processed / total_photos * 100) if total_photos > 0 else 0
             gemma_progress = (gemma_processed / total_photos * 100) if total_photos > 0 else 0
@@ -164,6 +172,12 @@ class ProcessingQueue:
                     "total": total_photos,
                     "progress": round(face_progress, 1),
                     "is_processing": is_processing
+                },
+                "ocr": {
+                    "processed": ocr_processed,
+                    "total": total_photos,
+                    "progress": round((ocr_processed / total_photos * 100) if total_photos > 0 else 0, 1),
+                    "is_processing": is_processing and settings.ENABLE_AI_OCR
                 },
                 "queue": queue_counts
             }
@@ -236,9 +250,11 @@ class ProcessingQueue:
                         "embedding_json": None,
                         "faces_found": 0,
                         "is_encrypted": False,
+                        "ocr_text": None,
                         "stage1_success": True,
                         "stage2_success": True,
                         "stage3_success": True,
+                        "stage4_success": True,
                         "errors": []
                     }
                     
@@ -274,6 +290,7 @@ class ProcessingQueue:
                         results[photo_id]["stage1_success"] = False
                         results[photo_id]["stage2_success"] = False
                         results[photo_id]["stage3_success"] = False
+                        results[photo_id]["stage4_success"] = False
 
                 # ══ RESTRUCTURED PIPELINE ORDER ═══════════════════════════════════════════
                 # New order: SigLIP2 (critical) → Face Detection (critical) → Gemma Vision (optional)
@@ -324,8 +341,13 @@ class ProcessingQueue:
                     logger.info("Stage 2: Initializing Face SDK for batch (CRITICAL)...")
                     try:
                         session = face_sdk.session
-                        
-                        for job in active_stage2_photos:
+
+                        from app.services.sync.handler import is_video_file
+
+                        video_jobs = [j for j in active_stage2_photos if is_video_file(results[j["photo_id"]]["photo_path"])]
+                        image_jobs = [j for j in active_stage2_photos if not is_video_file(results[j["photo_id"]]["photo_path"])]
+
+                        for job in image_jobs:
                             pid = job["photo_id"]
                             path = results[pid]["photo_path"]
                             try:
@@ -336,6 +358,19 @@ class ProcessingQueue:
                             except Exception as e:
                                 logger.error(f"Face scanning failed for photo {pid}: {e}")
                                 results[pid]["errors"].append(f"Face scan error: {str(e)}")
+                                results[pid]["stage3_success"] = False
+
+                        for job in video_jobs:
+                            pid = job["photo_id"]
+                            path = results[pid]["photo_path"]
+                            try:
+                                async with async_session() as db:
+                                    faces_found = await face_service.scan_and_cluster_video_faces(pid, path, db)
+                                results[pid]["faces_found"] = faces_found
+                                logger.info(f"Video face scan complete. Detected {faces_found} unique faces in video ID {pid}.")
+                            except Exception as e:
+                                logger.error(f"Video face scanning failed for video {pid}: {e}")
+                                results[pid]["errors"].append(f"Video face scan error: {str(e)}")
                                 results[pid]["stage3_success"] = False
                     except Exception as e:
                         logger.error(f"Failed to launch Face SDK: {e}")
@@ -435,6 +470,53 @@ class ProcessingQueue:
                             logger.error(f"Failed to update Gemma Vision fields in DB for photo {pid}: {e}")
                             res["errors"].append(f"Gemma DB update error: {str(e)}")
 
+                # ── Stage 4: PaddleOCR-VL Text Extraction (OPTIONAL) ──
+                if settings.ENABLE_AI_OCR:
+                    active_stage4_photos = [
+                        j for j in job_infos
+                        if not results[j["photo_id"]]["is_encrypted"] and results[j["photo_id"]]["stage4_success"]
+                    ]
+                    if active_stage4_photos:
+                        from app.services.ocr import OCRManager, extract_ocr_text
+
+                        logger.info("Stage 4: Starting PaddleOCR-VL server for batch (OPTIONAL)...")
+                        try:
+                            ocr_func = OCRManager.get_ocr()
+                            if not ocr_func:
+                                logger.warning("PaddleOCR server failed to start - skipping OCR extraction")
+                                for job in active_stage4_photos:
+                                    results[job["photo_id"]]["stage4_success"] = False
+                            else:
+                                for job in active_stage4_photos:
+                                    pid = job["photo_id"]
+                                    path = results[pid]["photo_path"]
+                                    try:
+                                        text = await asyncio.to_thread(extract_ocr_text, path)
+                                        if text:
+                                            results[pid]["ocr_text"] = text
+                                    except Exception as e:
+                                        logger.error(f"OCR extraction failed for photo {pid}: {e}")
+                                        results[pid]["errors"].append(f"OCR error: {str(e)}")
+                                        results[pid]["stage4_success"] = False
+                        finally:
+                            logger.info("Stage 4 complete. Unloading PaddleOCR server.")
+                            OCRManager.unload()
+
+                # Save OCR text to DB
+                for job in job_infos:
+                    pid = job["photo_id"]
+                    res = results[pid]
+                    if res["ocr_text"] is not None:
+                        try:
+                            async with async_session() as db:
+                                photo = await db.get(Photo, pid)
+                                if photo:
+                                    photo.ocr_text = res["ocr_text"]
+                                    await db.commit()
+                                    logger.info(f"Saved OCR text for photo ID {pid}.")
+                        except Exception as e:
+                            logger.error(f"Failed to save OCR text for photo {pid}: {e}")
+
                 # Update job statuses in database
                 for job in job_infos:
                     job_id = job["id"]
@@ -448,13 +530,15 @@ class ProcessingQueue:
                     
                     s2_ok = res["stage2_success"] if stage2_needed else True
                     s3_ok = res["stage3_success"] if stage3_needed else True
+                    stage4_needed = not res["is_encrypted"] and settings.ENABLE_AI_OCR
+                    s4_ok = res["stage4_success"] if stage4_needed else True
                     
                     # Job succeeds if SigLIP (embeddings) and Face detection succeed
                     # Gemma Vision (caption/tags) is optional - warn but don't fail
                     if not res["stage1_success"] and not res["is_encrypted"]:
                         logger.warning(f"Gemma Vision failed for photo {pid}, but embeddings/faces succeeded. Job will complete.")
                     
-                    success = s2_ok and s3_ok
+                    success = s2_ok and s3_ok and s4_ok
                     err_msg = "\n".join(res["errors"]) if res["errors"] else None
                     
                     try:

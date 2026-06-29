@@ -207,6 +207,96 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
                     />
                   </div>
                 </div>
+
+                {/* Eye Whitening */}
+                <div className="space-y-2 group/item">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Eye Whitening</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
+                      {region.adjustments.eyeWhitening || 0}
+                    </span>
+                  </div>
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left: '0%',
+                        width: `${Math.min(100, Math.max(0, ((region.adjustments.eyeWhitening || 0) + 50)))}%`,
+                        background: `rgb(var(--color-primary) / ${(region.adjustments.eyeWhitening || 0) !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: (region.adjustments.eyeWhitening || 0) !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={region.adjustments.eyeWhitening || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'eyeWhitening', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
+                </div>
+
+                {/* Teeth Whitening */}
+                <div className="space-y-2 group/item">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Teeth Whitening</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
+                      {region.adjustments.teethWhitening || 0}
+                    </span>
+                  </div>
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left: '0%',
+                        width: `${Math.min(100, Math.max(0, ((region.adjustments.teethWhitening || 0) + 50)))}%`,
+                        background: `rgb(var(--color-primary) / ${(region.adjustments.teethWhitening || 0) !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: (region.adjustments.teethWhitening || 0) !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={region.adjustments.teethWhitening || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'teethWhitening', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
+                </div>
+
+                {/* Face Reshape */}
+                <div className="space-y-2 group/item">
+                  <div className="flex justify-between items-baseline">
+                    <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Face Reshape</label>
+                    <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">
+                      {region.adjustments.faceReshape || 0}
+                    </span>
+                  </div>
+                  <div className="relative h-4 flex items-center group/slider">
+                    <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+                    <div
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      style={{
+                        left: '0%',
+                        width: `${Math.min(100, Math.max(0, ((region.adjustments.faceReshape || 0) + 50)))}%`,
+                        background: `rgb(var(--color-primary) / ${(region.adjustments.faceReshape || 0) !== 0 ? 0.8 : 0.2})`,
+                        boxShadow: (region.adjustments.faceReshape || 0) !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={region.adjustments.faceReshape || 0}
+                      onChange={(e) => handleRegionChange(regionId, 'faceReshape', Number(e.target.value))}
+                      className="adjustment-slider slider-thumb-premium"
+                    />
+                  </div>
+                </div>
               </div>
             );
           })}

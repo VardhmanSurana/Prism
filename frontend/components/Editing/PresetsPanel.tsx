@@ -10,7 +10,7 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { BookMarked, Plus, Trash2, X, Check } from 'lucide-react';
-import { Adjustments, toFilterString } from './filterEngine';
+import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from './filterEngine';
 import { resolveUrl } from '../../constants';
 import {
   CURATED_PRESETS,
@@ -33,6 +33,10 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
   const [isSaving, setIsSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [presetIntensity, setPresetIntensity] = useState(100);
+
+  const categories = ['All', 'Film', 'Portrait', 'Landscape', 'Vintage'];
 
   const previewUrl = useMemo(() => {
     if (!imageSrc) return '';
@@ -45,10 +49,48 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
     setUserPresets(loadUserPresets());
   }, []);
 
+  const filteredPresets = useMemo(() => {
+    if (activeCategory === 'All') return CURATED_PRESETS;
+    return CURATED_PRESETS.filter(p => p.category === activeCategory);
+  }, [activeCategory]);
+
   const handleApplyCurated = useCallback((preset: Preset) => {
     setActivePresetId(preset.id);
-    onChange(applyPreset(adjustments, preset.adjustments));
-  }, [adjustments, onChange]);
+    setPresetIntensity(100);
+    if (presetIntensity === 100) {
+      onChange(applyPreset(adjustments, preset.adjustments));
+    } else {
+      const blended: Partial<Adjustments> = {};
+      for (const [key, value] of Object.entries(preset.adjustments)) {
+        const defaultVal = (DEFAULT_ADJUSTMENTS as any)[key] ?? 0;
+        if (typeof value === 'number' && typeof defaultVal === 'number') {
+          (blended as any)[key] = defaultVal + (value - defaultVal) * (presetIntensity / 100);
+        } else {
+          (blended as any)[key] = value;
+        }
+      }
+      onChange(applyPreset(adjustments, blended));
+    }
+  }, [adjustments, onChange, presetIntensity]);
+
+  const handleIntensityChange = useCallback((value: number) => {
+    setPresetIntensity(value);
+    if (activePresetId) {
+      const preset = CURATED_PRESETS.find(p => p.id === activePresetId);
+      if (preset) {
+        const blended: Partial<Adjustments> = {};
+        for (const [key, presetVal] of Object.entries(preset.adjustments)) {
+          const defaultVal = (DEFAULT_ADJUSTMENTS as any)[key] ?? 0;
+          if (typeof presetVal === 'number' && typeof defaultVal === 'number') {
+            (blended as any)[key] = defaultVal + (presetVal - defaultVal) * (value / 100);
+          } else {
+            (blended as any)[key] = presetVal;
+          }
+        }
+        onChange(applyPreset(adjustments, blended));
+      }
+    }
+  }, [activePresetId, adjustments, onChange]);
 
   const handleApplyUser = useCallback((preset: UserPreset) => {
     setActivePresetId(preset.id);
@@ -174,8 +216,56 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
       {/* ── Film Looks ── */}
       <div className="px-4 pb-6">
         <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/25 mb-3">Film Looks</p>
+
+        {/* Category Tabs */}
+        <div className="flex gap-1 mb-4 overflow-x-auto custom-scrollbar">
+          {categories.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider whitespace-nowrap transition-all ${
+                activeCategory === cat
+                  ? 'bg-primary/15 text-primary border border-primary/30'
+                  : 'text-white/30 hover:text-white/50 border border-transparent'
+              }`}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
+
+        {/* Preset Intensity Slider */}
+        {activePresetId && (
+          <div className="mb-4 group/item">
+            <div className="flex justify-between items-baseline mb-2">
+              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Intensity</label>
+              <span className="text-[10px] tabular-nums text-primary font-mono font-bold">{presetIntensity}%</span>
+            </div>
+            <div className="relative h-4 flex items-center">
+              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
+              <div
+                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                style={{
+                  left: '0%',
+                  width: `${presetIntensity}%`,
+                  background: `rgb(var(--color-primary) / 0.8)`,
+                  boxShadow: '0 0 8px rgb(var(--color-primary) / 0.3)',
+                }}
+              />
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={presetIntensity}
+                onChange={e => handleIntensityChange(Number(e.target.value))}
+                className="adjustment-slider slider-thumb-premium"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-2">
-          {CURATED_PRESETS.map(preset => {
+          {filteredPresets.map(preset => {
             const isActive = activePresetId === preset.id;
             return (
               <button

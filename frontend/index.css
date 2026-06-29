@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&family=Pacifico&family=Caveat:wght@400;500;600;700&family=Satisfy&family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Cinzel:wght@400;500;600;700&family=Anton&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -85,7 +83,7 @@
 }
 
 .animate-agent-pop {
-  animation: agent-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  animation: agent-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes ken-burns {
@@ -120,7 +118,7 @@
   border-radius: 50%;
   background: white;
   cursor: grab;
-  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6), 0 0 0 2px rgba(255,255,255,0.08);
 }
 
@@ -143,7 +141,7 @@
   cursor: grab;
   border: none;
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.12s ease;
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
 }
 
 .adjustment-slider::-moz-range-thumb:hover {
@@ -193,15 +191,19 @@
   z-index: 1;
 }
 
-/* ── Premium UI Redesign Classes ─────────────────────────────────────────── */
+/* ── Premium UI Classes ─────────────────────────────────────────────── */
 
-.glass-panel {
-  @apply bg-black/40 backdrop-blur-xl border-r border-white/5;
-  box-shadow: 10px 0 30px -15px rgba(0, 0, 0, 0.5);
-}
-
-.glass-card {
-  @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+/* Hover effects only on devices that support hover (not touch) */
+@media (hover: hover) and (pointer: fine) {
+  .photo-item-hover:hover {
+    z-index: 10;
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.8);
+  }
+  .photo-item-hover:not(.photo-item-selected):hover {
+    --tw-ring-color: rgba(255, 255, 255, 0.2);
+    --tw-ring-offset-width: 0px;
+    --tw-ring-width: 1px;
+  }
 }
 
 .oled-bg {
@@ -214,7 +216,7 @@
 
 .slider-thumb-premium::-webkit-slider-thumb {
   @apply w-3 h-3 bg-white rounded-full border-2 border-primary shadow-[0_0_8px_rgba(var(--color-primary),0.5)];
-  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .slider-thumb-premium:hover::-webkit-slider-thumb {

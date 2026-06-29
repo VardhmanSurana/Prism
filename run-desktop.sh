@@ -65,7 +65,7 @@ else
 
       export PYTHONUNBUFFERED=1
       nohup uv run python -m uvicorn app.main:app \
-        --host 0.0.0.0 \
+        --host 127.0.0.1 \
         --port $BACKEND_PORT \
         --log-level info > "$BACKEND_LOG" 2>&1 &
       

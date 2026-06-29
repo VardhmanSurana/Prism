@@ -230,6 +230,10 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       return;
     }
 
+    if (activeDrawTool === 'emoji') {
+      return;
+    }
+
     isDrawing.current = true;
     startPos.current = { x, y };
 

@@ -35,6 +35,7 @@ import { API_BASE, resolveUrl } from '../../../constants';
 import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
+import { useEditStore } from '../../../store/editStore';
 
 declare global {
   interface Window {
@@ -58,7 +59,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   // Refs / state
   const cropperRef = useRef<ReactCropperElement>(null);
   const [currentRatio, setCurrentRatio] = useState<number>(NaN);
-  const [activeTool, setActiveTool] = useState<ToolId | null>('inpaint');
+  const [activeTool, setActiveTool] = useState<ToolId | null>('presets');
   
   // Annotations state (via hook)
   const annState = useAnnotationsState();
@@ -135,12 +136,20 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [inpaintMask, setInpaintMask] = useState<string | null>(null);
   const [isInpainting, setIsInpainting] = useState<boolean>(false);
   const [showInpaintTutorial, setShowInpaintTutorial] = useState<boolean>(false);
+  const inpaintHistoryRef = useRef<string[]>([]);
+  const inpaintHistoryIndexRef = useRef<number>(-1);
+  const [inpaintCanUndo, setInpaintCanUndo] = useState(false);
+  const [inpaintCanRedo, setInpaintCanRedo] = useState(false);
+  const [inpaintInfoMessage, setInpaintInfoMessage] = useState<string | null>(null);
 
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const savedCropBoxRef = useRef<Cropper.CropBoxData | null>(null);
 
   // Before/After compare state
   const [isComparing, setIsComparing] = useState<boolean>(false);
+
+  // Export progress state
+  const [exportProgress, setExportProgress] = useState<{ step: string; current: number; total: number } | null>(null);
 
   // In-place Crop management
   const [hasCropSelection, setHasCropSelection] = useState<boolean>(false);
@@ -353,6 +362,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setAdjustments(adj);
   }, [setAdjustments]);
 
+  const handleCopyEdits = useCallback(() => {
+    const { copyAdjustments } = useEditStore.getState();
+    copyAdjustments(adjustments);
+  }, [adjustments]);
+
   const handleInpaintProcess = useCallback(async () => {
     if (!inpaintMask || isInpainting) return;
     
@@ -424,7 +438,57 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [inpaintMask, isInpainting, currentImageSrc, inpaintOperation, inpaintSettings, addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef]);
 
-  const handleSave = useCallback((isSaveAs: boolean) => {
+  const handleInpaintStrokeComplete = useCallback((maskDataUrl: string) => {
+    const idx = inpaintHistoryIndexRef.current;
+    inpaintHistoryRef.current = inpaintHistoryRef.current.slice(0, idx + 1);
+    inpaintHistoryRef.current.push(maskDataUrl);
+    inpaintHistoryIndexRef.current = inpaintHistoryRef.current.length - 1;
+    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
+    setInpaintCanRedo(false);
+  }, []);
+
+  const handleInpaintUndo = useCallback(() => {
+    const idx = inpaintHistoryIndexRef.current;
+    if (idx <= 0) {
+      inpaintHistoryIndexRef.current = -1;
+      setInpaintMask(null);
+      if (window.__clearInpaintMask) window.__clearInpaintMask();
+    } else {
+      const newIdx = idx - 1;
+      inpaintHistoryIndexRef.current = newIdx;
+      const dataUrl = inpaintHistoryRef.current[newIdx];
+      setInpaintMask(dataUrl);
+      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
+    }
+    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
+    setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
+  }, []);
+
+  const handleInpaintRedo = useCallback(() => {
+    const idx = inpaintHistoryIndexRef.current;
+    if (idx < inpaintHistoryRef.current.length - 1) {
+      const newIdx = idx + 1;
+      inpaintHistoryIndexRef.current = newIdx;
+      const dataUrl = inpaintHistoryRef.current[newIdx];
+      setInpaintMask(dataUrl);
+      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
+    }
+    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
+    setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
+  }, []);
+
+  const handleInpaintModeChange = useCallback((mode: InpaintMode) => {
+    setInpaintMode(mode);
+    if (mode === 'interactive') {
+      setInpaintInfoMessage('Interactive segmentation requires AI features to be enabled. Points placed will not be processed without a backend SAM model.');
+    } else if (mode === 'auto') {
+      setInpaintInfoMessage('Auto-detect requires AI features to be enabled. Enable ENABLE_AI_FACE or similar flag in backend config.');
+    } else {
+      setInpaintInfoMessage(null);
+    }
+  }, []);
+
+  const handleSave = useCallback((isSaveAs: boolean, format?: string, quality?: number) => {
     if (isSaving) return;
     const cropper = cropperRef.current?.cropper;
     if (!cropper) return;
@@ -442,19 +506,23 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           .then(({ exportEditedCanvas }) => exportEditedCanvas({
             sourceCanvas: cropped,
             adjustments,
-            mimeType: 'image/jpeg',
-            quality: 0.95,
+            mimeType: format || 'image/jpeg',
+            quality: quality ?? 0.95,
             annotations: annState.annotations,
+            onProgress: (step, current, total) => setExportProgress({ step, current, total }),
           }))
           .then((blob) => {
+            setExportProgress(null);
             onSave(blob, isSaveAs);
             setIsSaving(false);
           })
           .catch((error) => {
+            setExportProgress(null);
             console.error('Save failed:', error);
             setIsSaving(false);
           });
       } catch (err) {
+        setExportProgress(null);
         console.error('Save failed:', err);
         setIsSaving(false);
       }
@@ -545,6 +613,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         showHistory={showHistory}
         setShowHistory={setShowHistory}
         historyCount={history.length}
+        exportProgress={exportProgress}
+        onCopyEdits={handleCopyEdits}
+        hasCopiedEdits={useEditStore((s) => s.copiedAdjustments !== null)}
       />
 
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
@@ -565,6 +636,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               flipV={flipV}
               handleFlipH={handleFlipH}
               handleFlipV={handleFlipV}
+              adjustments={adjustments}
+              onAdjustmentsChange={handleAdjChange}
             />],
             ['adjust', <AdjustPanel
               key="adjust"
@@ -627,22 +700,28 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               mode={inpaintMode}
               operation={inpaintOperation}
               settings={inpaintSettings}
-              onModeChange={setInpaintMode}
+              onModeChange={handleInpaintModeChange}
               onOperationChange={setInpaintOperation}
               onSettingsChange={setInpaintSettings}
-              onUndo={() => {}}
-              onRedo={() => {}}
+              onUndo={handleInpaintUndo}
+              onRedo={handleInpaintRedo}
               onClearMask={() => {
                 setInpaintMask(null);
+                inpaintHistoryRef.current = [];
+                inpaintHistoryIndexRef.current = -1;
+                setInpaintCanUndo(false);
+                setInpaintCanRedo(false);
                 if (window.__clearInpaintMask) {
                   window.__clearInpaintMask();
                 }
               }}
               onProcess={handleInpaintProcess}
-              canUndo={false}
-              canRedo={false}
+              canUndo={inpaintCanUndo}
+              canRedo={inpaintCanRedo}
               isProcessing={isInpainting}
               onShowTutorial={() => setShowInpaintTutorial(true)}
+              infoMessage={inpaintInfoMessage}
+              onClearInfoMessage={() => setInpaintInfoMessage(null)}
             />],
           ] as const).map(([toolId, panel]) => (
             <div
@@ -669,6 +748,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           inpaintMode={inpaintMode}
           brushSize={inpaintSettings.brushSize}
           onInpaintMaskChange={setInpaintMask}
+          onInpaintStrokeComplete={handleInpaintStrokeComplete}
           showMaskPreview={inpaintSettings.showMask}
           maskOpacity={inpaintSettings.maskOpacity}
           annotations={annState.annotations}

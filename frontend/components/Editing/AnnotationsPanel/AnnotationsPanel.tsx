@@ -11,6 +11,7 @@ import { ColorPickerSection } from './ColorPickerSection';
 import { TextPropertiesSection } from './TextPropertiesSection';
 import { DoodleSettingsSection } from './DoodleSettingsSection';
 import { LayersListSection } from './LayersListSection';
+import { EmojiPicker } from '../EmojiPicker';
 
 export interface AnnotationsPanelProps {
   annotations: Annotation[];
@@ -110,6 +111,32 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
     onChange([]);
   };
 
+  const handleEmojiSelect = (emoji: string) => {
+    const newAnn: Annotation = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: 'text',
+      color: activeColor,
+      strokeWidth: strokeWidth,
+      text: emoji,
+      fontSize: 64,
+      fontFamily: 'Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif',
+      fontWeight: 'normal',
+      fontStyle: 'normal',
+      textDecoration: 'none',
+      textAlign: 'center',
+      lineHeight: 1.2,
+      letterSpacing: 0,
+      bounds: {
+        x: 400,
+        y: 400,
+        w: 200,
+        h: 200,
+      },
+    };
+    onChange([...annotations, newAnn]);
+    setActiveDrawTool('select');
+  };
+
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col h-full">
       {/* ── Header ── */}
@@ -133,6 +160,19 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
           activeDrawTool={activeDrawTool}
           setActiveDrawTool={setActiveDrawTool}
         />
+
+        {/* Emoji Picker - shown when emoji tool is active */}
+        {activeDrawTool === 'emoji' && (
+          <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl shadow-md">
+            <div className="flex items-center gap-1.5 pb-2 mb-3 border-b border-white/5">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+              <span className="text-[9px] font-bold uppercase text-white/70 tracking-widest">
+                SELECT EMOJI
+              </span>
+            </div>
+            <EmojiPicker onSelect={handleEmojiSelect} />
+          </div>
+        )}
 
         {/* Color picker */}
         <ColorPickerSection

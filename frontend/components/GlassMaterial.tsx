@@ -33,8 +33,8 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
   const mouseY = useMotionValue(0);
   
   // Smoothing for the light reflection
-  const smoothX = useSpring(mouseX, { stiffness: 100, damping: 30 });
-  const smoothY = useSpring(mouseY, { stiffness: 100, damping: 30 });
+  const smoothX = useSpring(mouseX, { stiffness: 150, damping: 20 });
+  const smoothY = useSpring(mouseY, { stiffness: 150, damping: 20 });
 
   const [isHovered, setIsHovered] = useState(false);
 

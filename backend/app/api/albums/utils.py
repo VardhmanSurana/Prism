@@ -45,6 +45,11 @@ def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
         "hash": photo.hash,
         "device_id": photo.device_id,
         "is_external": photo.is_external,
+        "duration": photo.duration,
+        "fps": photo.fps,
+        "codec": photo.codec,
+        "audio_codec": photo.audio_codec,
+        "video_faces_scanned": photo.video_faces_scanned,
         "latitude": photo.latitude,
         "longitude": photo.longitude,
     }

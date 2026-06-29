@@ -66,6 +66,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
     transform:    { icon: <Maximize2 size={20} strokeWidth={1.5} />,     label: 'Crop',                 description: 'Crop, straighten, rotate, or flip the canvas boundaries' },
   };
 
+  const shortcutHints: Partial<Record<ToolId, string>> = {
+    transform: 'Ctrl+Z/Y undo/redo',
+    annotations: 'Ctrl+Z/Y undo/redo, [ ] brush size',
+    inpaint: '[ ] brush size',
+    texture: '\\ hold to compare',
+  };
+
   return (
     <div className="flex h-full shrink-0 relative z-30 bg-[var(--bg-primary)]">
       {/* Narrow vertical tab column on the left - scrollable for fit */}
@@ -106,6 +113,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
                 <span className="text-[9px] text-white/50 font-normal leading-normal whitespace-normal">
                   {tab.description}
                 </span>
+                {shortcutHints[id] && (
+                  <span className="text-[8px] text-primary/60 font-mono mt-1">
+                    {shortcutHints[id]}
+                  </span>
+                )}
               </div>
             </button>
           );

@@ -138,3 +138,10 @@ def load_image(photo_path):
             return None
             
     return img
+
+
+def load_frame_as_image(frame_path: str):
+    if not os.path.exists(frame_path):
+        return None
+    img = cv2.imread(frame_path)
+    return img

@@ -40,3 +40,10 @@ export interface ToolbarProps {
   onRemoveFromAlbum?: () => void;
   onSetAsCover?: () => void;
 }
+
+export interface VideoPlayerProps {
+  photo: Photo;
+  onClose?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
+}

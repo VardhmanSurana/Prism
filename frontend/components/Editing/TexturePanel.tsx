@@ -3,7 +3,7 @@
  * Renders controls for Film Grain, Light Leaks, Vignette, and Double Exposure blending.
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useCallback } from 'react';
 import { RotateCcw, Trash2, FolderOpen } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { openFileFolderBrowser } from '../../services/FileFolderBrowserService';
@@ -69,6 +69,7 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     opacity: 50,
     fit: 'cover',
   };
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDefault = useMemo(() => {
     return (
@@ -141,27 +142,53 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   };
 
   // ── Blend handlers ──
-  const handlePickImage = async () => {
-    const result = await openFileFolderBrowser({
-      title: 'Select Overlay Image',
-      multiple: false,
-      directoryOnly: false,
-    });
+  const handlePickImage = useCallback(async () => {
+    const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
+    
+    if (isTauri) {
+      try {
+        const result = await openFileFolderBrowser({
+          title: 'Select Overlay Image',
+          multiple: false,
+          directoryOnly: false,
+        });
 
-    if (result && result.paths.length > 0) {
-      const filePath = result.paths[0];
-      const resolvedSrc = resolveUrl('local://' + filePath);
-      
-      onChange({
-        ...adjustments,
-        blend: {
-          ...blend,
-          photoId: 1,
-          blendImageSrc: resolvedSrc,
-        },
-      });
+        if (result && result.paths.length > 0) {
+          const filePath = result.paths[0];
+          const resolvedSrc = resolveUrl('local://' + filePath);
+          
+          onChange({
+            ...adjustments,
+            blend: {
+              ...blend,
+              photoId: 1,
+              blendImageSrc: resolvedSrc,
+            },
+          });
+        }
+      } catch {
+        fileInputRef.current?.click();
+      }
+    } else {
+      fileInputRef.current?.click();
     }
-  };
+  }, [adjustments, blend, onChange]);
+
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const objectUrl = URL.createObjectURL(file);
+    onChange({
+      ...adjustments,
+      blend: {
+        ...blend,
+        photoId: 1,
+        blendImageSrc: objectUrl,
+      },
+    });
+    e.target.value = '';
+  }, [adjustments, blend, onChange]);
 
   const handleRemoveImage = () => {
     onChange({
@@ -215,6 +242,13 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileInputChange}
+      />
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">

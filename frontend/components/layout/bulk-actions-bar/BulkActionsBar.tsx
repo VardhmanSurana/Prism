@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
-import { X, FolderPlus, FolderMinus, Lock, Trash2, Heart, RotateCcw } from 'lucide-react';
+import { X, FolderPlus, FolderMinus, Lock, Trash2, Heart, RotateCcw, LayoutGrid, BookOpen, ClipboardPaste } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { useBulkActions } from './useBulkActions';
+import { useEditStore } from '@/store/editStore';
 
 export interface BulkActionsBarProps {
   selectedCount: number;
@@ -13,7 +14,10 @@ export interface BulkActionsBarProps {
   onFavorite: () => void;
   onDelete: () => void;
   onRestore?: () => void;
+  onCollage?: () => void;
+  onPhotoBook?: () => void;
   isFavorited?: boolean;
+  onPasteEdits?: () => void;
 }
 
 export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
@@ -26,9 +30,13 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onFavorite,
   onDelete,
   onRestore,
+  onCollage,
+  onPhotoBook,
   isFavorited,
+  onPasteEdits,
 }) => {
   const { isTrashView } = useBulkActions({ selectedCount, currentView });
+  const copiedAdjustments = useEditStore((s) => s.copiedAdjustments);
 
   if (selectedCount === 0) return null;
 
@@ -101,6 +109,33 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             >
               <Trash2 size={20} />
             </button>
+            {onCollage && (
+              <button
+                onClick={onCollage}
+                className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-primary"
+                title="Create Collage"
+              >
+                <LayoutGrid size={20} />
+              </button>
+            )}
+            {onPhotoBook && (
+              <button
+                onClick={onPhotoBook}
+                className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-primary"
+                title="Create Photo Book"
+              >
+                <BookOpen size={20} />
+              </button>
+            )}
+            {copiedAdjustments && onPasteEdits && (
+              <button
+                onClick={onPasteEdits}
+                className="p-2 hover:bg-surfaceHover rounded-full text-gray-300 hover:text-primary"
+                title="Paste Edits"
+              >
+                <ClipboardPaste size={20} />
+              </button>
+            )}
           </>
         )}
       </div>

@@ -185,14 +185,14 @@ export const useFileFolderBrowser = () => {
           }
         } else {
           nextSelected.add(path);
-          if (fileObj?.is_image) {
+          if (fileObj?.is_image || fileObj?.is_video) {
             return { ...prev, selectedPaths: nextSelected, previewFile: fileObj, imgLoading: true };
           }
         }
       } else {
         nextSelected.clear();
         nextSelected.add(path);
-        if (fileObj?.is_image) {
+        if (fileObj?.is_image || fileObj?.is_video) {
           return { ...prev, selectedPaths: nextSelected, previewFile: fileObj, imgLoading: true };
         }
       }

@@ -39,6 +39,7 @@ interface CanvasAreaProps {
   inpaintMode?: InpaintMode;
   brushSize?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
+  onInpaintStrokeComplete?: (maskDataUrl: string) => void;
   showMaskPreview?: boolean;
   maskOpacity?: number;
 
@@ -100,6 +101,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   inpaintMode = 'brush',
   brushSize = 50,
   onInpaintMaskChange = (_mask: string): void => {},
+  onInpaintStrokeComplete,
   showMaskPreview = true,
   maskOpacity = 60,
   annotations = [],
@@ -825,6 +827,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             top: imageRect.top,
             width: imageRect.width,
             height: imageRect.height,
+            transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
+              ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
+              : undefined,
           }}
         />
       )}
@@ -907,6 +912,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
               mode={inpaintMode}
               brushSize={brushSize}
               onMaskChange={handleMaskChange}
+              onStrokeComplete={onInpaintStrokeComplete}
               showMaskPreview={showMaskPreview}
               maskOpacity={maskOpacity}
             />

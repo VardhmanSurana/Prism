@@ -231,5 +231,209 @@ class FaceClusteringService:
 
         return faces_count
 
+    async def scan_and_cluster_video_faces(self, photo_id: int, video_path: str, db: AsyncSession) -> int:
+        """Scan a video for faces using hybrid frame sampling and cross-frame deduplication."""
+        from app.utils.video import _check_ffmpeg_available, sample_video_frames, extract_video_metadata
+        from app.services.face_utils import load_frame_as_image
+        import numpy as np
+
+        existing_check = await db.execute(
+            select(func.count()).select_from(PhotoPerson).where(PhotoPerson.photo_id == photo_id)
+        )
+        if (existing_check.scalar() or 0) > 0:
+            return 0
+
+        if not _check_ffmpeg_available():
+            logger.warning(f"ffmpeg not available — skipping video face detection for {video_path}")
+            return 0
+
+        metadata = extract_video_metadata(video_path)
+        duration = metadata.get("duration", 0) if metadata else 0
+        if not duration or duration <= 0:
+            logger.warning(f"Could not determine video duration for {video_path}")
+            return 0
+
+        import tempfile
+        from app.config import settings as cfg
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            frames = sample_video_frames(
+                video_path, duration, tmp_dir,
+                scene_threshold=getattr(cfg, 'VIDEO_FACE_SCENE_THRESHOLD', 0.3),
+                max_frames=getattr(cfg, 'VIDEO_FACE_MAX_FRAMES', 50),
+                min_gap=getattr(cfg, 'VIDEO_FACE_MIN_GAP_SECONDS', 5.0),
+                dedup_threshold=3
+            )
+            if not frames:
+                logger.info(f"No frames extracted from video {video_path}")
+                return 0
+
+            logger.info(f"Sampled {len(frames)} frames from video {video_path} ({duration:.1f}s)")
+
+            embedding_cache, existing_people = await self._recognizer.load_embedding_cache(db)
+            face_thumb_dir = ensure_face_thumbnail_dir()
+
+            face_results = []
+            seen_embeddings = []
+            dedup_threshold = getattr(cfg, 'VIDEO_FACE_DEDUP_THRESHOLD', 0.7)
+
+            for frame_ts, frame_path in frames:
+                img = load_frame_as_image(frame_path)
+                if img is None:
+                    continue
+
+                faces, detect_img, scale, stream = self._detector.detect_faces(img)
+                if not faces:
+                    free_image_memory(detect_img, img, stream)
+                    continue
+
+                for face in faces:
+                    try:
+                        if not self._detector.is_quality_face(face):
+                            continue
+
+                        feat = self._recognizer.extract_embedding(stream, face)
+                        if feat is None:
+                            continue
+
+                        is_duplicate = False
+                        for seen_emb, _ in seen_embeddings:
+                            sim = float(np.dot(feat, seen_emb))
+                            if sim > dedup_threshold:
+                                is_duplicate = True
+                                break
+                        if is_duplicate:
+                            continue
+
+                        best_match_person, best_score = self._recognizer.find_best_match(
+                            feat, existing_people, embedding_cache
+                        )
+
+                        matched_person = None
+                        uncertain_person = None
+                        if best_match_person:
+                            if best_score > settings.FACE_MATCH_THRESHOLD:
+                                matched_person = best_match_person
+                            elif best_score > settings.FACE_UNCERTAIN_MATCH_THRESHOLD:
+                                uncertain_person = best_match_person
+
+                        x1, y1, x2, y2 = self._detector.get_face_location_scaled(face, scale)
+                        cropped_img = crop_face_thumbnail(img, x1, y1, x2, y2)
+                        thumb_filename = save_face_thumbnail(cropped_img, photo_id, face_thumb_dir)
+                        box_json = format_face_box_json(x1, y1, x2, y2)
+
+                        face_results.append({
+                            "matched_person": matched_person,
+                            "uncertain_person": uncertain_person,
+                            "best_score": float(best_score),
+                            "embedding": feat,
+                            "box_json": box_json,
+                            "confidence": float(face.detection_confidence),
+                            "thumb_filename": thumb_filename
+                        })
+
+                        seen_embeddings.append((feat, matched_person.id if matched_person else None))
+                    except Exception as e:
+                        logger.exception(f"Failed to process face in video frame at {frame_ts}s: {e}")
+                        continue
+
+                free_image_memory(detect_img, img, stream)
+
+            if not face_results:
+                return 0
+
+            try:
+                person_cumulative_weight_cache = {}
+                created_person_assocs = set()
+
+                for res in face_results:
+                    matched_person = res["matched_person"]
+                    uncertain_person = res["uncertain_person"]
+                    best_score = res["best_score"]
+                    feat = res["embedding"]
+                    box_json = res["box_json"]
+                    conf = res["confidence"]
+                    thumb_filename = res["thumb_filename"]
+
+                    if matched_person:
+                        assoc_key = (photo_id, matched_person.id)
+                        if assoc_key not in created_person_assocs:
+                            association = PhotoPerson(
+                                photo_id=photo_id,
+                                person_id=matched_person.id,
+                                confidence=conf,
+                                face_box_json=box_json
+                            )
+                            db.add(association)
+                            created_person_assocs.add(assoc_key)
+
+                        try:
+                            if matched_person.id not in person_cumulative_weight_cache:
+                                assoc_stmt = select(PhotoPerson).where(PhotoPerson.person_id == matched_person.id)
+                                assoc_res = await db.execute(assoc_stmt)
+                                associations = assoc_res.scalars().all()
+                                cumulative_weight = sum(
+                                    self._recognizer.compute_face_weight(a.confidence, a.face_box_json)
+                                    for a in associations
+                                )
+                                if cumulative_weight == 0:
+                                    cumulative_weight = float(len(associations)) or 1.0
+                                person_cumulative_weight_cache[matched_person.id] = cumulative_weight
+
+                            cumulative_weight = person_cumulative_weight_cache[matched_person.id]
+                            new_weight = self._recognizer.compute_face_weight(conf, box_json)
+
+                            if matched_person.id in embedding_cache:
+                                current_emb = embedding_cache[matched_person.id]
+                                new_emb = self._recognizer.update_running_average(
+                                    current_emb, feat, cumulative_weight, new_weight
+                                )
+                                matched_person.face_embedding = json.dumps(new_emb.tolist())
+                                embedding_cache[matched_person.id] = new_emb
+                        except Exception as e:
+                            logger.exception(f"Failed to update running face centroid: {e}")
+                    elif uncertain_person:
+                        pending = PendingFaceAssignment(
+                            photo_id=photo_id,
+                            candidate_person_id=uncertain_person.id,
+                            best_score=best_score,
+                            face_box_json=box_json,
+                            thumb_filename=thumb_filename,
+                            face_embedding=json.dumps(feat.tolist())
+                        )
+                        db.add(pending)
+                    else:
+                        count_stmt = select(func.count()).select_from(Person)
+                        current_count = (await db.execute(count_stmt)).scalar() or 0
+                        person_name = f"Person {current_count + 1}"
+
+                        new_person = Person(
+                            name=person_name,
+                            cover_face_thumbnail=f"/thumbnails/Face_Thumbnail/{thumb_filename}",
+                            face_embedding=json.dumps(feat.tolist())
+                        )
+                        db.add(new_person)
+                        await db.flush()
+
+                        existing_people.append(new_person)
+                        embedding_cache[new_person.id] = feat
+
+                        association = PhotoPerson(
+                            photo_id=photo_id,
+                            person_id=new_person.id,
+                            confidence=conf,
+                            face_box_json=box_json
+                        )
+                        db.add(association)
+
+                await db.commit()
+                logger.info(f"Video face scan complete: {len(face_results)} unique faces for video {photo_id}")
+            except Exception as e:
+                await db.rollback()
+                logger.error(f"Transaction failed for video face scan {photo_id}: {e}")
+                raise
+
+            return len(face_results)
+
 
 face_service = FaceClusteringService()

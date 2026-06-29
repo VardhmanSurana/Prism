@@ -23,6 +23,7 @@ interface ExportEditedCanvasOptions {
   mimeType?: string;
   quality?: number;
   annotations?: Annotation[];
+  onProgress?: (step: string, current: number, total: number) => void;
 }
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -1083,16 +1084,81 @@ const applyFrame = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   return framedCanvas;
 };
 
+const applyPerspective = (canvas: HTMLCanvasElement, horizontal: number, vertical: number) => {
+  if (horizontal === 0 && vertical === 0) return canvas;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const ry = horizontal * 0.3 * Math.PI / 180;
+  const rx = vertical * 0.3 * Math.PI / 180;
+
+  const cosY = Math.cos(ry);
+  const sinY = Math.sin(ry);
+  const cosX = Math.cos(rx);
+  const sinX = Math.sin(rx);
+
+  const srcCorners = [
+    [-w / 2, -h / 2],
+    [w / 2, -h / 2],
+    [w / 2, h / 2],
+    [-w / 2, h / 2],
+  ];
+
+  const projected = srcCorners.map(([x, y]) => {
+    let px = x, py = y, pz = 0;
+    const ty = px * sinY + pz * cosY;
+    px = px * cosY - pz * sinY;
+    pz = ty;
+    const tx = py * sinX + pz * cosX;
+    py = py * cosX - pz * sinX;
+    pz = tx;
+    const scale = 1000 / (1000 + pz);
+    return [px * scale + w / 2, py * scale + h / 2];
+  });
+
+  const out = document.createElement('canvas');
+  out.width = w;
+  out.height = h;
+  const ctx = out.getContext('2d');
+  if (!ctx) return canvas;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(projected[0][0], projected[0][1]);
+  for (let i = 1; i < 4; i++) {
+    ctx.lineTo(projected[i][0], projected[i][1]);
+  }
+  ctx.closePath();
+  ctx.clip();
+
+  ctx.setTransform(
+    projected[1][0] - projected[0][0],
+    projected[1][1] - projected[0][1],
+    projected[3][0] - projected[0][0],
+    projected[3][1] - projected[0][1],
+    projected[0][0],
+    projected[0][1],
+  );
+  ctx.drawImage(canvas, 0, 0);
+  ctx.restore();
+
+  return out;
+};
+
 export const exportEditedCanvas = async ({
   sourceCanvas,
   adjustments,
   mimeType = DEFAULT_EXPORT_MIME,
   quality = DEFAULT_EXPORT_QUALITY,
   annotations,
+  onProgress,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
-  let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
+  const report = (step: string, current: number, total: number) => onProgress?.(step, current, total);
+  const TOTAL_STEPS = 15;
 
-  // Apply Detail Interaction Guard
+  let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
+  report('Preparing canvas', 1, TOTAL_STEPS);
+
   const noise = adjustments.noiseReduction || 0;
   const sharp = adjustments.sharpness || 0;
   const effectiveNoise = Math.max(0, noise - sharp * 0.5);
@@ -1105,10 +1171,11 @@ export const exportEditedCanvas = async ({
   };
 
   if (hasGlobalPreviewAdjustments(effectiveAdj)) {
+    report('Applying tone adjustments', 2, TOTAL_STEPS);
     preparedCanvas = renderCanvasWithFilter(preparedCanvas, getPreviewBaseFilter(effectiveAdj), effectiveAdj);
   }
 
-  // Apply Non-linear Highlights & Shadows
+  report('Applying highlights & shadows', 3, TOTAL_STEPS);
   if (adjustments.highlights !== 0 || adjustments.shadows !== 0) {
     const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
     if (ctx) {
@@ -1118,42 +1185,79 @@ export const exportEditedCanvas = async ({
     }
   }
 
-  // Apply per-band HSL adjustments (pixel-level, full quality)
+  report('Applying dehaze', 4, TOTAL_STEPS);
+  if (adjustments.dehaze !== 0) {
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      const f = adjustments.dehaze / 100;
+      for (let i = 0; i < imgData.data.length; i += 4) {
+        let r = imgData.data[i] / 255;
+        let g = imgData.data[i + 1] / 255;
+        let b = imgData.data[i + 2] / 255;
+        const avg = (r + g + b) / 3;
+        r = r + (r - avg) * f * 0.5;
+        g = g + (g - avg) * f * 0.5;
+        b = b + (b - avg) * f * 0.5;
+        const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        const satBoost = 1 + f * 0.3;
+        const grayR = lum, grayG = lum, grayB = lum;
+        r = grayR + (r - grayR) * satBoost;
+        g = grayG + (g - grayG) * satBoost;
+        b = grayB + (b - grayB) * satBoost;
+        imgData.data[i]     = clamp(Math.round(r * 255), 0, 255);
+        imgData.data[i + 1] = clamp(Math.round(g * 255), 0, 255);
+        imgData.data[i + 2] = clamp(Math.round(b * 255), 0, 255);
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  report('Applying HSL adjustments', 5, TOTAL_STEPS);
   applyHslToCanvas(preparedCanvas, effectiveAdj.hsl);
 
+  report('Applying noise reduction', 6, TOTAL_STEPS);
   applyBlur(preparedCanvas, effectiveNoise / 100 * 1.2);
+
+  report('Applying sharpening', 7, TOTAL_STEPS);
   if (effectiveSharp > 0) {
     applyUnsharpMask(preparedCanvas, effectiveSharp, 1.2, 2.5);
   } else if (effectiveSharp < 0) {
     applyBlur(preparedCanvas, Math.abs(effectiveSharp) / 100 * 1.5);
   }
 
+  report('Applying curves', 8, TOTAL_STEPS);
   applyCurveLutsToCanvas(preparedCanvas, effectiveAdj);
+
+  report('Applying regional adjustments', 9, TOTAL_STEPS);
   await applyRegionalAdjustments(preparedCanvas, effectiveAdj);
   
-  // Apply Split Toning
+  report('Applying split toning', 10, TOTAL_STEPS);
   applySplitToning(preparedCanvas, effectiveAdj);
   
-  // Apply Film Grain
+  report('Applying film grain', 11, TOTAL_STEPS);
   applyGrain(preparedCanvas, adjustments);
   
-  // Apply Light Leaks
+  report('Applying light leaks', 12, TOTAL_STEPS);
   applyLightLeak(preparedCanvas, adjustments);
   
-  // Apply Double Exposure
+  report('Applying double exposure', 13, TOTAL_STEPS);
   await applyBlendOverlay(preparedCanvas, adjustments);
   
-  // Apply Tilt-Shift Depth Blur
+  report('Applying tilt-shift', 14, TOTAL_STEPS);
   applyTiltShift(preparedCanvas, adjustments);
   
-  // Apply Vignette
+  report('Applying vignette & annotations', 15, TOTAL_STEPS);
   applyVignette(preparedCanvas, adjustments.vignette);
-  
-  // Apply SVG Annotations
   await applyAnnotations(preparedCanvas, annotations);
-  
-  // Apply Frame (extends canvas dimensions at the very end)
+
+  if (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0) {
+    preparedCanvas = applyPerspective(preparedCanvas, adjustments.perspective, adjustments.verticalPerspective);
+  }
+
   preparedCanvas = applyFrame(preparedCanvas, adjustments);
+
+  report('Encoding final image', TOTAL_STEPS, TOTAL_STEPS);
 
   try {
     await ensureImageMagick();

@@ -2,7 +2,18 @@ import os
 import asyncio
 from watchdog.events import FileSystemEventHandler
 
-SUPPORTED_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.dng', '.tiff', '.tif', '.bmp', '.gif')
+SUPPORTED_EXTENSIONS = (
+    '.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.dng', '.tiff', '.tif', '.bmp', '.gif',
+    '.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.3gp',
+)
+
+VIDEO_EXTENSIONS = ('.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.3gp')
+
+def is_video_file(path: str) -> bool:
+    return os.path.splitext(path)[1].lower() in VIDEO_EXTENSIONS
+
+def get_file_type(path: str) -> str:
+    return 'video' if is_video_file(path) else 'image'
 
 class PhotoEventHandler(FileSystemEventHandler):
     def __init__(self, service, loop):

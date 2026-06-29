@@ -64,12 +64,22 @@ class Settings(BaseSettings):
     OLLAMA_VISION_MODEL: str = "moondream:latest"
     OLLAMA_TIMEOUT: int = 120  # seconds
 
+    # API Key for production authentication (empty = disabled for local dev)
+    API_KEY: str = ""
+
     # AI Feature Flags (Opt-in)
     ENABLE_AI_AGENT: bool = False
     ENABLE_AI_INPAINTING: bool = False
     ENABLE_AI_FACE: bool = False
     ENABLE_AI_CLIP: bool = False
     ENABLE_AI_REMBG: bool = False
+    ENABLE_AI_OCR: bool = False
+
+    # Video face detection settings
+    VIDEO_FACE_SCENE_THRESHOLD: float = 0.3
+    VIDEO_FACE_MAX_FRAMES: int = 50
+    VIDEO_FACE_MIN_GAP_SECONDS: float = 5.0
+    VIDEO_FACE_DEDUP_THRESHOLD: float = 0.7
 
 
 settings = Settings()

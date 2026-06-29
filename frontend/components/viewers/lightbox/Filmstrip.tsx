@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useMemo } from 'react';
+import { Play } from 'lucide-react';
 import { FilmstripProps } from './types';
 import { resolveUrl } from '@/constants';
 
@@ -54,7 +55,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
                   ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0D0F14] scale-105'
                   : 'opacity-50 hover:opacity-80 hover:scale-105'
               }`}
-              style={{ width: 48, height: 48 }}
+              style={{ width: 48, height: 48, position: 'relative' }}
               title={photo.filename || `Photo ${idx + 1}`}
             >
               <img
@@ -64,6 +65,11 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
                 loading="lazy"
                 draggable={false}
               />
+              {(photo.type === 'video' || photo.file_type === 'video') && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <Play size={10} fill="white" className="text-white/80" />
+                </div>
+              )}
             </button>
           );
         })}

@@ -22,6 +22,10 @@ export interface Photo {
   mime_type?: string;
   file_type?: string;
   file_size?: number;
+  duration?: number;
+  fps?: number;
+  codec?: string;
+  audio_codec?: string;
   ai_summary?: string;
   latitude?: number;
   longitude?: number;
@@ -60,7 +64,7 @@ export interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent' | 'frame';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
@@ -95,6 +99,10 @@ export interface RawPhoto {
   mime_type?: string;
   file_type?: string;
   file_size?: number;
+  duration?: number;
+  fps?: number;
+  codec?: string;
+  audio_codec?: string;
   ai_summary?: string;
   latitude?: number;
   longitude?: number;
@@ -159,5 +167,13 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
     upload_date: sanitizedUploadDate,
+    type: raw.type || (raw.mime_type?.startsWith('video/') ? 'video' : 'image'),
+    mime_type: raw.mime_type,
+    file_type: raw.file_type,
+    file_size: raw.file_size,
+    duration: raw.duration,
+    fps: raw.fps,
+    codec: raw.codec,
+    audio_codec: raw.audio_codec,
   };
 }

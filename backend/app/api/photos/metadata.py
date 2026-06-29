@@ -249,6 +249,7 @@ async def get_photo_metadata(photo_id: int, db: AsyncSession = Depends(get_db)):
         "latitude": photo.latitude,
         "longitude": photo.longitude,
         "summary": photo.ai_summary,
+        "ocr_text": photo.ocr_text,
         "people": people_data,
         "mime_type": photo.mime_type,
         "file_size": photo.file_size if photo.file_size is not None else 0

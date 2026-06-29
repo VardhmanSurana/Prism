@@ -35,11 +35,15 @@ class AIOrchestrator:
             model_path = model_dir / "gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"
             draft_path = model_dir / "gemma-4-E4B-it-Q4_0-MTP.gguf"
             port = 9090
-        else: # vision
+        elif mode == 'vision':
             model_path = model_dir / "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
             draft_path = model_dir / "gemma-4-E2B-it-Q4_0-MTP.gguf"
-            mmproj_path = model_dir / "mmproj-BF16.gguf"
+            mmproj_path = model_dir / "mmproj-BF16-E2B.gguf"
             port = 9091
+        else: # ocr
+            model_path = Path(settings.BASE_DIR) / "models" / "PaddleOCR" / "PaddleOCR-VL-1.6-GGUF.gguf"
+            mmproj_path = Path(settings.BASE_DIR) / "models" / "PaddleOCR" / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
+            port = 9092
 
         cmd = [
             "llama-server",
@@ -50,7 +54,7 @@ class AIOrchestrator:
             "-c", "8192",        # Context size (larger for vision)
         ]
 
-        if mode == 'vision':
+        if mode in ('vision', 'ocr'):
             cmd.extend(["--mmproj", str(mmproj_path.absolute())])
 
         logger.info(f"Starting llama-server for {mode} mode: {' '.join(cmd)}")
@@ -142,4 +146,6 @@ class AIOrchestrator:
             return "http://127.0.0.1:9090/v1"
         elif cls._current_mode == 'vision':
             return "http://127.0.0.1:9091/v1"
+        elif cls._current_mode == 'ocr':
+            return "http://127.0.0.1:9092/v1"
         return None

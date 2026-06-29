@@ -3,6 +3,7 @@ import { MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Photo } from '@/types';
 import { resolveUrl } from '@/constants';
+import { formatDuration } from '@/utils/formatDuration';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -40,6 +41,34 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata }) => {
               <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Format</p>
               <p className="text-xs text-white font-mono uppercase">{photo.mime_type?.split('/')[1] || 'Unknown'}</p>
             </div>
+            {photo.type === 'video' && (
+              <>
+                {photo.duration != null && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Duration</p>
+                    <p className="text-xs text-white font-mono">{formatDuration(photo.duration)}</p>
+                  </div>
+                )}
+                {photo.codec && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Codec</p>
+                    <p className="text-xs text-white font-mono uppercase">{photo.codec}</p>
+                  </div>
+                )}
+                {photo.fps != null && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">FPS</p>
+                    <p className="text-xs text-white font-mono">{photo.fps.toFixed(1)}</p>
+                  </div>
+                )}
+                {photo.audio_codec && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Audio</p>
+                    <p className="text-xs text-white font-mono uppercase">{photo.audio_codec}</p>
+                  </div>
+                )}
+              </>
+            )}
             <div className="space-y-1">
               <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Filename</p>
               <p className="text-[10px] text-white font-mono truncate max-w-[120px]" title={photo.filename}>{photo.filename}</p>

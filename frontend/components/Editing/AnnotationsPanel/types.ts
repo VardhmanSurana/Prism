@@ -42,4 +42,4 @@ export interface Annotation {
   fillOpacity?: number;
 }
 
-export type DrawToolId = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter' | 'text' | 'textPath';
+export type DrawToolId = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter' | 'text' | 'textPath' | 'emoji';

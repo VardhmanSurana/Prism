@@ -21,7 +21,7 @@ router = APIRouter()
 
 # Simple in-memory rate limiting
 _rate_limit_store: dict[str, list[float]] = {}
-MAX_UPLOADS_PER_MINUTE = 10000
+MAX_UPLOADS_PER_MINUTE = 100
 MAX_DIRECTORY_FILES = 1000  # Limit directory imports to prevent DoS
 _LAST_RATE_CLEANUP = time.time()
 _RATE_CLEANUP_INTERVAL = 300  # 5 minutes
@@ -96,6 +96,35 @@ def resize_and_save_image(file_path: str, max_width: int) -> str:
     return str(out_path)
 
 
+def resize_and_save_video(file_path: str, resize_width: int) -> str | None:
+    from app.services.sync.handler import is_video_file
+    import subprocess
+    from app.config import settings
+    try:
+        base, ext = os.path.splitext(file_path)
+        output_path = os.path.join(str(settings.UPLOAD_DIR), f"{os.path.basename(base)}_resized{ext}")
+        cmd = [
+            'ffmpeg', '-y', '-i', file_path,
+            '-vf', f'scale={resize_width}:-2',
+            '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+            '-c:a', 'aac',
+            output_path
+        ]
+        result = subprocess.run(cmd, capture_output=True, timeout=120)
+        if result.returncode == 0 and os.path.exists(output_path):
+            return output_path
+    except Exception as e:
+        logger.error(f"Video resize failed: {e}")
+    return None
+
+
+def resize_and_save_media(file_path: str, resize_width: int) -> str | None:
+    from app.services.sync.handler import is_video_file
+    if is_video_file(file_path):
+        return resize_and_save_video(file_path, resize_width)
+    return resize_and_save_image(file_path, resize_width)
+
+
 @router.post("/upload")
 async def upload_photo(
     req: UploadRequest,
@@ -141,12 +170,12 @@ async def upload_photo(
         all_images, all_found_files = await asyncio.to_thread(_sync_walk)
         
         if not all_images:
-            logger.warning(f"No supported images found in directory: {file_path}")
+            logger.warning(f"No supported media files found in directory: {file_path}")
             if all_found_files:
                 logger.info(f"Files found (first 10): {all_found_files[:10]}")
             else:
                 logger.info("Directory appears to be empty.")
-            raise HTTPException(status_code=400, detail="No supported images found in directory")
+            raise HTTPException(status_code=400, detail="No supported media files found in directory")
         
         # Limit directory imports to prevent DoS
         if len(all_images) > MAX_DIRECTORY_FILES:
@@ -167,7 +196,7 @@ async def upload_photo(
                 actual_path = img_path
                 if req.resize_width:
                     try:
-                        actual_path = await asyncio.to_thread(resize_and_save_image, img_path, req.resize_width)
+                        actual_path = await asyncio.to_thread(resize_and_save_media, img_path, req.resize_width)
                     except Exception as e:
                         logger.error(f"Failed to resize image in folder: {img_path}: {e}")
                     
@@ -184,7 +213,7 @@ async def upload_photo(
     actual_path = file_path
     if req.resize_width:
         try:
-            actual_path = await asyncio.to_thread(resize_and_save_image, file_path, req.resize_width)
+            actual_path = await asyncio.to_thread(resize_and_save_media, file_path, req.resize_width)
         except Exception as e:
             logger.error(f"Failed to resize single image {file_path}: {e}")
             
@@ -232,7 +261,7 @@ async def _internal_process_photo(file_path: str, db: AsyncSession):
 
     photo = await sync_service.ingest_photo(file_path, db)
     if not photo:
-        raise HTTPException(status_code=500, detail="Failed to process image")
+        raise HTTPException(status_code=500, detail="Failed to process file")
     
     processing_queue.enqueue(photo.id, photo.path)
     

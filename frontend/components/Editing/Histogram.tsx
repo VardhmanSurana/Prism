@@ -24,6 +24,9 @@ interface HistogramData {
 interface HistogramProps {
   imageSrc: string;
   filterString: string;
+  onBlackPointSet?: (value: number) => void;
+  onWhitePointSet?: (value: number) => void;
+  onReset?: () => void;
 }
 
 const BINS = 256;
@@ -116,10 +119,11 @@ function buildPath(bins: number[], peak: number): string {
   return pts.join(' ');
 }
 
-export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString }) => {
+export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString, onBlackPointSet, onWhitePointSet, onReset }) => {
   const [data, setData] = useState<HistogramData>(buildEmptyData());
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const recompute = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -138,6 +142,31 @@ export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString }) 
     };
   }, [recompute]);
 
+  const handleHistogramClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+      onReset?.();
+      return;
+    }
+
+    clickTimerRef.current = setTimeout(() => {
+      clickTimerRef.current = null;
+    }, 250);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width;
+    const pixelValue = Math.round(x * 255);
+
+    if (x < 0.5) {
+      const exposureOffset = Math.round((x - 0.25) * 200);
+      onBlackPointSet?.(exposureOffset);
+    } else {
+      const exposureOffset = Math.round((x - 0.75) * 200);
+      onWhitePointSet?.(exposureOffset);
+    }
+  }, [onBlackPointSet, onWhitePointSet, onReset]);
+
   const rPath   = buildPath(data.r,   data.peak);
   const gPath   = buildPath(data.g,   data.peak);
   const bPath   = buildPath(data.b,   data.peak);
@@ -146,8 +175,9 @@ export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString }) 
   return (
     <div className="px-4 pt-3 pb-4">
       <div
-        className="relative rounded-xl overflow-hidden border border-white/5"
+        className="relative rounded-xl overflow-hidden border border-white/5 cursor-crosshair"
         style={{ background: '#0a0a0a' }}
+        onClick={handleHistogramClick}
       >
         {/* Zone labels */}
         <div className="absolute bottom-0 left-0 right-0 flex justify-between px-2 pb-1 pointer-events-none z-10">

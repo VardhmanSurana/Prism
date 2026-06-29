@@ -48,6 +48,8 @@ interface InpaintPanelProps {
   canRedo: boolean;
   isProcessing: boolean;
   onShowTutorial?: () => void;
+  infoMessage?: string | null;
+  onClearInfoMessage?: () => void;
 }
 
 const INPAINT_MODELS = [
@@ -74,6 +76,8 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
   canRedo,
   isProcessing,
   onShowTutorial,
+  infoMessage,
+  onClearInfoMessage,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -131,6 +135,16 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
             <HelpCircle size={12} />
             Show Tutorial
           </button>
+        </div>
+      )}
+
+      {infoMessage && (
+        <div className="mx-4 mt-2 mb-1 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-medium leading-relaxed flex items-start gap-2">
+          <Sparkles size={12} className="shrink-0 mt-0.5" />
+          <span className="flex-1">{infoMessage}</span>
+          {onClearInfoMessage && (
+            <button onClick={onClearInfoMessage} className="text-amber-400/60 hover:text-amber-300 shrink-0">×</button>
+          )}
         </div>
       )}
 

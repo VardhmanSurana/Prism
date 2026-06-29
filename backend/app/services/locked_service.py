@@ -15,14 +15,30 @@ from app.api.settings.helpers import _read_settings, _write_settings
 logger = logging.getLogger(__name__)
 
 FACE_THUMB_SUBDIR = "Face_Thumbnail"
+SESSION_TIMEOUT = 1800  # 30 minutes in seconds
 
 
 class LockedFolderService:
     def __init__(self):
         self.session_key = None  # In-memory DEK (Fernet key)
-        self.is_authenticated = False
+        self._is_authenticated = False
         self.failed_attempts = 0
         self.lockout_until = 0.0
+        self.last_activity = 0.0
+
+    @property
+    def is_authenticated(self) -> bool:
+        if not self._is_authenticated:
+            return False
+        if self.is_session_expired():
+            self.lock_session()
+            return False
+        return True
+
+    def is_session_expired(self) -> bool:
+        if not self._is_authenticated:
+            return True
+        return (time.time() - self.last_activity) > SESSION_TIMEOUT
 
     def is_password_set(self) -> bool:
         data = _read_settings()
@@ -72,7 +88,8 @@ class LockedFolderService:
         
         # Auto-authenticate user immediately on password setup
         self.session_key = dek
-        self.is_authenticated = True
+        self._is_authenticated = True
+        self.last_activity = time.time()
         self.failed_attempts = 0
         self.lockout_until = 0.0
         logger.info("Locked Folder password successfully configured with Argon2id and DEK/KEK envelope encryption.")
@@ -134,7 +151,8 @@ class LockedFolderService:
             fernet_kek = Fernet(kek)
             dek = fernet_kek.decrypt(encrypted_dek.encode("utf-8"))
             self.session_key = dek
-            self.is_authenticated = True
+            self._is_authenticated = True
+            self.last_activity = time.time()
             logger.info("Locked Folder session successfully authenticated.")
             return True
         except Exception as e:
@@ -143,7 +161,8 @@ class LockedFolderService:
 
     def lock_session(self):
         self.session_key = None
-        self.is_authenticated = False
+        self._is_authenticated = False
+        self.last_activity = 0.0
         logger.info("Locked Folder session closed.")
 
     async def encrypt_file(self, file_path: str) -> bool:

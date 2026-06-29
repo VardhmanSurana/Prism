@@ -8,6 +8,7 @@ import { PhotoGrid } from './PhotoGrid';
 import { LockedViewAuth } from './LockedViewAuth/index';
 import { LockedFolderView } from './LockedFolderView';
 import { AgentView } from './AgentView/AgentView';
+import { FrameView } from './FrameView';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../types';
 import { ImportProgressStatus } from './PhotoGrid/types';
 
@@ -83,6 +84,8 @@ export const MainContent = React.memo(function MainContent({
         return <PeopleView onPhotoClick={onPhotoClick} onPhotosLoaded={onPhotosLoaded} />;
       case 'map':
         return <MapView photos={photos} onPhotoClick={onPhotoClick} />;
+      case 'frame':
+        return <FrameView />;
       case 'utilities':
         return (
           <UtilitiesView 

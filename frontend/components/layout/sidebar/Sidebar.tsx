@@ -12,6 +12,7 @@ import {
   Sparkles,
   Users,
   Bot,
+  MonitorPlay,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { GlassMaterial, GlassEffectContainer } from '@/components/GlassMaterial';
@@ -42,6 +43,7 @@ const LIBRARY_NAV: NavItemData[] = [
 const UTILITY_NAV: NavItemData[] = [
   { view: 'utilities', icon: Settings, label: 'Utilities' },
   { view: 'locked', icon: Lock, label: 'Locked Folder' },
+  { view: 'frame', icon: MonitorPlay, label: 'Photo Frame' },
 ];
 
 export const Sidebar: React.FC<{

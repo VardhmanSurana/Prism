@@ -13,7 +13,8 @@ import {
   MousePointer2,
   Highlighter,
   Type,
-  Sparkles
+  Sparkles,
+  Smile
 } from 'lucide-react';
 import { DrawToolId } from './types';
 
@@ -30,6 +31,7 @@ const DRAW_TOOLS: { id: DrawToolId; name: string; icon: React.ComponentType<any>
   { id: 'circle', name: 'Circle', icon: Circle },
   { id: 'highlighter', name: 'Highlight', icon: Highlighter },
   { id: 'text', name: 'Text', icon: Type },
+  { id: 'emoji', name: 'Emoji', icon: Smile },
   { id: 'textPath', name: 'Text Doodle', icon: Sparkles },
   { id: 'eraser', name: 'Eraser', icon: Eraser },
 ];

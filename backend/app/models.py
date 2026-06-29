@@ -54,12 +54,20 @@ class Photo(Base):
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     auto_tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
     embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
+    ocr_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True, default=None)
 
     # Sharpness / Blur estimation
     blur_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None, index=True)
 
     # Pre-cached file size (bytes)
     file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
+
+    # Video-specific fields
+    duration: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
+    fps: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
+    codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
+    audio_codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
+    video_faces_scanned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
     # Relationships
     people: Mapped[list["PhotoPerson"]] = relationship("PhotoPerson", back_populates="photo", cascade="all, delete-orphan")

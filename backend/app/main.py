@@ -1,5 +1,5 @@
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Depends
 from fastapi.responses import FileResponse
 import urllib.parse
 from app.utils.security import safe_resolve_read
@@ -7,9 +7,17 @@ from app.utils.security import safe_resolve_read
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.config import settings
+
+
+async def verify_api_key(request: Request):
+    if not settings.API_KEY:
+        return
+    key = request.headers.get("X-API-Key")
+    if key != settings.API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 from app.db import engine, init_db
 from app.models import Base
-from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api
+from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api, explore as explore_api
 from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
@@ -34,8 +42,8 @@ async def lifespan(app: FastAPI):
     logger.info("Main app starting up...")
     # Clean up any orphaned llama-server processes on startup to reclaim VRAM
     try:
-        import subprocess
-        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+        from app.services.ai_orchestrator import AIOrchestrator
+        AIOrchestrator.stop_server()
     except Exception as e:
         logger.warning(f"Failed to clean up orphaned llama-server processes: {e}")
 
@@ -59,10 +67,23 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN embedding TEXT"))
         if "event_id" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN event_id INTEGER"))
- 
+        if "ocr_text" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN ocr_text TEXT"))
+        if "duration" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN duration FLOAT"))
+        if "fps" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN fps FLOAT"))
+        if "codec" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN codec VARCHAR(50)"))
+        if "audio_codec" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN audio_codec VARCHAR(50)"))
+        if "video_faces_scanned" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN video_faces_scanned BOOLEAN DEFAULT 0"))
+
         # Create index on blur_score and event_id
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_blur_score ON photos (blur_score)"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_event_id ON photos (event_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_video_faces_scanned ON photos (video_faces_scanned)"))
 
         # Setup FTS5 Full Text Search Table and Triggers
         await conn.execute(text("""
@@ -74,15 +95,38 @@ async def lifespan(app: FastAPI):
                 city,
                 country,
                 ai_summary,
-                auto_tags
+                auto_tags,
+                ocr_text
             )
         """))
+
+        # Migrate FTS5 table to include ocr_text if missing
+        res_fts_info = await conn.execute(text("PRAGMA table_info(photos_fts)"))
+        fts_columns = [row[1] for row in res_fts_info.fetchall()]
+        if "ocr_text" not in fts_columns:
+            logger.info("Migrating photos_fts to include ocr_text column...")
+            await conn.execute(text("DROP TABLE IF EXISTS photos_fts"))
+            await conn.execute(text("""
+                CREATE VIRTUAL TABLE photos_fts USING fts5(
+                    photo_id UNINDEXED,
+                    filename, caption, location, city, country,
+                    ai_summary, auto_tags, ocr_text
+                )
+            """))
+            await conn.execute(text("DROP TRIGGER IF EXISTS after_photo_insert"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS after_photo_delete"))
+            await conn.execute(text("DROP TRIGGER IF EXISTS after_photo_update"))
+            await conn.execute(text("""
+                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags, ocr_text)
+                SELECT id, filename, caption, location, city, country, ai_summary, auto_tags, ocr_text FROM photos
+            """))
+            logger.info("FTS5 table migrated with ocr_text column.")
 
         await conn.execute(text("""
             CREATE TRIGGER IF NOT EXISTS after_photo_insert AFTER INSERT ON photos
             BEGIN
-                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags)
-                VALUES (new.id, new.filename, new.caption, new.location, new.city, new.country, new.ai_summary, new.auto_tags);
+                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags, ocr_text)
+                VALUES (new.id, new.filename, new.caption, new.location, new.city, new.country, new.ai_summary, new.auto_tags, new.ocr_text);
             END;
         """))
 
@@ -103,7 +147,8 @@ async def lifespan(app: FastAPI):
                     city = new.city,
                     country = new.country,
                     ai_summary = new.ai_summary,
-                    auto_tags = new.auto_tags
+                    auto_tags = new.auto_tags,
+                    ocr_text = new.ocr_text
                 WHERE photo_id = old.id;
             END;
         """))
@@ -113,9 +158,35 @@ async def lifespan(app: FastAPI):
         if res_fts.scalar() == 0:
             logger.info("FTS5 table is empty. Populating from existing photos table...")
             await conn.execute(text("""
-                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags)
-                SELECT id, filename, caption, location, city, country, ai_summary, auto_tags FROM photos
+                INSERT INTO photos_fts(photo_id, filename, caption, location, city, country, ai_summary, auto_tags, ocr_text)
+                SELECT id, filename, caption, location, city, country, ai_summary, auto_tags, ocr_text FROM photos
             """))
+
+    # Auto-purge trashed photos older than 30 days
+    try:
+        from datetime import datetime, timezone, timedelta
+        from sqlalchemy import select as sa_select, and_ as sa_and
+        from app.db import async_session
+        from app.models import Photo
+        async with async_session() as db:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+            stmt = sa_select(Photo).where(sa_and(Photo.is_trash == True, Photo.upload_date < cutoff))
+            result = await db.execute(stmt)
+            old_trash = result.scalars().all()
+            deleted = 0
+            for photo in old_trash:
+                try:
+                    if photo.path and os.path.exists(photo.path):
+                        os.remove(photo.path)
+                except Exception:
+                    pass
+                await db.delete(photo)
+                deleted += 1
+            if deleted > 0:
+                await db.commit()
+                logger.info(f"Auto-purged {deleted} trashed photos older than 30 days.")
+    except Exception as e:
+        logger.error(f"Failed to auto-purge trash: {e}")
 
     # Initialize Sync Service
     await sync_service.initialize()
@@ -146,8 +217,8 @@ async def lifespan(app: FastAPI):
     
     # Clean up llama-server processes on shutdown
     try:
-        import subprocess
-        subprocess.run(["pkill", "-f", "llama-server"], capture_output=True)
+        from app.services.ai_orchestrator import AIOrchestrator
+        AIOrchestrator.stop_server()
     except Exception as e:
         logger.warning(f"Failed to clean up llama-server processes on shutdown: {e}")
 
@@ -165,11 +236,12 @@ app.add_middleware(
         "tauri://localhost",
         "http://tauri.localhost",
         "http://localhost:3005",
-        "http://127.0.0.1:3005",  # Vite/Tauri frontend dev URL (127.0.0.1 variant)
+        "http://127.0.0.1:3005",
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Serve local files directly
@@ -313,6 +385,18 @@ async def serve_photo_thumbnail(photo_id: int, size: int = 400):
         return Response(content=thumb_data, media_type="image/webp")
         
     else:
+        is_video = photo.file_type == "video"
+        if is_video:
+            if photo.url and photo.url.startswith("/thumbnails/"):
+                thumb_name = photo.url.split("/thumbnails/")[-1]
+                thumb_path = settings.THUMBNAILS_DIR / thumb_name
+                if thumb_path.exists():
+                    return FileResponse(str(thumb_path))
+            resolved_path = safe_resolve_read(photo.path)
+            if not resolved_path.exists():
+                raise HTTPException(status_code=404, detail="Video file not found")
+            return FileResponse(str(resolved_path))
+
         # For non-default sizes or HEIC originals, generate on the fly if needed
         is_heic = photo.path.lower().endswith('.heic') or photo.filename.lower().endswith('.heic')
         if size != 400 or is_heic:
@@ -358,20 +442,24 @@ app.mount("/thumbnails", StaticFiles(directory=str(settings.THUMBNAILS_DIR)), na
 
 # Include Routers - Photos API
 logger.debug(f"Adding metadata router: {photos.metadata_router.routes}")
-app.include_router(photos.listing_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.directory_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.upload_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.metadata_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.lock_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.favorite_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(photos.trash_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"])
-app.include_router(inpaint_api.router, tags=["inpaint"])
-app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings"])
-app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"])
-app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"])
-app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", tags=["people"])
-app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"])
-app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["summaries"])
+app.include_router(photos.listing_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.directory_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.upload_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.metadata_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.lock_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.favorite_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.trash_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(inpaint_api.router, tags=["inpaint"], dependencies=[Depends(verify_api_key)])
+app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings"], dependencies=[Depends(verify_api_key)])
+app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"], dependencies=[Depends(verify_api_key)])
+app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"], dependencies=[Depends(verify_api_key)])
+app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", tags=["people"], dependencies=[Depends(verify_api_key)])
+app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"], dependencies=[Depends(verify_api_key)])
+app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["summaries"], dependencies=[Depends(verify_api_key)])
+app.include_router(explore_api.router, prefix=f"{settings.API_V1_STR}/explore", tags=["explore"], dependencies=[Depends(verify_api_key)])
+
+from app.api.photos import ocr as ocr_api
+app.include_router(ocr_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["ocr"], dependencies=[Depends(verify_api_key)])
 
 
 @app.get("/")
@@ -384,4 +472,4 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8269, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=8269, reload=True)

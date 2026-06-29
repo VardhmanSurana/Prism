@@ -4,6 +4,7 @@ export interface FileEntry {
   is_hidden: boolean;
   size_bytes?: number;
   is_image?: boolean;
+  is_video?: boolean;
 }
 
 export interface FolderEntry {

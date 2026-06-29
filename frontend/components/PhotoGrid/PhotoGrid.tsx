@@ -25,15 +25,12 @@ import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
 import { 
   Image as ImageIcon, 
-  Users, 
-  FolderOpen, 
-  Lock, 
+  FolderOpen,
   Search, 
   SlidersHorizontal, 
   LayoutGrid, 
   Rows, 
   FolderUp,
-  Check,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -67,23 +64,12 @@ EmptyLibraryState.displayName = 'EmptyLibraryState';
 interface StatsCardProps {
   label: string;
   value: string;
-  icon: React.ReactNode;
-  gradient: string;
-  iconBg: string;
 }
 
-const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value, icon, gradient, iconBg }) => (
-  <div className="p-7 bg-surface border border-border rounded-2xl flex flex-col justify-between transition-all duration-500 hover:-translate-y-1 hover:bg-surfaceHover hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.8)] relative group overflow-hidden">
-    <div className={`absolute -inset-px bg-gradient-to-r ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none rounded-2xl`} />
-    <div className="flex items-center justify-between mb-4 relative z-10">
-      <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${iconBg}`}>
-        {icon}
-      </div>
-    </div>
-    <span className="text-4xl font-bold font-sans text-white tracking-tight leading-none relative z-10">
-      {value}
-    </span>
+const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value }) => (
+  <div className="flex items-baseline gap-2 py-1">
+    <span className="text-2xl font-bold font-sans text-white tracking-tight">{value}</span>
+    <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
   </div>
 ));
 StatsCard.displayName = 'StatsCard';
@@ -383,7 +369,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                         handleFileUpload();
                         setIsImportOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-md transition-colors font-medium"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover active:scale-[0.98] rounded-md transition-all font-medium"
                     >
                       <ImageIcon size={16} className="text-purple-400" />
                       <span>Import Files</span>
@@ -393,7 +379,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                         handleFolderImport();
                         setIsImportOpen(false);
                       }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover rounded-md transition-colors font-medium"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover active:scale-[0.98] rounded-md transition-all font-medium"
                     >
                       <FolderOpen size={16} className="text-emerald-400" />
                       <span>Import Folder</span>
@@ -414,34 +400,22 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
                 className="overflow-hidden w-full"
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 select-none pt-1 pb-1">
+                <div className="flex items-center gap-8 select-none pt-1 pb-1 border-t border-white/5">
                   <StatsCard
-                    label="Total Photos"
+                    label="photos"
                     value={stats ? stats.total_photos.toLocaleString() : photos.length.toLocaleString()}
-                    icon={<ImageIcon size={18} className="text-purple-400" />}
-                    gradient="from-purple-500/5 to-transparent"
-                    iconBg="bg-purple-500/10"
                   />
                   <StatsCard
-                    label="People Found"
+                    label="people"
                     value={stats ? stats.people_found.toLocaleString() : '0'}
-                    icon={<Users size={18} className="text-emerald-400" />}
-                    gradient="from-emerald-500/5 to-transparent"
-                    iconBg="bg-emerald-500/10"
                   />
                   <StatsCard
-                    label="Albums"
+                    label="albums"
                     value={stats ? stats.albums.toLocaleString() : '0'}
-                    icon={<FolderOpen size={18} className="text-orange-400" />}
-                    gradient="from-orange-500/5 to-transparent"
-                    iconBg="bg-orange-500/10"
                   />
                   <StatsCard
-                    label="Locked Folder"
+                    label="locked"
                     value={stats ? stats.locked_encrypted.toLocaleString() : '0'}
-                    icon={<Lock size={18} className="text-rose-400" />}
-                    gradient="from-rose-500/5 to-transparent"
-                    iconBg="bg-rose-500/10"
                   />
                 </div>
               </motion.div>

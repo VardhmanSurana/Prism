@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, Suspense } from 'react';
+import React, { useCallback, useMemo, Suspense, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
@@ -9,6 +9,8 @@ import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
 import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
+import { CollageMaker } from './components/CollageMaker';
+import { PhotoBook } from './components/PhotoBook';
 import type { ViewMode } from './types';
 
 const Lightbox = React.lazy(() =>
@@ -84,12 +86,17 @@ function App() {
 
   const handleLightboxToggleFavorite = useCallback(async (id: string | number) => {
     await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
-    setPhotos(prev => prev.map(p =>
-      String(p.id) === String(id)
-        ? { ...p, isFavorite: !p.isFavorite, is_favorite: !p.is_favorite }
-        : p
-    ));
-  }, [setPhotos]);
+    setPhotos(prev => {
+      const updated = prev.map(p =>
+        String(p.id) === String(id)
+          ? { ...p, isFavorite: !p.isFavorite, is_favorite: !p.is_favorite }
+          : p
+      );
+      const toggled = updated.find(p => String(p.id) === String(id));
+      if (toggled) setSelectedPhoto(toggled);
+      return updated;
+    });
+  }, [setPhotos, setSelectedPhoto]);
 
   const handleLightboxRemoveFromAlbum = useMemo(() =>
     selectedAlbum ? () => selectedPhoto && handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined,
@@ -106,6 +113,17 @@ function App() {
   const handleLightboxClose = useCallback(() => setSelectedPhoto(null), [setSelectedPhoto]);
 
   const handleAddToAlbumClose = useCallback(() => setIsAddToAlbumOpen(false), [setIsAddToAlbumOpen]);
+
+  const [isCollageOpen, setIsCollageOpen] = useState(false);
+  const [isPhotoBookOpen, setIsPhotoBookOpen] = useState(false);
+
+  const selectedPhotos = useMemo(() =>
+    displayedPhotos.filter(p => selectedIds.has(String(p.id))),
+    [displayedPhotos, selectedIds]
+  );
+
+  const handleCollage = useCallback(() => setIsCollageOpen(true), []);
+  const handlePhotoBook = useCallback(() => setIsPhotoBookOpen(true), []);
 
   return (
     <ErrorBoundary>
@@ -169,6 +187,8 @@ function App() {
                 onToggleLock={handleBulkLockToggle}
                 onDelete={handleBulkDelete}
                 onRestore={handleBulkRestore}
+                onCollage={handleCollage}
+                onPhotoBook={handlePhotoBook}
               />
             )}
           </AnimatePresence>
@@ -208,6 +228,17 @@ function App() {
           <ConfirmDialog />
           <FileFolderBrowserDialog />
         </Suspense>
+
+        <CollageMaker
+          photos={selectedPhotos}
+          isOpen={isCollageOpen}
+          onClose={() => { setIsCollageOpen(false); clearSelection(); }}
+        />
+        <PhotoBook
+          photos={selectedPhotos}
+          isOpen={isPhotoBookOpen}
+          onClose={() => { setIsPhotoBookOpen(false); clearSelection(); }}
+        />
       </div>
     </ErrorBoundary>
   );

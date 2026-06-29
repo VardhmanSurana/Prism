@@ -14,7 +14,8 @@ export interface Preset {
   id: string;
   name: string;
   description: string;
-  accent: string; // CSS color for the swatch card
+  accent: string;
+  category: string;
   adjustments: Partial<Adjustments>;
 }
 
@@ -35,6 +36,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Studio Clean',
     description: 'Neutral, crisp and balanced',
     accent: 'linear-gradient(135deg, #e8e8e8 0%, #c0c0c0 100%)',
+    category: 'Portrait',
     adjustments: {
       contrast: 8, brightness: 3, sharpness: 20, clarity: 10,
     },
@@ -44,6 +46,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Golden Hour',
     description: 'Warm sunset glow',
     accent: 'linear-gradient(135deg, #f6a935 0%, #e05c1a 100%)',
+    category: 'Film',
     adjustments: {
       temperature: 40, exposure: 10, highlights: -15, shadows: 20,
       saturation: 15, vibrance: 20, contrast: 10,
@@ -54,6 +57,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Cinematic Teal',
     description: 'Hollywood teal & orange grade',
     accent: 'linear-gradient(135deg, #0d9488 0%, #0f766e 100%)',
+    category: 'Film',
     adjustments: {
       temperature: -20, contrast: 25, shadows: -10, blacks: 15,
       saturation: -10, vibrance: 25, clarity: 15,
@@ -64,6 +68,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Soft Matte',
     description: 'Lifted blacks, faded look',
     accent: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
+    category: 'Vintage',
     adjustments: {
       blacks: -30, whites: -10, contrast: -15, brightness: 8,
       saturation: -15, clarity: -10,
@@ -74,6 +79,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Kodachrome',
     description: 'Rich saturated slide film',
     accent: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    category: 'Film',
     adjustments: {
       contrast: 20, saturation: 35, vibrance: 15, shadows: 10,
       blacks: 10, temperature: 15, clarity: 8,
@@ -84,6 +90,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Fuji Chrome',
     description: 'Cool, vivid transparency film',
     accent: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    category: 'Film',
     adjustments: {
       temperature: -10, contrast: 18, saturation: 25, highlights: -8,
       shadows: 15, clarity: 12, sharpness: 15,
@@ -94,6 +101,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Velvia Pop',
     description: 'Hyper-saturated landscape film',
     accent: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    category: 'Landscape',
     adjustments: {
       saturation: 50, vibrance: 30, contrast: 22, clarity: 20,
       shadows: 12, blacks: 8, sharpness: 25,
@@ -104,6 +112,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Noir',
     description: 'Deep black & white drama',
     accent: 'linear-gradient(135deg, #374151 0%, #111827 100%)',
+    category: 'Film',
     adjustments: {
       saturation: -100, contrast: 35, clarity: 25, sharpness: 20,
       blacks: 20, shadows: -15, highlights: -20,
@@ -114,6 +123,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'B&W Classic',
     description: 'Timeless monochrome',
     accent: 'linear-gradient(135deg, #9ca3af 0%, #4b5563 100%)',
+    category: 'Film',
     adjustments: {
       saturation: -100, contrast: 15, clarity: 10, sharpness: 15,
     },
@@ -123,6 +133,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Faded Film',
     description: 'Vintage washed-out analog',
     accent: 'linear-gradient(135deg, #d4a76a 0%, #b5835a 100%)',
+    category: 'Vintage',
     adjustments: {
       blacks: -20, whites: -15, contrast: -20, brightness: 10,
       saturation: -20, temperature: 20, clarity: -15,
@@ -133,6 +144,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Faded Polaroid',
     description: 'Lo-fi instant film nostalgia',
     accent: 'linear-gradient(135deg, #fbbf24 0%, #f97316 100%)',
+    category: 'Vintage',
     adjustments: {
       brightness: 12, contrast: -10, saturation: -25, temperature: 25,
       blacks: -25, whites: -10, vignette: -30,
@@ -143,6 +155,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Cool Breeze',
     description: 'Fresh airy blues',
     accent: 'linear-gradient(135deg, #7dd3fc 0%, #3b82f6 100%)',
+    category: 'Landscape',
     adjustments: {
       temperature: -35, contrast: 10, highlights: -10, shadows: 20,
       vibrance: 20, saturation: 10, brightness: 5,
@@ -153,6 +166,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Warm Summer',
     description: 'Sun-drenched afternoon haze',
     accent: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
+    category: 'Landscape',
     adjustments: {
       temperature: 30, exposure: 8, shadows: 18, contrast: 12,
       saturation: 20, vibrance: 15, highlights: -10,
@@ -163,9 +177,10 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Dramatic Dark',
     description: 'Moody shadows, crushed blacks',
     accent: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+    category: 'Portrait',
     adjustments: {
       exposure: -15, contrast: 40, blacks: 30, highlights: -30,
-      shadows: -20, clarity: 30, saturation: -10,
+      shadows: -20, clarity: 30, saturation: -10, dehaze: 30,
     },
   },
   {
@@ -173,6 +188,7 @@ export const CURATED_PRESETS: Preset[] = [
     name: 'Pastel Dream',
     description: 'Soft dreamy pastel tones',
     accent: 'linear-gradient(135deg, #f9a8d4 0%, #c084fc 100%)',
+    category: 'Portrait',
     adjustments: {
       brightness: 15, contrast: -15, saturation: -10, whites: -20,
       blacks: -25, clarity: -20, temperature: 8,
