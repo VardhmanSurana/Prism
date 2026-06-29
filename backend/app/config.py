@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     ENABLE_AI_CLIP: bool = False
     ENABLE_AI_REMBG: bool = False
     ENABLE_AI_OCR: bool = False
+    ENABLE_AI_SUBTITLES: bool = False
 
     # Video face detection settings
     VIDEO_FACE_SCENE_THRESHOLD: float = 0.3

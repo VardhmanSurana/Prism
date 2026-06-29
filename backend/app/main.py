@@ -17,7 +17,7 @@ async def verify_api_key(request: Request):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 from app.db import engine, init_db
 from app.models import Base
-from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api, explore as explore_api
+from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api, explore as explore_api, video as video_api
 from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
@@ -457,6 +457,7 @@ app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", ta
 app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"], dependencies=[Depends(verify_api_key)])
 app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["summaries"], dependencies=[Depends(verify_api_key)])
 app.include_router(explore_api.router, prefix=f"{settings.API_V1_STR}/explore", tags=["explore"], dependencies=[Depends(verify_api_key)])
+app.include_router(video_api.router, prefix=f"{settings.API_V1_STR}", tags=["video"], dependencies=[Depends(verify_api_key)])
 
 from app.api.photos import ocr as ocr_api
 app.include_router(ocr_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["ocr"], dependencies=[Depends(verify_api_key)])
