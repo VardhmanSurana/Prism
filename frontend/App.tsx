@@ -140,8 +140,6 @@ function App() {
           {currentView !== 'gallery' && currentView !== 'agent' && (
             <Header
               onSearch={setActiveFilters}
-              onUpload={handleUpload}
-              onImportProgress={setImportStatus}
               sortMode={sortMode}
               onSortChange={setSortMode}
             />

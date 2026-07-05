@@ -16,7 +16,6 @@ import {
 } from './constants';
 import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
-import { useImport } from '../../hooks/import';
 import { API_BASE } from '../../constants';
 import { NotificationsButton } from '@/components/layout/header/NotificationsButton';
 import { useSyncStore } from '@/store/syncStore';
@@ -25,12 +24,10 @@ import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
 import { 
   Image as ImageIcon, 
-  FolderOpen,
   Search, 
   SlidersHorizontal, 
   LayoutGrid, 
   Rows, 
-  FolderUp,
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -85,8 +82,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onToggleGroupSelection,
   scrollParentRef,
   onSearch,
-  onUpload,
-  onImportProgress,
   onUpdatePhotos,
   onBulkFavorite,
   onBulkDelete,
@@ -99,35 +94,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [activePill, setActivePill] = useState<'all' | 'favorites' | 'recent' | 'videos'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isImportOpen, setIsImportOpen] = useState(false);
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
-  const importMenuRef = useRef<HTMLDivElement>(null);
 
   // Gallery layout settings
   const { rowHeightPx, maxRowWidth } = useGalleryLayout();
 
   // Stats Integration
   const { stats, refetch: refetchStats } = useStats(photos.length);
-
-  // Ingestion drop-down handles
-  const { handleFileUpload, handleFolderImport } = useImport({
-    onUpload: (newPhotos) => {
-      onUpload?.(newPhotos);
-      refetchStats();
-    },
-    onImportProgress: onImportProgress || (() => {}),
-  });
-
-  // Handle click outside of import menu
-  useEffect(() => {
-    const clickOutside = (e: MouseEvent) => {
-      if (importMenuRef.current && !importMenuRef.current.contains(e.target as Node)) {
-        setIsImportOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', clickOutside, { passive: true });
-    return () => document.removeEventListener('mousedown', clickOutside);
-  }, []);
 
   // Clientside Pill Filtering and sorting logic
   const filteredPhotos = useMemo(() => {
@@ -350,43 +323,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
               {/* Notifications Button */}
               <NotificationsButton />
-
-              {/* Integrated Import Dropdown Button */}
-              <div className="relative" ref={importMenuRef}>
-                <button
-                  onClick={() => setIsImportOpen(!isImportOpen)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-black hover:brightness-110 font-bold rounded-lg text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(var(--color-primary),0.15)] transition-all active:scale-95"
-                >
-                  <FolderUp size={15} />
-                  <span>Import</span>
-                  <ChevronDown size={12} className={`transition-transform duration-200 ${isImportOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {isImportOpen && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-lg shadow-2xl p-1 z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-                    <button
-                      onClick={() => {
-                        handleFileUpload();
-                        setIsImportOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover active:scale-[0.98] rounded-md transition-all font-medium"
-                    >
-                      <ImageIcon size={16} className="text-purple-400" />
-                      <span>Import Files</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleFolderImport();
-                        setIsImportOpen(false);
-                      }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm text-gray-300 hover:bg-surfaceHover active:scale-[0.98] rounded-md transition-all font-medium"
-                    >
-                      <FolderOpen size={16} className="text-emerald-400" />
-                      <span>Import Folder</span>
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
