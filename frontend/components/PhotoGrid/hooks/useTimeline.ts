@@ -74,8 +74,8 @@ export const useTimeline = (
 
       if (scrollHeight === 0) return;
 
-      const centerPixel = scrollTop + clientHeight / 2;
-      const progress = centerPixel / scrollHeight;
+      const maxScroll = scrollHeight - clientHeight;
+      const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
 
       setScrollState({ progress, height: scrollHeight });
 
