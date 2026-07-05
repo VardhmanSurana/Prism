@@ -73,13 +73,13 @@ export function usePhotoSorting({
     }
 
     if (sortMode === 'newest') {
-      return result.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return result.sort((a, b) => (b.dateTimestamp ?? new Date(b.date).getTime()) - (a.dateTimestamp ?? new Date(a.date).getTime()));
     }
     if (sortMode === 'oldest') {
-      return result.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      return result.sort((a, b) => (a.dateTimestamp ?? new Date(a.date).getTime()) - (b.dateTimestamp ?? new Date(b.date).getTime()));
     }
     if (sortMode === 'added') {
-      return result.sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+      return result.sort((a, b) => (b.uploadDateTimestamp ?? new Date(b.uploadDate ?? '').getTime()) - (a.uploadDateTimestamp ?? new Date(a.uploadDate ?? '').getTime()));
     }
     return result;
   }, [currentView, activeFilters, photos, sortMode]);
