@@ -23,6 +23,7 @@ export function usePhotoSorting({
   onSetContextPhotos
 }: UsePhotoSortingProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isScrollingRef = useRef(false);
 
   const displayedPhotos = useMemo(() => {
     const isTrashView = currentView === 'trash';
@@ -84,9 +85,17 @@ export function usePhotoSorting({
   }, [currentView, activeFilters, photos, sortMode]);
 
   const handleScroll = useCallback(() => {
-    if (scrollRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
-      if (scrollTop + clientHeight >= scrollHeight - 500) onFetchPhotos();
+    if (!isScrollingRef.current) {
+      isScrollingRef.current = true;
+      requestAnimationFrame(() => {
+        if (scrollRef.current) {
+          const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+          if (scrollTop + clientHeight >= scrollHeight - 500) {
+            onFetchPhotos();
+          }
+        }
+        isScrollingRef.current = false;
+      });
     }
   }, [onFetchPhotos]);
 
