@@ -81,7 +81,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
         className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all select-none shrink-0
           ${
             isSelected
-              ? 'bg-primary border-primary text-white'
+              ? 'bg-primary border-primary text-black'
               : 'border-white/20 hover:border-white/50 bg-black/20 text-transparent'
           }
         `}

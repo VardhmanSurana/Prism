@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Play } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { PhotoItemProps } from './types';
 import { LazyImage } from '../LazyImage';
 import { formatDuration } from '@/utils/formatDuration';
@@ -18,8 +18,12 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
 }) => {
   const aspectRatio = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
   const [isHovering, setIsHovering] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [animFailed, setAnimFailed] = useState(false);
   const isVideo = photo.type === 'video' || photo.file_type === 'video';
+
+  const animSrc = photo.animated_url && !animFailed
+    ? resolveUrl(photo.animated_url)
+    : null;
 
   return (
     <motion.div
@@ -28,20 +32,8 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       role="button"
       aria-label={photo.caption || 'Photo'}
       aria-pressed={isSelected}
-      onMouseEnter={() => {
-        setIsHovering(true);
-        if (isVideo && videoRef.current) {
-          videoRef.current.currentTime = 0;
-          videoRef.current.play().catch(() => {});
-        }
-      }}
-      onMouseLeave={() => {
-        setIsHovering(false);
-        if (videoRef.current) {
-          videoRef.current.pause();
-          videoRef.current.currentTime = 0;
-        }
-      }}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
       onClick={(e) => {
         if (isSelectionMode || e.shiftKey) {
           e.preventDefault();
@@ -81,35 +73,23 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         alt={photo.caption || 'Photo'}
         className="w-full h-full object-cover transition-transform duration-500"
       />
-      {/* Hover video preview for videos */}
-      {isHovering && isVideo && (
-        <video
-          ref={videoRef}
-          src={resolveUrl(`local://${photo.path}`)}
-          muted
-          loop
-          playsInline
+      {/* Animated WebP hover preview for videos — zero GStreamer pipeline cost */}
+      {isHovering && isVideo && animSrc && (
+        <img
+          src={animSrc}
+          alt=""
+          onError={() => setAnimFailed(true)}
           className="absolute inset-0 w-full h-full object-cover z-[1]"
         />
       )}
 
-      {/* Video play icon + duration badge */}
-      {isVideo && (
-        <>
-          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
-            <div className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center
-                         group-hover:scale-110 transition-transform duration-300">
-              <Play size={18} fill="white" className="text-white ml-0.5" />
-            </div>
-          </div>
-          {photo.duration != null && (
-            <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-              <span className="bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                {formatDuration(photo.duration)}
-              </span>
-            </div>
-          )}
-        </>
+      {/* Video duration badge */}
+      {isVideo && photo.duration != null && (
+        <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+          <span className="bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+            {formatDuration(photo.duration)}
+          </span>
+        </div>
       )}
 
       <div
@@ -130,7 +110,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all shadow-xl backdrop-blur-md
             ${
               isSelected
-                ? 'bg-primary border-primary text-white'
+                ? 'bg-primary border-primary text-black'
                 : 'bg-black/20 border-white/20 hover:bg-white/10 text-white'
             }
         `}

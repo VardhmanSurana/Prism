@@ -45,7 +45,7 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
           >
             <Check
               size={14}
-              className={`${allSelected || someSelected ? 'opacity-100' : 'opacity-0'} text-white transition-opacity`}
+              className={`${allSelected || someSelected ? 'opacity-100' : 'opacity-0'} ${allSelected ? 'text-black' : 'text-primary'} transition-opacity`}
             />
           </div>
           <div className="flex flex-col">
