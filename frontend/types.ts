@@ -6,8 +6,10 @@ export interface Photo {
   height: number;
   aspect_ratio?: number;
   date: string;           // ISO string (Creation Date / date_taken)
+  dateTimestamp?: number;
   date_taken?: string;
   uploadDate?: string;    // camelCase alias used in App.tsx sorting
+  uploadDateTimestamp?: number;
   upload_date?: string;   // snake_case as returned by backend
   location?: string;
   caption?: string;
@@ -26,6 +28,7 @@ export interface Photo {
   fps?: number;
   codec?: string;
   audio_codec?: string;
+  animated_url?: string;
   ai_summary?: string;
   latitude?: number;
   longitude?: number;
@@ -51,11 +54,24 @@ export interface AlbumMetadata {
 export interface Album {
   id: number;
   name: string;
-  type: 'places' | 'memories' | 'people';
+  type: 'places' | 'memories' | 'people' | 'custom' | 'smart';
   photo_count: number;
   cover_url?: string;
   metadata?: AlbumMetadata;
+  is_smart?: boolean;
+  smart_type?: 'screenshots' | 'documents';
 }
+
+export interface SmartAlbum {
+  id: string;
+  name: string;
+  type: 'smart';
+  smart_type: 'screenshots' | 'documents';
+  photo_count: number;
+  cover_url?: string;
+}
+
+export type AnyAlbum = Album | SmartAlbum;
 
 export interface Place {
   id: string;
@@ -64,7 +80,7 @@ export interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent' | 'frame';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'agent';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
@@ -103,6 +119,7 @@ export interface RawPhoto {
   fps?: number;
   codec?: string;
   audio_codec?: string;
+  animated_url?: string;
   ai_summary?: string;
   latitude?: number;
   longitude?: number;
@@ -147,6 +164,10 @@ export function normalizePhoto(raw: RawPhoto): Photo {
   const sanitizedDate = sanitizeDateString(rawDate);
   const rawUploadDate = raw.upload_date ?? raw.uploadDate ?? rawDate;
   const sanitizedUploadDate = sanitizeDateString(rawUploadDate);
+
+  const dateTimestamp = sanitizedDate ? new Date(sanitizedDate).getTime() : 0;
+  const uploadDateTimestamp = sanitizedUploadDate ? new Date(sanitizedUploadDate).getTime() : dateTimestamp;
+
   return {
     ...raw,
     id: raw.id,
@@ -162,6 +183,8 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     isTrash: raw.is_trash ?? raw.isTrash ?? false,
     // Date fields
     uploadDate: sanitizedUploadDate,
+    dateTimestamp,
+    uploadDateTimestamp,
     // Keep original fields for compatibility
     is_favorite: raw.is_favorite ?? raw.isFavorite ?? false,
     is_locked: isLocked,
@@ -175,5 +198,6 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     fps: raw.fps,
     codec: raw.codec,
     audio_codec: raw.audio_codec,
+    animated_url: raw.animated_url,
   };
 }
