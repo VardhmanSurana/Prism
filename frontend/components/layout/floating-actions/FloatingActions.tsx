@@ -59,7 +59,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.95 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-18 right-0 w-52 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 mb-2 z-50"
+              className="absolute bottom-[72px] right-0 w-52 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 mb-2 z-50"
             >
               {/* Context menu arrow */}
               <div className="absolute right-[22px] -bottom-1.5 w-3 h-3 bg-surface border-r border-b border-border rotate-45 z-[-1]" />
