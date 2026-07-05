@@ -26,6 +26,7 @@ export const useTimeline = (
         const year = date.getFullYear().toString();
         const month = date.toLocaleDateString('en-US', { month: 'short' });
 
+        let monthOffset = 0;
         if (year !== lastYear) {
           items.push({
             id: `year-${year}`,
@@ -34,6 +35,7 @@ export const useTimeline = (
             progress: currentTop / totalSize,
           });
           lastYear = year;
+          monthOffset = 24;
         }
 
         if (!items.find((i) => i.id === `month-${item.dateKey}`)) {
@@ -41,7 +43,7 @@ export const useTimeline = (
             id: `month-${item.dateKey}`,
             label: month,
             type: 'month',
-            progress: currentTop / totalSize,
+            progress: (currentTop + monthOffset) / totalSize,
           });
         }
       }

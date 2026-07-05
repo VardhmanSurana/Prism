@@ -67,7 +67,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
                   handleFileUpload();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-4 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-lg shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
+                className="flex items-center gap-2.5 px-5 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-full shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
               >
                 <ImageIcon size={14} className="text-purple-400" />
                 <span>Import Files</span>
@@ -79,7 +79,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
                   handleFolderImport();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-4 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-lg shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
+                className="flex items-center gap-2.5 px-5 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-full shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
               >
                 <FolderOpen size={14} className="text-emerald-400" />
                 <span>Import Folder</span>
