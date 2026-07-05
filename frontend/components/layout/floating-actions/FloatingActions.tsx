@@ -51,7 +51,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
       </div>
 
       {/* Speed Dial Menu + FAB */}
-      <div className="relative flex flex-col items-end pointer-events-auto">
+      <div className="relative flex flex-col items-center pointer-events-auto">
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -59,7 +59,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.95 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-16 right-0 flex flex-col gap-2 items-end mb-2"
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col gap-2 items-center mb-2"
             >
               {/* Import Files Option */}
               <button

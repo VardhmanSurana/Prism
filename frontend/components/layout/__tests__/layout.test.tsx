@@ -36,8 +36,6 @@ describe('layout', () => {
     render(
       <Header
         onSearch={vi.fn()}
-        onUpload={vi.fn()}
-        onImportProgress={vi.fn()}
         sortMode="newest"
         onSortChange={vi.fn()}
       />
