@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Plus, Image as ImageIcon, FolderOpen } from 'lucide-react';
+import { Plus, Image as ImageIcon, FolderOpen, Cloud } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { useSyncStore } from '@/store/syncStore';
@@ -59,18 +59,21 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.95 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-16 right-0 flex flex-col gap-2 items-end mb-2"
+              className="absolute bottom-18 right-0 w-52 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 mb-2 z-50"
             >
-              {/* Import Files Option */}
+              {/* Context menu arrow */}
+              <div className="absolute right-[22px] -bottom-1.5 w-3 h-3 bg-surface border-r border-b border-border rotate-45 z-[-1]" />
+
+              {/* Import Images Option */}
               <button
                 onClick={() => {
                   handleFileUpload();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-5 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-full shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-surfaceHover rounded-lg transition-all active:scale-[0.98] text-left font-medium"
               >
-                <ImageIcon size={14} className="text-purple-400" />
-                <span>Import Files</span>
+                <ImageIcon size={16} className="text-purple-400" />
+                <span>Import Images</span>
               </button>
 
               {/* Import Folder Option */}
@@ -79,10 +82,22 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
                   handleFolderImport();
                   setIsOpen(false);
                 }}
-                className="flex items-center gap-2.5 px-5 py-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-200 hover:text-white rounded-full shadow-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-[0.98]"
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-surfaceHover rounded-lg transition-all active:scale-[0.98] text-left font-medium"
               >
-                <FolderOpen size={14} className="text-emerald-400" />
+                <FolderOpen size={16} className="text-emerald-400" />
                 <span>Import Folder</span>
+              </button>
+
+              {/* Import from Cloud Option */}
+              <button
+                onClick={() => {
+                  alert("Cloud import coming soon!");
+                  setIsOpen(false);
+                }}
+                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:text-white hover:bg-surfaceHover rounded-lg transition-all active:scale-[0.98] text-left font-medium"
+              >
+                <Cloud size={16} className="text-sky-400" />
+                <span>Import from Cloud</span>
               </button>
             </motion.div>
           )}
