@@ -6,6 +6,45 @@ import { useSyncStore } from '@/store/syncStore';
 import { useImport } from '@/hooks/import';
 import type { FloatingActionsProps } from '../types/floating-actions';
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+    },
+  },
+  exit: {
+    opacity: 0,
+    transition: {
+      staggerChildren: 0.03,
+      staggerDirection: -1,
+    },
+  },
+} as const;
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 10, scale: 0.8 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      type: 'spring',
+      stiffness: 350,
+      damping: 25,
+    },
+  },
+  exit: {
+    opacity: 0,
+    y: 8,
+    scale: 0.8,
+    transition: {
+      duration: 0.12,
+    },
+  },
+} as const;
+
 export function FloatingActions({ importStatus, onUpload, onImportProgress }: FloatingActionsProps) {
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const [isOpen, setIsOpen] = useState(false);
@@ -55,17 +94,18 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
         <AnimatePresence>
           {isOpen && (
             <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.95 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-[72px] right-0 w-52 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 mb-2 z-50"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="absolute bottom-[72px] right-0 w-52 bg-surface border border-border rounded-xl shadow-2xl p-1.5 flex flex-col gap-1 mb-2 z-50 origin-bottom-right"
             >
               {/* Context menu arrow */}
               <div className="absolute right-[22px] -bottom-1.5 w-3 h-3 bg-surface border-r border-b border-border rotate-45 z-[-1]" />
 
               {/* Import Images Option */}
-              <button
+              <motion.button
+                variants={itemVariants}
                 onClick={() => {
                   handleFileUpload();
                   setIsOpen(false);
@@ -74,10 +114,11 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               >
                 <ImageIcon size={16} className="text-purple-400" />
                 <span>Import Images</span>
-              </button>
+              </motion.button>
 
               {/* Import Folder Option */}
-              <button
+              <motion.button
+                variants={itemVariants}
                 onClick={() => {
                   handleFolderImport();
                   setIsOpen(false);
@@ -86,10 +127,11 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               >
                 <FolderOpen size={16} className="text-emerald-400" />
                 <span>Import Folder</span>
-              </button>
+              </motion.button>
 
               {/* Import from Cloud Option */}
-              <button
+              <motion.button
+                variants={itemVariants}
                 onClick={() => {
                   alert("Cloud import coming soon!");
                   setIsOpen(false);
@@ -98,7 +140,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               >
                 <Cloud size={16} className="text-sky-400" />
                 <span>Import from Cloud</span>
-              </button>
+              </motion.button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -106,7 +148,13 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
         {/* Main Circular FAB */}
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
-          className="absolute inset-0 w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-[0_0_20px_rgba(var(--color-primary),0.25)] hover:brightness-110 active:scale-95 transition-all cursor-pointer z-50"
+          className={`absolute inset-0 w-14 h-14 rounded-full flex items-center justify-center border transition-all cursor-pointer z-50
+            ${
+              isOpen
+                ? 'bg-primary border-primary text-black shadow-[0_0_20px_rgba(var(--color-primary),0.25)]'
+                : 'bg-surface border-border text-gray-300 hover:bg-primary hover:border-primary hover:text-black hover:-translate-y-0.5 hover:shadow-[0_0_25px_rgba(var(--color-primary),0.35)] hover:ring-4 hover:ring-primary/20'
+            }
+          `}
           animate={{ rotate: isOpen ? 45 : 0 }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           title="Import Options"
