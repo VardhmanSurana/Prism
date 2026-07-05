@@ -193,6 +193,12 @@
 
 /* ── Premium UI Classes ─────────────────────────────────────────────── */
 
+.photo-item-hover {
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
 /* Hover effects only on devices that support hover (not touch) */
 @media (hover: hover) and (pointer: fine) {
   .photo-item-hover:hover {
