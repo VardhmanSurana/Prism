@@ -1,3 +1,5 @@
+import { Photo } from '../../../types';
+
 export interface ImportStatus {
   is_scanning: boolean;
   total_files: number;
@@ -7,4 +9,6 @@ export interface ImportStatus {
 
 export interface FloatingActionsProps {
   importStatus: ImportStatus;
+  onUpload: (photos: Photo[]) => void;
+  onImportProgress: (status: ImportStatus) => void;
 }

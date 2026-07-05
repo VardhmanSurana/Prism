@@ -83,7 +83,9 @@ describe('layout', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders FloatingActions with progress', () => {
+  it('renders FloatingActions with progress and check Speed Dial FAB', () => {
+    const onUploadMock = vi.fn();
+    const onImportProgressMock = vi.fn();
     render(
       <FloatingActions
         importStatus={{
@@ -92,8 +94,11 @@ describe('layout', () => {
           processed_files: 3,
           progress: 30,
         }}
+        onUpload={onUploadMock}
+        onImportProgress={onImportProgressMock}
       />
     );
     expect(screen.getByText(/importing photos/i)).toBeTruthy();
+    expect(screen.getByTitle('Import Options')).toBeTruthy();
   });
 });

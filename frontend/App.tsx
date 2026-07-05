@@ -212,6 +212,8 @@ function App() {
 
         <FloatingActions
           importStatus={importStatus}
+          onUpload={handleUpload}
+          onImportProgress={setImportStatus}
         />
 
         <Suspense fallback={null}>
