@@ -51,7 +51,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
       </div>
 
       {/* Speed Dial Menu + FAB */}
-      <div className="relative flex flex-col items-center pointer-events-auto">
+      <div className="relative w-14 h-14 pointer-events-auto">
         <AnimatePresence>
           {isOpen && (
             <motion.div
@@ -59,7 +59,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.95 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
-              className="absolute bottom-16 left-1/2 -translate-x-1/2 flex flex-col gap-2 items-center mb-2"
+              className="absolute bottom-16 right-0 flex flex-col gap-2 items-end mb-2"
             >
               {/* Import Files Option */}
               <button
@@ -91,7 +91,7 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
         {/* Main Circular FAB */}
         <motion.button
           onClick={() => setIsOpen(!isOpen)}
-          className="w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-[0_0_20px_rgba(var(--color-primary),0.25)] hover:brightness-110 active:scale-95 transition-all cursor-pointer z-50"
+          className="absolute inset-0 w-14 h-14 rounded-full bg-primary text-black flex items-center justify-center shadow-[0_0_20px_rgba(var(--color-primary),0.25)] hover:brightness-110 active:scale-95 transition-all cursor-pointer z-50"
           animate={{ rotate: isOpen ? 45 : 0 }}
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           title="Import Options"
