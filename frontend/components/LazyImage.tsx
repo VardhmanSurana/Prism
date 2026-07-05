@@ -49,8 +49,9 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
           onLoad={() => setStatus('loaded')}
           onError={handleError}
           alt={alt}
-          className={`${className} transition-all duration-700 ease-out 
-            ${status === 'loaded' ? 'opacity-100 scale-100 blur-0' : 'opacity-0 scale-105 blur-lg'}`}
+          decoding="async"
+          className={`${className} transition-opacity duration-500 ease-out 
+            ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
         />
       )}
 
