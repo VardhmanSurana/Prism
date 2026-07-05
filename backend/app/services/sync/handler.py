@@ -3,7 +3,9 @@ import asyncio
 from watchdog.events import FileSystemEventHandler
 
 SUPPORTED_EXTENSIONS = (
-    '.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif', '.dng', '.tiff', '.tif', '.bmp', '.gif',
+    '.png', '.jpg', '.jpeg', '.webp', '.heic', '.heif',
+    '.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', '.raf', '.rw2', '.pef', '.srw',
+    '.tiff', '.tif', '.bmp', '.gif',
     '.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.3gp',
 )
 

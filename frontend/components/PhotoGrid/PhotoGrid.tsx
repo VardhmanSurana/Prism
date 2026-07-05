@@ -8,6 +8,7 @@ import { useTimeline } from './hooks/useTimeline';
 import { PhotoGridHeader } from './PhotoGridHeader';
 import { PhotoGridRow } from './PhotoGridRow';
 import { PhotoListItem } from './PhotoListItem';
+import { useRenderCounter } from '@/lib/perf';
 import { 
   ROW_PADDING, 
   EMPTY_ROW_HEIGHT, 
@@ -89,6 +90,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 }) => {
   const isSelectionMode = selectedIds.size > 0;
   const syncStatus = useSyncStore((s) => s.syncStatus);
+  const logRender = useRenderCounter('PhotoGrid');
   
   // Custom states for filtering and view layout
   const [activePill, setActivePill] = useState<'all' | 'favorites' | 'recent' | 'videos'>('all');
@@ -235,7 +237,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
       return rowHeightPx;
     },
-    overscan: 10,
+    overscan: 5,
   });
 
   useEffect(() => {
@@ -269,6 +271,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       </div>
     );
   }
+
+  logRender?.();
 
   return (
     <div className="relative w-full">

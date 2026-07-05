@@ -1,10 +1,10 @@
 import React, { useRef, useCallback } from 'react';
 import { ArrowLeft, CheckSquare } from 'lucide-react';
-import { Album, Photo } from '../../types';
+import { Album, SmartAlbum, Photo } from '../../types';
 import { PhotoGrid } from '../PhotoGrid';
 
 interface AlbumDetailProps {
-  album: Album;
+  album: Album | SmartAlbum;
   photos: Photo[];
   isLoading: boolean;
   onPhotoClick: (photo: Photo) => void;
@@ -43,7 +43,7 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-4 p-6 sm:px-8 shrink-0 bg-background/50 backdrop-blur-md sticky top-0 z-20">
+      <div className="flex items-center gap-4 p-6 sm:px-8 shrink-0 bg-background sticky top-0 z-20">
         <button 
           onClick={onBack}
           className="p-2 hover:bg-surfaceHover rounded-full text-gray-400 hover:text-white transition-colors"

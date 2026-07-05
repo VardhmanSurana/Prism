@@ -20,7 +20,7 @@ export const AgentDiagnostics: React.FC<AgentDiagnosticsProps> = ({
       transition={springs.gentle as any}
       className="mt-3 overflow-hidden w-full"
     >
-      <div className="p-3.5 bg-black/40 border border-white/5 rounded-2xl text-[11px] text-gray-300 space-y-3 font-sans shadow-inner backdrop-blur-md w-full">
+      <div className="p-3.5 bg-black/60 border border-white/5 rounded-2xl text-[11px] text-gray-300 space-y-3 font-sans shadow-inner w-full">
         <div className="flex items-center justify-between border-b border-white/5 pb-2">
           <div className="flex items-center gap-1.5 font-bold text-primary/95 text-[10px] uppercase tracking-wider">
             <Cpu size={12} className={isStreaming ? "animate-spin text-primary" : "text-primary"} />

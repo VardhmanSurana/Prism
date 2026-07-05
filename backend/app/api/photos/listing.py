@@ -21,37 +21,32 @@ router = APIRouter()
 async def list_photos(
     limit: int = 50, 
     offset: int = 0,
+    content_type: str | None = None,
     db: AsyncSession = Depends(get_db)
 ):
     # Get active mount points
     active_mounts = list(sync_service.active_mounts)
     
-    # Query photos that are either:
-    # 1. Internal (no device_id or starts with home)
-    # 2. External but their device_id (mount point) is currently active
-    # Filter out locked photos if the Locked Folder is not authenticated
-    # ALWAYS filter out trashed photos
-    if locked_service.is_authenticated:
-        stmt = select(Photo).where(
-            and_(
-                Photo.is_trash == False,
-                or_(
-                    Photo.is_external == False,
-                    Photo.device_id.in_(active_mounts)
-                )
-            )
-        ).order_by(Photo.upload_date.desc()).limit(limit).offset(offset)
-    else:
-        stmt = select(Photo).where(
-            and_(
-                Photo.is_trash == False,
-                or_(
-                    Photo.is_external == False,
-                    Photo.device_id.in_(active_mounts)
-                ),
-                Photo.is_locked == False
-            )
-        ).order_by(Photo.upload_date.desc()).limit(limit).offset(offset)
+    # Base filters: not trashed, accessible mounts
+    base_filters = [
+        Photo.is_trash == False,
+        or_(
+            Photo.is_external == False,
+            Photo.device_id.in_(active_mounts)
+        )
+    ]
+    if not locked_service.is_authenticated:
+        base_filters.append(Photo.is_locked == False)
+
+    # Content type filter: default to "photo" only (hide screenshots/documents from main timeline)
+    # Pass content_type=all to see everything, or content_type=screenshot/document for specific types
+    if content_type and content_type != "all":
+        base_filters.append(Photo.content_type == content_type)
+    elif not content_type:
+        # Default: show only regular photos in the main gallery
+        base_filters.append(Photo.content_type == "photo")
+
+    stmt = select(Photo).where(and_(*base_filters)).order_by(Photo.upload_date.desc()).limit(limit).offset(offset)
     
     result = await db.execute(stmt)
     photos = result.scalars().all()

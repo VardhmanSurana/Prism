@@ -8,18 +8,14 @@ import {
   Trash2,
   Settings,
   Lock,
-  HardDrive,
   Sparkles,
   Users,
   Bot,
-  MonitorPlay,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { GlassMaterial, GlassEffectContainer } from '@/components/GlassMaterial';
-import { useSidebar, formatBytes } from './useSidebar';
 import { NavItem } from './NavItem';
 import { SectionHeader } from './SectionHeader';
-import { StorageCard } from './StorageCard';
 
 type NavItemData = {
   view: ViewMode;
@@ -43,16 +39,12 @@ const LIBRARY_NAV: NavItemData[] = [
 const UTILITY_NAV: NavItemData[] = [
   { view: 'utilities', icon: Settings, label: 'Utilities' },
   { view: 'locked', icon: Lock, label: 'Locked Folder' },
-  { view: 'frame', icon: MonitorPlay, label: 'Photo Frame' },
 ];
 
 export const Sidebar: React.FC<{
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
 }> = ({ currentView, onChangeView }) => {
-  const { stats } = useSidebar();
-  const totalBytes = stats?.total_size_bytes ?? 0;
-  const usedLabel = formatBytes(totalBytes);
 
   const handlePreloadAgent = async () => {
     try {
@@ -94,27 +86,6 @@ export const Sidebar: React.FC<{
               <NavItem key={item.view} {...item} currentView={currentView} onChangeView={onChangeView} />
             ))}
           </GlassEffectContainer>
-        </div>
-
-        <div className="px-4 pb-8 relative z-20">
-          <GlassMaterial
-            intensity="subtle"
-            interactive
-            borderRadius="1.25rem"
-            className="p-4 group cursor-default"
-          >
-            <div className="flex items-center gap-2 text-sm text-gray-300 mb-1.5 transition-colors duration-300 group-hover:text-white">
-              <HardDrive size={16} className="text-gray-500 group-hover:text-primary transition-colors duration-300" />
-              <span className="font-medium">Storage</span>
-            </div>
-            <div className="text-xs text-gray-500 group-hover:text-gray-400 transition-colors duration-300">
-              {totalBytes === 0
-                ? stats === null
-                  ? 'Calculating…'
-                  : 'No media stored yet'
-                : `${usedLabel} used`}
-            </div>
-          </GlassMaterial>
         </div>
       </GlassMaterial>
     </aside>

@@ -18,6 +18,7 @@ async def verify_api_key(request: Request):
 from app.db import engine, init_db
 from app.models import Base
 from app.api import photos, settings as settings_api, albums as albums_api, agent as agent_api, people as people_api, utilities as utilities_api, summaries as summaries_api, explore as explore_api, video as video_api
+from app.api import lan_sync as lan_sync_api
 from app.api.photos import inpaint as inpaint_api
 from app.services.sync_service import sync_service
 import contextlib
@@ -79,11 +80,56 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN audio_codec VARCHAR(50)"))
         if "video_faces_scanned" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN video_faces_scanned BOOLEAN DEFAULT 0"))
+        if "animated_url" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN animated_url VARCHAR(512)"))
+        if "phash" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN phash VARCHAR(64)"))
+        if "content_type" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN content_type VARCHAR(20) DEFAULT 'photo'"))
+        if "exif_make" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_make VARCHAR(255)"))
+        if "exif_model" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_model VARCHAR(255)"))
+
+        # SyncPeer table: create if not exists
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS sync_peers (
+                id INTEGER PRIMARY KEY,
+                peer_id VARCHAR(64) UNIQUE NOT NULL,
+                hostname VARCHAR(255) NOT NULL,
+                ip_address VARCHAR(45) NOT NULL,
+                port INTEGER DEFAULT 8269,
+                paired BOOLEAN DEFAULT 0,
+                paired_at TIMESTAMP,
+                last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                device_type VARCHAR(50)
+            )
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_sync_peers_peer_id ON sync_peers (peer_id)"))
+
+        bgjob_cols_res = await conn.execute(text("PRAGMA table_info(background_jobs)"))
+        bgjob_columns = [row[1] for row in bgjob_cols_res.fetchall()]
+        if "current_stage" not in bgjob_columns:
+            await conn.execute(text("ALTER TABLE background_jobs ADD COLUMN current_stage VARCHAR(50)"))
+        if "stage_progress" not in bgjob_columns:
+            await conn.execute(text("ALTER TABLE background_jobs ADD COLUMN stage_progress TEXT"))
+
+        # Album model: smart album fields
+        album_cols_res = await conn.execute(text("PRAGMA table_info(albums)"))
+        album_columns = [row[1] for row in album_cols_res.fetchall()]
+        if "is_smart" not in album_columns:
+            await conn.execute(text("ALTER TABLE albums ADD COLUMN is_smart BOOLEAN DEFAULT 0"))
+        if "smart_type" not in album_columns:
+            await conn.execute(text("ALTER TABLE albums ADD COLUMN smart_type VARCHAR(20)"))
+
+        # Create index on content_type
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_content_type ON photos (content_type)"))
 
         # Create index on blur_score and event_id
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_blur_score ON photos (blur_score)"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_event_id ON photos (event_id)"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_video_faces_scanned ON photos (video_faces_scanned)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS idx_photos_phash ON photos (phash)"))
 
         # Setup FTS5 Full Text Search Table and Triggers
         await conn.execute(text("""
@@ -188,6 +234,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to auto-purge trash: {e}")
 
+    # Initialize LAN Sync Service
+    try:
+        from app.services.lan_sync import lan_sync_service
+        await lan_sync_service.start()
+    except Exception as e:
+        logger.warning(f"LAN sync service failed to start: {e}")
+
     # Initialize Sync Service
     await sync_service.initialize()
 
@@ -203,6 +256,11 @@ async def lifespan(app: FastAPI):
     yield
 
     # Cleanup services
+    try:
+        from app.services.lan_sync import lan_sync_service
+        await lan_sync_service.stop()
+    except Exception:
+        pass
     await sync_service.shutdown()
     try:
         from app.services.processing_queue import processing_queue
@@ -269,7 +327,6 @@ async def serve_local_file(path: str):
         llogger.warning(f"[/local] File not found on disk: {resolved_path}")
         raise HTTPException(status_code=404, detail="File not found")
 
-    # HEIC files need conversion — browsers can't decode them natively
     is_heic = str(resolved_path).lower().endswith(('.heic', '.heif'))
     if is_heic:
         try:
@@ -288,6 +345,27 @@ async def serve_local_file(path: str):
         except Exception as e:
             llogger.error(f"[/local] HEIC conversion failed for {resolved_path}: {e}")
             raise HTTPException(status_code=500, detail="Failed to convert HEIC image")
+
+    is_raw = str(resolved_path).lower().endswith(('.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', '.raf', '.rw2', '.pef', '.srw'))
+    if is_raw:
+        try:
+            import io
+            from app.utils.image import open_raw_image
+
+            img = open_raw_image(str(resolved_path))
+            if img is None:
+                raise HTTPException(status_code=500, detail="Failed to process RAW file")
+            from PIL import ImageOps
+            img = ImageOps.exif_transpose(img)
+            img.thumbnail((800, 800))
+            out_bytes = io.BytesIO()
+            img.save(out_bytes, format="WEBP", quality=85)
+            return Response(content=out_bytes.getvalue(), media_type="image/webp")
+        except HTTPException:
+            raise
+        except Exception as e:
+            llogger.error(f"[/local] RAW conversion failed for {resolved_path}: {e}")
+            raise HTTPException(status_code=500, detail="Failed to convert RAW image")
 
     from app.services.locked_service import locked_service
     is_encrypted = await locked_service.is_file_encrypted(str(resolved_path))
@@ -397,15 +475,15 @@ async def serve_photo_thumbnail(photo_id: int, size: int = 400):
                 raise HTTPException(status_code=404, detail="Video file not found")
             return FileResponse(str(resolved_path))
 
-        # For non-default sizes or HEIC originals, generate on the fly if needed
+        # For non-default sizes or HEIC/RAW originals, generate on the fly if needed
         is_heic = photo.path.lower().endswith('.heic') or photo.filename.lower().endswith('.heic')
-        if size != 400 or is_heic:
+        is_raw = photo.path.lower().endswith(('.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', '.raf', '.rw2', '.pef', '.srw')) or photo.filename.lower().endswith(('.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', '.raf', '.rw2', '.pef', '.srw'))
+        if size != 400 or is_heic or is_raw:
             resolved_path = safe_resolve_read(photo.path)
             if not resolved_path.exists():
                 raise HTTPException(status_code=404, detail="Original photo file not found")
             
-            # If not HEIC and we just want default size, use existing cache if possible
-            if not is_heic and size == 400 and photo.url and photo.url.startswith("/thumbnails/"):
+            if not is_heic and not is_raw and size == 400 and photo.url and photo.url.startswith("/thumbnails/"):
                  thumb_name = photo.url.split("/thumbnails/")[-1]
                  thumb_path = settings.THUMBNAILS_DIR / thumb_name
                  if thumb_path.exists():
@@ -413,11 +491,19 @@ async def serve_photo_thumbnail(photo_id: int, size: int = 400):
 
             import io
             from PIL import Image
-            from pillow_heif import register_heif_opener
-            register_heif_opener()
-            
-            with Image.open(str(resolved_path)) as img:
-                from PIL import ImageOps
+            from PIL import ImageOps
+
+            if is_raw:
+                from app.utils.image import open_raw_image
+                img = open_raw_image(str(resolved_path))
+                if img is None:
+                    raise HTTPException(status_code=500, detail="Failed to process RAW file")
+            else:
+                from pillow_heif import register_heif_opener
+                register_heif_opener()
+                img = Image.open(str(resolved_path))
+
+            with img:
                 img = ImageOps.exif_transpose(img)
                 img.thumbnail((size, size))
                 out_bytes = io.BytesIO()
@@ -461,6 +547,17 @@ app.include_router(video_api.router, prefix=f"{settings.API_V1_STR}", tags=["vid
 
 from app.api.photos import ocr as ocr_api
 app.include_router(ocr_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["ocr"], dependencies=[Depends(verify_api_key)])
+
+from app.api.photos import xmp as xmp_api
+app.include_router(xmp_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["xmp"], dependencies=[Depends(verify_api_key)])
+
+from app.api import stories as stories_api
+app.include_router(stories_api.router, prefix=f"{settings.API_V1_STR}/stories", tags=["stories"], dependencies=[Depends(verify_api_key)])
+
+from app.api import privacy as privacy_api
+app.include_router(privacy_api.router, prefix=f"{settings.API_V1_STR}/privacy", tags=["privacy"], dependencies=[Depends(verify_api_key)])
+
+app.include_router(lan_sync_api.router, prefix=f"{settings.API_V1_STR}/lan", tags=["lan-sync"], dependencies=[Depends(verify_api_key)])
 
 
 @app.get("/")

@@ -76,7 +76,7 @@ export function AuthForm({
       {/* Background glowing atmospheres */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
       
-      <div className="w-full max-w-md bg-surface/90 backdrop-blur-2xl border border-white/5 rounded-3xl p-8 shadow-2xl relative z-10 animate-agent-pop">
+      <div className="w-full max-w-md bg-surface border border-white/5 rounded-3xl p-8 shadow-2xl relative z-10 animate-agent-pop">
         
         {/* Top Header Card */}
         <div className="flex flex-col items-center text-center mb-8">

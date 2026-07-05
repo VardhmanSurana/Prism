@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
 import { Check } from 'lucide-react';
 import { PhotoItemProps } from './types';
 import { LazyImage } from '../LazyImage';
@@ -26,8 +25,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
     : null;
 
   return (
-    <motion.div
-      key={photo.id}
+    <div
       tabIndex={0}
       role="button"
       aria-label={photo.caption || 'Photo'}
@@ -58,7 +56,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         maxWidth: '100%',
       }}
       className={`relative group cursor-pointer overflow-hidden rounded-[1.5rem] bg-[#0c0c0c]
-      transition-all duration-500 will-change-transform photo-item-hover
+      transition-transform duration-200 ease-out photo-item-hover
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
       ${
         isSelected
@@ -71,7 +69,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         src={photo.url || `local://${photo.path}`}
         fallbackSrc={`local://${photo.path}`}
         alt={photo.caption || 'Photo'}
-        className="w-full h-full object-cover transition-transform duration-500"
+        className="w-full h-full object-cover"
       />
       {/* Animated WebP hover preview for videos — zero GStreamer pipeline cost */}
       {isHovering && isVideo && animSrc && (
@@ -93,13 +91,13 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       )}
 
       <div
-        className={`absolute inset-0 transition-colors duration-300 ${
+        className={`absolute inset-0 transition-colors duration-150 ${
           isSelected ? 'bg-primary/10' : 'bg-black/0'
         }`}
       />
       <div
-        className={`absolute top-3 left-3 transition-all duration-300 z-10
-        ${isSelected ? 'opacity-100 scale-100' : 'opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100'}
+        className={`absolute top-3 left-3 transition-opacity duration-150 z-10
+        ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
         `}
         onClick={(e) => {
           e.stopPropagation();
@@ -107,11 +105,11 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         }}
       >
         <div
-          className={`w-7 h-7 rounded-full border flex items-center justify-center transition-all shadow-xl backdrop-blur-md
+          className={`w-7 h-7 rounded-full border flex items-center justify-center shadow-xl
             ${
               isSelected
                 ? 'bg-primary border-primary text-black'
-                : 'bg-black/20 border-white/20 hover:bg-white/10 text-white'
+                : 'bg-black/60 border-white/20 hover:bg-white/10 text-white'
             }
         `}
         >
@@ -122,6 +120,6 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           )}
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 });

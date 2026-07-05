@@ -108,6 +108,52 @@ async def get_duplicate_photos(
             
     return duplicate_clusters
 
+@router.get("/visual-duplicates")
+async def get_visual_duplicates(
+    limit: int = 50,
+    offset: int = 0,
+    db: AsyncSession = Depends(get_db)
+):
+    active_mounts = list(sync_service.active_mounts)
+    stmt = select(Photo).where(
+        Photo.is_locked == False,
+        Photo.is_trash == False,
+        Photo.phash.isnot(None),
+        or_(
+            Photo.is_external == False,
+            Photo.device_id.in_(active_mounts)
+        )
+    ).order_by(Photo.id)
+    result = await db.execute(stmt)
+    all_photos = result.scalars().all()
+
+    from app.utils.image import hamming_distance
+
+    visited = set()
+    clusters = []
+    for i, p1 in enumerate(all_photos):
+        if p1.id in visited:
+            continue
+        cluster = [p1]
+        visited.add(p1.id)
+        for j in range(i + 1, len(all_photos)):
+            p2 = all_photos[j]
+            if p2.id in visited:
+                continue
+            if hamming_distance(p1.phash, p2.phash) <= 3:
+                cluster.append(p2)
+                visited.add(p2.id)
+        if len(cluster) > 1:
+            best_photo = min(cluster, key=lambda p: p.blur_score if p.blur_score is not None else float('inf'))
+            clusters.append({
+                "photo_count": len(cluster),
+                "photos": [photo_to_dict(p) for p in cluster],
+                "suggested_keep_id": best_photo.id,
+            })
+
+    clusters.sort(key=lambda c: c["photo_count"], reverse=True)
+    return clusters[offset:offset + limit]
+
 @router.get("/documents")
 async def get_document_photos(
     limit: int = 50,
@@ -140,7 +186,7 @@ async def get_document_photos(
 
 @router.get("/diagnostics")
 async def get_diagnostics():
-    from app.services.vision_pipeline import _florence_model, _siglip_model
+    from app.services.vision_pipeline import _siglip_model
     from app.api.settings.helpers import _read_settings
     
     db_size = 0
@@ -173,7 +219,6 @@ async def get_diagnostics():
         "watched_folders": watched_folders,
         "excluded_folders": excluded_folders,
         "models_loaded": {
-            "florence": _florence_model is not None,
             "siglip": _siglip_model is not None
         },
         "features_enabled": {
@@ -507,3 +552,15 @@ async def purge_old_trash(days: int = 30, db: AsyncSession = Depends(get_db)):
     if deleted > 0:
         await db.commit()
     return {"status": "success", "deleted": deleted, "cutoff_date": cutoff.isoformat()}
+
+
+@router.get("/search/fused")
+async def fused_search_endpoint(
+    query: str,
+    limit: int = 30,
+    db: AsyncSession = Depends(get_db)
+):
+    from app.agent.search_tools import SearchTools
+    tools = SearchTools()
+    results = await tools.fused_search(db, query, top_k=limit)
+    return results

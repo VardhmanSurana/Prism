@@ -6,23 +6,23 @@ Two subpackages, no monorepo tool. Root `package.json` scripts cd into each.
 
 | Command | What it does |
 |---|---|
-| `bun install` (root) | Installs root tool deps only (`concurrently`). |
+| `pnpm install` (root) | Installs root tool deps only (`concurrently`). |
 | `cd backend && uv venv && uv sync` | First-time backend setup. Backend is Python 3.11 + `uv`. |
-| `cd frontend && bun install` | Frontend deps. |
-| `bun run desktop` | One-click: starts backend on `8269`, streams `backend/backend.log`, runs `bunx tauri dev`. Reuses existing backend if port 8269 is in use. |
-| `bun run dev` | Runs `bun run backend` and `bun run frontend` concurrently via `concurrently`. |
-| `bun run backend` | `cd backend` then `uv run uvicorn app.main:app --reload` with CUDA `LD_LIBRARY_PATH` tweaked for venv/system libs. |
-| `bun run frontend` | `cd frontend && bun run dev` (Vite on port `3005`). |
-| `bun run test` | `bun run frontend:typecheck && bun run backend:test`. |
+| `cd frontend && pnpm install` | Frontend deps. |
+| `pnpm run desktop` | One-click: starts backend on `8269`, streams `backend/backend.log`, runs `pnpm exec tauri dev`. Reuses existing backend if port 8269 is in use. |
+| `pnpm run dev` | Runs `pnpm run backend` and `pnpm run frontend` concurrently via `concurrently`. |
+| `pnpm run backend` | `cd backend` then `uv run uvicorn app.main:app --reload` with CUDA `LD_LIBRARY_PATH` tweaked for venv/system libs. |
+| `pnpm run frontend` | `cd frontend && pnpm run dev` (Vite on port `3005`). |
+| `pnpm run test` | `pnpm run frontend:typecheck && pnpm run backend:test`. |
 
 ## Exact verification commands
 
-- Frontend typecheck: `cd frontend && bunx tsc --noEmit` (Vite `tsconfig.json`, `@` alias → project root).
-- Frontend tests: `cd frontend && bun test` (Vitest, jsdom, setup at `frontend/tests/setup.ts`).
+- Frontend typecheck: `cd frontend && pnpm exec tsc --noEmit` (Vite `tsconfig.json`, `@` alias → project root).
+- Frontend tests: `cd frontend && pnpm test` (Vitest, jsdom, setup at `frontend/tests/setup.ts`).
 - Backend tests: `cd backend && uv run pytest tests -q`.
-- Build frontend: `cd frontend && bun run build` (also what Tauri bundles).
+- Build frontend: `cd frontend && pnpm run build` (also what Tauri bundles).
 
-CI order: backend tests → frontend typecheck → frontend build. There is **no frontend lint script** despite `eslint.config.js` existing; do not assume `bun run lint` works.
+CI order: backend tests → frontend typecheck → frontend build. There is **no frontend lint script** despite `eslint.config.js` existing; do not assume `pnpm run lint` works.
 
 ## Ports and URLs
 
@@ -56,4 +56,4 @@ CI order: backend tests → frontend typecheck → frontend build. There is **no
 - Sets LD_LIBRARY_PATH for venv/system NVIDIA libs.
 - Picks `gcc-15` from linuxbrew if present (needed for llama.cpp/CUDA builds).
 - Patches `libInspireFace.so` execstack via `execstack -c` when available.
-- Backend PID saved to `backend/backend.pid`; logs to `backend/backend.log`. Use `bun run backend:stop` to clean up.
+- Backend PID saved to `backend/backend.pid`; logs to `backend/backend.log`. Use `pnpm run backend:stop` to clean up.

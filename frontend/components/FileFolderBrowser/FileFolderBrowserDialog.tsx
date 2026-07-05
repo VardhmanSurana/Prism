@@ -39,7 +39,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={browser.cancel}
-          className="absolute inset-0 bg-black/70 backdrop-blur-md"
+          className="absolute inset-0 bg-black/70"
         />
 
         {/* Modal Panel */}

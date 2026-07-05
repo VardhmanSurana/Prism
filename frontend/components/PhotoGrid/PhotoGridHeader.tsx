@@ -27,13 +27,13 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
       className="absolute top-0 left-0 w-full pl-4 sm:pl-8 pr-32 z-10"
       style={{ transform: `translateY(${virtualRowStart}px)` }}
     >
-      <div className="flex items-baseline justify-between select-none py-4 bg-background/80 backdrop-blur-sm border-b border-white/5">
+      <div className="flex items-baseline justify-between select-none py-4 bg-background border-b border-white/5">
         <div
           className="flex items-center gap-3 group cursor-pointer"
           onClick={() => onToggleGroupSelection(photoIds)}
         >
           <div
-            className={`w-6 h-6 border rounded-full transition-all flex items-center justify-center
+            className={`w-6 h-6 border rounded-full transition-colors duration-150 flex items-center justify-center
             ${
               allSelected
                 ? 'bg-primary border-primary'

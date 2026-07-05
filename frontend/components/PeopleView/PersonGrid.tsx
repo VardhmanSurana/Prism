@@ -39,7 +39,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
 
   if (people.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 border border-dashed border-white/10 rounded-3xl bg-surface/20 backdrop-blur-md p-8">
+      <div className="flex flex-col items-center justify-center h-64 border border-dashed border-white/10 rounded-3xl bg-surface p-8">
         <Users size={48} className="text-gray-600 mb-4 animate-bounce" />
         <h3 className="text-lg font-bold text-white mb-1">No People Discovered Yet</h3>
         <p className="text-sm text-gray-400 text-center max-w-sm">

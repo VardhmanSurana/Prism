@@ -32,7 +32,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
             exit={{ x: 20, opacity: 0 }}
             className="pointer-events-auto"
         >
-            <div className="bg-surface/90 backdrop-blur-md border border-white/5 p-4 rounded-2xl shadow-2xl w-72">
+            <div className="bg-surface border border-white/5 p-4 rounded-2xl shadow-2xl w-72">
                 <div className="flex items-center justify-between mb-2">
                     <span
                         className={`text-[10px] font-bold uppercase tracking-widest ${

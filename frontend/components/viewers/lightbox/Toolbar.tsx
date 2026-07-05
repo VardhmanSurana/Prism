@@ -59,7 +59,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   const ext = photo.filename?.split('.').pop()?.toUpperCase();
 
   return (
-    <div className="h-14 flex items-center justify-between px-6 shrink-0 z-20 bg-[#0D0F14]/80 backdrop-blur-md border-b border-white/5 font-sans">
+    <div className="h-14 flex items-center justify-between px-6 shrink-0 z-20 bg-[#0D0F14] border-b border-white/5 font-sans">
       {/* Left: Close + Metadata */}
       <div className="flex items-center gap-4">
         <button

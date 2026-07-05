@@ -202,6 +202,15 @@ async def reset_library():
                         deleted_assets += 1
                     except Exception as e:
                         logger.warning(f"Failed to delete {file_path}: {e}")
+            for sub in folder.iterdir():
+                if sub.is_dir():
+                    for file_path in sub.iterdir():
+                        if file_path.is_file():
+                            try:
+                                file_path.unlink()
+                                deleted_assets += 1
+                            except Exception as e:
+                                logger.warning(f"Failed to delete {file_path}: {e}")
 
     # 6. Clean up Locked Folder encrypted files in uploads/
     locked_deleted = await _cleanup_locked_folder_files()

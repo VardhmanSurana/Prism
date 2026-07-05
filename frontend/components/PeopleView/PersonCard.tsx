@@ -41,7 +41,7 @@ export const PersonCard: React.FC<PersonCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.9 }}
       onClick={onClick}
-      className="group relative cursor-pointer bg-surface/30 backdrop-blur-md border border-white/5 rounded-3xl p-5 hover:bg-surface/50 hover:border-white/10 hover:shadow-2xl transition-all duration-300 flex flex-col items-center justify-center text-center"
+      className="group relative cursor-pointer bg-surface border border-white/5 rounded-3xl p-5 hover:bg-surfaceHover hover:border-white/10 hover:shadow-2xl transition-all duration-300 flex flex-col items-center justify-center text-center"
     >
       {/* Circular Avatar with Glowing Edge */}
       <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-white/10 group-hover:border-primary/50 group-hover:shadow-[0_0_20px_rgba(var(--color-primary),0.3)] transition-all duration-500 shadow-2xl relative mb-4">

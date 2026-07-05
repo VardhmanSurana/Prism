@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 
@@ -18,6 +18,17 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
   const previewUrl = resolveUrl('local://' + file.path);
   const isVideo = file.is_video || /\.(mp4|mov|m4v|avi|mkv|webm|3gp)$/i.test(file.name);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    return () => {
+      const v = videoRef.current;
+      if (v) {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      }
+    };
+  }, []);
 
   const handleMouseEnter = useCallback(() => {
     if (!videoRef.current) return;
@@ -82,7 +93,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
         )}
         {isVideo && (
           <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-            <span className="bg-black/60 backdrop-blur-sm text-white/70 text-[9px] font-mono px-1.5 py-0.5 rounded">
+            <span className="bg-black/70 text-white/70 text-[9px] font-mono px-1.5 py-0.5 rounded">
               Hover to preview
             </span>
           </div>

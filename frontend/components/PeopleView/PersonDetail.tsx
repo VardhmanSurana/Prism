@@ -41,7 +41,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
   return (
     <div className="flex flex-col h-full overflow-hidden animate-fadeIn">
       {/* Sticky Detail Header */}
-      <div className="flex items-center justify-between p-6 sm:px-8 shrink-0 bg-background/50 backdrop-blur-md sticky top-0 z-20 border-b border-white/[0.03]">
+      <div className="flex items-center justify-between p-6 sm:px-8 shrink-0 bg-background sticky top-0 z-20 border-b border-white/[0.03]">
         <div className="flex items-center gap-6">
           <button
             onClick={onBack}
@@ -67,7 +67,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
 
       {/* Reconciliation Prompt Banner */}
       {pendingFaces.length > 0 && currentPending && (
-        <div className="mx-6 sm:mx-8 mt-4 p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-surface/40 to-surface/60 backdrop-blur-xl border border-white/[0.08] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 animate-fadeIn shrink-0">
+        <div className="mx-6 sm:mx-8 mt-4 p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-surface/40 to-surface/60 border border-white/[0.08] shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6 transition-all duration-300 animate-fadeIn shrink-0">
           <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
             <div className="flex items-center -space-x-3">
               {/* Existing Person Thumbnail */}

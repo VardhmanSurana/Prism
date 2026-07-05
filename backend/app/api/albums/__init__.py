@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
+import os
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete, extract, and_, func
@@ -245,3 +246,113 @@ async def set_album_cover(
     await db.commit()
     await db.refresh(album)
     return album
+
+
+# ── Smart Albums ──────────────────────────────────────────────────────────────
+
+SMART_ALBUM_TYPES = {
+    "screenshots": {"name": "Screenshots", "content_type": "screenshot"},
+    "documents": {"name": "Documents", "content_type": "document"},
+}
+
+
+@router.get("/smart")
+async def list_smart_albums(db: AsyncSession = Depends(get_db)):
+    """Return smart album metadata (Screenshots, Documents) with photo counts."""
+    albums = []
+    for smart_key, info in SMART_ALBUM_TYPES.items():
+        count_stmt = select(func.count(Photo.id)).where(
+            and_(Photo.content_type == info["content_type"], Photo.is_trash == False)
+        )
+        count_result = await db.execute(count_stmt)
+        count = count_result.scalar() or 0
+
+        # Get the latest photo for cover
+        cover_stmt = (
+            select(Photo)
+            .where(and_(Photo.content_type == info["content_type"], Photo.is_trash == False))
+            .order_by(Photo.date_taken.desc())
+            .limit(1)
+        )
+        cover_result = await db.execute(cover_stmt)
+        cover_photo = cover_result.scalar_one_or_none()
+
+        albums.append({
+            "id": f"smart_{smart_key}",
+            "name": info["name"],
+            "type": "smart",
+            "smart_type": smart_key,
+            "photo_count": count,
+            "cover_url": f"/api/v1/photos/{cover_photo.id}/thumbnail" if cover_photo else None,
+        })
+
+    return albums
+
+
+@router.get("/smart/{smart_type}/photos")
+async def get_smart_album_photos(
+    smart_type: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return photos in a smart album (screenshots or documents)."""
+    if smart_type not in SMART_ALBUM_TYPES:
+        raise HTTPException(status_code=404, detail=f"Unknown smart album type: {smart_type}")
+
+    content_type = SMART_ALBUM_TYPES[smart_type]["content_type"]
+
+    count_stmt = select(func.count(Photo.id)).where(
+        and_(Photo.content_type == content_type, Photo.is_trash == False)
+    )
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar() or 0
+
+    stmt = (
+        select(Photo)
+        .where(and_(Photo.content_type == content_type, Photo.is_trash == False))
+        .order_by(Photo.date_taken.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    photos = result.scalars().all()
+
+    return {
+        "photos": [photo_to_dict(p) for p in photos],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@router.post("/smart/reclassify")
+async def reclassify_all_photos(db: AsyncSession = Depends(get_db)):
+    """Re-run content classification on all photos. Useful after initial import or model improvements."""
+    from app.services.content_classifier import classify_content
+
+    stmt = select(Photo).where(Photo.is_trash == False)
+    result = await db.execute(stmt)
+    photos = result.scalars().all()
+
+    updated = 0
+    for photo in photos:
+        ext = os.path.splitext(photo.filename)[1] if photo.filename else ""
+        content_type = classify_content(
+            width=photo.width,
+            height=photo.height,
+            file_ext=ext,
+            exif_make=photo.exif_make,
+            exif_model=photo.exif_model,
+            ocr_text=photo.ocr_text,
+            thumbnail_path=photo.url if photo.url and not photo.url.startswith("local://") else None,
+            filename=photo.filename or "",
+        )
+        if photo.content_type != content_type.value:
+            photo.content_type = content_type.value
+            updated += 1
+
+    if updated:
+        await db.commit()
+
+    return {"status": "success", "total": len(photos), "updated": updated}

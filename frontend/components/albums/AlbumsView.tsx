@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Photo, Album } from '../../types';
+import { Photo, Album, SmartAlbum } from '../../types';
 import { useAlbums } from './hooks/useAlbums';
 import { AlbumsList } from './AlbumsList';
 import { AlbumDetail } from './AlbumDetail';
@@ -39,7 +39,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
 
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
 
-  const handleAlbumClick = async (album: Album) => {
+  const handleAlbumClick = async (album: Album | SmartAlbum) => {
     setSelectedAlbum(album);
     await fetchAlbumPhotos(album);
   };

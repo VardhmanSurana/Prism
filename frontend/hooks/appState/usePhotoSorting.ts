@@ -88,11 +88,16 @@ export function usePhotoSorting({
     if (!isScrollingRef.current) {
       isScrollingRef.current = true;
       requestAnimationFrame(() => {
+        const start = performance.now();
         if (scrollRef.current) {
           const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
           if (scrollTop + clientHeight >= scrollHeight - 500) {
             onFetchPhotos();
           }
+        }
+        const duration = performance.now() - start;
+        if (duration > 8) {
+          console.log(`[perf] scrollHandler: ${duration.toFixed(1)}ms`);
         }
         isScrollingRef.current = false;
       });

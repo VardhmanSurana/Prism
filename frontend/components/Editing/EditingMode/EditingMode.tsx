@@ -6,7 +6,6 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 // @ts-ignore -- react-color-palette css side-effect import lacks types
 import 'react-color-palette/css';
-import { ReactCropperElement } from 'react-cropper';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import { AdjustPanel } from '../AdjustPanel';
@@ -57,7 +56,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   photoId,
 }) => {
   // Refs / state
-  const cropperRef = useRef<ReactCropperElement>(null);
+  const cropperRef = useRef<Cropper | null>(null);
   const [currentRatio, setCurrentRatio] = useState<number>(NaN);
   const [activeTool, setActiveTool] = useState<ToolId | null>('presets');
   
@@ -172,7 +171,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       return;
     }
 
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     const cropBoxData = cropper.getCropBoxData();
@@ -197,7 +196,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, []);
 
   const handleApplyCrop = useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     try {
@@ -247,7 +246,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const deferredFilterString = useMemo(() => toFilterString(deferredAdjustments), [deferredAdjustments]);
 
   useEffect(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     if (activeTool !== 'transform') {
@@ -266,7 +265,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, [activeTool]);
 
   const handleRotate = useCallback((degree: number) => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     const newTotal = ((totalRotation + degree) % 360 + 360) % 360;
@@ -306,11 +305,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
   const handleSetAspectRatio = useCallback((ratio: number) => {
     setCurrentRatio(ratio);
-    cropperRef.current?.cropper.setAspectRatio(ratio);
+    cropperRef.current.setAspectRatio(ratio);
   }, []);
 
   const handleReady = useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     const containerData = cropper.getContainerData();
@@ -341,17 +340,17 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const handleFlipH = useCallback(() => {
     const next = !flipH;
     setFlipH(next);
-    cropperRef.current?.cropper.scaleX(next ? -1 : 1);
+    cropperRef.current.scaleX(next ? -1 : 1);
   }, [flipH, setFlipH]);
 
   const handleFlipV = useCallback(() => {
     const next = !flipV;
     setFlipV(next);
-    cropperRef.current?.cropper.scaleY(next ? -1 : 1);
+    cropperRef.current.scaleY(next ? -1 : 1);
   }, [flipV, setFlipV]);
 
   const handleStraighten = useCallback((angle: number) => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     const delta = angle - straightenAngle;
     setStraightenAngle(angle);
@@ -490,7 +489,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
   const handleSave = useCallback((isSaveAs: boolean, format?: string, quality?: number) => {
     if (isSaving) return;
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     setIsSaving(true);
@@ -531,7 +530,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
   const handleCopy = useCallback(() => {
     if (isSaving) return;
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     setIsSaving(true);

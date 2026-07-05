@@ -1,5 +1,6 @@
 import React from 'react';
-import Cropper, { ReactCropperElement } from 'react-cropper';
+import Cropper from 'cropperjs';
+import 'cropperjs/dist/cropper.css';
 import { Loader2 } from 'lucide-react';
 import { ToolId } from './Sidebar';
 import { Adjustments, getStringHash, HslBand, toFilterString } from './filterEngine';
@@ -26,7 +27,7 @@ import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighli
 interface CanvasAreaProps {
   currentImageSrc: string;
   filterString: string;
-  cropperRef: React.RefObject<ReactCropperElement | null>;
+  cropperRef: React.RefObject<Cropper | null>;
   handleCropEvent: () => void;
   handleReady: () => void;
   activeTool: ToolId | null;
@@ -144,6 +145,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   setShowDoodleGuide,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const imgRef = React.useRef<HTMLImageElement>(null);
   const [imageRect, setImageRect] = React.useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const latestImageRectRef = React.useRef(imageRect);
   React.useEffect(() => {
@@ -451,7 +453,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   ]);
 
   const updateImageRect = React.useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (cropper) {
       const canvasData = cropper.getCanvasData();
 
@@ -593,7 +595,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       const dy = e.clientY - dragStartRef.current.y;
       dragStartRef.current = { x: e.clientX, y: e.clientY };
 
-      const cropper = cropperRef.current.cropper;
+      const cropper = cropperRef.current;
       if (cropper) {
         cropper.move(dx, dy);
         updateImageRect();
@@ -621,7 +623,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // ── Zoom helpers ────────────────────────────────────────────────────────
   const syncZoom = React.useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     try {
       const imageData  = cropper.getImageData();
@@ -640,7 +642,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [cropperRef]);
 
   const handleZoomIn = React.useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     const imageData = cropper.getImageData();
     const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
@@ -656,7 +658,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomOut = React.useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     const imageData = cropper.getImageData();
     const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
@@ -672,7 +674,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomReset = React.useCallback(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     const containerData = cropper.getContainerData();
     const imageData     = cropper.getImageData();
@@ -686,7 +688,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomToPercent = React.useCallback((pct: number) => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
     const scale = pct / 100;
     cropper.zoomTo(scale);
@@ -701,6 +703,45 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     syncZoom();
   }, [handleReady, updateImageRect, syncZoom]);
 
+  // Initialize cropperjs on the <img> element
+  const onCropCbRef = React.useRef(handleCropEvent);
+  onCropCbRef.current = handleCropEvent;
+  const onReadyCbRef = React.useRef(onCropperReady);
+  onReadyCbRef.current = onCropperReady;
+
+  React.useEffect(() => {
+    const img = imgRef.current;
+    if (!img || !currentImageSrc) return;
+
+    const cropper = new Cropper(img, {
+      viewMode: 1,
+      dragMode: 'crop',
+      background: false,
+      responsive: true,
+      autoCrop: true,
+      autoCropArea: 1,
+      checkOrientation: false,
+      rotatable: true,
+      zoomable: true,
+      zoomOnWheel: false,
+      zoomOnTouch: false,
+      toggleDragModeOnDblclick: false,
+      crop() {
+        onCropCbRef.current();
+      },
+      ready() {
+        onReadyCbRef.current();
+      },
+    });
+
+    cropperRef.current = cropper as any;
+
+    return () => {
+      cropper.destroy();
+      cropperRef.current = null;
+    };
+  }, [currentImageSrc]);
+
   // Sync rect on container resize
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -710,7 +751,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       // Small delay to allow cropperjs to finish its internal update
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        const cropper = cropperRef.current?.cropper;
+        const cropper = cropperRef.current;
         if (cropper) {
           // Guard: cropper internals may not be mounted yet, causing "container.offsetWidth" crash
           const innerContainer = (cropper as any).$container;
@@ -731,7 +772,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // Handle tool changes and cropper state
   React.useEffect(() => {
-    const cropper = cropperRef.current?.cropper;
+    const cropper = cropperRef.current;
     if (!cropper) return;
 
     const frame = window.requestAnimationFrame(() => {
@@ -786,34 +827,12 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         } as React.CSSProperties}
       >
       
-      <Cropper
+      <img
+        ref={imgRef}
         src={currentImageSrc}
-        style={{ height: '100%', width: '100%' }}
-        initialAspectRatio={NaN}
-        guides={activeTool === 'transform'}
-        viewMode={1}
-        dragMode={activeTool === 'transform' ? "crop" : "none"}
-        ref={cropperRef}
-        background={false}
-        responsive={true}
-        autoCrop={activeTool === 'transform'}
-        autoCropArea={1}
-        checkOrientation={false}
-        rotatable={true}
+        alt=""
+        style={{ height: '100%', width: '100%', display: 'block' }}
         crossOrigin="anonymous"
-        zoomable={true}
-        zoomOnWheel={false}
-        zoomOnTouch={false}
-        toggleDragModeOnDblclick={false}
-        cropBoxMovable={activeTool === 'transform'}
-        cropBoxResizable={activeTool === 'transform'}
-        center={activeTool === 'transform'}
-        highlight={activeTool === 'transform'}
-        crop={() => {
-          handleCropEvent();
-          updateImageRect();
-        }}
-        ready={onCropperReady}
         className={adjustments.vignette !== 0 && !isComparing ? 'with-vignette' : ''}
       />
 
@@ -924,7 +943,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
 
       {isSaving && (
-        <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center text-white">
+        <div className="absolute inset-0 z-50 bg-black/70 flex flex-col items-center justify-center text-white">
           <Loader2 className="animate-spin mb-4" size={32} />
           <p className="text-sm font-medium tracking-wide uppercase">Applying Edits…</p>
         </div>
@@ -932,7 +951,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
       {/* Before/After overlay label */}
       {isComparing && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 backdrop-blur-md">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10">
           <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">Original</span>
         </div>
       )}

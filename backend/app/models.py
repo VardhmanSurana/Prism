@@ -19,6 +19,7 @@ class Photo(Base):
     height: Mapped[int] = mapped_column(Integer)
     aspect_ratio: Mapped[float] = mapped_column(Float)
     hash: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
+    phash: Mapped[Optional[str]] = mapped_column(String(64), index=True, nullable=True)
 
     # Metadata
     caption: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
@@ -62,12 +63,20 @@ class Photo(Base):
     # Pre-cached file size (bytes)
     file_size: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=None)
 
+    # Content classification (photo, screenshot, document)
+    content_type: Mapped[str] = mapped_column(String(20), default="photo", index=True)
+
+    # EXIF camera info (used for screenshot detection)
+    exif_make: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    exif_model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
     # Video-specific fields
     duration: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
     fps: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
     codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
     audio_codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
     video_faces_scanned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    animated_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     # Relationships
     people: Mapped[list["PhotoPerson"]] = relationship("PhotoPerson", back_populates="photo", cascade="all, delete-orphan")
@@ -97,7 +106,9 @@ class Album(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
-    type: Mapped[str] = mapped_column(String(20))  # places | memories | people
+    type: Mapped[str] = mapped_column(String(20))  # places | memories | people | custom
+    is_smart: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    smart_type: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # screenshots | documents
     cover_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     photo_count: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -186,6 +197,21 @@ class PendingFaceAssignment(Base):
     candidate_person: Mapped["Person"] = relationship()
 
 
+class SyncPeer(Base):
+    """Tracks discovered Prism instances on the local network."""
+    __tablename__ = "sync_peers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    peer_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    hostname: Mapped[str] = mapped_column(String(255))
+    ip_address: Mapped[str] = mapped_column(String(45))
+    port: Mapped[int] = mapped_column(Integer, default=8269)
+    paired: Mapped[bool] = mapped_column(Boolean, default=False)
+    paired_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    device_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # desktop, mobile, etc.
+
+
 class BackgroundJob(Base):
     __tablename__ = "background_jobs"
 
@@ -198,6 +224,8 @@ class BackgroundJob(Base):
     status: Mapped[str] = mapped_column(String(20), default="pending", index=True)  # pending | processing | completed | failed
     attempt_count: Mapped[int] = mapped_column(Integer, default=0)
     last_error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    current_stage: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    stage_progress: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

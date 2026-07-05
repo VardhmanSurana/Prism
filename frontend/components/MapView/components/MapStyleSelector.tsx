@@ -12,7 +12,7 @@ export const MapStyleSelector: React.FC<MapStyleSelectorProps> = ({
 }) => {
   return (
     <div className="absolute top-6 right-6 z-[1000]">
-      <div className="bg-surface/85 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl shadow-2xl flex flex-col gap-2 min-w-[200px]">
+      <div className="bg-surface border border-white/10 p-3.5 rounded-2xl shadow-2xl flex flex-col gap-2 min-w-[200px]">
         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Map Style</span>
         <div className="flex flex-col gap-1.5">
           {MAP_STYLES.map((style) => (

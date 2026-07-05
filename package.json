@@ -3,16 +3,17 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "concurrently \"bun run backend\" \"bun run frontend\"",
-    "frontend": "cd frontend && bun run dev",
-    "frontend:build": "cd frontend && bun run build",
-    "frontend:typecheck": "cd frontend && bunx tsc --noEmit",
-    "backend": "cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8269 --log-file backend.log",
+    "dev": "bash run-dev.sh",
+    "frontend": "cd frontend && pnpm run dev",
+    "frontend:build": "cd frontend && pnpm run build",
+    "frontend:typecheck": "cd frontend && pnpm exec tsc --noEmit",
+    "backend": "cd backend && uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8269",
     "backend:test": "cd backend && uv run pytest tests -q",
     "backend:sync": "cd backend && uv sync --frozen",
-    "test": "bun run frontend:typecheck && bun run backend:test",
+    "test": "pnpm run frontend:typecheck && pnpm run backend:test",
     "desktop": "bash run-desktop.sh",
     "app": "bash run-desktop.sh",
-    "tauri": "cd frontend && bunx tauri"
-  }
+    "tauri": "cd frontend && pnpm exec tauri"
+  },
+  "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8"
 }

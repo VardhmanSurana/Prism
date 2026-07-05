@@ -168,7 +168,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata }) => {
                     </MapContainer>
                   </div>
                   <div className="absolute inset-0 bg-black/20 group-hover:bg-transparent transition-colors z-[1000] pointer-events-none" />
-                  <div className="absolute bottom-2 right-2 bg-black/60 backdrop-blur-sm text-[10px] text-white px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-[1000] pointer-events-none">
+                  <div className="absolute bottom-2 right-2 bg-black/70 text-[10px] text-white px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-[1000] pointer-events-none">
                     Open Map →
                   </div>
                 </button>

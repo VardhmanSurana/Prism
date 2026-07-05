@@ -136,7 +136,7 @@ export const InpaintTutorial: React.FC<InpaintTutorialProps> = ({ isOpen, onClos
   };
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center p-4">
       <div className="bg-[#0c0c0c] border border-white/10 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/10">

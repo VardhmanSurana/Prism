@@ -9,9 +9,7 @@ import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
 import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
-import { CollageMaker } from './components/CollageMaker';
-import { PhotoBook } from './components/PhotoBook';
-import type { ViewMode } from './types';
+import type { ViewMode, Album } from './types';
 
 const Lightbox = React.lazy(() =>
   import('./components/viewers/Lightbox').then((m) => ({ default: m.Lightbox }))
@@ -21,6 +19,12 @@ const ConfirmDialog = React.lazy(() =>
 );
 const FileFolderBrowserDialog = React.lazy(() =>
   import('./components/FileFolderBrowser/FileFolderBrowserDialog').then((m) => ({ default: m.FileFolderBrowserDialog }))
+);
+const CollageMaker = React.lazy(() =>
+  import('./components/CollageMaker').then((m) => ({ default: m.CollageMaker }))
+);
+const PhotoBook = React.lazy(() =>
+  import('./components/PhotoBook').then((m) => ({ default: m.PhotoBook }))
 );
 
 function App() {
@@ -220,7 +224,7 @@ function App() {
           <AddToAlbumDialog
             isOpen={isAddToAlbumOpen}
             onClose={handleAddToAlbumClose}
-            albums={albums}
+            albums={albums.filter(a => a.type !== 'smart') as Album[]}
             onSelectAlbum={handleSelectAlbumToAdd}
             onCreateAlbum={handleCreateAlbumAndAdd}
             selectedCount={selectedIds.size}
@@ -229,16 +233,20 @@ function App() {
           <FileFolderBrowserDialog />
         </Suspense>
 
-        <CollageMaker
-          photos={selectedPhotos}
-          isOpen={isCollageOpen}
-          onClose={() => { setIsCollageOpen(false); clearSelection(); }}
-        />
-        <PhotoBook
-          photos={selectedPhotos}
-          isOpen={isPhotoBookOpen}
-          onClose={() => { setIsPhotoBookOpen(false); clearSelection(); }}
-        />
+        <Suspense fallback={null}>
+          <CollageMaker
+            photos={selectedPhotos}
+            isOpen={isCollageOpen}
+            onClose={() => { setIsCollageOpen(false); clearSelection(); }}
+          />
+        </Suspense>
+        <Suspense fallback={null}>
+          <PhotoBook
+            photos={selectedPhotos}
+            isOpen={isPhotoBookOpen}
+            onClose={() => { setIsPhotoBookOpen(false); clearSelection(); }}
+          />
+        </Suspense>
       </div>
     </ErrorBoundary>
   );

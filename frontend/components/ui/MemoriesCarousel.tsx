@@ -61,7 +61,7 @@ const MemoryCard: React.FC<{
         </div>
       )}
 
-      <div className={`absolute rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center text-white/90 group-hover:text-primary transition-all duration-500 group-hover:border-primary/30 group-hover:scale-110 shadow-xl
+      <div className={`absolute rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/90 group-hover:text-primary transition-all duration-500 group-hover:border-primary/30 group-hover:scale-110 shadow-xl
         ${isHero ? 'top-8 right-8 w-12 h-12' : 'top-6 right-6 w-9 h-9'}`}>
         {highlight.type === 'on_this_day' ? <Calendar size={isHero ? 20 : 14} /> : <MapPin size={isHero ? 20 : 14} />}
       </div>

@@ -59,7 +59,7 @@ The core product is designed so that normal library data, search indexes, thumbn
 - **Offline reverse geocoding:** Places albums and map markers are powered by local metadata and `reverse-geocoder`.
 - **Albums:** Places, monthly memories, people albums, and On This Day highlights.
 - **People view:** Face clustering for photos and videos (hybrid scene-change + uniform frame sampling with cross-frame deduplication), person rename flow, pending face feedback, and per-person photo grids.
-- **Map view:** Leaflet-based geospatial browsing with selectable map styles.
+- **Map view:** Leaflet-based geospatial browsing with marker clustering, selectable map styles, and thumbnail-optimized markers.
 - **Utilities:** Watched folder configuration, face discovery trigger, purge folder, clear cache, vacuum database, reset indexed library, diagnostics, logs, backup export, and backup restore.
 - **Locked Folder:** In-memory authenticated session, Argon2id password verification, random DEK wrapped by a KEK, atomic encrypted file writes, and startup recovery for interrupted encryption/decryption operations.
 - **Local AI assistant:** Opt-in natural-language photo search with planner, search tools, verification, and result rendering.
@@ -89,7 +89,7 @@ The core product is designed so that normal library data, search indexes, thumbn
 - React Router
 - Framer Motion
 - TanStack Virtual
-- Leaflet and React Leaflet
+- Leaflet, React Leaflet, and Leaflet MarkerCluster
 - Lucide icons
 - Cropper.js and React Cropper
 - Vitest, Testing Library, jsdom
@@ -167,46 +167,11 @@ graph TD
 
 ---
 
-## Project Layout
-
-```text
-.
-├── README.md
-├── DESIGN.md
-├── run-desktop.sh
-├── package.json
-├── pyproject.toml
-├── frontend/
-│   ├── package.json
-│   ├── bun.lock
-│   ├── index.tsx
-│   ├── App.tsx
-│   ├── components/
-│   ├── hooks/
-│   ├── services/
-│   ├── store/
-│   ├── tests/
-│   └── src-tauri/
-├── backend/
-│   ├── pyproject.toml
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── api/
-│   │   ├── agent/
-│   │   ├── models.py
-│   │   ├── config.py
-│   │   ├── db.py
-│   │   └── services/
-│   └── tests/
-```
-
----
-
 ## Getting Started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) v1.0+
+- [pnpm](https://pnpm.io/) v9+
 - [Python](https://www.python.org/) 3.11+
 - [uv](https://github.com/astral-sh/uv)
 - [ffmpeg](https://ffmpeg.org/) and ffprobe (for video thumbnails and metadata extraction)
@@ -218,11 +183,12 @@ graph TD
 Install root dependencies and start the backend plus Tauri dev shell:
 
 ```bash
-bun install
-bun run desktop
+pnpm install
+cd frontend && pnpm install
+pnpm run desktop
 ```
 
-`bun run desktop` starts the FastAPI backend on port `8269`, streams backend logs, and opens the Tauri desktop shell using the Vite frontend on port `3005`.
+`pnpm run desktop` starts the FastAPI backend on port `8269`, streams backend logs, and opens the Tauri desktop shell using the Vite frontend on port `3005`.
 
 ### Manual Development Setup
 
@@ -246,8 +212,8 @@ On Windows PowerShell, activate the virtual environment with:
 
 ```bash
 cd frontend
-bun install
-bun run dev
+pnpm install
+pnpm run dev
 ```
 
 The Vite dev server is pinned to port `3005` for the Tauri config.
@@ -256,16 +222,16 @@ The Vite dev server is pinned to port `3005` for the Tauri config.
 
 | Command | Description |
 | --- | --- |
-| `bun run dev` | Run backend and frontend concurrently |
-| `bun run frontend` | Start Vite frontend dev server |
-| `bun run frontend:build` | Build frontend assets |
-| `bun run frontend:typecheck` | Run frontend TypeScript checks |
-| `bun run backend` | Start FastAPI backend with reload |
-| `bun run backend:test` | Run backend pytest suite |
-| `bun run backend:sync` | Install backend dependencies with frozen lockfile |
-| `bun run test` | Run frontend typecheck and backend tests |
-| `bun run desktop` | Start backend and Tauri desktop shell |
-| `bun run tauri` | Run Tauri CLI from the frontend package |
+| `pnpm run dev` | Run backend and frontend concurrently |
+| `pnpm run frontend` | Start Vite frontend dev server |
+| `pnpm run frontend:build` | Build frontend assets |
+| `pnpm run frontend:typecheck` | Run frontend TypeScript checks |
+| `pnpm run backend` | Start FastAPI backend with reload |
+| `pnpm run backend:test` | Run backend pytest suite |
+| `pnpm run backend:sync` | Install backend dependencies with frozen lockfile |
+| `pnpm run test` | Run frontend typecheck and backend tests |
+| `pnpm run desktop` | Start backend and Tauri desktop shell |
+| `pnpm run tauri` | Run Tauri CLI from the frontend package |
 
 ---
 
@@ -424,14 +390,14 @@ Stored files include:
 Run the combined test entrypoint:
 
 ```bash
-bun run test
+pnpm run test
 ```
 
 Run checks separately:
 
 ```bash
-bun run frontend:typecheck
-bun run backend:test
+pnpm run frontend:typecheck
+pnpm run backend:test
 ```
 
 Frontend tests currently cover the photo grid, sidebar routing, and Locked Folder authentication form. Backend tests cover directory listing, vision pipeline, image summaries, face clustering, migrations, Locked Folder behavior, security boundaries, and pending face API flows.
@@ -442,7 +408,7 @@ Frontend tests currently cover the photo grid, sidebar routing, and Locked Folde
 
 ### Backend is already running
 
-`bun run desktop` detects an active listener on port `8269` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
+`pnpm run desktop` detects an active listener on port `8269` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
 
 ### CUDA or native library issues
 
@@ -489,7 +455,7 @@ Prism builds on many open-source projects, including:
 - Pillow, Pillow-Heif, OpenCV, NumPy, SciPy
 - ffmpeg and ffprobe
 - reverse-geocoder
-- Leaflet and React Leaflet
+- Leaflet, React Leaflet, and Leaflet MarkerCluster
 - Cropper.js
 - llama.cpp / llama-server
 - Florence-2, SigLIP, Ollama Vision

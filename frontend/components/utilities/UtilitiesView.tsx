@@ -9,6 +9,7 @@ import { SystemIntegrity } from './SystemIntegrity';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { StorageCleanup } from './storageCleanup';
 import { DiagnosticsLogs } from './DiagnosticsLogs';
+import { PrivacyDashboard } from './PrivacyDashboard';
 
 interface UtilitiesViewProps {
   onResetSuccess?: () => void;
@@ -17,12 +18,13 @@ interface UtilitiesViewProps {
 const TABS = [
   { id: 'storage' as const, label: 'Storage Cleanup' },
   { id: 'system' as const, label: 'Engine Settings' },
+  { id: 'privacy' as const, label: 'Privacy' },
   { id: 'diagnostics' as const, label: 'Diagnostics' },
   { id: 'appearance' as const, label: 'Appearance' },
 ];
 
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'storage' | 'system' | 'diagnostics' | 'appearance'>('storage');
+  const [activeTab, setActiveTab] = useState<'storage' | 'system' | 'privacy' | 'diagnostics' | 'appearance'>('storage');
   
   const {
     syncEnabled,
@@ -64,7 +66,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
       </header>
 
       <div className="max-w-5xl mx-auto px-8 pb-8 flex justify-center">
-        <div className="flex gap-1 bg-white/[0.02] backdrop-blur-2xl border border-white/[0.05] rounded-2xl p-1.5 shadow-2xl">
+        <div className="flex gap-1 bg-white/[0.02] border border-white/[0.05] rounded-2xl p-1.5 shadow-2xl">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -126,6 +128,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               systemStatus={systemStatus}
             />
           </div>
+        )}
+
+        {activeTab === 'privacy' && (
+          <PrivacyDashboard />
         )}
 
         {activeTab === 'diagnostics' && (

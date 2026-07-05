@@ -95,7 +95,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
             className="w-full h-full object-cover"
           />
           {hasMore && (
-            <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px] flex flex-col items-center justify-center text-white hover:bg-black/60 transition-colors duration-300">
+            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-white hover:bg-black/60 transition-colors duration-300">
               <span className="text-xl font-extrabold tracking-wide">+{moreCount}</span>
               <span className="text-[10px] font-bold text-gray-300 uppercase tracking-widest mt-1">Photos</span>
             </div>

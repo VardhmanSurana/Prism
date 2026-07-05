@@ -8,10 +8,35 @@ from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 import reverse_geocoder as rg
 
-# Register HEIF opener for Pillow
 register_heif_opener()
 
 logger = logging.getLogger(__name__)
+
+RAW_EXTENSIONS = ('.dng', '.cr2', '.cr3', '.nef', '.arw', '.orf', '.raf', '.rw2', '.pef', '.srw')
+
+def is_raw_file(file_path: str) -> bool:
+    return os.path.splitext(file_path)[1].lower() in RAW_EXTENSIONS
+
+def open_raw_image(file_path: str) -> Image.Image | None:
+    try:
+        import rawpy
+        with rawpy.imread(file_path) as raw:
+            rgb = raw.postprocess(
+                use_camera_wb=True,
+                half_size=True,
+                output_bps=8,
+                no_auto_bright=True,
+            )
+        from PIL import Image as PILImage
+        import numpy as np
+        img = PILImage.fromarray(rgb)
+        return img
+    except ImportError:
+        logger.warning("rawpy not installed - cannot process RAW files")
+        return None
+    except Exception as e:
+        logger.error(f"Failed to process RAW file {file_path}: {e}")
+        return None
 
 def _convert_to_degrees(value):
     """Helper function to convert the GPS coordinates stored in the EXIF to decimal degrees"""
@@ -68,6 +93,57 @@ def _get_city_name(lat, lon) -> dict | None:
         logger.debug(f"Geocoding failed for ({lat}, {lon}): {e}")
     return None
 
+def hamming_distance(hash1: str, hash2: str) -> int:
+    if len(hash1) != len(hash2):
+        return max(len(hash1), len(hash2))
+    return bin(int(hash1, 16) ^ int(hash2, 16)).count('1')
+
+def compute_phash(file_path: str, hash_size: int = 16) -> str | None:
+    try:
+        import cv2
+        import numpy as np
+        img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        img = cv2.resize(img, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        dct = cv2.dct(gray)
+        dct_low = dct[:hash_size, :hash_size]
+        median_val = np.median(dct_low)
+        bits = (dct_low > median_val).flatten()
+        hex_str = ''
+        for i in range(0, len(bits), 4):
+            nibble = 0
+            for j in range(4):
+                if i + j < len(bits) and bits[i + j]:
+                    nibble |= 1 << (3 - j)
+            hex_str += format(nibble, 'x')
+        return hex_str
+    except Exception:
+        return compute_dhash(file_path, hash_size)
+
+def compute_dhash(file_path: str, hash_size: int = 16) -> str | None:
+    try:
+        import cv2
+        import numpy as np
+        img = cv2.imread(file_path, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        img = cv2.resize(img, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).astype(np.float32)
+        diff = gray[:, 1:] > gray[:, :-1]
+        bits = diff.flatten()
+        hex_str = ''
+        for i in range(0, len(bits), 4):
+            nibble = 0
+            for j in range(4):
+                if i + j < len(bits) and bits[i + j]:
+                    nibble |= 1 << (3 - j)
+            hex_str += format(nibble, 'x')
+        return hex_str
+    except Exception:
+        return None
+
 def extract_metadata(img: Image.Image, file_path: str):
     """Unified metadata extraction from a PIL Image and file path."""
     width, height = img.size
@@ -77,6 +153,8 @@ def extract_metadata(img: Image.Image, file_path: str):
     date_taken = None
     coords = None
     city = state = country = location_str = None
+    exif_make = None
+    exif_model = None
 
     try:
         exif = img._getexif()
@@ -87,6 +165,9 @@ def extract_metadata(img: Image.Image, file_path: str):
                 date_taken = datetime.strptime(dt_str, '%Y:%m:%d %H:%M:%S')
             # GPS extraction
             coords = _get_gps_coordinates(exif)
+            # Camera Make/Model (EXIF tags 271 and 272)
+            exif_make = exif.get(271)
+            exif_model = exif.get(272)
     except Exception as e:
         logger.debug(f"Failed to extract EXIF metadata: {e}")
 
@@ -118,6 +199,8 @@ def extract_metadata(img: Image.Image, file_path: str):
         "location": location_str,
         "latitude": coords[0] if coords else None,
         "longitude": coords[1] if coords else None,
+        "exif_make": exif_make,
+        "exif_model": exif_model,
     }
 
 def generate_thumbnail(file_path: str, thumb_dir: str):
@@ -150,32 +233,59 @@ def generate_thumbnail(file_path: str, thumb_dir: str):
             logger.error(f"Failed to calculate blur score in process pool: {e}")
         
         thumb_path = Path(thumb_dir) / f"{file_hash}.webp"
-        
-        with Image.open(file_path) as img:
-            metadata = extract_metadata(img, file_path)
+
+        phash = compute_phash(file_path)
+
+        raw_img = None
+        if is_raw_file(file_path):
+            raw_img = open_raw_image(file_path)
+
+        if raw_img is not None:
+            metadata = extract_metadata(raw_img, file_path)
             metadata["hash"] = file_hash
+            metadata["phash"] = phash
             metadata["blur_score"] = blur_score
             metadata["file_size"] = file_size
 
             if thumb_path.exists():
                 return metadata, f"/thumbnails/{file_hash}.webp"
 
-            # Fix EXIF orientation before processing
+            try:
+                raw_img = ImageOps.exif_transpose(raw_img)
+            except Exception:
+                pass
+
+            if raw_img.mode != 'RGB':
+                raw_img = raw_img.convert('RGB')
+
+            raw_img.thumbnail((400, 400))
+
+            raw_img.save(str(thumb_path), format="WEBP", quality=80)
+
+            return metadata, f"/thumbnails/{file_hash}.webp"
+
+        with Image.open(file_path) as img:
+            metadata = extract_metadata(img, file_path)
+            metadata["hash"] = file_hash
+            metadata["phash"] = phash
+            metadata["blur_score"] = blur_score
+            metadata["file_size"] = file_size
+
+            if thumb_path.exists():
+                return metadata, f"/thumbnails/{file_hash}.webp"
+
             try:
                 img = ImageOps.exif_transpose(img)
             except Exception:
                 pass
-            
-            # Convert to RGB if needed (e.g., Palette or RGBA) to save memory
+
             if img.mode != 'RGB':
                 img = img.convert('RGB')
-            
-            # Resize in-place
+
             img.thumbnail((400, 400))
-            
-            # Save as highly compressed WebP
+
             img.save(str(thumb_path), format="WEBP", quality=80)
-            
+
             return metadata, f"/thumbnails/{file_hash}.webp"
     except Exception as e:
         logger.error(f"Thumbnail generation failed for {file_path}: {e}")

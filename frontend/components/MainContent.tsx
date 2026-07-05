@@ -1,16 +1,16 @@
 import React, { Dispatch, SetStateAction } from 'react';
-import { ExploreView } from './ExploreView';
-import { AlbumsView } from './albums';
-import { PeopleView } from './PeopleView/index';
-import { UtilitiesView } from './utilities/UtilitiesView';
-import { MapView } from './MapView';
 import { PhotoGrid } from './PhotoGrid';
-import { LockedViewAuth } from './LockedViewAuth/index';
-import { LockedFolderView } from './LockedFolderView';
-import { AgentView } from './AgentView/AgentView';
-
 import { Photo, ViewMode, SearchFilters, SortMode } from '../types';
 import { ImportProgressStatus } from './PhotoGrid/types';
+
+const ExploreView = React.lazy(() => import('./ExploreView').then(m => ({ default: m.ExploreView })));
+const AlbumsView = React.lazy(() => import('./albums').then(m => ({ default: m.AlbumsView })));
+const PeopleView = React.lazy(() => import('./PeopleView/index').then(m => ({ default: m.PeopleView })));
+const UtilitiesView = React.lazy(() => import('./utilities/UtilitiesView').then(m => ({ default: m.UtilitiesView })));
+const MapView = React.lazy(() => import('./MapView').then(m => ({ default: m.MapView })));
+const LockedViewAuth = React.lazy(() => import('./LockedViewAuth/index').then(m => ({ default: m.LockedViewAuth })));
+const LockedFolderView = React.lazy(() => import('./LockedFolderView').then(m => ({ default: m.LockedFolderView })));
+const AgentView = React.lazy(() => import('./AgentView/AgentView').then(m => ({ default: m.AgentView })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -134,7 +134,9 @@ export const MainContent = React.memo(function MainContent({
         currentView === 'agent' ? 'overflow-hidden h-full' : 'overflow-y-auto'
       }`}
     >
-      {renderContent()}
+      <React.Suspense fallback={null}>
+        {renderContent()}
+      </React.Suspense>
     </div>
   );
 });

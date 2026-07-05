@@ -36,7 +36,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
   if (photos.length === 0) return null;
 
   return (
-    <div className="shrink-0 bg-[#0D0F14]/90 backdrop-blur-md border-t border-white/5">
+    <div className="shrink-0 bg-[#0D0F14] border-t border-white/5">
       <div
         ref={containerRef}
         className="flex items-center gap-1 px-4 py-2 overflow-x-auto scrollbar-hide"

@@ -72,6 +72,7 @@ class IngestionMixin:
                     path=file_path,
                     url=thumb_url if thumb_url else f"local://{file_path}",
                     hash=file_hash,
+                    phash=metadata.get("phash"),
                     width=metadata["width"],
                     height=metadata["height"],
                     aspect_ratio=metadata["aspect_ratio"],
@@ -91,10 +92,13 @@ class IngestionMixin:
                     is_external=is_external,
                     blur_score=metadata.get("blur_score"),
                     file_size=metadata.get("file_size"),
+                    exif_make=metadata.get("exif_make"),
+                    exif_model=metadata.get("exif_model"),
                     duration=metadata.get("duration"),
                     fps=metadata.get("fps"),
                     codec=metadata.get("codec"),
                     audio_codec=metadata.get("audio_codec"),
+                    animated_url=metadata.get("animated_url"),
                 )
 
                 try:
@@ -113,7 +117,7 @@ class IngestionMixin:
                 "aspect_ratio", "location", "date", "date_taken",
                 "upload_date", "is_favorite", "is_locked",
                 "mime_type", "file_type", "device_id", "is_external",
-                "duration", "fps", "codec", "audio_codec"
+                "duration", "fps", "codec", "audio_codec", "animated_url"
             }
             photo_dict = photo_to_dict(new_photo, include=broadcast_fields)
             self.broadcast({"type": "new_photo", "photo": photo_dict})

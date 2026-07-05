@@ -19,7 +19,7 @@ export const Appearance: React.FC = () => {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Gallery Layout */}
-      <section className="bg-white/[0.02] backdrop-blur-3xl border border-white/[0.05] rounded-2xl p-8">
+      <section className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-8">
         <div className="mb-8">
           <h3 className="font-serif italic text-white text-xl leading-tight">
             Gallery Layout

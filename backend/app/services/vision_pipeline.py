@@ -11,87 +11,6 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ── Suppress deprecation noise from transformers ──────────────────────────────
-# Florence-2's processor still references `image_processor_class = 'CLIPImageProcessor'`
-# which is deprecated; the canonical replacement is `image_processor_type`.
-try:
-    from transformers.models.auto.image_processing_auto import (
-        AutoImageProcessor,
-        IMAGE_PROCESSOR_MAPPING,
-    )
-    from transformers.models.clip.image_processing_clip import CLIPImageProcessor
-
-    _registered = False
-    if "clip" not in IMAGE_PROCESSOR_MAPPING or not any(
-        isinstance(p, type) and issubclass(p, CLIPImageProcessor)
-        for p in IMAGE_PROCESSOR_MAPPING.get("clip", [])
-    ):
-        try:
-            AutoImageProcessor.register(CLIPImageProcessor, slow_image_processor_class=CLIPImageProcessor)
-            _registered = True
-        except Exception:
-            try:
-                AutoImageProcessor.register(CLIPImageProcessor, CLIPImageProcessor)
-                _registered = True
-            except Exception:
-                _registered = False
-    if _registered:
-        logger.info("Registered CLIPImageProcessor mapping in AutoImageProcessor.")
-except Exception as patch_err:
-    logger.warning(f"Failed to register CLIPImageProcessor mapping: {patch_err}")
-
-# ── Monkey Patch for Florence-2 Config compatibility in transformers 4.45+ ──
-try:
-    from transformers.configuration_utils import PretrainedConfig
-    original_getattribute = PretrainedConfig.__getattribute__
-    def patched_getattribute(self, key):
-        try:
-            return original_getattribute(self, key)
-        except AttributeError as e:
-            if key == "forced_bos_token_id":
-                return None
-            raise e
-    PretrainedConfig.__getattribute__ = patched_getattribute
-    logger.info("Successfully applied PretrainedConfig monkey patch for Florence-2.")
-except Exception as patch_err:
-    logger.warning(f"Failed to apply PretrainedConfig monkey patch: {patch_err}")
-
-try:
-    from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-    original_getattr = PreTrainedTokenizerBase.__getattr__
-    def patched_getattr(self, key):
-        if key == "additional_special_tokens":
-            return []
-        return original_getattr(self, key)
-    PreTrainedTokenizerBase.__getattr__ = patched_getattr
-    logger.info("Successfully applied PreTrainedTokenizerBase monkey patch for Florence-2.")
-except Exception as patch_err:
-    logger.warning(f"Failed to apply PreTrainedTokenizerBase monkey patch: {patch_err}")
-
-try:
-    from transformers.modeling_utils import PreTrainedModel
-    original_model_getattr = getattr(PreTrainedModel, "__getattr__", None)
-    def patched_model_getattr(self, key):
-        if key in ("_supports_sdpa", "_supports_flash_attn_2"):
-            return False
-        if original_model_getattr:
-            try:
-                return original_model_getattr(self, key)
-            except AttributeError:
-                pass
-        # Fallback to standard PyTorch Module attribute behavior
-        if key in self.__dict__.get("_parameters", {}):
-            return self.__dict__["_parameters"][key]
-        if key in self.__dict__.get("_buffers", {}):
-            return self.__dict__["_buffers"][key]
-        if key in self.__dict__.get("_modules", {}):
-            return self.__dict__["_modules"][key]
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
-    PreTrainedModel.__getattr__ = patched_model_getattr
-    logger.info("Successfully applied PreTrainedModel __getattr__ monkey patch for Florence-2.")
-except Exception as patch_err:
-    logger.warning(f"Failed to apply PreTrainedModel monkey patch: {patch_err}")
-
 # Setup local model caching directory inside backend/models
 CACHE_DIR = os.path.join(settings.BASE_DIR, "models", ".cache", "huggingface")
 os.makedirs(CACHE_DIR, exist_ok=True)
@@ -115,76 +34,24 @@ if DEVICE == "cuda":
     logger.info("CUDA detected for vision-language models. cuDNN disabled for stability.")
 
 # Model IDs
-FLORENCE_MODEL_ID = "microsoft/Florence-2-large"
 SIGLIP_MODEL_ID = "google/siglip2-base-patch16-224"
 
 # Global references for lazy loading
-_florence_model = None
-_florence_processor = None
 _siglip_model = None
 _siglip_processor = None
 
 import time
 
 def unload_models():
-    """Unloads Florence-2 and SigLIP2 models from memory/GPU."""
-    global _florence_model, _florence_processor, _siglip_model, _siglip_processor
-    logger.info("Unloading Florence-2 and SigLIP2 models from memory...")
-    _florence_model = None
-    _florence_processor = None
+    """Unloads SigLIP2 model from memory/GPU."""
+    global _siglip_model, _siglip_processor
+    logger.info("Unloading SigLIP2 model from memory...")
     _siglip_model = None
     _siglip_processor = None
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     gc.collect()
     logger.info("Models successfully unloaded.")
-
-
-def _get_florence():
-    global _florence_model, _florence_processor
-    if not settings.ENABLE_AI_CLIP:
-        raise RuntimeError("AI CLIP feature is disabled in config. Enable it to run vision analysis.")
-        
-    if _florence_model is None:
-        from transformers import AutoProcessor, AutoModelForCausalLM
-        start_time = time.time()
-        
-        # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
-        from app.agent.service import PrismAgent
-        from app.services.face_sdk import face_sdk
-        from app.services.image_summary.llm import VisionManager
-        PrismAgent.unload_llm()
-        face_sdk.shutdown()
-        VisionManager.unload_vision()
-
-        logger.info(f"Loading Florence-2 Model ({FLORENCE_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
-        
-        if torch.cuda.is_available():
-            vram_before = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
-            logger.info(f"VRAM Allocated before loading Florence-2: {vram_before:.2f} MB")
-            
-        _florence_processor = AutoProcessor.from_pretrained(
-            FLORENCE_MODEL_ID, 
-            trust_remote_code=True, 
-            cache_dir=CACHE_DIR
-        )
-        _florence_model = AutoModelForCausalLM.from_pretrained(
-            FLORENCE_MODEL_ID, 
-            trust_remote_code=True, 
-            cache_dir=CACHE_DIR,
-            dtype=DTYPE
-        ).to(DEVICE)
-        _florence_model.eval()
-        
-        load_time = time.time() - start_time
-        logger.info(f"Florence-2 Model loaded successfully in {load_time:.2f} seconds.")
-        
-        if torch.cuda.is_available():
-            vram_after = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
-            vram_used = vram_after - vram_before
-            logger.info(f"VRAM Allocated after loading Florence-2: {vram_after:.2f} MB (Used: {vram_used:.2f} MB)")
-            
-    return _florence_model, _florence_processor
 
 
 def _get_siglip():

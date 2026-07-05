@@ -20,8 +20,6 @@ export interface PhotoGridProps {
   onToggleGroupSelection: (ids: string[]) => void;
   scrollParentRef?: RefObject<HTMLDivElement | null>;
   onSearch?: (filters: SearchFilters | null) => void;
-  onUpload?: (photos: Photo[]) => void;
-  onImportProgress?: (status: ImportProgressStatus) => void;
   onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;

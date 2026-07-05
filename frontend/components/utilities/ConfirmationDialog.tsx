@@ -21,7 +21,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
       <div className="relative bg-[#0c0c0c] border border-[#23252a] rounded-2xl w-full max-w-md mx-4 shadow-2xl">
         <div className="p-6">
           <h3 className="font-serif italic text-[#f7f8f8] text-xl leading-tight">

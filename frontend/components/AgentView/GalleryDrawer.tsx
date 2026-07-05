@@ -20,7 +20,7 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="w-[58%] border-l border-white/5 flex flex-col h-full bg-[#050505]/95 backdrop-blur-2xl relative z-20 shadow-2xl"
+          className="w-[58%] border-l border-white/5 flex flex-col h-full bg-[#050505] relative z-20 shadow-2xl"
         >
           {/* Drawer Header */}
           <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">

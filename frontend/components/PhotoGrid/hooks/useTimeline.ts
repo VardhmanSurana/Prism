@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import type { RefObject } from 'react';
 import { TimelineItem } from '@/components/ui/TimelineDial';
 import { RowItem } from '../types';
@@ -60,7 +60,10 @@ export const useTimeline = (
     timelineItemsRef.current = timelineItems;
   }, [timelineItems]);
 
-  // Deep comparison of timelineItems' IDs and progress values to stabilize effect trigger
+  const lastActiveRef = useRef<string | null>(null);
+  const scrollStateRef = useRef(scrollState);
+  scrollStateRef.current = scrollState;
+
   const itemsKey = useMemo(() => {
     return JSON.stringify(timelineItems.map(i => ({ id: i.id, progress: i.progress })));
   }, [timelineItems]);
@@ -69,29 +72,45 @@ export const useTimeline = (
     const parent = scrollParentRef?.current;
     if (!parent) return;
 
+    let rafId = 0;
     const handleScroll = () => {
-      const scrollTop = parent.scrollTop;
-      const scrollHeight = parent.scrollHeight;
-      const clientHeight = parent.clientHeight;
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        const start = performance.now();
+        rafId = 0;
+        const scrollTop = parent.scrollTop;
+        const scrollHeight = parent.scrollHeight;
+        const clientHeight = parent.clientHeight;
 
-      if (scrollHeight === 0) return;
+        if (scrollHeight === 0) return;
 
-      const maxScroll = scrollHeight - clientHeight;
-      const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
+        const maxScroll = scrollHeight - clientHeight;
+        const progress = maxScroll > 0 ? scrollTop / maxScroll : 0;
 
-      setScrollState({ progress, height: scrollHeight });
-
-      let closest = null;
-      let minDiff = Infinity;
-      const currentItems = timelineItemsRef.current;
-      for (const item of currentItems) {
-        const diff = Math.abs(item.progress - progress);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closest = item.id;
+        const prev = scrollStateRef.current;
+        if (Math.abs(prev.progress - progress) > 0.001 || Math.abs(prev.height - scrollHeight) > 1) {
+          setScrollState({ progress, height: scrollHeight });
         }
-      }
-      if (closest) setActiveId(closest);
+
+        let closest = null;
+        let minDiff = Infinity;
+        const currentItems = timelineItemsRef.current;
+        for (const item of currentItems) {
+          const diff = Math.abs(item.progress - progress);
+          if (diff < minDiff) {
+            minDiff = diff;
+            closest = item.id;
+          }
+        }
+        if (closest && closest !== lastActiveRef.current) {
+          lastActiveRef.current = closest;
+          setActiveId(closest);
+        }
+        const duration = performance.now() - start;
+        if (duration > 4) {
+          console.log(`[perf] timelineScroll: ${duration.toFixed(1)}ms`);
+        }
+      });
     };
 
     parent.addEventListener('scroll', handleScroll, { passive: true });
@@ -99,6 +118,7 @@ export const useTimeline = (
     return () => {
       parent.removeEventListener('scroll', handleScroll);
       clearTimeout(timer);
+      if (rafId) cancelAnimationFrame(rafId);
     };
   }, [scrollParentRef, itemsKey]);
 

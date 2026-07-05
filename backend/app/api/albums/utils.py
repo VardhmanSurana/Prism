@@ -50,8 +50,10 @@ def photo_to_dict(photo: Photo, include: set[str] | None = None) -> dict:
         "codec": photo.codec,
         "audio_codec": photo.audio_codec,
         "video_faces_scanned": photo.video_faces_scanned,
+        "animated_url": photo.animated_url,
         "latitude": photo.latitude,
         "longitude": photo.longitude,
+        "content_type": photo.content_type,
     }
 
     if include:

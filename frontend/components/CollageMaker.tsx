@@ -187,17 +187,6 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     }
   }, [drawCanvas, exportFormat]);
 
-  useEffect(() => {
-    if (!previewRef.current) return;
-    let animFrame: number;
-    const render = () => {
-      drawCanvas(document.createElement('canvas'), 0.3).then(() => {});
-      animFrame = requestAnimationFrame(render);
-    };
-    animFrame = requestAnimationFrame(render);
-    return () => cancelAnimationFrame(animFrame);
-  }, [drawCanvas]);
-
   const renderPreview = useCallback(() => {
     if (!previewRef.current) return;
     const container = previewRef.current;
@@ -289,7 +278,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-xl flex items-center justify-center"
+      className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center"
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}

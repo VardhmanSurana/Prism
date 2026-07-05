@@ -44,7 +44,7 @@ export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-[#1a1a1f] border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-scale-in">

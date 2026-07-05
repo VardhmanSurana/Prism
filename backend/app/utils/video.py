@@ -297,6 +297,73 @@ def sample_video_frames(file_path: str, duration: float, output_dir: str,
     return unique_frames
 
 
+def _generate_animated_webp(file_path: str, thumb_dir: str, file_hash: str, duration: float) -> str | None:
+    """Generate a short animated WebP preview (~2s at 8fps) for hover playback.
+    Uses ffmpeg to extract frames, then PIL to compose animated WebP."""
+    anim_path = Path(thumb_dir) / f"{file_hash}_anim.webp"
+    if anim_path.exists():
+        return f"/thumbnails/{file_hash}_anim.webp"
+
+    seek_time = max(0, (duration * 0.1) - 1.0)
+    clip_duration = min(2.0, max(duration - seek_time, 1.0))
+    tmp_dir = Path(thumb_dir) / f"_anim_tmp_{file_hash}"
+    try:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+        pattern = str(tmp_dir / "frame_%03d.jpg")
+        ffmpeg_cmd = [
+            'ffmpeg', '-y',
+            '-ss', str(seek_time),
+            '-i', file_path,
+            '-t', str(clip_duration),
+            '-vf', 'fps=8,scale=320:-2',
+            '-q:v', '5',
+            pattern,
+        ]
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, timeout=60)
+        if result.returncode != 0:
+            logger.warning(f"Animated WebP frame extraction failed: {result.stderr.decode()[:200]}")
+            return None
+
+        frame_files = sorted(tmp_dir.glob("frame_*.jpg"))
+        if not frame_files:
+            return None
+
+        frames = []
+        for fp in frame_files:
+            try:
+                img = Image.open(fp).convert("RGB")
+                frames.append(img)
+            except Exception:
+                continue
+
+        if len(frames) < 2:
+            for f in frames:
+                f.close()
+            return None
+
+        frames[0].save(
+            str(anim_path),
+            format="WEBP",
+            save_all=True,
+            append_images=frames[1:],
+            duration=125,
+            loop=0,
+            quality=75,
+        )
+        for f in frames:
+            f.close()
+        return f"/thumbnails/{file_hash}_anim.webp"
+    except Exception as e:
+        logger.warning(f"Animated WebP generation failed: {e}")
+        return None
+    finally:
+        try:
+            import shutil
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def generate_video_thumbnail(file_path: str, thumb_dir: str):
     if not _check_ffprobe_available():
         logger.warning("ffprobe not available — skipping video metadata/thumbnail")
@@ -318,12 +385,15 @@ def generate_video_thumbnail(file_path: str, thumb_dir: str):
             hasher.update(file_path.encode())
         file_hash = hasher.hexdigest()
 
-        thumb_path = Path(thumb_dir) / f"{file_hash}.webp"
-        if thumb_path.exists():
+        static_path = Path(thumb_dir) / f"{file_hash}.webp"
+        anim_url = f"/thumbnails/{file_hash}_anim.webp" if (Path(thumb_dir) / f"{file_hash}_anim.webp").exists() else None
+
+        if static_path.exists():
             metadata = extract_video_metadata(file_path)
             metadata["hash"] = file_hash
             metadata["blur_score"] = None
             metadata["file_size"] = file_size
+            metadata["animated_url"] = anim_url
             return metadata, f"/thumbnails/{file_hash}.webp"
 
         probe_cmd = [
@@ -345,87 +415,43 @@ def generate_video_thumbnail(file_path: str, thumb_dir: str):
 
         duration = metadata.get("duration") or 10.0
         seek_time = duration * 0.1
-        cap_duration = min(duration, 2.0)
-        native_fps = metadata.get("fps") or 12.0
-        target_fps = min(native_fps, 12.0)
 
-        raw_frames_dir = Path(thumb_dir) / f"{file_hash}_frames"
-        raw_frames_dir.mkdir(parents=True, exist_ok=True)
-        frame_pattern = str(raw_frames_dir / "frame_%03d.jpg")
+        single_frame_path = Path(thumb_dir) / f"{file_hash}_frame.jpg"
+        webp_path = str(static_path)
 
         ffmpeg_cmd = [
             'ffmpeg', '-y',
             '-ss', str(seek_time),
             '-i', file_path,
-            '-t', str(cap_duration),
+            '-vframes', '1',
             '-vf', 'scale=400:-2',
-            '-r', str(target_fps),
             '-q:v', '3',
-            frame_pattern
+            str(single_frame_path)
         ]
         result = subprocess.run(ffmpeg_cmd, capture_output=True, timeout=120)
         if result.returncode != 0:
             logger.error(f"ffmpeg thumbnail failed for {file_path}: {result.stderr.decode()}")
             return metadata, None
 
-        frame_files = sorted(raw_frames_dir.glob("frame_*.jpg"))
-        if not frame_files:
-            logger.warning(f"No frames extracted for {file_path}")
+        if not single_frame_path.exists():
+            logger.warning(f"No frame extracted for {file_path}")
             return metadata, None
 
-        frames = []
-        for fp in frame_files:
-            try:
-                img = Image.open(fp).convert("RGB")
-                frames.append(img)
-            except Exception:
-                continue
-
-        if not frames:
-            logger.warning(f"Could not load any frames for {file_path}")
-            return metadata, None
-
-        frame_duration_ms = int(1000 / target_fps)
-        webp_path = str(thumb_path)
-
-        save_kwargs = {
-            "format": "WEBP",
-            "save_all": True,
-            "append_images": frames[1:],
-            "duration": frame_duration_ms,
-            "loop": 0,
-            "quality": 80,
-        }
-
-        frames[0].save(webp_path, **save_kwargs)
-
-        file_size_kb = os.path.getsize(webp_path) / 1024
-        if file_size_kb > 500:
-            reduce_factor = 500.0 / file_size_kb
-            new_quality = max(20, int(80 * reduce_factor))
-            new_fps = max(4, int(target_fps * reduce_factor))
-            new_frame_duration_ms = int(1000 / new_fps)
-
-            save_kwargs["duration"] = new_frame_duration_ms
-            save_kwargs["quality"] = new_quality
-            save_kwargs["append_images"] = frames[1::max(1, len(frames) // new_fps + 1)]
-            frames[0].save(webp_path, **save_kwargs)
-
-        for fp in frame_files:
-            try:
-                fp.unlink()
-            except Exception:
-                pass
         try:
-            raw_frames_dir.rmdir()
-        except Exception:
-            pass
-
-        for f in frames:
+            img = Image.open(single_frame_path).convert("RGB")
+            img.save(webp_path, format="WEBP", quality=80)
+            img.close()
+        except Exception as e:
+            logger.error(f"Failed to save static thumbnail for {file_path}: {e}")
+            return metadata, None
+        finally:
             try:
-                f.close()
+                single_frame_path.unlink()
             except Exception:
                 pass
+
+        anim_url = _generate_animated_webp(file_path, thumb_dir, file_hash, duration)
+        metadata["animated_url"] = anim_url
 
         return metadata, f"/thumbnails/{file_hash}.webp"
 

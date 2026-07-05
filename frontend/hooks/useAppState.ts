@@ -93,7 +93,7 @@ export function useAppState() {
   }, [selectedIds, createAlbum, addPhotosToAlbum, clearSelection]);
 
   const handleRemovePhotosFromActiveAlbum = useCallback(async () => {
-    if (!selectedAlbum) return;
+    if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     const photoIds = Array.from(selectedIds).map(Number);
     if (photoIds.length > 0) {
       await removePhotosFromAlbum(selectedAlbum.id, photoIds);
@@ -128,13 +128,13 @@ export function useAppState() {
   }, [setPhotoSelection]);
 
   const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
-    if (!selectedAlbum) return;
+    if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     await removePhotosFromAlbum(selectedAlbum.id, [photoId]);
     setSelectedPhoto(null);
   }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
 
   const handleSetAlbumCover = useCallback(async (photoId: number) => {
-    if (!selectedAlbum) return;
+    if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     await setAlbumCover(selectedAlbum.id, photoId);
   }, [selectedAlbum, setAlbumCover]);
 

@@ -18,8 +18,6 @@ import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
 import { EditingMode } from '@/components/Editing/EditingMode';
 
-const VideoEditor = React.lazy(() => import('@/components/VideoEditor/VideoEditor').then(m => ({ default: m.VideoEditor })));
-
 interface LightboxProps {
   photo: Photo;
   photos?: Photo[];
@@ -47,7 +45,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [metadata, setMetadata] = useState<Photo | null>(null);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isVideoEditing, setIsVideoEditing] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
 
   const unloadInpaintModels = useCallback(() => {
@@ -138,7 +135,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (isEditing || isVideoEditing) return;
+      if (isEditing) return;
 
       if (e.key === 'Escape') {
         onClose();
@@ -150,7 +147,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     };
     window.addEventListener('keydown', handleKey, { passive: true });
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isVideoEditing, isVideo]);
+  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isVideo]);
 
   const aspect = useMemo(
     () => (photo.width && photo.height ? photo.width / photo.height : null),
@@ -198,7 +195,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         onResetInteraction={resetInteraction}
         onToggleShowInfo={() => setShowInfo(!showInfo)}
         onToggleFavorite={handleToggleFavorite}
-        onEdit={() => isVideo ? setIsVideoEditing(true) : setIsEditing(true)}
+        onEdit={() => setIsEditing(true)}
         onTrash={handleTrash}
         onRemoveFromAlbum={onRemoveFromAlbum}
         onSetAsCover={onSetAsCover}
@@ -255,7 +252,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       </div>
 
       {/* Bottom metadata bar */}
-      <div className="shrink-0 px-6 py-3 bg-[#0D0F14]/90 backdrop-blur-md border-t border-white/5 z-20">
+      <div className="shrink-0 px-6 py-3 bg-[#0D0F14] border-t border-white/5 z-20">
         <PhotoMetadataDisplay photo={photo} metadata={metadata} />
       </div>
 
@@ -318,13 +315,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
             }
           }}
         />
-      )}
-
-      {/* Video Editor overlay */}
-      {isVideoEditing && (
-        <React.Suspense fallback={<div className="fixed inset-0 z-[100] bg-[#050505] flex items-center justify-center"><div className="w-6 h-6 border-2 border-white/5 border-t-white/40 rounded-full animate-spin" /></div>}>
-          <VideoEditor photo={photo} photos={photos} onClose={() => setIsVideoEditing(false)} />
-        </React.Suspense>
       )}
     </motion.div>
   );

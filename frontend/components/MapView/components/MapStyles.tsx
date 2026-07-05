@@ -4,8 +4,7 @@ export const MapStyles: React.FC = () => {
   return (
     <style>{`
       .leaflet-popup-content-wrapper {
-        background: rgba(26, 26, 26, 0.9) !important;
-        backdrop-filter: blur(12px);
+        background: rgba(26, 26, 26, 0.95) !important;
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 16px !important;
         color: white !important;

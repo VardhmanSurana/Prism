@@ -208,7 +208,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           {dropdownOpen && (
             <div
               role="menu"
-              className="absolute right-0 top-full mt-3 w-64 rounded-2xl bg-[var(--bg-secondary)] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] backdrop-blur-2xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
+              className="absolute right-0 top-full mt-3 w-64 rounded-2xl bg-[var(--bg-secondary)] border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200"
             >
               <div className="px-4 pt-4 pb-3 border-b border-white/5">
                 <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">Export Format</p>

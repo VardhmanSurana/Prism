@@ -75,12 +75,30 @@ class Settings(BaseSettings):
     ENABLE_AI_REMBG: bool = False
     ENABLE_AI_OCR: bool = False
     ENABLE_AI_SUBTITLES: bool = False
+    ENABLE_AI_CONTENT_CLASSIFY: bool = True
+    ENABLE_AI_STORY: bool = True
+    ENABLE_RAW_PROCESSING: bool = True
+    ENABLE_LAN_SYNC: bool = False
+
+    # LAN Sync settings
+    LAN_SYNC_PORT: int = 8269
+    LAN_SYNC_CHUNK_SIZE: int = 1024 * 1024  # 1MB chunks for file transfer
 
     # Video face detection settings
     VIDEO_FACE_SCENE_THRESHOLD: float = 0.3
     VIDEO_FACE_MAX_FRAMES: int = 50
     VIDEO_FACE_MIN_GAP_SECONDS: float = 5.0
     VIDEO_FACE_DEDUP_THRESHOLD: float = 0.7
+
+    # Video face tracker settings
+    VIDEO_FACE_TRACKER_IOU_THRESHOLD: float = 0.3
+    VIDEO_FACE_TRACKER_CENTROID_DIST: float = 150.0
+    VIDEO_FACE_TRACKER_EMB_SIM_THRESHOLD: float = 0.4
+    VIDEO_FACE_TRACKER_MAX_MISSED: int = 5
+
+    JOB_QUEUE_MAX_RETRIES: int = 5
+    JOB_QUEUE_THROTTLE_CPU_THRESHOLD: float = 85.0
+    JOB_QUEUE_THROTTLE_BATTERY_THRESHOLD: int = 20
 
 
 settings = Settings()

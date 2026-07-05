@@ -32,7 +32,7 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
       <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
         <button 
           onClick={onClose} 

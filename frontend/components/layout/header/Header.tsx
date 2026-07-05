@@ -3,7 +3,6 @@ import { SearchBar } from './SearchBar';
 import { NotificationsButton } from './NotificationsButton';
 import { UserProfile } from './UserProfile';
 import type { HeaderProps } from '../types/header';
-import { GlassMaterial } from '@/components/GlassMaterial';
 
 export const Header: React.FC<HeaderProps> = ({
   onSearch,
@@ -11,9 +10,7 @@ export const Header: React.FC<HeaderProps> = ({
   onSortChange,
 }) => {
   return (
-    <header className="h-20 bg-transparent flex items-center justify-between px-10 shrink-0 z-40 sticky top-0">
-      <GlassMaterial intensity="regular" borderRadius="0" className="absolute inset-0 border-b border-white/[0.03] shadow-lg" />
-
+    <header className="h-20 bg-background/80 flex items-center justify-between px-10 shrink-0 z-40 sticky top-0 border-b border-white/[0.03]">
       <div className="relative z-10 w-full flex items-center justify-between">
         <SearchBar
           onSearch={onSearch}

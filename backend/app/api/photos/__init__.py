@@ -9,6 +9,7 @@ from .lock import router as lock_router
 from .favorite import router as favorite_router
 from .trash import router as trash_router
 from .ocr import router as ocr_router
+from .xmp import router as xmp_router
 
 __all__ = [
     "UploadRequest",
@@ -20,4 +21,5 @@ __all__ = [
     "favorite_router",
     "trash_router",
     "ocr_router",
+    "xmp_router",
 ]

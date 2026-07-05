@@ -79,9 +79,10 @@ This system explicitly rejects the generic SaaS dashboard: no cream backgrounds,
 **Key Characteristics:**
 - OLED-black canvas where photos are the primary light source
 - Grain texture and mesh atmosphere for analog warmth
-- Glass luminance for depth, not decorative glassmorphism
+- Glass luminance for depth, applied selectively — backdrop-filter only on interactive elements to avoid WebKitGTK compositing overhead
 - Serif italic wordmark paired with geometric sans body
-- Tactile interactions: glow, blur-shift, and shadow response on hover/focus
+- Tactile interactions: glow, scale, and shadow response on hover/focus
+- CSS transitions preferred over Framer Motion layout animations for sidebar navigation
 
 ## 2. Colors
 
@@ -126,7 +127,7 @@ The palette is intentionally minimal — OLED-dark neutrals with one cool-blue a
 
 ## 4. Elevation
 
-Depth is conveyed through soft ambient shadows and subtle tonal layering, not glass blur. The glass morphism is reserved for the sidebar panel and glass material component — a signature treatment, not a universal pattern. Most surfaces are flat with tonal separation: body (#050505) → surface (#0c0c0c) → raised (#161616).
+Depth is conveyed through soft ambient shadows and subtle tonal layering. Backdrop-filter blur is avoided on non-interactive surfaces due to WebKitGTK compositing costs in the Tauri desktop shell. Most surfaces are flat with tonal separation: body (#050505) → surface (#0c0c0c) → raised (#161616).
 
 ### Shadow Vocabulary
 - **Ambient lift** (`box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5)`): Cards and containers at rest. Subtle enough to feel like natural light falloff.
@@ -141,10 +142,10 @@ Depth is conveyed through soft ambient shadows and subtle tonal layering, not gl
 ### Sidebar Navigation
 - **Character:** Frosted glass panel with ambient shadow. Navigation is quiet until activated.
 - **Shape:** Full-height panel, no border-radius on the outer edge.
-- **Background:** Glass material with backdrop-blur, translucent dark tint.
+- **Background:** Glass material (non-interactive mode) — translucent dark tint without backdrop-filter. Solid `bg-background/80` for the header.
 - **Default state:** Muted gray text (#707070) on transparent background.
 - **Hover state:** Slight text brightening, subtle background lift.
-- **Active state:** White text (#ffffff) with inset glow (`box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.06)`), white/6% background.
+- **Active state:** White text (#ffffff) with inset glow (`box-shadow: inset 0 0 12px rgba(255, 255, 255, 0.06)`), white/6% background. Active indicator uses CSS transition (opacity/scale) instead of Framer Motion layoutId for smoother navigation in WebKitGTK.
 - **Typography:** 0.875rem, weight 500. Labels use 0.6875rem uppercase with 0.15em tracking.
 
 ### Photo Grid Cards
@@ -171,10 +172,11 @@ Depth is conveyed through soft ambient shadows and subtle tonal layering, not gl
 
 ### Glass Material (Signature)
 - **Character:** Liquid glass with pointer-following light reflection. Three intensity levels: subtle (8px blur), regular (20px), prominent (40px).
-- **Background:** Backdrop-filter blur + translucent white tint (2–8% opacity depending on intensity).
-- **Interactive:** Specular highlight follows mouse position via spring physics.
+- **Background:** Translucent white tint (2–8% opacity depending on intensity). Backdrop-filter blur only applied when `interactive=true`.
+- **Interactive:** Specular highlight follows mouse position via spring physics. Only active when `interactive` prop is true.
+- **Non-interactive (default):** Plain translucent background with inset shadow — no motion values, no backdrop-filter. Used for sidebar, header, and most button wrappers to avoid compositing overhead in WebKitGTK.
 - **Border:** rgba(255, 255, 255, 0.03–0.1 depending on intensity).
-- **Use:** Sidebar panel (prominent), dialog overlays (regular), subtle containers (subtle). Not for general card surfaces.
+- **Use:** Sidebar panel (non-interactive), dialog overlays (regular), subtle containers (subtle). Not for general card surfaces.
 
 ### Inputs / Fields
 - **Style:** Dark surface (#0c0c0c) background, 1px border in rgba(255, 255, 255, 0.1), 6px radius.

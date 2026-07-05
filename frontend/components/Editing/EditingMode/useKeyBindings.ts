@@ -76,17 +76,17 @@ export const useKeyBindings = ({
       // ── Ctrl+= / Ctrl+- / Ctrl+0: Zoom ─────────────────────────────────
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        cropperRef.current?.cropper?.zoom(0.1);
+        cropperRef.current?.zoom(0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '-') {
         e.preventDefault();
-        cropperRef.current?.cropper?.zoom(-0.1);
+        cropperRef.current?.zoom(-0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
-        const cropper = cropperRef.current?.cropper;
+        const cropper = cropperRef.current;
         if (cropper) {
           const containerData = cropper.getContainerData();
           const imageData     = cropper.getImageData();

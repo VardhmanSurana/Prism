@@ -1,26 +1,27 @@
 import React from 'react';
 import { FolderOpen, Edit2, Trash2 } from 'lucide-react';
 import { resolveUrl } from '../../constants';
-import { Album } from '../../types';
+import { Album, SmartAlbum } from '../../types';
 
 interface AlbumCardProps {
-  album: Album;
-  onClick: (album: Album) => void;
+  album: Album | SmartAlbum;
+  onClick: (album: Album | SmartAlbum) => void;
   onRename?: (album: Album) => void;
   onDelete?: (album: Album) => void;
+  icon?: React.ReactNode;
 }
 
-export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, onDelete }) => {
+export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, onDelete, icon }) => {
   const handleRename = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onRename) {
+    if (onRename && album.type !== 'smart') {
       onRename(album);
     }
   };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onDelete) {
+    if (onDelete && album.type !== 'smart') {
       onDelete(album);
     }
   };
@@ -42,7 +43,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-600">
-            <FolderOpen size={40} />
+            {icon || <FolderOpen size={40} />}
           </div>
         )}
         
@@ -51,7 +52,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
             {onRename && (
               <button 
                 onClick={handleRename}
-                className="p-2 bg-black/60 backdrop-blur-md text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-all shadow-lg"
+                className="p-2 bg-black/70 text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-all shadow-lg"
                 title="Rename"
               >
                 <Edit2 size={12} />
@@ -60,7 +61,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
             {onDelete && (
               <button 
                 onClick={handleDelete}
-                className="p-2 bg-black/60 backdrop-blur-md text-white/80 hover:text-red-400 rounded-full border border-white/10 hover:bg-white/10 transition-all shadow-lg"
+                className="p-2 bg-black/70 text-white/80 hover:text-red-400 rounded-full border border-white/10 hover:bg-white/10 transition-all shadow-lg"
                 title="Delete Album"
               >
                 <Trash2 size={12} />

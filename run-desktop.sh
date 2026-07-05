@@ -16,7 +16,16 @@ trap cleanup EXIT INT TERM
 BACKEND_PORT=8269
 if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "[desktop] Backend is already running on port $BACKEND_PORT."
-    echo "[desktop] Reconnecting to active session logs..."
+    # Kill stale backend processes to ensure a clean worker state
+    echo "[desktop] Killing existing backend for clean restart..."
+    pkill -f "uvicorn app.main:app" 2>/dev/null || true
+    sleep 1
+    # Force kill if still alive
+    pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
+    sleep 1
+fi
+if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
+    echo "[desktop] WARNING: Port $BACKEND_PORT still in use after kill."
 else
     echo "[desktop] Starting Backend in background..."
     # Ensure log file exists
@@ -74,15 +83,28 @@ else
     )
 fi
 
+# ── Wait for backend to be ready ─────────────────────────────────────────────
+echo "[desktop] Waiting for backend on port $BACKEND_PORT..."
+for i in $(seq 1 60); do
+  if curl -s -o /dev/null -w '' "http://127.0.0.1:$BACKEND_PORT/api/v1/photos/stats" 2>/dev/null; then
+    echo "[desktop] Backend is ready."
+    break
+  fi
+  sleep 0.5
+done
+
 # ── Stream Backend Logs ──────────────────────────────────────────────────────
 # This allows you to see the [AI] logs in the terminal
 tail -f "$BACKEND_LOG" &
 LOG_PID=$!
 
 # ── Tauri (frontend + desktop shell) ─────────────────────────────────────────
+# Fix WebKitGTK DMA-BUF buffer retention bugs on Mesa/Intel iGPU
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+
 (
   cd "$ROOT/frontend"
-  exec bunx tauri dev
+  exec pnpm exec tauri dev
 ) &
 
 TAURI_PID=$!

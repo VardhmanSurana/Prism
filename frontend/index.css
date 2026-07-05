@@ -42,11 +42,10 @@
 .grain-overlay {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 1;
   pointer-events: none;
   opacity: 0.4;
   mix-blend-mode: overlay;
-  filter: url(#grain);
 }
 
 .mesh-atmos {
@@ -195,8 +194,6 @@
 
 .photo-item-hover {
   transform: translate3d(0, 0, 0);
-  will-change: transform;
-  backface-visibility: hidden;
 }
 
 /* Hover effects only on devices that support hover (not touch) */

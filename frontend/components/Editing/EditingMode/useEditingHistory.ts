@@ -387,7 +387,7 @@ export const useEditingHistory = ({
 
     if (!imageSrcChanged) {
       setTimeout(() => {
-        const cropper = cropperRef.current?.cropper;
+        const cropper = cropperRef.current;
         if (cropper) {
           restoreCropperState(cropper, recomposed);
         } else {
@@ -424,7 +424,7 @@ export const useEditingHistory = ({
 
       if (!imageSrcChanged) {
         setTimeout(() => {
-          const cropper = cropperRef.current?.cropper;
+          const cropper = cropperRef.current;
           if (cropper) {
             restoreCropperState(cropper, recomposed);
           } else {
@@ -469,7 +469,7 @@ export const useEditingHistory = ({
 
       if (!imageSrcChanged) {
         setTimeout(() => {
-          const cropper = cropperRef.current?.cropper;
+          const cropper = cropperRef.current;
           if (cropper) {
             restoreCropperState(cropper, recomposed);
           } else {

@@ -24,7 +24,7 @@ export function LockedFolderView({
 }: LockedFolderViewProps) {
   return (
     <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-10 py-5 border-b border-white/5 bg-surface/10 backdrop-blur-md shrink-0">
+      <div className="flex items-center justify-between px-10 py-5 border-b border-white/5 bg-surface shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shadow-inner">
             <Lock size={18} />

@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { API_BASE } from '../../../constants';
-import { Album, Photo } from '../../../types';
+import { Album, SmartAlbum, Photo } from '../../../types';
 
 interface UseAlbumsReturn {
-  albums: Album[];
-  selectedAlbum: Album | null;
-  setSelectedAlbum: (album: Album | null) => void;
+  albums: (Album | SmartAlbum)[];
+  selectedAlbum: Album | SmartAlbum | null;
+  setSelectedAlbum: (album: Album | SmartAlbum | null) => void;
   albumPhotos: Photo[];
   isLoading: boolean;
   fetchAlbums: () => Promise<void>;
-  fetchAlbumPhotos: (album: Album) => Promise<void>;
+  fetchAlbumPhotos: (album: Album | SmartAlbum) => Promise<void>;
   renameAlbum: (album: Album, newName: string) => Promise<void>;
   createAlbum: (name: string) => Promise<Album | null>;
   deleteAlbum: (albumId: number) => Promise<boolean>;
@@ -19,16 +19,22 @@ interface UseAlbumsReturn {
 }
 
 export const useAlbums = (): UseAlbumsReturn => {
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [albums, setAlbums] = useState<(Album | SmartAlbum)[]>([]);
+  const [selectedAlbum, setSelectedAlbum] = useState<Album | SmartAlbum | null>(null);
   const [albumPhotos, setAlbumPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchAlbums = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/v1/albums/`);
-      const data = await response.json();
-      setAlbums(Array.isArray(data) ? data : []);
+      const [customRes, smartRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/albums/`),
+        fetch(`${API_BASE}/api/v1/albums/smart`),
+      ]);
+      const customData = await customRes.json();
+      const smartData = await smartRes.json();
+      const customAlbums = Array.isArray(customData) ? customData : [];
+      const smartAlbums = Array.isArray(smartData) ? smartData : [];
+      setAlbums([...smartAlbums, ...customAlbums]);
     } catch (e) {
       console.error('Failed to fetch albums', e);
     }
@@ -38,14 +44,20 @@ export const useAlbums = (): UseAlbumsReturn => {
     fetchAlbums();
   }, [fetchAlbums]);
 
-  const fetchAlbumPhotos = useCallback(async (album: Album) => {
+  const fetchAlbumPhotos = useCallback(async (album: Album | SmartAlbum) => {
     setIsLoading(true);
     setAlbumPhotos([]);
     try {
-      const url = `${API_BASE}/api/v1/albums/${album.id}/photos`;
+      let url: string;
+      if (album.type === 'smart' && 'smart_type' in album && album.smart_type) {
+        url = `${API_BASE}/api/v1/albums/smart/${album.smart_type}/photos`;
+      } else {
+        url = `${API_BASE}/api/v1/albums/${album.id}/photos`;
+      }
       const response = await fetch(url);
       const data = await response.json();
-      setAlbumPhotos(Array.isArray(data) ? data : []);
+      const photos = data.photos || data;
+      setAlbumPhotos(Array.isArray(photos) ? photos : []);
     } catch (e) {
       console.error('Failed to fetch album photos', e);
       setAlbumPhotos([]);
