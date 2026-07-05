@@ -38,11 +38,11 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
 
   const [isHovered, setIsHovered] = useState(false);
 
-  // Intensity mappings
+  // Intensity mappings (Reduced blurs for WebView/Tauri performance optimization)
   const blurValue = {
-    subtle: 'blur(8px)',
-    regular: 'blur(20px)',
-    prominent: 'blur(40px)',
+    subtle: 'blur(4px)',
+    regular: 'blur(12px)',
+    prominent: 'blur(16px)',
   }[intensity];
 
   const opacityValue = {
