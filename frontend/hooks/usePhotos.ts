@@ -5,6 +5,22 @@ import { eventService } from '../services/EventService';
 import { useSyncStore } from '../store/syncStore';
 
 const PAGE_SIZE = 50;
+const MAX_RETRIES = 10;
+const BASE_DELAY_MS = 500;
+
+async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Response> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok || response.status < 500 || attempt >= retries) return response;
+      await new Promise(r => setTimeout(r, BASE_DELAY_MS * Math.pow(1.5, attempt)));
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      await new Promise(r => setTimeout(r, BASE_DELAY_MS * Math.pow(1.5, attempt)));
+    }
+  }
+  throw new Error('Unreachable');
+}
 
 export function usePhotos() {
   const [photos, setPhotos] = useState<Photo[]>(() => []);
@@ -12,15 +28,18 @@ export function usePhotos() {
   const [isStatusLoading, setIsStatusLoading] = useState(true);
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
+  const fetchingRef = useRef(false);
   const setSyncStatus = useSyncStore((s) => s.setSyncStatus);
 
   const fetchPhotos = useCallback(async (reset = false) => {
+    if (fetchingRef.current && !reset) return;
     if (!hasMoreRef.current && !reset) return;
 
+    fetchingRef.current = true;
     setIsLoading(true);
     try {
       const currentOffset = reset ? 0 : offsetRef.current;
-      const response = await fetch(`${API_BASE}/api/v1/photos/?limit=${PAGE_SIZE}&offset=${currentOffset}`);
+      const response = await fetchWithRetry(`${API_BASE}/api/v1/photos/?limit=${PAGE_SIZE}&offset=${currentOffset}`);
       if (!response.ok) throw new Error(`Photos API error: ${response.status}`);
       const data: RawPhoto[] = await response.json();
       
@@ -44,6 +63,7 @@ export function usePhotos() {
       console.error('Failed to fetch photos', e);
     } finally {
       setIsLoading(false);
+      fetchingRef.current = false;
     }
   }, []);
 
@@ -54,7 +74,7 @@ export function usePhotos() {
     // Fetch initial status via REST API (fallback if SSE hasn't pushed yet)
     const fetchInitialStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE}/api/v1/utilities/diagnostics`);
+        const response = await fetchWithRetry(`${API_BASE}/api/v1/utilities/diagnostics`);
         if (response.ok) {
           const data = await response.json();
           if (data.sync_status) {
