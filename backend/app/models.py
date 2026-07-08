@@ -212,6 +212,48 @@ class SyncPeer(Base):
     device_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # desktop, mobile, etc.
 
 
+class VideoProject(Base):
+    """A non-destructive edit project referencing one or more source clips."""
+    __tablename__ = "video_projects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    cover_photo_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("photos.id", ondelete="SET NULL"), nullable=True, index=True)
+    width: Mapped[int] = mapped_column(Integer, default=1920)
+    height: Mapped[int] = mapped_column(Integer, default=1080)
+    fps: Mapped[int] = mapped_column(Integer, default=30)
+    # Full timeline state as JSON blob (source of truth)
+    project_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc))
+
+
+class VideoClip(Base):
+    """A source media file reference used in projects."""
+    __tablename__ = "video_clips"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    photo_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("photos.id", ondelete="SET NULL"), nullable=True, index=True)
+    source_path: Mapped[str] = mapped_column(String(1024))
+    duration: Mapped[float] = mapped_column(Float)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    fps: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    has_audio: Mapped[bool] = mapped_column(Boolean, default=True)
+    proxy_path: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    proxy_status: Mapped[str] = mapped_column(String(20), default="pending")
+    audio_waveform_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index("uq_video_clips_photo_id", "photo_id", unique=True),
+    )
+
+
 class BackgroundJob(Base):
     __tablename__ = "background_jobs"
 

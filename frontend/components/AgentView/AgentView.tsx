@@ -10,6 +10,7 @@ import { SuggestionsPanel } from './SuggestionsPanel';
 import { ChatInput } from './ChatInput';
 import { InlinePhotoGrid } from './InlinePhotoGrid';
 import { GalleryDrawer } from './GalleryDrawer';
+import { ThinkingIndicator } from './ThinkingIndicator';
 
 const SUGGESTIONS = [
   { text: "Show my favorite photos", icon: 'Heart' },
@@ -47,8 +48,8 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
 
       {/* Left/Main Column: Chat Feed Container */}
       <div
-        className={`flex flex-col h-full bg-[#0a0a0c]/40 border-r border-white/[0.02] transition-all duration-500 relative z-10 ${
-          isDrawerOpen ? 'w-[42%]' : 'w-full max-w-[800px] mx-auto border-l border-r border-white/[0.04]'
+        className={`flex flex-col h-full bg-[#0a0a0c]/40 transition-all duration-500 relative z-10 ${
+          isDrawerOpen ? 'w-[42%] border-r border-white/[0.02]' : 'w-full'
         }`}
       >
         <AgentBanner title="Prism AI Assistant" subtitle="Completely offline neural search helper" />
@@ -119,16 +120,15 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
               <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
                 <img src="/agent-logo.jpeg" className="w-full h-full object-cover" alt="Agent Logo" />
               </div>
-              <div className="bg-[#121216]/95 p-4 rounded-2xl rounded-tl-none border border-white/[0.06] flex flex-col gap-2 max-w-[80%] items-start w-full">
-                <div className="flex gap-1.5 items-center">
-                  <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1 }} className="w-2 h-2 bg-white rounded-full" />
-                  <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-2 h-2 bg-white rounded-full" />
-                  <motion.div animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-2 h-2 bg-white rounded-full" />
-                  <span className="text-[11px] font-bold text-white uppercase tracking-widest ml-1">AI Thinking</span>
-                </div>
-                <p className="text-xs text-gray-400 font-medium italic animate-pulse">
-                  {progressDetail || "Formulating search strategy..."}
-                </p>
+              <div className="bg-[#121216]/95 px-3 py-3 rounded-2xl rounded-tl-none border border-white/[0.06] flex flex-col gap-2 max-w-[80%] items-start w-full">
+                <ThinkingIndicator
+                  words={['Searching', 'Planning', 'Scanning', 'Refining']}
+                />
+                {progressDetail && (
+                  <p className="text-[11px] text-white/30 font-medium pl-1">
+                    {progressDetail}
+                  </p>
+                )}
                 <AnimatePresence>
                   {(currentPlan || (currentTools && currentTools.length > 0)) && (
                     <AgentDiagnostics plan={currentPlan} tools={currentTools} totalCandidates={totalCandidates} isStreaming />
@@ -177,7 +177,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
         )}
 
         <SuggestionsPanel suggestions={SUGGESTIONS} onSend={handleSend} />
-        <ChatInput value={input} onChange={setInput} onSend={() => handleSend()} disabled={isLoading || !input.trim()} />
+        <ChatInput value={input} onChange={setInput} onSend={() => handleSend()} disabled={isLoading} />
       </div>
 
       {/* Sliding Right Gallery Drawer */}

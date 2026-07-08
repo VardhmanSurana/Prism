@@ -36,12 +36,13 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick }) => {
   const zoom = geoPhotos.length > 0 ? 4 : 2;
 
   return (
-    <div className="w-full h-full relative bg-[#0a0a0a]">
+    <div className="w-full h-full relative bg-[#0a0a0a]" style={{ contain: 'layout style' }}>
       <MapContainer 
         center={center} 
         zoom={zoom} 
         style={{ width: '100%', height: '100%', background: '#0a0a0a' }}
         zoomControl={false}
+        preferCanvas={true}
       >
         <ChangeMapView center={center} zoom={zoom} />
         <TileLayer

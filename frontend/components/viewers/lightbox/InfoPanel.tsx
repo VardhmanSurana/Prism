@@ -143,6 +143,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata }) => {
                       boxZoom={false}
                       keyboard={false}
                       touchZoom={false}
+                      preferCanvas={true}
                     >
                       <ChangeMapView center={center} zoom={13} />
                       <TileLayer

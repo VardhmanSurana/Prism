@@ -108,61 +108,22 @@ The core product is designed so that normal library data, search indexes, thumbn
 
 ---
 
-## Architecture
+### Runtime flow
 
 ```mermaid
 graph TD
-    subgraph Desktop Shell
-        Tauri[Tauri v2]
-        React[Vite React UI]
-        Zustand[Zustand Stores]
-    end
-
-    subgraph Local API
-        FastAPI[FastAPI on 127.0.0.1:8269]
-        REST[REST Endpoints]
-        SSE[Server-Sent Events]
-    end
-
-    subgraph Background Processing
-        Watchdog[Watchdog Observer]
-        Queue[Sequential Processing Queue]
-        Pool[ProcessPoolExecutor]
-    end
-
-    subgraph Storage and Index
-        SQLite[(SQLite WAL Database)]
-        FTS5[SQLite FTS5 Search]
-        Thumbs[Thumbnail Cache]
-        Settings[settings.json]
-    end
-
-    subgraph Optional Local AI
-        Face[InspireFace Face Clustering]
-        Agent[llama-server Agent]
-        Vision[Florence-2 / SigLIP / Ollama Vision]
-        OCR[PaddleOCR-VL Text Extraction]
-        Inpaint[Stable Diffusion Inpainting]
-        Video[ffmpeg/ffprobe Video Processing]
-    end
-
-    Tauri --> React
-    React --> Zustand
-    React -->|REST| FastAPI
-    FastAPI --> REST
-    FastAPI --> SSE
-    Watchdog --> Pool
-    Pool --> SQLite
-    Queue --> Face
-    Queue --> Vision
-    Queue --> OCR
-    FastAPI --> SQLite
-    FastAPI --> FTS5
-    FastAPI --> Thumbs
-    FastAPI --> Settings
-    FastAPI -. optional .-> Agent
-    FastAPI -. optional .-> Inpaint
-    Pool -.-> Video
+    Tauri[Tauri v2] --> React[Vite React UI]
+    React --> Zustand[Zustand Stores]
+    React -->|REST| FastAPI[FastAPI on 127.0.0.1:8269]
+    FastAPI --> Middleware[CORS / API Key / Logging]
+    Middleware --> Routes[Media / Thumbnail / System]
+    Middleware --> APIRouters[Feature Routers]
+    APIRouters --> Services[Services Layer]
+    Services --> DB[(SQLite WAL + FTS5)]
+    Services --> Storage[Thumbnails / Uploads]
+    Watchdog[Watchdog Observer] --> Queue[Processing Queue]
+    Queue --> Services
+    FastAPI -. optional .-> AI[Optional Local AI]
 ```
 
 ---
@@ -305,8 +266,6 @@ Relevant backend defaults:
 
 | Setting | Default |
 | --- | --- |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` |
-| `OLLAMA_VISION_MODEL` | `moondream:latest` |
 | Agent server | `127.0.0.1:9090` |
 | Vision server | `127.0.0.1:9091` |
 | OCR server | `127.0.0.1:9092` |
@@ -342,7 +301,6 @@ Allowed read/write roots include:
 - Prism thumbnail directory
 - Prism data directory
 - `~/Pictures`
-- External mount roots when present: `/media`, `/run/media`, `/Volumes`, `/mnt`
 
 Out-of-boundary requests return `403 Access Denied`.
 
@@ -400,7 +358,40 @@ pnpm run frontend:typecheck
 pnpm run backend:test
 ```
 
-Frontend tests currently cover the photo grid, sidebar routing, and Locked Folder authentication form. Backend tests cover directory listing, vision pipeline, image summaries, face clustering, migrations, Locked Folder behavior, security boundaries, and pending face API flows.
+### Backend test suite
+
+Backend tests use `pytest`, `pytest-asyncio`, and `httpx` against the FastAPI ASGI app. The suite covers:
+
+- **Media serving:** `/local` range requests, HEIC/RAW conversion, locked-folder decryption, `/transcode` probe and cache behavior, photo thumbnail generation
+- **Photos API:** listing, stats, upload, directory import, lock/unlock, favorite, trash, metadata, OCR
+- **Video and NLE APIs:** export, subtitles, project/clip CRUD, proxy endpoint
+- **Other APIs:** people, explore, stories, privacy, LAN sync, utilities, settings
+- **Services:** sync ingestion, processing queue, LAN sync lifecycle, AI orchestrator
+- **Utils:** rate limiting, raw image fallback, path traversal security
+- **Infrastructure:** DB migration, face clustering, vision pipeline, image summaries, agent planner/orchestrator, locked folder encryption, security boundaries
+
+Total: **105 tests** across **19 test files**.
+
+### Feature-flag pytest markers
+
+Tests for optional AI features are tagged with markers so they can be run selectively:
+
+```bash
+uv run pytest tests/backend/tests -q
+uv run pytest tests/backend/tests -m "requires_ai_agent or requires_face" -q
+```
+
+| Marker | Feature flag |
+| --- | --- |
+| `requires_ai_agent` | `ENABLE_AI_AGENT` |
+| `requires_inpaint` | `ENABLE_AI_INPAINTING` |
+| `requires_face` | `ENABLE_AI_FACE` |
+| `requires_lan_sync` | `ENABLE_LAN_SYNC` |
+| `requires_raw` | `ENABLE_RAW_PROCESSING` |
+| `requires_ocr` | `ENABLE_AI_OCR` |
+| `requires_ai_story` | `ENABLE_AI_STORY` |
+
+Tests requiring optional extras that are not installed will be **skipped** automatically (7 skipped by default).
 
 ---
 
@@ -441,8 +432,9 @@ Contributions are welcome. Good contribution areas include:
 - Face clustering performance and correctness
 - Optional AI feature gating and model loading behavior
 - Tests for import, search, security boundaries, and editing workflows
+- Backend: add routes in `routes/`, business logic in `services/`, keep `main.py` as the app factory
 
-Before submitting larger changes, run the relevant typecheck and test commands for the affected area.
+Before submitting larger changes, run the relevant typecheck and test commands for the affected area. Use the feature-flag pytest markers to run a targeted subset of backend tests.
 
 ---
 

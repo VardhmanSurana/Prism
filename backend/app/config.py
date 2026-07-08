@@ -51,6 +51,10 @@ class Settings(BaseSettings):
     SETTINGS_FILE: Path = DATA_DIR / "settings.json"
     DATABASE_FILE: Path = DATA_DIR / "Prism.db"
 
+    # ffmpeg binary path — set to custom build with CUDA support, or leave
+    # empty to use the system ffmpeg (resolved via PATH).
+    FFMPEG_PATH: str = ""
+
     # Face Detection & Clustering settings
     FACE_CONF_THRESHOLD: float = 0.65
     FACE_YAW_PITCH_LIMIT: float = 28.0
@@ -58,11 +62,6 @@ class Settings(BaseSettings):
     FACE_UNCERTAIN_MATCH_THRESHOLD: float = 0.33
     FACE_EARLY_EXIT_SCORE: float = 0.75
     FACE_DETECT_MAX_DIM: int = 1280
-
-    # AI Model settings - Ollama Vision (replaces local GGUF)
-    OLLAMA_BASE_URL: str = "http://localhost:11434"
-    OLLAMA_VISION_MODEL: str = "moondream:latest"
-    OLLAMA_TIMEOUT: int = 120  # seconds
 
     # API Key for production authentication (empty = disabled for local dev)
     API_KEY: str = ""
@@ -79,6 +78,8 @@ class Settings(BaseSettings):
     ENABLE_AI_STORY: bool = True
     ENABLE_RAW_PROCESSING: bool = True
     ENABLE_LAN_SYNC: bool = False
+    ENABLE_GPU_ENCODING: bool = False  # Use NVENC when available (kept for backward compat)
+    GPU_ENCODING_MODE: str = "auto"  # "auto" | "nvenc" | "vaapi" | "cpu"
 
     # LAN Sync settings
     LAN_SYNC_PORT: int = 8269

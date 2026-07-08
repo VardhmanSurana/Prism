@@ -44,6 +44,4 @@ export interface ToolbarProps {
 export interface VideoPlayerProps {
   photo: Photo;
   onClose?: () => void;
-  onPrev?: () => void;
-  onNext?: () => void;
 }

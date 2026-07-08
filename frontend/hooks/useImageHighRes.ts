@@ -29,6 +29,13 @@ export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
   }, [photo.url, photo.path, photo.filename, photo.id]);
 
   useEffect(() => {
+    const isVideo = photo.type === 'video' || photo.file_type === 'video';
+    if (isVideo) {
+      setHighResStatus('loaded');
+      setCurrentHighResUrl(null);
+      return;
+    }
+
     if (!highResUrl) {
       console.warn(
         `[useImageHighRes] photo.id=${photo.id} — no high-res URL available, falling back to thumbnail.`

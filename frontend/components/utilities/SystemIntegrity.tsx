@@ -31,7 +31,7 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
           <div>
             <p className="text-sm font-medium text-[#f7f8f8]">System Reset</p>
             <p className="text-xs text-[#8a8f98] mt-1.5 leading-relaxed max-w-lg">
-              Completely purge the thumbnail cache, clear the photo library database, and remove encrypted Locked Folder files. This action is irreversible.
+              Completely purge all app-generated caches, clear the photo library database, and remove encrypted Locked Folder files. This action is irreversible.
             </p>
           </div>
           {!isResetting && (
@@ -60,6 +60,22 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
                 <li className="text-xs text-[#8a8f98] flex items-center gap-2">
                   <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
                   Thumbnail cache & masks
+                </li>
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
+                  Video transcode & HLS cache
+                </li>
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
+                  NLE preview & proxy cache
+                </li>
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
+                  Video export files
+                </li>
+                <li className="text-xs text-[#8a8f98] flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />
+                  Backend logs
                 </li>
                 <li className="text-xs text-[#8a8f98] flex items-center gap-2">
                   <span className="w-1 h-1 rounded-full bg-[#e5484d]/50" />

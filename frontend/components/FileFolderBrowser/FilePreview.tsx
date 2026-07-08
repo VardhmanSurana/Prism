@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 
@@ -18,6 +18,8 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
   const previewUrl = resolveUrl('local://' + file.path);
   const isVideo = file.is_video || /\.(mp4|mov|m4v|avi|mkv|webm|3gp)$/i.test(file.name);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -30,18 +32,49 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
     };
   }, []);
 
+  useEffect(() => {
+    if (!isVideo) return;
+    const v = videoRef.current;
+    if (!v) return;
+
+    const handleTimeUpdate = () => {
+      if (v.currentTime >= 10) {
+        v.pause();
+        v.currentTime = 0;
+        setIsHovering(false);
+      }
+    };
+
+    const handlePlay = () => setHasInteracted(true);
+    const handlePause = () => {
+      if (v.currentTime === 0) setHasInteracted(false);
+    };
+
+    v.addEventListener('timeupdate', handleTimeUpdate);
+    v.addEventListener('play', handlePlay);
+    v.addEventListener('pause', handlePause);
+
+    return () => {
+      v.removeEventListener('timeupdate', handleTimeUpdate);
+      v.removeEventListener('play', handlePlay);
+      v.removeEventListener('pause', handlePause);
+    };
+  }, [isVideo]);
+
   const handleMouseEnter = useCallback(() => {
-    if (!videoRef.current) return;
+    if (!isVideo || !videoRef.current) return;
     const v = videoRef.current;
     v.currentTime = 0;
+    setIsHovering(true);
     v.play().catch(() => {});
-  }, []);
+  }, [isVideo]);
 
   const handleMouseLeave = useCallback(() => {
     if (!videoRef.current) return;
     const v = videoRef.current;
     v.pause();
     v.currentTime = 0;
+    setIsHovering(false);
   }, []);
 
   return (
@@ -71,12 +104,12 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
             ref={videoRef}
             src={previewUrl}
             muted
-            loop
-            preload="metadata"
+            preload="auto"
             playsInline
             onLoadedMetadata={(e) => {
               const video = e.currentTarget;
               onLoad(video.videoWidth, video.videoHeight);
+              video.currentTime = 0;
             }}
             className={`max-h-full max-w-full object-contain transition-opacity duration-300 ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
           />
@@ -91,7 +124,7 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
             className={`max-h-full max-w-full object-contain transition-opacity duration-300 ${imgLoading ? 'opacity-0' : 'opacity-100'}`}
           />
         )}
-        {isVideo && (
+        {isVideo && !hasInteracted && (
           <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
             <span className="bg-black/70 text-white/70 text-[9px] font-mono px-1.5 py-0.5 rounded">
               Hover to preview

@@ -14,6 +14,12 @@ export const resolveUrl = (url: string) => {
   } else if (base.startsWith('local://')) {
     const path = base.replace('local://', '');
     resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(path)}`;
+  } else if (base.startsWith('transcode://')) {
+    const path = base.replace('transcode://', '');
+    resolvedBase = `${API_BASE}/transcode?path=${encodeURIComponent(path)}`;
+  } else if (base.startsWith('hls://')) {
+    const path = base.replace('hls://', '');
+    resolvedBase = `${API_BASE}/hls/playlist?path=${encodeURIComponent(path)}`;
   }
 
   if (query) {

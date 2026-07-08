@@ -46,7 +46,8 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
         }),
       });
 
-      const fullUrl = resolveUrl(photo.url);
+      // Use thumbnail for popup preview (not full-size) — avoids loading heavy images
+      const popupThumbUrl = resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=400`);
       const safePhoto = {
         id: photo.id,
         date: photo.date,
@@ -56,7 +57,7 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
       marker.bindPopup(
         `<div class="w-48 cursor-pointer" data-photo-id="${photo.id}">
           <div class="relative aspect-square rounded-lg overflow-hidden mb-2">
-            <img src="${fullUrl}" class="w-full h-full object-cover" loading="lazy" />
+            <img src="${popupThumbUrl}" class="w-full h-full object-cover" loading="lazy" />
           </div>
           <div class="px-1">
             <p class="text-[10px] font-mono text-gray-400 uppercase tracking-wider mb-1">

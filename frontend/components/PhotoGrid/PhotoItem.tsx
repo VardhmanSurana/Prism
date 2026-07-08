@@ -84,7 +84,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       {/* Video duration badge */}
       {isVideo && photo.duration != null && (
         <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-          <span className="bg-black/70 backdrop-blur-sm text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+          <span className="bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
             {formatDuration(photo.duration)}
           </span>
         </div>

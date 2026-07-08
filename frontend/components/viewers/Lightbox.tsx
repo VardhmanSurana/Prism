@@ -17,6 +17,7 @@ import { ImageDisplay } from './lightbox/ImageDisplay';
 import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
 import { EditingMode } from '@/components/Editing/EditingMode';
+import { VideoEditorMode } from '@/components/VideoEditing/VideoEditorMode';
 
 interface LightboxProps {
   photo: Photo;
@@ -45,6 +46,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [metadata, setMetadata] = useState<Photo | null>(null);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
 
   const unloadInpaintModels = useCallback(() => {
@@ -135,7 +137,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (isEditing) return;
+      if (isEditing || isNLEOpen) return;
 
       if (e.key === 'Escape') {
         onClose();
@@ -147,7 +149,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     };
     window.addEventListener('keydown', handleKey, { passive: true });
     return () => window.removeEventListener('keydown', handleKey);
-  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isVideo]);
+  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo]);
 
   const aspect = useMemo(
     () => (photo.width && photo.height ? photo.width / photo.height : null),
@@ -195,7 +197,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
         onResetInteraction={resetInteraction}
         onToggleShowInfo={() => setShowInfo(!showInfo)}
         onToggleFavorite={handleToggleFavorite}
-        onEdit={() => setIsEditing(true)}
+        onEdit={() => {
+          const isVideo = photo.type === 'video' || photo.file_type === 'video';
+          if (isVideo) {
+            setIsNLEOpen(true);
+          } else {
+            setIsEditing(true);
+          }
+        }}
         onTrash={handleTrash}
         onRemoveFromAlbum={onRemoveFromAlbum}
         onSetAsCover={onSetAsCover}
@@ -226,8 +235,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
               <VideoPlayer
                 photo={photo}
                 onClose={onClose}
-                onPrev={handlePrev}
-                onNext={handleNext}
               />
             ) : (
               <ImageDisplay
@@ -264,6 +271,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onSelect={onPhotoSelect || (() => {})}
         />
       ) : null}
+
+      {/* NLE Video Editor overlay */}
+      {isNLEOpen && (
+        <VideoEditorMode
+          photo={photo}
+          onClose={() => setIsNLEOpen(false)}
+        />
+      )}
 
       {/* Editing overlay */}
       {isEditing && (

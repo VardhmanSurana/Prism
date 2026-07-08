@@ -74,6 +74,7 @@ else
 
       export PYTHONUNBUFFERED=1
       nohup uv run python -m uvicorn app.main:app \
+        --reload \
         --host 127.0.0.1 \
         --port $BACKEND_PORT \
         --log-level info > "$BACKEND_LOG" 2>&1 &
@@ -101,6 +102,10 @@ LOG_PID=$!
 # ── Tauri (frontend + desktop shell) ─────────────────────────────────────────
 # Fix WebKitGTK DMA-BUF buffer retention bugs on Mesa/Intel iGPU
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
+# Force WebKitGTK to use hardware-accelerated compositing (not software rendering)
+export WEBKIT_DISABLE_COMPOSITING_MODE=0
+# Use GL DOM acceleration for better GPU utilization
+export WEBKIT_USE_GLDOM=1
 
 (
   cd "$ROOT/frontend"

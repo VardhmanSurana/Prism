@@ -464,6 +464,12 @@ class FaceClusteringService:
 
                 await db.commit()
                 logger.info(f"Video face scan complete: {len(face_results)} unique faces for video {photo_id}")
+
+                photo = await db.get(Photo, photo_id)
+                if photo:
+                    photo.video_faces_scanned = True
+                    await db.commit()
+
             except Exception as e:
                 await db.rollback()
                 logger.error(f"Transaction failed for video face scan {photo_id}: {e}")

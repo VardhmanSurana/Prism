@@ -96,7 +96,7 @@ describe('layout', () => {
         onImportProgress={onImportProgressMock}
       />
     );
-    expect(screen.getByText(/importing photos/i)).toBeTruthy();
+    expect(screen.getByText(/importing files/i)).toBeTruthy();
     expect(screen.getByTitle('Import Options')).toBeTruthy();
   });
 });

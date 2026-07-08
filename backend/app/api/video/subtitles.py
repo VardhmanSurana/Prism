@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
+
+from app.utils.rate_limit import rate_limit
 
 router = APIRouter()
 
@@ -19,7 +21,8 @@ class SubtitleResponse(BaseModel):
 
 
 @router.post("/subtitles/generate", response_model=SubtitleResponse)
-async def generate_subtitles(req: SubtitleRequest):
+async def generate_subtitles(req: SubtitleRequest, request: Request):
+    rate_limit(request)
     from app.config import settings
     if not settings.ENABLE_AI_SUBTITLES:
         raise HTTPException(status_code=400, detail="AI subtitle generation is not enabled")

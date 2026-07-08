@@ -5,6 +5,27 @@ import os
 
 logger = logging.getLogger(__name__)
 
+_whisper_model = None
+_wav2vec2_processor = None
+_wav2vec2_model = None
+
+
+def _get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+        _whisper_model = WhisperModel("small.en", device="cpu", compute_type="int8")
+    return _whisper_model
+
+
+def _get_wav2vec2():
+    global _wav2vec2_processor, _wav2vec2_model
+    if _wav2vec2_processor is None:
+        from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
+        _wav2vec2_processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
+        _wav2vec2_model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
+    return _wav2vec2_processor, _wav2vec2_model
+
 
 class SubtitleGenerator:
     async def generate_from_video(self, video_path: str) -> list[dict]:
@@ -44,9 +65,7 @@ class SubtitleGenerator:
 
     async def _transcribe(self, audio_path: str) -> list[dict]:
         try:
-            from faster_whisper import WhisperModel
-
-            model = WhisperModel("base", device="cpu", compute_type="int8")
+            model = _get_whisper_model()
             segments, info = model.transcribe(
                 audio_path,
                 beam_size=5,
@@ -69,10 +88,8 @@ class SubtitleGenerator:
         try:
             import torch
             import torchaudio
-            from transformers import Wav2Vec2ForCTC, Wav2Vec2Processor
 
-            processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base-960h")
-            model = Wav2Vec2ForCTC.from_pretrained("facebook/wav2vec2-base-960h")
+            processor, model = _get_wav2vec2()
 
             waveform, sr = torchaudio.load(audio_path)
             if sr != 16000:
@@ -90,6 +107,7 @@ class SubtitleGenerator:
         except ImportError:
             logger.warning("wav2vec2/torchaudio not available")
             return segments
+
 
 
 subtitle_generator = SubtitleGenerator()

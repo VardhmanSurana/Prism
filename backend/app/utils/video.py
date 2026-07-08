@@ -8,21 +8,47 @@ from pathlib import Path
 from PIL import Image
 import reverse_geocoder as rg
 
+from app.utils.security import safe_resolve_read
+
 logger = logging.getLogger(__name__)
 
+
+def validate_source_path(path: str) -> Path:
+    """Validate a source file path against allowed read directories.
+
+    Wraps safe_resolve_read to return a resolved Path on success
+    or raise ValueError on failure.
+    """
+    try:
+        return safe_resolve_read(path)
+    except Exception as e:
+        raise ValueError(f"Source path validation failed: {e}") from e
+
+
+_ffmpeg_available: bool | None = None
+_ffprobe_available: bool | None = None
+
 def _check_ffmpeg_available() -> bool:
+    global _ffmpeg_available
+    if _ffmpeg_available is not None:
+        return _ffmpeg_available
     try:
         subprocess.run(['ffmpeg', '-version'], capture_output=True, timeout=5)
-        return True
+        _ffmpeg_available = True
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+        _ffmpeg_available = False
+    return _ffmpeg_available
 
 def _check_ffprobe_available() -> bool:
+    global _ffprobe_available
+    if _ffprobe_available is not None:
+        return _ffprobe_available
     try:
         subprocess.run(['ffprobe', '-version'], capture_output=True, timeout=5)
-        return True
+        _ffprobe_available = True
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+        _ffprobe_available = False
+    return _ffprobe_available
 
 def _get_city_name(lat, lon) -> dict | None:
     try:

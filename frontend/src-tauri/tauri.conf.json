@@ -13,18 +13,14 @@
     "windows": [
       {
         "title": "Prism",
-        "width": 1280,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
+        "fullscreen": true,
         "resizable": true,
-        "fullscreen": false,
         "decorations": true,
         "transparent": false
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' http://127.0.0.1:8269 http://localhost:8269 data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:8269 http://localhost:8269 ws://localhost:* http://localhost:*"
+      "csp": "default-src 'self'; img-src 'self' http://127.0.0.1:8269 http://localhost:8269 data: blob: https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr; media-src 'self' http://127.0.0.1:8269 http://localhost:8269 data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' http://127.0.0.1:8269 http://localhost:8269 ws://localhost:* http://localhost:* https://*.tile.openstreetmap.org https://*.basemaps.cartocdn.com https://*.tile.opentopomap.org https://*.tile-cyclosm.openstreetmap.fr"
     }
   },
   "bundle": {

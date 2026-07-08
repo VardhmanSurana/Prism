@@ -353,12 +353,16 @@ async def list_directory_contents(req: ListDirRequest):
         }
 
     # Ensure it exists and is a directory
-    if not resolved_path.exists():
-        logger.error(f"[{req_id}] resolved_path does not exist: {str(resolved_path)!r}")
-        raise HTTPException(status_code=404, detail="Path not found")
-    if not resolved_path.is_dir():
-        logger.error(f"[{req_id}] resolved_path not a dir: {str(resolved_path)!r}")
-        raise HTTPException(status_code=400, detail="Path is not a directory")
+    try:
+        if not resolved_path.exists():
+            logger.error(f"[{req_id}] resolved_path does not exist: {str(resolved_path)!r}")
+            raise HTTPException(status_code=404, detail="Path not found")
+        if not resolved_path.is_dir():
+            logger.error(f"[{req_id}] resolved_path not a dir: {str(resolved_path)!r}")
+            raise HTTPException(status_code=400, detail="Path is not a directory")
+    except OSError as e:
+        logger.error(f"[{req_id}] OS/IO error checking directory {resolved_path}: {e}")
+        raise HTTPException(status_code=404, detail="Path not found or unreadable due to system error")
 
     folders = []
     files = []
@@ -564,3 +568,17 @@ async def fused_search_endpoint(
     tools = SearchTools()
     results = await tools.fused_search(db, query, top_k=limit)
     return results
+
+
+@router.post("/background-jobs/pause")
+async def pause_background_jobs():
+    from app.services.processing_queue import processing_queue
+    processing_queue._throttler.increment_video_ops()
+    return {"status": "paused", "active_ops": processing_queue._throttler._active_video_operations}
+
+
+@router.post("/background-jobs/resume")
+async def resume_background_jobs():
+    from app.services.processing_queue import processing_queue
+    processing_queue._throttler.decrement_video_ops()
+    return {"status": "released", "active_ops": processing_queue._throttler._active_video_operations}

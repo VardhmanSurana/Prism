@@ -22,7 +22,8 @@ const TimelineDialItem: React.FC<{
 }> = ({ item, isActive, progress, scrollHeight }) => {
   const isYear = item.type === 'year';
   const pixelOffset = (item.progress - progress) * scrollHeight;
-  const normalizedOffset = Math.max(-1, Math.min(1, pixelOffset / (scrollHeight / 2)));
+  const halfHeight = scrollHeight / 2;
+  const normalizedOffset = halfHeight > 0 ? Math.max(-1, Math.min(1, pixelOffset / halfHeight)) : 0;
   const opacity = isActive ? 1 : Math.max(0, 1 - Math.abs(normalizedOffset) * 1.5) * 0.5;
 
   return (

@@ -1,6 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
+
+from app.utils.rate_limit import rate_limit
 
 
 class ExportTextOverlay(BaseModel):
@@ -43,10 +45,27 @@ router = APIRouter()
 
 
 @router.post("/export")
-async def start_export(req: ExportRequest):
+async def start_export(req: ExportRequest, request: Request):
     from app.services.video_export import VideoExporter
+    from app.utils.video import validate_source_path
+    rate_limit(request)
+
+    # Validate all source paths before passing to ffmpeg
+    try:
+        for track in req.tracks:
+            for clip in track.clips:
+                validated = validate_source_path(clip.source_path)
+                clip.source_path = str(validated)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     exporter = VideoExporter()
-    job_id = await exporter.start_export(req)
+    try:
+        job_id = await exporter.start_export(req)
+    except RuntimeError as e:
+        if str(e) == "too_many_exports":
+            raise HTTPException(status_code=429, detail="Too many concurrent exports. Try again later.")
+        raise
     return {"job_id": job_id, "status": "processing"}
 
 

@@ -15,11 +15,28 @@ from app.services.vision_pipeline import extract_features_and_tags
 
 
 class AdaptiveThrottler:
-    _paused = False
-    _check_interval = 30
-    _last_check = 0.0
+    def __init__(self):
+        self._paused = False
+        self._check_interval = 30
+        self._last_check = 0.0
+        self._active_video_operations = 0
+
+    def increment_video_ops(self):
+        self._active_video_operations += 1
+        self._paused = True
+        logger.info(f"Background queue throttler paused due to active video processing (active ops: {self._active_video_operations})")
+
+    def decrement_video_ops(self):
+        self._active_video_operations = max(0, self._active_video_operations - 1)
+        if self._active_video_operations == 0:
+            self._last_check = 0.0
+            self._paused = False
+            logger.info("Background queue throttler released: no active video operations")
 
     def should_pause(self) -> bool:
+        if self._active_video_operations > 0:
+            return True
+
         now = time.time()
         if now - self._last_check < self._check_interval:
             return self._paused
@@ -353,6 +370,11 @@ class ProcessingQueue:
                             results[photo_id]["resume_from"] = await self._get_resume_stage_index(photo)
 
                         if not os.path.exists(photo_path):
+                            try:
+                                os.stat(photo_path)
+                            except OSError as stat_err:
+                                if not isinstance(stat_err, FileNotFoundError):
+                                    raise OSError(f"Photo file exists but is unreadable due to system/IO error: {stat_err}")
                             raise FileNotFoundError(f"Photo file not found on disk: {photo_path}")
 
                         is_encrypted = False
@@ -512,11 +534,13 @@ class ProcessingQueue:
 
                 # ── Stage 3: Gemma 4 E2B Vision (OPTIONAL) ──
                 if settings.ENABLE_AI_CLIP:
+                    from app.services.sync.handler import is_video_file
                     active_stage3_photos = [
                         j for j in job_infos
                         if not results[j["photo_id"]]["is_encrypted"]
                         and results[j["photo_id"]]["stage3_success"]
                         and results[j["photo_id"]]["resume_from"] <= 2
+                        and not (results[j["photo_id"]]["photo_path"] and is_video_file(results[j["photo_id"]]["photo_path"]))
                     ]
                     if active_stage3_photos:
                         from app.services.image_summary.llm import VisionManager, generate_ollama_summary, generate_tags_json
@@ -587,11 +611,13 @@ class ProcessingQueue:
 
                 # ── Stage 4: PaddleOCR-VL Text Extraction (OPTIONAL) ──
                 if settings.ENABLE_AI_OCR:
+                    from app.services.sync.handler import is_video_file
                     active_stage4_photos = [
                         j for j in job_infos
                         if not results[j["photo_id"]]["is_encrypted"]
                         and results[j["photo_id"]]["stage4_success"]
                         and results[j["photo_id"]]["resume_from"] <= 3
+                        and not (results[j["photo_id"]]["photo_path"] and is_video_file(results[j["photo_id"]]["photo_path"]))
                     ]
                     if active_stage4_photos:
                         from app.services.ocr import OCRManager, extract_ocr_text
@@ -641,11 +667,14 @@ class ProcessingQueue:
                 # ── Stage 5: Content Classification (photo/screenshot/document) ──
                 if settings.ENABLE_AI_CONTENT_CLASSIFY:
                     from app.services.content_classifier import classify_content, ContentType
+                    from app.services.sync.handler import is_video_file
 
                     for job in job_infos:
                         pid = job["photo_id"]
                         res = results[pid]
-                        if res["is_encrypted"] or not os.path.exists(res["photo_path"]):
+                        if res["is_encrypted"] or not res["photo_path"] or not os.path.exists(res["photo_path"]):
+                            continue
+                        if is_video_file(res["photo_path"]):
                             continue
                         try:
                             async with async_session() as db:
@@ -677,12 +706,15 @@ class ProcessingQueue:
                     attempt = job["attempt_count"]
                     res = results[pid]
 
+                    from app.services.sync.handler import is_video_file
+                    is_video = is_video_file(res["photo_path"]) if res["photo_path"] else False
+
                     stage2_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP
-                    stage3_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP
+                    stage3_needed = not res["is_encrypted"] and settings.ENABLE_AI_CLIP and not is_video
 
                     s2_ok = res["stage2_success"] if stage2_needed else True
                     s3_ok = res["stage3_success"] if stage3_needed else True
-                    stage4_needed = not res["is_encrypted"] and settings.ENABLE_AI_OCR
+                    stage4_needed = not res["is_encrypted"] and settings.ENABLE_AI_OCR and not is_video
                     s4_ok = res["stage4_success"] if stage4_needed else True
 
                     if not res["stage1_success"] and not res["is_encrypted"]:

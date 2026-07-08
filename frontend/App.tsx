@@ -214,11 +214,13 @@ function App() {
           </AnimatePresence>
         </Suspense>
 
-        <FloatingActions
-          importStatus={importStatus}
-          onUpload={handleUpload}
-          onImportProgress={setImportStatus}
-        />
+        {currentView === 'gallery' && !selectedPhoto && (
+          <FloatingActions
+            importStatus={importStatus}
+            onUpload={handleUpload}
+            onImportProgress={setImportStatus}
+          />
+        )}
 
         <Suspense fallback={null}>
           <AddToAlbumDialog

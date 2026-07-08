@@ -212,15 +212,78 @@ async def reset_library():
                             except Exception as e:
                                 logger.warning(f"Failed to delete {file_path}: {e}")
 
+    # 5b. Clear app-generated caches under DATA_DIR
+    cache_dirs = [
+        settings.DATA_DIR / "transcode_cache",
+        settings.DATA_DIR / "hls_cache",
+        settings.DATA_DIR / "nle_cache",
+        settings.DATA_DIR / "nle_proxies",
+    ]
+    for cache_dir in cache_dirs:
+        if not cache_dir.exists():
+            continue
+        for file_path in cache_dir.iterdir():
+            try:
+                if file_path.is_file():
+                    file_path.unlink()
+                    deleted_assets += 1
+                elif file_path.is_dir():
+                    import shutil
+                    shutil.rmtree(file_path)
+                    deleted_assets += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete cache {file_path}: {e}")
+
+    # 5c. Clear app-generated export files under uploads/
+    for export_dir_name in ("exports", "nle_exports"):
+        export_dir = settings.UPLOAD_DIR / export_dir_name
+        if not export_dir.exists():
+            continue
+        for file_path in export_dir.iterdir():
+            try:
+                if file_path.is_file():
+                    file_path.unlink()
+                    deleted_assets += 1
+                elif file_path.is_dir():
+                    import shutil
+                    shutil.rmtree(file_path)
+                    deleted_assets += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete export {file_path}: {e}")
+
+    # 5d. Clear backend log file
+    for log_candidate in [
+        settings.BASE_DIR / "backend.log",
+        settings.BASE_DIR.parent / "backend.log",
+        Path("backend.log"),
+    ]:
+        if log_candidate.exists():
+            try:
+                log_candidate.unlink()
+                deleted_assets += 1
+            except Exception as e:
+                logger.warning(f"Failed to delete log {log_candidate}: {e}")
+
     # 6. Clean up Locked Folder encrypted files in uploads/
     locked_deleted = await _cleanup_locked_folder_files()
     logger.info(f"Deleted {locked_deleted} encrypted Locked Folder files from uploads/")
 
     # 7. Broadcast SSE event for frontend notification
     try:
-        sync_service.broadcast({"type": "library_reset", "data": {"deleted_assets": deleted_assets, "locked_files_deleted": locked_deleted}})
+        sync_service.broadcast({
+            "type": "library_reset",
+            "data": {
+                "deleted_assets": deleted_assets,
+                "locked_files_deleted": locked_deleted,
+            }
+        })
     except Exception as e:
         logger.warning(f"Failed to broadcast library_reset SSE event: {e}")
 
     logger.info(f"Library reset complete. Deleted {deleted_assets} assets, {locked_deleted} locked files. settings.json preserved.")
-    return {"status": "success", "message": "Library completely reset (settings.json preserved)", "deleted_assets": deleted_assets, "locked_files_deleted": locked_deleted}
+    return {
+        "status": "success",
+        "message": "Library completely reset (settings.json preserved)",
+        "deleted_assets": deleted_assets,
+        "locked_files_deleted": locked_deleted,
+    }

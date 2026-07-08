@@ -255,4 +255,64 @@ div:has(> [type="range"]) > div.pointer-events-none {
   transition: none !important;
 }
 
+/* ── Fluid Functionalism: shimmer-text (ThinkingIndicator / ThinkingSteps) ── */
+@keyframes shimmer {
+  0%   { background-position: 0% 0; }
+  100% { background-position: 100% 0; }
+}
 
+.shimmer-text {
+  color: transparent;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.55) 0%,
+    rgba(255,255,255,0.55) 35%,
+    rgba(255,255,255,0.18) 50%,
+    rgba(255,255,255,0.55) 65%,
+    rgba(255,255,255,0.55) 100%
+  );
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Leaflet/Map Performance (WebKitGTK) ─────────────────────────────────── */
+/* Force GPU compositing for map tiles — critical for WebKitGTK performance */
+.leaflet-container {
+  will-change: transform;
+  contain: layout style;
+}
+
+/* Tile layer GPU acceleration */
+.leaflet-tile-pane {
+  will-change: transform;
+}
+
+/* Marker cluster GPU hints */
+.leaflet-marker-cluster,
+.leaflet-marker-cluster div {
+  will-change: transform, opacity;
+}
+
+/* Canvas renderer performance (preferCanvas=true) */
+.leaflet-pane canvas {
+  will-change: transform;
+}
+
+/* Popup GPU compositing */
+.leaflet-popup-content-wrapper {
+  will-change: transform;
+}
+
+/* Custom photo marker GPU acceleration */
+.custom-photo-marker {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Custom cluster icon GPU acceleration */
+.custom-cluster-icon {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}
