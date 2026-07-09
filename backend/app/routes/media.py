@@ -41,7 +41,6 @@ _transcode_locks: dict[str, asyncio.Lock] = {}
 
 HEVC_CODECS = {"hevc", "h265", "hev1", "hvc1"}
 FULL_RANGE_CODECS = {"h264", "avc", "avc1"}
-# Codecs that WebKitGTK/Linux GStreamer cannot decode reliably
 UNSUPPORTED_CODECS = {
     "vp9", "vp09", "av1", "av01", "mpeg2video", "mpeg4",
     "divx", "xvid", "wmv3", "wmv", "vc1", "theora",
@@ -49,30 +48,17 @@ UNSUPPORTED_CODECS = {
 HDR_COLOR_SPACES = {"bt2020nc", "bt2020c", "smpte2084", "arib-std-b67"}
 
 # ─── GPU capability cache ─────────────────────────────────────────────────────
-# Probed once per process lifetime so we don't spawn test subprocesses on every
-# transcode request.  None = not yet probed, True/False = result.
 _nvenc_available: bool | None = None
 _scale_cuda_available: bool | None = None
 
 
 async def _probe_nvenc() -> bool:
-    """
-    Test whether h264_nvenc is actually usable by running a trivial 0.1 s encode.
-    Result is cached in _nvenc_available for the lifetime of the process.
-
-    We use FFmpeg's own encoder test rather than checking nvidia-smi because:
-      - nvidia-smi present ≠ FFmpeg compiled with NVENC support
-      - nvidia-smi present ≠ CUDA driver / NVENC SDK available at runtime
-    """
     global _nvenc_available
     if _nvenc_available is not None:
         return _nvenc_available
 
     llogger.info("[GPU] Probing NVENC availability…")
     try:
-        # 192x192 — above NVENC's minimum resolution (~160x160 on RTX 2050).
-        # The old 128x128 probe was below the hardware minimum and always failed,
-        # causing silent fallback to CPU libx264 on every encode.
         proc = await asyncio.create_subprocess_exec(
             settings.FFMPEG_PATH or "ffmpeg",
             "-hide_banner", "-loglevel", "error",
@@ -110,12 +96,6 @@ async def _probe_nvenc() -> bool:
 async def _probe_scale_cuda() -> bool:
     """
     Test whether the scale_cuda filter is available in this ffmpeg build.
-
-    Some builds have h264_nvenc but lack the scale_cuda filter (e.g. RPM
-    packages with nvenc support but without the full CUDA filter set).  When
-    scale_cuda is missing the full GPU decode→scale→encode pipeline fails with
-    "No such filter: scale_cuda".
-
     Result is cached for the process lifetime, same as _probe_nvenc().
     """
     global _scale_cuda_available
@@ -124,9 +104,6 @@ async def _probe_scale_cuda() -> bool:
 
     llogger.info("[GPU] Probing scale_cuda filter availability…")
     try:
-        # scale_cuda expects CUDA pixel format input.  The lavfi source produces
-        # yuv420p (CPU), so we must hwupload_cuda first — matching the actual
-        # encoding pipeline.
         proc = await asyncio.create_subprocess_exec(
             settings.FFMPEG_PATH or "ffmpeg",
             "-hide_banner", "-loglevel", "error",
@@ -166,16 +143,12 @@ async def _probe_vaapi() -> bool:
     """
     Test whether h264_vaapi is actually usable by running a trivial 0.1 s encode.
     Result is cached in _vaapi_available for the lifetime of the process.
-
-    Tries /dev/dri/renderD128 first, then falls back to ffmpeg auto-detect.
     """
     global _vaapi_available
     if _vaapi_available is not None:
         return _vaapi_available
 
     llogger.info("[GPU] Probing VA-API availability...")
-    # Try configured ffmpeg first, then /usr/local/bin (may be symlink to custom build),
-    # then /usr/bin (distro default — usually has VAAPI).
     ffmpeg_candidates = list(dict.fromkeys([
         settings.FFMPEG_PATH or "ffmpeg",
         "/usr/local/bin/ffmpeg",
@@ -183,7 +156,6 @@ async def _probe_vaapi() -> bool:
     ]))
 
     for ffmpeg_bin in ffmpeg_candidates:
-        # Try with explicit device first, then without
         devices = ["/dev/dri/renderD128", None]
         for device in devices:
             try:
@@ -231,23 +203,15 @@ async def _probe_vaapi() -> bool:
 def _select_gpu_mode() -> str:
     """
     Determine the GPU encoding mode based on settings and backward compatibility.
-
-    Returns one of: "nvenc_full", "nvenc_partial", "vaapi", "cpu"
-    - Respects GPU_ENCODING_MODE setting
-    - Falls back to ENABLE_GPU_ENCODING for backward compatibility
-    - Logs the selected mode on first call
     """
     from app.config import settings
     import logging as _logging
     _logger = _logging.getLogger(__name__)
 
-    # Backward compatibility: if ENABLE_GPU_ENCODING is False, treat as "cpu"
     if not settings.ENABLE_GPU_ENCODING:
         mode = "cpu"
     else:
         mode = settings.GPU_ENCODING_MODE.lower().strip()
-
-    # Validate mode
     if mode not in ("auto", "nvenc", "vaapi", "cpu"):
         _logger.warning(f"[GPU] Unknown GPU_ENCODING_MODE={mode!r} — falling back to 'auto'")
         mode = "auto"
@@ -268,7 +232,6 @@ def _normalize_rotation(rotation: float | int | None) -> int:
         value += 360
     if value in (0, 90, 180, 270):
         return value
-    # Some files carry near-right-angle floats like 89.999 or -90.0.
     nearest = min((0, 90, 180, 270), key=lambda candidate: abs(candidate - value))
     return nearest
 
@@ -334,14 +297,12 @@ def _probe_video_info(file_path: str) -> dict:
                             rotation = side_data.get("rotation")
                             break
                 info["rotation"] = _normalize_rotation(rotation)
-                # Stream-level duration is more accurate than format-level for mkv/avi
                 info["duration"]    = float(s.get("duration") or 0)
             elif s.get("codec_type") == "audio" and "audio_codec" not in info:
                 info["audio_codec"] = s.get("codec_name")
 
         fmt = data.get("format", {})
         info["format_name"] = fmt.get("format_name")
-        # Fall back to format duration if stream duration missing
         if not info.get("duration"):
             info["duration"] = float(fmt.get("duration") or 0)
 
@@ -559,18 +520,6 @@ async def serve_local_file(path: str, request: Request):
 
 async def serve_transcoded_video(path: str, request: Request, force: bool = False):
     """Serve a video, transcoding to a clean H.264 when the browser can't play it natively.
-
-    Cases that trigger a transcode:
-      - HEVC/H.265 — never supported natively in WebKitGTK webviews on Linux.
-      - Full-range H.264 (color_range='pc') — Snapchat, some Android cameras.
-        GStreamer on Linux stalls silently when the colour matrix doesn't match.
-      - Non-standard containers (.mkv, .avi, .mov, etc.) — browsers lack native demuxers.
-      - Unsupported audio codecs (AC-3, DTS, etc.) — licensing / browser decoding limits.
-
-    ?force=true bypasses the codec check and always re-encodes. Used by the frontend
-    error-retry path: if the browser fires an error on a nominally-supported file
-    (e.g. high-bitrate 4K H.264 that GStreamer can't actually decode), the retry URL
-    forces a clean transcode instead of serving the raw file again.
     """
     decoded_path = urllib.parse.unquote(path)
 
@@ -652,8 +601,6 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
     source_hash = hashlib.md5(str(resolved_path).encode()).hexdigest()[:16]
     cache_path = TRANSCODE_CACHE_DIR / f"{source_hash}.mp4"
     temp_cache_path = TRANSCODE_CACHE_DIR / f"{source_hash}.mp4.tmp"
-
-    # 1. Serve immediately if completed cache file exists
     if not force and cache_path.exists():
         file_size = cache_path.stat().st_size
         llogger.info(
@@ -675,13 +622,11 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
             headers={"Accept-Ranges": "bytes", **cors},
         )
 
-    # 2. Acquire lock to serialize transcode requests for the same file
     if source_hash not in _transcode_locks:
         _transcode_locks[source_hash] = asyncio.Lock()
     lock = _transcode_locks[source_hash]
 
     async with lock:
-        # Check cache_path again in case it completed while waiting for the lock
         if not force and cache_path.exists() and cache_path.stat().st_size > 0:
             llogger.debug(f"[/transcode] Cache appeared while waiting: {cache_path}")
             cors = get_cors_headers(request)
@@ -698,12 +643,9 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
 
         cors = get_cors_headers(request)
         mime_type = "video/mp4"
-
-        # Determine which path is active for range/growing requests
         is_in_progress = source_hash in _transcode_in_progress
         target_path = temp_cache_path if is_in_progress else cache_path
 
-        # Handle range requests
         range_val = request.headers.get("range")
         if range_val and range_val.lower().startswith("bytes="):
             if not target_path.exists() and is_in_progress:
@@ -744,18 +686,12 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
 
             try:
                 audio_args = ["-c:a", "aac", "-ac", "2", "-b:a", "128k"] if audio_codec else []
-
-                # HDR tone-mapping: convert BT.2020/PQ/HLG to BT.709 for SDR displays
                 is_hdr = color_space in HDR_COLOR_SPACES
                 hdr_vf = (
                     ",tonemap=hable,"
                     "colorspace=all=bt709:iprimaries=bt2020:itrc=bt2020-10:ispace=bt2020nc"
                     if is_hdr else ""
                 )
-
-                # 10-bit input detection: hwdownload must use native format first,
-                # then convert to 8-bit on CPU. Direct hwdownload to yuv420p fails
-                # when the GPU frame is 10-bit (yuv420p10le/p010).
                 pix_fmt = (info.get("pix_fmt") or "").lower()
                 is_10bit = "10" in pix_fmt or "p010" in pix_fmt
                 hwdownload_fmt = "hwdownload,format=yuv420p10le,format=yuv420p" if is_10bit else "hwdownload,format=yuv420p"
@@ -785,11 +721,6 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
 
                 if use_full_gpu:
                     encoder_tag = "h264_nvenc"
-                    # Full GPU pipeline: CUDA decode -> scale_cuda -> hwdownload -> nvenc.
-                    # Fallback to CPU decode -> hwupload_cuda -> scale_cuda if codec is unsupported.
-                    # CPU-side rotation filters cannot run on CUDA frames directly.
-                    # If the source carries display rotation metadata, decode on CPU first,
-                    # then upload to CUDA for scale/encode.
                     is_cuda_decodable = rotation == 0 and codec in ("h264", "hevc", "h265", "vp9", "av1")
                     if is_cuda_decodable:
                         input_hwaccel = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
@@ -891,10 +822,6 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                         "-pix_fmt", "yuv420p",
                         "-profile:v", "high",
                     ]
-
-                # Use the correct ffmpeg binary for the selected encoder.
-                # NVENC requires the custom CUDA build; VAAPI needs system ffmpeg.
-                # Check encoder_tag (actual selection), not use_vaapi (probe result).
                 if encoder_tag == "h264_vaapi":
                     ffmpeg_bin = "/usr/bin/ffmpeg"
                 else:
@@ -913,9 +840,6 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                     "-color_trc", "bt709",
                     "-color_range", "tv",
                     *audio_args,
-                    # +faststart rewrites the moov atom to the front of the completed
-                    # file so the browser can read duration + seek from byte 0.
-                    # Requires a seekable output — satisfied by writing to disk first.
                     "-movflags", "+faststart",
                     "-f", "mp4",
                     str(temp_cache_path),
@@ -1002,14 +926,6 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                 done_event.set()
                 _transcode_in_progress.pop(source_hash, None)
                 raise HTTPException(status_code=500, detail="Transcoding failed")
-
-        # Wait for the transcode to finish completely before serving.
-        # Streaming a growing file causes the browser to see an unbounded stream
-        # (duration = Infinity) because faststart cannot rewrite the moov atom
-        # while the file is still being written.  By waiting for the completed
-        # file we get a proper moov-at-front MP4 with a known Content-Length,
-        # which gives the browser correct total duration immediately and enables
-        # full seek / range-request support.
         wait_start = time.monotonic()
         llogger.info(
             f"[/transcode] Waiting for transcode of {resolved_path.name} to complete…"
