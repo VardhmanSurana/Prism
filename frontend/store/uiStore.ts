@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export interface ZoomState {
+interface ZoomState {
   scale: number;
   offsetX: number;
   offsetY: number;

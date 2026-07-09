@@ -1,6 +1,6 @@
 import { Photo } from '../../../types';
 
-export interface ImportStatus {
+interface ImportStatus {
   is_scanning: boolean;
   total_files: number;
   processed_files: number;

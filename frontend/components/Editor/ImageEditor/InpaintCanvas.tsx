@@ -14,12 +14,12 @@ declare global {
   }
 }
 
-export interface Point {
+interface Point {
   x: number;
   y: number;
 }
 
-export interface MaskStroke {
+interface MaskStroke {
   points: Point[];
   brushSize: number;
   isEraser: boolean;

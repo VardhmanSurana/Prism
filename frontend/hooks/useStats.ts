@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { API_BASE } from '../constants';
 import { eventService } from '../services/EventService';
 
-export interface PhotoStats {
+interface PhotoStats {
   total_photos: number;
   people_found: number;
   albums: number;
@@ -21,7 +21,7 @@ interface StatsState {
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 500;
 
-export const useStatsStore = create<StatsState>((set, get) => ({
+const useStatsStore = create<StatsState>((set, get) => ({
   stats: null,
   isLoading: false,
   error: null,

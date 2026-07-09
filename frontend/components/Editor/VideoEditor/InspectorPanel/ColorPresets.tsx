@@ -2,7 +2,7 @@ import React from 'react';
 import type { ClipEffects } from '@/types/nle';
 import { DEFAULT_EFFECTS } from '@/types/nle';
 
-export interface ColorPreset {
+interface ColorPreset {
   name: string;
   effects: Partial<ClipEffects>;
 }

@@ -47,11 +47,11 @@ function saveSettings(settings: GalleryLayoutSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
 
-export function getRowHeightPx(setting: RowHeight): number {
+function getRowHeightPx(setting: RowHeight): number {
   return ROW_HEIGHT_MAP[setting];
 }
 
-export function getMaxRowWidth(setting: PhotoDensity): number {
+function getMaxRowWidth(setting: PhotoDensity): number {
   return DENSITY_MAP[setting];
 }
 

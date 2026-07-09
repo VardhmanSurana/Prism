@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export interface SyncStatus {
+interface SyncStatus {
   is_scanning: boolean;
   total_files: number;
   processed_files: number;

@@ -1,0 +1,156 @@
+Unused files (15)
+components/Editor/ImageEditor/AnnotationCanvas/SelectionHighlight.tsx
+components/Editor/ImageEditor/index.ts                               
+components/explore/index.ts                                          
+components/FileFolderBrowser/BrowserResizer.tsx                      
+components/layout/index.ts                                           
+components/layout/sidebar/StorageCard.tsx                            
+components/layout/sidebar/useSidebar.ts                              
+components/layout/types/bulk-actions-bar.ts                          
+components/MapView/utils/icon.ts                                     
+components/ui/index.ts                                               
+components/viewers/index.ts                                          
+components/viewers/lightbox/index.ts                                 
+components/wrappers/index.ts                                         
+lib/videoFilterMapper.ts                                             
+store/index.ts                                                       
+Unused devDependencies (4)
+@testing-library/jest-dom  package.json:36:6
+@types/cropperjs           package.json:38:6
+concurrently               package.json:46:6
+prettier                   package.json:52:6
+Unresolved imports (9)
+../../constants                          components/Editor/ImageEditor/AdjustPanel.tsx:10:26            
+../../../constants                       components/Editor/ImageEditor/EditingMode/EditingMode.tsx:32:38
+../../../store/editStore                 components/Editor/ImageEditor/EditingMode/EditingMode.tsx:37:30
+../../constants                          components/Editor/ImageEditor/FramesPanel.tsx:21:28            
+../../constants                          components/Editor/ImageEditor/PortraitPanel.tsx:4:38           
+../../constants                          components/Editor/ImageEditor/PresetsPanel.tsx:14:28           
+../../constants                          components/Editor/ImageEditor/SelectivePanel.tsx:4:38          
+../../services/FileFolderBrowserService  components/Editor/ImageEditor/TexturePanel.tsx:9:39            
+../../constants                          components/Editor/ImageEditor/TexturePanel.tsx:10:28           
+Unused exports (60)
+default                  variable  components/AgentView/InputMessage.tsx:551:16                          
+default                  variable  components/AgentView/ThinkingIndicator.tsx:108:16                     
+ThinkingSteps                      components/AgentView/ThinkingSteps.tsx:335:3                          
+ADJUSTMENT_GROUPS                  components/Editor/ImageEditor/AdjustPanel.tsx:34:14                   
+DEFAULT_ADJUST_SLIDERS             components/Editor/ImageEditor/AdjustPanel.tsx:60:14                   
+TextRenderer                       components/Editor/ImageEditor/AnnotationCanvas/Renderers.tsx:199:14   
+pointDistance                      components/Editor/ImageEditor/AnnotationCanvas/utils.ts:4:14          
+distToSegment                      components/Editor/ImageEditor/AnnotationCanvas/utils.ts:10:14         
+simplifyPoints                     components/Editor/ImageEditor/AnnotationCanvas/utils.ts:119:14        
+smoothChaikin                      components/Editor/ImageEditor/AnnotationCanvas/utils.ts:136:14        
+DEFAULT_CURVE                      components/Editor/ImageEditor/CurveEditor.tsx:11:10                   
+DETAIL_GROUPS                      components/Editor/ImageEditor/DetailPanel.tsx:26:14                   
+DEFAULT_DETAIL                     components/Editor/ImageEditor/DetailPanel.tsx:37:14                   
+isDefaultAdjustments               components/Editor/ImageEditor/filterEngine.ts:310:14                  
+renderHslPreview         function  components/Editor/ImageEditor/hslEngine.ts:161:23                     
+LEAKS                              components/Editor/ImageEditor/TexturePanel.tsx:17:14                  
+default                  variable  components/Editor/VideoEditor/AdjustPanel.tsx:93:16                   
+default                  variable  components/Editor/VideoEditor/AssetsPanel.tsx:353:16                  
+default                  variable  components/Editor/VideoEditor/EffectsBrowserPanel.tsx:133:16          
+default                  variable  components/Editor/VideoEditor/ElementsPanel.tsx:140:16                
+default                  variable  components/Editor/VideoEditor/ExportDialog.tsx:270:16                 
+COLOR_PRESETS                      components/Editor/VideoEditor/InspectorPanel/ColorPresets.tsx:10:14   
+default                  variable  components/Editor/VideoEditor/InspectorPanel/InspectorPanel.tsx:360:16
+default                  variable  components/Editor/VideoEditor/InspectorPanel/KeyframeEditor.tsx:215:16
+default                  variable  components/Editor/VideoEditor/LeftSidebar.tsx:114:16                  
+default                  variable  components/Editor/VideoEditor/PresetsPanel.tsx:78:16                  
+default                  variable  components/Editor/VideoEditor/SettingsPanel.tsx:119:16                
+default                  variable  components/Editor/VideoEditor/TextPanel.tsx:157:16                    
+default                  variable  components/Editor/VideoEditor/Timeline/Timeline.tsx:990:16            
+default                  variable  components/Editor/VideoEditor/TransitionsPanel.tsx:91:16              
+default                  variable  components/Editor/VideoEditor/VideoEditorMode.tsx:1264:16             
+FileFolderBrowserDialog            components/FileFolderBrowser/index.ts:8:10                            
+filterByViewport                   components/MapView/hooks/usePhotoGeoData.ts:29:14                     
+DASHBOARD_ROW_HEIGHT               components/PhotoGrid/constants.ts:4:14                                
+default                  variable  components/ui/ColorPicker.tsx:320:16                                  
+default                  function  components/ui/Dropdown.tsx:109:16                                     
+TabSwitcher                        components/utilities/storageCleanup/index.ts:2:10                     
+PhotoCard                          components/utilities/storageCleanup/index.ts:3:10                     
+BlurryPhotosTab                    components/utilities/storageCleanup/index.ts:4:10                     
+DuplicatesTab                      components/utilities/storageCleanup/index.ts:5:10                     
+DocumentsTab                       components/utilities/storageCleanup/index.ts:6:10                     
+LoadingState                       components/utilities/storageCleanup/index.ts:7:10                     
+Header                             components/utilities/storageCleanup/index.ts:8:10                     
+useStorageCleanup                  components/utilities/storageCleanup/index.ts:9:10                     
+DEFAULT_API_BASE                   constants.ts:2:14                                                     
+useFileSelection                   hooks/import/index.ts:1:10                                            
+useImportProcess                   hooks/import/index.ts:2:10                                            
+useDirectoryExpansion              hooks/import/index.ts:3:10                                            
+getRowHeightPx           function  hooks/useGalleryLayout.ts:50:17                                       
+getMaxRowWidth           function  hooks/useGalleryLayout.ts:54:17                                       
+useStatsStore                      hooks/useStats.ts:24:14                                               
+useSyncConfig                      hooks/utilities/index.ts:1:10                                         
+useFolderManagement                hooks/utilities/index.ts:2:10                                         
+usePurgeOperations                 hooks/utilities/index.ts:3:10                                         
+useLibraryOperations               hooks/utilities/index.ts:4:10                                         
+useConfirmDialog                   hooks/utilities/index.ts:5:10                                         
+mark                     function  lib/perf.ts:8:17                                                      
+measure                  function  lib/perf.ts:12:17                                                     
+profiled                 function  lib/perf.ts:29:17                                                     
+formatCompactDuration    function  utils/formatDuration.ts:10:17                                         
+Unused exported types (46)
+InputMessageProps        type       components/AgentView/InputMessage.tsx:550:15                      
+InputMessageSlotContext  type       components/AgentView/InputMessage.tsx:550:34                      
+ThinkingIndicatorProps   type       components/AgentView/ThinkingIndicator.tsx:107:15                 
+ThinkingStepsProps       type       components/AgentView/ThinkingSteps.tsx:342:15                     
+ThinkingStepProps        type       components/AgentView/ThinkingSteps.tsx:342:35                     
+StepStatus               type       components/AgentView/ThinkingSteps.tsx:342:54                     
+AdjustSliderKey          type       components/Editor/ImageEditor/AdjustPanel.tsx:15:13               
+AdjItem                  interface  components/Editor/ImageEditor/AdjustPanel.tsx:21:18               
+AdjGroup                 interface  components/Editor/ImageEditor/AdjustPanel.tsx:29:18               
+AnnotationsPanelProps    type       components/Editor/ImageEditor/AnnotationsPanel/index.ts:8:15      
+AnnotationToolType       type       components/Editor/ImageEditor/AnnotationsPanel/types.ts:6:13      
+Point                    type       components/Editor/ImageEditor/CurveEditor.tsx:9:15                
+CurveState               type       components/Editor/ImageEditor/CurveEditor.tsx:10:15               
+DetailKey                type       components/Editor/ImageEditor/DetailPanel.tsx:12:13               
+DetailItem               interface  components/Editor/ImageEditor/DetailPanel.tsx:14:18               
+DetailGroup              interface  components/Editor/ImageEditor/DetailPanel.tsx:21:18               
+HslChannelAdjustment     interface  components/Editor/ImageEditor/filterEngine.ts:21:18               
+SplitToningAdjustments   interface  components/Editor/ImageEditor/filterEngine.ts:105:18              
+GrainAdjustments         interface  components/Editor/ImageEditor/filterEngine.ts:111:18              
+LightLeakAdjustments     interface  components/Editor/ImageEditor/filterEngine.ts:117:18              
+FrameAdjustments         interface  components/Editor/ImageEditor/filterEngine.ts:124:18              
+BlendAdjustments         interface  components/Editor/ImageEditor/filterEngine.ts:130:18              
+TiltShiftAdjustments     interface  components/Editor/ImageEditor/filterEngine.ts:138:18              
+Point                    interface  components/Editor/ImageEditor/InpaintCanvas.tsx:17:18             
+MaskStroke               interface  components/Editor/ImageEditor/InpaintCanvas.tsx:22:18             
+ColorPreset              interface  components/Editor/VideoEditor/InspectorPanel/ColorPresets.tsx:5:18
+ResizeOption             interface  components/FileFolderBrowser/types.ts:26:18                       
+ImportStatus             interface  components/layout/types/floating-actions.ts:3:18                  
+SidebarProps             interface  components/layout/types/sidebar.ts:9:18                           
+MapStyle                 type       components/MapView/constants.ts:34:13                             
+PhotoGridProps           type       components/PhotoGrid/index.ts:2:15                                
+CleanupTab               type       components/utilities/storageCleanup/index.ts:10:15                
+BlurryPhoto              type       components/utilities/storageCleanup/index.ts:10:27                
+DuplicateCluster         type       components/utilities/storageCleanup/index.ts:10:40                
+StorageCleanupState      type       components/utilities/storageCleanup/index.ts:10:58                
+PhotoCardProps           type       components/utilities/storageCleanup/index.ts:10:79                
+TabContentProps          type       components/utilities/storageCleanup/index.ts:10:95                
+StorageCleanupState      interface  components/utilities/storageCleanup/types.ts:22:18                
+TabContentProps          interface  components/utilities/storageCleanup/types.ts:42:18                
+PhotoStats               interface  hooks/useStats.ts:6:18                                            
+SSEEvent                 interface  services/EventService.ts:4:18                                     
+SyncStatus               interface  store/syncStore.ts:3:18                                           
+ZoomState                interface  store/uiStore.ts:3:18                                             
+AlbumMetadata            interface  types.ts:44:18                                                    
+AnyAlbum                 type       types.ts:75:13                                                    
+Place                    interface  types.ts:77:18                                                    
+Duplicate exports (16)
+AdjustPanel|default          components/Editor/VideoEditor/AdjustPanel.tsx                  
+AssetsPanel|default          components/Editor/VideoEditor/AssetsPanel.tsx                  
+EffectsBrowserPanel|default  components/Editor/VideoEditor/EffectsBrowserPanel.tsx          
+ElementsPanel|default        components/Editor/VideoEditor/ElementsPanel.tsx                
+ExportDialog|default         components/Editor/VideoEditor/ExportDialog.tsx                 
+InspectorPanel|default       components/Editor/VideoEditor/InspectorPanel/InspectorPanel.tsx
+KeyframeEditor|default       components/Editor/VideoEditor/InspectorPanel/KeyframeEditor.tsx
+LeftSidebar|default          components/Editor/VideoEditor/LeftSidebar.tsx                  
+PresetsPanel|default         components/Editor/VideoEditor/PresetsPanel.tsx                 
+SettingsPanel|default        components/Editor/VideoEditor/SettingsPanel.tsx                
+TextPanel|default            components/Editor/VideoEditor/TextPanel.tsx                    
+Timeline|default             components/Editor/VideoEditor/Timeline/Timeline.tsx            
+TransitionsPanel|default     components/Editor/VideoEditor/TransitionsPanel.tsx             
+VideoEditorMode|default      components/Editor/VideoEditor/VideoEditorMode.tsx              
+ColorPicker|default          components/ui/ColorPicker.tsx                                  
+Dropdown|default             components/ui/Dropdown.tsx                                     

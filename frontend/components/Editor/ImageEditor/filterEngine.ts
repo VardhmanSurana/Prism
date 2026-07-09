@@ -18,7 +18,7 @@ export type HslBand =
   | 'reds' | 'oranges' | 'yellows' | 'greens'
   | 'aquas' | 'blues'  | 'purples' | 'pinks';
 
-export interface HslChannelAdjustment {
+interface HslChannelAdjustment {
   hue:        number; // -180 → +180
   saturation: number; // -100 → +100
   luminance:  number; // -100 → +100
@@ -102,32 +102,32 @@ export interface Adjustments {
   tiltShift:   TiltShiftAdjustments;
 }
 
-export interface SplitToningAdjustments {
+interface SplitToningAdjustments {
   shadows:    { hue: number; saturation: number };
   highlights: { hue: number; saturation: number };
   balance:    number;
 }
 
-export interface GrainAdjustments {
+interface GrainAdjustments {
   amount:  number;
   size:    'fine' | 'medium' | 'coarse';
   colored: boolean;
 }
 
-export interface LightLeakAdjustments {
+interface LightLeakAdjustments {
   preset:  string | null;
   opacity: number;
   color?:  string;
   position?: 'left' | 'right' | 'top' | 'bottom' | 'top-right' | 'bottom-left' | 'center';
 }
 
-export interface FrameAdjustments {
+interface FrameAdjustments {
   style:     'none' | 'polaroid' | 'filmstrip' | 'matte' | 'rounded' | 'thinline' | 'shadowbox';
   color:     string;
   thickness: number;
 }
 
-export interface BlendAdjustments {
+interface BlendAdjustments {
   photoId:       number | null;
   blendImageSrc: string | null;
   mode:          GlobalCompositeOperation;
@@ -135,7 +135,7 @@ export interface BlendAdjustments {
   fit:           'cover' | 'contain' | 'center';
 }
 
-export interface TiltShiftAdjustments {
+interface TiltShiftAdjustments {
   enabled:       boolean;
   mode:          'linear' | 'radial';
   blurStrength:  number;

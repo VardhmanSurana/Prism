@@ -1,10 +1,2 @@
 export { StorageCleanup } from './StorageCleanup';
-export { TabSwitcher } from './TabSwitcher';
-export { PhotoCard } from './PhotoCard';
-export { BlurryPhotosTab } from './BlurryPhotosTab';
-export { DuplicatesTab } from './DuplicatesTab';
-export { DocumentsTab } from './DocumentsTab';
-export { LoadingState } from './LoadingState';
-export { Header } from './Header';
-export { useStorageCleanup } from './useStorageCleanup';
-export type { CleanupTab, BlurryPhoto, DuplicateCluster, StorageCleanupState, PhotoCardProps, TabContentProps } from './types';
+

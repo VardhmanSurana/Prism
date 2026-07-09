@@ -31,4 +31,4 @@ export const MAP_STYLES = [
   }
 ];
 
-export type MapStyle = typeof MAP_STYLES[number];
+type MapStyle = typeof MAP_STYLES[number];

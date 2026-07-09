@@ -26,7 +26,7 @@ export const usePhotoGeoData = (photos: Photo[]) => {
  * Call from a component that has access to the map instance.
  * Usage: const visiblePhotos = filterByViewport(geoPhotos, map.getBounds());
  */
-export const filterByViewport = (
+const filterByViewport = (
   photos: Photo[],
   bounds: { getNorth(): number; getSouth(): number; getEast(): number; getWest(): number }
 ): Photo[] => {

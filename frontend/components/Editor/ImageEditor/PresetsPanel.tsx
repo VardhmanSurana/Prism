@@ -11,7 +11,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { BookMarked, Plus, Trash2, X, Check } from 'lucide-react';
 import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from './filterEngine';
-import { resolveUrl } from '../../constants';
+import { resolveUrl } from '../../../constants';
 import {
   CURATED_PRESETS,
   Preset,

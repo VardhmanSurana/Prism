@@ -7,18 +7,18 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
-import { API_BASE } from '../../constants';
+import { API_BASE } from '../../../constants';
 import { Histogram } from './Histogram';
 import { CurveEditor } from './CurveEditor';
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
 
-export type AdjustSliderKey =
+type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
   | 'highlights' | 'shadows'    | 'whites'    | 'blacks'
   | 'vibrance'   | 'saturation' | 'hue'       | 'temperature'
   | 'ambiance'   | 'dehaze';
 
-export interface AdjItem {
+interface AdjItem {
   key:   AdjustSliderKey;
   label: string;
   min:   number;
@@ -26,7 +26,7 @@ export interface AdjItem {
   step?: number;
 }
 
-export interface AdjGroup {
+interface AdjGroup {
   label: string;
   items: AdjItem[];
 }

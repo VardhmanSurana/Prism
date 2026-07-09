@@ -29,12 +29,12 @@ import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
 
 import { HistoryActionType } from '../history';
-import { API_BASE, resolveUrl } from '../../../constants';
+import { API_BASE, resolveUrl } from '../../../../constants';
 
 import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
-import { useEditStore } from '../../../store/editStore';
+import { useEditStore } from '../../../../store/editStore';
 
 declare global {
   interface Window {
