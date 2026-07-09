@@ -1,6 +1,6 @@
 import React from 'react';
 import { Photo } from '../../types';
-import { LazyImage } from '../../ui/LazyImage';
+import { LazyImage } from '../ui/LazyImage';
 import { Heart, Lock, Trash2, Check } from 'lucide-react';
 
 interface PhotoListItemProps {

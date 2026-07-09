@@ -1,7 +1,7 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
-import { PhotoGrid } from './PhotoGrid';
-import { Photo } from '../types';
+import { PhotoGrid } from '../PhotoGrid';
+import { Photo } from '../../types';
 
 interface LockedFolderViewProps {
   photos: Photo[];

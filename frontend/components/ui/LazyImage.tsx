@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo, type FC } from 'react';
 import { ImageOff } from 'lucide-react';
-import { resolveUrl } from '../constants';
+import { resolveUrl } from '../../constants';
 
 interface LazyImageProps {
   src: string;
