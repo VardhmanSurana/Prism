@@ -39,7 +39,7 @@ from starlette.responses import FileResponse, StreamingResponse
 
 from app.config import settings
 from app.middleware.cors import get_cors_headers
-from app.routes.media import _probe_video_info, _probe_nvenc, _probe_scale_cuda, _probe_vaapi, _select_gpu_mode, _serve_range, _parse_range
+from app.routes.media import _probe_video_info, _probe_nvenc, _probe_scale_cuda, _probe_vaapi, _select_gpu_mode, _serve_range, _parse_range, _rotation_filter_prefix
 from app.utils.security import safe_resolve_read
 
 # ── Constants ──────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ HLS_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 # Segment duration in seconds.  6 s is the Apple-recommended default.
 # Shorter = faster seek response; longer = fewer files / less overhead.
-SEGMENT_DURATION = 6
+SEGMENT_DURATION = 4
 
 HEVC_CODECS = {"hevc", "h265", "hev1", "hvc1"}
 HDR_COLOR_SPACES = {"bt2020nc", "bt2020c", "smpte2084", "arib-std-b67"}
@@ -159,6 +159,10 @@ async def serve_hls_playlist(path: str, request: Request):
             seg_dur = min(SEGMENT_DURATION, duration - i * SEGMENT_DURATION)
             # Encode the original path so the segment handler can resolve it
             encoded = urllib.parse.quote(str(resolved_path), safe="")
+            if i > 0:
+                # Each segment is encoded by an independent FFmpeg process.
+                # Tell HLS clients not to assume timestamp continuity across files.
+                lines.append("#EXT-X-DISCONTINUITY")
             lines.append(f"#EXTINF:{seg_dur:.6f},")
             lines.append(f"/hls/segment?path={encoded}&index={i}")
         lines.append("#EXT-X-ENDLIST")
@@ -293,14 +297,21 @@ async def _encode_segment(
     codec = (info.get("codec") or "").lower()
     color_space = (info.get("color_space") or "").lower()
     audio_codec = (info.get("audio_codec") or "").lower()
+    pix_fmt = (info.get("pix_fmt") or "").lower()
+    rotation = int(info.get("rotation") or 0)
     is_hdr = color_space in HDR_COLOR_SPACES
+    is_10bit = "10" in pix_fmt or "p010" in pix_fmt
 
+    rotation_prefix = _rotation_filter_prefix(rotation)
     hdr_vf = (
-        ",zscale=t=linear:npl=100,tonemap=tonemap=hable:desat=0,"
-        "zscale=t=bt709:p=bt709:m=bt709:r=tv"
+        ",tonemap=hable,"
+        "colorspace=all=bt709:iprimaries=bt2020:itrc=bt2020-10:ispace=bt2020nc"
         if is_hdr else ""
     )
-    audio_args = ["-c:a", "aac", "-b:a", "128k"] if audio_codec else ["-an"]
+    # For 10-bit input: hwdownload must use native format, then convert to 8-bit on CPU.
+    # For 8-bit input: hwdownload directly to yuv420p.
+    hwdownload_fmt = "hwdownload,format=yuv420p10le,format=yuv420p" if is_10bit else "hwdownload,format=yuv420p"
+    audio_args = ["-c:a", "aac", "-ac", "2", "-b:a", "128k"] if audio_codec else ["-an"]
 
     gpu_mode = _select_gpu_mode()
     use_nvenc = False
@@ -317,81 +328,113 @@ async def _encode_segment(
 
     if use_full_gpu:
         encoder_tag = "h264_nvenc"
-        # Full GPU pipeline: CPU decode → hwupload_cuda → scale_cuda → hwdownload → nvenc.
-        # We use hwupload_cuda in the filter chain rather than -hwaccel_output_format cuda
-        # because the latter requires the decoder to output CUDA frames directly, which
-        # fails for some container formats (MKV) with input-side seeking (-ss before -i).
-        encoder_tag = "h264_nvenc"
-        input_hwaccel = []
-        vf = (
-            f"hwupload_cuda,"
-            f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
-            f"hwdownload,format=yuv420p{hdr_vf}"
-        )
+        # Full GPU pipeline: CUDA decode -> scale_cuda -> hwdownload -> nvenc.
+        # Fallback to CPU decode -> hwupload_cuda -> scale_cuda if codec is unsupported.
+        # CPU-side rotation filters cannot run on CUDA frames directly.
+        # If the source carries display rotation metadata, decode on CPU first,
+        # then upload to CUDA for scale/encode.
+        is_cuda_decodable = rotation == 0 and codec in ("h264", "hevc", "h265", "vp9", "av1")
+        if is_cuda_decodable:
+            input_hwaccel = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+            hwdownload_fmt = "hwdownload,format=p010le" if is_10bit else "hwdownload,format=nv12,format=yuv420p"
+            if is_10bit and not is_hdr:
+                hwdownload_fmt += ",format=yuv420p"
+            vf = (
+                f"{rotation_prefix}"
+                f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
+                f"{hwdownload_fmt}{hdr_vf}"
+            )
+        else:
+            input_hwaccel = []
+            hwdownload_fmt_cpu = "hwdownload,format=yuv420p10le,format=yuv420p" if is_10bit else "hwdownload,format=yuv420p"
+            vf = (
+                f"{rotation_prefix}"
+                f"format={'yuv420p10le' if is_10bit else 'yuv420p'},"
+                f"hwupload_cuda,"
+                f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
+                f"{hwdownload_fmt_cpu}{hdr_vf}"
+            )
         video_args = [
             "-c:v", "h264_nvenc",
             "-preset", "p4",
             "-rc", "vbr", "-cq", "23", "-b:v", "0",
+            "-maxrate", "12M", "-bufsize", "12M",
             "-pix_fmt", "yuv420p",
-            "-profile:v", "high", "-level:v", "4.1",
+            "-profile:v", "high",
         ]
     elif use_nvenc:
         encoder_tag = "h264_nvenc"
         # NVENC encoder works but scale_cuda filter is missing.
         # Use CPU decode + CPU scale + NVENC encode.
         input_hwaccel = []
-        vf = f"scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
+        vf = f"{rotation_prefix}scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
         video_args = [
             "-c:v", "h264_nvenc",
             "-preset", "p4",
             "-rc", "vbr", "-cq", "23", "-b:v", "0",
+            "-maxrate", "12M", "-bufsize", "12M",
             "-pix_fmt", "yuv420p",
-            "-profile:v", "high", "-level:v", "4.1",
+            "-profile:v", "high",
         ]
     elif use_vaapi:
         encoder_tag = "h264_vaapi"
         input_hwaccel = ["-vaapi_device", "/dev/dri/renderD128"]
-        vf = f"format=nv12,hwupload,scale_vaapi=w=trunc(iw/2)*2:h=trunc(ih/2)*2,hwdownload,format=yuv420p{hdr_vf}"
+        vf = (
+            f"{rotation_prefix}"
+            f"format=nv12,hwupload,scale_vaapi=w=trunc(iw/2)*2:h=trunc(ih/2)*2,"
+            f"hwdownload,format=yuv420p{hdr_vf}"
+        )
         video_args = [
             "-c:v", "h264_vaapi",
             "-qp", "23",
+            "-maxrate", "12M", "-bufsize", "12M",
             "-pix_fmt", "yuv420p",
             "-profile:v", "high",
-            "-level:v", "4.1",
         ]
     else:
         encoder_tag = "libx264"
         input_hwaccel = []
-        vf = f"scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
+        vf = f"{rotation_prefix}scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
         video_args = [
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-crf", "23",
+            "-maxrate", "12M", "-bufsize", "12M",
             "-pix_fmt", "yuv420p",
-            "-profile:v", "high", "-level:v", "4.1",
+            "-profile:v", "high",
         ]
 
     # Use the correct ffmpeg binary for the selected encoder.
     # NVENC requires the custom CUDA build; VAAPI needs system ffmpeg.
-    if use_vaapi:
+    # Check encoder_tag (actual selection), not use_vaapi (which is just the probe result).
+    if encoder_tag == "h264_vaapi":
         ffmpeg_bin = "/usr/bin/ffmpeg"
     else:
         ffmpeg_bin = settings.FFMPEG_PATH or "ffmpeg"
     cmd = [
         ffmpeg_bin, "-y", "-hide_banner",
+        "-fflags", "+genpts",
         *input_hwaccel,
+        "-noautorotate",
         # Seek before -i is fast (keyframe seek); ffmpeg then does a fine seek
         # to the exact start_time after the input is opened.
         "-ss", str(start_time),
         "-i", str(resolved_path),
         "-t", str(SEGMENT_DURATION),
+        "-map", "0:v:0",
+        "-map", "0:a:0?",
         *video_args,
         "-vf", vf,
+        "-metadata:s:v:0", "rotate=0",
         "-colorspace", "bt709",
         "-color_primaries", "bt709",
         "-color_trc", "bt709",
         "-color_range", "tv",
         *audio_args,
+        "-avoid_negative_ts", "make_zero",
+        "-muxdelay", "0",
+        "-muxpreload", "0",
+        "-mpegts_flags", "+resend_headers",
         # Output as MPEG-TS — the only container that can be written without
         # knowing the final duration (no moov atom problem).
         "-f", "mpegts",

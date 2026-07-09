@@ -94,6 +94,7 @@ def extract_video_metadata(file_path: str, probe_data: dict | None = None) -> di
     fps = None
     codec = None
     audio_codec = None
+    rotation = 0
     date_taken = None
     latitude = longitude = None
     city = state = country = location_str = None
@@ -130,6 +131,17 @@ def extract_video_metadata(file_path: str, probe_data: dict | None = None) -> di
                 codec = s.get("codec_name")
                 width = s.get("width", 0)
                 height = s.get("height", 0)
+                tags = s.get("tags") or {}
+                raw_rotation = tags.get("rotate")
+                if raw_rotation is None:
+                    for side_data in s.get("side_data_list", []):
+                        if "rotation" in side_data:
+                            raw_rotation = side_data.get("rotation")
+                            break
+                try:
+                    rotation = int(round(float(raw_rotation or 0))) % 360
+                except (TypeError, ValueError):
+                    rotation = 0
                 r_frame_rate = s.get("r_frame_rate", "0/1")
                 if "/" in r_frame_rate:
                     num, den = r_frame_rate.split("/")
@@ -182,6 +194,7 @@ def extract_video_metadata(file_path: str, probe_data: dict | None = None) -> di
         "fps": fps,
         "codec": codec,
         "audio_codec": audio_codec,
+        "rotation": rotation,
     }
 
 def extract_frame_at_time(file_path: str, timestamp: float, output_path: str, width: int = 400) -> bool:

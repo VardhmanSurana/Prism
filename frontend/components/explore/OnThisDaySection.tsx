@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, ChevronRight } from 'lucide-react';
 import { API_BASE, resolveUrl } from '@/constants';
 import { Photo } from '@/types';
-import { GlassMaterial } from '@/components/GlassMaterial';
+import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { StoryViewer } from '@/components/viewers/StoryViewer';
 import { springs } from '@/lib/motion-tokens';
 import { ExploreHeader } from './ExploreHeader';

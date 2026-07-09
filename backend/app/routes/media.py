@@ -124,11 +124,14 @@ async def _probe_scale_cuda() -> bool:
 
     llogger.info("[GPU] Probing scale_cuda filter availability…")
     try:
+        # scale_cuda expects CUDA pixel format input.  The lavfi source produces
+        # yuv420p (CPU), so we must hwupload_cuda first — matching the actual
+        # encoding pipeline.
         proc = await asyncio.create_subprocess_exec(
             settings.FFMPEG_PATH or "ffmpeg",
             "-hide_banner", "-loglevel", "error",
-            "-f", "lavfi", "-i", "color=c=black:s=192x192:d=0.1:r=1",
-            "-vf", "scale_cuda=w=192:h=192",
+            "-f", "lavfi", "-i", "color=c=black:s=192x192:d=0.1:r=1,format=yuv420p",
+            "-vf", "hwupload_cuda,scale_cuda=w=192:h=192,hwdownload,format=yuv420p",
             "-c:v", "h264_nvenc",
             "-f", "null", "-",
             stdout=asyncio.subprocess.DEVNULL,
@@ -253,6 +256,35 @@ def _select_gpu_mode() -> str:
     return mode
 
 
+def _normalize_rotation(rotation: float | int | None) -> int:
+    """Normalize ffprobe rotation metadata to one of 0/90/180/270."""
+    if rotation is None:
+        return 0
+    try:
+        value = int(round(float(rotation))) % 360
+    except (TypeError, ValueError):
+        return 0
+    if value < 0:
+        value += 360
+    if value in (0, 90, 180, 270):
+        return value
+    # Some files carry near-right-angle floats like 89.999 or -90.0.
+    nearest = min((0, 90, 180, 270), key=lambda candidate: abs(candidate - value))
+    return nearest
+
+
+def _rotation_filter_prefix(rotation: int) -> str:
+    """Return an ffmpeg filter prefix that bakes display rotation into frames."""
+    normalized = _normalize_rotation(rotation)
+    if normalized == 90:
+        return "transpose=clock,"
+    if normalized == 180:
+        return "hflip,vflip,"
+    if normalized == 270:
+        return "transpose=cclock,"
+    return ""
+
+
 def _probe_video_info(file_path: str) -> dict:
     """
     Probe a video file with ffprobe and return codec/color/resolution/audio info.
@@ -292,6 +324,16 @@ def _probe_video_info(file_path: str) -> dict:
                 info["width"]       = s.get("width", 0)
                 info["height"]      = s.get("height", 0)
                 info["pix_fmt"]     = s.get("pix_fmt")
+                rotation = None
+                tags = s.get("tags") or {}
+                if "rotate" in tags:
+                    rotation = tags.get("rotate")
+                if rotation is None:
+                    for side_data in s.get("side_data_list", []):
+                        if "rotation" in side_data:
+                            rotation = side_data.get("rotation")
+                            break
+                info["rotation"] = _normalize_rotation(rotation)
                 # Stream-level duration is more accurate than format-level for mkv/avi
                 info["duration"]    = float(s.get("duration") or 0)
             elif s.get("codec_type") == "audio" and "audio_codec" not in info:
@@ -309,6 +351,7 @@ def _probe_video_info(file_path: str) -> dict:
             f"color_range={info.get('color_range')!r} "
             f"color_space={info.get('color_space')!r} "
             f"audio={info.get('audio_codec')!r} "
+            f"rotation={info.get('rotation', 0)} "
             f"resolution={info.get('width')}x{info.get('height')} "
             f"duration={info.get('duration'):.1f}s "
             f"format={info.get('format_name')!r}"
@@ -546,6 +589,7 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
         color_range = (info.get("color_range") or "").lower()
         color_space = (info.get("color_space") or "").lower()
         audio_codec = (info.get("audio_codec") or "").lower()
+        rotation = int(info.get("rotation") or 0)
         width = info.get("width", 0)
         height = info.get("height", 0)
 
@@ -699,15 +743,23 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
             _transcode_in_progress[source_hash] = done_event
 
             try:
-                audio_args = ["-c:a", "aac", "-b:a", "128k"] if audio_codec else []
+                audio_args = ["-c:a", "aac", "-ac", "2", "-b:a", "128k"] if audio_codec else []
 
                 # HDR tone-mapping: convert BT.2020/PQ/HLG to BT.709 for SDR displays
                 is_hdr = color_space in HDR_COLOR_SPACES
                 hdr_vf = (
-                    ",zscale=t=linear:npl=100,tonemap=tonemap=hable:desat=0,"
-                    "zscale=t=bt709:p=bt709:m=bt709:r=tv"
+                    ",tonemap=hable,"
+                    "colorspace=all=bt709:iprimaries=bt2020:itrc=bt2020-10:ispace=bt2020nc"
                     if is_hdr else ""
                 )
+
+                # 10-bit input detection: hwdownload must use native format first,
+                # then convert to 8-bit on CPU. Direct hwdownload to yuv420p fails
+                # when the GPU frame is 10-bit (yuv420p10le/p010).
+                pix_fmt = (info.get("pix_fmt") or "").lower()
+                is_10bit = "10" in pix_fmt or "p010" in pix_fmt
+                hwdownload_fmt = "hwdownload,format=yuv420p10le,format=yuv420p" if is_10bit else "hwdownload,format=yuv420p"
+                rotation_prefix = _rotation_filter_prefix(rotation)
 
                 # ── GPU encoder selection ────────────────────────────────────
                 # _probe_nvenc(), _probe_scale_cuda(), _probe_vaapi() are cached
@@ -733,18 +785,39 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
 
                 if use_full_gpu:
                     encoder_tag = "h264_nvenc"
+                    # Full GPU pipeline: CUDA decode -> scale_cuda -> hwdownload -> nvenc.
+                    # Fallback to CPU decode -> hwupload_cuda -> scale_cuda if codec is unsupported.
+                    # CPU-side rotation filters cannot run on CUDA frames directly.
+                    # If the source carries display rotation metadata, decode on CPU first,
+                    # then upload to CUDA for scale/encode.
+                    is_cuda_decodable = rotation == 0 and codec in ("h264", "hevc", "h265", "vp9", "av1")
+                    if is_cuda_decodable:
+                        input_hwaccel = ["-hwaccel", "cuda", "-hwaccel_output_format", "cuda"]
+                        hwdownload_fmt_gpu = "hwdownload,format=p010le" if is_10bit else "hwdownload,format=nv12,format=yuv420p"
+                        if is_10bit and not is_hdr:
+                            hwdownload_fmt_gpu += ",format=yuv420p"
+                        vf = (
+                            f"{rotation_prefix}"
+                            f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
+                            f"{hwdownload_fmt_gpu}"
+                            f"{hdr_vf}"
+                        )
+                    else:
+                        input_hwaccel = []
+                        hwdownload_fmt_cpu = "hwdownload,format=yuv420p10le,format=yuv420p" if is_10bit else "hwdownload,format=yuv420p"
+                        vf = (
+                            f"{rotation_prefix}"
+                            f"format={'yuv420p10le' if is_10bit else 'yuv420p'},"
+                            f"hwupload_cuda,"
+                            f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
+                            f"{hwdownload_fmt_cpu}"
+                            f"{hdr_vf}"
+                        )
                     llogger.info(
                         f"[GPU] Encoding {resolved_path.name} with h264_nvenc "
-                        f"(full GPU pipeline: hwupload + scale_cuda + nvenc, "
-                        f"input codec={codec!r}, {width}x{height}, "
-                        f"hdr={is_hdr}, duration={info.get('duration', 0):.0f}s)"
-                    )
-                    input_hwaccel = []
-                    vf = (
-                        f"hwupload_cuda,"
-                        f"scale_cuda=w=trunc(iw/2)*2:h=trunc(ih/2)*2:interp_algo=lanczos,"
-                        f"hwdownload,format=yuv420p"
-                        f"{hdr_vf}"
+                        f"(full GPU pipeline: decode={ 'cuda' if is_cuda_decodable else 'cpu' } + scale_cuda + nvenc, "
+                        f"input codec={codec!r}, pix_fmt={pix_fmt!r}, 10bit={is_10bit}, "
+                        f"{width}x{height}, hdr={is_hdr}, duration={info.get('duration', 0):.0f}s)"
                     )
                     video_args = [
                         "-c:v", "h264_nvenc",
@@ -752,9 +825,10 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                         "-rc", "vbr",
                         "-cq", "23",
                         "-b:v", "0",
+                        "-maxrate", "12M",
+                        "-bufsize", "12M",
                         "-pix_fmt", "yuv420p",
                         "-profile:v", "high",
-                        "-level:v", "4.1",
                     ]
                 elif use_nvenc:
                     encoder_tag = "h264_nvenc"
@@ -765,16 +839,17 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                         f"hdr={is_hdr}, duration={info.get('duration', 0):.0f}s)"
                     )
                     input_hwaccel = []
-                    vf = f"scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
+                    vf = f"{rotation_prefix}scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
                     video_args = [
                         "-c:v", "h264_nvenc",
                         "-preset", "p4",
                         "-rc", "vbr",
                         "-cq", "23",
                         "-b:v", "0",
+                        "-maxrate", "12M",
+                        "-bufsize", "12M",
                         "-pix_fmt", "yuv420p",
                         "-profile:v", "high",
-                        "-level:v", "4.1",
                     ]
                 elif use_vaapi:
                     encoder_tag = "h264_vaapi"
@@ -785,13 +860,18 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                         f"hdr={is_hdr}, duration={info.get('duration', 0):.0f}s)"
                     )
                     input_hwaccel = ["-vaapi_device", "/dev/dri/renderD128"]
-                    vf = f"format=nv12,hwupload,scale_vaapi=w=trunc(iw/2)*2:h=trunc(ih/2)*2,hwdownload,format=yuv420p{hdr_vf}"
+                    vf = (
+                        f"{rotation_prefix}"
+                        f"format=nv12,hwupload,scale_vaapi=w=trunc(iw/2)*2:h=trunc(ih/2)*2,"
+                        f"hwdownload,format=yuv420p{hdr_vf}"
+                    )
                     video_args = [
                         "-c:v", "h264_vaapi",
                         "-qp", "23",
+                        "-maxrate", "12M",
+                        "-bufsize", "12M",
                         "-pix_fmt", "yuv420p",
                         "-profile:v", "high",
-                        "-level:v", "4.1",
                     ]
                 else:
                     encoder_tag = "libx264"
@@ -801,19 +881,21 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                         f"hdr={is_hdr}, duration={info.get('duration', 0):.0f}s)"
                     )
                     input_hwaccel = []
-                    vf = f"scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
+                    vf = f"{rotation_prefix}scale=trunc(iw/2)*2:trunc(ih/2)*2{hdr_vf}"
                     video_args = [
                         "-c:v", "libx264",
                         "-preset", "ultrafast",
                         "-crf", "23",
+                        "-maxrate", "12M",
+                        "-bufsize", "12M",
                         "-pix_fmt", "yuv420p",
                         "-profile:v", "high",
-                        "-level:v", "4.1",
                     ]
 
                 # Use the correct ffmpeg binary for the selected encoder.
                 # NVENC requires the custom CUDA build; VAAPI needs system ffmpeg.
-                if use_vaapi:
+                # Check encoder_tag (actual selection), not use_vaapi (probe result).
+                if encoder_tag == "h264_vaapi":
                     ffmpeg_bin = "/usr/bin/ffmpeg"
                 else:
                     ffmpeg_bin = settings.FFMPEG_PATH or "ffmpeg"
@@ -821,9 +903,11 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                     ffmpeg_bin, "-y",
                     "-hide_banner",
                     *input_hwaccel,
+                    "-noautorotate",
                     "-i", str(resolved_path),
                     *video_args,
                     "-vf", vf,
+                    "-metadata:s:v:0", "rotate=0",
                     "-colorspace", "bt709",
                     "-color_primaries", "bt709",
                     "-color_trc", "bt709",

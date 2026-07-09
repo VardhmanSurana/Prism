@@ -98,6 +98,7 @@ class IngestionMixin:
                     fps=metadata.get("fps"),
                     codec=metadata.get("codec"),
                     audio_codec=metadata.get("audio_codec"),
+                    rotation=metadata.get("rotation", 0),
                     animated_url=metadata.get("animated_url"),
                 )
 
@@ -117,7 +118,7 @@ class IngestionMixin:
                 "aspect_ratio", "location", "date", "date_taken",
                 "upload_date", "is_favorite", "is_locked",
                 "mime_type", "file_type", "device_id", "is_external",
-                "duration", "fps", "codec", "audio_codec", "animated_url"
+                "duration", "fps", "codec", "audio_codec", "rotation", "animated_url"
             }
             photo_dict = photo_to_dict(new_photo, include=broadcast_fields)
             self.broadcast({"type": "new_photo", "photo": photo_dict})

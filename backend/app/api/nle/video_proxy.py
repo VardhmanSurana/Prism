@@ -11,7 +11,7 @@ router = APIRouter()
 CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
-_CORS_ALLOWED_ORIGINS = {"tauri://localhost", "http://tauri.localhost", "http://localhost:3005"}
+_CORS_ALLOWED_ORIGINS = {"tauri://localhost", "http://tauri.localhost", "http://localhost:3005", "http://127.0.0.1:3005", "http://172.17.0.1:3005"}
 
 
 def _cors_headers(request: Request) -> dict:

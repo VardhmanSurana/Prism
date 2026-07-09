@@ -1,6 +1,6 @@
 import React from 'react';
 import { HardDrive } from 'lucide-react';
-import { GlassMaterial } from '@/components/GlassMaterial';
+import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { useSidebar, formatBytes } from './useSidebar';
 
 export const StorageCard: React.FC = () => {

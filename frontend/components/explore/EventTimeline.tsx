@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { MapPin, Calendar, PartyPopper, Heart, Plane } from 'lucide-react';
 import { API_BASE, resolveUrl } from '@/constants';
 import { Photo } from '@/types';
-import { GlassMaterial } from '@/components/GlassMaterial';
+import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
 import { ExploreHeader } from './ExploreHeader';
 

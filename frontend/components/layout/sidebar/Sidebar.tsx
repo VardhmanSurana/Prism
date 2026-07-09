@@ -13,7 +13,8 @@ import {
   Bot,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
-import { GlassMaterial, GlassEffectContainer } from '@/components/GlassMaterial';
+import { API_BASE } from '@/constants';
+import { GlassMaterial, GlassEffectContainer } from '@/components/ui/GlassMaterial';
 import { NavItem } from './NavItem';
 import { SectionHeader } from './SectionHeader';
 
@@ -48,7 +49,10 @@ export const Sidebar: React.FC<{
 
   const handlePreloadAgent = async () => {
     try {
-      await fetch('/api/v1/agent/preload', { method: 'POST' });
+      const response = await fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' });
+      if (!response.ok) {
+        console.warn(`Agent preload failed: ${response.status} ${response.statusText}`);
+      }
     } catch (e) {
       console.warn('Silent preload failed:', e);
     }

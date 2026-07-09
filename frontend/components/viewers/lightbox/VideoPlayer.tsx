@@ -3,7 +3,7 @@ import Hls from 'hls.js';
 import {
   Play, Pause, Volume2, VolumeX,
   Maximize, Minimize, PictureInPicture2,
-  SkipBack, SkipForward, AlertCircle, RefreshCw,
+  SkipBack, SkipForward, AlertCircle, RefreshCw, RotateCw,
 } from 'lucide-react';
 import { resolveUrl, API_BASE } from '@/constants';
 import { VideoPlayerProps } from './types';
@@ -61,17 +61,10 @@ const initialState: PlayerState = {
 function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
     case 'LOAD_START':
-      // Don't reset from error state on subsequent loadstart — prevents
-      // browser retry loops from hiding the error message.
       if (state.loadState === 'error') return state;
       return { ...state, loadState: 'loading', isPlaying: false, currentTime: 0, duration: 0 };
-    // loadedmetadata fires as soon as the browser knows duration/dimensions — use it
-    // as the primary ready signal so we don't wait for canplay on large files.
     case 'METADATA_LOADED': {
       const d = action.duration;
-      // Use the duration only if it's a real finite number.  Infinity means the
-      // output is an unbounded stream — keep previous value and let durationchange
-      // fill it in once the backend finishes and the moov atom is parsed.
       const duration = (d && isFinite(d) && d > 0) ? d : state.duration;
       return { ...state, loadState: 'ready', duration };
     }
@@ -89,8 +82,6 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
     case 'PAUSED':
       return { ...state, isPlaying: false };
     case 'TIME_UPDATE':
-      // Emergency fallback: if time is ticking the video is definitely playing,
-      // so exit loading state regardless of whether canplay fired.
       return {
         ...state,
         loadState: state.loadState === 'loading' ? 'ready' : state.loadState,
@@ -98,13 +89,7 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
       };
     case 'DURATION_CHANGE': {
       const d = action.duration;
-      // Accept any positive finite duration.  Infinity means the backend is still
-      // streaming (growing file / fMP4) — keep the previous value and wait for a
-      // subsequent durationchange that carries the real number.
       if (d && isFinite(d) && d > 0) {
-        // Also transition loading→ready here.  HLS (MSE) streams never fire
-        // loadedmetadata or canplay — durationchange is the earliest reliable
-        // signal that the player has enough info to start playback.
         return {
           ...state,
           duration: d,
@@ -140,86 +125,47 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
   const stallTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekDragRef = useRef(false);
   const progressBarRef = useRef<HTMLDivElement>(null);
-
-  // Detect HEVC codec and use /transcode endpoint for browser compatibility.
   const isHevc = photo.codec && ['hevc', 'h265', 'hev1', 'hvc1'].includes(photo.codec.toLowerCase());
-
-  // Detect codecs that WebKitGTK/Linux GStreamer cannot decode reliably.
   const isUnsupportedCodec = useMemo(() => {
     if (!photo.codec) return false;
     const c = photo.codec.toLowerCase();
-    // VP9/AV1 need GStreamer plugins often missing on Linux
-    // MPEG-2, MPEG-4 Part 2 (DivX/Xvid), WMV have poor/no browser support
     return ['vp9', 'vp09', 'av1', 'av01', 'mpeg2video', 'mpeg4', 'divx', 'xvid',
             'wmv3', 'wmv', 'vc1', 'theora'].includes(c);
   }, [photo.codec]);
-
-  // Detect non-standard container formats (MKV, AVI, MOV, FLV, etc.) that browsers can't demux natively.
   const isNonStandardContainer = useMemo(() => {
     if (!photo.path) return false;
     const lowerPath = photo.path.toLowerCase();
     return !lowerPath.endsWith('.mp4') && !lowerPath.endsWith('.webm') && !lowerPath.endsWith('.ogg');
   }, [photo.path]);
-
-  // Detect unsupported audio codecs (AC-3, DTS, etc.) that browsers refuse or cannot decode.
   const isUnsupportedAudio = useMemo(() => {
     if (!photo.audio_codec) return false;
     const lowerAudio = photo.audio_codec.toLowerCase();
     const supported = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'wav'];
     return !supported.includes(lowerAudio);
   }, [photo.audio_codec]);
-
-  // Use /transcode immediately if HEVC, unsupported codec, non-standard container,
-  // unsupported audio, or high-res (4K+).
-  // H.264 in MP4 with supported audio always tries direct playback first —
-  // the error-retry path will transparently switch to /transcode if needed.
-  // This avoids unnecessary transcoding for standard videos on WebKitGTK.
   const needsTranscodeImmediately = isHevc || isUnsupportedCodec || isNonStandardContainer
     || isUnsupportedAudio
     || (photo.width >= 3840 || photo.height >= 3840);
 
   const [state, dispatch] = useReducer(playerReducer, initialState);
-  // dragging progress bar: local state so we don't go through reducer on every pixel
   const [dragPct, setDragPct] = useState<number | null>(null);
-  // Shows 'Converting video...' label while the /transcode backend re-encodes.
-  // Initial value mirrors needsTranscodeImmediately; this is safe because
-  // useState() only reads its argument once on mount — no race condition.
+  const [manualRotation, setManualRotation] = useState(0);
   const [isConverting, setIsConverting] = useState(needsTranscodeImmediately);
-  // Differentiates error messages: 'codec' | 'transcode' | 'stall' | null
   const [errorReason, setErrorReason] = useState<'codec' | 'transcode' | 'stall' | null>(null);
-  // Tracks whether we've already retried via the /transcode endpoint after a failure.
-  // Non-HEVC videos (e.g. full-range H.264 from Snapchat) can stall GStreamer silently;
-  // on first error we transparently re-try via /transcode which normalises the file.
   const retriedWithTranscodeRef = useRef(false);
-  // When we retry via /transcode the backend may spend 10-30s transcoding first.
-  // This flag tells the loading-timeout effect to use a 90s window instead of 15s.
   const extendedTimeoutRef = useRef(false);
-  // Mutable ref so the error handler always sees the latest transcode URL without
-  // needing to be inside a closure that captured a stale `videoSrc`.
   const transcodeSrcRef = useRef<string>('');
-  // Mutable ref so handlePlaybackFailure always reads the latest isConverting
-  // without depending on it in the useCallback dependency array.
   const isConvertingRef = useRef(isConverting);
   isConvertingRef.current = isConverting;
-
-  // Persistent preferences from Zustand (volume, mute, speed)
   const { volume, isMuted, playbackRate, setVolume, setMuted, setPlaybackRate } =
     useVideoPlayerStore();
-
   const videoSrc = needsTranscodeImmediately
     ? resolveUrl(`hls://${photo.path}`)
     : resolveUrl(`local://${photo.path}`);
-  // Keep the old /transcode URL as fallback for manual Retry button
   const transcodeSrc = resolveUrl(`transcode://${photo.path}`);
   transcodeSrcRef.current = transcodeSrc;
-
-  // HLS is used for any file that needs transcoding.
-  // Native <video> src is used for direct-play (H.264 MP4, etc.).
   const useHls = needsTranscodeImmediately && Hls.isSupported();
   const hlsRef = useRef<Hls | null>(null);
-
-  // If we're using HLS from the start, mark converting & extend the timeout
-  // immediately so the first mount already has the 90s window.
   if (needsTranscodeImmediately && !isHevc) {
     extendedTimeoutRef.current = true;
   }
@@ -229,6 +175,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       : state.duration > 0
       ? (state.currentTime / state.duration) * 100
       : 0;
+  const effectiveRotation = manualRotation % 360;
+  const isQuarterTurn = effectiveRotation === 90 || effectiveRotation === 270;
+  const videoTransform = `rotate(${effectiveRotation}deg)`;
+  const videoStyle = {
+    transform: videoTransform,
+    maxWidth: isQuarterTurn ? '100vh' : '100%',
+    maxHeight: isQuarterTurn ? '100vw' : '100%',
+  } as const;
 
   // ── Controls auto-hide ────────────────────────────────────────────────────
 
@@ -252,6 +206,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       const v = videoRef.current;
       if (v) {
         dispatch({ type: 'RETRY' });
+        if (hlsRef.current) {
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
         v.src = transcodeSrcRef.current + (transcodeSrcRef.current.includes('?') ? '&' : '?') + 'force=true';
         console.log(`[VideoPlayer] Retry src: ${v.src}`);
         v.load();
@@ -270,9 +228,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
 
   const handlePlaybackFailureRef = useRef(handlePlaybackFailure);
   handlePlaybackFailureRef.current = handlePlaybackFailure;
-
-  // Mutable ref so showControlsNow always reads the latest isPlaying
-  // without depending on it in the useCallback dependency array.
   const isPlayingRef = useRef(state.isPlaying);
   isPlayingRef.current = state.isPlaying;
 
@@ -281,7 +236,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
     if (isPlayingRef.current) scheduleHide();
   }, [scheduleHide]);
 
-  // Start/stop hide timer when play state changes
   useEffect(() => {
     if (state.isPlaying) {
       scheduleHide();
@@ -291,11 +245,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
     }
     return () => { if (hideTimerRef.current) clearTimeout(hideTimerRef.current); };
   }, [state.isPlaying, scheduleHide]);
-
-  // Loading timeout: if stuck in 'loading', show error after a deadline.
-  // • Normal first-load: 15 s — catches unsupported codecs and network failures.
-  // • Transcode retry: 90 s — the backend FFmpeg pass can take 10-30 s for a
-  //   typical mobile clip before the first byte of the re-encoded file is served.
   useEffect(() => {
     if (state.loadState === 'loading') {
       const ms = extendedTimeoutRef.current ? 90_000 : 15_000;
@@ -303,51 +252,32 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         handlePlaybackFailureRef.current?.();
       }, ms);
     }
-    // Always clear the stall timeout when loadState changes (loading→ready or
-    // loading→error).  The TIME_UPDATE emergency fallback can transition
-    // loading→ready without onLoadedMetadata/onCanPlay firing, which means the
-    // stall timeout set by a prior stalled event would otherwise remain active
-    // and fire later as a false error.
     if (stallTimeoutRef.current) clearTimeout(stallTimeoutRef.current);
     return () => {
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     };
   }, [state.loadState]);
-
-  // ── Attach video event listeners once on mount ────────────────────────────
-
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
 
-    // Pause background jobs on player mount so they don't compete with decode
     fetch(`${API_BASE}/api/v1/utilities/background-jobs/pause`, { method: 'POST' })
       .catch(() => console.warn('[VideoPlayer] Failed to pause background jobs'));
 
-    // Apply persistent prefs on mount
     v.volume = volume;
     v.muted = isMuted;
     v.playbackRate = playbackRate;
 
-    // ── HLS.js setup ──────────────────────────────────────────────────────
-    // Used for any file that needs transcoding.  hls.js manages the segment
-    // playlist, requests segments on demand, and feeds them to the <video>
-    // element via MSE — giving us duration-known-immediately + lazy seek.
     if (useHls) {
       const hls = new Hls({
-        // Start loading the playlist + first segment immediately
         autoStartLoad: true,
-        // Buffer 30 s ahead (enough for smooth playback without wasting encode)
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
-        // Don't stall if a segment takes a while to encode on first request
         manifestLoadingTimeOut: 90_000,
         levelLoadingTimeOut: 90_000,
         fragLoadingTimeOut: 120_000,
-        // Retry up to 4 times for a segment before giving up
         fragLoadingMaxRetry: 4,
         fragLoadingRetryDelay: 1000,
-        // xhrSetup allows us to send credentials for local CORS
         xhrSetup: (xhr: XMLHttpRequest) => {
           xhr.withCredentials = true;
         },
@@ -361,11 +291,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       hls.attachMedia(v);
 
       hls.on(Hls.Events.MANIFEST_PARSED, (_evt, data) => {
-        // v.duration may still be NaN at MANIFEST_PARSED for MSE/HLS streams.
-        // Try to extract duration from hls.js internals, then fall back to v.duration.
         let duration = v.duration;
         if (!isFinite(duration) || duration <= 0) {
-          // hls.js stores total duration on the level details after manifest parse
           const level = data.levels?.[0];
           const totalDur = (level as any)?.details?.totalduration;
           if (totalDur && isFinite(totalDur) && totalDur > 0) {
@@ -400,32 +327,38 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         );
       });
 
+      let recoveryAttempts = 0;
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) {
-          console.error(
-            `[VideoPlayer/HLS] Fatal error type=${data.type} ` +
-            `details=${data.details} — falling back to /transcode`
-          );
-          hls.destroy();
-          hlsRef.current = null;
-          // Fall back to the old single-file transcode for robustness
-          handlePlaybackFailureRef.current?.();
+          if (data.type === 'mediaError') {
+            recoveryAttempts++;
+            if (recoveryAttempts <= 3) {
+              console.warn(
+                `[VideoPlayer/HLS] Fatal media error details=${data.details}. Attempting recovery #${recoveryAttempts}...`
+              );
+              hls.recoverMediaError();
+            } else {
+              console.error(
+                `[VideoPlayer/HLS] Fatal media error recovery failed after 3 attempts. Falling back to /transcode.`
+              );
+              hls.destroy();
+              hlsRef.current = null;
+              handlePlaybackFailureRef.current?.();
+            }
+          } else {
+            console.error(
+              `[VideoPlayer/HLS] Fatal non-media error type=${data.type} details=${data.details}. Falling back to /transcode.`
+            );
+            hls.destroy();
+            hlsRef.current = null;
+            handlePlaybackFailureRef.current?.();
+          }
         } else {
           console.warn(
-            `[VideoPlayer/HLS] Non-fatal error type=${data.type} ` +
-            `details=${data.details} (hls.js will retry)`
+            `[VideoPlayer/HLS] Non-fatal error type=${data.type} details=${data.details}`
           );
         }
       });
-
-      return () => {
-        fetch(`${API_BASE}/api/v1/utilities/background-jobs/resume`, { method: 'POST' }).catch(() => {});
-        hls.destroy();
-        hlsRef.current = null;
-        v.pause();
-        v.removeAttribute('src');
-        v.load();
-      };
     }
 
     // ── Native <video> path (direct play — H.264 MP4, etc.) ──────────────
@@ -439,10 +372,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       );
       dispatch({ type: 'LOAD_START' });
     };
-
-    // loadedmetadata fires as soon as the browser has parsed the container header
-    // (duration, dimensions, tracks). This is the earliest safe point to call play().
-    // For large MKV files on WebKitGTK, canplay can take minutes — don't wait for it.
     const onLoadedMetadata = () => {
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       if (stallTimeoutRef.current) clearTimeout(stallTimeoutRef.current);
@@ -482,7 +411,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       );
       dispatch({ type: 'CAN_PLAY', duration: v.duration });
     };
-
     const onDurationChange = () => {
       console.log(
         `[VideoPlayer] durationchange — duration=${v.duration} ` +
@@ -492,7 +420,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         dispatch({ type: 'DURATION_CHANGE', duration: v.duration });
       }
     };
-
     const onTimeUpdate = () => {
       if (!seekDragRef.current) dispatch({ type: 'TIME_UPDATE', currentTime: v.currentTime });
     };
@@ -527,24 +454,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         handlePlaybackFailureRef.current?.();
       }, 10_000);
     };
-
     const onAbort = () => {
       console.warn(
         `[VideoPlayer] abort — networkState=${v.networkState} readyState=${v.readyState}`
       );
-      // Only treat abort as fatal if we're still loading and haven't decoded
-      // any frames yet.  abort fires legitimately during src changes, seeks,
-      // v.load() calls, and component unmount — none of which are errors.
-      if (v.readyState < 2) {
-        handlePlaybackFailureRef.current?.();
-      }
     };
-
     const onEnded = () => {
       console.log(`[VideoPlayer] ended`);
-      // HLS handles its own end-of-stream; no reload needed
     };
-
     const onFsChange = () =>
       dispatch({ type: 'FULLSCREEN_CHANGE', value: !!document.fullscreenElement });
 
@@ -570,6 +487,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       // Resume background jobs on player unmount
       fetch(`${API_BASE}/api/v1/utilities/background-jobs/resume`, { method: 'POST' }).catch(() => {});
 
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+
       v.removeEventListener('loadstart', onLoadStart);
       v.removeEventListener('loadedmetadata', onLoadedMetadata);
       v.removeEventListener('canplay', onCanPlay);
@@ -593,16 +515,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       v.removeAttribute('src');
       v.load();
     };
-
-    // Catch metadata that loaded before listeners were attached (race condition).
-    // preload="metadata" causes the browser to fetch immediately on DOM commit,
-    // but useEffect runs after paint — so loadedmetadata can fire before we listen.
     if (v.readyState >= 1) {
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       dispatch({ type: 'METADATA_LOADED', duration: v.duration });
       v.play().catch(() => {});
     }
-  }, []); // intentionally empty – runs once per mount
+  }, []); 
 
   // ── Playback actions ──────────────────────────────────────────────────────
 
@@ -657,13 +575,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         ? await document.exitPictureInPicture()
         : await v.requestPictureInPicture();
     } catch (err) {
-      // Ignore "unsupported" / "already exiting" — log anything else so
-      // permission or policy failures aren't silently swallowed.
       if (err instanceof Error && !err.message.includes('exit')) {
         console.warn(`[VideoPlayer] PiP failed: ${err.message}`);
       }
     }
   }, []);
+
+  const rotateClockwise = useCallback(() => {
+    setManualRotation((prev) => (prev + 90) % 360);
+    showControlsNow();
+  }, [showControlsNow]);
 
   const retry = useCallback(() => {
     const v = videoRef.current;
@@ -672,20 +593,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
     extendedTimeoutRef.current = false;
     dispatch({ type: 'RETRY' });
 
-    // If we were using HLS and it failed, destroy it before retrying
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-
-    // If the file originally needed HLS (transcode), retry via HLS again —
-    // the transient error may resolve on a fresh attempt.  Only fall back to
-    // the single-file /transcode endpoint if HLS is not available.
     if (needsTranscodeImmediately && Hls.isSupported()) {
       extendedTimeoutRef.current = true;
       setIsConverting(true);
       setErrorReason('transcode');
-      // Re-create HLS instance (the old one was destroyed above)
       const hls = new Hls({
         autoStartLoad: true,
         maxBufferLength: 30,
@@ -719,7 +634,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       return;
     }
 
-    // Direct-play files: retry via the single-file /transcode endpoint
     const fallbackSrc = resolveUrl(`transcode://${photo.path}`);
     v.src = fallbackSrc;
     v.load();
@@ -804,6 +718,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
           e.preventDefault();
           toggleMute();
           break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          rotateClockwise();
+          break;
         case 'Escape':
           if (document.fullscreenElement) {
             document.exitFullscreen();
@@ -816,7 +735,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [togglePlay, seek, toggleMute, toggleFullscreen, handleVolumeChange, onClose,
+  }, [togglePlay, seek, toggleMute, toggleFullscreen, handleVolumeChange, rotateClockwise, onClose,
       showControlsNow]);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -830,16 +749,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       onMouseMove={showControlsNow}
       onMouseLeave={() => state.isPlaying && dispatch({ type: 'HIDE_CONTROLS' })}
     >
-      {/* ── Video element ── */}
-      {/* crossOrigin="anonymous" is critical on Linux/WebKitGTK:
-          Without it, WebKit sends Sec-Fetch-Mode: no-cors for the video request.
-          With it, the request becomes a proper CORS fetch and WebKitGTK can read
-          the response body / negotiate the GStreamer pipeline correctly.
-          For HLS via hls.js (MSE), src is NOT set here — hls.js manages it. */}
       <video
         ref={videoRef}
         src={useHls ? undefined : videoSrc}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain transition-transform duration-200"
+        style={videoStyle}
         playsInline
         preload="metadata"
         crossOrigin="anonymous"
@@ -847,24 +761,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         onDoubleClick={toggleFullscreen}
       />
 
-      {/* ── Loading state: show thumbnail with "Fetching data" badge ── */}
       {state.loadState === 'loading' && (
         <div className="absolute inset-0 pointer-events-none">
-          {/* Thumbnail background */}
-          {photo.animated_url ? (
-            <img
-              src={resolveUrl(photo.animated_url)}
-              className="w-full h-full object-contain"
-              alt=""
-            />
-          ) : (
-            <img
-              src={resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=800`)}
-              className="w-full h-full object-contain"
-              alt=""
-            />
-          )}
-          {/* "Fetching data" badge in top-right corner */}
+          <img
+            src={resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=800`)}
+            className="w-full h-full object-contain"
+            alt=""
+          />
           <div className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/70 border border-white/10">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
             <span className="text-[10px] text-white/60 tracking-wide">
@@ -874,7 +777,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         </div>
       )}
 
-      {/* ── Error state ── */}
       {state.loadState === 'error' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 pointer-events-none">
           <div className="flex flex-col items-center gap-2 text-center">
@@ -899,7 +801,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         </div>
       )}
 
-      {/* ── Center play button (shown when paused & ready) ── */}
       {state.loadState === 'ready' && !state.isPlaying && state.showControls && (
         <button
           className="absolute inset-0 flex items-center justify-center z-10 pointer-events-auto"
@@ -912,7 +813,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         </button>
       )}
 
-      {/* ── Controls bar ── */}
       <div
         className={`absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-4xl z-20 transition-opacity duration-300 ${
           state.showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -921,18 +821,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         onDoubleClick={(e) => e.stopPropagation()}
       >
         <div className="relative px-4 py-3 bg-[#0d0f14] border border-white/10 rounded-2xl flex flex-col gap-2.5 shadow-2xl">
-          {/* ── Seek bar ── */}
-          {/* Expand click/touch target vertically without changing visual size.
-              paddingBlock adds 8px above+below, negative margin pulls it back. */}
           <div
             ref={progressBarRef}
             className="relative w-full cursor-pointer group/seek"
             style={{ paddingBlock: '8px', marginBlock: '-8px', boxSizing: 'content-box' }}
             onMouseDown={handleProgressMouseDown}
           >
-            {/* Track background */}
             <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1 rounded-full bg-white/20 overflow-hidden pointer-events-none">
-              {/* Filled progress */}
               <div
                 className="h-full rounded-full transition-all duration-75"
                 style={{
@@ -941,18 +836,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
                 }}
               />
             </div>
-            {/* Thumb */}
             <div
               className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-lg opacity-0 group-hover/seek:opacity-100 transition-opacity pointer-events-none"
               style={{ left: `calc(${effectivePct}% - 7px)` }}
             />
           </div>
-
-          {/* ── Bottom controls row ── */}
           <div className="flex items-center justify-between gap-2">
-            {/* Left group */}
             <div className="flex items-center gap-1.5">
-              {/* Skip back 10s */}
               <button
                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
                 onClick={() => seek(-10)}
@@ -960,8 +850,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
               >
                 <SkipBack size={15} />
               </button>
-
-              {/* Play / Pause */}
               <button
                 className="p-2 rounded-xl bg-white/10 border border-white/15 text-white hover:bg-white/20 transition-all"
                 onClick={togglePlay}
@@ -971,8 +859,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
                   ? <Pause size={16} />
                   : <Play size={16} className="ml-0.5" />}
               </button>
-
-              {/* Skip forward 10s */}
               <button
                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
                 onClick={() => seek(10)}
@@ -980,8 +866,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
               >
                 <SkipForward size={15} />
               </button>
-
-              {/* Time */}
               <span className="text-[11px] text-white/50 font-mono tabular-nums px-1">
                 {formatDuration(state.currentTime)}
                 <span className="text-white/25 mx-0.5">/</span>
@@ -989,9 +873,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
               </span>
             </div>
 
-            {/* Right group */}
             <div className="flex items-center gap-1.5">
-              {/* Volume */}
               <div className="flex items-center gap-1 group/vol">
                 <button
                   className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
@@ -1013,8 +895,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
                   title="Volume"
                 />
               </div>
-
-              {/* Speed picker */}
               <div className="relative">
                 <button
                   className="px-2 py-1 rounded-lg text-[11px] font-mono text-white/60 hover:text-white hover:bg-white/10 transition-all"
@@ -1042,7 +922,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
                 )}
               </div>
 
-              {/* Picture-in-Picture */}
+              <button
+                className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
+                onClick={rotateClockwise}
+                title="Rotate 90°"
+              >
+                <RotateCw size={15} />
+              </button>
               {'pictureInPictureEnabled' in document && (
                 <button
                   className={`p-1.5 rounded-lg transition-all hover:bg-white/10 ${
@@ -1054,8 +940,6 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
                   <PictureInPicture2 size={15} />
                 </button>
               )}
-
-              {/* Fullscreen */}
               <button
                 className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-all"
                 onClick={toggleFullscreen}

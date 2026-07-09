@@ -75,6 +75,7 @@ class Photo(Base):
     fps: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
     codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
     audio_codec: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, default=None)
+    rotation: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, default=0)
     video_faces_scanned: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     animated_url: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
@@ -273,7 +274,6 @@ class BackgroundJob(Base):
 
     # Relationships
     photo: Mapped["Photo"] = relationship()
-
 
 
 

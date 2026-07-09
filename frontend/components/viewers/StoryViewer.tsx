@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, MapPin, Calendar, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { resolveUrl } from '@/constants';
 import { Photo } from '@/types';
-import { GlassMaterial } from '@/components/GlassMaterial';
+import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
 
 interface Highlight {

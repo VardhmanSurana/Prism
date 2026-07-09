@@ -16,8 +16,8 @@ import { NavigationArrows } from './lightbox/NavigationArrows';
 import { ImageDisplay } from './lightbox/ImageDisplay';
 import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
-import { EditingMode } from '@/components/Editing/EditingMode';
-import { VideoEditorMode } from '@/components/VideoEditing/VideoEditorMode';
+import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
+import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
 
 interface LightboxProps {
   photo: Photo;

@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, Suspense, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
-import { MainContent } from './components/MainContent';
+import { MainContent } from './components/layout/MainContent';
 import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
 import { FloatingActions } from './components/layout/floating-actions/FloatingActions';
 import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
@@ -21,10 +21,10 @@ const FileFolderBrowserDialog = React.lazy(() =>
   import('./components/FileFolderBrowser/FileFolderBrowserDialog').then((m) => ({ default: m.FileFolderBrowserDialog }))
 );
 const CollageMaker = React.lazy(() =>
-  import('./components/CollageMaker').then((m) => ({ default: m.CollageMaker }))
+  import('./components/PhotoView/CollageMaker').then((m) => ({ default: m.CollageMaker }))
 );
 const PhotoBook = React.lazy(() =>
-  import('./components/PhotoBook').then((m) => ({ default: m.PhotoBook }))
+  import('./components/PhotoView/PhotoBook').then((m) => ({ default: m.PhotoBook }))
 );
 
 function App() {

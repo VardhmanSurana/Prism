@@ -28,6 +28,7 @@ export interface Photo {
   fps?: number;
   codec?: string;
   audio_codec?: string;
+  rotation?: number;
   animated_url?: string;
   ai_summary?: string;
   latitude?: number;
@@ -119,6 +120,7 @@ export interface RawPhoto {
   fps?: number;
   codec?: string;
   audio_codec?: string;
+  rotation?: number;
   animated_url?: string;
   ai_summary?: string;
   latitude?: number;
@@ -198,6 +200,7 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     fps: raw.fps,
     codec: raw.codec,
     audio_codec: raw.audio_codec,
+    rotation: raw.rotation ?? 0,
     animated_url: raw.animated_url,
   };
 }

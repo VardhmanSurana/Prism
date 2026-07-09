@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bell, Check, Sparkles, Activity } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { GlassMaterial } from '@/components/GlassMaterial';
+import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { API_BASE } from '@/constants';
 import { eventService } from '@/services/EventService';

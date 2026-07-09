@@ -5,6 +5,7 @@ _CORS_ALLOWED_ORIGINS = {
     "http://tauri.localhost",
     "http://localhost:3005",
     "http://127.0.0.1:3005",
+    "http://172.17.0.1:3005",
 }
 
 

@@ -45,6 +45,7 @@ app.add_middleware(
         "http://tauri.localhost",
         "http://localhost:3005",
         "http://127.0.0.1:3005",
+        "http://172.17.0.1:3005",
     ],
     allow_credentials=True,
     allow_methods=["*"],

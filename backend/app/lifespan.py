@@ -50,6 +50,8 @@ async def lifespan(app):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN codec VARCHAR(50)"))
         if "audio_codec" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN audio_codec VARCHAR(50)"))
+        if "rotation" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN rotation INTEGER DEFAULT 0"))
         if "video_faces_scanned" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN video_faces_scanned BOOLEAN DEFAULT 0"))
         if "animated_url" not in columns:

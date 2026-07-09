@@ -4,7 +4,7 @@ import { Sparkles, Calendar, MapPin, ChevronRight } from 'lucide-react';
 import { API_BASE, resolveUrl } from '@/constants';
 import { Photo } from '@/types';
 import { StoryViewer } from '@/components/viewers/StoryViewer';
-import { GlassMaterial, GlassEffectContainer } from '@/components/GlassMaterial';
+import { GlassMaterial, GlassEffectContainer } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
 
 interface Highlight {

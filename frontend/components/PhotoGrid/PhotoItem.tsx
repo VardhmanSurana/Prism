@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Check } from 'lucide-react';
 import { PhotoItemProps } from './types';
-import { LazyImage } from '../LazyImage';
+import { LazyImage } from '../../ui/LazyImage';
 import { formatDuration } from '@/utils/formatDuration';
 import { resolveUrl } from '@/constants';
 
