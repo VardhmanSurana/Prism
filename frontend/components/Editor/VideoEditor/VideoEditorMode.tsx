@@ -150,7 +150,7 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
           const projRes = await fetch(`${API_BASE}/api/v1/nle/projects/${projId}`);
           if (!projRes.ok) throw new Error(`Failed to load project: ${projRes.status} ${projRes.statusText}`);
           project = await projRes.json();
-          if (cancelled) return;
+          if (cancelled || !project) return;
           loadProject(project);
         }
 
@@ -843,21 +843,22 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
     if (transitionState.active) {
       const p = transitionState.progress;
       const t = transitionState.type;
+      const progress = p ?? 0;
 
       let baseOpacity = currentTransform.opacity;
       let baseTranslateX = currentTransform.x;
       let baseTranslateY = currentTransform.y;
 
       if (t === 'crossfade' || t === 'dissolve') {
-        baseOpacity = (1 - p) * currentTransform.opacity;
+        baseOpacity = (1 - progress) * currentTransform.opacity;
       } else if (t === 'slide-left') {
-        baseTranslateX = currentTransform.x - p * projectWidth;
+        baseTranslateX = currentTransform.x - progress * projectWidth;
       } else if (t === 'slide-right') {
-        baseTranslateX = currentTransform.x + p * projectWidth;
+        baseTranslateX = currentTransform.x + progress * projectWidth;
       } else if (t === 'wipe-left') {
-        baseTranslateX = currentTransform.x + p * projectWidth;
+        baseTranslateX = currentTransform.x + progress * projectWidth;
       } else if (t === 'wipe-right') {
-        baseTranslateX = currentTransform.x - p * projectWidth;
+        baseTranslateX = currentTransform.x - progress * projectWidth;
       }
 
       const modifiedTransform = {
@@ -876,15 +877,15 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
         let nextTranslateY = transitionState.nextClip.transform.y;
 
         if (t === 'crossfade' || t === 'dissolve') {
-          nextOpacity = p * transitionState.nextClip.transform.opacity;
+          nextOpacity = progress * transitionState.nextClip.transform.opacity;
         } else if (t === 'slide-left') {
-          nextTranslateX = transitionState.nextClip.transform.x + (1 - p) * projectWidth;
+          nextTranslateX = transitionState.nextClip.transform.x + (1 - progress) * projectWidth;
         } else if (t === 'slide-right') {
-          nextTranslateX = transitionState.nextClip.transform.x - (1 - p) * projectWidth;
+          nextTranslateX = transitionState.nextClip.transform.x - (1 - progress) * projectWidth;
         } else if (t === 'wipe-left') {
-          nextTranslateX = transitionState.nextClip.transform.x - (1 - p) * projectWidth;
+          nextTranslateX = transitionState.nextClip.transform.x - (1 - progress) * projectWidth;
         } else if (t === 'wipe-right') {
-          nextTranslateX = transitionState.nextClip.transform.x + (1 - p) * projectWidth;
+          nextTranslateX = transitionState.nextClip.transform.x + (1 - progress) * projectWidth;
         }
 
         const nextModifiedTransform = {

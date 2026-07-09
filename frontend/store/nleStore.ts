@@ -8,6 +8,7 @@ import type {
 } from '@/types/nle';
 import { DEFAULT_EFFECTS, DEFAULT_TRANSFORM, BOOKMARK_COLORS } from '@/types/nle';
 import { API_BASE } from '@/constants';
+import { apiClient } from '@/services/apiClient';
 import { splitKeyframes, shiftKeyframes } from '@/lib/keyframes';
 import type { Photo } from '@/types';
 
@@ -289,11 +290,7 @@ export const useNLEStore = create<NLEStore>((set, get) => ({
         name: state.projectName,
         project_json: JSON.stringify(state.toProjectJson()),
       };
-      await fetch(`${API_BASE}/api/v1/nle/projects/${state.projectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      await apiClient.put(`/api/v1/nle/projects/${state.projectId}`, body);
       set({ isDirty: false, lastSavedAt: Date.now() });
     } catch (e) {
       console.error('Failed to save project:', e);
@@ -323,12 +320,7 @@ export const useNLEStore = create<NLEStore>((set, get) => ({
         scrollOffset: 0,
       }),
     };
-    const res = await fetch(`${API_BASE}/api/v1/nle/projects`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await res.json();
+    const data: any = await apiClient.post(`/api/v1/nle/projects`, body);
     set({ projectId: data.id, projectName: body.name, isDirty: false });
     return data.id;
   },
@@ -779,13 +771,7 @@ export const useNLEStore = create<NLEStore>((set, get) => ({
     // Analyze clip via backend
     let clipAnalysis: { clip_id: number; source_path: string; duration: number; fps?: number } | null = null;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/nle/clips/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photo_id: photo.id, source_path: photo.path }),
-      });
-      if (!res.ok) throw new Error(`Failed to analyze video clip: ${res.status} ${res.statusText}`);
-      clipAnalysis = await res.json();
+      clipAnalysis = await apiClient.post(`/api/v1/nle/clips/analyze`, { photo_id: photo.id, source_path: photo.path });
     } catch (e) {
       console.error('Failed to analyze video clip:', e);
       return;
@@ -911,13 +897,7 @@ export const useNLEStore = create<NLEStore>((set, get) => ({
     const state = get();
     const fps = state.projectFps;
     try {
-      const res = await fetch(`${API_BASE}/api/v1/video/subtitles/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ source_path: sourcePath }),
-      });
-      if (!res.ok) throw new Error(`Subtitle generation failed: ${res.status}`);
-      const data = await res.json();
+      const data: any = await apiClient.post(`/api/v1/video/subtitles/generate`, { source_path: sourcePath });
       const segments: Array<{ start: number; end: number; text: string }> = data.subtitles ?? [];
 
       if (segments.length === 0) return;

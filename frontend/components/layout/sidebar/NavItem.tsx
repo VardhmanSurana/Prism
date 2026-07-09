@@ -4,9 +4,9 @@ import type { NavItemData } from '../types/sidebar';
 interface NavItemProps {
   icon: React.ElementType;
   label: string;
-  view: string;
+  view: any;
   currentView: string;
-  onChangeView: (view: string) => void;
+  onChangeView: (view: any) => void;
   onMouseEnter?: () => void;
 }
 

@@ -130,7 +130,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onFavoriteToggle(photo.id, isFavorite);
+            onFavoriteToggle(photo.id, isFavorite || false);
           }}
           className={`p-2.5 rounded-xl border transition-all hover:scale-105 active:scale-95
             ${
@@ -147,7 +147,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onLockToggle(photo.id, isLocked);
+            onLockToggle(photo.id, isLocked || false);
           }}
           className={`p-2.5 rounded-xl border transition-all hover:scale-105 active:scale-95
             ${

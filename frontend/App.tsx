@@ -8,6 +8,7 @@ import { FloatingActions } from './components/layout/floating-actions/FloatingAc
 import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
 import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
+import { apiClient } from '@/services/apiClient';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
 import type { ViewMode, Album } from './types';
 
@@ -89,7 +90,7 @@ function App() {
   }, [setPhotos, setSelectedPhoto, clearSelection]);
 
   const handleLightboxToggleFavorite = useCallback(async (id: string | number) => {
-    await fetch(`${API_BASE}/api/v1/photos/${id}/favorite`, { method: 'POST' });
+    await apiClient.post(`/api/v1/photos/${id}/favorite`, {});
     setPhotos(prev => {
       const updated = prev.map(p =>
         String(p.id) === String(id)

@@ -7,7 +7,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { RotateCcw, Sparkles, Loader2 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
-import { API_BASE } from '../../constants';
+import { apiClient } from '@/services/apiClient';
 import { Histogram } from './Histogram';
 import { CurveEditor } from './CurveEditor';
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
@@ -92,32 +92,29 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     [items, adjustments],
   );
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS, curves: DEFAULT_CURVE });
-  };
+  }, [onChange, adjustments]);
 
   const handleCurvesChange = useCallback((val: CurveState) => {
     onChange({ ...adjustments, curves: val });
   }, [adjustments, onChange]);
 
-  const handleAutoEnhance = async () => {
+  const handleAutoEnhance = useCallback(async () => {
     if (!photoId) return;
     setIsAutoEnhancing(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/photos/auto-enhance/${photoId}`);
-      if (res.ok) {
-        const params = await res.json();
-        onChange({
-          ...adjustments,
-          ...params
-        });
-      }
+      const params = await apiClient.post<Partial<Adjustments>>(`/api/v1/photos/auto-enhance/${photoId}`, {});
+      onChange({
+        ...adjustments,
+        ...params
+      });
     } catch (e) {
       console.error("Auto enhance failed", e);
     } finally {
       setIsAutoEnhancing(false);
     }
-  };
+  }, [photoId, onChange, adjustments]);
 
   const handleChange = useCallback(
     (key: keyof Adjustments, value: number) => {

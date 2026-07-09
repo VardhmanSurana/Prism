@@ -32,7 +32,7 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ photos, onDelete }) 
             photo={{
               id: photo.id as number,
               url: photo.url,
-              filename: photo.filename,
+              filename: photo.filename ?? 'unknown',
               ai_summary: photo.ai_summary
             }} 
             onDelete={onDelete} 

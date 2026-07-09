@@ -1,26 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Photo, RawPhoto, normalizePhoto } from '../types';
 import { API_BASE } from '../constants';
+import { apiClient } from '@/services/apiClient';
 import { eventService } from '../services/EventService';
 import { useSyncStore } from '../store/syncStore';
 
 const PAGE_SIZE = 50;
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 500;
-
-async function fetchWithRetry(url: string, retries = MAX_RETRIES): Promise<Response> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const response = await fetch(url);
-      if (response.ok || response.status < 500 || attempt >= retries) return response;
-      await new Promise(r => setTimeout(r, BASE_DELAY_MS * Math.pow(1.5, attempt)));
-    } catch (e) {
-      if (attempt >= retries) throw e;
-      await new Promise(r => setTimeout(r, BASE_DELAY_MS * Math.pow(1.5, attempt)));
-    }
-  }
-  throw new Error('Unreachable');
-}
 
 export function usePhotos() {
   const [photos, setPhotos] = useState<Photo[]>(() => []);
@@ -39,9 +24,7 @@ export function usePhotos() {
     setIsLoading(true);
     try {
       const currentOffset = reset ? 0 : offsetRef.current;
-      const response = await fetchWithRetry(`${API_BASE}/api/v1/photos/?limit=${PAGE_SIZE}&offset=${currentOffset}`);
-      if (!response.ok) throw new Error(`Photos API error: ${response.status}`);
-      const data: RawPhoto[] = await response.json();
+      const data = await apiClient.get<RawPhoto[]>(`/api/v1/photos/?limit=${PAGE_SIZE}&offset=${currentOffset}`);
       
       const normalizedData = data.map(normalizePhoto);
       
@@ -74,12 +57,9 @@ export function usePhotos() {
     // Fetch initial status via REST API (fallback if SSE hasn't pushed yet)
     const fetchInitialStatus = async () => {
       try {
-        const response = await fetchWithRetry(`${API_BASE}/api/v1/utilities/diagnostics`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.sync_status) {
-            setSyncStatus(data.sync_status);
-          }
+        const data: any = await apiClient.get(`/api/v1/utilities/diagnostics`);
+        if (data.sync_status) {
+          setSyncStatus(data.sync_status);
         }
       } catch (e) {
         console.error('Failed to fetch initial sync status', e);

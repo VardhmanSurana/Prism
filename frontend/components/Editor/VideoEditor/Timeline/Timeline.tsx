@@ -5,6 +5,9 @@
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import { useNLEStore } from '@/store/nleStore';
 import type { Clip } from '@/types/nle';
+import { Ruler } from './components/Ruler';
+import { Playhead } from './components/Playhead';
+import { TrackLanes } from './components/TrackLanes';
 import { DEFAULT_EFFECTS, DEFAULT_TRANSFORM } from '@/types/nle';
 import { API_BASE } from '@/constants';
 
