@@ -3,7 +3,7 @@ import { PhotoGrid } from '../PhotoGrid';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../../types';
 import { ImportProgressStatus } from '../PhotoGrid/types';
 
-const ExploreView = React.lazy(() => import('../ExploreView').then(m => ({ default: m.ExploreView })));
+const ExploreView = React.lazy(() => import('../explore/ExploreView').then(m => ({ default: m.ExploreView })));
 const AlbumsView = React.lazy(() => import('../albums').then(m => ({ default: m.AlbumsView })));
 const PeopleView = React.lazy(() => import('../PeopleView/index').then(m => ({ default: m.PeopleView })));
 const UtilitiesView = React.lazy(() => import('../utilities/UtilitiesView').then(m => ({ default: m.UtilitiesView })));
