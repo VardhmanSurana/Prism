@@ -19,7 +19,7 @@ interface MainContentProps {
   isStatusLoading?: boolean;
   selectedIds: Set<string>;
   isLockedAuthenticated: boolean;
-  scrollRef: React.RefObject<HTMLDivElement | null>;
+  scrollRef: React.RefObject<HTMLDivElement | null> | React.MutableRefObject<HTMLDivElement | null>;
   onPhotoClick: (photo: Photo | null) => void;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
@@ -128,7 +128,7 @@ export const MainContent = React.memo(function MainContent({
 
   return (
     <div
-      ref={scrollRef}
+      ref={scrollRef as React.LegacyRef<HTMLDivElement>}
       onScroll={onScroll}
       className={`flex-1 scroll-smooth custom-scrollbar relative ${
         currentView === 'agent' ? 'overflow-hidden h-full' : 'overflow-y-auto'

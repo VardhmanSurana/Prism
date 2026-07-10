@@ -508,19 +508,23 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
       document.removeEventListener('fullscreenchange', onFsChange);
 
       // Clean up timeouts
-      if (stallTimeoutRef.current) clearTimeout(stallTimeoutRef.current);
+      if (stallTimeoutRef.current) clearTimeout(stallTimeoutRef.current as unknown as number);
 
       // Clean up on unmount so WebKitGTK releases the decode pipeline
       v.pause();
       v.removeAttribute('src');
       v.load();
     };
-    if (v.readyState >= 1) {
-      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+  }, []);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v && v.readyState >= 1) {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current as unknown as number);
       dispatch({ type: 'METADATA_LOADED', duration: v.duration });
       v.play().catch(() => {});
     }
-  }, []); 
+  }, []);
 
   // ── Playback actions ──────────────────────────────────────────────────────
 

@@ -18,7 +18,7 @@ import {
   Compass,
 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
-import { resolveUrl } from '../../constants';
+import { resolveUrl } from '@/constants';
 
 interface FramesPanelProps {
   adjustments: Adjustments;

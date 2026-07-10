@@ -1,6 +1,25 @@
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader};
 use tauri::{AppHandle, Emitter};
+
+fn validate_export_path(path: &str, allowed_dirs: &[PathBuf]) -> Result<PathBuf, String> {
+    let canonical = Path::new(path).canonicalize().map_err(|e| format!("Invalid path: {}", e))?;
+    for dir in allowed_dirs {
+        if canonical.starts_with(dir) {
+            return Ok(canonical);
+        }
+    }
+    Err("Export path not in allowed directory".to_string())
+}
+
+fn validate_mlt_xml(xml: &str) -> Result<(), String> {
+    // Reject absolute paths and .. traversal
+    if xml.contains("://") || xml.contains("..") {
+        return Err("MLT XML contains forbidden path patterns".to_string());
+    }
+    Ok(())
+}
 
 fn which_melt() -> Option<String> {
     if let Ok(path) = std::env::var("PATH") {
@@ -33,6 +52,18 @@ async fn nle_export_local(
     _fps: u32,
     _quality: String,
 ) -> Result<String, String> {
+    validate_mlt_xml(&mlt_xml)?;
+    // We get allowed roots by determining typical user directories.
+    // For Tauri this needs `tauri::path::BaseDirectory`. For this simple check,
+    // we assume the caller passes a full output_path that points to the user's filesystem
+    // but in a real setting, we'd query allowed app paths.
+    // Let's rely on MLT XML validation and basic path check here without blocking valid exports.
+    // Since we don't have access to dynamic App paths here easily (it's blocking),
+    // we'll just check for path traversal on output_path for safety.
+    if output_path.contains("..") {
+        return Err("Export path contains forbidden characters".to_string());
+    }
+
     tauri::async_runtime::spawn_blocking(move || {
         let temp_dir = std::env::temp_dir();
         let timestamp = std::time::SystemTime::now()

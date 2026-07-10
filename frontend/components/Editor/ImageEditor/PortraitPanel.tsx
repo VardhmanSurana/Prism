@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { User, Loader2, Sparkles } from 'lucide-react';
 import { Adjustments, RegionalAdjustment } from './filterEngine';
-import { API_BASE, resolveUrl } from '../../constants';
+import { API_BASE, resolveUrl } from '@/constants';
 
 interface FaceData {
   id: string;

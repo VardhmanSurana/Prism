@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Layers, Loader2, Sparkles, Image as ImageIcon, Cloud, Droplets, TreeDeciduous } from 'lucide-react';
 import { Adjustments, RegionalAdjustment } from './filterEngine';
-import { API_BASE, resolveUrl } from '../../constants';
+import { API_BASE, resolveUrl } from '@/constants';
 
 interface RegionData {
   id: string;

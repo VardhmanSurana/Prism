@@ -705,9 +705,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // Initialize cropperjs on the <img> element
   const onCropCbRef = React.useRef(handleCropEvent);
-  onCropCbRef.current = handleCropEvent;
+  React.useEffect(() => { onCropCbRef.current = handleCropEvent; }, [handleCropEvent]);
   const onReadyCbRef = React.useRef(onCropperReady);
-  onReadyCbRef.current = onCropperReady;
+  React.useEffect(() => { onReadyCbRef.current = onCropperReady; }, [onCropperReady]);
 
   React.useEffect(() => {
     const img = imgRef.current;
@@ -734,13 +734,17 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       },
     });
 
-    cropperRef.current = cropper as any;
+    if (cropperRef && typeof cropperRef !== 'function') {
+      (cropperRef as React.MutableRefObject<any>).current = cropper;
+    }
 
     return () => {
       cropper.destroy();
-      cropperRef.current = null;
+      if (cropperRef && typeof cropperRef !== 'function') {
+        (cropperRef as React.MutableRefObject<any>).current = null;
+      }
     };
-  }, [currentImageSrc]);
+  }, [currentImageSrc, cropperRef]);
 
   // Sync rect on container resize
   React.useEffect(() => {

@@ -6,8 +6,8 @@
 import React, { useMemo, useRef, useCallback } from 'react';
 import { RotateCcw, Trash2, FolderOpen } from 'lucide-react';
 import { Adjustments } from './filterEngine';
-import { openFileFolderBrowser } from '../../services/FileFolderBrowserService';
-import { resolveUrl } from '../../constants';
+import { openFileFolderBrowser } from '@/services/FileFolderBrowserService';
+import { resolveUrl } from '@/constants';
 
 interface TexturePanelProps {
   adjustments: Adjustments;

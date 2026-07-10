@@ -29,12 +29,12 @@ import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
 
 import { HistoryActionType } from '../history';
-import { API_BASE, resolveUrl } from '../../../constants';
+import { API_BASE, resolveUrl } from '@/constants';
 
 import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
-import { useEditStore } from '../../../store/editStore';
+import { useEditStore } from '@/store/editStore';
 
 declare global {
   interface Window {
@@ -305,7 +305,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
   const handleSetAspectRatio = useCallback((ratio: number) => {
     setCurrentRatio(ratio);
-    cropperRef.current.setAspectRatio(ratio);
+    cropperRef.current?.setAspectRatio(ratio);
   }, []);
 
   const handleReady = useCallback(() => {
@@ -340,13 +340,13 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const handleFlipH = useCallback(() => {
     const next = !flipH;
     setFlipH(next);
-    cropperRef.current.scaleX(next ? -1 : 1);
+    cropperRef.current?.scaleX(next ? -1 : 1);
   }, [flipH, setFlipH]);
 
   const handleFlipV = useCallback(() => {
     const next = !flipV;
     setFlipV(next);
-    cropperRef.current.scaleY(next ? -1 : 1);
+    cropperRef.current?.scaleY(next ? -1 : 1);
   }, [flipV, setFlipV]);
 
   const handleStraighten = useCallback((angle: number) => {
