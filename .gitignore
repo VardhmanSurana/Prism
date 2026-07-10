@@ -57,3 +57,8 @@ backend.pid
 .env
 .env.*
 settings.json
+
+# AI coding agent folders
+.codex/
+.jules/
+.mimocode/
