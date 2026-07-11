@@ -6,11 +6,13 @@ import { MainContent } from './components/layout/MainContent';
 import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
 import { FloatingActions } from './components/layout/floating-actions/FloatingActions';
 import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
+import { DragDropOverlay } from './components/import/DragDropOverlay';
+import { useDragDropImport } from './hooks/import/useDragDropImport';
 import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
 import { apiClient } from '@/services/apiClient';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
-import type { ViewMode, Album } from './types';
+import type { ViewMode, Album, Photo } from './types';
 
 const Lightbox = React.lazy(() =>
   import('./components/viewers/Lightbox').then((m) => ({ default: m.Lightbox }))
@@ -117,6 +119,27 @@ function App() {
 
   const handleLightboxClose = useCallback(() => setSelectedPhoto(null), [setSelectedPhoto]);
 
+  const handlePhotoLocationUpdate = useCallback((photoId: string | number, next: Partial<Photo>) => {
+    setPhotos(prev => prev.map(photo =>
+      String(photo.id) === String(photoId)
+        ? { ...photo, ...next }
+        : photo
+    ));
+    setSelectedPhoto(prev =>
+      prev && String(prev.id) === String(photoId)
+        ? { ...prev, ...next }
+        : prev
+    );
+  }, [setPhotos, setSelectedPhoto]);
+
+  // Global OS drag-and-drop import (Tauri)
+  const dragDrop = useDragDropImport({
+    onUpload: handleUpload,
+    onImportProgress: setImportStatus,
+    isImporting: importStatus.is_scanning,
+    enabled: true,
+  });
+
   const handleAddToAlbumClose = useCallback(() => setIsAddToAlbumOpen(false), [setIsAddToAlbumOpen]);
 
   const [isCollageOpen, setIsCollageOpen] = useState(false);
@@ -171,6 +194,7 @@ function App() {
             sortMode={sortMode}
             onSortChange={setSortMode}
             onUpdatePhotos={setPhotos}
+            onPhotoLocationUpdate={handlePhotoLocationUpdate}
             onBulkFavorite={handleBulkFavorite}
             onBulkDelete={handleBulkDelete}
             onBulkLockToggle={handleBulkLockToggle}
@@ -222,6 +246,12 @@ function App() {
             onImportProgress={setImportStatus}
           />
         )}
+
+        <DragDropOverlay
+          phase={dragDrop.phase}
+          error={dragDrop.error}
+          onDismissError={dragDrop.clearError}
+        />
 
         <Suspense fallback={null}>
           <AddToAlbumDialog

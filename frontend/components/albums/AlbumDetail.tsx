@@ -41,6 +41,10 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
     }
   }, [photos, selectedIds, allSelected, onToggleGroupSelection]);
 
+  const locationLabel = album.type === 'smart' && album.smart_type === 'places'
+    ? [album.metadata?.city, album.metadata?.state, album.metadata?.country].filter(Boolean).join(', ')
+    : '';
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-4 p-6 sm:px-8 shrink-0 bg-background sticky top-0 z-20">
@@ -52,7 +56,9 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-2xl font-bold text-white">{album.name}</h2>
-          <p className="text-sm text-gray-400">{photos.length} photos</p>
+          <p className="text-sm text-gray-400">
+            {photos.length} photos{locationLabel ? ` • ${locationLabel}` : ''}
+          </p>
         </div>
         {photos.length > 0 && (
           <button

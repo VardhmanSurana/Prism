@@ -212,8 +212,8 @@ const summary = metadata?.summary || photo.ai_summary || photo.caption;
 ## 4. File Management (`frontend/components/FileFolderBrowser/`)
 
 ### A. Current State Assessment
-- **Features**: `useFileFolderBrowser.ts` provides directory traversal, hidden file toggling, multi-selection, and predefined shortcuts.
-- **Architecture**: Modal dialog (`FileFolderBrowserDialog.tsx`) communicating with backend `/api/v1/utilities/list-dir`.
+- **Features**: Full browser suite: traversal, multi-select, filter search, sort/group, smart folders, batch rename, recent folders, auto-discovered drives/mounts, user external locations (NAS path / SMB register), virtualized list. Global OS drag-and-drop import (Tauri).
+- **Architecture**: Modal dialog + `/list-dir`, `/batch-rename`, `/browser-locations`, external-locations CRUD. Mounts via `app/utils/mounts.py`; cloud provider registry in `app/services/cloud_locations/`. Extra roots from `settings.json` `external_locations`. Drag-drop → import pipeline.
 ```typescript
 // Evidence from frontend/components/FileFolderBrowser/useFileFolderBrowser.ts
 const res = await fetch(`${API_BASE}/api/v1/utilities/list-dir`, {
@@ -222,57 +222,65 @@ const res = await fetch(`${API_BASE}/api/v1/utilities/list-dir`, {
   body: JSON.stringify({ path: path || null, show_hidden: showHiddenFiles }),
 });
 ```
-- **Strengths**: Reusable component, clean UI, responsive to large directories.
-- **Weaknesses**: Lacks advanced sorting, virtual/smart folders, and drag-and-drop operations.
+- **Strengths**: Reusable browser; sort/group; smart folders; batch rename; drag-and-drop import; auto-discovered removable/network mounts; user-configured external paths (NAS/SMB mounts); desktop-style two-pane browser with a session-persistent, corner-resizable dialog and aligned metadata table. **UI refresh implemented (2026-07-11).**
+- **Weaknesses (remaining)**: S3/Google Drive browsing not live yet (config scaffold only). Drag-drop requires Tauri shell.
 
 ### B. Feature Recommendations
 
-1. **Smart Folders / Saved Searches**
-   - **Description**: Virtual folders based on search queries (e.g., "All 5-star photos from 2023").
-   - **User Problem**: Users want quick access to dynamic collections without manually moving files.
-   - **Implementation**: Store search parameters in the database and surface them as virtual nodes in `BrowserList.tsx`.
-   - **Dependencies**: Database, `BrowserShortcuts.tsx`.
+1. **Smart Folders / Saved Searches** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Filesystem smart folders — saved filter criteria (name pattern, media type, min size, optional pinned base path), not library rating queries.
+   - **User Problem**: Users want quick access to dynamic collections without manually re-applying filters each time.
+   - **Implementation**: `browserStorage.ts` + `SaveSmartFolderForm.tsx`; criteria applied in `useFileFolderBrowser` (`filteredFolders` / `filteredFiles`); surfaced in `BrowserShortcuts.tsx` with activate/delete.
+   - **Also fixed (foundation)**: broken search wiring (`setSearchQuery` instead of `navigateTo`); include videos in media list; remove hardcoded external drive shortcut; recent folders (last 5); list virtualization; preview close; backend `modified_ms` on list-dir entries.
+   - **Dependencies**: `BrowserShortcuts.tsx`, `localStorage`.
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
    - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Status**: Done
 
-2. **Advanced Sorting & Grouping**
-   - **Description**: Sort by size, date modified, resolution; group by date or type.
+2. **Advanced Sorting & Grouping** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Sort by name, size, date modified, or resolution; group by type (folders/images/videos) or calendar day. Asc/desc toggle; prefs persisted in `localStorage`.
    - **User Problem**: Finding a specific large file in a massive folder is difficult.
-   - **Implementation**: Add sort state to `useFileFolderBrowser.ts` and UI toggles in `BrowserHeader.tsx`.
-   - **Dependencies**: `useFileFolderBrowser.ts`
+   - **Implementation**: `browserSort.ts` pure sort/group helpers; state in `useFileFolderBrowser.ts`; UI in `BrowserSortControls.tsx` via `BrowserHeader.tsx`; group headers in virtualized `BrowserList.tsx`. Secondary meta column shows size, modified date, or `WxH` based on active sort field. `list-dir` now enriches media entries with `width_px` / `height_px` using lightweight image header reads and ffprobe for videos.
+   - **Dependencies**: `useFileFolderBrowser.ts`, `size_bytes` / `modified_ms` / `width_px` / `height_px` from list-dir
    - **ICE Score**: I:7, C:9, E:8 (Total: 24)
    - **Priority**: P2 | **Effort**: 4 days
+   - **Status**: Done
 
-3. **Batch File Renaming**
-   - **Description**: Rename multiple files with patterns (e.g., "Vacation_001.jpg").
+3. **Batch File Renaming** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Rename multiple files with patterns (e.g., `Vacation_{nnn}` → `Vacation_001.jpg`).
    - **User Problem**: Cameras generate non-descriptive filenames (e.g., DSC001.JPG).
-   - **Implementation**: Add a context menu action that opens a modal for pattern input, executed via a new backend API.
+   - **Implementation**: Context menu + footer “Rename” open `BatchRenameModal.tsx` with live preview (`renamePattern.ts`). Backend `POST /api/v1/utilities/batch-rename` (tokens `{n}/{nn}/{nnn}/{nnnn}`, `{name}`, `{ext}`, `{date}`, `{yyyy}`, `{mm}`, `{dd}`), dry-run, collision checks, two-phase rename, `safe_resolve_write` boundaries. Tests in `backend/tests/test_batch_rename.py`.
    - **Dependencies**: `BrowserList.tsx`, Backend API.
    - **ICE Score**: I:8, C:9, E:7 (Total: 24)
    - **Priority**: P1 | **Effort**: 1 week
+   - **Status**: Done
 
-4. **Drag and Drop Import**
-   - **Description**: Allow dragging folders from the OS directly into the app window to import.
+4. **Drag and Drop Import** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Drag files or folders from the OS onto the Prism window to import into the library.
    - **User Problem**: Opening the browser dialog requires multiple clicks.
-   - **Implementation**: Use Tauri's drag-and-drop file events globally to trigger the import pipeline.
-   - **Dependencies**: Tauri API, App root.
+   - **Implementation**: `useDragDropImport` listens to Tauri `getCurrentWebview().onDragDropEvent`; `resolveDroppedPaths` classifies media files vs directories (expand via `/api/v1/photos/expand-directory`); reuses `useImportProcess.startImport`. `DragDropOverlay` shows hover state + errors. Wired in `App.tsx`. FAB copy mentions drag & drop. Unit tests for media path detection.
+   - **Dependencies**: Tauri API, App root, existing import pipeline.
    - **ICE Score**: I:9, C:9, E:8 (Total: 26)
    - **Priority**: P0 | **Effort**: 3 days
+   - **Status**: Done
 
-5. **Cloud Storage / Network Drive Integration**
-   - **Description**: Mount or access SMB/Google Drive/S3 buckets directly.
-   - **User Problem**: Users keep large archives on NAS drives.
-   - **Implementation**: Backend Python integration to mount or stream from network locations, surfaced as shortcuts in the browser.
-   - **Dependencies**: Backend filesystem modules.
+5. **Cloud Storage / Network Drive Integration** ✅ **PHASE A+B DONE** (2026-07-11) — live mounts + path/SMB register; S3/GDrive scaffold
+   - **Description**: Access external volumes and network locations from the file browser.
+   - **User Problem**: Users keep large archives on NAS drives and remotes.
+   - **Implementation**:
+     - **Phase A (live)**: `discover_browser_mounts()` scans `/run/media`, `/media`, `/mnt`, `/Volumes` + psutil network fstypes (cifs/nfs/sshfs…). `GET /api/v1/utilities/browser-locations` surfaces them as **Drives:** shortcuts. Home added to allowed roots.
+     - **Phase B (scaffold + path register)**: `external_locations` in `settings.json` via CRUD API; providers `local_path` / `smb` (ready — register existing mount path) and `s3` / `gdrive` (config saved, status `scaffold`). Allowed roots merge enabled `mount_path`s. UI: `AddExternalLocationForm` + Drives row in `BrowserShortcuts`.
+   - **Dependencies**: Backend filesystem modules, settings.json.
    - **ICE Score**: I:8, C:6, E:3 (Total: 17)
    - **Priority**: P3 | **Effort**: 3 weeks
+   - **Status**: Phase A complete; Phase B path/SMB usable; S3/GDrive browse deferred
 
 ### C. Quick Wins
-- **Context Menu**: Add right-click support to `BrowserList.tsx` for "Open in OS Explorer" (using Tauri's shell open).
-- **Recent Folders Shortcut**: Maintain a history of the last 5 accessed folders in the shortcuts panel.
+- **Context Menu**: ✅ Right-click menu now supports batch/pattern rename and `Open in OS Explorer` for files/folders. Explorer launch is handled by backend `POST /api/v1/utilities/open-in-os-explorer`, avoiding a Tauri opener plugin dependency. **IMPLEMENTED** (2026-07-11)
+- **Recent Folders Shortcut**: ✅ Maintain a history of the last 5 accessed folders in the shortcuts panel. **IMPLEMENTED**
 
 ### D. Architecture Recommendations
-- **Virtualization**: If viewing folders with 10,000+ files, `BrowserList.tsx` should use `@tanstack/react-virtual` (already in `package.json`) to prevent DOM bloat.
+- **Virtualization**: ✅ `BrowserList.tsx` uses `@tanstack/react-virtual` to avoid DOM bloat on large directories. **IMPLEMENTED**
 
 ---
 
@@ -295,51 +303,71 @@ const group = (L as any).markerClusterGroup({
 
 ### B. Feature Recommendations
 
-1. **Travel Routes / Timeline Path**
+1. **Travel Routes / Timeline Path** ✅ **IMPLEMENTED** (2026-07-11)
    - **Description**: Draw lines connecting photos sequentially by time.
    - **User Problem**: Users want to see their road trip or vacation journey chronologically.
-   - **Implementation**: Add a Leaflet `Polyline` layer connecting coordinates, sorted by `photo.date`.
+   - **Implementation**: Added a `TravelRouteLayer` Leaflet `Polyline` connecting geotagged photos sorted by capture time, with start/latest route markers and route-aware overlay copy. `usePhotoGeoData` now also derives sorted timeline photos plus geographic bounds for map framing.
+   - **Also fixed (weakness + quick win)**: the map no longer relies on a static average-center view. `MapViewportManager` now fits bounds to current geotagged photos, and a `Zoom to extents` control was added to reframe the visible journey on demand. A route toggle in `MapToolbar` makes the storytelling layer optional instead of permanently static.
    - **Dependencies**: `react-leaflet`, `MapView/index.tsx`
    - **ICE Score**: I:8, C:9, E:8 (Total: 25)
    - **Priority**: P1 | **Effort**: 4 days
+   - **Status**: Done
 
-2. **Heatmap Overlay**
-   - **Description**: Toggle a heatmap layer showing density of photos globally.
+2. **Heatmap Overlay** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Toggle a density layer showing where photos cluster most heavily.
    - **User Problem**: Visualizing where most photos are taken without zooming into clusters.
-   - **Implementation**: Integrate `leaflet.heat` plugin using the existing `geoPhotos` data.
-   - **Dependencies**: `leaflet.heat`
+   - **Implementation**: Added a custom no-dependency `DensityLayer` canvas overlay that projects visible geotagged photos into the Leaflet viewport and paints stacked radial gradients to reveal hotspots. Exposed via a toolbar toggle and reflected in the overlay copy.
+   - **Also fixed (weakness)**: this gives Map View a second storytelling mode beyond static markers, making repeated shooting patterns visible at a glance without relying on cluster interaction.
+   - **Dependencies**: `react-leaflet`, `MapView/index.tsx`
    - **ICE Score**: I:7, C:9, E:7 (Total: 23)
    - **Priority**: P2 | **Effort**: 1 week
+   - **Status**: Done
 
-3. **Reverse Geocoding Auto-Albums**
+3. **Reverse Geocoding Auto-Albums** ✅ **IMPLEMENTED** (2026-07-11)
    - **Description**: Group photos automatically by Country/City based on coordinates.
    - **User Problem**: Organizing travel photos manually is tedious.
-   - **Implementation**: Backend task to reverse-geocode coordinates and create "Smart Albums" based on location tags.
-   - **Dependencies**: Backend Geocoding service.
+   - **Implementation**: Extended smart albums with dynamic `places` albums generated from location metadata. Backend now exposes auto-grouped place albums plus a generic smart-album photo resolver keyed by smart album id. Existing geotagged photos with missing `city/country` are backfilled via offline reverse geocoding before album grouping, then surfaced in the Albums UI with location-aware detail headers.
+   - **Also fixed (weakness)**: this removes a hidden failure mode where older geotagged photos with coordinates but no resolved place labels would never appear in location grouping. The map/albums flow now stays coherent even when metadata was imported before reverse geocoding support matured.
+   - **Dependencies**: Backend Geocoding service, Albums smart-album UI
    - **ICE Score**: I:9, C:8, E:5 (Total: 22)
    - **Priority**: P1 | **Effort**: 2 weeks
+   - **Status**: Done
 
-4. **Location Edit via Map Drag**
+4. **Location Edit via Map Drag** ✅ **IMPLEMENTED** (2026-07-11)
    - **Description**: Allow users to drag a photo marker to a new location to update its EXIF GPS data.
    - **User Problem**: Correcting bad GPS data is currently a text-based or non-existent process.
-   - **Implementation**: Make markers draggable (when an "Edit Mode" is toggled) and fire a backend mutation on drop.
-   - **Dependencies**: `PhotoMarkers.tsx`
+   - **Implementation**: Added explicit map `Edit locations` mode with draggable markers. On drop, the frontend calls `PUT /api/v1/photos/{photo_id}/location`, which updates GPS coordinates, refreshes city/state/country via offline reverse geocoding, and attempts XMP sidecar export so the correction persists beyond the DB.
+   - **Also fixed (weakness)**: edits are no longer trapped in the map surface. Updated coordinates flow back into the app’s shared photo state immediately, so map, albums, and metadata surfaces stay in sync after a drag operation.
+   - **Dependencies**: `PhotoMarkers.tsx`, photos metadata API, XMP export
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
    - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Status**: Done
 
-5. **Temporal Map Slider**
+5. **Temporal Map Slider** ✅ **IMPLEMENTED** (2026-07-11)
    - **Description**: A timeline slider at the bottom of the map that filters visible markers by date range.
    - **User Problem**: Finding a photo taken in a specific location at a specific time.
-   - **Implementation**: Add a range slider component that filters the `photos` prop before passing it to `usePhotoGeoData`.
+   - **Implementation**: Added a bottom-mounted `MapTemporalSlider` dual-range control that filters the input photo set by capture date before it reaches `usePhotoGeoData`, so markers, routes, density, and viewport framing all respond to the same temporal subset. Slider state is deferred to keep interaction smooth while redrawing the map.
+   - **Also fixed (weakness)**: map storytelling is no longer only spatial. The map can now answer “where was I in this period?” instead of forcing users to visually scan the entire lifetime of the library at once.
    - **Dependencies**: `MapView/index.tsx`
    - **ICE Score**: I:8, C:9, E:7 (Total: 24)
    - **Priority**: P1 | **Effort**: 1 week
+   - **Status**: Done
 
 ### C. Quick Wins
-- **Zoom to Extents**: Add a button to reset the map view to bound all current markers using `map.fitBounds()`.
+- **Zoom to Extents**: ✅ Added a button to reset the map view to bound all current markers using `map.fitBounds()`. **IMPLEMENTED** (2026-07-11)
 
 ### D. Architecture Recommendations
 - **Tile Caching**: Implement local caching of Leaflet map tiles via Tauri/Backend to allow offline map usage, aligning with the app's privacy/offline-first philosophy.
+
+### E. Additional Delivered Feature
+
+6. **Time-Lapse Map Animation** ✅ **IMPLEMENTED** (2026-07-11)
+   - **Description**: Animate photo markers appearing on the map chronologically, showing your photography journey over time.
+   - **User Problem**: Users want to visualize their photographic life across years and continents.
+   - **Implementation**: Added a dedicated time-lapse mode with play/pause/reset and manual scrubbing. The playback clock is driven by `requestAnimationFrame`, and the visible marker/route/density subset is progressively revealed against the currently selected temporal range. A live date counter is surfaced in the map overlay and playback panel.
+   - **Dependencies**: `Photo.date` sorting, Leaflet markers, temporal map filter
+   - **ICE Score**: I:6, C:7, E:5 (Total: 18)
+   - **Status**: Done
 
 ---
 

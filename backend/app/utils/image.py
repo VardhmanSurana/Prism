@@ -93,6 +93,11 @@ def _get_city_name(lat, lon) -> dict | None:
         logger.debug(f"Geocoding failed for ({lat}, {lon}): {e}")
     return None
 
+
+def reverse_geocode_coords(lat: float, lon: float) -> dict | None:
+    """Public wrapper for offline reverse geocoding used outside metadata extraction."""
+    return _get_city_name(lat, lon)
+
 def hamming_distance(hash1: str, hash2: str) -> int:
     if len(hash1) != len(hash2):
         return max(len(hash1), len(hash2))

@@ -1,11 +1,20 @@
 export { useFileSelection } from './useFileSelection';
 export { useImportProcess } from './useImportProcess';
 export { useDirectoryExpansion } from './useDirectoryExpansion';
+export { useDragDropImport } from './useDragDropImport';
+export {
+  resolveDroppedPaths,
+  isImportableMediaPath,
+  isTauriRuntime,
+  IMPORTABLE_EXTENSIONS,
+} from './importPaths';
+export type { DragDropPhase } from './useDragDropImport';
 
 // Re-export the main hook for backward compatibility
 import { useFileSelection } from './useFileSelection';
 import { useImportProcess } from './useImportProcess';
 import { useDirectoryExpansion } from './useDirectoryExpansion';
+import { resolveDroppedPaths } from './importPaths';
 import { Photo } from '../../types';
 
 interface ImportProgressStatus {
@@ -37,19 +46,33 @@ export const useImport = ({ onUpload, onImportProgress }: UseImportProps) => {
       onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
       return;
     }
-    
+
     const allFiles = await expandDirectories(result.paths);
-    
+
     if (allFiles.length > 0) {
-        await startImport(allFiles, result.resizeWidth);
+      await startImport(allFiles, result.resizeWidth);
     } else {
-        onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
-        alert("No supported images found in the selected folders.");
+      onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
+      alert('No supported images found in the selected folders.');
     }
+  };
+
+  /** Import from absolute OS paths (drag-and-drop, CLI, etc.) */
+  const importPaths = async (paths: string[], resizeWidth?: number) => {
+    if (!paths.length) return;
+    const files = await resolveDroppedPaths(paths, onImportProgress);
+    if (files.length === 0) {
+      onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
+      alert('No supported images or videos found.');
+      return;
+    }
+    await startImport(files, resizeWidth);
   };
 
   return {
     handleFileUpload: handleFileUploadWithImport,
-    handleFolderImport
+    handleFolderImport,
+    importPaths,
+    startImport,
   };
 };

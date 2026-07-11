@@ -33,6 +33,7 @@ interface MainContentProps {
   sortMode?: SortMode;
   onSortChange?: (mode: SortMode) => void;
   onUpdatePhotos?: Dispatch<SetStateAction<Photo[]>>;
+  onPhotoLocationUpdate?: (photoId: string | number, next: Partial<Photo>) => void;
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
@@ -60,6 +61,7 @@ export const MainContent = React.memo(function MainContent({
   sortMode,
   onSortChange,
   onUpdatePhotos,
+  onPhotoLocationUpdate,
   onBulkFavorite,
   onBulkDelete,
   onBulkLockToggle,
@@ -83,7 +85,13 @@ export const MainContent = React.memo(function MainContent({
       case 'people':
         return <PeopleView onPhotoClick={onPhotoClick} onPhotosLoaded={onPhotosLoaded} />;
       case 'map':
-        return <MapView photos={photos} onPhotoClick={onPhotoClick} />;
+        return (
+          <MapView
+            photos={photos}
+            onPhotoClick={onPhotoClick}
+            onPhotoLocationUpdate={onPhotoLocationUpdate}
+          />
+        );
       case 'utilities':
         return (
           <UtilitiesView 

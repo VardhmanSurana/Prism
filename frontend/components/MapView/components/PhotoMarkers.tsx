@@ -8,9 +8,24 @@ import { useMap } from 'react-leaflet';
 interface PhotoMarkersProps {
   geoPhotos: Photo[];
   onPhotoClick: (photo: Photo) => void;
+  editMode?: boolean;
+  savingPhotoIds?: Set<string>;
+  onPhotoLocationChange?: (photo: Photo, coords: { latitude: number; longitude: number }) => Promise<void>;
 }
 
-export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoClick }) => {
+function formatPopupLocation(photo: Photo, editMode: boolean, isSaving: boolean) {
+  if (isSaving) return 'Saving location...';
+  if (editMode) return 'Drag to update this photo location';
+  return photo.location || photo.filename || '';
+}
+
+export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({
+  geoPhotos,
+  onPhotoClick,
+  editMode = false,
+  savingPhotoIds,
+  onPhotoLocationChange,
+}) => {
   const map = useMap();
   const groupRef = useRef<L.MarkerClusterGroup | null>(null);
 
@@ -31,12 +46,16 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
     });
 
     geoPhotos.forEach((photo) => {
+      const originalLat = Number(photo.latitude);
+      const originalLng = Number(photo.longitude);
+      const isSaving = savingPhotoIds?.has(String(photo.id)) ?? false;
       const thumbUrl = resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=96`);
-      const marker = L.marker([photo.latitude!, photo.longitude!], {
+      const marker = L.marker([originalLat, originalLng], {
+        draggable: editMode && !isSaving,
         icon: L.divIcon({
           className: 'custom-photo-marker',
           html: `
-            <div class="relative w-10 h-10 rounded-lg border-2 border-white shadow-xl overflow-hidden transform-gpu bg-surface">
+            <div class="relative w-10 h-10 rounded-lg border-2 ${editMode ? 'border-amber-300' : 'border-white'} shadow-xl overflow-hidden transform-gpu bg-surface">
               <img src="${thumbUrl}" class="w-full h-full object-cover" loading="lazy" decoding="async" />
             </div>
           `,
@@ -48,12 +67,6 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
 
       // Use thumbnail for popup preview (not full-size) — avoids loading heavy images
       const popupThumbUrl = resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=400`);
-      const safePhoto = {
-        id: photo.id,
-        date: photo.date,
-        location: photo.location,
-        filename: photo.filename,
-      };
       marker.bindPopup(
         `<div class="w-48 cursor-pointer" data-photo-id="${photo.id}">
           <div class="relative aspect-square rounded-lg overflow-hidden mb-2">
@@ -64,7 +77,7 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
               ${new Date(photo.date).toLocaleDateString()}
             </p>
             <p class="text-sm font-medium text-white truncate">
-              ${photo.location || photo.filename || ''}
+              ${formatPopupLocation(photo, editMode, isSaving)}
             </p>
           </div>
         </div>`,
@@ -80,6 +93,21 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
         }
       });
 
+      if (editMode && onPhotoLocationChange) {
+        marker.on('dragend', async () => {
+          const nextLatLng = marker.getLatLng();
+          try {
+            await onPhotoLocationChange(photo, {
+              latitude: nextLatLng.lat,
+              longitude: nextLatLng.lng,
+            });
+          } catch (error) {
+            console.error('Failed to update photo location', error);
+            marker.setLatLng([originalLat, originalLng]);
+          }
+        });
+      }
+
       group.addLayer(marker);
     });
 
@@ -90,7 +118,7 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({ geoPhotos, onPhotoCl
       map.removeLayer(group);
       groupRef.current = null;
     };
-  }, [geoPhotos, onPhotoClick, map]);
+  }, [editMode, geoPhotos, map, onPhotoClick, onPhotoLocationChange, savingPhotoIds]);
 
   return null;
 };

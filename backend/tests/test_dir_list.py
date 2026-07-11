@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 from pathlib import Path
+from PIL import Image
 
 
 @pytest.mark.asyncio
@@ -56,3 +57,31 @@ async def test_list_dir_with_valid_path():
         # But if it exists or fallback is triggered, it behaves cleanly.
         if not data["is_root"]:
             assert data["current_path"] == target_path
+
+
+@pytest.mark.asyncio
+async def test_list_dir_includes_image_dimensions():
+    pictures = Path.home() / "Pictures"
+    pictures.mkdir(parents=True, exist_ok=True)
+    work = pictures / ".prism_test_list_dir_dimensions"
+    work.mkdir(exist_ok=True)
+    image_path = work / "sample.png"
+
+    try:
+        Image.new("RGB", (64, 32), color=(255, 0, 0)).save(image_path)
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.post(
+                "/api/v1/utilities/list-dir",
+                json={"path": str(work)}
+            )
+
+        assert response.status_code == 200, response.text
+        data = response.json()
+        match = next((f for f in data["files"] if f["name"] == "sample.png"), None)
+        assert match is not None
+        assert match["width_px"] == 64
+        assert match["height_px"] == 32
+    finally:
+        image_path.unlink(missing_ok=True)
+        work.rmdir()

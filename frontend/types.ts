@@ -60,16 +60,17 @@ export interface Album {
   cover_url?: string;
   metadata?: AlbumMetadata;
   is_smart?: boolean;
-  smart_type?: 'screenshots' | 'documents';
+  smart_type?: 'screenshots' | 'documents' | 'places';
 }
 
 export interface SmartAlbum {
   id: string;
   name: string;
   type: 'smart';
-  smart_type: 'screenshots' | 'documents';
+  smart_type: 'screenshots' | 'documents' | 'places';
   photo_count: number;
   cover_url?: string;
+  metadata?: AlbumMetadata;
 }
 
 export type AnyAlbum = Album | SmartAlbum;

@@ -1,17 +1,6 @@
-use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::io::{BufRead, BufReader};
 use tauri::{AppHandle, Emitter};
-
-fn validate_export_path(path: &str, allowed_dirs: &[PathBuf]) -> Result<PathBuf, String> {
-    let canonical = Path::new(path).canonicalize().map_err(|e| format!("Invalid path: {}", e))?;
-    for dir in allowed_dirs {
-        if canonical.starts_with(dir) {
-            return Ok(canonical);
-        }
-    }
-    Err("Export path not in allowed directory".to_string())
-}
 
 fn validate_mlt_xml(xml: &str) -> Result<(), String> {
     // Reject absolute paths and .. traversal

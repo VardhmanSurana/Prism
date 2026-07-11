@@ -18,7 +18,41 @@ export const usePhotoGeoData = (photos: Photo[]) => {
     return [lat, lng] as [number, number];
   }, [geoPhotos]);
 
-  return { geoPhotos, center };
+  const timelinePhotos = useMemo(() => {
+    return [...geoPhotos].sort((a, b) => {
+      const left = Date.parse(a.date || a.date_taken || '') || 0;
+      const right = Date.parse(b.date || b.date_taken || '') || 0;
+      return left - right;
+    });
+  }, [geoPhotos]);
+
+  const bounds = useMemo(() => {
+    if (geoPhotos.length === 0) return null;
+
+    let north = -90;
+    let south = 90;
+    let east = -180;
+    let west = 180;
+
+    for (const photo of geoPhotos) {
+      const lat = Number(photo.latitude);
+      const lng = Number(photo.longitude);
+      north = Math.max(north, lat);
+      south = Math.min(south, lat);
+      east = Math.max(east, lng);
+      west = Math.min(west, lng);
+    }
+
+    return {
+      north,
+      south,
+      east,
+      west,
+      hasArea: north !== south || east !== west,
+    };
+  }, [geoPhotos]);
+
+  return { geoPhotos, center, timelinePhotos, bounds };
 };
 
 /**

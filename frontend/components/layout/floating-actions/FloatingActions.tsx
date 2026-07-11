@@ -203,8 +203,13 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
                         <ImageIcon />
                       </motion.span>
                     </span>
-                    <span className="text-[13px] font-medium text-white/90 tracking-wide">
-                      Import Files
+                    <span className="flex flex-col min-w-0">
+                      <span className="text-[13px] font-medium text-white/90 tracking-wide">
+                        Import Files
+                      </span>
+                      <span className="text-[10px] text-white/35 font-mono mt-0.5">
+                        or drag &amp; drop onto the window
+                      </span>
                     </span>
                   </motion.button>
 

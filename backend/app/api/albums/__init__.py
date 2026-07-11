@@ -1,15 +1,19 @@
 import os
+from collections import defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete, extract, and_, func
+from sqlalchemy import delete, extract, and_, func, or_
 from app.db import get_db
 from app.models import Album, Photo, PhotoAlbum
 from app.api.albums.utils import photo_to_dict
+from app.utils.image import reverse_geocode_coords
 from typing import List
 from datetime import datetime, timezone
 
 router = APIRouter()
+
+PLACE_SMART_TYPE = "places"
 
 
 @router.get("/memories/highlights")
@@ -256,51 +260,86 @@ SMART_ALBUM_TYPES = {
 }
 
 
-@router.get("/smart")
-async def list_smart_albums(db: AsyncSession = Depends(get_db)):
-    """Return smart album metadata (Screenshots, Documents) with photo counts."""
-    albums = []
-    for smart_key, info in SMART_ALBUM_TYPES.items():
-        count_stmt = select(func.count(Photo.id)).where(
-            and_(Photo.content_type == info["content_type"], Photo.is_trash == False)
+def _build_place_album_id(city: str | None, state: str | None, country: str | None) -> str:
+    return f"place::{country or ''}::{state or ''}::{city or ''}"
+
+
+def _parse_place_album_id(album_id: str) -> tuple[str | None, str | None, str | None]:
+    try:
+        _, country, state, city = album_id.split("::", 3)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Unknown place album") from exc
+    return city or None, state or None, country or None
+
+
+def _format_place_album_name(city: str | None, state: str | None, country: str | None) -> str:
+    if city and country:
+        return f"{city}, {country}"
+    return city or state or country or "Unknown place"
+
+
+async def _hydrate_missing_place_metadata(db: AsyncSession) -> None:
+    stmt = (
+        select(Photo)
+        .where(
+            and_(
+                Photo.is_trash == False,
+                Photo.latitude.is_not(None),
+                Photo.longitude.is_not(None),
+                or_(Photo.city.is_(None), Photo.country.is_(None)),
+            )
         )
-        count_result = await db.execute(count_stmt)
-        count = count_result.scalar() or 0
+        .limit(200)
+    )
+    result = await db.execute(stmt)
+    photos = result.scalars().all()
 
-        # Get the latest photo for cover
-        cover_stmt = (
-            select(Photo)
-            .where(and_(Photo.content_type == info["content_type"], Photo.is_trash == False))
-            .order_by(Photo.date_taken.desc())
-            .limit(1)
-        )
-        cover_result = await db.execute(cover_stmt)
-        cover_photo = cover_result.scalar_one_or_none()
+    updated = False
+    for photo in photos:
+        location_info = reverse_geocode_coords(float(photo.latitude), float(photo.longitude))
+        if not location_info:
+            continue
+        photo.city = photo.city or location_info.get("city")
+        photo.state = photo.state or location_info.get("state")
+        photo.country = photo.country or location_info.get("country")
+        location_parts = [part for part in [photo.city, photo.state, photo.country] if part]
+        photo.location = ", ".join(location_parts) or photo.location
+        updated = True
 
-        albums.append({
-            "id": f"smart_{smart_key}",
-            "name": info["name"],
-            "type": "smart",
-            "smart_type": smart_key,
-            "photo_count": count,
-            "cover_url": f"/api/v1/photos/{cover_photo.id}/thumbnail" if cover_photo else None,
-        })
-
-    return albums
+    if updated:
+        await db.commit()
 
 
-@router.get("/smart/{smart_type}/photos")
-async def get_smart_album_photos(
+def _smart_album_payload(
+    *,
+    album_id: str,
+    name: str,
     smart_type: str,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
-    db: AsyncSession = Depends(get_db),
-):
-    """Return photos in a smart album (screenshots or documents)."""
-    if smart_type not in SMART_ALBUM_TYPES:
-        raise HTTPException(status_code=404, detail=f"Unknown smart album type: {smart_type}")
+    photo_count: int,
+    cover_photo: Photo | None,
+    metadata: dict | None = None,
+) -> dict:
+    return {
+        "id": album_id,
+        "name": name,
+        "type": "smart",
+        "smart_type": smart_type,
+        "photo_count": photo_count,
+        "cover_url": f"/api/v1/photos/{cover_photo.id}/thumbnail" if cover_photo else None,
+        "metadata": metadata or None,
+    }
 
-    content_type = SMART_ALBUM_TYPES[smart_type]["content_type"]
+
+async def _fetch_content_type_smart_album(
+    db: AsyncSession,
+    smart_key: str,
+    offset: int = 0,
+    limit: int = 100,
+) -> dict:
+    if smart_key not in SMART_ALBUM_TYPES:
+        raise HTTPException(status_code=404, detail=f"Unknown smart album type: {smart_key}")
+
+    content_type = SMART_ALBUM_TYPES[smart_key]["content_type"]
 
     count_stmt = select(func.count(Photo.id)).where(
         and_(Photo.content_type == content_type, Photo.is_trash == False)
@@ -324,6 +363,157 @@ async def get_smart_album_photos(
         "offset": offset,
         "limit": limit,
     }
+
+
+async def _fetch_place_smart_album(
+    db: AsyncSession,
+    album_id: str,
+    offset: int = 0,
+    limit: int = 100,
+) -> dict:
+    city, state, country = _parse_place_album_id(album_id)
+
+    filters = [Photo.is_trash == False]
+    if city:
+        filters.append(Photo.city == city)
+    else:
+        filters.append(Photo.city.is_(None))
+    if state:
+        filters.append(Photo.state == state)
+    elif city:
+        filters.append(Photo.state.is_(None))
+    if country:
+        filters.append(Photo.country == country)
+    else:
+        filters.append(Photo.country.is_(None))
+
+    count_stmt = select(func.count(Photo.id)).where(and_(*filters))
+    count_result = await db.execute(count_stmt)
+    total = count_result.scalar() or 0
+
+    stmt = (
+        select(Photo)
+        .where(and_(*filters))
+        .order_by(Photo.date_taken.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    photos = result.scalars().all()
+
+    return {
+        "photos": [photo_to_dict(p) for p in photos],
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+    }
+
+
+@router.get("/smart")
+async def list_smart_albums(db: AsyncSession = Depends(get_db)):
+    """Return smart album metadata for fixed buckets and auto-generated place albums."""
+    await _hydrate_missing_place_metadata(db)
+
+    albums = []
+    for smart_key, info in SMART_ALBUM_TYPES.items():
+        count_stmt = select(func.count(Photo.id)).where(
+            and_(Photo.content_type == info["content_type"], Photo.is_trash == False)
+        )
+        count_result = await db.execute(count_stmt)
+        count = count_result.scalar() or 0
+
+        # Get the latest photo for cover
+        cover_stmt = (
+            select(Photo)
+            .where(and_(Photo.content_type == info["content_type"], Photo.is_trash == False))
+            .order_by(Photo.date_taken.desc())
+            .limit(1)
+        )
+        cover_result = await db.execute(cover_stmt)
+        cover_photo = cover_result.scalar_one_or_none()
+
+        albums.append(
+            _smart_album_payload(
+                album_id=f"smart_{smart_key}",
+                name=info["name"],
+                smart_type=smart_key,
+                photo_count=count,
+                cover_photo=cover_photo,
+            )
+        )
+
+    place_stmt = (
+        select(Photo)
+        .where(
+            and_(
+                Photo.is_trash == False,
+                or_(Photo.city.is_not(None), Photo.country.is_not(None)),
+            )
+        )
+        .order_by(Photo.date_taken.desc())
+    )
+    place_result = await db.execute(place_stmt)
+    place_photos = place_result.scalars().all()
+
+    grouped_places: dict[tuple[str | None, str | None, str | None], list[Photo]] = defaultdict(list)
+    for photo in place_photos:
+        key = (photo.city, photo.state, photo.country)
+        grouped_places[key].append(photo)
+
+    place_albums = []
+    for (city, state, country), photos in grouped_places.items():
+        if not city and not country:
+            continue
+        cover_photo = photos[0]
+        place_albums.append(
+            _smart_album_payload(
+                album_id=_build_place_album_id(city, state, country),
+                name=_format_place_album_name(city, state, country),
+                smart_type=PLACE_SMART_TYPE,
+                photo_count=len(photos),
+                cover_photo=cover_photo,
+                metadata={
+                    "city": city,
+                    "state": state,
+                    "country": country,
+                    "location_count": len(photos),
+                },
+            )
+        )
+
+    place_albums.sort(key=lambda album: (-album["photo_count"], album["name"].lower()))
+    albums.extend(place_albums)
+
+    return albums
+
+
+@router.get("/smart/photos")
+async def get_smart_album_photos_by_id(
+    album_id: str = Query(..., min_length=1),
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    if album_id.startswith("smart_"):
+        smart_type = album_id.replace("smart_", "", 1)
+        return await _fetch_content_type_smart_album(db, smart_type, offset, limit)
+
+    if album_id.startswith("place::"):
+        await _hydrate_missing_place_metadata(db)
+        return await _fetch_place_smart_album(db, album_id, offset, limit)
+
+    raise HTTPException(status_code=404, detail="Unknown smart album")
+
+
+@router.get("/smart/{smart_type}/photos")
+async def get_smart_album_photos(
+    smart_type: str,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return photos in a fixed smart album (screenshots or documents)."""
+    return await _fetch_content_type_smart_album(db, smart_type, offset, limit)
 
 
 @router.post("/smart/reclassify")

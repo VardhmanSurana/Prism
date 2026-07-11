@@ -49,8 +49,8 @@ export const useAlbums = (): UseAlbumsReturn => {
     setAlbumPhotos([]);
     try {
       let url: string;
-      if (album.type === 'smart' && 'smart_type' in album && album.smart_type) {
-        url = `${API_BASE}/api/v1/albums/smart/${album.smart_type}/photos`;
+      if (album.type === 'smart') {
+        url = `${API_BASE}/api/v1/albums/smart/photos?album_id=${encodeURIComponent(String(album.id))}`;
       } else {
         url = `${API_BASE}/api/v1/albums/${album.id}/photos`;
       }

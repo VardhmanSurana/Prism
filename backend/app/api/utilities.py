@@ -8,6 +8,7 @@ import platform
 import zipfile
 import io
 import shutil
+import subprocess
 from pathlib import Path
 from app.config import settings
 from app.db import engine
@@ -17,17 +18,62 @@ from typing import List
 import time
 import logging
 import traceback
+import json
 
 from app.db import get_db
 from app.models import Photo, BackgroundJob
 from app.api.albums.utils import photo_to_dict
 from app.services.sync_service import sync_service, SUPPORTED_EXTENSIONS
-from app.utils.security import safe_resolve_read, get_allowed_read_roots
-from pydantic import BaseModel
+from app.utils.security import safe_resolve_read, safe_resolve_write, get_allowed_read_roots
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+import re
+import uuid
+from PIL import Image
 
 router = APIRouter()
+
+
+def _get_media_dimensions(path: str, is_image: bool, is_video: bool) -> tuple[int | None, int | None]:
+    if is_image:
+        try:
+            with Image.open(path) as img:
+                return int(img.width), int(img.height)
+        except Exception:
+            return None, None
+
+    if is_video:
+        try:
+            result = subprocess.run(
+                [
+                    "ffprobe",
+                    "-v",
+                    "error",
+                    "-print_format",
+                    "json",
+                    "-show_streams",
+                    path,
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None, None
+
+            data = json.loads(result.stdout)
+            for stream in data.get("streams", []):
+                if stream.get("codec_type") == "video":
+                    width = stream.get("width")
+                    height = stream.get("height")
+                    if isinstance(width, int) and isinstance(height, int):
+                        return width, height
+                    break
+        except Exception:
+            return None, None
+
+    return None, None
 
 @router.get("/blurry")
 async def get_blurry_photos(
@@ -383,21 +429,45 @@ async def list_directory_contents(req: ListDirRequest):
                 continue
 
             if entry.is_dir(follow_symlinks=False):
+                try:
+                    dir_stat = entry.stat(follow_symlinks=False)
+                    modified_ms = int(dir_stat.st_mtime * 1000)
+                except OSError:
+                    modified_ms = None
                 folders.append({
                     "name": entry.name,
                     "path": entry.path,
-                    "is_hidden": is_hidden
+                    "is_hidden": is_hidden,
+                    "modified_ms": modified_ms,
                 })
             elif entry.is_file(follow_symlinks=False):
                 # Check if the file is a supported image extension
                 is_supported_image = entry.name.lower().endswith(SUPPORTED_EXTENSIONS)
                 ext_lower = entry.name.lower()
                 is_supported_video = ext_lower.endswith(('.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm', '.3gp'))
+                try:
+                    file_stat = entry.stat(follow_symlinks=False)
+                    size_bytes = file_stat.st_size
+                    modified_ms = int(file_stat.st_mtime * 1000)
+                except OSError:
+                    size_bytes = 0
+                    modified_ms = None
+                width_px = None
+                height_px = None
+                if is_supported_image or is_supported_video:
+                    width_px, height_px = _get_media_dimensions(
+                        entry.path,
+                        is_supported_image,
+                        is_supported_video,
+                    )
                 files.append({
                     "name": entry.name,
                     "path": entry.path,
                     "is_hidden": is_hidden,
-                    "size_bytes": entry.stat().st_size,
+                    "size_bytes": size_bytes,
+                    "modified_ms": modified_ms,
+                    "width_px": width_px,
+                    "height_px": height_px,
                     "is_image": is_supported_image,
                     "is_video": is_supported_video
                 })
@@ -448,6 +518,408 @@ async def list_directory_contents(req: ListDirRequest):
         "folders": folders,
         "files": files,
         "is_root": False
+    }
+
+
+@router.get("/browser-locations")
+async def get_browser_locations():
+    """
+    Removable/network mounts + user-configured external locations for the file browser.
+    """
+    from app.utils.mounts import discover_browser_mounts
+    from app.services.cloud_locations import list_external_locations, provider_status, PROVIDER_IDS
+
+    mounts = discover_browser_mounts()
+    external = list_external_locations()
+    providers = [provider_status(p) for p in PROVIDER_IDS]
+    return {
+        "mounts": mounts,
+        "external_locations": external,
+        "providers": providers,
+        "home_path": str(Path.home().resolve()),
+    }
+
+
+class ExternalLocationCreate(BaseModel):
+    provider: str = "local_path"
+    name: str
+    mount_path: Optional[str] = None
+    path: Optional[str] = None  # alias for mount_path
+    enabled: bool = True
+    smb_host: Optional[str] = None
+    smb_share: Optional[str] = None
+    smb_username: Optional[str] = None
+    bucket: Optional[str] = None
+    region: Optional[str] = None
+    endpoint: Optional[str] = None
+    prefix: Optional[str] = None
+    gdrive_account: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class ExternalLocationUpdate(BaseModel):
+    name: Optional[str] = None
+    mount_path: Optional[str] = None
+    path: Optional[str] = None
+    enabled: Optional[bool] = None
+    smb_host: Optional[str] = None
+    smb_share: Optional[str] = None
+    smb_username: Optional[str] = None
+    bucket: Optional[str] = None
+    region: Optional[str] = None
+    endpoint: Optional[str] = None
+    prefix: Optional[str] = None
+    gdrive_account: Optional[str] = None
+    notes: Optional[str] = None
+    provider: Optional[str] = None
+
+
+@router.get("/external-locations")
+async def list_external_locations_api():
+    from app.services.cloud_locations import list_external_locations, provider_status, PROVIDER_IDS
+
+    return {
+        "locations": list_external_locations(),
+        "providers": [provider_status(p) for p in PROVIDER_IDS],
+    }
+
+
+@router.post("/external-locations")
+async def create_external_location_api(req: ExternalLocationCreate):
+    from app.services.cloud_locations import create_external_location
+
+    payload = req.model_dump(exclude_none=True)
+    if "path" in payload and "mount_path" not in payload:
+        payload["mount_path"] = payload.pop("path")
+    try:
+        loc = create_external_location(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return loc
+
+
+@router.patch("/external-locations/{loc_id}")
+async def update_external_location_api(loc_id: str, req: ExternalLocationUpdate):
+    from app.services.cloud_locations import update_external_location
+
+    payload = req.model_dump(exclude_none=True)
+    if "path" in payload and "mount_path" not in payload:
+        payload["mount_path"] = payload.pop("path")
+    try:
+        return update_external_location(loc_id, payload)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Location not found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/external-locations/{loc_id}")
+async def delete_external_location_api(loc_id: str):
+    from app.services.cloud_locations import delete_external_location
+
+    if not delete_external_location(loc_id):
+        raise HTTPException(status_code=404, detail="Location not found")
+    return {"status": "ok", "id": loc_id}
+
+
+class BatchRenameRequest(BaseModel):
+    paths: List[str] = Field(..., min_length=1, max_length=500)
+    pattern: str = Field(..., min_length=1, max_length=255)
+    start_index: int = Field(1, ge=0, le=1_000_000)
+    dry_run: bool = False
+    preserve_extension: bool = True
+
+
+_INVALID_NAME_CHARS = re.compile(r'[/\\]|[\x00-\x1f]')
+_TOKEN_RE = re.compile(
+    r'\{(n{1,4}|name|ext|date|yyyy|mm|dd)\}',
+    re.IGNORECASE,
+)
+
+
+def _apply_rename_pattern(
+    original_name: str,
+    pattern: str,
+    index: int,
+    preserve_extension: bool,
+) -> str:
+    """Expand rename pattern tokens into a new basename."""
+    path = Path(original_name)
+    stem = path.stem
+    ext = path.suffix[1:] if path.suffix.startswith('.') else path.suffix
+    now = datetime.now()
+
+    def repl(match: re.Match) -> str:
+        token = match.group(1).lower()
+        if token == 'name':
+            return stem
+        if token == 'ext':
+            return ext
+        if token == 'date':
+            return now.strftime('%Y-%m-%d')
+        if token == 'yyyy':
+            return now.strftime('%Y')
+        if token == 'mm':
+            return now.strftime('%m')
+        if token == 'dd':
+            return now.strftime('%d')
+        # n, nn, nnn, nnnn
+        width = len(token)
+        return str(index).zfill(width)
+
+    new_name = _TOKEN_RE.sub(repl, pattern)
+
+    if preserve_extension and ext and '{ext}' not in pattern.lower():
+        # Keep original extension when pattern does not manage it
+        if not new_name.lower().endswith(f'.{ext.lower()}'):
+            new_name = f'{new_name}.{ext}'
+
+    return new_name
+
+
+def _validate_new_basename(name: str) -> Optional[str]:
+    if not name or not name.strip():
+        return 'New name is empty'
+    if name in ('.', '..'):
+        return 'Invalid name'
+    if _INVALID_NAME_CHARS.search(name):
+        return 'Name contains invalid characters'
+    if name.startswith('/') or name.startswith('\\'):
+        return 'Name must be a basename only'
+    return None
+
+
+@router.post("/batch-rename")
+async def batch_rename_files(req: BatchRenameRequest):
+    """
+    Rename multiple files using a pattern with tokens:
+    {n}/{nn}/{nnn}/{nnnn}, {name}, {ext}, {date}, {yyyy}, {mm}, {dd}.
+    dry_run=true returns the planned renames without mutating the filesystem.
+    """
+    logger = logging.getLogger('prism.batch-rename')
+    if not req.pattern.strip():
+        raise HTTPException(status_code=400, detail='Pattern is required')
+
+    # Preserve order, drop duplicates
+    seen: set[str] = set()
+    ordered_paths: list[str] = []
+    for p in req.paths:
+        if p not in seen:
+            seen.add(p)
+            ordered_paths.append(p)
+
+    planned: list[dict] = []
+    dest_keys: set[str] = set()
+
+    for i, path_str in enumerate(ordered_paths):
+        index = req.start_index + i
+        item: dict = {
+            'source_path': path_str,
+            'source_name': Path(path_str).name,
+            'index': index,
+            'ok': False,
+            'error': None,
+            'dest_path': None,
+            'dest_name': None,
+            'skipped': False,
+        }
+
+        try:
+            src = safe_resolve_write(path_str)
+            if not src.exists():
+                item['error'] = 'Source not found'
+                planned.append(item)
+                continue
+            if not src.is_file():
+                item['error'] = 'Only files can be renamed (not directories)'
+                planned.append(item)
+                continue
+
+            new_name = _apply_rename_pattern(
+                src.name, req.pattern, index, req.preserve_extension
+            )
+            err = _validate_new_basename(new_name)
+            if err:
+                item['error'] = err
+                planned.append(item)
+                continue
+
+            dest = src.parent / new_name
+            # Ensure destination stays within write roots
+            dest = safe_resolve_write(dest)
+
+            item['dest_name'] = new_name
+            item['dest_path'] = str(dest)
+
+            if dest == src:
+                item['ok'] = True
+                item['skipped'] = True
+                planned.append(item)
+                continue
+
+            dest_key = str(dest)
+            if dest_key in dest_keys:
+                item['error'] = 'Duplicate destination name in this batch'
+                planned.append(item)
+                continue
+            dest_keys.add(dest_key)
+
+            item['ok'] = True
+            planned.append(item)
+        except HTTPException as e:
+            detail = e.detail if isinstance(e.detail, str) else str(e.detail)
+            item['error'] = detail
+            planned.append(item)
+        except Exception as e:
+            logger.exception('plan failed for %s', path_str)
+            item['error'] = f'Failed to plan rename: {e}'
+            planned.append(item)
+
+    # Collision check: destination exists and is not a source we will move away
+    resolved_sources_that_move: set[str] = set()
+    for p in planned:
+        if p.get('ok') and not p.get('skipped') and p.get('source_path'):
+            try:
+                resolved_sources_that_move.add(str(safe_resolve_write(p['source_path'])))
+            except HTTPException:
+                pass
+
+    for item in planned:
+        if not item.get('ok') or item.get('skipped') or not item.get('dest_path'):
+            continue
+        dest = Path(item['dest_path'])
+        if dest.exists() and str(dest) not in resolved_sources_that_move:
+            item['ok'] = False
+            item['error'] = 'Destination already exists'
+
+    ok_count = sum(1 for p in planned if p.get('ok'))
+    error_count = sum(1 for p in planned if not p.get('ok'))
+    skip_count = sum(1 for p in planned if p.get('skipped'))
+
+    if req.dry_run:
+        return {
+            'dry_run': True,
+            'renamed': 0,
+            'skipped': skip_count,
+            'failed': error_count,
+            'results': planned,
+        }
+
+    if error_count > 0:
+        # Refuse partial apply when plan has errors (client can filter and retry)
+        raise HTTPException(
+            status_code=400,
+            detail={
+                'message': 'Rename plan has errors; fix or remove failing items and retry',
+                'failed': error_count,
+                'results': planned,
+            },
+        )
+
+    # Two-phase rename to avoid overwriting within the batch
+    temps: list[tuple[Path, Path, dict]] = []  # (temp, final, item)
+    results: list[dict] = []
+
+    try:
+        for item in planned:
+            if item.get('skipped'):
+                results.append({**item, 'renamed': False})
+                continue
+            if not item.get('ok'):
+                results.append(item)
+                continue
+
+            src = safe_resolve_write(item['source_path'])
+            final = Path(item['dest_path'])
+            temp = src.parent / f'.prism_rename_{uuid.uuid4().hex[:12]}_{src.name}'
+            # temp must be writable
+            safe_resolve_write(temp)
+            src.rename(temp)
+            temps.append((temp, final, item))
+
+        for temp, final, item in temps:
+            temp.rename(final)
+            results.append({**item, 'renamed': True, 'ok': True, 'error': None})
+    except Exception as e:
+        logger.exception('batch rename execution failed')
+        # Best-effort: try to restore any remaining temps to original names
+        for temp, final, item in temps:
+            if temp.exists() and not Path(item['source_path']).exists():
+                try:
+                    temp.rename(Path(item['source_path']))
+                except Exception:
+                    pass
+        raise HTTPException(status_code=500, detail=f'Batch rename failed: {e}')
+
+    renamed = sum(1 for r in results if r.get('renamed'))
+    logger.info(
+        'batch-rename done renamed=%s skipped=%s pattern=%r',
+        renamed,
+        skip_count,
+        req.pattern,
+    )
+    return {
+        'dry_run': False,
+        'renamed': renamed,
+        'skipped': skip_count,
+        'failed': 0,
+        'results': results,
+    }
+
+
+class OpenInExplorerRequest(BaseModel):
+    path: str = Field(..., min_length=1, max_length=4096)
+
+
+def _build_explorer_command(target: Path) -> list[str]:
+    if sys.platform == "darwin":
+        if target.is_file():
+            return ["open", "-R", str(target)]
+        return ["open", str(target)]
+
+    if os.name == "nt":
+        if target.is_file():
+            return ["explorer", "/select,", str(target)]
+        return ["explorer", str(target)]
+
+    # Linux / other POSIX desktops: reveal by opening the containing folder for files.
+    return ["xdg-open", str(target.parent if target.is_file() else target)]
+
+
+@router.post("/open-in-os-explorer")
+async def open_in_os_explorer(req: OpenInExplorerRequest):
+    """
+    Open a safe filesystem path in the host OS file explorer.
+    For files, reveal/select when supported, otherwise open the containing directory.
+    """
+    try:
+        target = safe_resolve_read(req.path)
+    except HTTPException:
+        raise
+
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Path not found")
+
+    command = _build_explorer_command(target)
+
+    try:
+        subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="OS file explorer integration is unavailable on this system",
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to open file explorer: {e}")
+
+    return {
+        "status": "ok",
+        "opened_path": str(target),
+        "directory_path": str(target.parent if target.is_file() else target),
     }
 
 

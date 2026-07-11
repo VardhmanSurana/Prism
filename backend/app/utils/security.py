@@ -10,6 +10,7 @@ def get_allowed_read_roots() -> list[Path]:
         settings.UPLOAD_DIR.resolve(),
         settings.THUMBNAILS_DIR.resolve(),
         settings.DATA_DIR.resolve(),
+        Path.home().resolve(),
         (Path.home() / "Pictures").resolve(),
         (Path.home() / "Downloads").resolve(),
         (Path.home() / "Documents").resolve(),
@@ -24,7 +25,25 @@ def get_allowed_read_roots() -> list[Path]:
                     roots.append(p)
             except Exception:
                 pass
-    return roots
+
+    # User-configured NAS / external locations (settings.json)
+    try:
+        from app.utils.mounts import get_enabled_external_paths
+
+        for extra in get_enabled_external_paths():
+            roots.append(extra)
+    except Exception:
+        pass
+
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[Path] = []
+    for r in roots:
+        key = str(r)
+        if key not in seen:
+            seen.add(key)
+            unique.append(r)
+    return unique
 
 def get_allowed_write_roots() -> list[Path]:
     """Retrieve all directories allowed for write operations."""

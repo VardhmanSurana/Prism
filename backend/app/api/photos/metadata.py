@@ -4,6 +4,7 @@ import os
 import logging
 import cv2
 import numpy as np
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -12,6 +13,8 @@ from sqlalchemy.orm import selectinload
 from app.db import get_db
 from app.models import Photo, PhotoPerson
 from app.config import settings
+from app.utils.image import reverse_geocode_coords
+from app.services.xmp_service import export_xmp_to_file
 
 from app.services.portrait_service import portrait_service
 from app.services.background_service import background_service
@@ -23,6 +26,11 @@ from fastapi import Request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+class PhotoLocationUpdateRequest(BaseModel):
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
 
 
 @router.get("/semantic-masks/{photo_id}")
@@ -253,4 +261,47 @@ async def get_photo_metadata(photo_id: int, db: AsyncSession = Depends(get_db)):
         "people": people_data,
         "mime_type": photo.mime_type,
         "file_size": photo.file_size if photo.file_size is not None else 0
+    }
+
+
+@router.put("/{photo_id}/location")
+async def update_photo_location(
+    photo_id: int,
+    payload: PhotoLocationUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    photo.latitude = payload.latitude
+    photo.longitude = payload.longitude
+
+    location_info = reverse_geocode_coords(payload.latitude, payload.longitude)
+    photo.city = location_info.get("city") if location_info else None
+    photo.state = location_info.get("state") if location_info else None
+    photo.country = location_info.get("country") if location_info else None
+
+    location_parts = [part for part in [photo.city, photo.state, photo.country] if part]
+    photo.location = ", ".join(location_parts) if location_parts else None
+
+    await db.commit()
+    await db.refresh(photo)
+
+    xmp_exported = False
+    try:
+        export_xmp_to_file(photo)
+        xmp_exported = True
+    except Exception as exc:
+        logger.warning("Failed to export XMP after location update for photo %s: %s", photo_id, exc)
+
+    return {
+        "id": photo.id,
+        "latitude": photo.latitude,
+        "longitude": photo.longitude,
+        "location": photo.location,
+        "city": photo.city,
+        "state": photo.state,
+        "country": photo.country,
+        "xmp_exported": xmp_exported,
     }

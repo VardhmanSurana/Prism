@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderOpen, Camera, FileText } from 'lucide-react';
+import { FolderOpen, Camera, FileText, MapPin } from 'lucide-react';
 import { Album, SmartAlbum } from '../../types';
 import { AlbumCard } from './AlbumCard';
 
@@ -14,6 +14,7 @@ interface AlbumsListProps {
 const SMART_ALBUM_ICONS: Record<string, React.ReactNode> = {
   screenshots: <Camera size={24} />,
   documents: <FileText size={24} />,
+  places: <MapPin size={24} />,
 };
 
 export const AlbumsList: React.FC<AlbumsListProps> = ({ 
