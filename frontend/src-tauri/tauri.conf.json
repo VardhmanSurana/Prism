@@ -13,7 +13,9 @@
     "windows": [
       {
         "title": "Prism",
-        "fullscreen": true,
+        "fullscreen": false,
+        "width": 1920,
+        "height": 1080,
         "resizable": true,
         "decorations": true,
         "transparent": false

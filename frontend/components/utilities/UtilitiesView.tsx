@@ -3,6 +3,7 @@ import { useUtilities } from '../../hooks/utilities';
 
 import { SyncSettings } from './SyncSettings';
 import { FaceSettings } from './FaceSettings';
+import { AISettings } from './AISettings';
 import { PurgeSettings } from './PurgeSettings';
 import { Appearance } from './Appearance';
 import { SystemIntegrity } from './SystemIntegrity';
@@ -90,6 +91,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
 
         {activeTab === 'system' && (
           <div className="space-y-5">
+            <AISettings />
             <SyncSettings 
               syncEnabled={syncEnabled}
               onToggleSync={handleToggleSync}

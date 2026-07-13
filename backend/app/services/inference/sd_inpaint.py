@@ -22,6 +22,22 @@ if torch.cuda.is_available():
     torch.backends.cudnn.enabled = False
     logger.info("cuDNN disabled (workaround for cuBLAS Lt bug on RTX 2050)")
 
+from app.config import settings
+
+def _get_device() -> str:
+    if settings.GPU_MODE == "cpu":
+        return "cpu"
+    if settings.GPU_MODE == "sycl":
+        try:
+            import intel_extension_for_pytorch as ipex
+            if torch.xpu.is_available():
+                return "xpu"
+        except ImportError:
+            pass
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
+
 _pipes = {}
 
 
@@ -37,7 +53,7 @@ def unload_sd():
         logger.info("Stable Diffusion pipelines unloaded.")
 
 
-def _get_pipe(device: str = "cuda"):
+def _get_pipe(device: str):
     global _pipes
     if device not in _pipes:
         from diffusers import StableDiffusionInpaintPipeline
@@ -45,7 +61,7 @@ def _get_pipe(device: str = "cuda"):
         
         # Load parameters based on hardware device
         kwargs = {}
-        if device == "cuda":
+        if device in ("cuda", "xpu"):
             kwargs["dtype"] = torch.float16
             kwargs["variant"] = "fp16"
         else:
@@ -59,15 +75,15 @@ def _get_pipe(device: str = "cuda"):
         )
         
         # GPU Optimizations
-        if device == "cuda":
+        if device in ("cuda", "xpu"):
             try:
                 # Enable model CPU offloading to save a massive amount of VRAM (maps layers to CPU)
                 # Keep total VRAM overhead under ~800MB instead of ~2.5GB.
                 pipe.enable_model_cpu_offload()
-                logger.info("SD 1.5: Enabled model CPU offloading")
+                logger.info(f"SD 1.5: Enabled model CPU offloading on {device}")
             except Exception as e:
-                logger.warning(f"Failed to enable model CPU offloading: {e}. Falling back to standard pipeline.to('cuda')")
-                pipe.to("cuda")
+                logger.warning(f"Failed to enable model CPU offloading: {e}. Falling back to standard pipeline.to('{device}')")
+                pipe.to(device)
             
             try:
                 pipe.enable_xformers_memory_efficient_attention()
@@ -94,22 +110,23 @@ def _get_pipe(device: str = "cuda"):
 def run_pipeline_with_fallback(fn, *args, **kwargs):
     """Executes a diffusers inpainting function on the GPU first (if available), with automatic CPU fallback on OOM."""
     global _pipes
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = _get_device()
     
-    if device == "cuda":
+    if device in ("cuda", "xpu"):
         try:
-            pipe = _get_pipe("cuda")
-            return fn(pipe, "cuda")
+            pipe = _get_pipe(device)
+            return fn(pipe, device)
         except Exception as e:
             err_str = str(e).lower()
-            if "out of memory" in err_str or "oom" in err_str or "cuda error" in err_str:
-                logger.warning(f"Stable Diffusion inference on GPU failed with OutOfMemory: {e}. Falling back to CPU...")
+            if "out of memory" in err_str or "oom" in err_str or "cuda error" in err_str or "xpu error" in err_str:
+                logger.warning(f"Stable Diffusion inference on GPU ({device}) failed with OutOfMemory: {e}. Falling back to CPU...")
                 # Evict the GPU pipeline to release VRAM
-                if "cuda" in _pipes:
-                    del _pipes["cuda"]
+                if device in _pipes:
+                    del _pipes[device]
                 import gc
                 gc.collect()
-                torch.cuda.empty_cache()
+                if device == "cuda":
+                    torch.cuda.empty_cache()
             else:
                 # Re-raise non-OOM errors
                 raise

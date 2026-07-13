@@ -44,7 +44,7 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
     addClip, removeClip, splitClip, selectClip, addFreezeFrame,
     undo, redo,
     pushHistory, projectFps, setClipboardClip, selectedTrackId,
-    projectWidth, projectHeight,
+    projectWidth, projectHeight, duration,
   } = useNLEStore();
 
   const canUndo = useNLEStore(s => s.canUndo());
@@ -95,6 +95,13 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
   // Initialize project on mount
   useEffect(() => {
     let cancelled = false;
+
+    // When launched from VideoEditorFromProject, photo.path is '' (project-stub).
+    // In that case the NLE store was already pre-loaded by the wrapper — skip init.
+    if (!photo.path) {
+      setIsLoading(false);
+      return;
+    }
 
     async function init() {
       try {
@@ -465,35 +472,33 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
         {/* Center preview area */}
         <div className="flex-1 flex items-center justify-center bg-black">
-          {clipAnalysis && (
-            <PreviewArea
-              sourcePath={activeClip?.sourcePath ?? clipAnalysis.source_path}
-              proxyPath={activeClip?.proxyPath}
-              activeClip={activeClip}
-              additionalClips={activeClips.length > 1 ? activeClips.slice(1) : undefined}
-              photoId={photo.id}
-              isPlaying={isPlaying}
-              playheadPosition={playheadPosition}
-              clipTimeOffset={activeClip ? activeClip.startFrame / projectFps : 0}
-              clipKeyframes={activeClip?.keyframes ?? {}}
-              clipEffects={activeClip?.effects}
-              clipTransform={activeClip?.transform}
-              clipSpeed={activeClip?.speed}
-              clipInPoint={activeClip?.inPoint}
-              compareMode={compareMode}
-              compareRatio={compareRatio}
-              setCompareRatio={setCompareRatio}
-              compareDragging={compareDragging}
-              onSeek={seek}
-              onPlay={play}
-              onPause={pause}
-              duration={clipAnalysis.duration}
-              projectFps={projectFps}
-              tracks={tracks}
-              projectWidth={projectWidth}
-              projectHeight={projectHeight}
-            />
-          )}
+          <PreviewArea
+            sourcePath={activeClip?.sourcePath ?? clipAnalysis?.source_path ?? ""}
+            proxyPath={activeClip?.proxyPath}
+            activeClip={activeClip}
+            additionalClips={activeClips.length > 1 ? activeClips.slice(1) : undefined}
+            photoId={photo.id}
+            isPlaying={isPlaying}
+            playheadPosition={playheadPosition}
+            clipTimeOffset={activeClip ? activeClip.startFrame / projectFps : 0}
+            clipKeyframes={activeClip?.keyframes ?? {}}
+            clipEffects={activeClip?.effects}
+            clipTransform={activeClip?.transform}
+            clipSpeed={activeClip?.speed}
+            clipInPoint={activeClip?.inPoint}
+            compareMode={compareMode}
+            compareRatio={compareRatio}
+            setCompareRatio={setCompareRatio}
+            compareDragging={compareDragging}
+            onSeek={seek}
+            onPlay={play}
+            onPause={pause}
+            duration={clipAnalysis?.duration ?? duration ?? 0}
+            projectFps={projectFps}
+            tracks={tracks}
+            projectWidth={projectWidth}
+            projectHeight={projectHeight}
+          />
         </div>
 
         {/* Right inspector panel */}
@@ -588,7 +593,7 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
     return decoder;
   }, []);
 
-  // Cleanup decoders on unmount
+  // Cleanup decoders, video elements, and RAF loop on unmount
   useEffect(() => {
     return () => {
       decodersRef.current.forEach((d) => d.destroy());
@@ -597,6 +602,19 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
         prev?.close();
         return null;
       });
+      // Stop main video playback and release media resources
+      const video = videoRef.current;
+      if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+      }
+      const transition = transitionVideoRef.current;
+      if (transition) {
+        transition.pause();
+        transition.removeAttribute('src');
+        transition.load();
+      }
     };
   }, []);
 
@@ -716,7 +734,8 @@ const PreviewArea: React.FC<PreviewAreaProps> = ({
 
   useAudioMixer(clipAudioEls.current, tracks, isPlaying, playheadPosition, projectFps);
 
-  const videoUrl = `${API_BASE}/api/v1/nle/stream?path=${encodeURIComponent(proxyPath || sourcePath)}`;
+  const path = proxyPath || sourcePath;
+  const videoUrl = path ? `${API_BASE}/api/v1/nle/stream?path=${encodeURIComponent(path)}` : '';
 
   const kfTime = Math.max(0, playheadPosition - clipTimeOffset);
 

@@ -147,19 +147,25 @@ async def privacy_status():
     This is a transparency endpoint — it reports exactly what each
     feature does based on the actual source code, not marketing claims.
     """
-    enabled_count = sum(1 for f in FEATURE_FLAGS if f["enabled"])
-    total_network = sum(len(f["network_calls"]) for f in FEATURE_FLAGS)
+    live_features = []
+    for f in FEATURE_FLAGS:
+        live_f = f.copy()
+        live_f["enabled"] = getattr(settings, f["id"], False)
+        live_features.append(live_f)
+
+    enabled_count = sum(1 for f in live_features if f["enabled"])
+    total_network = sum(len(f["network_calls"]) for f in live_features)
 
     return {
         "summary": {
-            "total_features": len(FEATURE_FLAGS),
+            "total_features": len(live_features),
             "enabled": enabled_count,
-            "disabled": len(FEATURE_FLAGS) - enabled_count,
+            "disabled": len(live_features) - enabled_count,
             "total_network_endpoints": total_network,
             "all_local": total_network == 0,
             "verdict": "All data stays on your device" if total_network == 0 else "Some features make network calls",
         },
-        "features": FEATURE_FLAGS,
+        "features": live_features,
     }
 
 
@@ -169,4 +175,6 @@ async def privacy_feature_detail(feature_id: str):
     feature = next((f for f in FEATURE_FLAGS if f["id"] == feature_id), None)
     if not feature:
         return {"error": f"Unknown feature: {feature_id}"}
-    return feature
+    live_feature = feature.copy()
+    live_feature["enabled"] = getattr(settings, feature_id, False)
+    return live_feature

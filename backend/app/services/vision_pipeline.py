@@ -24,14 +24,26 @@ if os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN"):
     except Exception as _hf_err:
         logger.debug(f"HF login skipped: {_hf_err}")
 
-# Device Configuration
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-# Dtype Configuration - float16 on GPU to save memory, float32 on CPU
-DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
+# Device Configuration helper resolving dynamically based on GPU_MODE settings
+def get_device_and_dtype():
+    device = "cpu"
+    if settings.GPU_MODE != "cpu":
+        if settings.GPU_MODE == "sycl":
+            try:
+                import intel_extension_for_pytorch as ipex
+                if torch.xpu.is_available():
+                    device = "xpu"
+            except ImportError:
+                pass
+        elif torch.cuda.is_available():
+            device = "cuda"
+    dtype = torch.float16 if device in ("cuda", "xpu") else torch.float32
+    return device, dtype
 
-if DEVICE == "cuda":
+# Default setup for stability if CUDA is present on load
+if torch.cuda.is_available():
     torch.backends.cudnn.enabled = False
-    logger.info("CUDA detected for vision-language models. cuDNN disabled for stability.")
+    logger.info("cuDNN disabled for stability.")
 
 # Model IDs
 SIGLIP_MODEL_ID = "google/siglip2-base-patch16-224"
@@ -48,7 +60,8 @@ def unload_models():
     logger.info("Unloading SigLIP2 model from memory...")
     _siglip_model = None
     _siglip_processor = None
-    if torch.cuda.is_available():
+    device, _ = get_device_and_dtype()
+    if device == "cuda" and torch.cuda.is_available():
         torch.cuda.empty_cache()
     gc.collect()
     logger.info("Models successfully unloaded.")
@@ -71,10 +84,11 @@ def _get_siglip():
         face_sdk.shutdown()
         VisionManager.unload_vision()
 
-        logger.info(f"Loading SigLIP2 Model ({SIGLIP_MODEL_ID}) onto {DEVICE} (Dtype: {DTYPE})...")
+        device, dtype = get_device_and_dtype()
+        logger.info(f"Loading SigLIP2 Model ({SIGLIP_MODEL_ID}) onto {device} (Dtype: {dtype})...")
         
-        if torch.cuda.is_available():
-            vram_before = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+        if device in ("cuda", "xpu"):
+            vram_before = torch.cuda.memory_allocated(device) / (1024 ** 2) if device == "cuda" else 0
             logger.info(f"VRAM Allocated before loading SigLIP2: {vram_before:.2f} MB")
             
         _siglip_processor = AutoProcessor.from_pretrained(
@@ -84,15 +98,15 @@ def _get_siglip():
         _siglip_model = AutoModel.from_pretrained(
             SIGLIP_MODEL_ID, 
             cache_dir=CACHE_DIR,
-            dtype=DTYPE
-        ).to(DEVICE)
+            dtype=dtype
+        ).to(device)
         _siglip_model.eval()
         
         load_time = time.time() - start_time
         logger.info(f"SigLIP2 Model loaded successfully in {load_time:.2f} seconds.")
         
-        if torch.cuda.is_available():
-            vram_after = torch.cuda.memory_allocated(DEVICE) / (1024 ** 2)
+        if device == "cuda":
+            vram_after = torch.cuda.memory_allocated(device) / (1024 ** 2)
             vram_used = vram_after - vram_before
             logger.info(f"VRAM Allocated after loading SigLIP2: {vram_after:.2f} MB (Used: {vram_used:.2f} MB)")
             
@@ -173,21 +187,23 @@ def extract_features_and_tags(image_path: str) -> dict:
         embedding = extract_siglip_embedding(image_path)
 
         # Clean GPU VRAM/memory cache
-        if DEVICE == "cuda":
+        device, _ = get_device_and_dtype()
+        if device == "cuda" and torch.cuda.is_available():
             torch.cuda.empty_cache()
         gc.collect()
-
+ 
         return {
             "caption": detailed_caption[:120] + ("..." if len(detailed_caption) > 120 else ""),
             "detailed_caption": detailed_caption,
             "tags": tags,
             "embedding": embedding
         }
-
+ 
     except Exception as e:
         logger.error(f"Error in vision pipeline execution: {e}")
         # Clean VRAM on failure
-        if DEVICE == "cuda":
+        device, _ = get_device_and_dtype()
+        if device == "cuda" and torch.cuda.is_available():
             torch.cuda.empty_cache()
         gc.collect()
         raise e
@@ -211,10 +227,11 @@ def extract_siglip_embedding(image_path: str) -> list[float]:
         raise RuntimeError(f"Could not load image: {e}")
 
     siglip_model, siglip_processor = _get_siglip()
+    device, dtype = get_device_and_dtype()
 
     def prepare_inputs(inputs_dict):
         return {
-            k: v.to(DEVICE).to(dtype=DTYPE) if v.is_floating_point() else v.to(DEVICE)
+            k: v.to(device).to(dtype=dtype) if v.is_floating_point() else v.to(device)
             for k, v in inputs_dict.items()
         }
 

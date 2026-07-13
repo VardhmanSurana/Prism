@@ -165,7 +165,7 @@ function App() {
         />
 
         <main className="flex-1 flex flex-col min-w-0 relative z-10">
-          {currentView !== 'gallery' && currentView !== 'agent' && (
+          {currentView !== 'gallery' && currentView !== 'agent' && currentView !== 'projects' && (
             <Header
               onSearch={setActiveFilters}
               sortMode={sortMode}

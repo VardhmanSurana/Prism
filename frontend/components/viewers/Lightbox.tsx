@@ -231,7 +231,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
             style={displayContainerStyle}
             className="relative transition-all duration-500 ease-out bg-transparent"
           >
-            {isVideo ? (
+            {isVideo && !isNLEOpen ? (
               <VideoPlayer
                 photo={photo}
                 onClose={onClose}

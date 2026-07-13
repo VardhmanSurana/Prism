@@ -13,6 +13,7 @@ export class VideoFrameDecoder {
 
   constructor(src: string) {
     this.video = document.createElement('video');
+    this.video.crossOrigin = 'anonymous';
     this.video.src = src;
     this.video.preload = 'auto';
     this.video.muted = true;

@@ -151,6 +151,32 @@ export class WebGLVideoRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
+  private isSourceReady(source: HTMLVideoElement | VideoFrame): boolean {
+    if (!source) return false;
+
+    // Check if it's a VideoFrame
+    if (typeof VideoFrame !== 'undefined' && source instanceof VideoFrame) {
+      try {
+        // Accessing codedWidth on a closed VideoFrame throws an error
+        return source.codedWidth > 0;
+      } catch {
+        return false; // VideoFrame is closed
+      }
+    }
+
+    // Check if it's an HTMLVideoElement
+    if (source instanceof HTMLVideoElement) {
+      return (
+        source.readyState >= 2 && // HAVE_CURRENT_DATA
+        !!source.src &&
+        !source.src.endsWith('?path=') &&
+        !source.src.endsWith('?path=undefined')
+      );
+    }
+
+    return false;
+  }
+
   public render(
     source: HTMLVideoElement | VideoFrame,
     effects: ClipEffects,
@@ -158,6 +184,10 @@ export class WebGLVideoRenderer {
     canvasWidth: number,
     canvasHeight: number
   ) {
+    if (!this.isSourceReady(source)) {
+      return;
+    }
+
     const gl = this.gl;
 
     gl.viewport(0, 0, canvasWidth, canvasHeight);

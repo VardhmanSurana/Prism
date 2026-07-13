@@ -80,6 +80,7 @@ class ProcessingQueue:
     def __init__(self):
         self._worker_task = None
         self._active = False
+        self._paused = False
         self._wakeup_event = asyncio.Event()
         self._throttler = AdaptiveThrottler()
 
@@ -152,6 +153,65 @@ class ProcessingQueue:
                 await self._broadcast_status()
         except Exception as e:
             logger.error(f"Failed to reset interrupted jobs: {e}")
+
+    async def enqueue_unfinished_jobs(self) -> int:
+        logger.info("Scanning for unfinished photos to enqueue...")
+        from app.models import Photo
+        from sqlalchemy import select
+        
+        try:
+            async with async_session() as db:
+                stmt = select(Photo).where(Photo.is_locked == False, Photo.is_trash == False)
+                res = await db.execute(stmt)
+                photos = res.scalars().all()
+                
+                enqueued_count = 0
+                for photo in photos:
+                    needs_siglip = settings.ENABLE_AI_CLIP and photo.embedding is None
+                    needs_gemma = settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_CAPTION and photo.ai_summary is None
+                    needs_ocr = settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_OCR and photo.ocr_text is None
+                    
+                    resume_index = await self._get_resume_stage_index(photo)
+                    
+                    if needs_siglip or needs_gemma or needs_ocr or resume_index < 4:
+                        stmt_job = select(BackgroundJob).where(
+                            BackgroundJob.photo_id == photo.id,
+                            BackgroundJob.job_type == "sequential_analysis",
+                            BackgroundJob.status.in_(["pending", "processing"])
+                        )
+                        res_job = await db.execute(stmt_job)
+                        if not res_job.scalar_one_or_none():
+                            stmt_failed = select(BackgroundJob).where(
+                                BackgroundJob.photo_id == photo.id,
+                                BackgroundJob.job_type == "sequential_analysis",
+                                BackgroundJob.status == "failed"
+                            )
+                            res_failed = await db.execute(stmt_failed)
+                            failed_job = res_failed.scalar_one_or_none()
+                            if failed_job:
+                                failed_job.status = "pending"
+                                failed_job.last_error = None
+                            else:
+                                new_job = BackgroundJob(
+                                    photo_id=photo.id,
+                                    job_type="sequential_analysis",
+                                    status="pending"
+                                )
+                                db.add(new_job)
+                            enqueued_count += 1
+                            
+                if enqueued_count > 0:
+                    await db.commit()
+                    logger.info(f"Enqueued {enqueued_count} unfinished photos for background processing.")
+                    self.start()
+                    self._wakeup_event.set()
+                    asyncio.create_task(self._broadcast_status())
+                else:
+                    logger.info("No unfinished photos found.")
+            return enqueued_count
+        except Exception as e:
+            logger.error(f"Failed to scan and enqueue unfinished jobs: {e}")
+            return 0
 
     async def _broadcast_stage_progress(self, stage: str, completed: int, total: int):
         try:
@@ -239,7 +299,7 @@ class ProcessingQueue:
                     "processed": gemma_processed,
                     "total": total_photos,
                     "progress": round(gemma_progress, 1),
-                    "is_processing": is_processing and settings.ENABLE_AI_CLIP
+                    "is_processing": is_processing and settings.ENABLE_AI_CAPTION
                 },
                 "face": {
                     "processed": face_processed,
@@ -296,20 +356,20 @@ class ProcessingQueue:
         return []
 
     async def _get_resume_stage_index(self, photo) -> int:
-        if photo.embedding is not None:
-            return 1
-        try:
-            async with async_session() as db:
-                stmt = select(PhotoPerson).where(PhotoPerson.photo_id == photo.id)
-                res = await db.execute(stmt)
-                if res.scalar_one_or_none() is not None:
-                    return 2
-        except Exception:
-            pass
-        if photo.ai_summary is not None:
-            return 3
         if photo.ocr_text is not None:
             return 4
+        if photo.ai_summary is not None:
+            return 3
+        try:
+            async with async_session() as db:
+                stmt = select(PhotoPerson.photo_id).where(PhotoPerson.photo_id == photo.id).limit(1)
+                res = await db.execute(stmt)
+                if res.scalar() is not None:
+                    return 2
+        except Exception as e:
+            logger.error(f"Error checking face assignment in resume index: {e}")
+        if photo.embedding is not None:
+            return 1
         return 0
 
     async def _update_job_stage(self, job_id: int, stage: str, completed: int, total: int):
@@ -327,6 +387,10 @@ class ProcessingQueue:
     async def _worker(self):
         while self._active:
             try:
+                if self._paused:
+                    await asyncio.sleep(1.0)
+                    continue
+
                 await self._throttler.wait_if_paused()
 
                 job_infos = await self._get_pending_jobs()
@@ -404,7 +468,7 @@ class ProcessingQueue:
                 batch_size = len(job_infos)
 
                 # ── Stage 1: SigLIP 2 Embedding Generation (CRITICAL) ──
-                if settings.ENABLE_AI_CLIP:
+                if settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_CLIP:
                     active_stage1_photos = [
                         j for j in job_infos
                         if not results[j["photo_id"]]["is_encrypted"]
@@ -448,12 +512,20 @@ class ProcessingQueue:
                     await self._throttler.wait_if_paused()
 
                 # ── Stage 2: Face Detection & Clustering (InspireFace) (CRITICAL) ──
-                active_stage2_photos = [
-                    j for j in job_infos
-                    if not results[j["photo_id"]]["is_encrypted"]
-                    and results[j["photo_id"]]["stage2_success"]
-                    and results[j["photo_id"]]["resume_from"] <= 1
-                ]
+                active_stage2_photos = []
+                for j in job_infos:
+                    pid = j["photo_id"]
+                    if results[pid]["is_encrypted"] or not results[pid]["stage2_success"] or results[pid]["resume_from"] > 1:
+                        continue
+                    path = results[pid]["photo_path"]
+                    from app.services.sync.handler import is_video_file
+                    is_video = is_video_file(path) if path else False
+                    if is_video:
+                        if settings.ENABLE_VIDEO_BG_PROCESS and settings.ENABLE_VIDEO_FACE:
+                            active_stage2_photos.append(j)
+                    else:
+                        if settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_FACE:
+                            active_stage2_photos.append(j)
                 if active_stage2_photos:
                     from app.services.face_sdk import face_sdk
                     from app.services.face_clustering import face_service
@@ -533,7 +605,7 @@ class ProcessingQueue:
                     await self._throttler.wait_if_paused()
 
                 # ── Stage 3: Gemma 4 E2B Vision (OPTIONAL) ──
-                if settings.ENABLE_AI_CLIP:
+                if settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_CAPTION:
                     from app.services.sync.handler import is_video_file
                     active_stage3_photos = [
                         j for j in job_infos
@@ -610,7 +682,7 @@ class ProcessingQueue:
                     await self._throttler.wait_if_paused()
 
                 # ── Stage 4: PaddleOCR-VL Text Extraction (OPTIONAL) ──
-                if settings.ENABLE_AI_OCR:
+                if settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_OCR:
                     from app.services.sync.handler import is_video_file
                     active_stage4_photos = [
                         j for j in job_infos

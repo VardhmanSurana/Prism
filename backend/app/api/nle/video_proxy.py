@@ -22,7 +22,6 @@ def _cors_headers(request: Request) -> dict:
         "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges",
-        "Vary": "Origin",
     }
 
 

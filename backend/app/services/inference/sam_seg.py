@@ -21,9 +21,24 @@ if torch.cuda.is_available():
     torch.backends.cudnn.enabled = False
     logger.info("cuDNN disabled (workaround for cuBLAS Lt bug on RTX 2050)")
 
+from app.config import settings
+
 _model = None
 _processor = None
-_device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def _get_device() -> str:
+    if settings.GPU_MODE == "cpu":
+        return "cpu"
+    if settings.GPU_MODE == "sycl":
+        try:
+            import intel_extension_for_pytorch as ipex
+            if torch.xpu.is_available():
+                return "xpu"
+        except ImportError:
+            pass
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
 
 
 def _get_sam():
@@ -32,9 +47,10 @@ def _get_sam():
         from transformers import SamModel, SamProcessor
         logger.info("Loading SAM ViT-B via transformers...")
         _processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
-        _model = SamModel.from_pretrained("facebook/sam-vit-base").to(_device)
+        device = _get_device()
+        _model = SamModel.from_pretrained("facebook/sam-vit-base").to(device)
         _model.eval()
-        logger.info(f"SAM loaded on {_device}")
+        logger.info(f"SAM loaded on {device}")
     return _model, _processor
 
 
@@ -74,7 +90,7 @@ def sam_segment_from_points(
         input_points=input_points,
         input_labels=input_labels,
         return_tensors="pt",
-    ).to(_device)
+    ).to(_get_device())
 
     with torch.inference_mode():
         outputs = model(**inputs, multimask_output=False)
@@ -123,7 +139,7 @@ def sam_segment_interactive(
         input_points=input_points,
         input_labels=input_labels,
         return_tensors="pt",
-    ).to(_device)
+    ).to(_get_device())
 
     with torch.inference_mode():
         outputs = model(**inputs, multimask_output=False)

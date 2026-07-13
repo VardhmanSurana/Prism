@@ -159,6 +159,9 @@ async def _to_thread(fn, /, *args, **kwargs):
 
 @router.post("/process")
 async def process_inpaint(request: InpaintRequest):
+    from app.config import settings
+    if not settings.ENABLE_AI_INPAINTING:
+        raise HTTPException(status_code=400, detail="AI Inpainting is disabled in settings.")
     """
     Process inpainting/outpainting request.
     

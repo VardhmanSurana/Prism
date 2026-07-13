@@ -45,12 +45,13 @@ class AIOrchestrator:
             mmproj_path = Path(settings.BASE_DIR) / "models" / "PaddleOCR" / "PaddleOCR-VL-1.6-GGUF-mmproj.gguf"
             port = 9092
 
+        ngl_layers = "0" if settings.GPU_MODE == "cpu" else "999"
         cmd = [
             "llama-server",
             "-m", str(model_path.absolute()),
             "--host", "0.0.0.0",
             "--port", str(port),
-            "-ngl", "999",       # Full GPU offload
+            "-ngl", ngl_layers,
             "-c", "8192",        # Context size (larger for vision)
         ]
 

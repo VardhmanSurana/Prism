@@ -236,6 +236,16 @@ async def lifespan(app):
 
     await sync_service.initialize()
 
+    # Start background processing queue to recover pending jobs from restart
+    try:
+        from app.services.processing_queue import processing_queue
+        processing_queue.start()
+        import asyncio
+        asyncio.create_task(processing_queue.enqueue_unfinished_jobs())
+        logger.info("Background processing queue worker auto-started on startup.")
+    except Exception as e:
+        logger.error(f"Failed to start background processing queue: {e}")
+
     try:
         locked_service.recover_interrupted_files()
     except Exception as e:

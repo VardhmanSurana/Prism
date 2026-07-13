@@ -11,6 +11,7 @@ import {
   Sparkles,
   Users,
   Bot,
+  Film,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { API_BASE } from '@/constants';
@@ -34,6 +35,7 @@ const MAIN_NAV: NavItemData[] = [
 const LIBRARY_NAV: NavItemData[] = [
   { view: 'albums', icon: FolderOpen, label: 'Albums' },
   { view: 'people', icon: Users, label: 'People' },
+  { view: 'projects', icon: Film, label: 'Video Projects' },
   { view: 'trash', icon: Trash2, label: 'Trash' },
 ];
 

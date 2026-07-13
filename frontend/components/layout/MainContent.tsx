@@ -11,6 +11,7 @@ const MapView = React.lazy(() => import('../MapView').then(m => ({ default: m.Ma
 const LockedViewAuth = React.lazy(() => import('../LockedViewAuth/index').then(m => ({ default: m.LockedViewAuth })));
 const LockedFolderView = React.lazy(() => import('../LockedViewAuth/LockedFolderView').then(m => ({ default: m.LockedFolderView })));
 const AgentView = React.lazy(() => import('../AgentView/AgentView').then(m => ({ default: m.AgentView })));
+const ProjectsDashboard = React.lazy(() => import('../projects/ProjectsDashboard').then(m => ({ default: m.ProjectsDashboard })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -84,6 +85,8 @@ export const MainContent = React.memo(function MainContent({
         );
       case 'people':
         return <PeopleView onPhotoClick={onPhotoClick} onPhotosLoaded={onPhotosLoaded} />;
+      case 'projects':
+        return <ProjectsDashboard />;
       case 'map':
         return (
           <MapView

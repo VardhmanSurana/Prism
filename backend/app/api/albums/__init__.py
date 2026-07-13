@@ -139,16 +139,6 @@ async def rename_album(album_id: int, name: str = Body(..., embed=True), db: Asy
     await db.refresh(album)
     return album
 
-@router.get("/{album_id}/photos")
-async def get_album_photos(album_id: int, db: AsyncSession = Depends(get_db)):
-    album = await db.get(Album, album_id)
-    if not album or album.type != "custom":
-        raise HTTPException(status_code=404, detail="Album not found")
-    stmt = select(Photo).join(PhotoAlbum).where(PhotoAlbum.album_id == album_id).order_by(Photo.date_taken.desc())
-    result = await db.execute(stmt)
-    photos = result.scalars().all()
-    return [photo_to_dict(p) for p in photos]
-
 @router.post("/{album_id}/add-photos")
 async def add_photos_to_album(
     album_id: int, 
@@ -546,3 +536,14 @@ async def reclassify_all_photos(db: AsyncSession = Depends(get_db)):
         await db.commit()
 
     return {"status": "success", "total": len(photos), "updated": updated}
+
+
+@router.get("/{album_id}/photos")
+async def get_album_photos(album_id: int, db: AsyncSession = Depends(get_db)):
+    album = await db.get(Album, album_id)
+    if not album or album.type != "custom":
+        raise HTTPException(status_code=404, detail="Album not found")
+    stmt = select(Photo).join(PhotoAlbum).where(PhotoAlbum.album_id == album_id).order_by(Photo.date_taken.desc())
+    result = await db.execute(stmt)
+    photos = result.scalars().all()
+    return [photo_to_dict(p) for p in photos]

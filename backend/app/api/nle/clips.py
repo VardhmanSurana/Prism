@@ -116,7 +116,36 @@ async def analyze_clip(req: ClipAnalyzeRequest, db: AsyncSession = Depends(get_d
     codec = video_stream.get("codec_name")
     has_audio = audio_stream is not None
 
-    # Create clip record
+    # Create clip record (guard against race: re-check before insert)
+    if req.photo_id:
+        result = await db.execute(
+            select(VideoClip).where(VideoClip.photo_id == req.photo_id)
+        )
+        row = result.first()
+        if row:
+            existing_clip = row[0]
+            proxy_path = None
+            try:
+                from app.services.nle_proxy import nle_proxy
+                proxy = await nle_proxy.get_or_create_proxy(existing_clip.source_path)
+                if proxy:
+                    proxy_path = str(proxy)
+            except Exception:
+                pass
+            return {
+                "clip_id": existing_clip.id,
+                "photo_id": existing_clip.photo_id,
+                "source_path": existing_clip.source_path,
+                "duration": existing_clip.duration,
+                "width": existing_clip.width,
+                "height": existing_clip.height,
+                "fps": existing_clip.fps,
+                "codec": existing_clip.codec,
+                "has_audio": existing_clip.has_audio,
+                "proxy_status": existing_clip.proxy_status,
+                "proxy_path": proxy_path,
+            }
+
     clip = VideoClip(
         photo_id=req.photo_id,
         source_path=req.source_path,

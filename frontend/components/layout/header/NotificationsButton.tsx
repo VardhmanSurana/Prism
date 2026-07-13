@@ -19,6 +19,7 @@ interface JobStatus {
   clip: ServiceStatus;
   gemma: ServiceStatus;
   face: ServiceStatus;
+  ocr: ServiceStatus;
   queue: {
     pending: number;
     processing: number;
@@ -53,6 +54,18 @@ export const NotificationsButton: React.FC = () => {
 
   // Listen to SSE events for real-time status & completion pings
   useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/utilities/background-jobs/status`);
+        if (res.ok) {
+          const data = await res.json();
+          setStatus(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch background jobs status', e);
+      }
+    };
+
     const unsubStatus = eventService.subscribe('background_job_status', (event) => {
       const data = event.data as JobStatus;
       setStatus(data);
@@ -69,9 +82,14 @@ export const NotificationsButton: React.FC = () => {
       ]);
     });
 
+    const unsubReconnected = eventService.subscribe('reconnected', () => {
+      fetchStatus();
+    });
+
     return () => {
       unsubStatus();
       unsubCompleted();
+      unsubReconnected();
     };
   }, []);
 
@@ -100,7 +118,12 @@ export const NotificationsButton: React.FC = () => {
 
   const isProcessingAny =
     syncStatus.is_scanning ||
-    !!(status?.clip.is_processing || status?.gemma.is_processing || status?.face.is_processing);
+    !!(
+      status?.clip.is_processing ||
+      status?.gemma.is_processing ||
+      status?.face.is_processing ||
+      status?.ocr.is_processing
+    );
 
   return (
     <div className="relative" ref={containerRef}>
@@ -200,6 +223,20 @@ export const NotificationsButton: React.FC = () => {
                       isScanning={status.face.is_processing}
                       label="Face Detection & Clustering"
                       color="bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.3)]"
+                    />
+                  </div>
+                )}
+
+                {/* OCR Text Extraction */}
+                {status?.ocr.is_processing && (
+                  <div className="space-y-1">
+                    <ProgressBar
+                      progress={status.ocr.progress}
+                      total={status.ocr.total}
+                      processed={status.ocr.processed}
+                      isScanning={status.ocr.is_processing}
+                      label="Text Extraction (OCR)"
+                      color="bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]"
                     />
                   </div>
                 )}

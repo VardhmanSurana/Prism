@@ -978,8 +978,11 @@ async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
     gemma_progress = (gemma_processed / total_photos * 100) if total_photos > 0 else 0
     face_progress = (face_processed / total_photos * 100) if total_photos > 0 else 0
 
+    from app.services.processing_queue import processing_queue
+
     return {
         "total_photos": total_photos,
+        "paused": processing_queue._paused,
         "clip": {
             "processed": clip_processed,
             "total": total_photos,
@@ -1054,3 +1057,21 @@ async def resume_background_jobs():
     from app.services.processing_queue import processing_queue
     processing_queue._throttler.decrement_video_ops()
     return {"status": "released", "active_ops": processing_queue._throttler._active_video_operations}
+
+
+@router.post("/background-jobs/stop")
+async def stop_background_jobs():
+    from app.services.processing_queue import processing_queue
+    processing_queue._paused = True
+    logging.getLogger("prism.utilities").info("Background processing queue explicitly stopped by user.")
+    return {"status": "stopped", "paused": True}
+
+
+@router.post("/background-jobs/start")
+async def start_background_jobs():
+    from app.services.processing_queue import processing_queue
+    processing_queue._paused = False
+    processing_queue.start()
+    enqueued = await processing_queue.enqueue_unfinished_jobs()
+    logging.getLogger("prism.utilities").info(f"Background processing queue restarted. Enqueued {enqueued} unfinished jobs.")
+    return {"status": "started", "paused": False, "enqueued_count": enqueued}

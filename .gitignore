@@ -22,7 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
+.codecontext/*
+.impeccable/
+*_preview.html
+.codecontext.yaml
 # Generated folders
 backend/models/*
 backend/thumbnails/*

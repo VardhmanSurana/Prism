@@ -253,14 +253,30 @@ The Utilities view exposes:
 
 AI features are disabled by default through backend feature flags. Enable only the components you need and provide the required local model files or services.
 
-| Feature | Config flag | Current implementation |
+| Feature | Config flag | Current implementation / Description |
 | --- | --- | --- |
 | Agent search | `ENABLE_AI_AGENT` | `llama-server` agent model, planner, search tools, and verification loop |
 | Face detection and clustering | `ENABLE_AI_FACE` | InspireFace SDK, face embeddings, people clustering, pending face feedback. For videos: hybrid frame sampling (scene-change + uniform) with cross-frame face deduplication |
 | Vision summaries and embeddings | `ENABLE_AI_CLIP` | Florence-2 summaries, SigLIP2 embeddings, semantic search |
-| Inpainting | `ENABLE_AI_INPAINTING` | Stable Diffusion 1.5 inpainting with CPU fallback |
+| Inpainting (Object Removal) | `ENABLE_AI_INPAINTING` | Stable Diffusion 1.5 inpainting with CPU fallback |
 | Background removal | `ENABLE_AI_REMBG` | rembg optional dependency group |
 | OCR text extraction | `ENABLE_AI_OCR` | PaddleOCR-VL via `llama-server` on port 9092, background pipeline Stage 4 |
+| Image background processes | `ENABLE_IMAGE_BG_PROCESS` | Master switch for all image-related background analysis jobs |
+| Gemma image captioning | `ENABLE_AI_CAPTION` | Florence-2/Gemma captions generation during image analysis |
+| Video background processes | `ENABLE_VIDEO_BG_PROCESS` | Master switch for all video-related background analysis jobs |
+| Video face tracking | `ENABLE_VIDEO_FACE` | Face detection and cross-frame tracking inside video assets |
+| Subtitle generation | `ENABLE_AI_SUBTITLES` | Whisper-based automatic subtitle generation for video assets |
+| Video editor AI features | `ENABLE_VIDEO_EDITOR_AI` | Multi-track timeline and local composition export tools |
+
+### Dynamic Configuration & Hardware Control
+
+Prism features a unified **Engine Settings** control panel directly inside the System Utilities page:
+- **Hardware Acceleration Select**: Dynamically configure the target GPU execution backend (NVIDIA CUDA, AMD ROCm, Intel Arc/SYCL, Vulkan, or CPU Only). Models will adaptively route inference paths.
+- **Background Worker Gating**: Toggle individual background worker pipelines (SigLIP embeddings, Face scanning/clustering, Gemma captions, OCR text extraction, Video face tracking, and Subtitle generation).
+- **Worker Process Controls**: Stop and start the background queue workers in real-time. Starting/restarting will automatically scan for and resume from any unfinished import assets in the catalog.
+- **Log Console**: Monitor real-time execution logs (`backend.log`) inside a scrollable CLI-like console window directly within the UI, featuring auto-refresh and manual refresh controls.
+
+All configurations are saved dynamically to `settings.json` in the user data directory, overriding default `.env` properties and persisting reliably across backend restarts.
 
 Relevant backend defaults:
 

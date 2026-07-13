@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     ENABLE_GPU_ENCODING: bool = False  # Use NVENC when available (kept for backward compat)
     GPU_ENCODING_MODE: str = "auto"  # "auto" | "nvenc" | "vaapi" | "cpu"
 
+    # Background Processing and Hardware Config
+    ENABLE_IMAGE_BG_PROCESS: bool = True
+    ENABLE_AI_CAPTION: bool = True
+    ENABLE_VIDEO_BG_PROCESS: bool = True
+    ENABLE_VIDEO_FACE: bool = True
+    ENABLE_VIDEO_EDITOR_AI: bool = True
+    GPU_MODE: str = "cuda"  # "cuda" | "rocm" | "sycl" | "vulkan" | "cpu"
+
     # LAN Sync settings
     LAN_SYNC_PORT: int = 8269
     LAN_SYNC_CHUNK_SIZE: int = 1024 * 1024  # 1MB chunks for file transfer
@@ -100,6 +108,22 @@ class Settings(BaseSettings):
     JOB_QUEUE_MAX_RETRIES: int = 5
     JOB_QUEUE_THROTTLE_CPU_THRESHOLD: float = 85.0
     JOB_QUEUE_THROTTLE_BATTERY_THRESHOLD: int = 20
+
+    def __init__(self, **values):
+        super().__init__(**values)
+        self.load_dynamic_settings()
+
+    def load_dynamic_settings(self):
+        if self.SETTINGS_FILE.exists():
+            try:
+                import json
+                with open(self.SETTINGS_FILE, "r") as f:
+                    data = json.load(f)
+                    for k, v in data.items():
+                        if hasattr(self, k):
+                            setattr(self, k, v)
+            except Exception as e:
+                sys.stderr.write(f"Error loading dynamic settings: {e}\n")
 
 
 settings = Settings()
