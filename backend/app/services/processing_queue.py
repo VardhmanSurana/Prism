@@ -406,7 +406,22 @@ class ProcessingQueue:
 
                 results = {}
 
-                for job in job_infos:
+                for idx, job in enumerate(job_infos):
+                    if self._paused:
+                        logger.info(f"Background processing queue stopped mid-batch. Resetting remaining {len(job_infos) - idx} jobs to pending.")
+                        async with async_session() as db:
+                            for rem_job in job_infos[idx:]:
+                                db_job = await db.get(BackgroundJob, rem_job["id"])
+                                if db_job:
+                                    db_job.status = "pending"
+                                    db_job.attempt_count = max(0, db_job.attempt_count - 1)
+                                    db_job.current_stage = None
+                                    db_job.stage_progress = None
+                                    db_job.updated_at = datetime.datetime.utcnow()
+                            await db.commit()
+                        job_infos = job_infos[:idx]
+                        break
+
                     photo_id = job["photo_id"]
                     results[photo_id] = {
                         "photo_path": None,
