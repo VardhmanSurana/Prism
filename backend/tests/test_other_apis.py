@@ -4,6 +4,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
+from app.models import Photo
 
 
 @pytest.mark.asyncio
@@ -33,6 +34,40 @@ async def test_explore_api():
         response = await client.get("/api/v1/explore/themes")
     assert response.status_code == 200
     assert isinstance(response.json(), dict)
+
+
+@pytest.mark.asyncio
+async def test_explore_insights_aggregates_visible_photo_metadata(db_session):
+    db_session.add_all([
+        Photo(
+            filename="camera-1.jpg", path="/tmp/camera-1.jpg", width=100, height=100,
+            aspect_ratio=1, exif_make="Canon", exif_model="Canon EOS R5",
+            exif_focal_length=50, exif_iso=200, city="Kyoto", country="Japan",
+        ),
+        Photo(
+            filename="camera-2.jpg", path="/tmp/camera-2.jpg", width=100, height=100,
+            aspect_ratio=1, exif_make="Canon", exif_model="Canon EOS R5",
+            exif_focal_length=50, exif_iso=400, city="Kyoto", country="Japan",
+        ),
+        Photo(
+            filename="hidden.jpg", path="/tmp/hidden.jpg", width=100, height=100,
+            aspect_ratio=1, exif_make="Sony", exif_model="A7 IV", exif_iso=800,
+            is_trash=True,
+        ),
+    ])
+    await db_session.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/explore/insights")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["photo_count"] == 2
+    assert data["cameras"] == [{"label": "Canon EOS R5", "count": 2}]
+    assert data["locations"] == [{"label": "Kyoto", "count": 2}]
+    assert data["favorite_focal_length"] == 50
+    assert data["average_focal_length"] == 50
+    assert data["average_iso"] == 300
 
 
 @pytest.mark.asyncio

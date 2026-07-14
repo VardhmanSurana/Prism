@@ -6,9 +6,10 @@ interface ExploreHeaderProps {
   icon: React.ReactNode;
   title: string;
   subtitle?: string;
+  headingId?: string;
 }
 
-export const ExploreHeader: React.FC<ExploreHeaderProps> = ({ icon, title, subtitle }) => {
+export const ExploreHeader: React.FC<ExploreHeaderProps> = ({ icon, title, subtitle, headingId }) => {
   return (
     <div className="mb-8 space-y-1">
       <motion.div
@@ -22,7 +23,7 @@ export const ExploreHeader: React.FC<ExploreHeaderProps> = ({ icon, title, subti
           {subtitle || 'Discover'}
         </span>
       </motion.div>
-      <h3 className="text-4xl font-serif italic text-white tracking-tight">{title}</h3>
+      <h3 id={headingId} className="text-4xl font-serif italic text-white tracking-tight">{title}</h3>
     </div>
   );
 };

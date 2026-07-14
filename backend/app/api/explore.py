@@ -32,6 +32,17 @@ SEASON_LABELS = {
 }
 
 
+def _camera_label(make_value: str | None, model_value: str | None) -> str | None:
+    """Return a stable, readable camera label without duplicate make names."""
+    make = (make_value or "").strip()
+    model = (model_value or "").strip()
+    if not model:
+        return make or None
+    if make and model.lower().startswith(make.lower()):
+        return model
+    return " ".join(part for part in (make, model) if part)
+
+
 def _base_photo_filters():
     filters = [Photo.is_trash == False]
     if not locked_service.is_authenticated:
@@ -42,6 +53,67 @@ def _base_photo_filters():
             or_(Photo.is_external == False, Photo.device_id.in_(active_mounts))
         )
     return filters
+
+
+@router.get("/insights")
+async def explore_insights(db: AsyncSession = Depends(get_db)):
+    """Summarise the user's visible photo metadata for the Explore dashboard."""
+    stmt = select(
+        Photo.exif_make,
+        Photo.exif_model,
+        Photo.exif_focal_length,
+        Photo.exif_iso,
+        Photo.city,
+        Photo.country,
+    ).where(and_(*_base_photo_filters()))
+    result = await db.execute(stmt)
+    photos = result.all()
+
+    cameras: dict[str, int] = {}
+    locations: dict[str, int] = {}
+    focal_lengths: list[float] = []
+    iso_values: list[int] = []
+
+    for row in photos:
+        camera = _camera_label(row.exif_make, row.exif_model)
+        if camera:
+            cameras[camera] = cameras.get(camera, 0) + 1
+
+        location = (row.city or row.country or "").strip()
+        if location:
+            locations[location] = locations.get(location, 0) + 1
+
+        if row.exif_focal_length and row.exif_focal_length > 0:
+            focal_lengths.append(float(row.exif_focal_length))
+        if row.exif_iso and row.exif_iso > 0:
+            iso_values.append(int(row.exif_iso))
+
+    focal_buckets: dict[float, int] = {}
+    for focal_length in focal_lengths:
+        rounded = round(focal_length, 1)
+        focal_buckets[rounded] = focal_buckets.get(rounded, 0) + 1
+
+    def ranked(items: dict[str, int], limit: int = 3) -> list[dict[str, int | str]]:
+        return [
+            {"label": label, "count": count}
+            for label, count in sorted(items.items(), key=lambda item: (-item[1], item[0].lower()))[:limit]
+        ]
+
+    top_focal = max(focal_buckets.items(), key=lambda item: (item[1], -item[0]), default=(None, 0))
+    return {
+        "photo_count": len(photos),
+        "cameras": ranked(cameras),
+        "locations": ranked(locations),
+        "average_iso": round(sum(iso_values) / len(iso_values)) if iso_values else None,
+        "average_focal_length": round(sum(focal_lengths) / len(focal_lengths), 1) if focal_lengths else None,
+        "favorite_focal_length": top_focal[0],
+        "metadata_coverage": {
+            "camera": sum(cameras.values()),
+            "focal_length": len(focal_lengths),
+            "iso": len(iso_values),
+            "location": sum(locations.values()),
+        },
+    }
 
 
 @router.get("/themes")

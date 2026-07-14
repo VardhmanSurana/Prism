@@ -4,4 +4,5 @@ export * from './NavigationArrows';
 export * from './PhotoMetadataDisplay';
 export * from './Toolbar';
 export * from './Filmstrip';
+export * from './SlideshowControls';
 export * from './types';

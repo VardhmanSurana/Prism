@@ -66,9 +66,11 @@ class Photo(Base):
     # Content classification (photo, screenshot, document)
     content_type: Mapped[str] = mapped_column(String(20), default="photo", index=True)
 
-    # EXIF camera info (used for screenshot detection)
+    # EXIF camera info (used for screenshot detection and library insights)
     exif_make: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     exif_model: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    exif_focal_length: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    exif_iso: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     # Video-specific fields
     duration: Mapped[Optional[float]] = mapped_column(Float, nullable=True, default=None)
@@ -274,7 +276,6 @@ class BackgroundJob(Base):
 
     # Relationships
     photo: Mapped["Photo"] = relationship()
-
 
 
 

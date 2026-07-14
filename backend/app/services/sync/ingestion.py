@@ -94,6 +94,8 @@ class IngestionMixin:
                     file_size=metadata.get("file_size"),
                     exif_make=metadata.get("exif_make"),
                     exif_model=metadata.get("exif_model"),
+                    exif_focal_length=metadata.get("exif_focal_length"),
+                    exif_iso=metadata.get("exif_iso"),
                     duration=metadata.get("duration"),
                     fps=metadata.get("fps"),
                     codec=metadata.get("codec"),

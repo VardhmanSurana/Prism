@@ -7,6 +7,8 @@ export interface ImageDisplayProps {
   isDragging: boolean;
   highResStatus: 'loading' | 'loaded' | 'error';
   currentHighResUrl: string | null;
+  /** Apply Ken Burns slow zoom while slideshow is playing. */
+  kenBurns?: boolean;
 }
 
 export interface NavigationArrowsProps {
@@ -30,6 +32,8 @@ export interface ToolbarProps {
   showInfo: boolean;
   currentIndex: number;
   totalCount: number;
+  slideshowActive?: boolean;
+  canStartSlideshow?: boolean;
   onClose: () => void;
   onSetZoomScale: (scale: number) => void;
   onResetInteraction: () => void;
@@ -39,9 +43,16 @@ export interface ToolbarProps {
   onTrash?: () => void;
   onRemoveFromAlbum?: () => void;
   onSetAsCover?: () => void;
+  onStartSlideshow?: () => void;
 }
 
 export interface VideoPlayerProps {
   photo: Photo;
   onClose?: () => void;
+  /** Auto-start playback when the video is ready (e.g. slideshow mode). */
+  autoPlay?: boolean;
+  /** Fired when the video reaches the end (used by slideshow to advance). */
+  onEnded?: () => void;
+  /** Hide player chrome for distraction-free slideshow viewing. */
+  hideControls?: boolean;
 }

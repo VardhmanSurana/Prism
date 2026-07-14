@@ -117,7 +117,13 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
+export const VideoPlayer: React.FC<VideoPlayerProps> = ({
+  photo,
+  onClose,
+  autoPlay = true,
+  onEnded: onEndedProp,
+  hideControls = false,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -159,6 +165,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
   isConvertingRef.current = isConverting;
   const { volume, isMuted, playbackRate, setVolume, setMuted, setPlaybackRate } =
     useVideoPlayerStore();
+  const onEndedPropRef = useRef(onEndedProp);
+  onEndedPropRef.current = onEndedProp;
+  const autoPlayRef = useRef(autoPlay);
+  autoPlayRef.current = autoPlay;
   const videoSrc = needsTranscodeImmediately
     ? resolveUrl(`hls://${photo.path}`)
     : resolveUrl(`local://${photo.path}`);
@@ -307,9 +317,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         if (isFinite(duration) && duration > 0) {
           dispatch({ type: 'METADATA_LOADED', duration });
         }
-        v.play().catch((err) => {
-          console.warn(`[VideoPlayer/HLS] autoplay rejected: ${err.message}`);
-        });
+        if (autoPlayRef.current) {
+          v.play().catch((err) => {
+            console.warn(`[VideoPlayer/HLS] autoplay rejected: ${err.message}`);
+          });
+        }
       });
 
       hls.on(Hls.Events.FRAG_LOADING, (_evt, data) => {
@@ -398,9 +410,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
 
       setIsConverting(false);
       dispatch({ type: 'METADATA_LOADED', duration: v.duration });
-      v.play().catch((err) => {
-        console.warn(`[VideoPlayer] autoplay rejected: ${err.message}`);
-      });
+      if (autoPlayRef.current) {
+        v.play().catch((err) => {
+          console.warn(`[VideoPlayer] autoplay rejected: ${err.message}`);
+        });
+      }
     };
 
     const onCanPlay = () => {
@@ -461,6 +475,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
     };
     const onEnded = () => {
       console.log(`[VideoPlayer] ended`);
+      onEndedPropRef.current?.();
     };
     const onFsChange = () =>
       dispatch({ type: 'FULLSCREEN_CHANGE', value: !!document.fullscreenElement });
@@ -522,7 +537,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
     if (v && v.readyState >= 1) {
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current as unknown as number);
       dispatch({ type: 'METADATA_LOADED', duration: v.duration });
-      v.play().catch(() => {});
+      if (autoPlayRef.current) {
+        v.play().catch(() => {});
+      }
     }
   }, []);
 
@@ -681,8 +698,11 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
   }, []);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // When hideControls (slideshow), defer navigation/escape to Lightbox.
 
   useEffect(() => {
+    if (hideControls) return;
+
     const handleKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -739,7 +759,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [togglePlay, seek, toggleMute, toggleFullscreen, handleVolumeChange, rotateClockwise, onClose,
+  }, [hideControls, togglePlay, seek, toggleMute, toggleFullscreen, handleVolumeChange, rotateClockwise, onClose,
       showControlsNow]);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -805,7 +825,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         </div>
       )}
 
-      {state.loadState === 'ready' && !state.isPlaying && state.showControls && (
+      {!hideControls && state.loadState === 'ready' && !state.isPlaying && state.showControls && (
         <button
           className="absolute inset-0 flex items-center justify-center z-10 pointer-events-auto"
           onClick={togglePlay}
@@ -817,7 +837,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
         </button>
       )}
 
-      <div
+      {!hideControls && <div
         className={`absolute bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-3rem)] max-w-4xl z-20 transition-opacity duration-300 ${
           state.showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
@@ -954,7 +974,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ photo, onClose }) => {
             </div>
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 };

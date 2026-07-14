@@ -41,6 +41,8 @@ PHOTO_COLUMN_PATCHES: tuple[tuple[str, str], ...] = (
     ("content_type", "VARCHAR(20) DEFAULT 'photo'"),
     ("exif_make", "VARCHAR(255)"),
     ("exif_model", "VARCHAR(255)"),
+    ("exif_focal_length", "FLOAT"),
+    ("exif_iso", "INTEGER"),
     ("hash", "VARCHAR(64)"),
     ("ai_summary", "TEXT"),
 )

@@ -64,6 +64,10 @@ async def lifespan(app):
             await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_make VARCHAR(255)"))
         if "exif_model" not in columns:
             await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_model VARCHAR(255)"))
+        if "exif_focal_length" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_focal_length FLOAT"))
+        if "exif_iso" not in columns:
+            await conn.execute(text("ALTER TABLE photos ADD COLUMN exif_iso INTEGER"))
 
         await conn.execute(
             text("""

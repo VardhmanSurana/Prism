@@ -160,6 +160,8 @@ def extract_metadata(img: Image.Image, file_path: str):
     city = state = country = location_str = None
     exif_make = None
     exif_model = None
+    exif_focal_length = None
+    exif_iso = None
 
     try:
         exif = img._getexif()
@@ -173,6 +175,18 @@ def extract_metadata(img: Image.Image, file_path: str):
             # Camera Make/Model (EXIF tags 271 and 272)
             exif_make = exif.get(271)
             exif_model = exif.get(272)
+            focal_length = exif.get(37386)
+            if focal_length is not None:
+                try:
+                    exif_focal_length = float(focal_length)
+                except (TypeError, ValueError, ZeroDivisionError):
+                    logger.debug("Could not parse EXIF focal length for %s", file_path)
+            iso = exif.get(34855)
+            if iso is not None:
+                try:
+                    exif_iso = int(iso)
+                except (TypeError, ValueError):
+                    logger.debug("Could not parse EXIF ISO for %s", file_path)
     except Exception as e:
         logger.debug(f"Failed to extract EXIF metadata: {e}")
 
@@ -206,6 +220,8 @@ def extract_metadata(img: Image.Image, file_path: str):
         "longitude": coords[1] if coords else None,
         "exif_make": exif_make,
         "exif_model": exif_model,
+        "exif_focal_length": exif_focal_length,
+        "exif_iso": exif_iso,
     }
 
 def generate_thumbnail(file_path: str, thumb_dir: str):

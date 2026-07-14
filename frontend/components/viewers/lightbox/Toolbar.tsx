@@ -11,8 +11,8 @@ import {
   Image,
   MoreHorizontal,
   Copy,
-  Share2,
   Download,
+  Presentation,
 } from 'lucide-react';
 import { ToolbarProps } from './types';
 
@@ -23,6 +23,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   showInfo,
   currentIndex,
   totalCount,
+  slideshowActive,
+  canStartSlideshow,
   onClose,
   onSetZoomScale,
   onResetInteraction,
@@ -32,6 +34,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onTrash,
   onRemoveFromAlbum,
   onSetAsCover,
+  onStartSlideshow,
 }) => {
   const [showMore, setShowMore] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -134,6 +137,21 @@ export const Toolbar: React.FC<ToolbarProps> = ({
             </button>
           )}
         </div>
+
+        {/* Slideshow */}
+        {canStartSlideshow && onStartSlideshow && (
+          <button
+            onClick={onStartSlideshow}
+            className={`p-2 rounded-lg transition-colors ${
+              slideshowActive
+                ? 'text-primary bg-primary/10'
+                : 'text-white/50 hover:text-white hover:bg-white/5'
+            }`}
+            title="Start slideshow (S)"
+          >
+            <Presentation size={18} />
+          </button>
+        )}
 
         {/* Favorite - primary action */}
         <button

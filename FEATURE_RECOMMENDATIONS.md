@@ -143,8 +143,8 @@ const {
 ## 3. Lightbox / Photo Viewer
 
 ### A. Current State Assessment
-- **Features**: `Toolbar.tsx` for actions, `PhotoMetadataDisplay.tsx` for EXIF and AI summaries. Filmstrip navigation.
-- **Architecture**: Simple React state, overlays on top of the main application.
+- **Features**: `Toolbar.tsx` for actions, `PhotoMetadataDisplay.tsx` for EXIF and AI summaries. Filmstrip navigation. **Interactive Slideshow Mode** (auto-advance, transitions, optional BGM).
+- **Architecture**: Simple React state, overlays on top of the main application. Slideshow logic lives in `useSlideshow` + `SlideshowControls`.
 ```tsx
 // Evidence from frontend/components/viewers/lightbox/PhotoMetadataDisplay.tsx
 const summary = metadata?.summary || photo.ai_summary || photo.caption;
@@ -155,18 +155,26 @@ const summary = metadata?.summary || photo.ai_summary || photo.caption;
   </p>
 )}
 ```
-- **Strengths**: Clean, distraction-free viewing with essential metadata easily accessible.
-- **Weaknesses**: Static viewing experience; limited metadata editing capabilities.
+- **Strengths**: Clean, distraction-free viewing with essential metadata easily accessible; cinematic slideshow for albums/collections.
+- **Weaknesses**: Limited metadata editing capabilities. *(Static viewing addressed by Interactive Slideshow Mode.)*
 
 ### B. Feature Recommendations
 
-1. **Interactive Slideshow Mode**
+1. **Interactive Slideshow Mode** ✅ **IMPLEMENTED** (2026-07-14)
    - **Description**: Auto-play photos with cinematic transitions and background music.
    - **User Problem**: Users want to showcase albums to friends/family without manual clicking.
    - **Implementation**: Extend `Lightbox.tsx` with a timer, transition animations (Framer Motion), and an audio player element.
    - **Dependencies**: `Lightbox.tsx`, Album data.
    - **ICE Score**: I:8, C:9, E:8 (Total: 25)
    - **Priority**: P1 | **Effort**: 1 week
+   - **Status**: Done
+   - **What shipped**:
+     - `frontend/hooks/useSlideshow.ts` — play/pause, interval, loop, transition type, progress, local BGM
+     - `frontend/components/viewers/lightbox/SlideshowControls.tsx` — distraction-free controls + settings
+     - Toolbar **Slideshow** button + keyboard `S` to start; `Space` play/pause; `Esc` exit slideshow
+     - Transitions: Fade, Slide, Ken Burns (Framer Motion + existing CSS)
+     - Videos auto-play in slideshow and advance on `ended`
+     - Addresses weakness: *static viewing experience*
 
 2. **Manual EXIF Editor**
    - **Description**: Edit date, time, and location directly from the info panel.
@@ -463,13 +471,15 @@ export const ExploreView: React.FC = () => {
 
 ### B. Feature Recommendations
 
-1. **Photography Stats & Insights**
+1. **Photography Stats & Insights** ✅ **IMPLEMENTED** (2026-07-14)
    - **Description**: Widgets showing most used cameras, favorite focal lengths, ISO averages, and top locations.
    - **User Problem**: Photographers love analyzing their gear usage and habits.
    - **Implementation**: Backend aggregation queries on EXIF data, visualized with a charting library (e.g., Recharts).
    - **Dependencies**: Backend EXIF data.
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
    - **Priority**: P1 | **Effort**: 2 weeks
+   - **Status**: Done
+   - **What shipped**: `GET /api/v1/explore/insights` aggregates visible-library camera, lens, ISO, and location data; `PhotographyInsights.tsx` presents accessible camera/location rankings and shooting metrics with useful missing-metadata states. Import now persists EXIF focal length and ISO for new photos, resolving the prior lack of personal data insights rather than showing incomplete stats.
 
 2. **Recent Activity Feed**
    - **Description**: A timeline of recent imports, edits, and album creations.
