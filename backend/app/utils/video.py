@@ -99,6 +99,20 @@ def extract_video_metadata(file_path: str, probe_data: dict | None = None) -> di
     latitude = longitude = None
     city = state = country = location_str = None
 
+    if not probe_data and _check_ffprobe_available():
+        try:
+            probe_cmd = [
+                'ffprobe', '-v', 'quiet',
+                '-print_format', 'json',
+                '-show_format', '-show_streams',
+                file_path
+            ]
+            probe_result = subprocess.run(probe_cmd, capture_output=True, timeout=10)
+            if probe_result.returncode == 0:
+                probe_data = json.loads(probe_result.stdout.decode())
+        except Exception as e:
+            logger.warning(f"Failed to run ffprobe dynamically in extract_video_metadata: {e}")
+
     if probe_data:
         fmt = probe_data.get("format", {})
         streams = probe_data.get("streams", [])
