@@ -14,6 +14,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
   rowPadding,
   onPhotoClick,
   onToggleSelection,
+  isRowHovered,
 }) => {
   const aspectRatio = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
   const [isHovering, setIsHovering] = useState(false);
@@ -55,22 +56,23 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         width: isFullRow ? undefined : `calc(${rowHeight - rowPadding}px * ${aspectRatio})`,
         maxWidth: '100%',
       }}
-      className={`relative group cursor-pointer overflow-hidden rounded-[1.5rem] bg-[#0c0c0c]
-      transition-transform duration-200 ease-out photo-item-hover
+      className={`relative group cursor-pointer rounded-[1.5rem] bg-[#0c0c0c]
+      transition-all duration-200 ease-out photo-item-hover
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
       ${
         isSelected
-          ? 'photo-item-selected ring-4 ring-primary scale-[0.98] shadow-xl'
+          ? 'photo-item-selected shadow-xl'
           : 'active:scale-[0.97]'
       }
   `}
     >
-      <LazyImage
-        src={photo.url || `local://${photo.path}`}
-        fallbackSrc={`local://${photo.path}`}
-        alt={photo.caption || 'Photo'}
-        className="w-full h-full object-cover"
-      />
+      <div className={`absolute inset-0 overflow-hidden rounded-[1.5rem] transition-all duration-200 ${isSelected ? 'border-4 border-primary' : ''}`}>
+        <LazyImage
+          src={photo.url || `local://${photo.path}`}
+          fallbackSrc={`local://${photo.path}`}
+          alt={photo.caption || 'Photo'}
+          className="w-full h-full object-cover"
+        />
       {/* Animated WebP hover preview for videos — zero GStreamer pipeline cost */}
       {isHovering && isVideo && animSrc && (
         <img
@@ -97,7 +99,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       />
       <div
         className={`absolute top-3 left-3 transition-opacity duration-150 z-10
-        ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
+        ${isSelected || isRowHovered ? 'opacity-100' : 'opacity-0'}
         `}
         onClick={(e) => {
           e.stopPropagation();
@@ -119,6 +121,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
             <div className="w-1 h-1 rounded-full bg-white" />
           )}
         </div>
+      </div>
       </div>
     </div>
   );

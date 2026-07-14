@@ -12,6 +12,7 @@ async def test_get_background_jobs_status():
         assert "clip" in data
         assert "gemma" in data
         assert "face" in data
+        assert "ocr" in data
         assert "queue" in data
         
         # Verify the structure of the inner fields
@@ -29,6 +30,11 @@ async def test_get_background_jobs_status():
         assert "total" in data["face"]
         assert "progress" in data["face"]
         assert "is_processing" in data["face"]
+
+        assert "processed" in data["ocr"]
+        assert "total" in data["ocr"]
+        assert "progress" in data["ocr"]
+        assert "is_processing" in data["ocr"]
         
         assert "pending" in data["queue"]
         assert "processing" in data["queue"]

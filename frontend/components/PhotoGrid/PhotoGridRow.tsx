@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { PhotoGridRowProps } from './types';
 import { PhotoItem } from './PhotoItem';
 import { ROW_PADDING } from './constants';
@@ -16,6 +16,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   virtualRowIndex,
   measureElement,
 }) => {
+  const [isRowHovered, setIsRowHovered] = useState(false);
+
   return (
     <div
       key={virtualRowKey}
@@ -27,6 +29,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
         height: `${rowHeight}px`,
         paddingBottom: `${ROW_PADDING}px`,
       }}
+      onMouseEnter={() => setIsRowHovered(true)}
+      onMouseLeave={() => setIsRowHovered(false)}
     >
       {photos.map((photo) => (
         <PhotoItem
@@ -39,6 +43,7 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
           rowPadding={ROW_PADDING}
           onPhotoClick={onPhotoClick}
           onToggleSelection={onToggleSelection}
+          isRowHovered={isRowHovered}
         />
       ))}
     </div>

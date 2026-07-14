@@ -119,10 +119,10 @@ export const NotificationsButton: React.FC = () => {
   const isProcessingAny =
     syncStatus.is_scanning ||
     !!(
-      status?.clip.is_processing ||
-      status?.gemma.is_processing ||
-      status?.face.is_processing ||
-      status?.ocr.is_processing
+      status?.clip?.is_processing ||
+      status?.gemma?.is_processing ||
+      status?.face?.is_processing ||
+      status?.ocr?.is_processing
     );
 
   return (
@@ -136,7 +136,7 @@ export const NotificationsButton: React.FC = () => {
       >
         <Bell size={18} className={isProcessingAny ? 'animate-pulse text-primary' : ''} />
         {hasNewCompletion && (
-          <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-background animate-bounce" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full ring-2 ring-background animate-pulse" />
         )}
         {isProcessingAny && !hasNewCompletion && (
           <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full" />
@@ -186,7 +186,7 @@ export const NotificationsButton: React.FC = () => {
                 )}
 
                 {/* CLIP Processing */}
-                {status?.clip.is_processing && (
+                {status?.clip?.is_processing && (
                   <div className="space-y-1">
                     <ProgressBar
                       progress={status.clip.progress}
@@ -200,7 +200,7 @@ export const NotificationsButton: React.FC = () => {
                 )}
 
                 {/* Gemma Captioning */}
-                {status?.gemma.is_processing && (
+                {status?.gemma?.is_processing && (
                   <div className="space-y-1">
                     <ProgressBar
                       progress={status.gemma.progress}
@@ -214,7 +214,7 @@ export const NotificationsButton: React.FC = () => {
                 )}
 
                 {/* Face Scan */}
-                {status?.face.is_processing && (
+                {status?.face?.is_processing && (
                   <div className="space-y-1">
                     <ProgressBar
                       progress={status.face.progress}
@@ -228,7 +228,7 @@ export const NotificationsButton: React.FC = () => {
                 )}
 
                 {/* OCR Text Extraction */}
-                {status?.ocr.is_processing && (
+                {status?.ocr?.is_processing && (
                   <div className="space-y-1">
                     <ProgressBar
                       progress={status.ocr.progress}

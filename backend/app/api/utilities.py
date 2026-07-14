@@ -955,7 +955,15 @@ async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
     )
     face_processed = (await db.execute(face_stmt)).scalar() or 0
 
-    # 5. Background queue status
+    # 5. OCR processed photos (photos with extracted text)
+    ocr_stmt = select(func.count(Photo.id)).where(
+        Photo.is_locked == False,
+        Photo.is_trash == False,
+        Photo.ocr_text.isnot(None)
+    )
+    ocr_processed = (await db.execute(ocr_stmt)).scalar() or 0
+
+    # 6. Background queue status
     queue_stmt = select(
         BackgroundJob.status,
         func.count(BackgroundJob.id)
@@ -973,10 +981,12 @@ async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
     clip_processed = min(clip_processed, total_photos)
     gemma_processed = min(gemma_processed, total_photos)
     face_processed = min(face_processed, total_photos)
+    ocr_processed = min(ocr_processed, total_photos)
 
     clip_progress = (clip_processed / total_photos * 100) if total_photos > 0 else 0
     gemma_progress = (gemma_processed / total_photos * 100) if total_photos > 0 else 0
     face_progress = (face_processed / total_photos * 100) if total_photos > 0 else 0
+    ocr_progress = (ocr_processed / total_photos * 100) if total_photos > 0 else 0
 
     from app.services.processing_queue import processing_queue
 
@@ -993,13 +1003,19 @@ async def get_background_jobs_status(db: AsyncSession = Depends(get_db)):
             "processed": gemma_processed,
             "total": total_photos,
             "progress": round(gemma_progress, 1),
-            "is_processing": is_processing and settings.ENABLE_AI_CLIP
+            "is_processing": is_processing and settings.ENABLE_AI_CAPTION
         },
         "face": {
             "processed": face_processed,
             "total": total_photos,
             "progress": round(face_progress, 1),
             "is_processing": is_processing
+        },
+        "ocr": {
+            "processed": ocr_processed,
+            "total": total_photos,
+            "progress": round(ocr_progress, 1),
+            "is_processing": is_processing and settings.ENABLE_AI_OCR
         },
         "queue": queue_counts
     }

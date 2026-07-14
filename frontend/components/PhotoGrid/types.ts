@@ -47,6 +47,7 @@ export interface PhotoItemProps {
   rowPadding: number;
   onPhotoClick: (photo: Photo) => void;
   onToggleSelection: (id: string) => void;
+  isRowHovered: boolean;
 }
 
 export interface PhotoGridRowProps {
