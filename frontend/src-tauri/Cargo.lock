@@ -80,6 +80,7 @@ name = "app"
 version = "0.1.0"
 dependencies = [
  "log",
+ "quick-xml",
  "serde",
  "serde_json",
  "tauri",

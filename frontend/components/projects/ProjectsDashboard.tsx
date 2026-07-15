@@ -29,6 +29,8 @@ import {
   Play,
   X,
   AlertTriangle,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useVideoProjects, type VideoProject } from '@/hooks/useVideoProjects';
@@ -136,14 +138,14 @@ const AspectPreview: React.FC<{
   // The outer container is always aspect-ratio 16/9 (the card's preview area)
   // For vertical/square we render a centered inner column with the correct ratio
   return (
-    <div className="aspect-[16/9] bg-[#090a0f] relative flex items-center justify-center overflow-hidden">
+    <div className="aspect-[16/9] bg-[#020202] relative flex items-center justify-center overflow-hidden">
       {/* Aspect-correct inner preview */}
       {ratioKey === '9:16' ? (
         <div
           className="relative h-full flex items-center justify-center border-x border-[#20212b]"
           style={{ aspectRatio: '9/16' }}
         >
-          <div className="absolute inset-0 bg-[#111218]" />
+          <div className="absolute inset-0 bg-[#050505]" />
           <ViewfinderOverlay />
         </div>
       ) : ratioKey === '1:1' ? (
@@ -151,12 +153,12 @@ const AspectPreview: React.FC<{
           className="relative h-full flex items-center justify-center border-x border-[#20212b]"
           style={{ aspectRatio: '1/1' }}
         >
-          <div className="absolute inset-0 bg-[#111218]" />
+          <div className="absolute inset-0 bg-[#050505]" />
           <ViewfinderOverlay />
         </div>
       ) : (
         // 16:9 or custom — fills the full preview area
-        <div className="absolute inset-0 bg-[#111218]">
+        <div className="absolute inset-0 bg-[#050505]">
           <ViewfinderOverlay />
         </div>
       )}
@@ -239,7 +241,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-      className="bg-[#16171f] border border-[#20212b] rounded-xl overflow-hidden flex flex-col group cursor-pointer transition-shadow hover:border-[#2e2f3d] hover:shadow-[0_10px_24px_rgba(0,0,0,0.4)]"
+      className="bg-[#0c0c0c] border border-[#20212b] rounded-xl overflow-hidden flex flex-col group cursor-pointer transition-shadow hover:border-[#2e2f3d] hover:shadow-[0_10px_24px_rgba(0,0,0,0.4)]"
       onClick={() => onOpen(project.id)}
     >
       {/* Thumbnail preview area */}
@@ -253,7 +255,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
             onOpen(project.id);
           }}
           aria-label={`Open ${project.name} in editor`}
-          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 z-10"
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
         >
           <span className="w-11 h-11 rounded-full flex items-center justify-center bg-[#585cf3] border border-transparent shadow-[0_4px_12px_rgba(0,0,0,0.3)] scale-90 group-hover:scale-100 transition-transform duration-200">
             <Play size={14} className="text-white translate-x-[1px]" fill="white" />
@@ -291,7 +293,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.97 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute top-7 right-0 z-50 min-w-[140px] bg-[#141522] border border-[#20212b] rounded-lg shadow-[0_12px_28px_rgba(0,0,0,0.6)] p-1"
+                  className="absolute top-7 right-0 z-50 min-w-[140px] bg-[#161616] border border-[#20212b] rounded-lg shadow-[0_12px_28px_rgba(0,0,0,0.6)] p-1"
                   role="menu"
                   aria-label="Project actions menu"
                 >
@@ -344,13 +346,13 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 // ---------------------------------------------------------------------------
 
 const SkeletonCard: React.FC = () => (
-  <div className="bg-[#16171f] border border-[#20212b] rounded-xl overflow-hidden animate-pulse">
-    <div className="aspect-[16/9] bg-[#1d1e28]" />
+  <div className="bg-[#0c0c0c] border border-[#20212b] rounded-xl overflow-hidden animate-pulse">
+    <div className="aspect-[16/9] bg-[#161616]" />
     <div className="p-4 flex flex-col gap-3">
-      <div className="h-4 bg-[#1d1e28] rounded w-3/4" />
-      <div className="h-3 bg-[#1d1e28] rounded w-1/2" />
+      <div className="h-4 bg-[#161616] rounded w-3/4" />
+      <div className="h-3 bg-[#161616] rounded w-1/2" />
       <div className="h-[1px] bg-white/[0.03]" />
-      <div className="h-3 bg-[#1d1e28] rounded w-1/3" />
+      <div className="h-3 bg-[#161616] rounded w-1/3" />
     </div>
   </div>
 );
@@ -435,7 +437,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className="bg-[#10111a] border border-[#20212b] rounded-xl w-[480px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
+        className="bg-[#0c0c0c] border border-[#20212b] rounded-xl w-[480px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -605,7 +607,7 @@ const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClos
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className="bg-[#10111a] border border-[#20212b] rounded-xl w-[440px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
+        className="bg-[#0c0c0c] border border-[#20212b] rounded-xl w-[440px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-6">
@@ -705,7 +707,7 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClos
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.97 }}
         transition={{ duration: 0.15 }}
-        className="bg-[#10111a] border border-red-500/20 rounded-xl w-[440px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
+        className="bg-[#0c0c0c] border border-red-500/20 rounded-xl w-[440px] max-w-[90vw] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.7)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -751,6 +753,95 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClos
 // ---------------------------------------------------------------------------
 
 type FormatFilter = 'all' | 'horizontal' | 'vertical' | 'square';
+
+const FORMAT_OPTIONS = [
+  { value: 'all', label: 'All Formats' },
+  { value: 'horizontal', label: 'Horizontal (16:9)' },
+  { value: 'vertical', label: 'Vertical (9:16)' },
+  { value: 'square', label: 'Square (1:1)' },
+] as const;
+
+const FormatSelect: React.FC<{
+  value: FormatFilter;
+  onChange: (val: FormatFilter) => void;
+}> = ({ value, onChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedOption = FORMAT_OPTIONS.find((opt) => opt.value === value) ?? FORMAT_OPTIONS[0];
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-label="Filter by format"
+        className="flex items-center justify-between gap-2.5 bg-[#0c0c0c] border border-[#20212b] hover:border-[#2e2f3d] text-[#c4c5cc] hover:text-[#f1f1f4] px-3.5 py-2 rounded-lg text-[13px] outline-none cursor-pointer transition-colors focus-visible:border-[#585cf3] w-[160px] text-left select-none relative group"
+      >
+        <span className="truncate">{selectedOption.label}</span>
+        <ChevronDown size={14} className="text-[#8f919c] group-hover:text-[#f1f1f4] transition-colors shrink-0" />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scaleY: 0.96 }}
+            animate={{ opacity: 1, y: 0, scaleY: 1 }}
+            exit={{ opacity: 0, y: -4, scaleY: 0.96 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+            style={{ transformOrigin: 'top center' }}
+            className="absolute right-0 top-11 z-50 min-w-[160px] bg-[#161616] border border-[#20212b] rounded-lg p-1 shadow-[0_12px_32px_rgba(0,0,0,0.5)] flex flex-col gap-0.5 outline-none select-none"
+          >
+            {FORMAT_OPTIONS.map((opt, index) => {
+              const isChecked = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  onMouseEnter={() => setHoveredIndex(index)}
+                  onMouseLeave={() => setHoveredIndex(null)}
+                  className={`relative w-full flex items-center justify-between px-2.5 py-2 text-[13px] rounded-md transition-colors cursor-pointer select-none outline-none ${
+                    isChecked ? 'text-white' : 'text-[#c4c5cc] hover:text-[#f1f1f4]'
+                  }`}
+                >
+                  <AnimatePresence>
+                    {hoveredIndex === index && (
+                      <motion.div
+                        layoutId="format-select-hover"
+                        className="absolute inset-0 bg-white/[0.04] rounded-md z-0 pointer-events-none"
+                        transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  <span className="relative z-10 truncate">{opt.label}</span>
+                  {isChecked && (
+                    <Check size={14} className="text-white relative z-10 shrink-0 ml-1.5" />
+                  )}
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 export const ProjectsDashboard: React.FC = () => {
   const { projects, isLoading, error, createProject, renameProject, deleteProject, refresh } =
@@ -880,7 +971,7 @@ export const ProjectsDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-full bg-[#111218] text-[#f1f1f4] overflow-y-auto">
+    <div className="min-h-full bg-[#050505] text-[#f1f1f4] overflow-y-auto">
       <div className="px-12 py-8 max-w-[1600px]">
         {/* ---- Header ---- */}
         <div className="flex items-center justify-between mb-8">
@@ -904,7 +995,7 @@ export const ProjectsDashboard: React.FC = () => {
         </div>
 
         {/* ---- Toolbar ---- */}
-        <div className="flex items-center justify-between bg-[#0d0e12] border border-[#20212b] rounded-xl px-6 py-4 mb-6">
+        <div className="flex items-center justify-between bg-[#0c0c0c] border border-[#20212b] rounded-xl px-6 py-4 mb-6">
           {/* Search */}
           <div
             className="flex items-center gap-2.5 bg-black/20 border border-[#20212b] focus-within:border-[#585cf3] rounded-lg px-3.5 py-2 w-80 transition-colors"
@@ -930,19 +1021,8 @@ export const ProjectsDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Filters */}
           <div className="flex items-center gap-3">
-            <select
-              value={formatFilter}
-              onChange={(e) => setFormatFilter(e.target.value as FormatFilter)}
-              aria-label="Filter by format"
-              className="bg-white/[0.02] border border-[#20212b] hover:border-[#2e2f3d] text-[#c4c5cc] hover:text-[#f1f1f4] px-3.5 py-2 rounded-lg text-[13px] outline-none cursor-pointer transition-colors focus-visible:border-[#585cf3]"
-            >
-              <option value="all">All Formats</option>
-              <option value="horizontal">Horizontal (16:9)</option>
-              <option value="vertical">Vertical (9:16)</option>
-              <option value="square">Square (1:1)</option>
-            </select>
+            <FormatSelect value={formatFilter} onChange={setFormatFilter} />
           </div>
         </div>
 
@@ -974,7 +1054,7 @@ export const ProjectsDashboard: React.FC = () => {
                 key="virgin-empty"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="col-span-full flex flex-col items-center justify-center py-16 text-center bg-[#16171f] border border-dashed border-[#20212b] rounded-xl"
+                className="col-span-full flex flex-col items-center justify-center py-16 text-center bg-[#0c0c0c] border border-dashed border-[#20212b] rounded-xl"
               >
                 <div className="w-14 h-14 rounded-full bg-white/[0.02] border border-[#20212b] flex items-center justify-center mb-4">
                   <Film size={24} className="text-[#8f919c]" />
@@ -997,7 +1077,7 @@ export const ProjectsDashboard: React.FC = () => {
                 key="filter-empty"
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="col-span-full flex flex-col items-center justify-center py-16 text-center bg-[#16171f] border border-dashed border-[#20212b] rounded-xl"
+                className="col-span-full flex flex-col items-center justify-center py-16 text-center bg-[#0c0c0c] border border-dashed border-[#20212b] rounded-xl"
               >
                 <div className="w-14 h-14 rounded-full bg-white/[0.02] border border-[#20212b] flex items-center justify-center mb-4">
                   <Search size={24} className="text-[#8f919c]" />

@@ -28,7 +28,7 @@ import {
   Search, 
   SlidersHorizontal, 
   LayoutGrid, 
-  Rows, 
+  List, 
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
@@ -97,6 +97,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
+  const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
 
   // Gallery layout settings
   const { rowHeightPx, maxRowWidth } = useGalleryLayout();
@@ -190,6 +191,10 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkDelete, onUpdatePhotos, refetchStats]);
 
+  const handleRowHover = useCallback((dateKey: string | null) => {
+    setHoveredDateKey(dateKey);
+  }, []);
+
   // Integrated Search trigger
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -280,37 +285,27 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       {!isCompactView && (
         <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
           {/* Top Section */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 select-none">
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-5 select-none">
             <div>
-              <h1 className="text-4xl font-extrabold text-white tracking-tight font-sans">
-                Gallery
+              <h1 className="text-5xl font-bold text-[#f2efe9] tracking-tight font-sans">
+                Your moments
               </h1>
-              <div className="flex items-center gap-3 mt-1 select-none">
-                <p className="text-sm text-gray-500 font-medium">
-                  All your moments, organized locally on this device.
-                </p>
-                <span className="text-gray-600 font-bold">•</span>
-                <button
-                  onClick={() => setIsStatsExpanded(!isStatsExpanded)}
-                  className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 px-2.5 py-1 rounded-lg font-semibold active:scale-95 transition-all"
-                >
-                  <span>{isStatsExpanded ? 'Hide Stats' : 'Show Stats'}</span>
-                  {isStatsExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                </button>
-              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                A private, local archive. Browse by memory, not filename.
+              </p>
             </div>
 
             {/* Search and Ingestion buttons */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 mt-1">
               {/* Integrated Search Bar */}
-              <div className="relative group max-w-xs w-64">
-                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+              <div className="relative group w-80">
+                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
                 </div>
                 <input
                   type="text"
-                  className="w-full bg-surface border border-border rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-100 placeholder:text-gray-500 placeholder:text-xs focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all font-mono"
-                  placeholder="Search by people, places, things..."
+                  className="w-full bg-[#161616]/40 border border-white/[0.08] rounded-full py-2.5 pl-11 pr-4 text-sm text-gray-100 placeholder:text-gray-500 focus:border-white/[0.15] focus:outline-none transition-all font-mono"
+                  placeholder="Search photos"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={handleSearchKeyDown}
@@ -319,7 +314,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
               {/* Filter Setting Button */}
               <button
-                className="p-2.5 bg-surface border border-border hover:bg-surfaceHover text-gray-400 hover:text-white rounded-lg transition-all active:scale-95"
+                className="p-2.5 bg-[#161616]/40 border border-white/[0.08] hover:bg-white/5 text-gray-400 hover:text-white rounded-xl transition-all active:scale-95"
                 title="Advanced Filter Options"
               >
                 <SlidersHorizontal size={18} />
@@ -330,71 +325,46 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
             </div>
           </div>
 
-          {/* Dynamic Stats Cards Section */}
-          <AnimatePresence initial={false}>
-            {isStatsExpanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0, marginBottom: 0 }}
-                animate={{ height: 'auto', opacity: 1, marginBottom: 32 }}
-                exit={{ height: 0, opacity: 0, marginBottom: 0 }}
-                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                className="overflow-hidden w-full"
-              >
-                <div className="flex items-center gap-8 select-none pt-1 pb-1 border-t border-white/5">
-                  <StatsCard
-                    label="photos"
-                    value={stats ? stats.total_photos.toLocaleString() : photos.length.toLocaleString()}
-                  />
-                  <StatsCard
-                    label="people"
-                    value={stats ? stats.people_found.toLocaleString() : '0'}
-                  />
-                  <StatsCard
-                    label="albums"
-                    value={stats ? stats.albums.toLocaleString() : '0'}
-                  />
-                  <StatsCard
-                    label="locked"
-                    value={stats ? stats.locked_encrypted.toLocaleString() : '0'}
-                  />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <hr className="border-white/[0.06] mb-5" />
 
           {/* Sub Navigation and View Filters */}
-          <div className="flex items-center justify-between border-t border-b border-white/5 py-4 mb-4 select-none">
+          <div className="flex items-center justify-between py-2 mb-4 select-none">
             {/* Category Pills on Left */}
-            <div className="flex items-center gap-1.5 bg-[#111]/40 p-1.5 rounded-xl border border-white/5">
-              {(['all', 'favorites', 'recent', 'videos'] as const).map((pill) => (
+            <div className="flex items-center gap-2">
+              {([
+                { id: 'all', label: 'All' },
+                { id: 'favorites', label: 'Favorites' },
+                { id: 'recent', label: 'Recent' },
+                { id: 'videos', label: 'Videos' }
+              ] as const).map((pill) => (
                 <button
-                  key={pill}
-                  onClick={() => setActivePill(pill)}
-                  className={`px-5 py-2.5 text-[10px] font-bold rounded-lg uppercase tracking-wider transition-all duration-300
+                  key={pill.id}
+                  onClick={() => setActivePill(pill.id)}
+                  className={`px-5 py-2 text-sm rounded-full transition-all duration-300
                     ${
-                      activePill === pill
-                        ? 'bg-primary text-black font-extrabold shadow-[0_0_20px_rgba(var(--color-primary),0.2)]'
-                        : 'text-gray-500 hover:text-white hover:bg-white/5'
+                      activePill === pill.id
+                        ? 'bg-[#2a241c] text-[#e0cfb3] font-medium'
+                        : 'text-gray-400 hover:text-white font-normal'
                     }
                   `}
                 >
-                  {pill}
+                  {pill.label}
                 </button>
               ))}
             </div>
 
             {/* Date label and Grid/List view switch on Right */}
             <div className="flex items-center gap-6">
-              <span className="text-xs font-mono uppercase tracking-[0.15em] text-gray-500 font-bold">
-                {dateLabel}
+              <span className="text-xs text-gray-500 font-normal">
+                {filteredPhotos.length === 1 ? '1 moment' : `${filteredPhotos.length} moments`}
               </span>
 
               {/* Layout switch controls */}
-              <div className="flex items-center gap-1 bg-[#111]/40 p-1.5 rounded-xl border border-white/5">
+              <div className="flex items-center bg-[#161616]/40 p-1 rounded-xl border border-white/[0.08]">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2.5 rounded-lg transition-all duration-300 ${
-                    viewMode === 'grid' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                   }`}
                   title="Grid View"
                 >
@@ -402,12 +372,12 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2.5 rounded-lg transition-all duration-300 ${
-                    viewMode === 'list' ? 'bg-white/10 text-primary' : 'text-gray-500 hover:text-white'
+                  className={`p-2 rounded-lg transition-all duration-300 ${
+                    viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                   }`}
                   title="List View"
                 >
-                  <Rows size={15} />
+                  <List size={15} />
                 </button>
               </div>
             </div>
@@ -453,6 +423,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 virtualRowKey={virtualRow.key}
                 virtualRowIndex={virtualRow.index}
                 measureElement={rowVirtualizer.measureElement}
+                isHovered={hoveredDateKey === item.dateKey}
               />
             );
           }
@@ -474,6 +445,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 rowHeight={rowHeightPx}
                 rowPadding={ROW_PADDING}
                 measureElement={rowVirtualizer.measureElement}
+                dateKey={item.photos[0]?.date?.split('T')[0] ?? virtualRow.key as string}
+                isRowHovered={hoveredDateKey !== null}
+                onRowHover={handleRowHover}
               />
             );
           }

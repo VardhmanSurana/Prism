@@ -7,6 +7,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { HistoryEntry, HistoryActionType, createHistoryEntry } from '../history';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
 import { Annotation } from '../AnnotationsPanel';
+import { API_BASE } from '@/constants';
 
 interface UseEditingHistoryProps {
   src: string;
@@ -15,6 +16,7 @@ interface UseEditingHistoryProps {
   setAnnotations: (annotations: Annotation[]) => void;
   setAnnotationsHistoryPast: React.Dispatch<React.SetStateAction<Annotation[][]>>;
   setAnnotationsHistoryFuture: React.Dispatch<React.SetStateAction<Annotation[][]>>;
+  photoId?: number | string;
 }
 
 /**
@@ -88,6 +90,7 @@ export const useEditingHistory = ({
   setAnnotations,
   setAnnotationsHistoryPast,
   setAnnotationsHistoryFuture,
+  photoId,
 }: UseEditingHistoryProps) => {
   const [currentImageSrc, setCurrentImageSrc] = useState<string>(src);
   const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
@@ -177,34 +180,58 @@ export const useEditingHistory = ({
 
   // Initialize history on mount or if photo changes
   useEffect(() => {
-    const photoIdMatch = src.match(/nocache=([^&-]+)/);
-    const photoId = photoIdMatch ? photoIdMatch[1] : src;
+    const parsedIdMatch = src.match(/nocache=([^&-]+)/);
+    const parsedId = parsedIdMatch ? parsedIdMatch[1] : src;
 
-    if (lastPhotoIdRef.current !== photoId) {
-      const initialEntry = createHistoryEntry(
-        'initial',
-        'Original image',
-        src,
-        DEFAULT_ADJUSTMENTS,
-        0,
-        false,
-        false,
-        0
-      );
-      setHistory([initialEntry]);
-      setCurrentHistoryIndex(0);
-      setCurrentImageSrc(src);
-      
-      previousAdjustmentsRef.current = DEFAULT_ADJUSTMENTS;
-      previousRotationRef.current = 0;
-      previousStraightenRef.current = 0;
-      previousFlipHRef.current = false;
-      previousFlipVRef.current = false;
-      setAnnotations([]);
-      setAnnotationsHistoryPast([]);
-      setAnnotationsHistoryFuture([]);
-      
-      lastPhotoIdRef.current = photoId;
+    if (lastPhotoIdRef.current !== parsedId) {
+      const fetchInitialAdjustments = async () => {
+        let initialAdjustments = DEFAULT_ADJUSTMENTS;
+        const activePhotoId = photoId || parsedId;
+        if (activePhotoId && !isNaN(Number(activePhotoId))) {
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/photos/${activePhotoId}/metadata`);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.adjustments) {
+                initialAdjustments = data.adjustments;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to fetch initial photo adjustments:', e);
+          }
+        }
+
+        const initialEntry = createHistoryEntry(
+          'initial',
+          'Original image',
+          src,
+          initialAdjustments,
+          0,
+          false,
+          false,
+          0
+        );
+
+        isRestoringHistory.current = true;
+        setHistory([initialEntry]);
+        setCurrentHistoryIndex(0);
+        setCurrentImageSrc(src);
+        setAdjustments(initialAdjustments);
+        
+        previousAdjustmentsRef.current = { ...initialAdjustments };
+        previousRotationRef.current = 0;
+        previousStraightenRef.current = 0;
+        previousFlipHRef.current = false;
+        previousFlipVRef.current = false;
+        setAnnotations([]);
+        setAnnotationsHistoryPast([]);
+        setAnnotationsHistoryFuture([]);
+        
+        lastPhotoIdRef.current = parsedId;
+        isRestoringHistory.current = false;
+      };
+
+      fetchInitialAdjustments();
     } else {
       setHistory(prev => {
         if (prev.length === 0) return prev;
@@ -219,7 +246,7 @@ export const useEditingHistory = ({
         setCurrentImageSrc(src);
       }
     }
-  }, [src, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture, currentImageSrc]);
+  }, [src, photoId, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture, currentImageSrc]);
 
   // Track adjustments and changes
   const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);

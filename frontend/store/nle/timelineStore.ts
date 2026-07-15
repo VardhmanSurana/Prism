@@ -1,24 +1,18 @@
 import { StateCreator } from 'zustand';
 import { NLEStore } from './types';
 import { Clip, Track, ClipEffects, ClipTransform, Transition, Keyframe } from '@/types/nle';
-import { splitKeyframes } from '@/lib/keyframes';
+import { clipsOverlap, computeTimelineDuration } from './timelineMath';
+import { nextClipId, nextTrackId } from './helpers';
+import { splitKeyframes, shiftKeyframes } from '@/lib/keyframes';
 
 export interface TimelineSlice {
-  addTrack: (type: 'video' | 'audio' | 'text') => void;
-  removeTrack: (trackId: string) => void;
-  reorderTrack: (sourceTrackId: string, targetTrackId: string) => void;
-  updateTrack: (trackId: string, updates: Partial<Track>) => void;
-  toggleTrackMute: (trackId: string) => void;
-  toggleTrackSolo: (trackId: string) => void;
-  toggleTrackVisibility: (trackId: string) => void;
-  toggleTrackLocked: (trackId: string) => void;
-  selectTrack: (trackId: string | null) => void;
-  renameTrack: (trackId: string, name: string) => void;
+  tracks: Track[];
+  duration: number;
 
   addClip: (trackId: string, clip: Clip) => void;
   removeClip: (clipId: string) => void;
   moveClip: (clipId: string, newStartFrame: number, newTrackId?: string) => void;
-  splitClip: (clipId: string, frame: number) => void;
+  splitClip: (clipId: string, atTime: number) => void;
   trimClip: (clipId: string, side: 'in' | 'out', newFrame: number) => void;
 
   setClipSpeed: (clipId: string, speed: number) => void;
@@ -32,90 +26,435 @@ export interface TimelineSlice {
   setClipKeyframes: (clipId: string, property: string, keyframes: Keyframe[]) => void;
   addFreezeFrame: (clipId: string, atTime: number) => void;
 
-  updateClipEffects: (clipId: string, updates: Partial<ClipEffects>) => void;
-  updateClipTransform: (clipId: string, updates: Partial<ClipTransform>) => void;
-  updateClip: (clipId: string, updates: Partial<Clip>) => void;
+  addTrack: (type: 'video' | 'audio' | 'text') => void;
+  removeTrack: (trackId: string) => void;
+  reorderTrack: (sourceTrackId: string, targetTrackId: string) => void;
+  toggleTrackMute: (trackId: string) => void;
+  toggleTrackSolo: (trackId: string) => void;
+  toggleTrackVisibility: (trackId: string) => void;
+  toggleTrackLocked: (trackId: string) => void;
+  selectTrack: (trackId: string | null) => void;
+  renameTrack: (trackId: string, name: string) => void;
 }
 
 export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> = (set, get) => ({
-  addTrack: (type) => {
-    set((state) => {
-      state.pushHistory();
-      const numType = state.tracks.filter((t: Track) => t.type === type).length + 1;
-      const prefix = type === 'video' ? 'V' : type === 'audio' ? 'A' : 'T';
+  tracks: [],
+  duration: 0,
+
+  addClip: (trackId, clip) => {
+    const track = get().tracks.find((t) => t.id === trackId);
+    if (track?.locked) return;
+    get().pushHistory();
+    set((s) => {
+      const tracks = s.tracks.map((t) =>
+        t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
+      );
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
+    });
+  },
+
+  removeClip: (clipId) => {
+    get().pushHistory();
+    set((s) => {
+      const tracks = s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.filter((c) => c.id !== clipId),
+      }));
       return {
-        tracks: [
-          {
-            id: `${prefix.toLowerCase()}${Date.now()}`,
-            name: `${prefix}${numType}`,
-            type,
-            clips: [],
-            locked: false,
-            hidden: false,
-            ...(type === 'video' ? { opacity: 100 } : { volume: 100 }),
-          } as any as Track,
-          ...state.tracks,
-        ],
+        tracks,
+        duration: computeTimelineDuration(tracks, s.projectFps),
         isDirty: true,
+        selectedClipId: s.selectedClipId === clipId ? null : s.selectedClipId,
       };
     });
   },
 
-  removeTrack: (trackId) => {
-    set((state) => {
-      state.pushHistory();
-      return {
-        tracks: state.tracks.filter((t: Track) => t.id !== trackId),
-        isDirty: true,
-      };
+  moveClip: (clipId, newStartFrame, newTrackId) => {
+    get().pushHistory();
+    set((s) => {
+      let movedClip: Clip | undefined;
+      let originalStartFrame = 0;
+      let sourceTrackId: string | undefined;
+      const tracks = s.tracks.map((t) => {
+        const idx = t.clips.findIndex((c) => c.id === clipId);
+        if (idx === -1) return t;
+        originalStartFrame = t.clips[idx].startFrame;
+        movedClip = { ...t.clips[idx], startFrame: newStartFrame };
+        sourceTrackId = t.id;
+        return { ...t, clips: t.clips.filter((c) => c.id !== clipId) };
+      });
+      if (!movedClip) return {};
+      const targetId = newTrackId ?? sourceTrackId;
+      if (targetId) {
+        const targetIdx = tracks.findIndex((t) => t.id === targetId);
+        if (targetIdx !== -1) {
+          let snappedFrame = movedClip.startFrame;
+          if (s.snapEnabled) {
+            const SNAP_THRESHOLD = 5;
+            const snapPoints: number[] = [0];
+            snapPoints.push(Math.round(s.playheadPosition * s.projectFps));
+            for (const otherClip of tracks[targetIdx].clips) {
+              if (otherClip.id === clipId) continue;
+              snapPoints.push(otherClip.startFrame);
+              snapPoints.push(otherClip.startFrame + otherClip.durationFrames);
+            }
+            for (const pt of snapPoints) {
+              if (Math.abs(movedClip.startFrame - pt) <= SNAP_THRESHOLD) {
+                snappedFrame = pt;
+                break;
+              }
+            }
+            movedClip = { ...movedClip, startFrame: snappedFrame };
+          }
+          const candidate = { startFrame: movedClip.startFrame, durationFrames: movedClip.durationFrames };
+          const hasOverlap = tracks[targetIdx].clips.some((c) => clipsOverlap(candidate, c));
+          if (hasOverlap) return {};
+          const newClips = [...tracks[targetIdx].clips, movedClip];
+          newClips.sort((a, b) => a.startFrame - b.startFrame);
+          tracks[targetIdx] = { ...tracks[targetIdx], clips: newClips };
+
+          if (movedClip.linkedId) {
+            const deltaFrames = movedClip.startFrame - originalStartFrame;
+            for (let ti = 0; ti < tracks.length; ti++) {
+              if (ti === targetIdx) continue;
+              tracks[ti] = {
+                ...tracks[ti],
+                clips: tracks[ti].clips.map((c) => {
+                  if (c.linkedId === movedClip!.linkedId) {
+                    return { ...c, startFrame: Math.max(0, c.startFrame + deltaFrames) };
+                  }
+                  return c;
+                }).sort((a, b) => a.startFrame - b.startFrame),
+              };
+            }
+          }
+        }
+      }
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
     });
   },
 
-  reorderTrack: (sourceTrackId, targetTrackId) => {
-    set((state) => {
-      state.pushHistory();
-      const newTracks = [...state.tracks];
-      const sourceIndex = newTracks.findIndex(t => t.id === sourceTrackId);
-      const targetIndex = newTracks.findIndex(t => t.id === targetTrackId);
-      if (sourceIndex === -1 || targetIndex === -1) return state;
+  splitClip: (clipId, atTime) => {
+    get().pushHistory();
+    set((s) => {
+      const tracks = s.tracks.map((t) => {
+        const idx = t.clips.findIndex((c) => c.id === clipId);
+        if (idx === -1) return t;
+        const clip = t.clips[idx];
+        const splitFrame = Math.round(atTime * s.projectFps);
+        const clipStartFrame = clip.startFrame;
+        const splitRelativeFrame = splitFrame - clipStartFrame;
 
-      const [removed] = newTracks.splice(sourceIndex, 1);
-      newTracks.splice(targetIndex, 0, removed);
-      return { tracks: newTracks, isDirty: true };
+        if (splitRelativeFrame <= 0 || splitRelativeFrame >= clip.durationFrames) return t;
+
+        const splitRelativeTime = splitRelativeFrame / s.projectFps;
+        const split = splitKeyframes(clip.keyframes, splitRelativeTime);
+
+        const clip1: Clip = {
+          ...clip,
+          id: clip.id,
+          durationFrames: splitRelativeFrame,
+          outPoint: clip.inPoint + splitRelativeFrame / s.projectFps,
+          keyframes: split.before,
+        };
+        const clip2: Clip = {
+          ...clip,
+          id: nextClipId(),
+          startFrame: splitFrame,
+          inPoint: clip.inPoint + splitRelativeFrame / s.projectFps,
+          durationFrames: clip.durationFrames - splitRelativeFrame,
+          keyframes: shiftKeyframes(split.after, -splitRelativeTime),
+        };
+
+        const newClips = [...t.clips];
+        newClips.splice(idx, 1, clip1, clip2);
+        return { ...t, clips: newClips };
+      });
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
     });
   },
 
-  updateTrack: (trackId, updates) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, ...updates } : t)),
+  trimClip: (clipId, side, newFrame) => {
+    get().pushHistory();
+    set((s) => {
+      let trimmedClip: Clip | null = null;
+      let targetTrackId: string | null = null;
+      let targetTrackIndex = -1;
+
+      for (const t of s.tracks) {
+        const idx = t.clips.findIndex((c) => c.id === clipId);
+        if (idx === -1) continue;
+        const clip = t.clips[idx];
+        let updated: Clip;
+        if (side === 'in') {
+          const diff = newFrame - clip.startFrame;
+          updated = {
+            ...clip,
+            startFrame: newFrame,
+            durationFrames: clip.durationFrames - diff,
+            inPoint: clip.inPoint + diff / s.projectFps,
+          };
+        } else {
+          updated = {
+            ...clip,
+            durationFrames: newFrame - clip.startFrame,
+            outPoint: clip.inPoint + (newFrame - clip.startFrame) / s.projectFps,
+          };
+        }
+        trimmedClip = updated;
+        targetTrackId = t.id;
+        targetTrackIndex = s.tracks.indexOf(t);
+        break;
+      }
+
+      if (!trimmedClip || targetTrackIndex === -1) return {};
+
+      const targetTrack = s.tracks[targetTrackIndex];
+      const hasOverlap = targetTrack.clips.some((c) => {
+        if (c.id === clipId) return false;
+        return clipsOverlap(trimmedClip!, c);
+      });
+      if (hasOverlap) return {};
+
+      const tracks = s.tracks.map((t) => {
+        if (t.id !== targetTrackId) return t;
+        const newClips = t.clips.map((c) => c.id === clipId ? trimmedClip! : c);
+        return { ...t, clips: newClips };
+      });
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
+    });
+  },
+
+  setClipSpeed: (clipId, speed) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => c.id === clipId ? { ...c, speed } : c),
+      })),
       isDirty: true,
     }));
   },
 
+  setClipVolume: (clipId, volume) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => c.id === clipId ? { ...c, volume } : c),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipMuted: (clipId, muted) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => c.id === clipId ? { ...c, muted } : c),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipEffects: (clipId, effects) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) =>
+          c.id === clipId
+            ? { ...c, effects: { ...c.effects, ...effects } }
+            : c
+        ),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipFadeIn: (clipId, duration) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => c.id === clipId ? { ...c, fadeIn: duration } : c),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipFadeOut: (clipId, duration) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => c.id === clipId ? { ...c, fadeOut: duration } : c),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipTransform: (clipId, transform) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) =>
+          c.id === clipId
+            ? { ...c, transform: { ...c.transform, ...transform } }
+            : c
+        ),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipTransition: (clipId, transition) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) =>
+          c.id === clipId ? { ...c, transition } : c
+        ),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  setClipKeyframes: (clipId, property, keyframes) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) =>
+          c.id === clipId
+            ? { ...c, keyframes: { ...c.keyframes, [property]: keyframes } }
+            : c
+        ),
+      })),
+      isDirty: true,
+    }));
+  },
+
+  addFreezeFrame: (clipId, atTime) => {
+    set((s) => {
+      const tracks = s.tracks.map((t) => {
+        const idx = t.clips.findIndex((c) => c.id === clipId);
+        if (idx === -1) return t;
+        const clip = t.clips[idx];
+        const splitFrame = Math.round(atTime * s.projectFps);
+        const splitRelativeFrame = splitFrame - clip.startFrame;
+        if (splitRelativeFrame <= 0 || splitRelativeFrame >= clip.durationFrames) return t;
+
+        const freezeDuration = 2 * s.projectFps;
+        const splitAt = clip.inPoint + splitRelativeFrame / s.projectFps;
+
+        const clip1: Clip = {
+          ...clip,
+          durationFrames: splitRelativeFrame,
+          outPoint: splitAt,
+          keyframes: { ...clip.keyframes },
+        };
+        const freezeClip: Clip = {
+          id: nextClipId(),
+          sourceId: clip.sourceId,
+          sourcePath: clip.sourcePath,
+          sourceDuration: clip.sourceDuration,
+          startFrame: splitFrame,
+          durationFrames: freezeDuration,
+          inPoint: splitAt,
+          outPoint: splitAt,
+          speed: 0,
+          volume: clip.volume,
+          muted: clip.muted,
+          fadeIn: 0,
+          fadeOut: 0,
+          effects: { ...clip.effects },
+          transform: { ...clip.transform },
+          keyframes: {},
+        };
+        const clip2: Clip = {
+          ...clip,
+          id: nextClipId(),
+          startFrame: splitFrame + freezeDuration,
+          inPoint: splitAt,
+          durationFrames: clip.durationFrames - splitRelativeFrame,
+          keyframes: { ...clip.keyframes },
+        };
+
+        const newClips = [...t.clips];
+        newClips.splice(idx, 1, clip1, freezeClip, clip2);
+        return { ...t, clips: newClips };
+      });
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
+    });
+  },
+
+  addTrack: (type) => {
+    get().pushHistory();
+    set((s) => ({
+      tracks: [...s.tracks, {
+        id: nextTrackId(),
+        type,
+        name: type === 'video' ? `Video ${s.tracks.filter(t => t.type === 'video').length + 1}`
+          : type === 'audio' ? `Audio ${s.tracks.filter(t => t.type === 'audio').length + 1}`
+          : `Text ${s.tracks.filter(t => t.type === 'text').length + 1}`,
+        muted: false,
+        solo: false,
+        visible: true,
+        locked: false,
+        clips: [],
+      }],
+      isDirty: true,
+    }));
+  },
+
+  removeTrack: (trackId) => {
+    get().pushHistory();
+    set((s) => ({
+      tracks: s.tracks.filter((t) => t.id !== trackId),
+      isDirty: true,
+    }));
+  },
+
+  reorderTrack: (sourceTrackId, targetTrackId) => {
+    get().pushHistory();
+    set((s) => {
+      const sourceIdx = s.tracks.findIndex(t => t.id === sourceTrackId);
+      const targetIdx = s.tracks.findIndex(t => t.id === targetTrackId);
+      if (sourceIdx === -1 || targetIdx === -1) return s;
+      const newTracks = [...s.tracks];
+      const [removed] = newTracks.splice(sourceIdx, 1);
+      newTracks.splice(targetIdx, 0, removed);
+      return { tracks: newTracks, isDirty: true };
+    });
+  },
+
   toggleTrackMute: (trackId) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, muted: !(t as any).muted } : t)),
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, muted: !t.muted } : t
+      ),
       isDirty: true,
     }));
   },
 
   toggleTrackSolo: (trackId) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, solo: !(t as any).solo } : t)),
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, solo: !t.solo } : t
+      ),
       isDirty: true,
     }));
   },
 
   toggleTrackVisibility: (trackId) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, hidden: !(t as any).hidden } : t)),
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, visible: !t.visible } : t
+      ),
       isDirty: true,
     }));
   },
 
   toggleTrackLocked: (trackId) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, locked: !t.locked } : t)),
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, locked: !t.locked } : t
+      ),
       isDirty: true,
     }));
   },
@@ -123,223 +462,11 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   selectTrack: (trackId) => set({ selectedTrackId: trackId }),
 
   renameTrack: (trackId, name) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => (t.id === trackId ? { ...t, name } : t)),
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, name } : t
+      ),
       isDirty: true,
     }));
-  },
-
-  addClip: (trackId, clip) => {
-    set((state) => {
-      state.pushHistory();
-      return {
-        tracks: state.tracks.map((t: Track) =>
-          t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
-        ),
-        isDirty: true,
-      };
-    });
-  },
-
-  removeClip: (clipId) => {
-    set((state) => {
-      state.pushHistory();
-      const newTracks = state.tracks.map((t: Track) => ({
-        ...t,
-        clips: t.clips.filter((c: Clip) => c.id !== clipId),
-      }));
-      return {
-        tracks: newTracks,
-        selectedClipId: state.selectedClipId === clipId ? null : state.selectedClipId,
-        isDirty: true,
-      };
-    });
-  },
-
-  moveClip: (clipId, newStartFrame, newTrackId) => {
-    set((state) => {
-      state.pushHistory();
-      let clipToMove: Clip | null = null;
-      let originalTrackId: string | null = null;
-
-      for (const t of state.tracks) {
-        const found = t.clips.find((c: Clip) => c.id === clipId);
-        if (found) {
-          clipToMove = found;
-          originalTrackId = t.id;
-          break;
-        }
-      }
-
-      if (!clipToMove || !originalTrackId) return state;
-
-      const duration = (clipToMove as any).endFrame - (clipToMove as any).startFrame;
-      const targetTrackId = newTrackId ?? originalTrackId;
-      const updatedClip = {
-        ...clipToMove,
-        startFrame: newStartFrame,
-        endFrame: newStartFrame + duration,
-        trackId: targetTrackId
-      } as Clip;
-
-      return {
-        tracks: state.tracks.map((t: Track) => {
-          if (t.id === originalTrackId && t.id === targetTrackId) {
-            return {
-              ...t,
-              clips: t.clips.map((c: Clip) => c.id === clipId ? updatedClip : c),
-            };
-          } else if (t.id === originalTrackId) {
-            return {
-              ...t,
-              clips: t.clips.filter((c: Clip) => c.id !== clipId),
-            };
-          } else if (t.id === targetTrackId) {
-            return {
-              ...t,
-              clips: [...t.clips, updatedClip],
-            };
-          }
-          return t;
-        }),
-        isDirty: true,
-      };
-    });
-  },
-
-  splitClip: (clipId, frame) => {
-    set((state) => {
-      state.pushHistory();
-      let newTracks = [...state.tracks];
-
-      newTracks = newTracks.map(track => {
-        const clipIdx = track.clips.findIndex((c: Clip) => c.id === clipId);
-        if (clipIdx === -1) return track;
-
-        const c = track.clips[clipIdx];
-        if (frame <= (c as any).startFrame || frame >= (c as any).endFrame) return track;
-
-        const splitTimeRel = frame - (c as any).startFrame;
-
-        const leftClip: Clip = {
-          ...c,
-          endFrame: frame,
-          sourceEndFrame: (c as any).sourceStartFrame + splitTimeRel,
-          effects: { ...c.effects, ...(splitKeyframes(c.effects as any, splitTimeRel) as any) },
-        } as Clip;
-
-        const rightClip: Clip = {
-          ...c,
-          id: `clip_${Date.now()}`,
-          startFrame: frame,
-          sourceStartFrame: (c as any).sourceStartFrame + splitTimeRel,
-          effects: { ...c.effects, ...(splitKeyframes(c.effects as any, splitTimeRel) as any) },
-        } as Clip;
-
-        const updatedClips = [...track.clips];
-        updatedClips.splice(clipIdx, 1, leftClip, rightClip);
-        return { ...track, clips: updatedClips };
-      });
-
-      return { tracks: newTracks, isDirty: true };
-    });
-  },
-
-  trimClip: (clipId, side, newFrame) => {
-    set((state) => {
-      state.pushHistory();
-      return {
-        tracks: state.tracks.map(t => ({
-          ...t,
-          clips: t.clips.map(c => {
-            if (c.id !== clipId) return c;
-            const start = (c as any).startFrame;
-            const end = (c as any).endFrame;
-
-            if (side === 'in') {
-              const diff = newFrame - start;
-              return {
-                ...c,
-                startFrame: newFrame,
-                sourceStartFrame: (c as any).sourceStartFrame + diff
-              } as Clip;
-            } else {
-              const diff = newFrame - end;
-              return {
-                ...c,
-                endFrame: newFrame,
-                sourceEndFrame: (c as any).sourceEndFrame + diff
-              } as Clip;
-            }
-          })
-        })),
-        isDirty: true
-      };
-    });
-  },
-
-  updateClipEffects: (clipId, updates) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => ({
-        ...t,
-        clips: t.clips.map((c: Clip) =>
-          c.id === clipId
-            ? { ...c, effects: { ...c.effects, ...updates } }
-            : c
-        )
-      })),
-      isDirty: true
-    }));
-  },
-
-  updateClipTransform: (clipId, updates) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => ({
-        ...t,
-        clips: t.clips.map((c: Clip) =>
-          c.id === clipId
-            ? { ...c, transform: { ...c.transform, ...updates } }
-            : c
-        )
-      })),
-      isDirty: true
-    }));
-  },
-
-  updateClip: (clipId, updates) => {
-    set((state) => ({
-      tracks: state.tracks.map((t: Track) => ({
-        ...t,
-        clips: t.clips.map((c: Clip) =>
-          c.id === clipId
-            ? { ...c, ...updates }
-            : c
-        )
-      })),
-      isDirty: true
-    }));
-  },
-
-  setClipSpeed: (clipId, speed) => get().updateClip(clipId, { speed } as any),
-  setClipVolume: (clipId, volume) => get().updateClip(clipId, { volume } as any),
-  setClipMuted: (clipId, muted) => get().updateClip(clipId, { muted } as any),
-  setClipEffects: (clipId, effects) => get().updateClipEffects(clipId, effects),
-  setClipFadeIn: (clipId, duration) => get().updateClip(clipId, { fadeIn: duration } as any),
-  setClipFadeOut: (clipId, duration) => get().updateClip(clipId, { fadeOut: duration } as any),
-  setClipTransform: (clipId, transform) => get().updateClipTransform(clipId, transform),
-  setClipTransition: (clipId, transition) => get().updateClip(clipId, { transition } as any),
-  setClipKeyframes: (clipId, property, keyframes) => {
-    const state = get();
-    const clip = state.getSelectedClip();
-    if (!clip || clip.id !== clipId) return;
-
-    if (property in clip.transform) {
-      get().updateClipTransform(clipId, { [property]: keyframes });
-    } else {
-      get().updateClipEffects(clipId, { [property]: keyframes });
-    }
-  },
-  addFreezeFrame: (clipId, atTime) => {
-    get().splitClip(clipId, atTime);
   },
 });

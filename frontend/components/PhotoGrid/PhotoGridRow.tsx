@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback } from 'react';
 import { PhotoGridRowProps } from './types';
 import { PhotoItem } from './PhotoItem';
 import { ROW_PADDING } from './constants';
@@ -15,8 +15,12 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   virtualRowKey,
   virtualRowIndex,
   measureElement,
+  dateKey,
+  isRowHovered,
+  onRowHover,
 }) => {
-  const [isRowHovered, setIsRowHovered] = useState(false);
+  const handleMouseEnter = useCallback(() => onRowHover(dateKey), [dateKey, onRowHover]);
+  const handleMouseLeave = useCallback(() => onRowHover(null), [onRowHover]);
 
   return (
     <div
@@ -29,8 +33,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
         height: `${rowHeight}px`,
         paddingBottom: `${ROW_PADDING}px`,
       }}
-      onMouseEnter={() => setIsRowHovered(true)}
-      onMouseLeave={() => setIsRowHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       {photos.map((photo) => (
         <PhotoItem
@@ -54,17 +58,19 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   if (prevProps.rowHeight !== nextProps.rowHeight) return false;
   if (prevProps.virtualRowStart !== nextProps.virtualRowStart) return false;
   if (prevProps.virtualRowIndex !== nextProps.virtualRowIndex) return false;
+  if (prevProps.dateKey !== nextProps.dateKey) return false;
+  if (prevProps.isRowHovered !== nextProps.isRowHovered) return false;
   if (prevProps.photos.length !== nextProps.photos.length) return false;
-  
+
   for (let i = 0; i < prevProps.photos.length; i++) {
     if (prevProps.photos[i].id !== nextProps.photos[i].id) return false;
   }
-  
+
   for (const photo of prevProps.photos) {
     const wasSelected = prevProps.selectedIds.has(String(photo.id));
     const isSelected = nextProps.selectedIds.has(String(photo.id));
     if (wasSelected !== isSelected) return false;
   }
-  
+
   return true;
 });

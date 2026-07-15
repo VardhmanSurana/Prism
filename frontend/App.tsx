@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
 import { MainContent } from './components/layout/MainContent';
 import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
+import { useEditStore } from '@/store/editStore';
 import { FloatingActions } from './components/layout/floating-actions/FloatingActions';
 import { ErrorBoundary } from './components/wrappers/ErrorBoundary';
 import { DragDropOverlay } from './components/import/DragDropOverlay';
@@ -125,12 +126,10 @@ function App() {
         ? { ...photo, ...next }
         : photo
     ));
-    setSelectedPhoto(prev =>
-      prev && String(prev.id) === String(photoId)
-        ? { ...prev, ...next }
-        : prev
-    );
-  }, [setPhotos, setSelectedPhoto]);
+    if (selectedPhoto && String(selectedPhoto.id) === String(photoId)) {
+      setSelectedPhoto({ ...selectedPhoto, ...next });
+    }
+  }, [setPhotos, setSelectedPhoto, selectedPhoto]);
 
   // Global OS drag-and-drop import (Tauri)
   const dragDrop = useDragDropImport({
@@ -152,6 +151,31 @@ function App() {
 
   const handleCollage = useCallback(() => setIsCollageOpen(true), []);
   const handlePhotoBook = useCallback(() => setIsPhotoBookOpen(true), []);
+
+  const handleBulkPasteEdits = useCallback(async () => {
+    const copied = useEditStore.getState().copiedAdjustments;
+    if (!copied || selectedIds.size === 0) return;
+
+    try {
+      const ids = Array.from(selectedIds).map(Number);
+      const res = await fetch(`${API_BASE}/api/v1/photos/bulk-adjustments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_ids: ids,
+          adjustments: copied,
+        }),
+      });
+
+      if (res.ok) {
+        clearSelection();
+      } else {
+        console.error('Failed to paste adjustments bulk:', await res.text());
+      }
+    } catch (e) {
+      console.error('Failed to paste adjustments:', e);
+    }
+  }, [selectedIds, clearSelection]);
 
   return (
     <ErrorBoundary>
@@ -216,6 +240,7 @@ function App() {
                 onRestore={handleBulkRestore}
                 onCollage={handleCollage}
                 onPhotoBook={handlePhotoBook}
+                onPasteEdits={handleBulkPasteEdits}
               />
             )}
           </AnimatePresence>

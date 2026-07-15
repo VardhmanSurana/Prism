@@ -79,10 +79,6 @@ export interface NLEStore {
   setClipKeyframes: (clipId: string, property: string, keyframes: Keyframe[]) => void;
   addFreezeFrame: (clipId: string, atTime: number) => void;
 
-  updateClipEffects: (clipId: string, updates: Partial<ClipEffects>) => void;
-  updateClipTransform: (clipId: string, updates: Partial<ClipTransform>) => void;
-  updateClip: (clipId: string, updates: Partial<Clip>) => void;
-
   // Track actions
   addTrack: (type: 'video' | 'audio' | 'text') => void;
   removeTrack: (trackId: string) => void;
@@ -95,7 +91,7 @@ export interface NLEStore {
   renameTrack: (trackId: string, name: string) => void;
 
   // Multi-clip
-  addClipFromLibrary: (trackId: string, photo: any) => Promise<void>;
+  addClipFromLibrary: (trackId: string, photo: { id: number; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }) => Promise<void>;
 
   // Playback
   play: () => void;
@@ -103,18 +99,13 @@ export interface NLEStore {
   seek: (time: number) => void;
 
   // Selection
-  setSelectedClip: (clipId: string | null) => void;
-  setSelectedTrack: (trackId: string | null) => void;
-  setPlayheadPosition: (frame: number) => void;
-  setZoomLevel: (zoom: number) => void;
-  setScrollOffset: (offset: number) => void;
-  setIsPlaying: (playing: boolean) => void;
-  toggleExportDialog: (open?: boolean) => void;
-  toggleSnap: () => void;
+  selectClip: (clipId: string | null) => void;
 
-  // Clipboard
-  copyClip: (clip: Clip) => void;
-  pasteClip: (trackId: string, startFrame: number) => void;
+  // UI
+  setExportDialogOpen: (open: boolean) => void;
+  setZoomLevel: (level: number) => void;
+  toggleSnap: () => void;
+  setClipboardClip: (clip: Clip | null) => void;
 
   // Bookmarks
   addBookmark: (label?: string, color?: string) => void;
@@ -143,5 +134,4 @@ export interface NLEStore {
   getSelectedClip: () => Clip | null;
   getTimelineDuration: () => number;
   toProjectJson: () => Record<string, unknown>;
-  importPhotoToTrack: (trackId: string, photo: any, insertAtTime?: number) => Promise<void>;
 }

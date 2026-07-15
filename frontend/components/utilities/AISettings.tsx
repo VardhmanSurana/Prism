@@ -197,8 +197,8 @@ export const AISettings: React.FC = () => {
   if (!isWorkerPaused) {
     if (isWorkerProcessing) {
       statusText = 'Active (Processing)';
-      statusBadgeStyle = 'border-purple-500/20 bg-[#5e6ad2]/5 text-[#828fff]';
-      statusDotStyle = 'bg-[#828fff] animate-pulse';
+      statusBadgeStyle = 'border-[var(--status-processing)]/20 bg-[var(--status-processing)]/5 text-[var(--status-processing-text)]';
+      statusDotStyle = 'bg-[var(--status-processing-text)] animate-pulse';
     } else {
       statusText = 'Active (Idle)';
       statusBadgeStyle = 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400';
@@ -212,7 +212,7 @@ export const AISettings: React.FC = () => {
       <div className="flex justify-between items-start mb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
+            <h3 className="font-serif font-semibold text-[#f7f8f8] text-lg leading-tight">
               AI & Hardware Configuration
             </h3>
             <span className="px-2 py-0.5 bg-[#141516] border border-[#23252a] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
@@ -247,6 +247,7 @@ export const AISettings: React.FC = () => {
                 options={GPU_OPTIONS}
                 value={settings.GPU_MODE}
                 onChange={handleSelectChange}
+                ariaLabel="GPU processing mode"
               />
             </div>
           </div>
@@ -340,6 +341,7 @@ export const AISettings: React.FC = () => {
                     label=""
                     checked={settings.ENABLE_IMAGE_BG_PROCESS}
                     onToggle={() => handleToggle('ENABLE_IMAGE_BG_PROCESS')}
+                    ariaLabel="Enable image background processes"
                   />
                 </div>
               </div>
@@ -391,6 +393,7 @@ export const AISettings: React.FC = () => {
                     label=""
                     checked={settings.ENABLE_VIDEO_BG_PROCESS}
                     onToggle={() => handleToggle('ENABLE_VIDEO_BG_PROCESS')}
+                    ariaLabel="Enable video background processes"
                   />
                 </div>
               </div>

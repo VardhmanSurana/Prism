@@ -45,6 +45,7 @@ PHOTO_COLUMN_PATCHES: tuple[tuple[str, str], ...] = (
     ("exif_iso", "INTEGER"),
     ("hash", "VARCHAR(64)"),
     ("ai_summary", "TEXT"),
+    ("adjustments_json", "TEXT"),
 )
 
 BACKGROUND_JOB_COLUMN_PATCHES: tuple[tuple[str, str], ...] = (

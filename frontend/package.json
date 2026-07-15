@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "eslint .",
     "preview": "vite preview",
     "tauri": "pnpm exec tauri",
     "test": "vitest run --environment jsdom"
@@ -37,8 +38,8 @@
     "@testing-library/react": "^16.3.2",
     "@types/cropperjs": "^1.3.3",
     "@types/node": "^22.14.0",
-    "@types/react": "^18.3.31",
-    "@types/react-dom": "^18.3.7",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
     "@typescript-eslint/eslint-plugin": "^8.58.2",
     "@typescript-eslint/parser": "^8.58.2",
     "@vitejs/plugin-react": "^5.0.0",

@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "bash run-dev.sh",
+    "build": "pnpm run frontend:build",
     "frontend": "cd frontend && pnpm run dev",
     "frontend:build": "cd frontend && pnpm run build",
     "frontend:typecheck": "cd frontend && pnpm exec tsc --noEmit",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Aperture, Camera, MapPin, ScanLine } from 'lucide-react';
+import { Aperture, ScanLine } from 'lucide-react';
 import { API_BASE } from '@/constants';
 import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { ExploreHeader } from './ExploreHeader';
@@ -85,23 +85,25 @@ export const PhotographyInsights: React.FC = () => {
           </div>
         </GlassMaterial>
       ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <GlassMaterial intensity="regular" className="p-5 border border-white/5">
-            <div className="mb-5 flex items-center gap-2 text-sm font-medium text-white"><Camera size={16} className="text-primary" /> Most-used cameras</div>
-            <RankingList items={insights.cameras} emptyLabel="No camera metadata yet" />
-          </GlassMaterial>
-          <GlassMaterial intensity="regular" className="p-5 border border-white/5">
-            <div className="mb-5 flex items-center gap-2 text-sm font-medium text-white"><Aperture size={16} className="text-primary" /> How you shoot</div>
-            <dl className="grid grid-cols-2 gap-5">
+        <div className="space-y-4">
+          <div className="bg-surface border border-white/5 rounded-xl p-5">
+            <div className="mb-5 text-sm font-medium text-white">How you shoot</div>
+            <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4">
               <div><dt className="text-xs text-gray-500">Favourite focal length</dt><dd className="mt-1 text-2xl font-medium text-white">{insights.favorite_focal_length ? `${insights.favorite_focal_length} mm` : '—'}</dd></div>
               <div><dt className="text-xs text-gray-500">Average ISO</dt><dd className="mt-1 text-2xl font-medium text-white">{insights.average_iso ? formatCount(insights.average_iso) : '—'}</dd></div>
               <div className="col-span-2 border-t border-white/10 pt-4"><dt className="text-xs text-gray-500">Average focal length</dt><dd className="mt-1 text-base text-gray-200">{insights.average_focal_length ? `${insights.average_focal_length} mm` : 'No lens metadata yet'}</dd></div>
             </dl>
-          </GlassMaterial>
-          <GlassMaterial intensity="regular" className="p-5 border border-white/5">
-            <div className="mb-5 flex items-center gap-2 text-sm font-medium text-white"><MapPin size={16} className="text-primary" /> Places photographed</div>
-            <RankingList items={insights.locations} emptyLabel="No location metadata yet" />
-          </GlassMaterial>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+            <div className="lg:col-span-3 bg-surface border border-white/5 rounded-xl p-5">
+              <div className="mb-5 text-sm font-medium text-white">Most-used cameras</div>
+              <RankingList items={insights.cameras} emptyLabel="No camera metadata yet" />
+            </div>
+            <div className="lg:col-span-2 bg-surface border border-white/5 rounded-xl p-5">
+              <div className="mb-5 text-sm font-medium text-white">Places photographed</div>
+              <RankingList items={insights.locations} emptyLabel="No location metadata yet" />
+            </div>
+          </div>
         </div>
       )}
     </section>

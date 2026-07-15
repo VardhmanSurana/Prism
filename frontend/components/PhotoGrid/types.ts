@@ -36,6 +36,7 @@ export interface PhotoGridHeaderProps {
   virtualRowKey: React.Key;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
+  isHovered: boolean;
 }
 
 export interface PhotoItemProps {
@@ -63,6 +64,9 @@ export interface PhotoGridRowProps {
   virtualRowKey: React.Key;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
+  dateKey: string;
+  isRowHovered: boolean;
+  onRowHover: (dateKey: string | null) => void;
 }
 
 

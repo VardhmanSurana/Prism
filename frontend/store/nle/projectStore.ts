@@ -1,85 +1,62 @@
 import { StateCreator } from 'zustand';
-import { NLEStore, ProjectAsset } from './types';
-import { NLEProject } from '@/types/nle';
+import { NLEStore } from './types';
 import { apiClient } from '@/services/apiClient';
+import { nextTrackId } from './helpers';
+import { computeTimelineDuration } from './timelineMath';
 
 export interface ProjectSlice {
-  loadProject: (project: NLEProject) => void;
+  projectId: number | null;
+  projectName: string;
+  projectWidth: number;
+  projectHeight: number;
+  projectFps: number;
+  isDirty: boolean;
+  isSaving: boolean;
+  lastSavedAt: number | null;
+  projectAssets: NLEStore['projectAssets'];
+
+  loadProject: (project: any) => void;
   saveProject: () => Promise<void>;
-  createProject: (photoId: number, sourcePath: string, name?: string) => Promise<number>;
+  createProject: (photoId: number, photoPath: string, name?: string) => Promise<number>;
   toProjectJson: () => Record<string, unknown>;
-  addProjectAsset: (asset: ProjectAsset) => void;
+  addProjectAsset: (asset: any) => void;
   removeProjectAsset: (assetId: number) => void;
 }
 
 export const createProjectSlice: StateCreator<NLEStore, [], [], ProjectSlice> = (set, get) => ({
-  addProjectAsset: (asset) => {
-    set(state => {
-      if (state.projectAssets.some(a => a.id === asset.id)) return state;
-      return {
-        projectAssets: [...state.projectAssets, asset],
-        isDirty: true
-      };
-    });
-  },
-
-  removeProjectAsset: (assetId) => {
-    set(state => ({
-      projectAssets: state.projectAssets.filter(a => a.id !== assetId),
-      isDirty: true
-    }));
-  },
-
-  toProjectJson: () => {
-    const state = get();
-    return {
-      version: 1,
-      fps: state.projectFps,
-      width: state.projectWidth,
-      height: state.projectHeight,
-      tracks: state.tracks,
-      projectAssets: state.projectAssets,
-      bookmarks: state.bookmarks,
-      ui_state: {
-        playheadPosition: state.playheadPosition,
-        zoomLevel: state.zoomLevel,
-        scrollOffset: state.scrollOffset,
-      },
-    };
-  },
+  projectId: null,
+  projectName: 'Untitled Edit',
+  projectWidth: 1920,
+  projectHeight: 1080,
+  projectFps: 30,
+  isDirty: false,
+  isSaving: false,
+  lastSavedAt: null,
+  projectAssets: [],
 
   loadProject: (project) => {
-    try {
-      const data = typeof project.project_json === 'string'
-        ? JSON.parse(project.project_json)
-        : project.project_json;
-
-      set({
-        projectId: project.id,
-        projectName: project.name,
-        projectFps: data.fps ?? 30,
-        projectWidth: data.width ?? 1920,
-        projectHeight: data.height ?? 1080,
-        tracks: data.tracks ?? [],
-        projectAssets: data.projectAssets ?? [],
-        bookmarks: data.bookmarks ?? [],
-        playheadPosition: data.ui_state?.playheadPosition ?? 0,
-        zoomLevel: data.ui_state?.zoomLevel ?? 100,
-        scrollOffset: data.ui_state?.scrollOffset ?? 0,
-        isDirty: false,
-        _history: [],
-        _historyIndex: -1,
-        selectedClipId: null,
-      });
-    } catch (e) {
-      console.error('Failed to parse project JSON:', e);
-    }
+    const tj = project.project_json;
+    set({
+      projectId: project.id,
+      projectName: project.name,
+      projectWidth: project.width,
+      projectHeight: project.height,
+      projectFps: project.fps,
+      tracks: tj?.tracks ?? [],
+      duration: tj?.duration ?? 0,
+      playheadPosition: 0,
+      isDirty: false,
+      selectedClipId: null,
+      selectedTrackId: null,
+      projectAssets: tj?.projectAssets ?? [],
+      _history: [],
+      _historyIndex: -1,
+    });
   },
 
   saveProject: async () => {
     const state = get();
-    if (!state.projectId || !state.isDirty) return;
-
+    if (!state.projectId) return;
     set({ isSaving: true });
     try {
       const body = {
@@ -95,30 +72,52 @@ export const createProjectSlice: StateCreator<NLEStore, [], [], ProjectSlice> = 
     }
   },
 
-  createProject: async (photoId, sourcePath, name) => {
+  createProject: async (photoId, photoPath, name) => {
     const body = {
+      name: name ?? 'Untitled Edit',
       cover_photo_id: photoId,
-      name: name ?? 'New Project',
       project_json: JSON.stringify({
-        version: 1,
-        fps: 30,
-        width: 1920,
-        height: 1080,
-        tracks: [
-          { id: 'v1', name: 'V1', type: 'video', clips: [], locked: false, hidden: false, opacity: 100 },
-          { id: 'a1', name: 'A1', type: 'audio', clips: [], locked: false, hidden: false, volume: 100 },
-        ],
-        projectAssets: [],
-        bookmarks: [],
-        ui_state: {
-          playheadPosition: 0,
-          zoomLevel: 100,
-          scrollOffset: 0,
-        },
+        tracks: [{
+          id: nextTrackId(),
+          type: 'video',
+          name: 'Video 1',
+          muted: false,
+          solo: false,
+          visible: true,
+          locked: false,
+          clips: [],
+        }],
+        duration: 0,
+        playheadPosition: 0,
+        zoomLevel: 100,
+        scrollOffset: 0,
       }),
     };
     const data: any = await apiClient.post(`/api/v1/nle/projects`, body);
     set({ projectId: data.id, projectName: body.name, isDirty: false });
     return data.id;
   },
+
+  toProjectJson: () => {
+    const s = get();
+    return {
+      tracks: s.tracks,
+      duration: computeTimelineDuration(s.tracks, s.projectFps),
+      playheadPosition: s.playheadPosition,
+      zoomLevel: s.zoomLevel,
+      scrollOffset: s.scrollOffset,
+      fps: s.projectFps,
+      resolution: { w: s.projectWidth, h: s.projectHeight },
+      projectAssets: s.projectAssets,
+    };
+  },
+
+  addProjectAsset: (asset) => set((s) => {
+    if (s.projectAssets.some((a) => a.id === asset.id && a.type === asset.type)) return s;
+    return { projectAssets: [...s.projectAssets, asset] };
+  }),
+
+  removeProjectAsset: (assetId) => set((s) => ({
+    projectAssets: s.projectAssets.filter((a) => a.id !== assetId),
+  })),
 });

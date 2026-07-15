@@ -79,6 +79,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setAnnotations: annState.setAnnotations,
     setAnnotationsHistoryPast: annState.setAnnotationsHistoryPast,
     setAnnotationsHistoryFuture: annState.setAnnotationsHistoryFuture,
+    photoId,
   });
 
   const {
@@ -510,7 +511,18 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             annotations: annState.annotations,
             onProgress: (step, current, total) => setExportProgress({ step, current, total }),
           }))
-          .then((blob) => {
+          .then(async (blob) => {
+            if (photoId) {
+              try {
+                await fetch(`${API_BASE}/api/v1/photos/${photoId}/adjustments`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ adjustments }),
+                });
+              } catch (e) {
+                console.error('Failed to save non-destructive adjustments:', e);
+              }
+            }
             setExportProgress(null);
             onSave(blob, isSaveAs);
             setIsSaving(false);

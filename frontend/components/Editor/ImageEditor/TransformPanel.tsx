@@ -197,6 +197,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
             {[
               { key: 'perspective' as const, label: 'Horizontal Perspective' },
               { key: 'verticalPerspective' as const, label: 'Vertical Perspective' },
+              { key: 'distortion' as const, label: 'Lens Distortion' },
             ].map(({ key, label }) => {
               const val = adjustments[key];
               const pct = ((val + 100) / 200) * 100;

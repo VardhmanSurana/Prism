@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       colors: {
-        background: "#050505",
-        surface: "#0c0c0c",
+        background: "#06080c",
+        surface: "#0a0c10",
         surfaceHover: "#161616",
         primary: "rgb(var(--color-primary) / <alpha-value>)",
         secondary: "#707070",
@@ -21,6 +21,9 @@ export default {
         sans: ["Sora", "system-ui", "sans-serif"],
         serif: ["Instrument Serif", "serif"],
         mono: ["JetBrains Mono", "monospace"],
+      },
+      zIndex: {
+        modal: "1050",
       },
     },
   },

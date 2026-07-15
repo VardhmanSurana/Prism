@@ -10,83 +10,8 @@ import { InpaintMode } from './InpaintPanel';
 import { ZoomControls } from './ZoomControls';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { Annotation, DrawToolId } from './AnnotationsPanel';
-import { applyHslToImageData } from './hslEngine';
-import {
-  applySplitToning,
-  applyGrain,
-  applyLightLeak,
-  applyTiltShift,
-  applyVignette,
-  drawBlendOverlay,
-  applyUnsharpMask,
-  applyCurveLutsToCanvas,
-  applyBlur,
-} from './exportPipeline';
-import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows } from './filterFallback';
-
-interface CanvasAreaProps {
-  currentImageSrc: string;
-  filterString: string;
-  cropperRef: React.RefObject<Cropper | null>;
-  handleCropEvent: () => void;
-  handleReady: () => void;
-  activeTool: ToolId | null;
-  adjustments: Adjustments;
-  isSaving: boolean;
-  curvesTable: { r: string; g: string; b: string };
-  isComparing?: boolean;
-
-  // Inpaint props
-  inpaintMode?: InpaintMode;
-  brushSize?: number;
-  onInpaintMaskChange?: (maskDataUrl: string) => void;
-  onInpaintStrokeComplete?: (maskDataUrl: string) => void;
-  showMaskPreview?: boolean;
-  maskOpacity?: number;
-
-  // Annotations props
-  annotations?: Annotation[];
-  onAnnotationsChange?: (annotations: Annotation[]) => void;
-  activeDrawTool?: DrawToolId;
-  setActiveDrawTool?: (tool: DrawToolId) => void;
-  activeColor?: string;
-  strokeWidth?: number;
-  eraserSize?: number;
-  selectedAnnId?: string | null;
-  setSelectedAnnId?: (id: string | null) => void;
-  userChangedStyleRef?: React.MutableRefObject<boolean>;
-  onStartGesture?: () => void;
-  onEndGesture?: () => void;
-
-  // Text layer settings
-  fontFamily?: string;
-  setFontFamily?: (font: string) => void;
-  fontSize?: number;
-  setFontSize?: (size: number) => void;
-  fontWeight?: 'normal' | 'bold';
-  setWeight?: (w: 'normal' | 'bold') => void;
-  fontStyle?: 'normal' | 'italic';
-  setStyle?: (s: 'normal' | 'italic') => void;
-  textDecoration?: 'none' | 'underline' | 'line-through';
-  setDecoration?: (d: 'none' | 'underline' | 'line-through') => void;
-  textAlign?: 'left' | 'center' | 'right';
-  setTextAlign?: (align: 'left' | 'center' | 'right') => void;
-  lineHeight?: number;
-  setLineHeight?: (val: number) => void;
-  letterSpacing?: number;
-  setLetterSpacing?: (val: number) => void;
-  onUpdateTextProps?: (updatedProps: Partial<Annotation>) => void;
-
-  // Text doodle settings
-  doodleText?: string;
-  setDoodleText?: (val: string) => void;
-  doodleFontSize?: number;
-  setDoodleFontSize?: (val: number) => void;
-  doodleFontFamily?: string;
-  setDoodleFontFamily?: (val: string) => void;
-  showDoodleGuide?: boolean;
-  setShowDoodleGuide?: (val: boolean) => void;
-}
+import { drawFilteredImageToCanvas } from './canvasDrawing';
+import type { CanvasAreaProps } from './CanvasArea.types';
 
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
   currentImageSrc,
@@ -164,6 +89,31 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   const inpaintContainerRef = React.useRef<HTMLDivElement | null>(null);
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const zoomDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [comparePercent, setComparePercent] = React.useState<number>(50);
+  const [isDraggingCompare, setIsDraggingCompare] = React.useState<boolean>(false);
+
+  const handleComparePointerDown = React.useCallback((e: React.PointerEvent) => {
+    setIsDraggingCompare(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, []);
+
+  const handleComparePointerMove = React.useCallback((e: React.PointerEvent) => {
+    const pointerId = e.pointerId;
+    if (!e.currentTarget.hasPointerCapture(pointerId) || !latestImageRectRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left - latestImageRectRef.current.left;
+    const percent = Math.max(0, Math.min(100, (x / latestImageRectRef.current.width) * 100));
+    setComparePercent(percent);
+  }, []);
+
+  const handleComparePointerUp = React.useCallback((e: React.PointerEvent) => {
+    setIsDraggingCompare(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  }, []);
 
   // Cleanup debouncing timers on unmount
   React.useEffect(() => {
@@ -252,195 +202,15 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const canvas = liveCanvasRef.current;
     if (!canvas || !sourceImg || activeTool === 'transform') return;
 
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) return;
-
-    // 1. Calculate internal resolution (max bounding size of 1000px for speed)
-    // Reduce resolution to 450px during active slider drag for 60fps real-time preview.
-    const maxDim = isDraggingSliderRef.current ? 450 : 1000;
-    let drawW = sourceImg.naturalWidth;
-    let drawH = sourceImg.naturalHeight;
-    if (drawW > maxDim || drawH > maxDim) {
-      if (drawW > drawH) {
-        drawH = Math.round((drawH * maxDim) / drawW);
-        drawW = maxDim;
-      } else {
-        drawW = Math.round((drawW * maxDim) / drawH);
-        drawH = maxDim;
-      }
-    }
-
-    if (canvas.width !== drawW || canvas.height !== drawH) {
-      canvas.width = drawW;
-      canvas.height = drawH;
-    }
-
-    ctx.clearRect(0, 0, drawW, drawH);
-
-    // 2. Build a canvas-safe filter string with guarded adjustments.
-    const noise = adjustments.noiseReduction || 0;
-    const sharp = adjustments.sharpness || 0;
-    const effectiveNoise = Math.max(0, noise - sharp * 0.5);
-    const effectiveSharp = sharp > 0 ? Math.max(0, sharp - noise * 0.5) : sharp;
-
-    const effectiveAdj = {
-      ...adjustments,
-      noiseReduction: effectiveNoise,
-      sharpness: effectiveSharp,
-    };
-
-    const localFilterString = isComparing ? 'none' : toFilterString(effectiveAdj);
-    const canvasSafeFilter = localFilterString
-      .replace(/url\([^)]+\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim() || 'none';
-
-    // 3. Draw base image with CSS filters.
-    //    Use a FRESH temporary canvas (no willReadFrequently) for the filter draw.
-    //    Chrome silently ignores ctx.filter on willReadFrequently canvases in
-    //    software-rendering mode — a fresh canvas always uses the GPU path.
-    if (isComparing || canvasSafeFilter === 'none') {
-      ctx.drawImage(sourceImg, 0, 0, drawW, drawH);
-    } else if (isCtxFilterSupported()) {
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = drawW;
-      tempCanvas.height = drawH;
-      const tempCtx = tempCanvas.getContext('2d')!;
-      tempCtx.filter = canvasSafeFilter;
-      tempCtx.drawImage(sourceImg, 0, 0, drawW, drawH);
-      tempCtx.filter = 'none';
-      ctx.drawImage(tempCanvas, 0, 0);
-    } else {
-      ctx.drawImage(sourceImg, 0, 0, drawW, drawH);
-      const imgData = ctx.getImageData(0, 0, drawW, drawH);
-      applyBaseFiltersToImageData(imgData, effectiveAdj);
-      ctx.putImageData(imgData, 0, 0);
-    }
-
-    if (isComparing) {
-      return; // Show original only — skip all effects
-    }
-
-    // 3.5. Apply Non-linear Highlights and Shadows
-    if (adjustments.highlights !== 0 || adjustments.shadows !== 0) {
-      const imgData = ctx.getImageData(0, 0, drawW, drawH);
-      applyNonLinearHighlightsAndShadows(imgData, adjustments.highlights, adjustments.shadows);
-      ctx.putImageData(imgData, 0, 0);
-    }
-
-    // 4. Noise reduction — strip was already included in canvasSafeFilter as blur().
-    //    If sharpness is negative (soften), apply extra blur that matches the export.
-    if (effectiveSharp < 0) {
-      const softenBlur = Math.abs(effectiveSharp) / 100 * 1.5;
-      applyBlur(canvas, softenBlur);
-    }
-
-    // 5. Sharpness — unsharp-mask (replaces the SVG url(#sharpness-filter) we stripped)
-    if (effectiveSharp > 0) {
-      applyUnsharpMask(canvas, effectiveSharp, 1.2, 2.5);
-    }
-
-    // 6. Curves — LUT pixel pass (replaces url(#curves-filter-HASH) we stripped)
-    applyCurveLutsToCanvas(canvas, adjustments);
-
-    // 7. HSL Color Mixer — per-band pixel shifts
-    if (adjustments.hsl) {
-      const activeBands = (Object.keys(adjustments.hsl) as HslBand[]).filter(band => {
-        const b = adjustments.hsl![band];
-        return b.hue !== 0 || b.saturation !== 0 || b.luminance !== 0;
-      });
-      if (activeBands.length > 0) {
-        const imgData = ctx.getImageData(0, 0, drawW, drawH);
-        applyHslToImageData(imgData, adjustments.hsl);
-        ctx.putImageData(imgData, 0, 0);
-      }
-    }
-
-    // 8. Split Toning
-    applySplitToning(canvas, adjustments);
-
-    // 9. Film Grain
-    applyGrain(canvas, adjustments);
-
-    // 10. Light Leaks
-    applyLightLeak(canvas, adjustments);
-
-    // 11. Double Exposure (synchronous — blendImg already pre-loaded)
-    if (adjustments.blend && blendImg) {
-      drawBlendOverlay(canvas, blendImg, adjustments.blend);
-    }
-
-    // 12. Tilt-Shift depth blur
-    applyTiltShift(canvas, adjustments);
-
-    // 13. Vignette
-    applyVignette(canvas, adjustments.vignette);
-
-    // 14. Frame border preview — simplified in-bounds rendering
-    //     (Export expands canvas dimensions; here we draw borders over image edges)
-    const frame = adjustments.frame;
-    if (frame && frame.style !== 'none') {
-      const ctx2 = canvas.getContext('2d');
-      if (ctx2) {
-        ctx2.save();
-        const w = canvas.width;
-        const h = canvas.height;
-        // Scale thickness to canvas size (matches export formula)
-        const border = Math.max(w, h) * (frame.thickness / 100) * 0.6;
-
-        if (frame.style === 'polaroid') {
-          // Cream-white borders: equal sides, thick bottom
-          ctx2.fillStyle = '#f8f8f6';
-          ctx2.fillRect(0, 0, w, border);               // top
-          ctx2.fillRect(0, h - border * 3.5, w, border * 3.5); // thick bottom
-          ctx2.fillRect(0, 0, border, h);               // left
-          ctx2.fillRect(w - border, 0, border, h);      // right
-        } else if (frame.style === 'matte') {
-          ctx2.fillStyle = frame.color;
-          ctx2.fillRect(0, 0, w, border);
-          ctx2.fillRect(0, h - border, w, border);
-          ctx2.fillRect(0, 0, border, h);
-          ctx2.fillRect(w - border, 0, border, h);
-        } else if (frame.style === 'filmstrip') {
-          const barH = Math.round(h * 0.12);
-          ctx2.fillStyle = '#080808';
-          ctx2.fillRect(0, 0, w, barH);
-          ctx2.fillRect(0, h - barH, w, barH);
-          // Sprocket holes
-          const spW = Math.max(8, w * 0.018);
-          const spH = barH * 0.45;
-          const gap = spW * 1.5;
-          ctx2.fillStyle = '#1c1c1c';
-          for (let x = gap / 2; x < w; x += spW + gap) {
-            ctx2.beginPath();
-            ctx2.roundRect(x, barH * 0.25, spW, spH, 2);
-            ctx2.fill();
-            ctx2.beginPath();
-            ctx2.roundRect(x, h - barH * 0.7, spW, spH, 2);
-            ctx2.fill();
-          }
-        } else if (frame.style === 'rounded') {
-          const r = Math.min(w, h) * 0.05;
-          ctx2.globalCompositeOperation = 'destination-in';
-          ctx2.beginPath();
-          ctx2.roundRect(0, 0, w, h, r);
-          ctx2.fill();
-        } else if (frame.style === 'thinline') {
-          ctx2.strokeStyle = frame.color;
-          ctx2.lineWidth = Math.max(2, Math.min(w, h) * 0.006);
-          ctx2.strokeRect(0, 0, w, h);
-        } else if (frame.style === 'shadowbox') {
-          // Floating shadow effect — dark vignette border
-          const grad = ctx2.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.max(w, h) * 0.65);
-          grad.addColorStop(0, 'rgba(0,0,0,0)');
-          grad.addColorStop(1, 'rgba(0,0,0,0.45)');
-          ctx2.globalCompositeOperation = 'source-over';
-          ctx2.fillStyle = grad;
-          ctx2.fillRect(0, 0, w, h);
-        }
-        ctx2.restore();
-      }
-    }
+    drawFilteredImageToCanvas(
+      canvas,
+      sourceImg,
+      blendImg,
+      adjustments,
+      false,
+      curvesTable,
+      isDraggingSliderRef.current
+    );
   }, [
     sourceImg,
     blendImg,
@@ -853,6 +623,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
               ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
               : undefined,
+            clipPath: isComparing 
+              ? `polygon(${comparePercent}% 0, 100% 0, 100% 100%, ${comparePercent}% 100%)` 
+              : undefined,
           }}
         />
       )}
@@ -953,11 +726,47 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         </div>
       )}
 
-      {/* Before/After overlay label */}
-      {isComparing && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-1.5 rounded-full border border-amber-500/30 bg-amber-500/10">
-          <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-amber-400">Original</span>
-        </div>
+      {/* Before/After split comparison slider and labels */}
+      {isComparing && imageRect && (
+        <>
+          <div 
+            className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-[#0D0F14]/75 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-white/50"
+            style={{
+              left: imageRect.left + 16,
+              top: imageRect.top + 16,
+            }}
+          >
+            Before
+          </div>
+          <div 
+            className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-primary/25 border border-primary/35 text-[9px] font-bold uppercase tracking-wider text-primary shadow-[0_2px_12px_rgba(var(--color-primary),0.15)]"
+            style={{
+              left: imageRect.left + imageRect.width - 64,
+              top: imageRect.top + 16,
+            }}
+          >
+            After
+          </div>
+
+          <div
+            className="absolute z-30 select-none cursor-ew-resize flex flex-col items-center justify-center touch-none"
+            style={{
+              left: imageRect.left + (comparePercent / 100) * imageRect.width,
+              top: imageRect.top,
+              height: imageRect.height,
+              width: 40,
+              transform: 'translateX(-50%)',
+            }}
+            onPointerDown={handleComparePointerDown}
+            onPointerMove={handleComparePointerMove}
+            onPointerUp={handleComparePointerUp}
+          >
+            <div className="w-[2px] h-full bg-primary shadow-[0_0_10px_rgba(var(--color-primary),0.5)]" />
+            <div className="absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0D0F14] border-2 border-primary flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
+              <span className="text-[10px] font-bold text-primary select-none">↔</span>
+            </div>
+          </div>
+        </>
       )}
 
 

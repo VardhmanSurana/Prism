@@ -221,7 +221,6 @@ async def get_auto_enhance_params(photo_id: int, db: AsyncSession = Depends(get_
 
     return params
 
-
 @router.get("/{photo_id}/metadata")
 async def get_photo_metadata(photo_id: int, db: AsyncSession = Depends(get_db)):
     # Get photo with people loaded
@@ -243,6 +242,25 @@ async def get_photo_metadata(photo_id: int, db: AsyncSession = Depends(get_db)):
                 "face_box": pp.face_box_json
             })
 
+    import json
+    adjustments = None
+    if photo.adjustments_json:
+        try:
+            adjustments = json.loads(photo.adjustments_json)
+        except Exception:
+            pass
+
+    if not adjustments:
+        sidecar_path = photo.path + ".prism"
+        if os.path.exists(sidecar_path):
+            try:
+                with open(sidecar_path, "r") as f:
+                    adjustments = json.load(f)
+                photo.adjustments_json = json.dumps(adjustments)
+                await db.commit()
+            except Exception:
+                pass
+
     return {
         "id": photo.id,
         "filename": photo.filename,
@@ -260,7 +278,8 @@ async def get_photo_metadata(photo_id: int, db: AsyncSession = Depends(get_db)):
         "ocr_text": photo.ocr_text,
         "people": people_data,
         "mime_type": photo.mime_type,
-        "file_size": photo.file_size if photo.file_size is not None else 0
+        "file_size": photo.file_size if photo.file_size is not None else 0,
+        "adjustments": adjustments
     }
 
 
@@ -305,3 +324,62 @@ async def update_photo_location(
         "country": photo.country,
         "xmp_exported": xmp_exported,
     }
+
+
+class PhotoAdjustmentsUpdateRequest(BaseModel):
+    adjustments: dict
+
+
+class BulkAdjustmentsRequest(BaseModel):
+    photo_ids: list[int]
+    adjustments: dict
+
+
+@router.put("/{photo_id}/adjustments")
+async def update_photo_adjustments(
+    photo_id: int,
+    payload: PhotoAdjustmentsUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Save adjustments non-destructively to DB and sidecar format on disk."""
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    import json
+    photo.adjustments_json = json.dumps(payload.adjustments)
+    await db.commit()
+
+    # Save to .prism sidecar format next to photo
+    sidecar_path = photo.path + ".prism"
+    try:
+        with open(sidecar_path, "w") as f:
+            json.dump(payload.adjustments, f, indent=2)
+    except Exception as exc:
+        logger.warning("Failed to write sidecar file %s: %s", sidecar_path, exc)
+
+    return {"status": "success", "photo_id": photo_id}
+
+
+@router.post("/bulk-adjustments")
+async def bulk_update_adjustments(
+    payload: BulkAdjustmentsRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Batch edit: sync adjustments across multiple photos."""
+    import json
+    adj_str = json.dumps(payload.adjustments)
+    updated_count = 0
+    for pid in payload.photo_ids:
+        photo = await db.get(Photo, pid)
+        if photo:
+            photo.adjustments_json = adj_str
+            sidecar_path = photo.path + ".prism"
+            try:
+                with open(sidecar_path, "w") as f:
+                    json.dump(payload.adjustments, f, indent=2)
+            except Exception:
+                pass
+            updated_count += 1
+    await db.commit()
+    return {"status": "success", "updated_count": updated_count}

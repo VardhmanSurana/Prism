@@ -99,7 +99,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       />
       <div
         className={`absolute top-3 left-3 transition-opacity duration-150 z-10
-        ${isSelected || isRowHovered ? 'opacity-100' : 'opacity-0'}
+        ${isSelected || isHovering ? 'opacity-100' : 'opacity-0'}
         `}
         onClick={(e) => {
           e.stopPropagation();

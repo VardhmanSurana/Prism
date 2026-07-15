@@ -57,13 +57,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
 
   return (
     <div className="min-h-full bg-[#050505]">
-      <header className="max-w-5xl mx-auto px-8 pt-10 pb-8 text-center">
-        <h2 className="font-serif italic text-white text-[32px] leading-tight">
+      <header className="max-w-5xl mx-auto px-8 pt-10 pb-8">
+        <h2 className="font-serif font-bold text-white text-[32px] leading-tight">
           System Utilities
         </h2>
-        <p className="text-[10px] font-mono uppercase tracking-[0.3em] text-gray-500 mt-3">
-          Engine management & environment optimization
-        </p>
       </header>
 
       <div className="max-w-5xl mx-auto px-8 pb-8 flex justify-center">
@@ -72,7 +69,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all duration-500 ${
+              className={`px-6 py-2.5 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-colors duration-150 ${
                 activeTab === tab.id
                   ? 'bg-primary text-black shadow-[0_0_20px_rgba(var(--color-primary),0.3)]'
                   : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.04]'

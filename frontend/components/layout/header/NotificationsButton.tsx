@@ -152,7 +152,7 @@ export const NotificationsButton: React.FC = () => {
             transition={{ duration: 0.15, ease: 'easeOut' }}
             className="absolute right-0 mt-3 w-80 z-50 pointer-events-auto"
           >
-            <GlassMaterial intensity="regular" className="p-4 shadow-2xl">
+            <div className="p-4 bg-[#121417] border border-white/10 rounded-2xl shadow-2xl">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/5">
                 <div className="flex items-center gap-2">
                   <Activity size={14} className="text-primary" />
@@ -272,7 +272,7 @@ export const NotificationsButton: React.FC = () => {
                   </div>
                 )}
               </div>
-            </GlassMaterial>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

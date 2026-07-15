@@ -80,13 +80,13 @@ export const Lightbox: React.FC<LightboxProps> = ({
   // so arrow/swipe direction matches the reversed filmstrip (oldest → newest L→R).
   const handlePrev = useCallback(() => {
     setLastNavDir('prev');
-    onNext();
-  }, [onNext]);
+    onPrev();
+  }, [onPrev]);
 
   const handleNext = useCallback(() => {
     setLastNavDir('next');
-    onPrev();
-  }, [onPrev]);
+    onNext();
+  }, [onNext]);
 
   const {
     zoomScale, setZoomScale, offset, isDragging, resetInteraction,
@@ -106,16 +106,16 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const canStartSlideshow = totalCount > 1;
 
   // Slideshow advance: visual "next" (right) with optional loop.
-  // handleNext decreases index in the source list; at 0 we jump to the last photo when looping.
+  // handleNext increases index in the source list; at photos.length - 1 we jump to the first photo (index 0) when looping.
   const advanceSlideshow = useCallback(() => {
     if (!photos || photos.length <= 1) return;
 
-    if (currentIndex > 0) {
+    if (currentIndex < photos.length - 1) {
       handleNext();
       return;
     }
 
-    // At the "end" of the visual forward direction (index 0).
+    // At the "end" of the visual forward direction (index photos.length - 1).
     // Access loop via ref-less path: stop is handled after hook is created — see effect below.
     // We use a module-level pattern via slideshow ref set after hook init.
     slideshowAdvanceAtEndRef.current();
@@ -154,7 +154,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     slideshowAdvanceAtEndRef.current = () => {
       if (slideshowLoop && photos && photos.length > 0) {
         setLastNavDir('next');
-        onPhotoSelect?.(photos[photos.length - 1]);
+        onPhotoSelect?.(photos[0]);
       } else {
         setSlideshowPlaying(false);
       }

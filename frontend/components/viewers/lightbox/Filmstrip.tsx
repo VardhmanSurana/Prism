@@ -9,10 +9,9 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
   onSelect,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const reversedPhotos = useMemo(() => [...photos].reverse(), [photos]);
   const currentIdx = useMemo(
-    () => reversedPhotos.findIndex((p) => String(p.id) === String(currentPhotoId)),
-    [reversedPhotos, currentPhotoId],
+    () => photos.findIndex((p) => String(p.id) === String(currentPhotoId)),
+    [photos, currentPhotoId],
   );
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
         className="flex items-center gap-1 px-4 py-2 overflow-x-auto scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
-        {reversedPhotos.map((photo, idx) => {
+        {photos.map((photo, idx) => {
           const isActive = String(photo.id) === String(currentPhotoId);
           const thumbUrl = photo.url || `local://${photo.path}`;
 
@@ -50,10 +49,10 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
             <button
               key={photo.id}
               onClick={() => onSelect(photo)}
-              className={`relative shrink-0 rounded-md overflow-hidden transition-all duration-200 ${
+              className={`relative shrink-0 rounded-md overflow-hidden transition-[opacity,filter] duration-150 ${
                 isActive
                   ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0D0F14] scale-105'
-                  : 'opacity-50 hover:opacity-80 hover:scale-105'
+                  : 'opacity-50 hover:opacity-80 hover:brightness-110'
               }`}
               style={{ width: 48, height: 48, position: 'relative' }}
               title={photo.filename || `Photo ${idx + 1}`}

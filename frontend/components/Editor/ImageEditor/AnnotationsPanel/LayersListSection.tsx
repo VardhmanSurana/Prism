@@ -94,7 +94,7 @@ export const LayersListSection: React.FC<LayersListSectionProps> = ({
                       </button>
                       <button
                         onClick={() => handleDelete(ann.id)}
-                        className="p-1 rounded-lg hover:bg-red-500/10 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                        className="p-1 rounded-lg text-white/80 transition-colors hover:bg-red-500/10 hover:text-red-200 cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-300"
                         title="Delete layer"
                         aria-label="Delete layer"
                       >

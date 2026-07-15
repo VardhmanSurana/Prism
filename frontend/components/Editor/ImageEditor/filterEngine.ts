@@ -81,6 +81,7 @@ export interface Adjustments {
   // Geometry
   perspective:         number; // -100 → 100
   verticalPerspective: number; // -100 → 100
+  distortion:          number; // -100 → 100
 
   // Effects
   ambiance:    number; // -100 → 100  (Snapseed-style local contrast + colour)
@@ -163,6 +164,7 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   dehaze:         0,
   perspective:         0,
   verticalPerspective: 0,
+  distortion:          0,
   ambiance:    0,
   curves:      DEFAULT_CURVE,
   vignette:    0,
@@ -311,7 +313,7 @@ export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   const baseKeys: (keyof Adjustments)[] = [
     'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
     'vibrance', 'saturation', 'hue', 'temperature', 'clarity', 'sharpness', 'noiseReduction',
-    'ambiance', 'vignette', 'dehaze', 'perspective', 'verticalPerspective'
+    'ambiance', 'vignette', 'dehaze', 'perspective', 'verticalPerspective', 'distortion'
   ];
   const isBaseDefault = baseKeys.every(k => adj[k] === 0);
   if (!isBaseDefault) return false;

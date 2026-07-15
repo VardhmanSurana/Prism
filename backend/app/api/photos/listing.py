@@ -21,7 +21,7 @@ router = APIRouter()
 async def list_photos(
     limit: int = 50, 
     offset: int = 0,
-    content_type: str | None = None,
+    content_type: str | None = "all",
     db: AsyncSession = Depends(get_db)
 ):
     # Get active mount points

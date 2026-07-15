@@ -1,28 +1,28 @@
 import { StateCreator } from 'zustand';
-import { NLEStore, ProjectAsset } from './types';
-import { Photo } from '@/types';
+import { NLEStore } from './types';
+import { Clip, Track, DEFAULT_EFFECTS, DEFAULT_TRANSFORM } from '@/types/nle';
 import { apiClient } from '@/services/apiClient';
-import { Clip, DEFAULT_EFFECTS, DEFAULT_TRANSFORM, Track } from '@/types/nle';
+import { clipsOverlap, computeTimelineDuration } from './timelineMath';
+import { nextClipId } from './helpers';
 
 export interface ActionsSlice {
-  importPhotoToTrack: (trackId: string, photo: Photo, insertAtTime?: number) => Promise<void>;
-  addClipFromLibrary: (trackId: string, photo: any) => Promise<void>;
+  addClipFromLibrary: (
+    trackId: string,
+    photo: { id: number; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }
+  ) => Promise<void>;
+  linkClips: (clipIdA: string, clipIdB: string) => void;
+  unlinkClip: (clipId: string) => void;
   generateSubtitles: (trackId: string, sourcePath: string) => Promise<void>;
   getSelectedClip: () => Clip | null;
   getTimelineDuration: () => number;
-  linkClips: (clipIdA: string, clipIdB: string) => void;
-  unlinkClip: (clipId: string) => void;
 }
 
 export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = (set, get) => ({
-  importPhotoToTrack: async (trackId, photo, insertAtTime) => { return get().addClipFromLibrary(trackId, photo); },
-  addClipFromLibrary: async (trackId, photo) => { const insertAtTime = get().playheadPosition;
-
+  addClipFromLibrary: async (trackId, photo) => {
     const state = get();
-    const isVideo = photo.mime_type?.startsWith('video/');
+    const fps = photo.fps ?? state.projectFps;
     const duration = photo.duration ?? 5;
 
-    // Analyze clip via backend
     let clipAnalysis: { clip_id: number; source_path: string; duration: number; fps?: number } | null = null;
     try {
       clipAnalysis = await apiClient.post(`/api/v1/nle/clips/analyze`, { photo_id: photo.id, source_path: photo.path });
@@ -31,114 +31,126 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
       return;
     }
 
-    if (!clipAnalysis) return;
+    const clipDuration = clipAnalysis?.duration ?? duration;
+    const clipFps = clipAnalysis?.fps ?? fps;
 
-    // Check if asset is already in project, add if not
-    const assetId = clipAnalysis.clip_id;
-    if (!state.projectAssets.some((a: ProjectAsset) => a.id === assetId)) {
-      state.addProjectAsset({
-        id: assetId,
-        path: clipAnalysis.source_path,
-        type: isVideo ? 'video' : 'image',
-        duration: clipAnalysis.duration,
-        filename: photo.filename ?? 'unknown',
-        thumbnailUrl: (photo as any).thumbnail_url
-      });
+    const track = state.tracks.find((t) => t.id === trackId);
+    let startFrame = 0;
+    if (track && track.clips.length > 0) {
+      const lastClip = track.clips.reduce((latest, c) =>
+        (c.startFrame + c.durationFrames) > (latest.startFrame + latest.durationFrames) ? c : latest
+      );
+      startFrame = lastClip.startFrame + lastClip.durationFrames;
     }
 
-    const start = insertAtTime ?? state.playheadPosition;
+    const clip: Clip = {
+      id: nextClipId(),
+      sourceId: clipAnalysis?.clip_id ?? photo.id,
+      sourcePath: clipAnalysis?.source_path ?? photo.path,
+      proxyPath: (clipAnalysis as any)?.proxy_path,
+      sourceDuration: clipDuration,
+      startFrame,
+      durationFrames: Math.round(clipDuration * clipFps),
+      inPoint: 0,
+      outPoint: clipDuration,
+      speed: 1.0,
+      volume: 1.0,
+      muted: false,
+      fadeIn: 0,
+      fadeOut: 0,
+      effects: { ...DEFAULT_EFFECTS },
+      transform: { ...DEFAULT_TRANSFORM },
+      keyframes: {},
+    };
 
-    // Shift clips right to make room
-    state.pushHistory();
-    const newTracks = state.tracks.map((t: Track) => {
-      if (t.id === trackId) {
-        return {
-          ...t,
-          clips: t.clips.map((c: Clip) => {
-            if ((c as any).startFrame >= start) {
-              return {
-                ...c,
-                startFrame: (c as any).startFrame + duration,
-                endFrame: (c as any).endFrame + duration
-              };
-            }
-            return c;
-          }),
-        };
-      }
-      return t;
+    get().pushHistory();
+    set((s) => {
+      const tracks = s.tracks.map((t) =>
+        t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
+      );
+      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
     });
+  },
 
-    // Create new clip
-    const newClip = {
-      id: `clip_${Date.now()}`,
-      assetId,
-      trackId,
-      sourceStartFrame: 0,
-      sourceEndFrame: duration,
-      startFrame: start,
-      endFrame: start + duration,
-      effects: JSON.parse(JSON.stringify(DEFAULT_EFFECTS)),
-      transform: JSON.parse(JSON.stringify(DEFAULT_TRANSFORM)),
-      metadata: {
-        filename: photo.filename,
-        fps: clipAnalysis.fps,
-        hasAudio: isVideo,
-      }
-    } as any as Clip;
+  linkClips: (clipIdA, clipIdB) => {
+    const groupId = `link_${Date.now()}`;
+    get().pushHistory();
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => {
+          if (c.id === clipIdA || c.id === clipIdB) {
+            return { ...c, linkedId: groupId } as Clip;
+          }
+          return c;
+        }),
+      })),
+      isDirty: true,
+    }));
+  },
 
-    // Add clip to track
-    const targetTrackIdx = newTracks.findIndex((t: Track) => t.id === trackId);
-    if (targetTrackIdx !== -1) {
-      newTracks[targetTrackIdx].clips.push(newClip);
-    }
-
-    set({ tracks: newTracks, isDirty: true });
+  unlinkClip: (clipId) => {
+    get().pushHistory();
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => {
+          if (c.id === clipId) {
+            const { linkedId: _, ...rest } = c as Clip & { linkedId?: string };
+            return rest as Clip;
+          }
+          return c;
+        }),
+      })),
+      isDirty: true,
+    }));
   },
 
   generateSubtitles: async (trackId, sourcePath) => {
     const state = get();
+    const fps = state.projectFps;
     try {
       const data: any = await apiClient.post(`/api/v1/video/subtitles/generate`, { source_path: sourcePath });
       const segments: Array<{ start: number; end: number; text: string }> = data.subtitles ?? [];
 
       if (segments.length === 0) return;
 
-      state.pushHistory();
+      get().pushHistory();
 
-      // Create new subtitle track
-      const subTrackId = `subtitle_${Date.now()}`;
-      const newTrack = {
-        id: subTrackId,
-        name: 'Subtitles',
-        type: 'subtitle' as const,
-        clips: [],
-        locked: false,
-        hidden: false,
-        opacity: 100,
-      } as any as Track;
-
-      const newClips = segments.map((seg, i) => {
-        const duration = seg.end - seg.start;
-        return {
-          id: `subclip_${Date.now()}_${i}`,
-          assetId: -1,
-          trackId: subTrackId,
-          sourceStartFrame: 0,
-          sourceEndFrame: duration,
-          startFrame: seg.start,
-          endFrame: seg.end,
+      const subtitleClips: Clip[] = segments.map((seg) => ({
+        id: nextClipId(),
+        sourceId: 0,
+        sourcePath: '',
+        sourceDuration: seg.end - seg.start,
+        startFrame: Math.round(seg.start * fps),
+        durationFrames: Math.round((seg.end - seg.start) * fps),
+        inPoint: 0,
+        outPoint: seg.end - seg.start,
+        speed: 1.0,
+        volume: 1.0,
+        muted: false,
+        fadeIn: 0,
+        fadeOut: 0,
+        effects: { ...DEFAULT_EFFECTS },
+        transform: { ...DEFAULT_TRANSFORM },
+        keyframes: {},
+        text: {
           text: seg.text,
-          effects: JSON.parse(JSON.stringify(DEFAULT_EFFECTS)),
-          transform: JSON.parse(JSON.stringify(DEFAULT_TRANSFORM)),
-        } as any as Clip;
-      });
+          fontSize: 24,
+          fontFamily: 'sans-serif',
+          fontColor: '#ffffff',
+          x: 0,
+          y: 0,
+          start: seg.start,
+          end: seg.end,
+        },
+      }));
 
-      newTrack.clips = newClips;
-
-      set({
-        tracks: [newTrack, ...state.tracks],
-        isDirty: true
+      set((s) => {
+        const tracks = s.tracks.map((t) =>
+          t.id === trackId ? { ...t, clips: [...t.clips, ...subtitleClips] } : t
+        );
+        return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
       });
     } catch (e) {
       console.error('Failed to generate subtitles:', e);
@@ -146,54 +158,17 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
   },
 
   getSelectedClip: () => {
-    const state = get();
-    if (!state.selectedClipId) return null;
-    for (const track of state.tracks) {
-      const clip = track.clips.find((c: Clip) => c.id === state.selectedClipId);
+    const { tracks, selectedClipId } = get();
+    if (!selectedClipId) return null;
+    for (const track of tracks) {
+      const clip = track.clips.find((c) => c.id === selectedClipId);
       if (clip) return clip;
     }
     return null;
   },
 
   getTimelineDuration: () => {
-    const state = get();
-    let maxEnd = 0;
-    for (const track of state.tracks) {
-      for (const clip of track.clips) {
-        if ((clip as any).endFrame > maxEnd) maxEnd = (clip as any).endFrame;
-      }
-    }
-    return maxEnd;
+    const s = get();
+    return computeTimelineDuration(s.tracks, s.projectFps);
   },
-
-  linkClips: (clipIdA, clipIdB) => {
-    set(state => {
-      const groupId = `group_${Date.now()}`;
-      return {
-        tracks: state.tracks.map((t: Track) => ({
-          ...t,
-          clips: t.clips.map((c: Clip) =>
-            (c.id === clipIdA || c.id === clipIdB)
-              ? { ...c, linkedGroupId: (c as any).linkedGroupId ?? groupId }
-              : c
-          )
-        })),
-        isDirty: true
-      };
-    });
-  },
-
-  unlinkClip: (clipId) => {
-    set(state => ({
-      tracks: state.tracks.map((t: Track) => ({
-        ...t,
-        clips: t.clips.map((c: Clip) =>
-          c.id === clipId
-            ? { ...c, linkedGroupId: undefined }
-            : c
-        )
-      })),
-      isDirty: true
-    }));
-  }
 });

@@ -3,16 +3,29 @@
 @tailwind utilities;
 
 :root {
+  /* RGB channels intentionally support Tailwind's alpha-value syntax. */
   --color-primary: 255 255 255;
+  --color-ink: 255 255 255;
+  --color-canvas: 5 5 5;
+  --color-surface-popover: 12 12 12;
   --bg-primary: #0F1115;
   --bg-secondary: #161A20;
   --bg-tertiary: #1E232B;
   --accent: #2563eb;
+  /* Switch track tokens */
+  --switch-on: #5e6ad2;
+  --switch-on-hover: #828fff;
+  --switch-off: #0c0c0c;
+  --switch-off-hover: #1a1c1e;
+  /* Status tokens */
+  --status-processing: #5e6ad2;
+  --status-processing-text: #828fff;
 }
 
 .preset-card-selected {
-  border: 2px solid #ffffff !important;
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.25) !important;
+  border-color: rgb(var(--color-primary));
+  border-width: 2px;
+  box-shadow: 0 0 12px rgb(var(--color-primary) / 0.25);
   transform: scale(1.02);
 }
 
@@ -93,6 +106,17 @@
 
 .animate-ken-burns {
   animation: ken-burns 12s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Adjustment Sliders ──────────────────────────────────────────────────── */
