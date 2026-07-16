@@ -246,10 +246,35 @@ def generate_thumbnail(file_path: str, thumb_dir: str):
         blur_score = None
         try:
             import cv2
+            import numpy as np
             img_cv = cv2.imread(file_path)
             if img_cv is not None:
                 gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-                blur_score = float(cv2.Laplacian(gray, cv2.CV_64F).var())
+                # Suppress high-frequency sensor noise using a mild Gaussian filter
+                gray = cv2.GaussianBlur(gray, (3, 3), 0)
+                laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+                
+                h, w = gray.shape
+                grid_size = 16
+                ph, pw = h // grid_size, w // grid_size
+                
+                if ph > 0 and pw > 0:
+                    patch_variances = []
+                    for i in range(grid_size):
+                        for j in range(grid_size):
+                            y_start = i * ph
+                            y_end = (i + 1) * ph
+                            x_start = j * pw
+                            x_end = (j + 1) * pw
+                            patch = laplacian[y_start:y_end, x_start:x_end]
+                            patch_variances.append(float(patch.var()))
+                    
+                    patch_variances.sort(reverse=True)
+                    # Average the top 10% sharpest patches to focus on the in-focus subject
+                    num_top = max(1, int(len(patch_variances) * 0.1))
+                    blur_score = sum(patch_variances[:num_top]) / num_top
+                else:
+                    blur_score = float(laplacian.var())
         except Exception as e:
             logger.error(f"Failed to calculate blur score in process pool: {e}")
         
