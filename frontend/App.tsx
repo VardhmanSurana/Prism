@@ -13,6 +13,7 @@ import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
 import { apiClient } from '@/services/apiClient';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
+import { useSettingsStore } from './store';
 import type { ViewMode, Album, Photo } from './types';
 
 const Lightbox = React.lazy(() =>
@@ -76,6 +77,19 @@ function App() {
     handleRemoveSingleFromActiveAlbum,
     handleSetAlbumCover,
   } = useAppState();
+
+  const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
+
+  React.useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
+
+  React.useEffect(() => {
+    if (currentView === 'agent' && !isAgentEnabled) {
+      setCurrentView('gallery');
+    }
+  }, [currentView, isAgentEnabled, setCurrentView]);
 
   const handleViewChange = useCallback((v: ViewMode) => {
     setCurrentView(v);

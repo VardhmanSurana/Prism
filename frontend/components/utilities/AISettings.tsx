@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Play, Square, RefreshCw, Terminal } from 'lucide-react';
 import { API_BASE } from '../../constants';
 import { Switch, Select } from '../ui';
+import { useSettingsStore } from '../../store';
 
 interface GeneralSettings {
   ENABLE_IMAGE_BG_PROCESS: boolean;
@@ -46,6 +47,7 @@ export const AISettings: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  const setAgentEnabled = useSettingsStore(s => s.setAgentEnabled);
   const logTerminalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -79,6 +81,7 @@ export const AISettings: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
+        setAgentEnabled(data.ENABLE_AI_AGENT);
       } else {
         setError('Failed to load settings');
       }
@@ -121,7 +124,9 @@ export const AISettings: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated),
       });
-      if (!res.ok) {
+      if (res.ok) {
+        setAgentEnabled(updated.ENABLE_AI_AGENT);
+      } else {
         setError('Failed to save settings');
       }
     } catch (err) {

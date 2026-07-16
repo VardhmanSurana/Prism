@@ -16,6 +16,7 @@ import {
 import { ViewMode } from '@/types';
 import { API_BASE } from '@/constants';
 import { GlassMaterial, GlassEffectContainer } from '@/components/ui/GlassMaterial';
+import { useSettingsStore } from '@/store';
 import { NavItem } from './NavItem';
 import { SectionHeader } from './SectionHeader';
 
@@ -48,6 +49,7 @@ export const Sidebar: React.FC<{
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
 }> = ({ currentView, onChangeView }) => {
+  const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
 
   const handlePreloadAgent = async () => {
     try {
@@ -59,6 +61,8 @@ export const Sidebar: React.FC<{
       console.warn('Silent preload failed:', e);
     }
   };
+
+  const visibleMainNav = MAIN_NAV.filter(item => item.view !== 'agent' || isAgentEnabled);
 
   return (
     <aside className="w-64 h-screen bg-transparent flex flex-col shrink-0 z-30 relative">
@@ -72,7 +76,7 @@ export const Sidebar: React.FC<{
 
         <div className="flex-1 overflow-y-auto py-2 custom-scrollbar relative z-20">
           <GlassEffectContainer>
-            {MAIN_NAV.map((item) => (
+            {visibleMainNav.map((item) => (
               <NavItem
                 key={item.view}
                 {...item}
