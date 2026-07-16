@@ -12,7 +12,7 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
   systemStatus
 }) => {
   return (
-    <section className="bg-[#0c0c0c] border border-[#e5484d]/20 rounded-xl p-6">
+    <section className="bg-[#0c0c0c] border border-[#e5484d]/20 rounded-3xl p-6">
       <div className="mb-5">
         <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
           Core Integrity
@@ -21,7 +21,7 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
       
       <div 
         onClick={!isResetting ? onReset : undefined}
-        className={`group border border-[#e5484d]/30 rounded-xl p-5 transition-all duration-200 ${
+        className={`group border border-[#e5484d]/30 rounded-2xl p-5 transition-all duration-200 ${
           isResetting 
             ? 'opacity-50 cursor-not-allowed' 
             : 'cursor-pointer hover:bg-[#e5484d]/5 hover:border-[#e5484d]/40'

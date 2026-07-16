@@ -183,7 +183,7 @@ export const AISettings: React.FC = () => {
 
   if (!settings) {
     return (
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6 flex justify-center items-center h-48">
+      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6 flex justify-center items-center h-48">
         <span className="text-xs text-[#8a8f98] font-mono animate-pulse">
           Loading AI Core Settings...
         </span>
@@ -212,7 +212,7 @@ export const AISettings: React.FC = () => {
   }
 
   return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6 relative">
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6 relative">
       {/* Header with saving status */}
       <div className="flex justify-between items-start mb-6">
         <div>
@@ -239,7 +239,7 @@ export const AISettings: React.FC = () => {
 
       <div className="space-y-6">
         {/* Hardware Acceleration Select */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="max-w-md">
               <h4 className="text-sm font-medium text-[#f7f8f8]">Hardware Acceleration</h4>
@@ -259,7 +259,7 @@ export const AISettings: React.FC = () => {
         </div>
 
         {/* Background Services Control and Real-time Logs */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div className="flex flex-col gap-4">
             {/* Status and Buttons */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#23252a]/55">
@@ -326,7 +326,7 @@ export const AISettings: React.FC = () => {
 
               <div
                 ref={logTerminalRef}
-                className="bg-[#020202] border border-[#23252a] rounded-lg p-3 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] scrollbar-thin select-text whitespace-pre-wrap"
+                className="bg-[#020202] border border-[#23252a] rounded-xl p-3 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] scrollbar-thin select-text whitespace-pre-wrap"
               >
                 {logs}
               </div>
@@ -337,7 +337,7 @@ export const AISettings: React.FC = () => {
         {/* Background workers toggles grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Image workers card */}
-          <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4 flex flex-col justify-between">
+          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <h4 className="text-sm font-medium text-[#f7f8f8]">Image Background Processes</h4>
@@ -389,7 +389,7 @@ export const AISettings: React.FC = () => {
           </div>
 
           {/* Video workers card */}
-          <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4 flex flex-col justify-between">
+          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <h4 className="text-sm font-medium text-[#f7f8f8]">Video Background Processes</h4>
@@ -432,7 +432,7 @@ export const AISettings: React.FC = () => {
         </div>
 
         {/* Feature Switches Card */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <h4 className="text-sm font-medium text-[#f7f8f8] mb-3">AI Agent & Application Features</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
             <div>

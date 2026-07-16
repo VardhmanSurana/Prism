@@ -16,14 +16,14 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
   onPurge
 }) => {
   return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
       <div className="mb-5">
-        <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
+         <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
           Purge Folder Library
         </h3>
       </div>
 
-      <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+      <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
         <div className="mb-4">
           <p className="text-sm font-medium text-[#f7f8f8]">Remove from Library</p>
           <p className="text-xs text-[#8a8f98] mt-1">Permanently delete all indexed photos from a folder and their cached thumbnails.</p>

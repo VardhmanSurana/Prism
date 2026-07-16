@@ -179,7 +179,7 @@ export const DiagnosticsLogs: React.FC = () => {
   return (
     <div className="space-y-5">
       {/* System Diagnostics */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
         <div className="mb-5">
           <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
             System Diagnostics
@@ -187,7 +187,7 @@ export const DiagnosticsLogs: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-3">
               Environment & System
             </p>
@@ -200,7 +200,7 @@ export const DiagnosticsLogs: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
             <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-3">
               AI Models & Settings
             </p>
@@ -242,7 +242,7 @@ export const DiagnosticsLogs: React.FC = () => {
       </section>
 
       {/* Backup & Recovery */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
         <div className="mb-4">
           <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
             Vault Backup & Recovery
@@ -291,7 +291,7 @@ export const DiagnosticsLogs: React.FC = () => {
       </section>
 
       {/* Live Logs */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
             Live Logs Stream
@@ -327,7 +327,7 @@ export const DiagnosticsLogs: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl overflow-hidden">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl overflow-hidden">
           <div className="px-4 py-2 border-b border-[#23252a]">
             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d]">Live Output</span>
           </div>

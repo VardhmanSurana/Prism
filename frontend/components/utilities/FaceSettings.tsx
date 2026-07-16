@@ -9,7 +9,7 @@ export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, statu
   const isRunning = status?.includes('discovery') || status?.includes('Initiating');
   
   return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
       <div className="mb-5">
         <div className="flex items-center gap-3">
           <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
@@ -25,7 +25,7 @@ export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, statu
       </div>
 
       <div className="space-y-5">
-        <div className="flex items-start justify-between bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="flex items-start justify-between bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div className="max-w-md">
             <p className="text-sm font-medium text-[#f7f8f8]">Manual Scan</p>
             <p className="text-xs text-[#8a8f98] mt-1 leading-relaxed">
@@ -51,7 +51,7 @@ export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, statu
             { label: 'Clustering', value: 'DBSCAN Vector' },
             { label: 'Privacy', value: '100% Offline' },
           ].map((item) => (
-            <div key={item.label} className="bg-[#050505] border border-[#23252a] rounded-lg p-3 text-center">
+            <div key={item.label} className="bg-[#050505] border border-[#23252a] rounded-2xl p-3 text-center">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-1">{item.label}</p>
               <p className="text-xs text-[#d0d6e0]">{item.value}</p>
             </div>
@@ -59,7 +59,7 @@ export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, statu
         </div>
 
         {status && status.includes('discovery') && (
-          <div className="bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-lg px-4 py-3">
+          <div className="bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 rounded-xl px-4 py-3">
             <p className="text-xs text-[#5e6ad2] font-mono">{status}</p>
           </div>
         )}

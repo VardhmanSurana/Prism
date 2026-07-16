@@ -109,7 +109,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   const removeE = onRemoveExcludedFolder || onRemoveFolder || (() => {});
 
   return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-6">
+    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
       <div className="mb-6">
         <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
           Auto Intelligence Sync
@@ -118,7 +118,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
       
       <div className="space-y-6">
         {/* Auto sync toggle */}
-        <div className="flex items-center justify-between bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="flex items-center justify-between bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div>
             <p className="text-sm font-medium text-[#f7f8f8]">Automatic System Scan</p>
             <p className="text-xs text-[#8a8f98] mt-1">Automatically index all images from your watched folders, excluding hidden folders.</p>
@@ -137,7 +137,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
         </div>
 
         {/* Watched folders */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm font-medium text-[#f7f8f8]">Watched Library Territories</p>
@@ -166,7 +166,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
         </div>
 
         {/* Excluded folders */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-xl p-4">
+        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
           <div className="mb-4">
             <div className="flex items-center justify-between mb-1">
               <p className="text-sm font-medium text-[#f7f8f8]">Excluded Territories</p>

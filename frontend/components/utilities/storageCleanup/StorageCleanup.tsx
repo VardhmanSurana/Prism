@@ -36,7 +36,7 @@ export const StorageCleanup: React.FC = () => {
             { label: 'Thumbnails', value: formatBytes(storageStats.thumbnail_cache_size_bytes), sub: 'Generated preview cache' },
             { label: 'Total', value: formatBytes(storageStats.database_size_bytes + storageStats.thumbnail_cache_size_bytes), sub: 'Indexed library data' },
           ].map((stat) => (
-            <div key={stat.label} className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-4">
+            <div key={stat.label} className="bg-[#0c0c0c] border border-[#23252a] rounded-2xl p-4">
               <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-2">
                 {stat.label}
               </p>
@@ -48,7 +48,7 @@ export const StorageCleanup: React.FC = () => {
       )}
 
       {/* Database Maintenance */}
-      <div className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-5">
+      <div className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d]">
@@ -92,7 +92,7 @@ export const StorageCleanup: React.FC = () => {
       {isLoading ? (
         <LoadingState />
       ) : (
-        <div className="bg-[#0c0c0c] border border-[#23252a] rounded-xl p-5">
+        <div className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-5">
           {activeSubTab === 'blurry' && (
             <BlurryPhotosTab photos={blurryPhotos} onDelete={handleDeletePhoto} />
           )}
