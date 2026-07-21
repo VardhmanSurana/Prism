@@ -25,7 +25,6 @@ import { EffectsBrowserPanel } from './EffectsBrowserPanel';
 import { TransitionsPanel } from './TransitionsPanel';
 import { PresetsPanel } from './PresetsPanel';
 import { SettingsPanel } from './SettingsPanel';
-import { VignetteOverlay } from './VignetteOverlay';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { formatTimecode, getActiveVideoClips } from './editorUtils';
 import { PreviewArea } from './PreviewArea';
