@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Image as ImageIcon } from 'lucide-react';
+import { X, Image as ImageIcon, FolderPlus, Sparkles } from 'lucide-react';
 import { Photo } from '../../types';
 import { GalleryDrawerProps } from './types';
 import { resolveUrl } from '../../constants';
@@ -10,7 +10,9 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
   isOpen,
   onClose,
   onPhotoClick,
-  onClear
+  onClear,
+  onCreateAlbum,
+  onAskAboutPhoto,
 }) => {
   return (
     <AnimatePresence>
@@ -29,6 +31,16 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
               <span>Search Results ({photos.length} matches)</span>
             </h3>
             <div className="flex items-center gap-3">
+              {photos.length > 0 && onCreateAlbum && (
+                <button
+                  onClick={onCreateAlbum}
+                  className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg hover:bg-emerald-500/30 transition-colors font-semibold shadow-sm"
+                >
+                  <FolderPlus size={13} />
+                  <span>Create Album</span>
+                </button>
+              )}
+
               {photos.length > 0 && onClear && (
                 <button
                   onClick={onClear}
@@ -79,6 +91,19 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
                             </div>
                           ))}
                         </div>
+                      )}
+
+                      {onAskAboutPhoto && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAskAboutPhoto(photo);
+                          }}
+                          className="mt-1.5 flex items-center justify-center gap-1 text-[9px] bg-purple-600/80 hover:bg-purple-500 text-white font-semibold py-1 px-2 rounded-lg transition-colors border border-purple-400/30"
+                        >
+                          <Sparkles size={10} />
+                          <span>Ask AI About Photo</span>
+                        </button>
                       )}
                     </div>
                   </motion.div>

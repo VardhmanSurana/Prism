@@ -557,13 +557,13 @@ const response = await fetch(`${API_BASE}/api/v1/agent/chat`, {
    - **ICE Score**: I:9, C:7, E:6 (Total: 22)
    - **Priority**: P1 | **Effort**: 2 weeks
 
-3. **Smart Album Generation**
-   - **Description**: Tell the agent "Create an album of my dog at the beach" and it auto-generated it.
+3. **Smart Album Generation** ✅ **IMPLEMENTED** (2026-07-21)
+   - **Description**: Tell the agent "Create an album of my dog at the beach" or click 1-Click Create Album to auto-generate a custom album from search results.
    - **User Problem**: Manual album creation is slow.
-   - **Implementation**: Extend agent tools to execute DB writes (Create Album, Add Photos).
-   - **Dependencies**: Agent tools definition.
+   - **Implementation**: Created `SmartAlbumModal.tsx` and integrated header "📁 Create Album" buttons into `GalleryDrawer.tsx` & `SuggestedFollowups.tsx`. Invokes `POST /api/v1/albums/` and batch adds candidate photo IDs via `POST /api/v1/albums/{id}/add-photos`.
+   - **Dependencies**: `SmartAlbumModal.tsx`, `GalleryDrawer.tsx`, `SuggestedFollowups.tsx`, Albums API.
    - **ICE Score**: I:8, C:9, E:7 (Total: 24)
-   - **Priority**: P1 | **Effort**: 1 week
+   - **Priority**: P1 | **Effort**: 1 week | **Status**: ✅ Shipped
 
 4. **Generative Expand (Outpainting)**
    - **Description**: Extend the canvas of a photo using AI generation.
@@ -582,8 +582,8 @@ const response = await fetch(`${API_BASE}/api/v1/agent/chat`, {
    - **Priority**: P2 | **Effort**: 3 days
 
 ### C. Quick Wins
-- **Contextual Agent Invocation**: Allow right-clicking a photo in the grid and selecting "Ask AI about this photo" to pre-fill the chat context.
-- **Suggested Follow-ups**: After a search, provide 3 clickable chips (e.g., "Refine to only 2023", "Show only videos").
+- **Contextual Agent Invocation** ✅ **IMPLEMENTED** (2026-07-21): Added `askAboutPhoto` helper in `useAgentView.ts` and "✨ Ask AI About Photo" action on photo cards in `GalleryDrawer.tsx`.
+- **Suggested Follow-ups** ✅ **IMPLEMENTED** (2026-07-21): Created `SuggestedFollowups.tsx` presenting interactive chips under AI assistant response messages (Favorites only, Videos only, Create album, etc.).
 
 ### D. Architecture Recommendations
 - **Global Command Palette**: Decouple the Agent logic from `AgentView.tsx` so it can be invoked globally (e.g., via `Cmd+K`) as a floating command palette across the entire app.

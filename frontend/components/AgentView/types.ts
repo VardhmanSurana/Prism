@@ -37,4 +37,6 @@ export interface GalleryDrawerProps {
   onClose: () => void;
   onPhotoClick: (photo: Photo) => void;
   onClear?: () => void;
+  onCreateAlbum?: () => void;
+  onAskAboutPhoto?: (photo: Photo) => void;
 }

@@ -11,6 +11,8 @@ import { ChatInput } from './ChatInput';
 import { InlinePhotoGrid } from './InlinePhotoGrid';
 import { GalleryDrawer } from './GalleryDrawer';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { SuggestedFollowups } from './SuggestedFollowups';
+import { SmartAlbumModal } from './SmartAlbumModal';
 
 const SUGGESTIONS = [
   { text: "Show my favorite photos", icon: 'Heart' },
@@ -22,10 +24,11 @@ const SUGGESTIONS = [
 export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ onPhotoClick }) => {
   const {
     messages, input, isLoading, progressDetail, currentPhotos, currentPlan, currentTools, totalCandidates, expandedLogs, scrollRef,
-    setInput, toggleLog, handleSend, clearResults,
+    setInput, toggleLog, handleSend, clearResults, askAboutPhoto,
   } = useAgentView({ onPhotoClick });
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
 
   // Auto-open drawer when new search photos are fetched
   useEffect(() => {
@@ -84,6 +87,15 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
                       photos={m.photos}
                       onPhotoClick={onPhotoClick}
                       onShowMore={() => setIsDrawerOpen(true)}
+                    />
+                  )}
+
+                  {/* Interactive Suggested Follow-up Chips */}
+                  {m.role === 'assistant' && idx === messages.length - 1 && !isLoading && (
+                    <SuggestedFollowups
+                      photos={m.photos || currentPhotos}
+                      onSelectFollowup={(prompt) => handleSend(prompt)}
+                      onCreateAlbum={() => setIsAlbumModalOpen(true)}
                     />
                   )}
                 </div>
@@ -187,6 +199,14 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
         onClose={() => setIsDrawerOpen(false)}
         onPhotoClick={onPhotoClick}
         onClear={handleClear}
+        onCreateAlbum={() => setIsAlbumModalOpen(true)}
+        onAskAboutPhoto={askAboutPhoto}
+      />
+
+      <SmartAlbumModal
+        isOpen={isAlbumModalOpen}
+        photos={currentPhotos}
+        onClose={() => setIsAlbumModalOpen(false)}
       />
     </div>
   );

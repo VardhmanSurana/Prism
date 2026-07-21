@@ -123,8 +123,13 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, [input, isLoading, messages, onPhotoClick]);
 
+  const askAboutPhoto = useCallback((photo: Photo) => {
+    const query = `Analyze and describe photo: "${photo.filename}" (ID: ${photo.id}). What date, metadata, and location details can you find?`;
+    handleSend(query);
+  }, [handleSend]);
+
   return {
     messages, input, isLoading, progressDetail, currentPhotos, currentPlan, currentTools, totalCandidates, expandedLogs, scrollRef,
-    setInput, toggleLog, handleSend, clearResults,
+    setInput, toggleLog, handleSend, clearResults, askAboutPhoto,
   };
 };
