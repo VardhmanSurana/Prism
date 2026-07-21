@@ -87,53 +87,53 @@ const {
 } = useNLEStore();
 ```
 - **Strengths**: Highly ambitious in-browser NLE; solid foundation for tracks, clips, and transitions.
-- **Weaknesses**: Lacks advanced professional grading tools and audio processing capabilities.
+- **Weaknesses**: Lacks advanced professional grading tools *(addressed by Color Scopes)* and audio processing capabilities *(addressed by 3-Band EQ & Auto-Ducking)*.
 
 ### B. Feature Recommendations
 
-1. **Color Grading Scopes (Waveform & Vectorscope)**
+1. **Color Grading Scopes (Waveform & Vectorscope)** ✅ **IMPLEMENTED** (2026-07-21)
    - **Description**: Real-time visual analysis of luma and chroma.
    - **User Problem**: Professionals cannot color grade accurately without scopes.
-   - **Implementation**: Extract frames from `WebGLVideoRenderer`, process pixel data into a separate canvas graph.
-   - **Dependencies**: `VideoEditorMode.tsx`, WebGL Renderer.
+   - **Implementation**: Created `scopesEngine.ts` (Luma Waveform with 0–100 IRE scale, RGB Parade, and Cb/Cr Vectorscope with Rec.709 primary/secondary targets & yellow skin-tone reference line) and `ColorScopesPanel.tsx` real-time 60 FPS overlay canvas integrated into `PreviewArea.tsx` and `AdjustPanel.tsx`.
+   - **Dependencies**: `scopesEngine.ts`, `ColorScopesPanel.tsx`, `PreviewArea.tsx`, `AdjustPanel.tsx`
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
-   - **Priority**: P1 | **Effort**: 2 weeks
+   - **Priority**: P1 | **Effort**: 2 weeks | **Status**: ✅ Shipped
 
-2. **Speed Ramping / Time Remapping**
+2. **Speed Ramping / Time Remapping** ✅ **IMPLEMENTED** (2026-07-21)
    - **Description**: Variable speed playback within a single clip using keyframes.
    - **User Problem**: Creating cinematic speed ramps currently requires cutting the clip into multiple pieces.
-   - **Implementation**: Extend the `speed` property in `Clip` to accept keyframes and update the decoder logic in `PreviewArea` to map timeline time to source time dynamically.
-   - **Dependencies**: `useNLEStore.ts`, `Timeline.tsx`
+   - **Implementation**: Created `speedRampUtils.ts` (numerical integration for variable speed mapping $\int_0^t \text{speed}(\tau)d\tau$, presets for Hero Slow-Mo, Fast Burst, Bullet Time, Accelerate Ramp). Added `'speed'` keyframes to `KeyframeProperty` and `KeyframeEditor.tsx` visual curve editor. Updated `PreviewArea.tsx` decoder/video sourceTime calculations and `useAudioMixer.ts` dynamic playbackRate adaptation.
+   - **Dependencies**: `speedRampUtils.ts`, `nle.ts`, `KeyframeEditor.tsx`, `InspectorPanel.tsx`, `PreviewArea.tsx`, `useAudioMixer.ts`
    - **ICE Score**: I:8, C:6, E:4 (Total: 18)
-   - **Priority**: P2 | **Effort**: 3 weeks
+   - **Priority**: P2 | **Effort**: 3 weeks | **Status**: ✅ Shipped
 
-3. **Audio Keyframing & EQ**
+3. **Audio Keyframing & EQ** ✅ **IMPLEMENTED** (2026-07-21)
    - **Description**: Volume ducking, fade handles, and basic EQ.
    - **User Problem**: Background music overpowers speech tracks.
-   - **Implementation**: Utilize Web Audio API nodes in `useAudioMixer.ts` controlled by clip keyframes.
-   - **Dependencies**: `useAudioMixer.ts`
+   - **Implementation**: Extended Web Audio API nodes in `useAudioMixer.ts` with a 3-band BiquadFilter equalizer chain (Low 320Hz, Mid 1kHz, High 3.2kHz), fade-in/out envelopes, keyframed volume, and automatic background music ducking (-12dB) when speech is active. Created `AudioEQPanel` in `InspectorPanel.tsx` with 3-band EQ sliders, EQ presets (Flat, Voice Enhance, Bass Boost, Bright Treble), and auto-ducking toggle.
+   - **Dependencies**: `nle.ts`, `timelineStore.ts`, `types.ts`, `useAudioMixer.ts`, `InspectorPanel.tsx`
    - **ICE Score**: I:9, C:8, E:6 (Total: 23)
-   - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Priority**: P1 | **Effort**: 1.5 weeks | **Status**: ✅ Shipped
 
-4. **Multi-cam Editing**
+4. **Multi-cam Editing** ✅ **IMPLEMENTED** (2026-07-21)
    - **Description**: Sync multiple clips by audio and switch between them in real-time.
    - **User Problem**: Editing interviews with multiple angles is painful.
-   - **Implementation**: Add an "angle" property to tracks; allow real-time track cutting during playback.
-   - **Dependencies**: `Timeline.tsx`, `useNLEStore.ts`
+   - **Implementation**: Created `MulticamGrid.tsx` (4-up synchronized camera angle grid preview with LIVE indicators and click-to-cut functionality). Added `angle` (1..4) to `Track`, `cameraAngle` to `Clip`, and store state/actions (`isMulticamMode`, `toggleMulticamMode`, `setTrackAngle`, `switchMulticamAngle`). Added Multi-Cam top toolbar toggle and keyboard hotkeys (`1`–`4`) for live camera angle switching during playback.
+   - **Dependencies**: `MulticamGrid.tsx`, `nle.ts`, `timelineStore.ts`, `types.ts`, `PreviewArea.tsx`, `VideoEditorMode.tsx`
    - **ICE Score**: I:7, C:6, E:3 (Total: 16)
-   - **Priority**: P3 | **Effort**: 4 weeks
+   - **Priority**: P3 | **Effort**: 4 weeks | **Status**: ✅ Shipped
 
-5. **Hardware-Accelerated WebCodecs Export**
+5. **Hardware-Accelerated WebCodecs Export** ✅ **IMPLEMENTED** (2026-07-21)
    - **Description**: Client-side rendering and encoding using WebCodecs API.
    - **User Problem**: Server-side rendering can be slow and resource-intensive.
-   - **Implementation**: Pipe `WebGLVideoRenderer` output frames to WebCodecs `VideoEncoder` and multiplex with audio.
-   - **Dependencies**: `ExportDialog.tsx`
+   - **Implementation**: Created `webcodecsExporter.ts` (native browser `VideoEncoder` H.264 GPU pipeline piping WebGL frames into compressed video chunks). Updated `ExportDialog.tsx` with engine selector (`⚡ Hardware WebCodecs` vs `⚙️ Melt CLI`), real-time GPU frame progress tracking, and client-side download/save link.
+   - **Dependencies**: `webcodecsExporter.ts`, `ExportDialog.tsx`
    - **ICE Score**: I:9, C:7, E:4 (Total: 20)
-   - **Priority**: P1 | **Effort**: 3 weeks
+   - **Priority**: P1 | **Effort**: 3 weeks | **Status**: ✅ Shipped
 
 ### C. Quick Wins
-- **Audio Waveform Caching**: Currently, `WaveformBar` fetches peaks dynamically. Cache these in the project state to avoid re-fetching on zoom/pan.
-- **Detached Audio**: Allow users to right-click a video clip and "Detach Audio" to a separate audio track.
+- **Audio Waveform Caching** ✅ **IMPLEMENTED** (2026-07-21): `waveformCache` Map in `ClipElement.tsx` caches fetched waveform peak buffers in memory, preventing redundant network requests on zoom/pan.
+- **Detached Audio** ✅ **IMPLEMENTED** (2026-07-21): Added right-click context menu to video clips on the timeline with "Detach Audio to Track" action that extracts clip audio to an audio track and mutes video audio.
 
 ### D. Architecture Recommendations
 - **WebCodecs Decoder**: Investigate moving `VideoFrameDecoder` to the native WebCodecs API instead of relying heavily on backend streams, to reduce network overhead for proxies.

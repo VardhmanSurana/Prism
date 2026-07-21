@@ -47,6 +47,7 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
     undo, redo,
     pushHistory, projectFps, setClipboardClip, selectedTrackId,
     projectWidth, projectHeight, duration,
+    isMulticamMode, toggleMulticamMode, switchMulticamAngle,
   } = useNLEStore();
 
   const canUndo = useNLEStore(s => s.canUndo());
@@ -295,6 +296,13 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
           e.preventDefault();
           setCompareMode((prev) => !prev);
           break;
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+          e.preventDefault();
+          switchMulticamAngle(parseInt(e.key), playheadPosition);
+          break;
         case 'Escape':
           handleClose();
           break;
@@ -362,6 +370,21 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2m15-7l-5 5m5-5l-5-5" />
             </svg>
+          </button>
+
+          <button
+            onClick={toggleMulticamMode}
+            className={`text-sm flex items-center gap-1 border rounded px-2 py-1 ${
+              isMulticamMode
+                ? 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10'
+                : 'text-[#999] border-[#333] hover:border-[#555] hover:text-white'
+            }`}
+            title="Toggle Multi-Cam Mode"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            Multi-Cam
           </button>
 
           <button

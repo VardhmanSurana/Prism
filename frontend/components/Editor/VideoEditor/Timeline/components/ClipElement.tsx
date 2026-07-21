@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { Clip } from '@/types/nle';
 import { API_BASE } from '@/constants';
+import { useNLEStore } from '@/store/nleStore';
 
 const TRACK_HEIGHT = 48;
 
@@ -19,6 +20,10 @@ interface ClipElementProps {
 export const ClipElement: React.FC<ClipElementProps> = ({
   clip, trackType, pixelsPerSec, fps, isSelected, isDragging, onSelect, onDragStart,
 }) => {
+  const detachAudio = useNLEStore((s) => s.detachAudio);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [contextPos, setContextPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const left = (clip.startFrame / fps) * pixelsPerSec;
   const width = (clip.durationFrames / fps) * pixelsPerSec;
 
@@ -55,6 +60,14 @@ export const ClipElement: React.FC<ClipElementProps> = ({
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (trackType === 'video') {
+          setContextPos({ x: e.clientX, y: e.clientY });
+          setShowContextMenu(true);
+        }
       }}
     >
       {/* Left trim handle */}
@@ -131,23 +144,54 @@ export const ClipElement: React.FC<ClipElementProps> = ({
       {clip.fadeOut > 0 && (
         <div className="absolute right-2 top-0 bottom-0 w-2 bg-gradient-to-l from-red-400/40 to-transparent pointer-events-none" />
       )}
+
+      {/* Right-click Context Menu */}
+      {showContextMenu && (
+        <div
+          className="fixed z-[100] bg-[#1a1a1a] border border-[#333] rounded shadow-xl py-1 text-xs text-[#ccc]"
+          style={{ left: contextPos.x, top: contextPos.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              setShowContextMenu(false);
+              detachAudio(clip.id);
+            }}
+            className="w-full px-3 py-1.5 text-left hover:bg-[#3b82f6] hover:text-white flex items-center gap-1.5"
+          >
+            🔊 Detach Audio to Track
+          </button>
+        </div>
+      )}
     </div>
   );
 };
 
+const waveformCache = new Map<string, number[]>();
+
 const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number; height: number; speed: number; inPoint: number; outPoint: number }> = ({ clipId, sourcePath, width, height, speed, inPoint, outPoint }) => {
-  const [peaks, setPeaks] = useState<number[]>([]);
+  const cacheKey = `${sourcePath}_${speed}_${inPoint}_${outPoint}`;
+  const [peaks, setPeaks] = useState<number[]>(() => waveformCache.get(cacheKey) || []);
+
   useEffect(() => {
+    if (waveformCache.has(cacheKey)) {
+      setPeaks(waveformCache.get(cacheKey)!);
+      return;
+    }
+
     let cancelled = false;
     fetch(`${API_BASE}/api/v1/nle/clips/waveform`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source_path: sourcePath, speed, in_point: inPoint, out_point: outPoint }),
     }).then(r => r.json()).then(data => {
-      if (!cancelled && data.peaks) setPeaks(data.peaks);
+      if (!cancelled && data.peaks) {
+        waveformCache.set(cacheKey, data.peaks);
+        setPeaks(data.peaks);
+      }
     }).catch(() => {});
     return () => { cancelled = true; };
-  }, [sourcePath, speed, inPoint, outPoint]);
+  }, [sourcePath, speed, inPoint, outPoint, cacheKey]);
 
   if (peaks.length === 0) return null;
   const barWidth = width / peaks.length;

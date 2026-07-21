@@ -8,6 +8,10 @@ import { VideoFrameDecoder } from '@/utils/videoFrameDecoder';
 import { API_BASE } from '@/constants';
 import { formatTimecode } from './editorUtils';
 import { Dropdown } from '@/components/ui/Dropdown';
+import { ColorScopesPanel } from './ColorScopesPanel';
+import { calculateRampedSourceTime } from '@/lib/speedRampUtils';
+import { MulticamGrid } from './MulticamGrid';
+import { useNLEStore } from '@/store/nleStore';
 
 export interface PreviewAreaProps {
   sourcePath: string;
@@ -53,6 +57,11 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
   const decodersRef = useRef<Map<string, VideoFrameDecoder>>(new Map());
   const [decodedFrame, setDecodedFrame] = useState<VideoFrame | null>(null);
+  const [showScopes, setShowScopes] = useState(false);
+
+  const isMulticamMode = useNLEStore((s) => s.isMulticamMode);
+  const toggleMulticamMode = useNLEStore((s) => s.toggleMulticamMode);
+  const switchMulticamAngle = useNLEStore((s) => s.switchMulticamAngle);
 
   const targetSeekTimeRef = useRef<number | null>(null);
   const additionalSeekTargets = useRef<Map<string, number>>(new Map());
@@ -135,7 +144,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     const relativeTime = playheadPosition - clipStart;
     const speed = activeClip.speed ?? 1;
     const inPoint = activeClip.inPoint ?? 0;
-    const sourceTime = inPoint + relativeTime * speed;
+    const sourceTime = calculateRampedSourceTime(
+      activeClip.keyframes['speed'],
+      speed,
+      inPoint,
+      relativeTime
+    );
 
     const decoder = getDecoder(
       activeClip.id,
@@ -433,7 +447,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
       const relativeTime = playheadPosition - clipTimeOffset;
       const speed = clipSpeed ?? 1;
       const inPoint = clipInPoint ?? 0;
-      const sourceTime = Math.max(0, inPoint + relativeTime * speed);
+      const sourceTime = calculateRampedSourceTime(
+        clipKeyframes['speed'],
+        speed,
+        inPoint,
+        relativeTime
+      );
       if (Math.abs(video.currentTime - sourceTime) > 0.05) {
         if (video.seeking) {
           targetSeekTimeRef.current = sourceTime;
@@ -451,7 +470,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
           const relativeTime = playheadPosition - clipStart;
           const speed = clip.speed ?? 1;
           const inPoint = clip.inPoint ?? 0;
-          const sourceTime = Math.max(0, inPoint + relativeTime * speed);
+          const sourceTime = calculateRampedSourceTime(
+            clip.keyframes['speed'],
+            speed,
+            inPoint,
+            relativeTime
+          );
           if (Math.abs(videoEl.currentTime - sourceTime) > 0.05) {
             if (videoEl.seeking) {
               additionalSeekTargets.current.set(clip.id, sourceTime);
@@ -470,7 +494,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         const relativeTime = playheadPosition - nextClipStart;
         const speed = transitionState.nextClip.speed ?? 1;
         const inPoint = transitionState.nextClip.inPoint ?? 0;
-        const sourceTime = Math.max(0, inPoint + relativeTime * speed);
+        const sourceTime = calculateRampedSourceTime(
+          transitionState.nextClip.keyframes['speed'],
+          speed,
+          inPoint,
+          relativeTime
+        );
         if (Math.abs(nextVideo.currentTime - sourceTime) > 0.05) {
           if (nextVideo.seeking) {
             transitionSeekTarget.current = sourceTime;
@@ -577,6 +606,23 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             </span>
           </>
         )}
+
+        <ColorScopesPanel
+          sourceCanvasRef={canvasRef}
+          isOpen={showScopes}
+          onClose={() => setShowScopes(false)}
+          isPlaying={isPlaying}
+        />
+
+        {isMulticamMode && (
+          <MulticamGrid
+            tracks={tracks}
+            playheadPosition={playheadPosition}
+            projectFps={projectFps}
+            onSelectAngle={(angle) => switchMulticamAngle(angle, playheadPosition)}
+            onClose={toggleMulticamMode}
+          />
+        )}
       </div>
 
       <video
@@ -615,7 +661,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             const relativeTime = playheadPosition - nextClipStart;
             const speed = nextClip.speed ?? 1;
             const inPoint = nextClip.inPoint ?? 0;
-            const sourceTime = inPoint + relativeTime * speed;
+            const sourceTime = calculateRampedSourceTime(
+              nextClip.keyframes['speed'],
+              speed,
+              inPoint,
+              relativeTime
+            );
             if (Math.abs(e.currentTarget.currentTime - sourceTime) > 0.1) {
               e.currentTarget.currentTime = Math.max(0, sourceTime);
             }
@@ -652,7 +703,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             const relativeTime = playheadPosition - clipStart;
             const speed = clip.speed ?? 1;
             const inPoint = clip.inPoint ?? 0;
-            const sourceTime = inPoint + relativeTime * speed;
+            const sourceTime = calculateRampedSourceTime(
+              clip.keyframes['speed'],
+              speed,
+              inPoint,
+              relativeTime
+            );
             if (Math.abs(e.currentTarget.currentTime - sourceTime) > 0.1) {
               e.currentTarget.currentTime = Math.max(0, sourceTime);
             }
@@ -698,6 +754,36 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleMulticamMode}
+            className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded border transition-colors ${
+              isMulticamMode
+                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                : 'border-[#333] text-[#999] hover:text-white hover:border-[#555]'
+            }`}
+            title="Toggle Multi-Cam Angle Grid"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+            </svg>
+            Multi-Cam
+          </button>
+
+          <button
+            onClick={() => setShowScopes((prev) => !prev)}
+            className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded border transition-colors ${
+              showScopes
+                ? 'bg-[#3b82f6]/20 border-[#3b82f6] text-[#3b82f6]'
+                : 'border-[#333] text-[#999] hover:text-white hover:border-[#555]'
+            }`}
+            title="Toggle Color Scopes (Waveform / Vectorscope)"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Scopes
+          </button>
+
           <Dropdown
             value={previewZoom === 'fit' ? 'fit' : `${previewZoom}%`}
             onChange={(val) => setPreviewZoom(val === 'fit' ? 'fit' : parseInt(val as string))}

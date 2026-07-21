@@ -33,6 +33,7 @@ export interface Track {
   locked: boolean;
   color?: string;
   clips: Clip[];
+  angle?: number; // 1..4 camera angle for Multi-cam editing
 }
 
 export interface ClipTransform {
@@ -44,7 +45,7 @@ export interface ClipTransform {
   opacity: number;  // 0-1
 }
 
-export type KeyframeProperty = 'opacity' | 'scaleX' | 'scaleY' | 'rotation' | 'volume' | 'x' | 'y';
+export type KeyframeProperty = 'opacity' | 'scaleX' | 'scaleY' | 'rotation' | 'volume' | 'x' | 'y' | 'speed';
 
 export interface BezierCP {
   x1: number;
@@ -81,6 +82,8 @@ export interface Clip {
   // Visual
   effects: ClipEffects;
   transform: ClipTransform;
+  // Audio EQ & Ducking
+  eq?: ClipAudioEQ;
   // Keyframes (property name → sorted keyframes array)
   keyframes: Record<string, Keyframe[]>;
   // Text track specific
@@ -89,7 +92,23 @@ export interface Clip {
   transition?: Transition;
   // Linked clips (clips that move together)
   linkedId?: string;
+  // Multi-cam camera angle
+  cameraAngle?: number;
 }
+
+export interface ClipAudioEQ {
+  lowGain: number;   // -12 to +12 dB (Bass)
+  midGain: number;   // -12 to +12 dB (Voice / Mid)
+  highGain: number;  // -12 to +12 dB (Treble)
+  ducking: boolean;  // auto-duck background audio when speech tracks present
+}
+
+export const DEFAULT_AUDIO_EQ: ClipAudioEQ = {
+  lowGain: 0,
+  midGain: 0,
+  highGain: 0,
+  ducking: false,
+};
 
 export interface Transition {
   type: 'crossfade' | 'wipe-left' | 'wipe-right' | 'dissolve' | 'slide-left' | 'slide-right';

@@ -4,20 +4,21 @@
  */
 import React from 'react';
 import { useNLEStore } from '@/store/nleStore';
-import type { ClipEffects, ClipTransform, Transition } from '@/types/nle';
-import { isDefaultEffects, isDefaultTransform, DEFAULT_EFFECTS } from '@/types/nle';
+import type { ClipEffects, ClipTransform, Transition, ClipAudioEQ } from '@/types/nle';
+import { isDefaultEffects, isDefaultTransform, DEFAULT_EFFECTS, DEFAULT_AUDIO_EQ } from '@/types/nle';
 import { KeyframeEditor } from './KeyframeEditor';
 import { ColorPresets } from './ColorPresets';
 import { EffectSlider } from '../EffectSlider';
 import { Dropdown } from '@/components/ui/Dropdown';
+import { getSpeedRampPreset, type SpeedRampPresetType } from '@/lib/speedRampUtils';
 
 export const InspectorPanel: React.FC = () => {
   const {
     selectedClipId, tracks,
     setClipSpeed, setClipVolume, setClipMuted,
     setClipEffects, setClipFadeIn, setClipFadeOut,
-    setClipTransform, setClipTransition,
-    removeClip,
+    setClipTransform, setClipTransition, setClipKeyframes, setClipEQ,
+    removeClip, projectFps,
   } = useNLEStore();
 
   const selectedClip = useNLEStore((s) => s.getSelectedClip());
@@ -75,22 +76,82 @@ export const InspectorPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Speed */}
+      {/* Speed & Speed Ramping */}
       <div className="p-3 border-b border-[#2a2a2a]">
-        <label className="text-[#999] text-xs block mb-1">Speed</label>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-[#999] text-xs font-medium">Speed Ramping</label>
+          {selectedClip.keyframes['speed']?.length ? (
+            <button
+              onClick={() => setClipKeyframes(selectedClip.id, 'speed', [])}
+              className="text-[10px] text-[#ef4444] hover:underline"
+            >
+              Reset Ramp
+            </button>
+          ) : (
+            <span className="text-[10px] text-[#666]">Constant</span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 mb-2">
           <input
             type="range"
-            min="-4"
+            min="0.1"
             max="4"
-            step="0.25"
+            step="0.1"
             value={selectedClip.speed}
             onChange={(e) => setClipSpeed(selectedClip.id, parseFloat(e.target.value))}
             className="flex-1 accent-[#3b82f6]"
           />
-          <span className="text-[#ccc] text-xs w-8 text-right">
-            {selectedClip.speed === 0 ? '❄' : selectedClip.speed < 0 ? `${selectedClip.speed}x` : `${selectedClip.speed}x`}
+          <span className="text-[#ccc] text-xs w-10 text-right font-mono">
+            {selectedClip.speed.toFixed(1)}x
           </span>
+        </div>
+
+        {/* Speed Ramping Presets */}
+        <div className="mt-2">
+          <span className="text-[10px] text-[#777] block mb-1">Presets:</span>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => {
+                const dur = selectedClip.durationFrames / projectFps;
+                setClipKeyframes(selectedClip.id, 'speed', getSpeedRampPreset('hero', dur));
+              }}
+              className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1.5 py-1 text-center transition-colors truncate"
+              title="Hero Moment (1x -> 0.25x -> 1x)"
+            >
+              ⚡ Hero Ramp
+            </button>
+            <button
+              onClick={() => {
+                const dur = selectedClip.durationFrames / projectFps;
+                setClipKeyframes(selectedClip.id, 'speed', getSpeedRampPreset('fast', dur));
+              }}
+              className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1.5 py-1 text-center transition-colors truncate"
+              title="Fast Burst (1x -> 3.5x -> 1x)"
+            >
+              🚀 Fast Burst
+            </button>
+            <button
+              onClick={() => {
+                const dur = selectedClip.durationFrames / projectFps;
+                setClipKeyframes(selectedClip.id, 'speed', getSpeedRampPreset('bullet', dur));
+              }}
+              className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1.5 py-1 text-center transition-colors truncate"
+              title="Bullet Time (1x -> 0.1x -> 1x)"
+            >
+              🎯 Bullet Time
+            </button>
+            <button
+              onClick={() => {
+                const dur = selectedClip.durationFrames / projectFps;
+                setClipKeyframes(selectedClip.id, 'speed', getSpeedRampPreset('accelerate', dur));
+              }}
+              className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1.5 py-1 text-center transition-colors truncate"
+              title="Accelerate Ramp (0.5x -> 4x)"
+            >
+              📈 Accelerate
+            </button>
+          </div>
         </div>
       </div>
 
@@ -149,6 +210,9 @@ export const InspectorPanel: React.FC = () => {
           className="w-full bg-[#222] text-[#ccc] text-xs rounded px-2 py-1 border border-[#333]"
         />
       </div>
+
+      {/* Audio 3-Band EQ & Ducking */}
+      <AudioEQPanel clip={selectedClip} />
 
       {/* Transform */}
       <TransformPanel clip={selectedClip} />
@@ -353,6 +417,132 @@ const TransitionPanel: React.FC<TransitionPanelProps> = ({ clip }) => {
           />
         </div>
       )}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Audio 3-Band EQ Panel
+// ---------------------------------------------------------------------------
+
+interface AudioEQPanelProps {
+  clip: { id: string; eq?: ClipAudioEQ };
+}
+
+const AudioEQPanel: React.FC<AudioEQPanelProps> = ({ clip }) => {
+  const setClipEQ = useNLEStore((s) => s.setClipEQ);
+  const eq = clip.eq ?? DEFAULT_AUDIO_EQ;
+
+  const updateEQ = (key: keyof ClipAudioEQ, val: number | boolean) => {
+    setClipEQ(clip.id, { [key]: val });
+  };
+
+  return (
+    <div className="p-3 border-b border-[#2a2a2a]">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[#999] text-xs font-medium">3-Band Audio EQ</span>
+        {(eq.lowGain !== 0 || eq.midGain !== 0 || eq.highGain !== 0 || eq.ducking) && (
+          <button
+            onClick={() => setClipEQ(clip.id, { lowGain: 0, midGain: 0, highGain: 0, ducking: false })}
+            className="text-[#999] hover:text-[#ccc] text-[10px]"
+          >
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* Low / Bass */}
+      <div className="mb-2">
+        <div className="flex justify-between text-[10px] text-[#888] mb-0.5">
+          <span>Bass (320Hz)</span>
+          <span className="font-mono text-[#ccc]">{eq.lowGain > 0 ? `+${eq.lowGain}` : eq.lowGain} dB</span>
+        </div>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="1"
+          value={eq.lowGain}
+          onChange={(e) => updateEQ('lowGain', parseInt(e.target.value))}
+          className="w-full accent-[#3b82f6]"
+        />
+      </div>
+
+      {/* Mid / Voice */}
+      <div className="mb-2">
+        <div className="flex justify-between text-[10px] text-[#888] mb-0.5">
+          <span>Voice / Mid (1kHz)</span>
+          <span className="font-mono text-[#ccc]">{eq.midGain > 0 ? `+${eq.midGain}` : eq.midGain} dB</span>
+        </div>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="1"
+          value={eq.midGain}
+          onChange={(e) => updateEQ('midGain', parseInt(e.target.value))}
+          className="w-full accent-[#3b82f6]"
+        />
+      </div>
+
+      {/* High / Treble */}
+      <div className="mb-2">
+        <div className="flex justify-between text-[10px] text-[#888] mb-0.5">
+          <span>Treble (3.2kHz)</span>
+          <span className="font-mono text-[#ccc]">{eq.highGain > 0 ? `+${eq.highGain}` : eq.highGain} dB</span>
+        </div>
+        <input
+          type="range"
+          min="-12"
+          max="12"
+          step="1"
+          value={eq.highGain}
+          onChange={(e) => updateEQ('highGain', parseInt(e.target.value))}
+          className="w-full accent-[#3b82f6]"
+        />
+      </div>
+
+      {/* Presets */}
+      <div className="mt-2 mb-2">
+        <span className="text-[10px] text-[#777] block mb-1">EQ Presets:</span>
+        <div className="grid grid-cols-2 gap-1">
+          <button
+            onClick={() => setClipEQ(clip.id, { lowGain: 0, midGain: 0, highGain: 0 })}
+            className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1 py-0.5 text-center"
+          >
+            Flat
+          </button>
+          <button
+            onClick={() => setClipEQ(clip.id, { lowGain: -3, midGain: 4, highGain: 2 })}
+            className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1 py-0.5 text-center"
+          >
+            Voice Enhance
+          </button>
+          <button
+            onClick={() => setClipEQ(clip.id, { lowGain: 6, midGain: -1, highGain: 1 })}
+            className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1 py-0.5 text-center"
+          >
+            Bass Boost
+          </button>
+          <button
+            onClick={() => setClipEQ(clip.id, { lowGain: -4, midGain: -2, highGain: 3 })}
+            className="text-[10px] bg-[#222] hover:bg-[#333] text-[#ccc] border border-[#333] rounded px-1 py-0.5 text-center"
+          >
+            Bright Treble
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-Ducking toggle */}
+      <label className="flex items-center gap-2 text-[11px] text-[#aaa] mt-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={eq.ducking}
+          onChange={(e) => updateEQ('ducking', e.target.checked)}
+          className="accent-[#3b82f6]"
+        />
+        <span>Auto-duck music when speech plays (-12dB)</span>
+      </label>
     </div>
   );
 };

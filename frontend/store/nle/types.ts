@@ -44,6 +44,7 @@ export interface NLEStore {
   // UI
   isExportDialogOpen: boolean;
   snapEnabled: boolean;
+  isMulticamMode: boolean;
   bookmarks: Bookmark[];
   clipboardClip: Clip | null;
 
@@ -74,6 +75,7 @@ export interface NLEStore {
   setClipEffects: (clipId: string, effects: Partial<ClipEffects>) => void;
   setClipFadeIn: (clipId: string, duration: number) => void;
   setClipFadeOut: (clipId: string, duration: number) => void;
+  setClipEQ: (clipId: string, eq: Partial<import('@/types/nle').ClipAudioEQ>) => void;
   setClipTransform: (clipId: string, transform: Partial<ClipTransform>) => void;
   setClipTransition: (clipId: string, transition: Transition | undefined) => void;
   setClipKeyframes: (clipId: string, property: string, keyframes: Keyframe[]) => void;
@@ -89,6 +91,10 @@ export interface NLEStore {
   toggleTrackLocked: (trackId: string) => void;
   selectTrack: (trackId: string | null) => void;
   renameTrack: (trackId: string, name: string) => void;
+  setTrackAngle: (trackId: string, angle: number | undefined) => void;
+  toggleMulticamMode: () => void;
+  switchMulticamAngle: (angle: number, atTime: number) => void;
+  detachAudio: (clipId: string) => void;
 
   // Multi-clip
   addClipFromLibrary: (trackId: string, photo: { id: number; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }) => Promise<void>;

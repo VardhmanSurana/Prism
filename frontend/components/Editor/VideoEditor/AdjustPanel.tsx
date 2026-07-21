@@ -53,7 +53,12 @@ export const AdjustPanel: React.FC = () => {
     <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
       {/* Header */}
       <div className="h-10 flex items-center justify-between px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Adjust</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[#999] text-xs font-medium">Adjust</span>
+          <span className="text-[10px] text-[#3b82f6] bg-[#3b82f6]/10 px-1.5 py-0.5 rounded border border-[#3b82f6]/20">
+            Scopes Ready
+          </span>
+        </div>
         {hasEffects && (
           <button
             onClick={resetAll}

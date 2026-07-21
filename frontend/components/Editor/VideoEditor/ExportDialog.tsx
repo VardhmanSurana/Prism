@@ -4,6 +4,7 @@ import { API_BASE } from '@/constants';
 import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
+import { isWebCodecsSupported, exportVideoWithWebCodecs } from '@/lib/webcodecsExporter';
 
 interface ExportDialogProps {
   onClose: () => void;
@@ -19,11 +20,14 @@ const EXPORT_PRESETS = [
 ] as const;
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
-  const { toProjectJson, projectWidth, projectHeight, projectFps } = useNLEStore();
+  const { toProjectJson, projectWidth, projectHeight, projectFps, duration, seek } = useNLEStore();
   const [resolution, setResolution] = useState<[number, number]>([projectWidth, projectHeight]);
   const [fps, setFps] = useState(projectFps);
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
   const [activePreset, setActivePreset] = useState<string>('Custom');
+  const [exportEngine, setExportEngine] = useState<'webcodecs' | 'melt'>(
+    isWebCodecsSupported() ? 'webcodecs' : 'melt'
+  );
   const [isExporting, setIsExporting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -39,10 +43,42 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
 
   const handleExport = useCallback(async () => {
     setIsExporting(true);
-    setProgress('Selecting export path...');
+    setDownloadUrl(null);
 
     try {
-      // 1. Ask user where to save the video locally
+      // 1. Hardware WebCodecs Export Engine
+      if (exportEngine === 'webcodecs') {
+        setProgress('Initializing GPU WebCodecs VideoEncoder...');
+        setProgressPercent(0);
+
+        const totalDuration = duration || 5;
+
+        const blob = await exportVideoWithWebCodecs({
+          width: resolution[0],
+          height: resolution[1],
+          fps,
+          duration: totalDuration,
+          quality,
+          renderFrameAtTime: async (tSec) => {
+            seek(tSec);
+            await new Promise((r) => setTimeout(r, 16));
+            return (document.querySelector('canvas') as HTMLCanvasElement) || undefined;
+          },
+          onProgress: (pct, currentFrame, totalFrames) => {
+            setProgressPercent(pct);
+            setProgress(`Encoding frame ${currentFrame} of ${totalFrames} (${pct}%)`);
+          },
+        });
+
+        const url = URL.createObjectURL(blob);
+        setDownloadUrl(url);
+        setProgress(`Hardware export completed successfully!\nReady for download or save.`);
+        return;
+      }
+
+      // 2. Local Melt Renderer Fallback Engine
+      setProgress('Selecting export path...');
+
       const filePath = await save({
         title: 'Save Exported Video',
         filters: [{ name: 'Video', extensions: ['mp4'] }],
@@ -57,7 +93,6 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
 
       setProgress('Generating project XML...');
 
-      // 2. Retrieve MLT XML representation from Python NLE service
       const body = {
         project_json: toProjectJson(),
         resolution,
@@ -81,13 +116,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
       setProgress('Rendering video locally...');
       setProgressPercent(0);
 
-      // 3. Setup Tauri event listener for progress events from Rust
       const unlisten = await listen<number>('nle-export-progress', (event) => {
         setProgressPercent(Math.round(event.payload * 100));
       });
 
       try {
-        // 4. Invoke Rust command to run melt rendering process
         await invoke<string>('nle_export_local', {
           mltXml: xml,
           outputPath: filePath,
@@ -97,7 +130,6 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
           quality,
         });
 
-        setDownloadUrl(null);
         setProgress(`Export completed successfully!\nSaved to: ${filePath}`);
         setProgressPercent(100);
       } finally {
@@ -108,17 +140,24 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
     } finally {
       setIsExporting(false);
     }
-  }, [toProjectJson, resolution, fps, quality]);
+  }, [exportEngine, duration, resolution, fps, quality, seek, toProjectJson]);
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center" onClick={onClose}>
       <div
-        className="bg-zinc-900 rounded-lg border border-zinc-800 w-[420px] max-h-[80vh] overflow-y-auto"
+        className="bg-zinc-900 rounded-lg border border-zinc-800 w-[440px] max-h-[85vh] overflow-y-auto shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <h3 className="text-white font-medium">Export Video</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-white font-medium">Export Video</h3>
+            {isWebCodecsSupported() && (
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded">
+                GPU WebCodecs Active
+              </span>
+            )}
+          </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-white">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -127,6 +166,36 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
         </div>
 
         <div className="p-4 space-y-4">
+          {/* Export Engine Selection */}
+          <div>
+            <label className="text-zinc-400 text-xs block mb-1">Rendering Engine</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setExportEngine('webcodecs')}
+                disabled={!isWebCodecsSupported()}
+                className={`px-3 py-1.5 text-xs rounded border text-left flex flex-col ${
+                  exportEngine === 'webcodecs'
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500 disabled:opacity-40'
+                }`}
+              >
+                <span className="font-semibold">⚡ Hardware WebCodecs</span>
+                <span className="text-[10px] opacity-80">GPU-accelerated H.264</span>
+              </button>
+              <button
+                onClick={() => setExportEngine('melt')}
+                className={`px-3 py-1.5 text-xs rounded border text-left flex flex-col ${
+                  exportEngine === 'melt'
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:border-zinc-500'
+                }`}
+              >
+                <span className="font-semibold">⚙️ Melt CLI / Server</span>
+                <span className="text-[10px] opacity-80">Local MLT renderer</span>
+              </button>
+            </div>
+          </div>
+
           {/* Presets */}
           <div>
             <label className="text-zinc-400 text-xs block mb-1">Preset</label>
@@ -214,7 +283,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
           {/* Status / Progress */}
           {progress && (
             <div className="space-y-2">
-              <div className="text-zinc-400 text-sm text-center whitespace-pre-wrap break-all">{progress}</div>
+              <div className="text-zinc-400 text-xs text-center whitespace-pre-wrap break-all font-mono">{progress}</div>
               {isExporting && (
                 <div className="w-full">
                   <div className="flex justify-between text-[10px] text-zinc-500 mb-1">
@@ -223,7 +292,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
                   </div>
                   <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-200"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
@@ -233,14 +302,13 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
           )}
 
           {downloadUrl && (
-            <div className="space-y-2">
-              <div className="text-center text-green-400 text-sm">Export complete!</div>
+            <div className="pt-2 space-y-2">
               <a
                 href={downloadUrl}
-                download
-                className="block text-center bg-green-600 hover:bg-green-500 text-white py-2 rounded text-sm"
+                download="prism_webcodecs_export.mp4"
+                className="block text-center bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded text-xs font-semibold shadow-lg transition-colors"
               >
-                Download Video
+                ⬇️ Download Exported MP4 Video
               </a>
             </div>
           )}
@@ -257,7 +325,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
           <button
             onClick={handleExport}
             disabled={isExporting}
-            className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50"
+            className="px-4 py-1.5 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded disabled:opacity-50 font-medium"
           >
             {isExporting ? 'Exporting...' : 'Start Export'}
           </button>

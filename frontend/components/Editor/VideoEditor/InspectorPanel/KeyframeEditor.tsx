@@ -11,6 +11,7 @@ const PROPS: { key: KeyframeProperty; label: string }[] = [
   { key: 'volume', label: 'Volume' },
   { key: 'x', label: 'Position X' },
   { key: 'y', label: 'Position Y' },
+  { key: 'speed', label: 'Speed Ramp' },
 ];
 
 const W = 220;
@@ -39,6 +40,7 @@ export const KeyframeEditor: React.FC = () => {
       case 'rotation': return { min: -180, max: 180 };
       case 'volume': return { min: 0, max: 2 };
       case 'x': case 'y': return { min: -500, max: 500 };
+      case 'speed': return { min: 0.1, max: 4.0 };
       default: return { min: 0, max: 1 };
     }
   }, [selectedProp]);

@@ -1,6 +1,6 @@
 import { StateCreator } from 'zustand';
 import { NLEStore } from './types';
-import { Clip, Track, ClipEffects, ClipTransform, Transition, Keyframe } from '@/types/nle';
+import { Clip, Track, ClipEffects, ClipTransform, Transition, Keyframe, ClipAudioEQ, DEFAULT_AUDIO_EQ } from '@/types/nle';
 import { clipsOverlap, computeTimelineDuration } from './timelineMath';
 import { nextClipId, nextTrackId } from './helpers';
 import { splitKeyframes, shiftKeyframes } from '@/lib/keyframes';
@@ -21,6 +21,7 @@ export interface TimelineSlice {
   setClipEffects: (clipId: string, effects: Partial<ClipEffects>) => void;
   setClipFadeIn: (clipId: string, duration: number) => void;
   setClipFadeOut: (clipId: string, duration: number) => void;
+  setClipEQ: (clipId: string, eq: Partial<ClipAudioEQ>) => void;
   setClipTransform: (clipId: string, transform: Partial<ClipTransform>) => void;
   setClipTransition: (clipId: string, transition: Transition | undefined) => void;
   setClipKeyframes: (clipId: string, property: string, keyframes: Keyframe[]) => void;
@@ -35,11 +36,18 @@ export interface TimelineSlice {
   toggleTrackLocked: (trackId: string) => void;
   selectTrack: (trackId: string | null) => void;
   renameTrack: (trackId: string, name: string) => void;
+
+  isMulticamMode: boolean;
+  setTrackAngle: (trackId: string, angle: number | undefined) => void;
+  toggleMulticamMode: () => void;
+  switchMulticamAngle: (angle: number, atTime: number) => void;
+  detachAudio: (clipId: string) => void;
 }
 
 export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> = (set, get) => ({
   tracks: [],
   duration: 0,
+  isMulticamMode: false,
 
   addClip: (trackId, clip) => {
     const track = get().tracks.find((t) => t.id === trackId);
@@ -289,6 +297,20 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
     }));
   },
 
+  setClipEQ: (clipId, eq) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) =>
+          c.id === clipId
+            ? { ...c, eq: { ...DEFAULT_AUDIO_EQ, ...c.eq, ...eq } }
+            : c
+        ),
+      })),
+      isDirty: true,
+    }));
+  },
+
   setClipTransform: (clipId, transform) => {
     set((s) => ({
       tracks: s.tracks.map((t) => ({
@@ -468,5 +490,100 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       ),
       isDirty: true,
     }));
+  },
+
+  setTrackAngle: (trackId, angle) => {
+    set((s) => ({
+      tracks: s.tracks.map((t) =>
+        t.id === trackId ? { ...t, angle } : t
+      ),
+      isDirty: true,
+    }));
+  },
+
+  toggleMulticamMode: () => {
+    set((s) => ({ isMulticamMode: !s.isMulticamMode }));
+  },
+
+  switchMulticamAngle: (angle, atTime) => {
+    get().pushHistory();
+    set((s) => {
+      // Find track assigned to target camera angle
+      const targetTrack = s.tracks.find((t) => t.angle === angle && t.type === 'video');
+      if (!targetTrack) return {};
+
+      // Make target angle track visible and hide non-matching angle video tracks
+      const tracks = s.tracks.map((t) => {
+        if (t.type !== 'video' || t.angle === undefined) return t;
+        return {
+          ...t,
+          visible: t.id === targetTrack.id,
+        };
+      });
+
+      return { tracks, isDirty: true };
+    });
+  },
+
+  detachAudio: (clipId) => {
+    get().pushHistory();
+    set((s) => {
+      let sourceClip: Clip | undefined;
+      let sourceTrackId: string | undefined;
+
+      for (const t of s.tracks) {
+        const c = t.clips.find((clip) => clip.id === clipId);
+        if (c) {
+          sourceClip = c;
+          sourceTrackId = t.id;
+          break;
+        }
+      }
+      if (!sourceClip) return {};
+
+      let audioTrack = s.tracks.find((t) => t.type === 'audio');
+      let updatedTracks = [...s.tracks];
+
+      if (!audioTrack) {
+        audioTrack = {
+          id: nextTrackId(),
+          type: 'audio',
+          name: 'Audio Track 1',
+          muted: false,
+          solo: false,
+          visible: true,
+          locked: false,
+          clips: [],
+        };
+        updatedTracks.push(audioTrack);
+      }
+
+      const detachedClip: Clip = {
+        ...sourceClip,
+        id: nextClipId(),
+        volume: sourceClip.volume || 1.0,
+        muted: false,
+        transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, opacity: 1 },
+        effects: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, highlights: 0, shadows: 0, sharpness: 0, vignette: 0, noiseReduction: 0 },
+      };
+
+      const tracks = updatedTracks.map((t) => {
+        if (t.id === sourceTrackId) {
+          return {
+            ...t,
+            clips: t.clips.map((c) => (c.id === clipId ? { ...c, muted: true } : c)),
+          };
+        }
+        if (t.id === audioTrack!.id) {
+          return {
+            ...t,
+            clips: [...t.clips, detachedClip].sort((a, b) => a.startFrame - b.startFrame),
+          };
+        }
+        return t;
+      });
+
+      return { tracks, isDirty: true };
+    });
   },
 });
