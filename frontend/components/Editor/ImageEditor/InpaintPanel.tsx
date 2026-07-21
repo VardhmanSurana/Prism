@@ -47,7 +47,6 @@ interface InpaintPanelProps {
   canUndo: boolean;
   canRedo: boolean;
   isProcessing: boolean;
-  onShowTutorial?: () => void;
   infoMessage?: string | null;
   onClearInfoMessage?: () => void;
 }
@@ -75,7 +74,6 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
   canUndo,
   canRedo,
   isProcessing,
-  onShowTutorial,
   infoMessage,
   onClearInfoMessage,
 }) => {
@@ -125,19 +123,6 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
-      {/* ── Help Button ── */}
-      {onShowTutorial && (
-        <div className="px-4 pt-4 pb-2">
-          <button
-            onClick={onShowTutorial}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-medium transition-all bg-white/5 text-white/60 hover:text-white hover:bg-white/10 border border-white/10"
-          >
-            <HelpCircle size={12} />
-            Show Tutorial
-          </button>
-        </div>
-      )}
-
       {infoMessage && (
         <div className="mx-4 mt-2 mb-1 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-medium leading-relaxed flex items-start gap-2">
           <Sparkles size={12} className="shrink-0 mt-0.5" />

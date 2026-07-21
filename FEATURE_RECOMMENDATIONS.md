@@ -24,13 +24,13 @@ export interface Adjustments {
 
 ### B. Feature Recommendations
 
-1. **Advanced Healing Brush / Clone Stamp**
+1. **Advanced Healing Brush / Clone Stamp** ✅ IMPLEMENTED
    - **Description**: Manual texture replication and healing beyond generative inpaint.
    - **User Problem**: Users need to quickly remove small blemishes without invoking heavy AI models.
-   - **Implementation**: Extend `AnnotationCanvas` with a brush that samples pixels from a source point using standard canvas composite operations.
-   - **Dependencies**: `CanvasArea.tsx`, WebGL fallback handling.
+   - **Implementation**: New `HealingCanvas.tsx` + `HealingPanel.tsx` with session-only Canvas2D overlay. Alt+Click sets source point, then paint to clone. 'Clone & Heal' sidebar tab added. Healing brush uses luminosity blending for organic-looking corrections.
+   - **Dependencies**: `CanvasArea.tsx`, `HealingCanvas.tsx`, `HealingPanel.tsx`, `Sidebar.tsx`.
    - **ICE Score**: I:8, C:9, E:5 (Total: 22)
-   - **Priority**: P1 | **Effort**: 2 weeks
+   - **Priority**: P1 | **Effort**: 2 weeks | **Status**: ✅ Shipped
 
 2. **Adjustment Layers & Masks**
    - **Description**: Allow multiple instances of adjustments (e.g., two different curve layers with radial masks).
@@ -40,21 +40,21 @@ export interface Adjustments {
    - **ICE Score**: I:9, C:7, E:3 (Total: 19)
    - **Priority**: P2 | **Effort**: 3 weeks
 
-3. **LUT (Look-Up Table) Support**
-   - **Description**: Import and apply standard .cube LUT files.
+3. **LUT (Look-Up Table) Support** ✅ IMPLEMENTED
+   - **Description**: Import and apply standard .cube LUT files. Includes 10 built-in cinematic LUTs.
    - **User Problem**: Professionals want to use their existing color grading presets.
-   - **Implementation**: Add a WebGL shader pass in the export/preview pipeline to map pixels through a 3D texture.
-   - **Dependencies**: `exportPipeline.ts`
+   - **Implementation**: New `lutEngine.ts` with `.cube` parser and trilinear interpolation. New `LutPanel.tsx` sidebar (10 built-in LUTs across 5 categories + import/export). LUT applied in `canvasDrawing.ts` and `exportPipeline.ts` via Canvas2D pixel mapping — no SVG filters needed.
+   - **Dependencies**: `lutEngine.ts`, `LutPanel.tsx`, `filterEngine.ts`, `canvasDrawing.ts`, `exportPipeline.ts`, `Sidebar.tsx`
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
-   - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Priority**: P1 | **Effort**: 1.5 weeks | **Status**: ✅ Shipped
 
-4. **Batch Editing / Sync Settings**
-   - **Description**: Copy edit settings from one photo and paste them to multiple others.
+4. **Batch Editing / Sync Settings** ✅ IMPLEMENTED
+   - **Description**: Copy edit settings from one photo and paste them to multiple others (non-destructive).
    - **User Problem**: Editing a batch of photos from the same shoot is currently tedious.
-   - **Implementation**: Store serialized `Adjustments` in clipboard and provide a bulk-apply API endpoint.
-   - **Dependencies**: `filterEngine.ts`, Gallery Grid multi-select.
+   - **Implementation**: New 'Paste Edits' button in `TopBar.tsx` (emerald glow when enabled). Reads `copiedAdjustments` from `editStore` and merges non-destructively into current photo. Adjustments stored as JSON, no baking.
+   - **Dependencies**: `TopBar.tsx`, `EditingMode.tsx`, `editStore.ts`
    - **ICE Score**: I:9, C:9, E:7 (Total: 25)
-   - **Priority**: P0 | **Effort**: 1 week
+   - **Priority**: P0 | **Effort**: 1 week | **Status**: ✅ Shipped
 
 5. **Magnetic Lasso / Smart Selection Tool**
    - **Description**: Edge-aware selection tool for precise masking.
@@ -65,8 +65,8 @@ export interface Adjustments {
    - **Priority**: P2 | **Effort**: 2.5 weeks
 
 ### C. Quick Wins
-- **Before/After Split Slider**: Upgrade the current `isComparing` toggle to an interactive drag slider (similar to the Video Editor's implementation).
-- **Auto-Level Hotkey**: Add a quick shortcut (e.g., `Cmd+L`) mapped to the `handleAutoEnhance` function in `AdjustPanel.tsx`.
+- **Before/After Split Slider** ✅ IMPLEMENTED: Upgraded `isComparing` toggle to persistent click-toggle (sticky split view). Backslash `\` key also toggles. Drag slider was already present in `CanvasArea.tsx` — UX polished.
+- **Auto-Level Hotkey** ✅ IMPLEMENTED: `Cmd+L` / `Ctrl+L` mapped to `handleAutoEnhance` via `useKeyBindings.ts`. Shared handler between keyboard shortcut and AdjustPanel button.
 
 ### D. Architecture Recommendations
 - **Migrate SVG Filters to WebGL**: Complex SVG filters (like the custom regional masking and curves) should be fully migrated to WebGL shaders for better performance on large images.

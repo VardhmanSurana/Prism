@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, History, ClipboardCopy } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, History, ClipboardCopy, ClipboardPaste } from 'lucide-react';
 
 interface TopBarProps {
   onClose: () => void;
   isSaving: boolean;
   handleSave: (isSaveAs: boolean, format?: string, quality?: number) => void;
   handleCopy: () => void;
-  onCompareStart: () => void;
-  onCompareEnd: () => void;
+  onCompareToggle: () => void;
   isComparing: boolean;
   handleUndo?: () => void;
   handleRedo?: () => void;
@@ -19,6 +18,7 @@ interface TopBarProps {
   exportProgress?: { step: string; current: number; total: number } | null;
   onCopyEdits?: () => void;
   hasCopiedEdits?: boolean;
+  onPasteEdits?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -26,8 +26,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   isSaving,
   handleSave,
   handleCopy,
-  onCompareStart,
-  onCompareEnd,
+  onCompareToggle,
   isComparing,
   handleUndo,
   handleRedo,
@@ -39,6 +38,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   exportProgress,
   onCopyEdits,
   hasCopiedEdits,
+  onPasteEdits,
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState('jpeg');
@@ -145,12 +145,10 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <div className="h-4 w-px bg-white/10" />
 
-        {/* Before/After Compare button */}
+        {/* Before/After Compare button — click-toggle for persistent split view */}
         <button
-          onPointerDown={onCompareStart}
-          onPointerUp={onCompareEnd}
-          onPointerLeave={onCompareEnd}
-          title="Hold to compare with original (\\)"
+          onClick={onCompareToggle}
+          title="Toggle before/after split view (\\)"
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
             isComparing
               ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
@@ -158,7 +156,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           }`}
         >
           <SplitSquareHorizontal size={12} strokeWidth={2} />
-          {isComparing ? 'Original' : 'Compare'}
+          {isComparing ? 'Hide Original' : 'Compare'}
         </button>
 
         <div className="h-4 w-px bg-white/10" />
@@ -167,7 +165,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={onCopyEdits}
           disabled={isSaving}
-          title="Copy current edits"
+          title="Copy current edits to clipboard"
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
             hasCopiedEdits
               ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(var(--color-primary),0.15)]'
@@ -176,6 +174,21 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           <ClipboardCopy size={12} strokeWidth={2.5} />
           Copy Edits
+        </button>
+
+        {/* Paste Edits button — enabled only when there are copied adjustments */}
+        <button
+          onClick={onPasteEdits}
+          disabled={isSaving || !hasCopiedEdits}
+          title="Paste copied edits onto this photo (Batch Sync)"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+            hasCopiedEdits
+              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 shadow-[0_0_8px_rgba(52,211,153,0.1)]'
+              : 'bg-[var(--bg-secondary)] border-white/5 text-white/15 cursor-default'
+          } disabled:cursor-default`}
+        >
+          <ClipboardPaste size={12} strokeWidth={2.5} />
+          Paste Edits
         </button>
       </div>
 

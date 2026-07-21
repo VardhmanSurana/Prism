@@ -1,6 +1,7 @@
 import { Adjustments, HslBand, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
 import { applyHslToImageData } from './hslEngine';
+import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
 import {
   applySplitToning,
   applyGrain,
@@ -110,6 +111,17 @@ export function drawFilteredImageToCanvas(
 
   // 6. Curves
   applyCurveLutsToCanvas(canvas, adjustments);
+
+  // 6.5. LUT (3D Look-Up Table) — Canvas2D pixel-based, no SVG filter overhead
+  if (adjustments.lut && (adjustments.lut.builtinId || adjustments.lut.customData)) {
+    const lutData = adjustments.lut.customData || getBuiltinLutData(adjustments.lut.builtinId!);
+    if (lutData) {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const opacity = (adjustments.lut.opacity ?? 100) / 100;
+      const result = applyLutToImageData(imgData, lutData, opacity);
+      ctx.putImageData(result, 0, 0);
+    }
+  }
 
   // 7. HSL Color Mixer
   if (adjustments.hsl) {

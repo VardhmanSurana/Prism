@@ -48,10 +48,13 @@ interface AdjustPanelProps {
   photoId?:    number | string;
   imageSrc?:   string;
   filterString?: string;
+  onAutoEnhance?: () => Promise<void> | void;
+  isAutoEnhancing?: boolean;
 }
 
-export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId, imageSrc, filterString }) => {
-  const [isAutoEnhancing, setIsAutoEnhancing] = useState(false);
+export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId, imageSrc, filterString, onAutoEnhance: onAutoEnhanceProp, isAutoEnhancing: isAutoEnhancingProp }) => {
+  const [isAutoEnhancingInternal, setIsAutoEnhancingInternal] = useState(false);
+  const isAutoEnhancing = isAutoEnhancingProp !== undefined ? isAutoEnhancingProp : isAutoEnhancingInternal;
 
   // Collapsible Accordion states
   const [lightOpen, setLightOpen] = useState(true);
@@ -81,8 +84,13 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   }, [adjustments, onChange]);
 
   const handleAutoEnhance = useCallback(async () => {
+    // If parent controls auto-enhance (e.g. for keyboard shortcut sharing), delegate to parent
+    if (onAutoEnhanceProp) {
+      await onAutoEnhanceProp();
+      return;
+    }
     if (!photoId) return;
-    setIsAutoEnhancing(true);
+    setIsAutoEnhancingInternal(true);
     try {
       const params = await apiClient.post<Partial<Adjustments>>(`/api/v1/photos/auto-enhance/${photoId}`, {});
       onChange({
@@ -92,9 +100,9 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     } catch (e) {
       console.error("Auto enhance failed", e);
     } finally {
-      setIsAutoEnhancing(false);
+      setIsAutoEnhancingInternal(false);
     }
-  }, [photoId, onChange, adjustments]);
+  }, [photoId, onChange, adjustments, onAutoEnhanceProp]);
 
   const handleChange = useCallback(
     (key: keyof Adjustments, value: number) => {

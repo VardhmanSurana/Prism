@@ -20,13 +20,14 @@ import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
 import { PortraitPanel } from '../PortraitPanel';
 import { SelectivePanel } from '../SelectivePanel';
 import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '../InpaintPanel';
-import { InpaintTutorial } from '../InpaintTutorial';
 import { HslPanel } from '../HslPanel';
 import { PresetsPanel } from '../PresetsPanel';
 import { TexturePanel } from '../TexturePanel';
 import { FramesPanel } from '../FramesPanel';
 import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
+import { LutPanel } from '../LutPanel';
+import { HealingPanel, HealingSettings, DEFAULT_HEALING_SETTINGS } from '../HealingPanel';
 
 import { HistoryActionType } from '../history';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -135,7 +136,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   });
   const [inpaintMask, setInpaintMask] = useState<string | null>(null);
   const [isInpainting, setIsInpainting] = useState<boolean>(false);
-  const [showInpaintTutorial, setShowInpaintTutorial] = useState<boolean>(false);
   const inpaintHistoryRef = useRef<string[]>([]);
   const inpaintHistoryIndexRef = useRef<number>(-1);
   const [inpaintCanUndo, setInpaintCanUndo] = useState(false);
@@ -147,6 +147,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
   // Before/After compare state
   const [isComparing, setIsComparing] = useState<boolean>(false);
+
+  // Healing brush / clone stamp state
+  const [healingSettings, setHealingSettings] = useState<HealingSettings>(DEFAULT_HEALING_SETTINGS);
+  const [healingHasStrokes, setHealingHasStrokes] = useState<boolean>(false);
+  const healingCanvasRef = useRef<import('../HealingCanvas').HealingCanvasRef | null>(null);
 
   // Export progress state
   const [exportProgress, setExportProgress] = useState<{ step: string; current: number; total: number } | null>(null);
@@ -366,6 +371,27 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     const { copyAdjustments } = useEditStore.getState();
     copyAdjustments(adjustments);
   }, [adjustments]);
+
+  const handlePasteEdits = useCallback(() => {
+    const { copiedAdjustments } = useEditStore.getState();
+    if (!copiedAdjustments) return;
+    setAdjustments(prev => ({ ...prev, ...copiedAdjustments }));
+  }, [setAdjustments]);
+
+  const [isAutoEnhancing, setIsAutoEnhancing] = useState<boolean>(false);
+  const handleAutoEnhance = useCallback(async () => {
+    if (!photoId || isAutoEnhancing) return;
+    setIsAutoEnhancing(true);
+    try {
+      const { apiClient } = await import('@/services/apiClient');
+      const params = await apiClient.post<Partial<Adjustments>>(`/api/v1/photos/auto-enhance/${photoId}`, {});
+      setAdjustments(prev => ({ ...prev, ...params }));
+    } catch (e) {
+      console.error('Auto enhance failed', e);
+    } finally {
+      setIsAutoEnhancing(false);
+    }
+  }, [photoId, isAutoEnhancing, setAdjustments]);
 
   const handleInpaintProcess = useCallback(async () => {
     if (!inpaintMask || isInpainting) return;
@@ -600,6 +626,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     cropperRef,
     inpaintMode,
     setInpaintSettings,
+    onAutoEnhance: handleAutoEnhance,
   });
 
   const deferredCurvesTable = useMemo(
@@ -615,8 +642,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         handleSave={handleSave}
         handleCopy={handleCopy}
         isComparing={isComparing}
-        onCompareStart={() => setIsComparing(true)}
-        onCompareEnd={() => setIsComparing(false)}
+        onCompareToggle={() => setIsComparing(c => !c)}
         handleUndo={handleUndo}
         handleRedo={handleRedo}
         canUndo={canUndo}
@@ -626,6 +652,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         historyCount={history.length}
         exportProgress={exportProgress}
         onCopyEdits={handleCopyEdits}
+        onPasteEdits={handlePasteEdits}
         hasCopiedEdits={useEditStore((s) => s.copiedAdjustments !== null)}
       />
 
@@ -657,6 +684,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               photoId={photoId}
               imageSrc={currentImageSrc}
               filterString={filterString}
+              onAutoEnhance={handleAutoEnhance}
+              isAutoEnhancing={isAutoEnhancing}
             />],
             ['detail', <DetailPanel key="detail" adjustments={adjustments} onChange={handleAdjChange} />],
             ['portrait', <PortraitPanel key="portrait" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
@@ -664,6 +693,17 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             ['hsl', <HslPanel key="hsl" adjustments={adjustments} onChange={handleAdjChange} />],
             ['presets', <PresetsPanel key="presets" adjustments={adjustments} onChange={handleAdjChange} imageSrc={currentImageSrc} />],
             ['texture', <TexturePanel key="texture" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['lut', <LutPanel key="lut" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['healing', <HealingPanel
+              key="healing"
+              settings={healingSettings}
+              onSettingsChange={setHealingSettings}
+              onClearStrokes={() => {
+                healingCanvasRef.current?.clearStrokes();
+                setHealingHasStrokes(false);
+              }}
+              hasStrokes={healingHasStrokes}
+            />],
             ['frame', <FramesPanel key="frame" adjustments={adjustments} onChange={handleAdjChange} handleRotate={handleRotate} handleFlipH={handleFlipH} handleFlipV={handleFlipV} flipH={flipH} flipV={flipV} imageSrc={currentImageSrc} />],
             ['palette', <PalettePanel key="palette" imageSrc={currentImageSrc} />],
             ['annotations', <AnnotationsPanel key="annotations"
@@ -730,7 +770,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               canUndo={inpaintCanUndo}
               canRedo={inpaintCanRedo}
               isProcessing={isInpainting}
-              onShowTutorial={() => setShowInpaintTutorial(true)}
               infoMessage={inpaintInfoMessage}
               onClearInfoMessage={() => setInpaintInfoMessage(null)}
             />],
@@ -801,6 +840,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           setDoodleFontFamily={annState.setDoodleFontFamily}
           showDoodleGuide={annState.showDoodleGuide}
           setShowDoodleGuide={annState.setShowDoodleGuide}
+          healingSettings={healingSettings}
+          healingCanvasRef={healingCanvasRef}
+          onHealingStrokeComplete={() => setHealingHasStrokes(true)}
         />
 
         {showHistory && (
@@ -815,12 +857,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           />
         )}
       </div>
-
-      {/* Tutorial Modal */}
-      <InpaintTutorial
-        isOpen={showInpaintTutorial}
-        onClose={() => setShowInpaintTutorial(false)}
-      />
     </div>
   );
 };

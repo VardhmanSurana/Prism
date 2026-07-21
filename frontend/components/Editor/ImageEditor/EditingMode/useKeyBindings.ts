@@ -15,10 +15,11 @@ interface UseKeyBindingsProps {
   currentHistoryIndex: number;
   history: HistoryEntry[];
   handleJumpToHistory: (index: number) => void;
-  setIsComparing: (compare: boolean) => void;
+  setIsComparing: (compare: boolean | ((prev: boolean) => boolean)) => void;
   cropperRef: React.RefObject<any>;
   inpaintMode: InpaintMode;
   setInpaintSettings: React.Dispatch<React.SetStateAction<InpaintSettings>>;
+  onAutoEnhance?: () => void;
 }
 
 export const useKeyBindings = ({
@@ -32,6 +33,7 @@ export const useKeyBindings = ({
   cropperRef,
   inpaintMode,
   setInpaintSettings,
+  onAutoEnhance,
 }: UseKeyBindingsProps) => {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -67,9 +69,16 @@ export const useKeyBindings = ({
         return;
       }
 
-      // ── Backslash: hold-to-compare (keydown fires repeatedly, guard with isComparing) ──
+      // ── Ctrl+L / Cmd+L: Auto Enhance ─────────────────────────────────────────
+      if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+        e.preventDefault();
+        onAutoEnhance?.();
+        return;
+      }
+
+      // ── Backslash: toggle compare mode ────────────────────────────────────────
       if (e.key === '\\' && !e.repeat) {
-        setIsComparing(true);
+        setIsComparing(c => !c);
         return;
       }
 
@@ -115,10 +124,8 @@ export const useKeyBindings = ({
       }
     };
 
-    const handleGlobalKeyUp = (e: KeyboardEvent) => {
-      if (e.key === '\\') {
-        setIsComparing(false);
-      }
+    const handleGlobalKeyUp = (_e: KeyboardEvent) => {
+      // Backslash is now a toggle — no keyup action needed
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
@@ -138,5 +145,6 @@ export const useKeyBindings = ({
     setIsComparing,
     cropperRef,
     setInpaintSettings,
+    onAutoEnhance,
   ]);
 };

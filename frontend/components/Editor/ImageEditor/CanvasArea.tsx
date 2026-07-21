@@ -11,6 +11,7 @@ import { ZoomControls } from './ZoomControls';
 import { AnnotationCanvas } from './AnnotationCanvas';
 import { Annotation, DrawToolId } from './AnnotationsPanel';
 import { drawFilteredImageToCanvas } from './canvasDrawing';
+import { HealingCanvas } from './HealingCanvas';
 import type { CanvasAreaProps } from './CanvasArea.types';
 
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
@@ -68,6 +69,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   setDoodleFontFamily,
   showDoodleGuide,
   setShowDoodleGuide,
+  healingSettings,
+  healingCanvasRef,
+  onHealingStrokeComplete,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
@@ -714,6 +718,32 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             />
           </div>
         </>
+      )}
+
+      {/* ── Healing Brush / Clone Stamp overlay ── */}
+      {activeTool === 'healing' && imageRect && healingSettings && (
+        <div
+          className="absolute z-20"
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            pointerEvents: 'auto',
+          }}
+        >
+          <HealingCanvas
+            ref={healingCanvasRef}
+            width={Math.round(imageRect.width)}
+            height={Math.round(imageRect.height)}
+            sourceImage={imgRef.current}
+            mode={healingSettings.mode}
+            brushSize={healingSettings.brushSize}
+            hardness={healingSettings.hardness}
+            opacity={healingSettings.opacity}
+            onStrokeComplete={onHealingStrokeComplete}
+          />
+        </div>
       )}
 
 

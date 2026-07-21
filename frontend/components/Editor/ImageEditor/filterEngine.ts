@@ -11,6 +11,7 @@
  */
 
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
+import type { LutData } from './lutEngine';
 
 // ── HSL Per-Band Types ───────────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export interface Adjustments {
   frame:       FrameAdjustments;
   blend:       BlendAdjustments;
   tiltShift:   TiltShiftAdjustments;
+  lut:         LutAdjustments;
 }
 
 export interface SplitToningAdjustments {
@@ -143,6 +145,15 @@ export interface TiltShiftAdjustments {
   blurStrength:  number;
   focusPosition: number;
   focusWidth:    number;
+}
+
+export interface LutAdjustments {
+  /** ID of a built-in LUT, or null if using a custom import */
+  builtinId:   string | null;
+  /** Custom imported LUT data (from parsed .cube file) */
+  customData:  LutData | null;
+  /** Blend opacity 0-100 */
+  opacity:     number;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
@@ -204,6 +215,11 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
     blurStrength:  30,
     focusPosition: 50,
     focusWidth:    30,
+  },
+  lut: {
+    builtinId:  null,
+    customData: null,
+    opacity:    100,
   },
 };
 // ── CSS Filter Conversion ────────────────────────────────────────────────────
@@ -348,6 +364,9 @@ export const isDefaultAdjustments = (adj: Adjustments): boolean => {
 
   // Tilt Shift check
   if (adj.tiltShift && adj.tiltShift.enabled) return false;
+
+  // LUT check
+  if (adj.lut && (adj.lut.builtinId !== null || adj.lut.customData !== null)) return false;
 
   return true;
 };

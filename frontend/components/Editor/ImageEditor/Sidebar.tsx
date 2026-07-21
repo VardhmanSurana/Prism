@@ -12,7 +12,9 @@ import {
   Film,
   Grid,
   Pipette,
-  PenTool
+  PenTool,
+  Clapperboard,
+  Eraser,
 } from 'lucide-react';
 
 export type ToolId =
@@ -22,9 +24,11 @@ export type ToolId =
   | 'portrait'
   | 'selective'
   | 'inpaint'
+  | 'healing'
   | 'hsl'
   | 'presets'
   | 'texture'
+  | 'lut'
   | 'frame'
   | 'palette'
   | 'annotations';
@@ -37,6 +41,7 @@ interface SidebarProps {
 
 const DEFAULT_TABS_ORDER: ToolId[] = [
   'inpaint',
+  'healing',
   'presets',
   'adjust',
   'hsl',
@@ -44,6 +49,7 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
   'portrait',
   'selective',
   'texture',
+  'lut',
   'frame',
   'palette',
   'annotations',
@@ -53,6 +59,7 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
 export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, children }) => {
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     inpaint:      { icon: <Paintbrush size={20} strokeWidth={1.5} />,   label: 'AI Tools',             description: 'AI-powered object removal and mask-based image inpainting' },
+    healing:      { icon: <Eraser size={20} strokeWidth={1.5} />,       label: 'Clone & Heal',         description: 'Clone Stamp and Healing Brush — Alt+click to set source, then paint' },
     presets:      { icon: <BookMarked size={20} strokeWidth={1.5} />,   label: 'Presets',              description: 'Apply curated cinematic, vintage, and creative look presets' },
     adjust:       { icon: <SlidersHorizontal size={20} strokeWidth={1.5} />, label: 'Light',                description: 'Adjust exposure, brightness, contrast, highlights, and shadows' },
     hsl:          { icon: <Palette size={20} strokeWidth={1.5} />,       label: 'Color',                description: 'Finely tune hue, saturation, and luminance of specific color bands' },
@@ -60,6 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
     portrait:     { icon: <User size={20} strokeWidth={1.5} />,          label: 'Portrait',             description: 'Enhance skin texture, brightness, and apply face-centric retouches' },
     selective:    { icon: <Layers size={20} strokeWidth={1.5} />,        label: 'Regions',              description: 'Create local adjustment layers using custom drawn masks' },
     texture:      { icon: <Film size={20} strokeWidth={1.5} />,          label: 'Grain & Leak',         description: 'Add vintage analog film grain, vignettes, and light leaks' },
+    lut:          { icon: <Clapperboard size={20} strokeWidth={1.5} />,  label: 'LUT Grade',            description: 'Apply cinematic 3D color grading LUTs or import your own .cube file' },
     frame:        { icon: <Grid size={20} strokeWidth={1.5} />,          label: 'Frames & Atmosphere',  description: 'Apply polaroid borders, matte borders, and filmstrip frame overlays' },
     palette:      { icon: <Pipette size={20} strokeWidth={1.5} />,       label: 'Palette',              description: 'Extract, analyze, and visualize the color palette of your photo' },
     annotations:  { icon: <PenTool size={20} strokeWidth={1.5} />,       label: 'Markup & Vector',      description: 'Draw shapes, arrows, custom vector outlines, and text layers' },
@@ -70,7 +78,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
     transform: 'Ctrl+Z/Y undo/redo',
     annotations: 'Ctrl+Z/Y undo/redo, [ ] brush size',
     inpaint: '[ ] brush size',
+    healing: 'Alt+Click = source, [ ] brush size',
     texture: '\\ hold to compare',
+    lut: 'Import/export .cube files',
   };
 
   return (

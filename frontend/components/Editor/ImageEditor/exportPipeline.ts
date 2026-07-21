@@ -3,6 +3,7 @@ import { Adjustments } from './filterEngine';
 import { Annotation } from './AnnotationsPanel';
 import { applyHslToCanvas } from './hslEngine';
 import { applyNonLinearHighlightsAndShadows } from './filterFallback';
+import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
 import { canvasToBlob, ensureImageMagick } from './exportPipeline/canvas';
 import {
   clamp,
@@ -63,7 +64,7 @@ export const exportEditedCanvas = async ({
   onProgress,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
   const report = (step: string, current: number, total: number) => onProgress?.(step, current, total);
-  const TOTAL_STEPS = 15;
+  const TOTAL_STEPS = 16;
 
   let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
   report('Preparing canvas', 1, TOTAL_STEPS);
@@ -138,25 +139,39 @@ export const exportEditedCanvas = async ({
   report('Applying curves', 8, TOTAL_STEPS);
   applyCurveLutsToCanvas(preparedCanvas, effectiveAdj);
 
-  report('Applying regional adjustments', 9, TOTAL_STEPS);
+  report('Applying LUT color grade', 9, TOTAL_STEPS);
+  if (adjustments.lut && (adjustments.lut.builtinId || adjustments.lut.customData)) {
+    const lutData = adjustments.lut.customData || getBuiltinLutData(adjustments.lut.builtinId!);
+    if (lutData) {
+      const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+      if (ctx) {
+        const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+        const opacity = (adjustments.lut.opacity ?? 100) / 100;
+        const result = applyLutToImageData(imgData, lutData, opacity);
+        ctx.putImageData(result, 0, 0);
+      }
+    }
+  }
+
+  report('Applying regional adjustments', 10, TOTAL_STEPS);
   await applyRegionalAdjustments(preparedCanvas, effectiveAdj);
 
-  report('Applying split toning', 10, TOTAL_STEPS);
+  report('Applying split toning', 11, TOTAL_STEPS);
   applySplitToning(preparedCanvas, effectiveAdj);
 
-  report('Applying film grain', 11, TOTAL_STEPS);
+  report('Applying film grain', 12, TOTAL_STEPS);
   applyGrain(preparedCanvas, adjustments);
 
-  report('Applying light leaks', 12, TOTAL_STEPS);
+  report('Applying light leaks', 13, TOTAL_STEPS);
   applyLightLeak(preparedCanvas, adjustments);
 
-  report('Applying double exposure', 13, TOTAL_STEPS);
+  report('Applying double exposure', 14, TOTAL_STEPS);
   await applyBlendOverlay(preparedCanvas, adjustments);
 
-  report('Applying tilt-shift', 14, TOTAL_STEPS);
+  report('Applying tilt-shift', 15, TOTAL_STEPS);
   applyTiltShift(preparedCanvas, adjustments);
 
-  report('Applying vignette & annotations', 15, TOTAL_STEPS);
+  report('Applying vignette & annotations', 16, TOTAL_STEPS);
   applyVignette(preparedCanvas, adjustments.vignette);
   await applyAnnotations(preparedCanvas, annotations);
 
@@ -179,7 +194,7 @@ export const exportEditedCanvas = async ({
 
     return await ImageMagick.readFromCanvas(preparedCanvas, async (image) => {
       image.quality = Math.round(clamp(quality, 0, 1) * 100);
-      return image.write(exportFormat, (data) => new Blob([data], { type: mimeType }));
+      return image.write(exportFormat, (data) => new Blob([new Uint8Array(data)], { type: mimeType }));
     });
   } catch (error) {
     console.error('ImageMagick encoding failed, falling back to canvas export.', error);

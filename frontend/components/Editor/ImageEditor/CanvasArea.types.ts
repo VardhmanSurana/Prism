@@ -4,6 +4,8 @@ import type { ToolId } from './Sidebar';
 import type { Adjustments } from './filterEngine';
 import type { InpaintMode } from './InpaintPanel';
 import type { Annotation, DrawToolId } from './AnnotationsPanel';
+import type { HealingSettings } from './HealingPanel';
+import type { HealingCanvasRef } from './HealingCanvas';
 
 export interface CanvasAreaProps {
   currentImageSrc: string;
@@ -59,4 +61,8 @@ export interface CanvasAreaProps {
   setDoodleFontFamily?: (font: string) => void;
   showDoodleGuide?: boolean;
   setShowDoodleGuide?: (show: boolean) => void;
+  // Healing brush / clone stamp
+  healingSettings?: HealingSettings;
+  healingCanvasRef?: React.Ref<HealingCanvasRef>;
+  onHealingStrokeComplete?: () => void;
 }
