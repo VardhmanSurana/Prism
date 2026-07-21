@@ -118,7 +118,8 @@ async def get_portrait_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Failed to load image")
 
     # 1. Detect faces (lazy import - only when endpoint is called)
-    from app.services import face_sdk, FaceDetector
+    from app.services.face_sdk import face_sdk
+    from app.services.face_detection import FaceDetector
     detector = FaceDetector(face_sdk)
     faces_data, _, scale, _ = detector.detect_faces(img)
     if not faces_data:

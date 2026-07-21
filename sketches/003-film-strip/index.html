@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prism — Film Strip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Film Strip — warm sepia, contact-sheet borders, vintage grain ── */
+  :root {
+    --bg: #1a1611;
+    --bg-2: #221e18;
+    --text: #f2efe9;
+    --text-2: #a09888;
+    --text-3: #6b6050;
+    --accent: #c9a84c;
+    --accent-dim: rgba(201,168,76,0.15);
+    --border: rgba(255,255,255,0.06);
+    --row-gap: 6px;
+    --photo-radius: 6px;
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body: 'Space Grotesk', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── Grain overlay ── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.5;
+    mix-blend-mode: overlay;
+  }
+
+  /* ── Header ── */
+  .header {
+    padding: 40px 40px 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 20px;
+  }
+  .header-title {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 400;
+    font-style: italic;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .header-meta {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ── Pill bar ── */
+  .pills {
+    display: flex;
+    gap: 8px;
+    padding: 16px 40px;
+  }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pill:hover { border-color: var(--text-3); }
+  .pill.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── Date group ── */
+  .date-group {
+    padding: 24px 40px 0;
+  }
+  .date-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .date-left {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+  }
+  .date-text {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-style: italic;
+    font-weight: 400;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .year-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 3px;
+  }
+  .location-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ── Film strip row ── */
+  .film-row {
+    display: flex;
+    gap: var(--row-gap);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.08) transparent;
+  }
+  .film-row::-webkit-scrollbar { height: 4px; }
+  .film-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  .film-card {
+    flex-shrink: 0;
+    height: 200px;
+    border-radius: var(--photo-radius);
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s;
+    /* Film sprocket-hole border effect */
+    border: 2px solid rgba(255,255,255,0.04);
+  }
+  .film-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+    z-index: 2;
+  }
+  .film-card img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: sepia(0.08) contrast(1.05);
+    transition: filter 0.3s;
+  }
+  .film-card:hover img { filter: sepia(0) contrast(1.1); }
+
+  /* Film frame number */
+  .frame-num {
+    position: absolute;
+    bottom: 6px; left: 8px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Stats strip ── */
+  .stats-strip {
+    display: flex;
+    gap: 32px;
+    padding: 24px 40px;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-top: 24px;
+  }
+  .stat {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .stat-val {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-style: italic;
+    color: var(--text);
+  }
+  .stat-lbl {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ── Footer ── */
+  .footer {
+    padding: 32px 40px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+  }
+
+  @media (max-width: 640px) {
+    .header, .pills, .date-group, .stats-strip, .footer { padding-left: 16px; padding-right: 16px; }
+    .header-title { font-size: 28px; }
+    .date-text { font-size: 22px; }
+    .film-card { height: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 class="header-title">Your moments</h1>
+  <span class="header-meta">12,400 photos · 48 locations</span>
+</div>
+
+<div class="pills">
+  <button class="pill active">All</button>
+  <button class="pill">Favorites</button>
+  <button class="pill">Recent</button>
+  <button class="pill">Videos</button>
+</div>
+
+<!-- Date group 1 -->
+<div class="date-group">
+  <div class="date-header">
+    <div class="date-left">
+      <span class="date-text">Tuesday, Apr 22</span>
+    </div>
+    <span class="location-tag">Jolarpettai, Tamil Nadu, IN</span>
+  </div>
+  <div class="film-row">
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=80" alt=""><span class="frame-num">001</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=500&q=80" alt=""><span class="frame-num">002</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=80" alt=""><span class="frame-num">003</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=500&q=80" alt=""><span class="frame-num">004</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80" alt=""><span class="frame-num">005</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=500&q=80" alt=""><span class="frame-num">006</span></div>
+  </div>
+</div>
+
+<!-- Date group 2 -->
+<div class="date-group">
+  <div class="date-header">
+    <div class="date-left">
+      <span class="date-text">Wednesday, Apr 23</span>
+    </div>
+    <span class="location-tag">Chennai, Tamil Nadu, IN</span>
+  </div>
+  <div class="film-row">
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500&q=80" alt=""><span class="frame-num">007</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=500&q=80" alt=""><span class="frame-num">008</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=500&q=80" alt=""><span class="frame-num">009</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80" alt=""><span class="frame-num">010</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=500&q=80" alt=""><span class="frame-num">011</span></div>
+  </div>
+</div>
+
+<!-- Date group 3 -->
+<div class="date-group">
+  <div class="date-header">
+    <div class="date-left">
+      <span class="date-text">Thursday, Apr 24</span>
+      <span class="year-badge">2025</span>
+    </div>
+    <span class="location-tag">Himachal Pradesh, IN</span>
+  </div>
+  <div class="film-row">
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1444464666168-49d633b86797?w=500&q=80" alt=""><span class="frame-num">012</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1518098268026-4e89f1a2cd8e?w=500&q=80" alt=""><span class="frame-num">013</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1514565131-fce0801e5785?w=500&q=80" alt=""><span class="frame-num">014</span></div>
+    <div class="film-card"><img src="https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=500&q=80" alt=""><span class="frame-num">015</span></div>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-strip">
+  <div class="stat"><span class="stat-val">12,400</span><span class="stat-lbl">photos</span></div>
+  <div class="stat"><span class="stat-val">48</span><span class="stat-lbl">locations</span></div>
+  <div class="stat"><span class="stat-val">35mm</span><span class="stat-lbl">favourite lens</span></div>
+  <div class="stat"><span class="stat-val">4</span><span class="stat-lbl">cameras</span></div>
+</div>
+
+<div class="footer">Prism · Your memories, beautifully organised</div>
+
+</body>
+</html>

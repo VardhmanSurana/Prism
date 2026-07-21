@@ -4,6 +4,7 @@ import {
   splineToSvgPath,
 } from './spline';
 import { CurveState } from './curves';
+import { computeHistogram } from './Histogram';
 
 // Re-export Point so consumers can import it from here if needed
 export type { Point } from './spline';
@@ -13,6 +14,8 @@ export { DEFAULT_CURVE } from './curves';
 interface CurveEditorProps {
   value: CurveState;
   onChange: (value: CurveState) => void;
+  imageSrc?: string;
+  filterString?: string;
 }
 
 type Channel = 'master' | 'red' | 'green' | 'blue';
@@ -21,15 +24,16 @@ const CANVAS_SIZE = 255;
 const MARGIN = 10;
 const SVG_SIZE = CANVAS_SIZE + MARGIN * 2;
 const HIT_RADIUS = 15;
+const BINS = 256;
 
 const channelColors = {
   master: '#ffffff',
-  red:    '#ff4444',
-  green:  '#44ff44',
-  blue:   '#4444ff',
+  red:    '#ef4444',
+  green:  '#22c55e',
+  blue:   '#3b82f6',
 };
 
-export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => {
+export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange, imageSrc, filterString }) => {
   const [activeChannel, setActiveChannel] = useState<Channel>('master');
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -38,7 +42,25 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
     channel: Channel;
   } | null>(null);
 
+  const [histData, setHistData] = useState<number[] | null>(null);
+  const [histPeak, setHistPeak] = useState<number>(1);
+  const histTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const rafRef = useRef<number | undefined>(undefined);
+
+  // Compute live histogram behind curves
+  useEffect(() => {
+    if (!imageSrc) return;
+    if (histTimerRef.current) clearTimeout(histTimerRef.current);
+    histTimerRef.current = setTimeout(async () => {
+      const result = await computeHistogram(imageSrc, filterString || 'none');
+      setHistData(result.lum);
+      setHistPeak(result.peak);
+    }, 400);
+    return () => {
+      if (histTimerRef.current) clearTimeout(histTimerRef.current);
+    };
+  }, [imageSrc, filterString]);
 
   // Helper to map mouse client coordinates to SVG coordinate system with float precision
   const getCoordinates = (clientX: number, clientY: number): Point => {
@@ -154,6 +176,20 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
   const mapSvgY = (y: number) => CANVAS_SIZE - y + MARGIN;
   const mapSvgX = (x: number) => x + MARGIN;
 
+  const buildHistogramPath = (bins: number[], peak: number): string => {
+    if (peak === 0) return '';
+    const scaleY = (v: number) => MARGIN + CANVAS_SIZE - (v / peak) * CANVAS_SIZE;
+
+    const pts: string[] = [`M${MARGIN},${MARGIN + CANVAS_SIZE}`];
+    for (let i = 0; i < BINS; i++) {
+      const x = MARGIN + (i / (BINS - 1)) * CANVAS_SIZE;
+      const y = scaleY(bins[i]);
+      pts.push(`L${x.toFixed(1)},${y.toFixed(1)}`);
+    }
+    pts.push(`L${MARGIN + CANVAS_SIZE},${MARGIN + CANVAS_SIZE}`, 'Z');
+    return pts.join(' ');
+  };
+
   const renderCurvePath = (channel: Channel, strokeWidth: number, opacity: number) => {
     const pts = value[channel];
     // We map the points directly to SVG coordinates to draw them
@@ -174,26 +210,57 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Channel Tabs */}
-      <div className="flex bg-white/5 rounded-lg p-1 gap-1">
-        {channels.map(ch => (
-          <button
-            key={ch}
-            onClick={() => setActiveChannel(ch)}
-            className={`flex-1 text-[10px] font-bold uppercase tracking-widest py-1.5 rounded-md transition-colors ${
-              activeChannel === ch
-                ? 'bg-[#1a1a1a] text-white shadow-sm'
-                : 'text-white/40 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {ch === 'master' ? 'RGB' : ch.charAt(0)}
-          </button>
-        ))}
+    <div className="flex flex-col">
+      {/* Channel Tabs - Sleek dark rectangles */}
+      <div className="flex rounded-lg p-0.5 gap-2 max-w-fit mb-3">
+        {channels.map(ch => {
+          const isActive = activeChannel === ch;
+          let textStyle = '';
+          let activeStyle = '';
+          let labelElement: React.ReactNode = null;
+
+          if (ch === 'master') {
+            labelElement = (
+              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5">
+                <path
+                  d="M2,13 C5,13 8,3 14,3"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            );
+            textStyle = isActive ? 'text-black' : 'text-white/60 hover:text-white';
+            activeStyle = isActive ? 'bg-white text-black shadow-sm' : 'bg-white/5 hover:bg-white/10';
+          } else if (ch === 'red') {
+            labelElement = <span className="font-bold text-[11px] font-sans">R</span>;
+            textStyle = 'text-[#ef4444]';
+            activeStyle = isActive ? 'bg-[#ef4444]/20 border border-[#ef4444]/40 shadow-sm' : 'bg-white/5 hover:bg-[#ef4444]/10 border border-[#ef4444]/10';
+          } else if (ch === 'green') {
+            labelElement = <span className="font-bold text-[11px] font-sans">G</span>;
+            textStyle = 'text-[#22c55e]';
+            activeStyle = isActive ? 'bg-[#22c55e]/20 border border-[#22c55e]/40 shadow-sm' : 'bg-white/5 hover:bg-[#22c55e]/10 border border-[#22c55e]/10';
+          } else if (ch === 'blue') {
+            labelElement = <span className="font-bold text-[11px] font-sans">B</span>;
+            textStyle = 'text-[#3b82f6]';
+            activeStyle = isActive ? 'bg-[#3b82f6]/20 border border-[#3b82f6]/40 shadow-sm' : 'bg-white/5 hover:bg-[#3b82f6]/10 border border-[#3b82f6]/10';
+          }
+
+          return (
+            <button
+              key={ch}
+              onClick={() => setActiveChannel(ch)}
+              className={`w-9 h-7 flex items-center justify-center rounded border border-white/5 transition-all duration-150 cursor-pointer ${activeStyle} ${textStyle}`}
+            >
+              {labelElement}
+            </button>
+          );
+        })}
       </div>
 
       {/* Graph Area */}
-      <div className="bg-[#111] rounded-xl overflow-hidden border border-white/10 select-none touch-none">
+      <div className="bg-[#14151a] rounded overflow-hidden border border-white/5 select-none touch-none">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
@@ -205,40 +272,55 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange }) => 
             const pos = MARGIN + (CANVAS_SIZE / 4) * i;
             return (
               <React.Fragment key={i}>
-                <line x1={pos} y1={MARGIN} x2={pos} y2={MARGIN + CANVAS_SIZE} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 4" />
-                <line x1={MARGIN} y1={pos} x2={MARGIN + CANVAS_SIZE} y2={pos} stroke="rgba(255,255,255,0.15)" strokeDasharray="4 4" />
+                <line x1={pos} y1={MARGIN} x2={pos} y2={MARGIN + CANVAS_SIZE} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
+                <line x1={MARGIN} y1={pos} x2={MARGIN + CANVAS_SIZE} y2={pos} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
               </React.Fragment>
             );
           })}
+
+          {/* Histogram background */}
+          {histData && (
+            <path
+              d={buildHistogramPath(histData, histPeak)}
+              fill="rgba(255, 255, 255, 0.08)"
+              style={{ pointerEvents: 'none' }}
+            />
+          )}
           
           {/* Background curves */}
           {channels.filter(ch => ch !== activeChannel).map(ch => (
             <React.Fragment key={ch}>
-              {renderCurvePath(ch, 1.5, ch === 'master' ? 0.3 : 0.5)}
+              {renderCurvePath(ch, 1.5, ch === 'master' ? 0.2 : 0.4)}
             </React.Fragment>
           ))}
 
           {/* Active curve */}
           {renderCurvePath(activeChannel, 2, 1)}
 
-          {/* Active points */}
+          {/* Active points - circular white nodes */}
           {value[activeChannel].map((p, i) => (
             <g
               key={i}
               transform={`translate(${mapSvgX(p.x)}, ${mapSvgY(p.y)})`}
               onPointerDown={(e) => handlePointerDown(e, i)}
               onDoubleClick={(e) => handleDoubleClickPoint(e, i)}
-              className="cursor-move"
+              className="cursor-move group/node"
             >
               <circle r={HIT_RADIUS} fill="transparent" />
-              <rect x="-3" y="-3" width="6" height="6" fill={channelColors[activeChannel]} />
+              <circle 
+                r={4.5} 
+                fill="white" 
+                stroke="rgba(0,0,0,0.6)" 
+                strokeWidth={1.5}
+                className="transition-transform group-hover/node:scale-125 shadow-md"
+              />
             </g>
           ))}
         </svg>
       </div>
       
-      <p className="text-[10px] text-white/30 text-center leading-relaxed">
-        Click to add a point. Drag to adjust.<br/>Double-click a point to remove it.
+      <p className="text-[10px] text-white/20 text-center leading-relaxed mt-2.5">
+        Click to add a point. Drag to adjust. Double-click to remove.
       </p>
     </div>
   );

@@ -196,17 +196,18 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
             const isActive = activeBand === band.id;
             const isModified = isBandModified(band.id);
             return (
-              <div
+              <button
                 key={band.id}
                 onClick={() => setActiveBand(band.id)}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-xl text-[10px] font-bold transition-all duration-200 select-none ${
+                className={`relative flex items-center justify-center w-9 h-8 rounded border transition-all duration-150 select-none cursor-pointer text-[10.5px] font-semibold tracking-wide ${
                   isActive
-                    ? 'text-white shadow-lg scale-110'
-                    : 'bg-white/[0.03] text-white/40 hover:text-white/70 hover:bg-white/5'
+                    ? 'text-white font-bold'
+                    : 'bg-[#12141a] border-white/5 text-white/50 hover:text-white hover:bg-[#181b24] hover:border-white/10'
                 }`}
                 style={isActive ? {
                   background: band.color,
-                  boxShadow: `0 0 16px ${band.color}60`,
+                  borderColor: band.color,
+                  boxShadow: `0 0 8px ${band.color}50`,
                 } : {}}
                 title={band.id.charAt(0).toUpperCase() + band.id.slice(1)}
               >
@@ -217,7 +218,7 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
                     style={{ background: band.color }}
                   />
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

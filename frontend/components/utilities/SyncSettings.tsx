@@ -35,17 +35,17 @@ const FolderInput: React.FC<{
   disabled?: boolean;
 }> = ({ value, onChange, onBrowse, onAdd, placeholder, disabled }) => (
   <div className="flex gap-2">
-    <div className="flex-1 flex gap-1.5 bg-[#050505] border border-[#23252a] rounded-lg overflow-hidden">
+    <div className="flex-1 flex gap-1.5 bg-white/[0.01] border border-white/[0.06] focus-within:border-white/[0.15] focus-within:bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200">
       <input 
         type="text" 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent px-3 py-2 text-sm text-[#d0d6e0] placeholder:text-[#62666d] outline-none font-mono text-[11px]"
+        className="flex-1 bg-transparent px-4 py-2.5 text-xs text-[#d0d6e0] placeholder:text-gray-600 outline-none font-mono"
       />
       <button 
         onClick={onBrowse}
-        className="px-3 py-2 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-[#d0d6e0] border-l border-[#23252a] transition-colors"
+        className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-white border-l border-white/[0.06] hover:bg-white/[0.02] transition-all"
       >
         Browse
       </button>
@@ -53,7 +53,7 @@ const FolderInput: React.FC<{
     <button 
       onClick={onAdd}
       disabled={disabled}
-      className="px-4 py-2 bg-[#5e6ad2] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+      className="px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
     >
       Add
     </button>
@@ -61,14 +61,14 @@ const FolderInput: React.FC<{
 );
 
 const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder, onRemove }) => (
-  <div className="group flex items-center justify-between gap-3 bg-[#050505] border border-[#23252a] rounded-lg px-3 py-2 hover:border-[#34343a] transition-colors">
-    <span className="text-[11px] font-mono text-[#8a8f98] truncate">{folder}</span>
+  <div className="group flex items-center justify-between gap-3 bg-white/[0.01] border border-white/[0.05] rounded-xl px-4 py-2.5 hover:border-white/[0.1] hover:bg-white/[0.02] transition-all duration-200">
+    <span className="text-[11px] font-mono text-[#8a8f98] group-hover:text-gray-300 truncate transition-colors">{folder}</span>
     <button 
       onClick={onRemove}
-      className="shrink-0 text-[#62666d] hover:text-[#e5484d] transition-colors text-sm"
+      className="shrink-0 text-gray-600 hover:text-red-400 hover:bg-white/[0.05] px-2 py-0.5 rounded-md transition-all font-mono text-xs"
       title={`Remove ${folder}`}
     >
-      ×
+      remove
     </button>
   </div>
 );
@@ -109,16 +109,17 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   const removeE = onRemoveExcludedFolder || onRemoveFolder || (() => {});
 
   return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
-      <div className="mb-6">
-        <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
-          Auto Intelligence Sync
-        </h3>
+    <section className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-6">
+      {/* Top Tag line */}
+      <div className="flex justify-between items-center border-b border-white/[0.04] pb-4">
+        <span className="px-2.5 py-1 bg-white/[0.02] border border-white/[0.04] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
+          Automatic Daemon Scan
+        </span>
       </div>
       
       <div className="space-y-6">
         {/* Auto sync toggle */}
-        <div className="flex items-center justify-between bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="flex items-center justify-between bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <div>
             <p className="text-sm font-medium text-[#f7f8f8]">Automatic System Scan</p>
             <p className="text-xs text-[#8a8f98] mt-1">Automatically index all images from your watched folders, excluding hidden folders.</p>
@@ -126,23 +127,21 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
           <button 
             onClick={onToggleSync}
             title={syncEnabled ? 'Disable automatic sync' : 'Enable automatic sync'}
-            className={`relative shrink-0 w-10 h-5 rounded-full transition-colors duration-200 ${
-              syncEnabled ? 'bg-[#5e6ad2]' : 'bg-[#1c1d1f]'
+            className={`relative shrink-0 w-10 h-5.5 rounded-full transition-colors duration-200 ${
+              syncEnabled ? 'bg-[#5e6ad2]' : 'bg-white/[0.08] border border-white/[0.02]'
             }`}
           >
-            <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${
-              syncEnabled ? 'translate-x-5' : 'translate-x-0.5'
+            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white transition-transform duration-200 ${
+              syncEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
             }`} />
           </button>
         </div>
 
         {/* Watched folders */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-medium text-[#f7f8f8]">Watched Library Territories</p>
-            </div>
-            <p className="text-xs text-[#8a8f98]">Specified directories containing photo assets that the background engine will index.</p>
+            <h4 className="text-sm font-medium text-[#f7f8f8]">Watched Library Territories</h4>
+            <p className="text-xs text-[#8a8f98] mt-1">Specified directories containing photo assets that the background engine will index.</p>
           </div>
           
           <FolderInput
@@ -154,9 +153,9 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
             disabled={!wInput}
           />
 
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-4 space-y-2">
             {wFolders.length === 0 ? (
-              <p className="text-[11px] text-[#62666d] font-mono py-2">Defaulting to user Pictures directory</p>
+              <p className="text-[11px] text-gray-500 font-mono py-1">Defaulting to user Pictures directory</p>
             ) : (
               wFolders.map((folder, idx) => (
                 <FolderTag key={idx} folder={folder} onRemove={() => removeW(folder)} />
@@ -166,12 +165,10 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
         </div>
 
         {/* Excluded folders */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <div className="mb-4">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-medium text-[#f7f8f8]">Excluded Territories</p>
-            </div>
-            <p className="text-xs text-[#8a8f98]">Specified paths that will be ignored by the background indexer.</p>
+            <h4 className="text-sm font-medium text-[#f7f8f8]">Excluded Territories</h4>
+            <p className="text-xs text-[#8a8f98] mt-1">Specified paths that will be ignored by the background indexer.</p>
           </div>
           
           <FolderInput
@@ -183,9 +180,9 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
             disabled={!eInput}
           />
 
-          <div className="mt-3 space-y-1.5">
+          <div className="mt-4 space-y-2">
             {eFolders.length === 0 ? (
-              <p className="text-[11px] text-[#62666d] font-mono py-2">No exclusions defined</p>
+              <p className="text-[11px] text-gray-500 font-mono py-1">No exclusions defined</p>
             ) : (
               eFolders.map((folder, idx) => (
                 <FolderTag key={idx} folder={folder} onRemove={() => removeE(folder)} />
@@ -197,3 +194,4 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
     </section>
   );
 };
+

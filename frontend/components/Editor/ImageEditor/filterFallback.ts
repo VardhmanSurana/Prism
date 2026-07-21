@@ -74,7 +74,7 @@ export function applyBaseFiltersToImageData(
     + adj.ambiance   / 100 * 0.24
   );
 
-  const hueRotDeg = adj.hue + adj.temperature * 0.65;
+  const hueRotDeg = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
   const hasHueRot = Math.abs(hueRotDeg % 360) > 0.01;
 
   // 2. Precompute hue-rotate matrix coefficients if needed

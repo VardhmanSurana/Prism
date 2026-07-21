@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { API_BASE } from '../../constants';
+import { Terminal, RefreshCw, Activity, HardDrive, Shield, Download, Upload } from 'lucide-react';
 
 interface DiagnosticsData {
   status: string;
@@ -155,11 +156,11 @@ export const DiagnosticsLogs: React.FC = () => {
 
   const highlightLogs = (text: string) => {
     return text.split('\n').map((line, idx) => {
-      let colorClass = 'text-[#62666d]';
-      if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback')) colorClass = 'text-[#e5484d]';
-      else if (line.includes('WARNING')) colorClass = 'text-[#f5a623]';
-      else if (line.includes('INFO')) colorClass = 'text-[#27a644]';
-      else if (line.includes('DEBUG')) colorClass = 'text-[#8a8f98]';
+      let colorClass = 'text-[#8a8f98]';
+      if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback')) colorClass = 'text-red-400 font-semibold';
+      else if (line.includes('WARNING')) colorClass = 'text-amber-400';
+      else if (line.includes('INFO')) colorClass = 'text-emerald-400';
+      else if (line.includes('DEBUG')) colorClass = 'text-[#62666d]';
       
       return (
         <div key={idx} className={`${colorClass} leading-relaxed`}>
@@ -170,27 +171,33 @@ export const DiagnosticsLogs: React.FC = () => {
   };
 
   const DiagRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex items-center justify-between py-2 border-b border-[#23252a]/50 last:border-0">
-      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-[#8a8f98]">{label}</span>
+    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-0">
+      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
       <span className="text-[11px] font-mono text-[#d0d6e0] truncate max-w-[200px]" title={value}>{value}</span>
     </div>
   );
 
   return (
-    <div className="space-y-5">
+    <div className="divide-y divide-white/[0.04] space-y-12">
       {/* System Diagnostics */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
-        <div className="mb-5">
-          <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
-            System Diagnostics
-          </h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4 first:pt-0">
+        <div className="lg:col-span-1 pr-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Activity size={16} className="text-[#5e6ad2]" />
+            <h4 className="font-serif italic text-white text-xl leading-tight">
+              Diagnostics Metadata
+            </h4>
+          </div>
+          <p className="text-xs text-[#8a8f98] leading-relaxed">
+            Monitor real-time engine health metadata, active vision networks, SQLite sizes, database targets, and runtime system models loaded in the memory sandbox.
+          </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-3">
-              Environment & System
-            </p>
+        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-5 shadow-xl">
+            <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-gray-500 block mb-3">
+              Environment & Database
+            </span>
             <div className="space-y-0">
               <DiagRow label="Platform" value={data?.platform || '...'} />
               <DiagRow label="Python" value={data?.python_version.split(' ')[0] || '...'} />
@@ -200,145 +207,169 @@ export const DiagnosticsLogs: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
-            <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d] mb-3">
-              AI Models & Settings
-            </p>
-            
-            <div className="mb-3">
-              <p className="text-[10px] font-mono uppercase tracking-wider text-[#8a8f98] mb-2">Active Modules</p>
-              <div className="flex flex-wrap gap-1.5">
-                {data?.features_enabled && Object.entries(data.features_enabled).map(([key, enabled]) => (
-                  <span 
-                    key={key}
-                    className={`px-2 py-0.5 rounded-full text-[9px] font-mono uppercase tracking-wider border ${
-                      enabled 
-                        ? 'bg-[#27a644]/10 border-[#27a644]/20 text-[#27a644]' 
-                        : 'bg-[#141516] border-[#23252a] text-[#62666d]'
-                    }`}
-                  >
-                    {key}
-                  </span>
-                ))}
+          <div className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-5 shadow-xl flex flex-col justify-between">
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-gray-500 block mb-3">
+                AI Models & Settings
+              </span>
+              
+              <div className="mb-3">
+                <p className="text-[10px] font-mono text-gray-500 mb-2">Active Modules</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {data?.features_enabled && Object.entries(data.features_enabled).map(([key, enabled]) => (
+                    <span 
+                      key={key}
+                      className={`px-2.5 py-0.5 rounded-full text-[9px] font-mono uppercase tracking-wider border ${
+                        enabled 
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                          : 'bg-white/[0.02] border-white/[0.05] text-gray-600'
+                      }`}
+                    >
+                      {key}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-0">
-              <div className="flex items-center justify-between py-2 border-b border-[#23252a]/50">
-                <span className="text-[10px] font-mono text-[#8a8f98]">Florence (Vision)</span>
-                <span className={`text-[10px] font-mono ${data?.models_loaded.florence ? 'text-[#27a644]' : 'text-[#62666d]'}`}>
+            <div className="border-t border-white/[0.04] pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-gray-500">Florence (Vision)</span>
+                <span className={`text-[10px] font-mono font-semibold ${data?.models_loaded.florence ? 'text-emerald-400' : 'text-gray-600'}`}>
                   {data?.models_loaded.florence ? 'Loaded' : 'Idle'}
                 </span>
               </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-[10px] font-mono text-[#8a8f98]">SigLIP (Search)</span>
-                <span className={`text-[10px] font-mono ${data?.models_loaded.siglip ? 'text-[#27a644]' : 'text-[#62666d]'}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-gray-500">SigLIP (Search)</span>
+                <span className={`text-[10px] font-mono font-semibold ${data?.models_loaded.siglip ? 'text-emerald-400' : 'text-gray-600'}`}>
                   {data?.models_loaded.siglip ? 'Loaded' : 'Idle'}
                 </span>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* Backup & Recovery */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
-        <div className="mb-4">
-          <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
-            Vault Backup & Recovery
-          </h3>
-        </div>
-
-        <p className="text-xs text-[#8a8f98] mb-5 leading-relaxed">
-          Export the system settings, library directory settings, face configuration datasets, and catalog index files to a singular zip backup. Reconstruct your catalog at any point.
-        </p>
-
-        <div className="flex gap-3">
-          <button 
-            onClick={handleExportBackup}
-            disabled={isExporting}
-            title="Download a ZIP backup of your database and settings"
-            className="px-5 py-2.5 bg-[#5e6ad2] text-white rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-40 transition-colors"
-          >
-            {isExporting ? 'Exporting...' : 'Export System Backup'}
-          </button>
-
-          <button 
-            onClick={handleImportClick}
-            title="Upload a previously exported Prism backup ZIP file"
-            className="px-5 py-2.5 bg-[#0c0c0c] border border-[#23252a] text-[#d0d6e0] rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-[#141516] transition-colors"
-          >
-            Import System Backup
-          </button>
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileChange} 
-            accept=".zip" 
-            className="hidden"
-          />
-        </div>
-
-        {restoreStatus && (
-          <div className={`mt-4 px-4 py-3 rounded-lg text-xs font-mono ${
-            restoreStatus.type === 'success' ? 'bg-[#27a644]/10 border border-[#27a644]/20 text-[#27a644]' :
-            restoreStatus.type === 'error' ? 'bg-[#e5484d]/10 border border-[#e5484d]/20 text-[#e5484d]' :
-            'bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#5e6ad2]'
-          }`}>
-            {restoreStatus.message}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
+        <div className="lg:col-span-1 pr-4">
+          <div className="flex items-center gap-2 mb-2">
+            <HardDrive size={16} className="text-[#5e6ad2]" />
+            <h4 className="font-serif italic text-white text-xl leading-tight">
+              Vault Backup
+            </h4>
           </div>
-        )}
-      </section>
+          <p className="text-xs text-[#8a8f98] leading-relaxed">
+            Export the system settings, library directory settings, face configuration datasets, and catalog index files to a singular zip backup. Reconstruct your catalog at any point.
+          </p>
+        </div>
 
-      {/* Live Logs */}
-      <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
-            Live Logs Stream
-          </h3>
-          
-          <div className="flex items-center gap-4">
-            {lastRefreshed && (
-              <span className="text-[10px] font-mono text-[#62666d]" title="Last refreshed">
-                {lastRefreshed.toLocaleTimeString()}
-              </span>
-            )}
-            <label className="flex items-center gap-2 cursor-pointer" title="Toggle auto-refresh">
-              <input 
-                type="checkbox" 
-                checked={autoRefresh} 
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="relative w-8 h-4 rounded-full bg-[#1c1d1f] peer-checked:bg-[#5e6ad2] transition-colors">
-                <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${autoRefresh ? 'translate-x-4' : 'translate-x-0.5'}`} />
-              </div>
-              <span className="text-[10px] font-mono text-[#8a8f98] uppercase tracking-wider">Auto</span>
-            </label>
+        <div className="lg:col-span-2 bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-5">
+          <div className="flex flex-wrap gap-3">
+            <button 
+              onClick={handleExportBackup}
+              disabled={isExporting}
+              title="Download a ZIP backup of your database and settings"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-40 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(94,106,210,0.3)]"
+            >
+              <Download size={12} />
+              <span>{isExporting ? 'Exporting...' : 'Export Backup ZIP'}</span>
+            </button>
 
             <button 
-              onClick={fetchLogs}
-              disabled={isRefreshing}
-              title="Force refresh logs"
-              className="px-3 py-1.5 bg-[#050505] border border-[#23252a] text-[#8a8f98] rounded-lg text-[10px] font-bold uppercase tracking-wider hover:text-[#d0d6e0] hover:border-[#34343a] disabled:opacity-40 transition-all"
+              onClick={handleImportClick}
+              title="Upload a previously exported Prism backup ZIP file"
+              className="flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02] text-[#d0d6e0] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98]"
             >
-              {isRefreshing ? '...' : 'Refresh'}
+              <Upload size={12} />
+              <span>Import Backup ZIP</span>
             </button>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleFileChange} 
+              accept=".zip" 
+              className="hidden"
+            />
           </div>
+
+          {restoreStatus && (
+            <div className={`mt-4 px-4 py-3 rounded-xl text-xs font-mono border ${
+              restoreStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+              restoreStatus.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+              'bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#828fff]'
+            }`}>
+              {restoreStatus.message}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Live Logs */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
+        <div className="lg:col-span-1 pr-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Terminal size={16} className="text-[#5e6ad2]" />
+            <h4 className="font-serif italic text-white text-xl leading-tight">
+              Logs Stream
+            </h4>
+          </div>
+          <p className="text-xs text-[#8a8f98] leading-relaxed">
+            Expose raw stdout streams directly from the local background daemon. Check for ingestion errors, model loading speeds, and database queries.
+          </p>
         </div>
 
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl overflow-hidden">
-          <div className="px-4 py-2 border-b border-[#23252a]">
-            <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#62666d]">Live Output</span>
-          </div>
-          <div 
-            ref={logContainerRef}
-            className="p-4 max-h-[400px] overflow-y-auto font-mono text-[11px] leading-relaxed"
-          >
-            {highlightLogs(logs)}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-black">
+            {/* macOS style title bar */}
+            <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center justify-between select-none">
+              <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                </div>
+                <span className="text-[10px] font-mono text-gray-500 ml-2">backend.log - stream</span>
+              </div>
+              
+              <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
+                {lastRefreshed && (
+                  <span className="text-[10px] font-mono text-gray-600" title="Last refreshed">
+                    Synced {lastRefreshed.toLocaleTimeString()}
+                  </span>
+                )}
+                <span className="text-white/10">|</span>
+                <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
+                  <input 
+                    type="checkbox" 
+                    checked={autoRefresh} 
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                    className="rounded border-white/[0.1] bg-black text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
+                  />
+                  <span>Auto-sync</span>
+                </label>
+                <span className="text-white/10">|</span>
+                <button 
+                  onClick={fetchLogs}
+                  disabled={isRefreshing}
+                  className="hover:text-white flex items-center gap-1 transition-colors"
+                >
+                  <RefreshCw size={9} />
+                  <span>Sync</span>
+                </button>
+              </div>
+            </div>
+
+            <div 
+              ref={logContainerRef}
+              className="p-4 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed bg-[#020203] select-text whitespace-pre-wrap custom-scrollbar"
+            >
+              {highlightLogs(logs)}
+            </div>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 };
+

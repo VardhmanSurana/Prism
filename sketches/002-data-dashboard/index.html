@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Explore — Data Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #050505;
+    --surface: #0C0C0C;
+    --surface-2: #111111;
+    --surface-3: #181818;
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.12);
+    --text: #ffffff;
+    --text-2: #a0a0a0;
+    --text-3: #555;
+    --accent: #5e6ad2;
+    --accent-soft: rgba(94,106,210,0.12);
+    --font-serif: 'DM Serif Display', Georgia, serif;
+    --font-sans: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .explore-page {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: 100vh;
+  }
+
+  /* ═══ LEFT PANEL: STICKY OVERVIEW ═══ */
+  .overview-panel {
+    position: sticky; top: 0; height: 100vh;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 32px 24px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 28px;
+  }
+  .overview-panel::-webkit-scrollbar { width: 3px; }
+  .overview-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 10px; }
+
+  .panel-brand {
+    display: flex; align-items: center; gap: 10px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-brand .brand-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--accent); font-size: 14px;
+  }
+  .panel-brand h1 {
+    font-family: var(--font-serif); font-size: 22px; font-weight: 400;
+  }
+  .panel-label {
+    font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+    letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 12px;
+  }
+
+  /* Big stat hero */
+  .big-stat {
+    text-align: center; padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .big-stat .big-number {
+    font-family: var(--font-serif); font-size: 56px; line-height: 1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .big-stat .big-label {
+    font-size: 12px; color: var(--text-3); margin-top: 8px;
+    text-transform: uppercase; letter-spacing: 0.15em;
+    font-family: var(--font-mono);
+  }
+
+  /* Mini stat rows */
+  .mini-stats { display: flex; flex-direction: column; gap: 4px; }
+  .mini-stat {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 12px; border-radius: 10px;
+    transition: background 0.2s;
+  }
+  .mini-stat:hover { background: var(--surface-2); }
+  .mini-stat .ms-label {
+    font-size: 12px; color: var(--text-2);
+  }
+  .mini-stat .ms-value {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+    color: var(--text);
+  }
+  .mini-stat .ms-accent { color: var(--accent); }
+
+  /* Mini bar chart */
+  .mini-chart { padding: 0 12px; }
+  .bar-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 8px;
+  }
+  .bar-label {
+    width: 72px; font-size: 10px; color: var(--text-3);
+    font-family: var(--font-mono); text-align: right;
+    flex-shrink: 0;
+  }
+  .bar-track {
+    flex: 1; height: 6px; background: var(--surface-3);
+    border-radius: 10px; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 10px;
+    background: var(--accent);
+    transition: width 1s cubic-bezier(0.16,1,0.3,1);
+  }
+  .bar-fill.spring { background: #34d399; }
+  .bar-fill.summer { background: #fbbf24; }
+  .bar-fill.autumn { background: #f97316; }
+  .bar-fill.winter { background: #60a5fa; }
+
+  /* ═══ RIGHT PANEL: CONTENT ═══ */
+  .content-panel {
+    padding: 40px 48px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 48px;
+  }
+
+  .content-header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .content-header h2 {
+    font-family: var(--font-serif); font-size: 28px; font-weight: 400;
+  }
+  .content-header .tag {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+    letter-spacing: 0.2em; text-transform: uppercase;
+  }
+
+  /* ── Memories: Horizontal Cards ── */
+  .memories-row {
+    display: flex; gap: 16px; overflow-x: auto;
+    padding-bottom: 8px; scroll-snap-type: x mandatory;
+  }
+  .memories-row::-webkit-scrollbar { height: 3px; }
+  .memories-row::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 10px; }
+
+  .mem-card {
+    flex-shrink: 0; width: 240px; height: 320px;
+    border-radius: 16px; overflow: hidden; position: relative;
+    cursor: pointer; scroll-snap-align: start;
+    border: 1px solid var(--border);
+    transition: border-color 0.3s, transform 0.4s cubic-bezier(0.16,1,0.3,1);
+  }
+  .mem-card:hover { border-color: var(--border-hover); transform: translateY(-4px); }
+  .mem-card img { width: 100%; height: 100%; object-fit: cover; }
+  .mem-card .mem-overlay {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+  }
+  .mem-card .mem-title {
+    font-family: var(--font-serif); font-size: 18px; color: white;
+  }
+  .mem-card .mem-meta {
+    font-size: 10px; color: var(--text-3); margin-top: 4px;
+    font-family: var(--font-mono); letter-spacing: 0.15em;
+  }
+  .mem-card .mem-badge {
+    position: absolute; top: 12px; right: 12px;
+    background: var(--accent); color: white;
+    font-size: 9px; font-weight: 700; letter-spacing: 0.15em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 100px;
+  }
+
+  /* ── On This Day: Compact Row ── */
+  .otd-row {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+  .otd-card {
+    border-radius: 12px; overflow: hidden; position: relative;
+    aspect-ratio: 3/4; cursor: pointer;
+    border: 1px solid var(--border);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .otd-card:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+  .otd-card img { width: 100%; height: 100%; object-fit: cover; }
+  .otd-card .otd-year {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 12px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+    font-family: var(--font-mono); font-size: 20px; font-weight: 700;
+    color: white;
+  }
+  .otd-card .otd-count {
+    position: absolute; top: 8px; left: 8px;
+    font-family: var(--font-mono); font-size: 9px; color: rgba(255,255,255,0.7);
+    background: rgba(0,0,0,0.5); padding: 3px 8px; border-radius: 100px;
+    backdrop-filter: blur(8px);
+  }
+
+  /* ── Insights: Inline Stats ── */
+  .insights-inline {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .insight-block {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+  }
+  .insight-block h4 {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+    letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px;
+  }
+  .insight-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border);
+  }
+  .insight-row:last-child { border: none; }
+  .insight-row .ir-name { font-size: 13px; color: var(--text); }
+  .insight-row .ir-count {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  }
+
+  /* ── Theme Grid: Compact ── */
+  .theme-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  }
+  .theme-card {
+    border-radius: 12px; overflow: hidden; position: relative;
+    aspect-ratio: 4/3; cursor: pointer;
+    border: 1px solid var(--border);
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .theme-card:hover { border-color: var(--border-hover); transform: translateY(-3px); }
+  .theme-card img { width: 100%; height: 100%; object-fit: cover; }
+  .theme-card .theme-label {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+    display: flex; justify-content: space-between; align-items: flex-end;
+  }
+  .theme-card .theme-name { font-size: 14px; font-weight: 600; color: white; }
+  .theme-card .theme-count {
+    font-family: var(--font-mono); font-size: 10px; color: var(--text-3);
+  }
+
+  /* ── Timeline: Minimal ── */
+  .timeline-minimal { display: flex; flex-direction: column; gap: 8px; }
+  .tl-row {
+    display: grid; grid-template-columns: 8px 1fr auto;
+    gap: 16px; align-items: center;
+    padding: 14px 16px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .tl-row:hover { border-color: var(--border-hover); transform: translateX(3px); }
+  .tl-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .tl-dot.trip { background: #3b82f6; }
+  .tl-dot.birthday { background: #ec4899; }
+  .tl-dot.holiday { background: #10b981; }
+  .tl-info h4 { font-size: 14px; color: white; }
+  .tl-info .tl-meta {
+    font-size: 11px; color: var(--text-3); margin-top: 2px;
+  }
+  .tl-right { text-align: right; }
+  .tl-right .tl-count {
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    color: var(--text-2);
+  }
+  .tl-right .tl-photos {
+    font-size: 9px; color: var(--text-3); letter-spacing: 0.15em;
+    text-transform: uppercase; font-family: var(--font-mono);
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 1000px) {
+    .explore-page { grid-template-columns: 1fr; }
+    .overview-panel {
+      position: static; height: auto;
+      border-right: none; border-bottom: 1px solid var(--border);
+    }
+    .content-panel { padding: 32px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="explore-page">
+
+  <!-- ═══ LEFT: STICKY OVERVIEW ═══ -->
+  <aside class="overview-panel">
+    <div class="panel-brand">
+      <div class="brand-icon">✦</div>
+      <h1>Explore</h1>
+    </div>
+
+    <div class="panel-label">Collection Overview</div>
+    <div class="big-stat">
+      <div class="big-number">12,486</div>
+      <div class="big-label">Total Photos</div>
+    </div>
+
+    <div class="panel-label">Quick Stats</div>
+    <div class="mini-stats">
+      <div class="mini-stat">
+        <span class="ms-label">Cameras Used</span>
+        <span class="ms-value">3</span>
+      </div>
+      <div class="mini-stat">
+        <span class="ms-label">Locations</span>
+        <span class="ms-value">48</span>
+      </div>
+      <div class="mini-stat">
+        <span class="ms-label">Avg Focal Length</span>
+        <span class="ms-value ms-accent">35mm</span>
+      </div>
+      <div class="mini-stat">
+        <span class="ms-label">Avg ISO</span>
+        <span class="ms-value">400</span>
+      </div>
+      <div class="mini-stat">
+        <span class="ms-label">AI Themes</span>
+        <span class="ms-value ms-accent">24</span>
+      </div>
+      <div class="mini-stat">
+        <span class="ms-label">Events Tracked</span>
+        <span class="ms-value">12</span>
+      </div>
+    </div>
+
+    <div class="panel-label">Photos by Season</div>
+    <div class="mini-chart">
+      <div class="bar-row">
+        <span class="bar-label">Spring</span>
+        <div class="bar-track"><div class="bar-fill spring" style="width:58%"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Summer</span>
+        <div class="bar-track"><div class="bar-fill summer" style="width:82%"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Autumn</span>
+        <div class="bar-track"><div class="bar-fill autumn" style="width:45%"></div></div>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">Winter</span>
+        <div class="bar-track"><div class="bar-fill winter" style="width:32%"></div></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ RIGHT: CONTENT SECTIONS ═══ -->
+  <main class="content-panel">
+
+    <!-- Memories -->
+    <section>
+      <div class="content-header">
+        <h2>Your Memories</h2>
+        <span class="tag">Curated</span>
+      </div>
+      <div class="memories-row">
+        <div class="mem-card">
+          <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500" alt="">
+          <div class="mem-badge">Featured</div>
+          <div class="mem-overlay">
+            <div class="mem-title">Summer in the Alps</div>
+            <div class="mem-meta">42 PHOTOS</div>
+          </div>
+        </div>
+        <div class="mem-card">
+          <img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500" alt="">
+          <div class="mem-overlay">
+            <div class="mem-title">Beach Morning</div>
+            <div class="mem-meta">18 PHOTOS</div>
+          </div>
+        </div>
+        <div class="mem-card">
+          <img src="https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=500" alt="">
+          <div class="mem-overlay">
+            <div class="mem-title">Lake Day</div>
+            <div class="mem-meta">24 PHOTOS</div>
+          </div>
+        </div>
+        <div class="mem-card">
+          <img src="https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=500" alt="">
+          <div class="mem-overlay">
+            <div class="mem-title">Waterfall Trail</div>
+            <div class="mem-meta">31 PHOTOS</div>
+          </div>
+        </div>
+        <div class="mem-card">
+          <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=500" alt="">
+          <div class="mem-overlay">
+            <div class="mem-title">Mountain Sunrise</div>
+            <div class="mem-meta">12 PHOTOS</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- On This Day -->
+    <section>
+      <div class="content-header">
+        <h2>On This Day</h2>
+        <span class="tag">July 16</span>
+      </div>
+      <div class="otd-row">
+        <div class="otd-card">
+          <img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=300" alt="">
+          <div class="otd-year">2024</div>
+          <div class="otd-count">24</div>
+        </div>
+        <div class="otd-card">
+          <img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=300" alt="">
+          <div class="otd-year">2023</div>
+          <div class="otd-count">18</div>
+        </div>
+        <div class="otd-card">
+          <img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300" alt="">
+          <div class="otd-year">2022</div>
+          <div class="otd-count">36</div>
+        </div>
+        <div class="otd-card">
+          <img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=300" alt="">
+          <div class="otd-year">2021</div>
+          <div class="otd-count">12</div>
+        </div>
+        <div class="otd-card">
+          <img src="https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=300" alt="">
+          <div class="otd-year">2020</div>
+          <div class="otd-count">8</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Insights -->
+    <section>
+      <div class="content-header">
+        <h2>Photography Insights</h2>
+        <span class="tag">Analytics</span>
+      </div>
+      <div class="insights-inline">
+        <div class="insight-block">
+          <h4>Most-Used Cameras</h4>
+          <div class="insight-row"><span class="ir-name">iPhone 15 Pro</span><span class="ir-count">8,240</span></div>
+          <div class="insight-row"><span class="ir-name">Sony A7III</span><span class="ir-count">3,120</span></div>
+          <div class="insight-row"><span class="ir-name">Fujifilm X-T5</span><span class="ir-count">1,040</span></div>
+        </div>
+        <div class="insight-block">
+          <h4>Top Locations</h4>
+          <div class="insight-row"><span class="ir-name">Dantewada</span><span class="ir-count">2,890</span></div>
+          <div class="insight-row"><span class="ir-name">Bastar</span><span class="ir-count">1,680</span></div>
+          <div class="insight-row"><span class="ir-name">Raipur</span><span class="ir-count">920</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI Themes -->
+    <section>
+      <div class="content-header">
+        <h2>AI Themes</h2>
+        <span class="tag">24 Detected</span>
+      </div>
+      <div class="theme-grid">
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Mountains</span><span class="theme-count">1,240</span></div>
+        </div>
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1414609245224-afa02bfb3fda?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Night Sky</span><span class="theme-count">380</span></div>
+        </div>
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Golden Hour</span><span class="theme-count">890</span></div>
+        </div>
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Urban</span><span class="theme-count">2,100</span></div>
+        </div>
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1474511320723-9a56873571b7?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Wildlife</span><span class="theme-count">560</span></div>
+        </div>
+        <div class="theme-card">
+          <img src="https://images.unsplash.com/photo-1495616811223-4d98c6e9c869?w=400" alt="">
+          <div class="theme-label"><span class="theme-name">Portraits</span><span class="theme-count">720</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Event Timeline -->
+    <section>
+      <div class="content-header">
+        <h2>Event Timeline</h2>
+        <span class="tag">12 Events</span>
+      </div>
+      <div class="timeline-minimal">
+        <div class="tl-row">
+          <div class="tl-dot trip"></div>
+          <div class="tl-info">
+            <h4>Road Trip to Bastar</h4>
+            <div class="tl-meta">Mar 12 – 18, 2025 · Bastar, CG</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-count">86</div>
+            <div class="tl-photos">Photos</div>
+          </div>
+        </div>
+        <div class="tl-row">
+          <div class="tl-dot birthday"></div>
+          <div class="tl-info">
+            <h4>Priya's Birthday</h4>
+            <div class="tl-meta">Feb 4, 2025 · Dantewada</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-count">42</div>
+            <div class="tl-photos">Photos</div>
+          </div>
+        </div>
+        <div class="tl-row">
+          <div class="tl-dot holiday"></div>
+          <div class="tl-info">
+            <h4>Diwali Celebrations</h4>
+            <div class="tl-meta">Oct 31 – Nov 2, 2024 · Dantewada</div>
+          </div>
+          <div class="tl-right">
+            <div class="tl-count">124</div>
+            <div class="tl-photos">Photos</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+</body>
+</html>

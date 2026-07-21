@@ -85,28 +85,28 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
             <button
               key={id}
               onClick={() => setActiveTool(id)}
-              className={`group w-[40px] h-[40px] shrink-0 flex flex-col items-center justify-center transition-all duration-300 rounded-xl relative ${
+              className={`group w-[38px] h-[38px] shrink-0 flex flex-col items-center justify-center transition-all duration-150 rounded border relative ${
                 isActive
-                  ? 'sidebar-item-active text-primary'
-                  : 'text-white/30 hover:text-white/60 hover:bg-white/5'
+                  ? 'bg-white/10 border-white/10 text-white'
+                  : 'bg-[#12141a]/40 border-transparent text-white/30 hover:text-white/60 hover:bg-white/5 hover:border-white/5'
               }`}
             >
-              {/* Active left indicator line - pill style */}
+              {/* Active left indicator line - sharp vertical bar */}
               {isActive && (
-                <div className="absolute -left-[8px] top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_12px_rgba(var(--color-primary),0.5)]" />
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-white rounded-r-[2px]" />
               )}
               
               {/* Pink notification dot for AI Tools */}
               {id === 'inpaint' && (
-                <div className="absolute right-1 top-1 w-1.5 h-1.5 bg-pink-500 rounded-full shadow-[0_0_6px_rgba(236,72,153,0.6)]" />
+                <div className="absolute right-1 top-1 w-1.5 h-1.5 bg-pink-500 rounded-full" />
               )}
               
-              <div className={`transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`}>
+              <div className={`transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-105'}`}>
                 {tab.icon}
               </div>
               
               {/* Hover Tooltip */}
-              <div className="absolute left-[64px] bg-[#1e232b] text-white p-3 rounded-xl opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 shadow-2xl z-50 border border-white/10 w-52 flex flex-col gap-0.5 text-left">
+              <div className="absolute left-[56px] bg-[#14171d] text-white p-3 rounded opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 shadow-2xl z-50 border border-white/10 w-52 flex flex-col gap-0.5 text-left">
                 <span className="text-[11px] font-bold text-white tracking-wide">
                   {tab.label}
                 </span>

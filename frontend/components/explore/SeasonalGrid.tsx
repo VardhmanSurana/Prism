@@ -54,7 +54,7 @@ const SeasonCard: React.FC<{
   onClick: () => void;
 }> = ({ season, index, onClick }) => {
   const config = SEASON_CONFIG[season.season] || DEFAULT_CONFIG;
-  const topPhotos = season.photos.slice(0, 4);
+  const photo = season.photos[0];
 
   return (
     <motion.div
@@ -64,46 +64,29 @@ const SeasonCard: React.FC<{
       whileHover={{ y: -4, scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
       onClick={onClick}
-      className="cursor-pointer group"
+      className="cursor-pointer group relative aspect-square rounded-2xl overflow-hidden border border-white/5 bg-[#0F1115] shadow-xl"
     >
-      <GlassMaterial intensity="regular" className="overflow-hidden border border-white/5">
-        <div className={`relative h-48 bg-gradient-to-br ${config.gradient}`}>
-          {topPhotos.length > 0 ? (
-            <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-[2px] p-[2px]">
-              {topPhotos.map((photo) => (
-                <div key={photo.id} className="relative overflow-hidden">
-                  <img
-                    src={resolveUrl(photo.url)}
-                    alt=""
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                  />
-                </div>
-              ))}
-              {topPhotos.length < 4 &&
-                Array.from({ length: 4 - topPhotos.length }).map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-white/5" />
-                ))}
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <span className={config.accent}>{config.icon}</span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+      {photo ? (
+        <img
+          src={resolveUrl(photo.url)}
+          alt=""
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className={config.accent}>{config.icon}</span>
         </div>
+      )}
 
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className={config.accent}>{config.icon}</span>
-            <div>
-              <h4 className="text-white font-serif italic text-lg">{season.label}</h4>
-            </div>
-          </div>
-          <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-gray-500 bg-white/5 px-2.5 py-1 rounded-full">
-            {season.photo_count}
-          </span>
-        </div>
-      </GlassMaterial>
+      {/* Black blurred bar overlay at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-xl border-t border-white/5 py-4 px-4 flex flex-col items-center justify-center">
+        <h4 className="text-white font-sans text-base font-bold capitalize tracking-wide select-none">
+          {season.label}
+        </h4>
+        <span className="text-[11px] font-sans font-semibold text-white/50 tracking-wider mt-1 select-none">
+          {season.photo_count}
+        </span>
+      </div>
     </motion.div>
   );
 };
@@ -136,7 +119,7 @@ export const SeasonalGrid: React.FC<SeasonalGridProps> = ({ seasons: propSeasons
         <ExploreHeader icon={<Sun size={14} />} title="Seasonal Collections" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-64 rounded-2xl bg-white/5 border border-white/5 animate-pulse" />
+            <div key={i} className="aspect-square rounded-2xl bg-white/5 border border-white/5 animate-pulse" />
           ))}
         </div>
       </div>

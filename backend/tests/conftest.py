@@ -19,6 +19,16 @@ def event_loop():
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def init_test_db():
+    from app.config import settings
+    # Clean up any leftover test database from previous runs to avoid FTS5 corruption/persistence
+    for suffix in ["", "-shm", "-wal"]:
+        db_path = settings.DATABASE_FILE.parent / (settings.DATABASE_FILE.name + suffix)
+        if db_path.exists():
+            try:
+                db_path.unlink()
+            except OSError:
+                pass
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("""

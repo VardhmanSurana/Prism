@@ -14,20 +14,24 @@ const TABS: { id: CleanupTab; label: string }[] = [
 
 export const TabSwitcher: React.FC<TabSwitcherProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="flex gap-1 bg-[#050505] border border-[#23252a] rounded-xl p-1 w-fit">
-      {TABS.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-          className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-200 ${
-            activeTab === tab.id
-              ? 'bg-[#141516] text-[#d0d6e0] border border-[#23252a]'
-              : 'text-[#62666d] hover:text-[#8a8f98] border border-transparent'
-          }`}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="flex gap-1 bg-white/[0.01] border border-white/[0.05] rounded-xl p-1 w-fit shadow-lg">
+      {TABS.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={`px-4 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all duration-200 active:scale-[0.97] ${
+              isActive
+                ? 'bg-primary text-black font-semibold shadow-md'
+                : 'text-gray-500 hover:text-gray-300 hover:bg-white/[0.03]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
     </div>
   );
 };
+

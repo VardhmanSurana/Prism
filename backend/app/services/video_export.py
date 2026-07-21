@@ -71,6 +71,7 @@ class VideoExporter:
         return _jobs.get(job_id)
 
     async def _render(self, job_id: str, req, output_path: str):
+        global _active_exports
         from app.services.processing_queue import processing_queue
         processing_queue._throttler.increment_video_ops()
         try:

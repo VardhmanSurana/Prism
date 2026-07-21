@@ -71,6 +71,7 @@ export interface Adjustments {
   saturation:  number; // -100 → 100
   hue:         number; // -180 → 180
   temperature: number; // -100 → 100  (cool ← 0 → warm)
+  tint:        number; // -100 → 100  (green ← 0 → magenta)
 
   // Detail
   clarity:        number; // -100 → 100
@@ -158,6 +159,7 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   saturation:  0,
   hue:         0,
   temperature: 0,
+  tint:        0,
   clarity:        0,
   sharpness:      0,
   noiseReduction: 0,
@@ -257,8 +259,8 @@ export function toFilterString(adj: Adjustments): string {
     + adj.ambiance   / 100 * 0.24,
   );
 
-  // Temperature: positive → warm (shift hue toward yellow/orange ≈ +hue-rotate)
-  const hueRot = adj.hue + adj.temperature * 0.65;
+  // Temperature & Tint: shift hue color cast
+  const hueRot = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
 
   const filters = [
     `brightness(${br.toFixed(4)})`,
@@ -312,7 +314,7 @@ export function toFilterString(adj: Adjustments): string {
 export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   const baseKeys: (keyof Adjustments)[] = [
     'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
-    'vibrance', 'saturation', 'hue', 'temperature', 'clarity', 'sharpness', 'noiseReduction',
+    'vibrance', 'saturation', 'hue', 'temperature', 'tint', 'clarity', 'sharpness', 'noiseReduction',
     'ambiance', 'vignette', 'dehaze', 'perspective', 'verticalPerspective', 'distortion'
   ];
   const isBaseDefault = baseKeys.every(k => adj[k] === 0);

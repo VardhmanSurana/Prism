@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, useSpring, useTransform } from 'framer-motion';
 import { springs } from '@/lib/motion-tokens';
 
@@ -19,8 +19,13 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     label = 'Syncing Memories...',
     color = 'bg-primary'
 }) => {
-    const springProgress = useSpring(progress, springs.gentle);
+    const springProgress = useSpring(0, springs.gentle);
     const barWidth = useTransform(springProgress, (v) => `${Math.max(2, v)}%`);
+
+    // Drive the spring whenever the progress prop changes
+    useEffect(() => {
+        springProgress.set(progress);
+    }, [progress, springProgress]);
 
     if (!isScanning && progress === 0) return null;
     if (!isScanning && progress === 100) return null;

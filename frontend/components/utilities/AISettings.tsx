@@ -211,27 +211,31 @@ export const AISettings: React.FC = () => {
     }
   }
 
-  return (
-    <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6 relative">
-      {/* Header with saving status */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h3 className="font-serif font-semibold text-[#f7f8f8] text-lg leading-tight">
-              AI & Hardware Configuration
-            </h3>
-            <span className="px-2 py-0.5 bg-[#141516] border border-[#23252a] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
-              Prism Core
-            </span>
-          </div>
-          <p className="text-xs text-[#8a8f98] mt-1.5 leading-relaxed">
-            Manage dynamic hardware acceleration backends and background pipeline workers.
-          </p>
+  const highlightLogs = (text: string) => {
+    return text.split('\n').map((line, idx) => {
+      let colorClass = 'text-[#8a8f98]';
+      if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback')) colorClass = 'text-red-400 font-semibold';
+      else if (line.includes('WARNING')) colorClass = 'text-amber-400';
+      else if (line.includes('INFO')) colorClass = 'text-emerald-400';
+      else if (line.includes('DEBUG')) colorClass = 'text-[#62666d]';
+      
+      return (
+        <div key={idx} className={`${colorClass} leading-relaxed`}>
+          {line}
         </div>
+      );
+    });
+  };
 
-        {/* Dynamic Saving/Error indicator */}
+  return (
+    <section className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 relative space-y-6 shadow-xl">
+      {/* Top Status Indicators */}
+      <div className="flex justify-between items-center border-b border-white/[0.04] pb-4">
+        <span className="px-2.5 py-1 bg-white/[0.02] border border-white/[0.04] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
+          Prism Core Config
+        </span>
         <div className="text-[10px] font-mono shrink-0">
-          {isSaving && <span className="text-[#5e6ad2] animate-pulse">Saving...</span>}
+          {isSaving && <span className="text-[#828fff] animate-pulse">Saving...</span>}
           {error && <span className="text-[#e5484d]">{error}</span>}
           {!isSaving && !error && <span className="text-[#62666d]">All changes saved</span>}
         </div>
@@ -239,7 +243,7 @@ export const AISettings: React.FC = () => {
 
       <div className="space-y-6">
         {/* Hardware Acceleration Select */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="max-w-md">
               <h4 className="text-sm font-medium text-[#f7f8f8]">Hardware Acceleration</h4>
@@ -259,10 +263,10 @@ export const AISettings: React.FC = () => {
         </div>
 
         {/* Background Services Control and Real-time Logs */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <div className="flex flex-col gap-4">
             {/* Status and Buttons */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-[#23252a]/55">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.04]">
               <div>
                 <h4 className="text-sm font-medium text-[#f7f8f8] flex items-center gap-2">
                   Background Services Status
@@ -280,7 +284,7 @@ export const AISettings: React.FC = () => {
                 {isWorkerPaused ? (
                   <button
                     onClick={handleStartWorker}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5e6ad2] hover:bg-[#828fff] text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors duration-150"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5e6ad2] hover:bg-[#828fff] text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
                   >
                     <Play size={10} className="fill-white" />
                     Start Services
@@ -288,7 +292,7 @@ export const AISettings: React.FC = () => {
                 ) : (
                   <button
                     onClick={handleStopWorker}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#1a1c1e] hover:bg-[#2e3135] border border-[#23252a] text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors duration-150"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-transparent border border-white/[0.08] hover:bg-white/[0.02] text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
                   >
                     <Square size={10} className="fill-red-400" />
                     Stop Services
@@ -299,36 +303,45 @@ export const AISettings: React.FC = () => {
 
             {/* Log Terminal Window */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-mono text-[#8a8f98] flex items-center gap-1.5">
-                  <Terminal size={12} />
-                  System Execution Logs (backend.log)
-                </span>
-                <div className="flex items-center gap-4 text-[10px] font-mono text-[#62666d]">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoRefreshLogs}
-                      onChange={(e) => setAutoRefreshLogs(e.target.checked)}
-                      className="rounded border-[#23252a] bg-[#0c0c0c] text-[#5e6ad2] focus:ring-[#5e6ad2]"
-                    />
-                    Auto-refresh
-                  </label>
-                  <button
-                    onClick={fetchLogs}
-                    className="hover:text-[#f7f8f8] flex items-center gap-1 transition-colors"
-                  >
-                    <RefreshCw size={10} />
-                    Refresh
-                  </button>
+              <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-black">
+                {/* macOS style title bar */}
+                <div className="bg-white/[0.02] px-4 py-2 border-b border-white/[0.05] flex items-center justify-between select-none">
+                  <div className="flex items-center gap-2">
+                    <div className="flex gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
+                    </div>
+                    <span className="text-[10px] font-mono text-gray-500 ml-2">backend.log - stream</span>
+                  </div>
+                  
+                  <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
+                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={autoRefreshLogs}
+                        onChange={(e) => setAutoRefreshLogs(e.target.checked)}
+                        className="rounded border-white/[0.1] bg-black text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
+                      />
+                      <span>Auto-refresh</span>
+                    </label>
+                    <button
+                      onClick={fetchLogs}
+                      className="hover:text-white flex items-center gap-1 transition-colors"
+                    >
+                      <RefreshCw size={9} />
+                      <span>Sync</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div
-                ref={logTerminalRef}
-                className="bg-[#020202] border border-[#23252a] rounded-xl p-3 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] scrollbar-thin select-text whitespace-pre-wrap"
-              >
-                {logs}
+                {/* Terminal Output */}
+                <div
+                  ref={logTerminalRef}
+                  className="p-4 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] bg-[#020203] select-text whitespace-pre-wrap custom-scrollbar"
+                >
+                  {highlightLogs(logs)}
+                </div>
               </div>
             </div>
           </div>
@@ -337,7 +350,7 @@ export const AISettings: React.FC = () => {
         {/* Background workers toggles grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Image workers card */}
-          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4 flex flex-col justify-between">
+          <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between transition-all">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <h4 className="text-sm font-medium text-[#f7f8f8]">Image Background Processes</h4>
@@ -357,7 +370,7 @@ export const AISettings: React.FC = () => {
 
             {/* Sub-processes */}
             <div
-              className={`space-y-1.5 border-t border-[#23252a]/50 pt-3.5 transition-all duration-300 ${
+              className={`space-y-1.5 border-t border-white/[0.04] pt-3.5 transition-all duration-300 ${
                 settings.ENABLE_IMAGE_BG_PROCESS ? 'opacity-100' : 'opacity-30 pointer-events-none'
               }`}
             >
@@ -389,7 +402,7 @@ export const AISettings: React.FC = () => {
           </div>
 
           {/* Video workers card */}
-          <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4 flex flex-col justify-between">
+          <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between transition-all">
             <div>
               <div className="flex justify-between items-center mb-1">
                 <h4 className="text-sm font-medium text-[#f7f8f8]">Video Background Processes</h4>
@@ -409,7 +422,7 @@ export const AISettings: React.FC = () => {
 
             {/* Sub-processes */}
             <div
-              className={`space-y-1.5 border-t border-[#23252a]/50 pt-3.5 transition-all duration-300 ${
+              className={`space-y-1.5 border-t border-white/[0.04] pt-3.5 transition-all duration-300 ${
                 settings.ENABLE_VIDEO_BG_PROCESS ? 'opacity-100' : 'opacity-30 pointer-events-none'
               }`}
             >
@@ -432,7 +445,7 @@ export const AISettings: React.FC = () => {
         </div>
 
         {/* Feature Switches Card */}
-        <div className="bg-[#050505] border border-[#23252a] rounded-2xl p-4">
+        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
           <h4 className="text-sm font-medium text-[#f7f8f8] mb-3">AI Agent & Application Features</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
             <div>
@@ -471,3 +484,4 @@ export const AISettings: React.FC = () => {
     </section>
   );
 };
+

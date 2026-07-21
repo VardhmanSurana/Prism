@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prism — Neon Accent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── Neon Accent — deep black, neon cyan highlights, subtle glow, tech feel ── */
+  :root {
+    --bg: #050508;
+    --bg-2: #0a0a0f;
+    --bg-3: #111118;
+    --text: #e4e4ec;
+    --text-2: #7a7a8a;
+    --text-3: #44444f;
+    --accent: #00e5c7;
+    --accent-dim: rgba(0,229,199,0.06);
+    --accent-glow: rgba(0,229,199,0.15);
+    --border: rgba(255,255,255,0.04);
+    --row-gap: 8px;
+    --photo-radius: 12px;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* ── Subtle radial glow behind content ── */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -20%; left: -10%;
+    width: 60%; height: 60%;
+    background: radial-gradient(ellipse, var(--accent-glow) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── Nav ── */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(5,5,8,0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-brand {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .nav-links {
+    display: flex;
+    gap: 24px;
+    list-style: none;
+  }
+  .nav-links a {
+    font-size: 13px;
+    color: var(--text-3);
+    text-decoration: none;
+    transition: color 0.2s;
+    font-weight: 400;
+  }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-links a.active { color: var(--accent); }
+
+  /* ── Main ── */
+  .main {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── Dashboard ── */
+  .dashboard {
+    margin-bottom: 32px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .dash-title {
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .dash-accent {
+    color: var(--accent);
+  }
+  .dash-sub {
+    font-size: 13px;
+    color: var(--text-3);
+    margin-top: 8px;
+    font-weight: 400;
+  }
+  .dash-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    background: var(--bg-3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+
+  /* ── Pill bar ── */
+  .pills {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .pill:hover { border-color: var(--text-3); color: var(--text-2); }
+  .pill.active {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  /* ── Date group ── */
+  .date-group {
+    margin-bottom: 8px;
+  }
+  .date-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+  .date-left {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .date-text {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  .year-badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(0,229,199,0.15);
+  }
+  .location-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ── Photo row ── */
+  .photo-row {
+    display: flex;
+    gap: var(--row-gap);
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,229,199,0.15) transparent;
+  }
+  .photo-row::-webkit-scrollbar { height: 3px; }
+  .photo-row::-webkit-scrollbar-thumb { background: rgba(0,229,199,0.15); border-radius: 2px; }
+
+  .photo-card {
+    flex-shrink: 0;
+    height: 180px;
+    border-radius: var(--photo-radius);
+    overflow: hidden;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.16,1,0.3,1), box-shadow 0.3s;
+    border: 1px solid var(--border);
+  }
+  .photo-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0 20px var(--accent-glow);
+    border-color: rgba(0,229,199,0.2);
+  }
+  .photo-card img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transition: filter 0.3s;
+  }
+  .photo-card:hover img { filter: brightness(1.1) saturate(1.1); }
+
+  /* ── Stats ── */
+  .stats {
+    display: flex;
+    gap: 40px;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 16px;
+  }
+  .stat-val {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+  .stat-lbl {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-top: 4px;
+  }
+
+  .footer {
+    padding: 24px 0;
+    font-size: 11px;
+    color: var(--text-3);
+    text-align: center;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  @media (max-width: 640px) {
+    .main { padding: 16px; }
+    .nav { padding: 0 16px; }
+    .dash-title { font-size: 28px; }
+    .dashboard { flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-brand">Prism</span>
+  <ul class="nav-links">
+    <li><a href="#" class="active">Library</a></li>
+    <li><a href="#">Albums</a></li>
+    <li><a href="#">People</a></li>
+    <li><a href="#">Map</a></li>
+  </ul>
+</nav>
+
+<div class="main">
+  <div class="dashboard">
+    <div>
+      <h1 class="dash-title">Your <span class="dash-accent">moments</span></h1>
+      <p class="dash-sub">A private, local archive. Browse by memory, not filename.</p>
+    </div>
+    <div class="dash-count">12,400 photos · 48 locations</div>
+  </div>
+
+  <div class="pills">
+    <button class="pill active">All</button>
+    <button class="pill">Favorites</button>
+    <button class="pill">Recent</button>
+    <button class="pill">Videos</button>
+  </div>
+
+  <!-- Date group 1 -->
+  <div class="date-group">
+    <div class="date-header">
+      <div class="date-left">
+        <span class="date-text">Tuesday, Apr 22</span>
+      </div>
+      <span class="location-tag">Jolarpettai, Tamil Nadu, IN</span>
+    </div>
+    <div class="photo-row">
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=500&q=80" alt=""></div>
+    </div>
+  </div>
+
+  <!-- Date group 2 -->
+  <div class="date-group">
+    <div class="date-header">
+      <div class="date-left">
+        <span class="date-text">Wednesday, Apr 23</span>
+      </div>
+      <span class="location-tag">Chennai, Tamil Nadu, IN</span>
+    </div>
+    <div class="photo-row">
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=500&q=80" alt=""></div>
+    </div>
+  </div>
+
+  <!-- Date group 3 -->
+  <div class="date-group">
+    <div class="date-header">
+      <div class="date-left">
+        <span class="date-text">Thursday, Apr 24</span>
+        <span class="year-badge">2025</span>
+      </div>
+      <span class="location-tag">Himachal Pradesh, IN</span>
+    </div>
+    <div class="photo-row">
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1518098268026-4e89f1a2cd8e?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1514565131-fce0801e5785?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1491002052546-bf38f186af56?w=500&q=80" alt=""></div>
+      <div class="photo-card"><img src="https://images.unsplash.com/photo-1444464666168-49d633b86797?w=500&q=80" alt=""></div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div><div class="stat-val">12,400</div><div class="stat-lbl">photos</div></div>
+    <div><div class="stat-val">48</div><div class="stat-lbl">locations</div></div>
+    <div><div class="stat-val">35mm</div><div class="stat-lbl">favourite lens</div></div>
+    <div><div class="stat-val">4</div><div class="stat-lbl">cameras</div></div>
+  </div>
+
+  <div class="footer">Prism · Your memories, beautifully organised</div>
+</div>
+
+</body>
+</html>

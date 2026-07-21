@@ -22,6 +22,7 @@ export type HistoryActionType =
   | 'saturation'
   | 'hue'
   | 'temperature'
+  | 'tint'
 
   | 'clarity'
   | 'sharpness'

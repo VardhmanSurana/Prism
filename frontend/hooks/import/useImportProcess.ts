@@ -16,7 +16,7 @@ interface UseImportProcessProps {
 export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProcessProps) => {
   const startImport = async (filePaths: string[], resizeWidth?: number) => {
     const total = filePaths.length;
-    let processed = 0;
+    const counter = { processed: 0 };
     const uploadedPhotos: Photo[] = [];
 
     onImportProgress({
@@ -65,12 +65,12 @@ export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProces
             }
           }
 
-          processed++;
-          const currentProgress = Math.round((processed / total) * 100);
+          counter.processed++;
+          const currentProgress = Math.round((counter.processed / total) * 100);
           onImportProgress({
             is_scanning: true,
             total_files: total,
-            processed_files: processed,
+            processed_files: counter.processed,
             progress: currentProgress
           });
         })

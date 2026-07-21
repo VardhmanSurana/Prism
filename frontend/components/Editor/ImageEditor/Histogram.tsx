@@ -44,7 +44,7 @@ function buildEmptyData(): HistogramData {
   };
 }
 
-function computeHistogram(
+export function computeHistogram(
   imageSrc: string,
   filterString: string,
 ): Promise<HistogramData> {

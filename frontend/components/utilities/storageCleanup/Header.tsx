@@ -1,14 +1,14 @@
 import React from 'react';
+import { HardDrive } from 'lucide-react';
 
 export const Header: React.FC = () => {
   return (
-    <div className="mb-6">
-      <h3 className="font-serif italic text-[#f7f8f8] text-lg leading-tight">
-        Smart Storage Cleanup
-      </h3>
-      <p className="text-xs text-[#8a8f98] mt-1.5">
-        Analyze and free up physical drive space on-device
-      </p>
+    <div className="flex items-center gap-2 mb-4 border-b border-white/[0.04] pb-4">
+      <HardDrive size={16} className="text-[#5e6ad2]" />
+      <span className="text-xs font-mono uppercase tracking-[0.15em] text-[#8a8f98]">
+        Smart Storage Cleanup & Disk Actions
+      </span>
     </div>
   );
 };
+

@@ -31,7 +31,7 @@ export const getPreviewBaseFilter = (adj: Adjustments) => {
       + adj.ambiance / 100 * 0.24,
   );
 
-  const hueRotation = adj.hue + adj.temperature * 0.65;
+  const hueRotation = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
 
   return [
     `brightness(${brightnessFactor.toFixed(4)})`,
@@ -53,6 +53,7 @@ export const hasGlobalPreviewAdjustments = (adj: Adjustments) =>
   adj.saturation !== 0 ||
   adj.hue !== 0 ||
   adj.temperature !== 0 ||
+  adj.tint !== 0 ||
   adj.clarity !== 0 ||
   adj.ambiance !== 0;
 

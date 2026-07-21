@@ -59,83 +59,90 @@ export const PrivacyDashboard: React.FC = () => {
   const { summary, features } = status;
 
   return (
-    <div className="space-y-6">
-      {/* Hero: Privacy Verdict */}
-      <div className={`relative overflow-hidden rounded-3xl border p-8 ${
-        summary.all_local
-          ? 'bg-emerald-500/5 border-emerald-500/20'
-          : 'bg-amber-500/5 border-amber-500/20'
-      }`}>
-        <div className="flex items-start gap-5">
-          <div className={`p-4 rounded-2xl ${
-            summary.all_local ? 'bg-emerald-500/10' : 'bg-amber-500/10'
-          }`}>
-            {summary.all_local ? (
-              <ShieldCheck size={32} className="text-emerald-400" />
-            ) : (
-              <ShieldAlert size={32} className="text-amber-400" />
-            )}
-          </div>
-          <div className="flex-1">
-            <h3 className="text-xl font-bold text-white mb-1">
-              {summary.all_local ? 'Fully Local' : 'Some Network Calls Detected'}
-            </h3>
-            <p className="text-sm text-gray-400 mb-4">{summary.verdict}</p>
-            <div className="flex gap-6 text-xs font-mono">
-              <div>
-                <span className="text-gray-500">Features: </span>
-                <span className="text-white">{summary.enabled}/{summary.total_features} enabled</span>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Left Column: Verdict and Summary */}
+      <div className="lg:col-span-1 space-y-4">
+        <div className={`relative overflow-hidden rounded-3xl border p-6 transition-all ${
+          summary.all_local
+            ? 'bg-emerald-500/[0.01] border-emerald-500/20 shadow-[0_0_30px_rgba(16,185,129,0.02)]'
+            : 'bg-amber-500/[0.01] border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.02)]'
+        }`}>
+          <div className="flex flex-col gap-4 relative z-10">
+            <div className={`w-12 h-12 flex items-center justify-center rounded-2xl ${
+              summary.all_local ? 'bg-emerald-500/10' : 'bg-amber-500/10'
+            }`}>
+              {summary.all_local ? (
+                <ShieldCheck size={24} className="text-emerald-400" />
+              ) : (
+                <ShieldAlert size={24} className="text-amber-400" />
+              )}
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1.5">
+                {summary.all_local ? 'Fully Local Integrity' : 'Network Connectivity'}
+              </h3>
+              <p className="text-xs text-[#8a8f98] leading-relaxed mb-4">{summary.verdict}</p>
+            </div>
+            
+            <div className="space-y-2 border-t border-white/[0.04] pt-4 font-mono text-[10px] text-gray-500">
+              <div className="flex justify-between">
+                <span>Core Services:</span>
+                <span className="text-[#f7f8f8]">{summary.enabled}/{summary.total_features} enabled</span>
               </div>
-              <div>
-                <span className="text-gray-500">Network endpoints: </span>
-                <span className={summary.total_network_endpoints === 0 ? 'text-emerald-400' : 'text-amber-400'}>
-                  {summary.total_network_endpoints}
+              <div className="flex justify-between">
+                <span>Remote Calls:</span>
+                <span className={summary.total_network_endpoints === 0 ? 'text-emerald-400' : 'text-amber-400 font-bold'}>
+                  {summary.total_network_endpoints} endpoints
                 </span>
               </div>
             </div>
           </div>
-        </div>
-        {/* Decorative grid pattern */}
-        <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
-          style={{
-            backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
-            backgroundSize: '24px 24px',
-          }}
-        />
-      </div>
 
-      {/* Network Status Badge */}
-      <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
-        <WifiOff size={16} className="text-emerald-400" />
-        <span className="text-xs font-mono text-gray-400">
-          0 network calls across all {summary.total_features} AI features
-        </span>
-        <div className="ml-auto flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-          <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider">Offline</span>
-        </div>
-      </div>
-
-      {/* Feature Breakdown */}
-      <div className="space-y-2">
-        <h4 className="text-xs font-mono uppercase tracking-widest text-gray-500 px-1">
-          Feature Breakdown
-        </h4>
-        {features.map(feature => (
-          <FeatureCard
-            key={feature.id}
-            feature={feature}
-            isExpanded={expandedFeature === feature.id}
-            onToggle={() => setExpandedFeature(
-              expandedFeature === feature.id ? null : feature.id
-            )}
+          <div className="absolute inset-0 opacity-[0.01] pointer-events-none"
+            style={{
+              backgroundImage: `radial-gradient(circle, currentColor 1px, transparent 1px)`,
+              backgroundSize: '20px 20px',
+            }}
           />
-        ))}
+        </div>
+
+        {/* Network Status Badge */}
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/[0.01] border border-white/[0.05]">
+          <WifiOff size={14} className="text-emerald-400 shrink-0" />
+          <span className="text-[10px] font-mono text-gray-400">
+            Airgapped local-first sandbox active.
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            <span className="text-[9px] font-mono text-emerald-400 uppercase tracking-wider">Offline</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Column: Feature Breakdown */}
+      <div className="lg:col-span-2 space-y-3">
+        <div className="border-b border-white/[0.04] pb-2 mb-4">
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500">
+            Local AI Feature Analysis
+          </span>
+        </div>
+        
+        <div className="space-y-2">
+          {features.map(feature => (
+            <FeatureCard
+              key={feature.id}
+              feature={feature}
+              isExpanded={expandedFeature === feature.id}
+              onToggle={() => setExpandedFeature(
+                expandedFeature === feature.id ? null : feature.id
+              )}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
 };
-
 
 const FeatureCard: React.FC<{
   feature: PrivacyFeature;
@@ -147,23 +154,23 @@ const FeatureCard: React.FC<{
   return (
     <div className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
       feature.enabled
-        ? 'bg-white/[0.02] border-white/[0.06] hover:border-white/[0.1]'
-        : 'bg-white/[0.01] border-white/[0.03] opacity-60'
+        ? 'bg-white/[0.01] border-white/[0.05] hover:border-white/[0.08] shadow-md'
+        : 'bg-white/[0.005] border-white/[0.03] opacity-60'
     }`}>
       {/* Header — always visible */}
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 px-5 py-4 text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 text-left group"
       >
         {/* Status dot */}
-        <div className={`w-2 h-2 rounded-full shrink-0 ${
-          feature.enabled ? 'bg-emerald-500' : 'bg-gray-600'
+        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
+          feature.enabled ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-gray-700'
         }`} />
 
         {/* Label + description */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-white">{feature.label}</span>
+            <span className="text-sm font-semibold text-white group-hover:text-primary transition-colors">{feature.label}</span>
             {!feature.enabled && (
               <span className="text-[9px] font-mono uppercase tracking-wider text-gray-600 bg-white/5 px-2 py-0.5 rounded-full">
                 Off
@@ -174,35 +181,39 @@ const FeatureCard: React.FC<{
         </div>
 
         {/* Network indicator */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-3 shrink-0">
           {isLocal ? (
             <div className="flex items-center gap-1.5 text-emerald-400">
-              <WifiOff size={12} />
+              <WifiOff size={11} />
               <span className="text-[10px] font-mono">0 calls</span>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 text-amber-400">
-              <Wifi size={12} />
+              <Wifi size={11} />
               <span className="text-[10px] font-mono">{feature.network_calls.length} calls</span>
             </div>
           )}
-          {isExpanded ? <ChevronUp size={14} className="text-gray-500" /> : <ChevronDown size={14} className="text-gray-500" />}
+          {isExpanded ? (
+            <ChevronUp size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
+          ) : (
+            <ChevronDown size={14} className="text-gray-500 group-hover:text-gray-300 transition-colors" />
+          )}
         </div>
       </button>
 
       {/* Expanded details */}
       {isExpanded && (
-        <div className="px-5 pb-5 space-y-4 border-t border-white/[0.03] pt-4">
+        <div className="px-5 pb-5 space-y-4 border-t border-white/[0.03] pt-4 bg-white/[0.005]">
           {/* What runs locally */}
           <div>
-            <h5 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
+            <h5 className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">
               Runs Locally
             </h5>
             <ul className="space-y-1.5">
               {feature.what_runs_locally.map((item, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
-                  <span className="text-emerald-400 mt-0.5">{'>'}</span>
-                  {item}
+                  <span className="text-emerald-400 mt-0.5 font-mono">{'>'}</span>
+                  <span className="leading-relaxed">{item}</span>
                 </li>
               ))}
             </ul>
@@ -210,8 +221,8 @@ const FeatureCard: React.FC<{
 
           {/* What is sent */}
           <div>
-            <h5 className="text-[10px] font-mono uppercase tracking-widest text-gray-500 mb-2">
-              Data Handling
+            <h5 className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mb-2">
+              Data Handling & Telemetry
             </h5>
             <p className="text-xs text-gray-400 leading-relaxed">
               {feature.what_is_sent}
@@ -219,23 +230,23 @@ const FeatureCard: React.FC<{
           </div>
 
           {/* Model info */}
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.02] border border-white/[0.03]">
-            <Eye size={14} className="text-gray-500" />
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.01] border border-white/[0.04]">
+            <Eye size={13} className="text-gray-500" />
             <div>
-              <span className="text-[10px] font-mono text-gray-500 uppercase tracking-wider">Model</span>
-              <p className="text-xs text-gray-300">{feature.model}</p>
+              <span className="text-[9px] font-mono text-gray-500 uppercase tracking-wider">Active Neural Model</span>
+              <p className="text-xs text-gray-300 mt-0.5 font-mono">{feature.model}</p>
             </div>
           </div>
 
           {/* Network calls (if any) */}
           {feature.network_calls.length > 0 && (
             <div>
-              <h5 className="text-[10px] font-mono uppercase tracking-widest text-amber-400 mb-2">
+              <h5 className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-400 mb-2">
                 Network Endpoints
               </h5>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {feature.network_calls.map((call, i) => (
-                  <li key={i} className="text-xs font-mono text-amber-300/70 bg-amber-500/5 px-3 py-1.5 rounded-lg">
+                  <li key={i} className="text-[11px] font-mono text-amber-300/80 bg-amber-500/5 border border-amber-500/10 px-3 py-2 rounded-xl">
                     {call}
                   </li>
                 ))}
@@ -247,3 +258,4 @@ const FeatureCard: React.FC<{
     </div>
   );
 };
+
