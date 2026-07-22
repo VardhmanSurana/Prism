@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Columns2, Grid2X2, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Columns, Grid2X2, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
 import { Photo } from '@/types';
 import { API_BASE } from '@/constants';
 import { ImageDisplay } from './ImageDisplay';
@@ -64,7 +64,7 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
                 layout === '2-up' ? 'bg-primary text-black' : 'text-gray-400 hover:text-white'
               }`}
             >
-              <Columns2 size={14} />
+              <Columns size={14} />
               <span>2-Up</span>
             </button>
             <button

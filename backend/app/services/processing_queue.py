@@ -781,7 +781,6 @@ class ProcessingQueue:
                                 )
                                 photo.content_type = content_type.value
                                 await db.commit()
-                                logger.info(f"Content classification for photo {pid}: {content_type.value}")
                         except Exception as e:
                             logger.error(f"Content classification failed for photo {pid}: {e}")
 

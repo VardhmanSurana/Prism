@@ -14,7 +14,7 @@ import {
   Download,
   Presentation,
   UserCheck,
-  Columns2,
+  Columns,
   HelpCircle,
   Share2,
 } from 'lucide-react';
@@ -229,7 +229,7 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
             className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
             title="Compare Side-by-Side"
           >
-            <Columns2 size={18} />
+            <Columns size={18} />
           </button>
         )}
 

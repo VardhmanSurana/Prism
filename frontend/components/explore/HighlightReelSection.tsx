@@ -4,7 +4,7 @@ import { API_BASE } from '@/constants';
 import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { ExploreHeader } from './ExploreHeader';
 import { Photo } from '@/types';
-import { useNLEStore } from '@/components/Editor/VideoEditor/store/nleStore';
+import { useNLEStore } from '@/store/nleStore';
 
 interface HighlightReel {
   id: string;
