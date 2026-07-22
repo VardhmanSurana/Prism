@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, type PointerEvent, type MouseEvent, type WheelEvent } from 'react';
+import { useState, useRef, useCallback, useEffect, type PointerEvent, type MouseEvent, type WheelEvent } from 'react';
 import { useEditorUIStore } from '../store/uiStore';
 
 interface UseLightboxGesturesProps {
