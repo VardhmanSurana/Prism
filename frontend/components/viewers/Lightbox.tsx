@@ -80,8 +80,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
     fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
   }, []);
 
-  const displayRef = useRef<HTMLDivElement>(null);
-
   // Note: handlePrev/handleNext are intentionally wired to opposite parent callbacks
   // so arrow/swipe direction matches the reversed filmstrip (oldest → newest L→R).
   const handlePrev = useCallback(() => {
@@ -443,7 +441,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={photo.id}
-              ref={displayRef}
               style={displayContainerStyle}
               className={`relative bg-transparent ${
                 !slideshowActive && lastNavDir === 'prev'
