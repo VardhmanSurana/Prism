@@ -7,6 +7,14 @@ export interface Message {
   plan?: any;
   tools?: any[];
   totalCandidates?: number | null;
+  attachedImage?: { url: string; path: string };
+}
+
+export interface SessionItem {
+  id: string;
+  title: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AgentDiagnosticsProps {

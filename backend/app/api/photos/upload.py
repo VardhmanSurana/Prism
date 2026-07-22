@@ -251,15 +251,15 @@ async def upload_blob(
     with open(target_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
         
-    return await _internal_process_photo(target_path, db)
+    return await _internal_process_photo(target_path, db, is_overwrite=not is_save_as)
 
 
-async def _internal_process_photo(file_path: str, db: AsyncSession):
+async def _internal_process_photo(file_path: str, db: AsyncSession, is_overwrite: bool = False):
     # Verify file is an image
     if not file_path.lower().endswith(SUPPORTED_EXTENSIONS):
         raise HTTPException(status_code=400, detail="Unsupported file format")
 
-    photo = await sync_service.ingest_photo(file_path, db)
+    photo = await sync_service.ingest_photo(file_path, db, is_overwrite=is_overwrite)
     if not photo:
         raise HTTPException(status_code=500, detail="Failed to process file")
     

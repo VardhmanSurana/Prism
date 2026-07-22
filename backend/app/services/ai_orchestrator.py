@@ -31,9 +31,11 @@ class AIOrchestrator:
 
         model_dir = Path(settings.BASE_DIR) / "models" / "llm"
         
+        mmproj_path = None
         if mode == 'agent':
             model_path = model_dir / "gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"
             draft_path = model_dir / "gemma-4-E4B-it-Q4_0-MTP.gguf"
+            mmproj_path = model_dir / "mmproj-BF16-E4B.gguf"
             port = 9090
         elif mode == 'vision':
             model_path = model_dir / "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
@@ -55,7 +57,7 @@ class AIOrchestrator:
             "-c", "8192",        # Context size (larger for vision)
         ]
 
-        if mode in ('vision', 'ocr'):
+        if mmproj_path and mmproj_path.exists():
             cmd.extend(["--mmproj", str(mmproj_path.absolute())])
 
         logger.info(f"Starting llama-server for {mode} mode: {' '.join(cmd)}")

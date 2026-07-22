@@ -5,6 +5,8 @@ from sqlalchemy import select, func, and_, or_, extract
 import json
 import logging
 
+from sqlalchemy.orm import selectinload
+
 from app.db import get_db
 from app.models import Photo, Event
 from app.api.albums.utils import photo_to_dict
@@ -158,6 +160,7 @@ async def explore_themes(db: AsyncSession = Depends(get_db)):
 async def explore_timeline(db: AsyncSession = Depends(get_db)):
     stmt = (
         select(Event)
+        .options(selectinload(Event.photos))
         .order_by(Event.start_date.desc().nullslast())
     )
     result = await db.execute(stmt)
@@ -261,3 +264,249 @@ async def explore_seasons(db: AsyncSession = Depends(get_db)):
 
     bucket_list.sort(key=lambda b: (b["year"], SEASON_ORDER.get(b["season"], 0)), reverse=True)
     return {"seasons": bucket_list[:8]}
+
+
+@router.get("/activity")
+async def explore_activity(db: AsyncSession = Depends(get_db)):
+    """Fetch recent activity timeline (recent imports, album creations, AI searches)."""
+    filters = _base_photo_filters()
+    
+    # 1. Recent photo imports
+    stmt_photos = select(Photo).where(and_(*filters)).order_by(Photo.id.desc()).limit(12)
+    res_photos = await db.execute(stmt_photos)
+    recent_photos = res_photos.scalars().all()
+    
+    # 2. Recent albums
+    from app.models import Album, PhotoAlbum, Person, PhotoPerson, AgentSession, VideoProject
+    stmt_albums = select(Album).order_by(Album.id.desc()).limit(5)
+    res_albums = await db.execute(stmt_albums)
+    recent_albums = res_albums.scalars().all()
+    
+    # 3. Recent AI agent queries
+    stmt_agent = select(AgentSession).order_by(AgentSession.updated_at.desc()).limit(5)
+    res_agent = await db.execute(stmt_agent)
+    recent_sessions = res_agent.scalars().all()
+
+    activities = []
+
+    if recent_photos:
+        import_photos = recent_photos[:6]
+        locations = set()
+        for p in import_photos:
+            loc = (p.city or p.country or "").strip()
+            if loc:
+                locations.add(loc)
+        subtitle_str = ", ".join(list(locations)[:3]) if locations else f"{len(recent_photos)} new items added"
+        activities.append({
+            "id": f"import-latest",
+            "type": "import",
+            "title": f"Imported {len(recent_photos)} photos",
+            "subtitle": subtitle_str,
+            "timestamp": import_photos[0].upload_date.isoformat() if import_photos[0].upload_date else datetime.now(timezone.utc).isoformat(),
+            "photo_count": len(recent_photos),
+            "photos": [photo_to_dict(p) for p in import_photos],
+        })
+
+    for alb in recent_albums:
+        activities.append({
+            "id": f"album-{alb.id}",
+            "type": "album",
+            "title": f"Created Album '{alb.name}'",
+            "subtitle": f"{alb.type.capitalize()} Album • {alb.photo_count} photos",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "photo_count": alb.photo_count,
+            "cover_url": alb.cover_url,
+        })
+
+    for sess in recent_sessions:
+        if sess.title and sess.title != "New Chat":
+            activities.append({
+                "id": f"agent-{sess.id}",
+                "type": "ai_search",
+                "title": f"Searched '{sess.title}'",
+                "subtitle": "AI Agent Neural Search",
+                "timestamp": sess.updated_at.isoformat() if sess.updated_at else datetime.now(timezone.utc).isoformat(),
+                "session_id": sess.id,
+            })
+
+    activities.sort(key=lambda a: a.get("timestamp") or "", reverse=True)
+    return {"activities": activities[:10]}
+
+
+@router.get("/highlights")
+async def explore_highlights(db: AsyncSession = Depends(get_db)):
+    """Fetch auto-generated memory highlight reels compiled from events & media clusters."""
+    stmt = select(Event).options(selectinload(Event.photos)).order_by(Event.start_date.desc().nullslast()).limit(6)
+    res = await db.execute(stmt)
+    events = res.scalars().unique().all()
+
+    highlights = []
+    for event in events:
+        valid_photos = [p for p in (event.photos or []) if not p.is_trash and (locked_service.is_authenticated or not p.is_locked)]
+        if not valid_photos:
+            continue
+
+        video_count = sum(1 for p in valid_photos if p.file_type == "video" or p.mime_type.startswith("video"))
+        cover_photos = [photo_to_dict(p) for p in valid_photos[:4]]
+        
+        # Estimate reel duration (3 seconds per photo, video duration if available)
+        duration_sec = min(90, max(15, len(valid_photos) * 4))
+
+        highlights.append({
+            "id": f"highlight-event-{event.id}",
+            "event_id": event.id,
+            "title": f"{event.title} Highlights",
+            "subtitle": f"{event.event_type.capitalize()} • {len(valid_photos)} photos ({video_count} videos)",
+            "location": event.location,
+            "duration_sec": duration_sec,
+            "photo_count": len(valid_photos),
+            "cover_photos": cover_photos,
+            "summary": event.summary or f"A collection of memories from {event.title}.",
+        })
+
+    # Fallback: create seasonal highlight if no events exist yet
+    if not highlights:
+        filters = _base_photo_filters()
+        filters.append(Photo.is_favorite == True)
+        stmt_fav = select(Photo).where(and_(*filters)).order_by(Photo.date_taken.desc()).limit(8)
+        res_fav = await db.execute(stmt_fav)
+        fav_photos = res_fav.scalars().all()
+        if fav_photos:
+            highlights.append({
+                "id": "highlight-favorites",
+                "event_id": None,
+                "title": "Favorite Memories Highlights",
+                "subtitle": f"Curated Favorites • {len(fav_photos)} items",
+                "location": "Library Highlights",
+                "duration_sec": 30,
+                "photo_count": len(fav_photos),
+                "cover_photos": [photo_to_dict(p) for p in fav_photos[:4]],
+                "summary": "Your top starred moments compiled into a cinematic highlight reel.",
+            })
+
+    return {"highlights": highlights}
+
+
+@router.post("/highlights/generate")
+async def generate_highlight_project(payload: dict, db: AsyncSession = Depends(get_db)):
+    """Generate an NLE Video Editor project from an event or highlight reel."""
+    event_id = payload.get("event_id")
+    if not event_id:
+        # Fallback to recent photos
+        filters = _base_photo_filters()
+        stmt = select(Photo).where(and_(*filters)).order_by(Photo.date_taken.desc()).limit(10)
+        res = await db.execute(stmt)
+        photos = res.scalars().all()
+        project_name = "Library Highlight Reel"
+    else:
+        stmt_ev = select(Event).where(Event.id == event_id)
+        res_ev = await db.execute(stmt_ev)
+        event = res_ev.scalar_one_or_none()
+        if not event:
+            return {"status": "error", "message": "Event not found"}
+        photos = [p for p in (event.photos or []) if not p.is_trash]
+        project_name = f"{event.title} Reel"
+
+    from app.models import VideoProject
+    import json
+
+    # Create tracks for NLE store
+    video_track_clips = []
+    audio_track_clips = []
+    time_offset = 0.0
+
+    for i, p in enumerate(photos[:12]):
+        duration = float(p.duration) if (p.duration and p.duration > 0) else 4.0
+        clip_entry = {
+            "id": f"clip-hl-{p.id}-{i}",
+            "photoId": p.id,
+            "name": p.filename,
+            "path": p.path,
+            "url": p.url or f"/api/v1/photos/{p.id}/file",
+            "type": "video" if (p.file_type == "video" or p.mime_type.startswith("video")) else "image",
+            "startTime": round(time_offset, 2),
+            "duration": round(duration, 2),
+            "sourceStart": 0.0,
+            "sourceDuration": round(duration, 2),
+            "volume": 1.0,
+            "opacity": 1.0,
+            "transform": {"x": 0, "y": 0, "scale": 1, "rotation": 0},
+            "transitionIn": {"type": "fade", "duration": 0.5} if i > 0 else None,
+        }
+        video_track_clips.append(clip_entry)
+        time_offset += duration - (0.5 if i > 0 else 0.0)
+
+    project_json = json.dumps({
+        "name": project_name,
+        "fps": 30,
+        "width": 1920,
+        "height": 1080,
+        "tracks": [
+            {"id": "track-video-main", "name": "Video Track 1", "type": "video", "clips": video_track_clips, "muted": False, "locked": False},
+            {"id": "track-audio-bgm", "name": "Audio Track 1", "type": "audio", "clips": audio_track_clips, "muted": False, "locked": False},
+        ]
+    })
+
+    vproj = VideoProject(
+        name=project_name,
+        width=1920,
+        height=1080,
+        fps=30,
+        project_json=project_json,
+    )
+    db.add(vproj)
+    await db.commit()
+    await db.refresh(vproj)
+
+    return {
+        "status": "ok",
+        "project_id": vproj.id,
+        "name": vproj.name,
+        "project_json": project_json,
+    }
+
+
+@router.get("/rediscover-prompts")
+async def explore_rediscover_prompts(db: AsyncSession = Depends(get_db)):
+    """Fetch micro-task counts and candidate samples for the 'Rediscover' dashboard section."""
+    from app.models import Person, PhotoPerson, PhotoAlbum, Album
+
+    filters = _base_photo_filters()
+    
+    # 1. Unnamed faces count
+    stmt_unnamed = select(func.count(Person.id)).where(
+        or_(
+            Person.name.ilike("Person %"),
+            Person.name.ilike("Unknown%"),
+            Person.name == ""
+        )
+    )
+    res_unnamed = await db.execute(stmt_unnamed)
+    unnamed_faces_count = res_unnamed.scalar() or 0
+
+    # 2. Un-albumed photos count
+    stmt_albumed_ids = select(PhotoAlbum.photo_id)
+    res_albumed = await db.execute(stmt_albumed_ids)
+    albumed_ids = set(row[0] for row in res_albumed.fetchall())
+
+    stmt_all_photos = select(Photo.id, Photo.filename, Photo.city, Photo.blur_score, Photo.latitude).where(and_(*filters))
+    res_photos = await db.execute(stmt_all_photos)
+    all_photos = res_photos.all()
+
+    unalbumed_count = sum(1 for p in all_photos if p[0] not in albumed_ids)
+    blurry_count = sum(1 for p in all_photos if p[3] is not None and p[3] < 25.0)
+    missing_location_count = sum(1 for p in all_photos if p[4] is None and not p[2])
+
+    # Sample photo for prompt cards
+    stmt_sample = select(Photo).where(and_(*filters)).order_by(Photo.id.desc()).limit(4)
+    res_sample = await db.execute(stmt_sample)
+    sample_photos = [photo_to_dict(p) for p in res_sample.scalars().all()]
+
+    return {
+        "unnamed_faces_count": unnamed_faces_count,
+        "unalbumed_count": unalbumed_count,
+        "blurry_count": blurry_count,
+        "missing_location_count": missing_location_count,
+        "sample_photos": sample_photos,
+    }
+

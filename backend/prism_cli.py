@@ -24,7 +24,6 @@ import asyncio
 import json
 import os
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -37,7 +36,7 @@ from app.config import settings
 from app.db import init_db, async_session
 from app.models import (
     Base, Photo, Person, PhotoPerson, Album, BackgroundJob,
-    Event, PhotoAlbum
+    Event
 )
 from sqlalchemy import select, func, text, update, delete
 from sqlalchemy.orm import selectinload

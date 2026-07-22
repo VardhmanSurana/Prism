@@ -12,6 +12,7 @@ from app.models import Photo, PhotoPerson, Person
 
 from app.agent.planner import Planner
 from app.agent.search_tools import SearchTools
+from app.agent.utils.cache import LRUCache
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ class AgentOrchestrator:
     def __init__(self, planner: Planner, search_tools: SearchTools):
         self.planner = planner
         self.search_tools = search_tools
-        self.session_cache = {}
+        self.session_cache: LRUCache = LRUCache(maxsize=64)
 
     def _get_session_key(self, history: list, current_message: str) -> str:
         if not history:
@@ -172,14 +173,107 @@ class AgentOrchestrator:
         """Legacy scoring fallback."""
         return self.rerank_and_explain(query, photos, {})
 
-    async def chat_stream(self, message: str, history: list = None):
-        logger.info(f"Received agent chat message for streaming: {message}")
+    async def chat_stream(self, message: str, history: list = None, image_path: str = None):
+        logger.info(f"Received agent chat message for streaming: {message} (image_path: {image_path})")
+
+        import os
+        if image_path and os.path.exists(image_path):
+            msg_lower = (message or "").lower()
+            is_similar = any(w in msg_lower for w in ["similar", "photos like", "image like", "look like", "matching", "search similar"]) or not (message or "").strip()
+
+            if is_similar:
+                yield {
+                    "type": "progress",
+                    "state": "running_tools",
+                    "detail": "Extracting visual features and searching for similar photos...",
+                }
+
+                query_emb = self.search_tools.embedding_client.get_image_embedding(image_path)
+                if query_emb:
+                    async with async_session() as db:
+                        similar_ids = await self.search_tools.search_similar_by_embedding(db, query_emb, top_k=30)
+
+                        if similar_ids:
+                            stmt = select(Photo).where(Photo.id.in_(similar_ids)).options(
+                                selectinload(Photo.people).selectinload(PhotoPerson.person)
+                            )
+                            res = await db.execute(stmt)
+                            found_photos = res.scalars().all()
+
+                            photo_map = {p.id: p for p in found_photos}
+                            ordered_photos = [photo_map[pid] for pid in similar_ids if pid in photo_map]
+
+                            verified_photos = ordered_photos[:15]
+                            photos_out = []
+                            for p in verified_photos:
+                                pd = photo_to_dict(p)
+                                pd["search_explanation"] = {"score": 1.0, "matched": ["Visual Similarity Match"]}
+                                photos_out.append(pd)
+
+                            yield {
+                                "type": "progress",
+                                "state": "generating_response",
+                                "detail": "Formulating summary of similar photos...",
+                            }
+
+                            yield {
+                                "type": "result",
+                                "text": f"Found {len(verified_photos)} photo{'s' if len(verified_photos) > 1 else ''} in your library visually similar to your uploaded image!",
+                                "photos": photos_out
+                            }
+                            return
+
+                yield {
+                    "type": "result",
+                    "text": "I searched your library using your uploaded image, but couldn't find any close visual matches.",
+                    "photos": []
+                }
+                return
+
+            else:
+                yield {
+                    "type": "progress",
+                    "state": "analyzing_photo",
+                    "detail": "Analyzing uploaded image visual content with Gemma AI...",
+                }
+
+                try:
+                    multimodal_msgs = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "You are Prism, a friendly and intelligent local AI photo assistant.\n"
+                                        f"The user uploaded an image and asked: \"{message}\"\n\n"
+                                        "Please inspect the attached image closely and answer their question or describe the image in detail (2-4 sentences)."
+                                    )
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"file://{image_path}"}
+                                }
+                            ]
+                        }
+                    ]
+                    chat_res = self.planner.llm_manager.query_chat_server(messages=multimodal_msgs, max_tokens=350)
+                    answer_text = chat_res["choices"][0]["message"]["content"].strip()
+
+                    yield {
+                        "type": "result",
+                        "text": answer_text,
+                        "photos": []
+                    }
+                    return
+                except Exception as err:
+                    logger.error(f"Failed multimodal analysis of uploaded image: {err}")
 
         verified_photos = []
         last_plan = {}
         session_key = self._get_session_key(history, message)
         logger.info(f"Session key for conversational memory: {session_key}")
-        
+
         # Get or initialize the session state featuring a conversational refinement filter stack
         if session_key not in self.session_cache:
             base_query = history[0].get("content", message) if history else message
@@ -236,7 +330,86 @@ class AgentOrchestrator:
                 "plan": plan
             }
 
+            intent = plan.get("intent") or "photo_search"
+            is_locked = plan.get("is_locked") or False
             entities = plan.get("entities") or {}
+            photo_id_param = entities.get("photo_id")
+
+            analyze_terms = ["analyze", "analyse", "describe", "description", "inspect", "detail", "details", "metadata", "explain"]
+            is_analyze_intent = (intent == "analyze_photo") or any(w in message.lower() for w in analyze_terms)
+
+            if not photo_id_param:
+                import re
+                id_match = re.search(r'\b(?:id|photo_id|photo|image)\D*(\d+)\b', message, re.IGNORECASE)
+                if not id_match:
+                    id_match = re.search(r'\(id:\s*(\d+)\)', message, re.IGNORECASE)
+                if id_match:
+                    try:
+                        photo_id_param = int(id_match.group(1))
+                    except ValueError:
+                        photo_id_param = None
+
+            # Context resolution: If no photo_id in query, check session_cache or fallback to latest photo in library
+            if is_analyze_intent and not photo_id_param:
+                cached_ids = self.session_cache.get(session_key, {}).get("photo_ids")
+                if cached_ids:
+                    photo_id_param = next(iter(cached_ids), None)
+
+            if is_analyze_intent and not photo_id_param:
+                async with async_session() as db:
+                    stmt = (
+                        select(Photo.id)
+                        .where(Photo.is_trash == False, Photo.is_locked == is_locked)
+                        .order_by(Photo.date_taken.desc(), Photo.id.desc())
+                        .limit(1)
+                    )
+                    res = await db.execute(stmt)
+                    latest_id = res.scalar_one_or_none()
+                    if latest_id:
+                        photo_id_param = latest_id
+
+            if is_analyze_intent:
+                yield {
+                    "type": "progress",
+                    "state": "analyzing_photo",
+                    "detail": f"Inspecting metadata & details for photo #{photo_id_param}..." if photo_id_param else "Analyzing photo details...",
+                    "plan": plan
+                }
+
+                target_photo = None
+                if photo_id_param:
+                    async with async_session() as db:
+                        stmt = select(Photo).where(Photo.id == photo_id_param).options(
+                            selectinload(Photo.people).selectinload(PhotoPerson.person)
+                        )
+                        res = await db.execute(stmt)
+                        target_photo = res.scalar_one_or_none()
+
+                if target_photo:
+                    analysis_text = self.planner.generate_photo_analysis_response(message, target_photo)
+                    pd = photo_to_dict(target_photo)
+                    pd["search_explanation"] = {"score": 1.0, "matched": ["Photo ID Match", "Metadata Analysis"]}
+
+                    yield {
+                        "type": "progress",
+                        "state": "generating_response",
+                        "detail": "Formulating analysis response...",
+                        "plan": plan
+                    }
+
+                    yield {
+                        "type": "result",
+                        "text": analysis_text,
+                        "photos": [pd]
+                    }
+                    return
+                else:
+                    yield {
+                        "type": "result",
+                        "text": "To analyze or describe a photo, please select **'✨ Ask AI About Photo'** on an image in your gallery, upload an image using the **'Upload Image'** button below, or specify a photo ID (e.g., *'Analyze photo 12'*).",
+                        "photos": []
+                    }
+                    return
             constraints = plan.get("constraints") or {}
             ranking = plan.get("ranking") or {}
 

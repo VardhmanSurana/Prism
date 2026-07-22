@@ -75,6 +75,7 @@ app.include_router(photos.metadata_router, prefix=f"{settings.API_V1_STR}/photos
 app.include_router(photos.lock_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
 app.include_router(photos.favorite_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
 app.include_router(photos.trash_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
+app.include_router(photos.export_router, prefix=f"{settings.API_V1_STR}/photos", tags=["photos"], dependencies=[Depends(verify_api_key)])
 app.include_router(inpaint_api.router, tags=["inpaint"], dependencies=[Depends(verify_api_key)])
 app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings"], dependencies=[Depends(verify_api_key)])
 app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"], dependencies=[Depends(verify_api_key)])

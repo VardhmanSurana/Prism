@@ -2,6 +2,7 @@ import pytest
 import json
 from unittest.mock import MagicMock, AsyncMock, patch
 from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
 
 from app.agent.planner import Planner
 from app.agent.search_tools import SearchTools
@@ -404,6 +405,157 @@ async def test_search_metadata_month_year(db_session):
     res_jan = await tools.search_metadata(db_session, year=2026, month=1)
     assert 501 in res_jan
     assert 500 not in res_jan
+
+
+@pytest.mark.asyncio
+async def test_agent_analyze_photo_intent(db_session):
+    from datetime import datetime
+    photo = Photo(
+        id=94,
+        filename="IMG_20250423_165211.jpg",
+        path="/IMG_20250423_165211.jpg",
+        width=1920,
+        height=1080,
+        aspect_ratio=1.77,
+        city="Mumbai",
+        country="India",
+        date_taken=datetime(2025, 4, 23, 16, 52, 11)
+    )
+    photo.people = []
+    db_session.add(photo)
+    await db_session.commit()
+
+    planner = MagicMock()
+    planner.extract_search_parameters.return_value = {
+        "intent": "analyze_photo",
+        "is_locked": False,
+        "entities": {
+            "photo_id": 94
+        },
+        "constraints": {},
+        "ranking": {}
+    }
+    planner.generate_photo_analysis_response.return_value = "Photo IMG_20250423_165211.jpg (ID: 94) was taken in Mumbai, India."
+
+    search_tools = MagicMock()
+    orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
+
+    events = []
+    async for event in orchestrator.chat_stream('Analyze and describe photo: "IMG_20250423_165211.jpg" (ID: 94). What date, metadata, and location details can you find?'):
+        events.append(event)
+
+    result = next(e for e in events if e.get("type") == "result")
+    assert result["text"] == "Photo IMG_20250423_165211.jpg (ID: 94) was taken in Mumbai, India."
+    assert len(result["photos"]) == 1
+    assert result["photos"][0]["id"] == 94
+
+
+@pytest.mark.asyncio
+async def test_agent_sessions_crud(db_session):
+    from app.models import AgentSession, AgentMessage
+
+    # 1. Create session
+    sess = AgentSession(id="sess-123", title="Trip to Goa")
+    db_session.add(sess)
+    await db_session.commit()
+
+    # Add messages
+    msg1 = AgentMessage(session_id="sess-123", role="user", content="Find beach photos")
+    msg2 = AgentMessage(session_id="sess-123", role="assistant", content="Found 2 beach photos")
+    db_session.add_all([msg1, msg2])
+    await db_session.commit()
+
+    # 2. Query session with messages
+    stmt = select(AgentSession).where(AgentSession.id == "sess-123").options(selectinload(AgentSession.messages))
+    res = await db_session.execute(stmt)
+    retrieved = res.scalar_one()
+
+    assert retrieved.title == "Trip to Goa"
+    assert len(retrieved.messages) == 2
+    assert retrieved.messages[0].content == "Find beach photos"
+
+    # 3. Update title
+    retrieved.title = "Goa Vacation"
+    await db_session.commit()
+
+    # 4. Delete session (cascades messages)
+    await db_session.delete(retrieved)
+    await db_session.commit()
+
+    res_deleted = await db_session.execute(select(AgentSession).where(AgentSession.id == "sess-123"))
+    assert res_deleted.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_agent_uploaded_image_flow(db_session, tmp_path):
+    img_file = tmp_path / "test_upload.jpg"
+    img_file.write_bytes(b"fake image bytes")
+
+    photo = Photo(
+        id=77,
+        filename="similar.jpg",
+        path="/similar.jpg",
+        width=100,
+        height=100,
+        aspect_ratio=1.0
+    )
+    db_session.add(photo)
+    await db_session.commit()
+
+    planner = MagicMock()
+    planner.llm_manager.query_chat_server.return_value = {
+        "choices": [{"message": {"content": "This image shows a scenic mountain sunset."}}]
+    }
+
+    search_tools = MagicMock()
+    search_tools.embedding_client.get_image_embedding.return_value = [0.1] * 128
+    search_tools.search_similar_by_embedding = AsyncMock(return_value={77})
+
+    orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
+
+    # 1. Test visual Q&A
+    events_qa = []
+    async for event in orchestrator.chat_stream("What is in this picture?", image_path=str(img_file)):
+        events_qa.append(event)
+    result_qa = next(e for e in events_qa if e.get("type") == "result")
+    assert "mountain sunset" in result_qa["text"]
+
+    # 2. Test similar photo search
+    events_sim = []
+    async for event in orchestrator.chat_stream("Find photos similar to this image", image_path=str(img_file)):
+        events_sim.append(event)
+    result_sim = next(e for e in events_sim if e.get("type") == "result")
+    assert "visually similar" in result_sim["text"]
+    assert len(result_sim["photos"]) == 1
+    assert result_sim["photos"][0]["id"] == 77
+
+
+@pytest.mark.asyncio
+async def test_agent_analyse_spelling_and_context_fallback(db_session):
+    planner = Planner(llm_manager=MagicMock())
+
+    # 1. Test heuristic fallback for 'analyse the image' (British spelling)
+    plan = planner.heuristic_fallback("analyse the image")
+    assert plan["intent"] == "analyze_photo"
+
+    # 2. Add a photo to DB
+    photo = Photo(id=99, filename="latest.jpg", path="/latest.jpg", width=100, height=100, aspect_ratio=1.0)
+    db_session.add(photo)
+    await db_session.commit()
+
+    # 3. Test orchestrator behavior without explicit photo_id (falls back to latest photo)
+    planner.generate_photo_analysis_response = MagicMock(return_value="Analysis of latest.jpg (ID: 99)")
+    search_tools = MagicMock()
+    orchestrator = AgentOrchestrator(planner=planner, search_tools=search_tools)
+
+    events = []
+    async for event in orchestrator.chat_stream("analyze the image"):
+        events.append(event)
+
+    result = next(e for e in events if e.get("type") == "result")
+    assert result["text"] == "Analysis of latest.jpg (ID: 99)"
+    assert len(result["photos"]) == 1
+    assert result["photos"][0]["id"] == 99
 
 
 

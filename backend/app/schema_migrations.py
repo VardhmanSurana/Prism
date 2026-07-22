@@ -265,6 +265,41 @@ async def _ensure_photos_fts(conn: AsyncConnection) -> None:
             )
 
 
+async def _ensure_schema_version(conn: AsyncConnection) -> int:
+    """
+    Create the schema_version tracking table if missing and return the
+    current version number. Each batch of column additions increments
+    this version so that startup can skip already-applied patches.
+    """
+    await conn.execute(
+        text(
+            """
+            CREATE TABLE IF NOT EXISTS schema_version (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                version INTEGER NOT NULL DEFAULT 0,
+                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+    )
+    res = await conn.execute(text("SELECT version FROM schema_version WHERE id = 1"))
+    row = res.fetchone()
+    if row is None:
+        await conn.execute(text("INSERT INTO schema_version (id, version) VALUES (1, 0)"))
+        return 0
+    return row[0]
+
+
+async def _bump_schema_version(conn: AsyncConnection, new_version: int) -> None:
+    await conn.execute(
+        text(f"UPDATE schema_version SET version = {new_version}, applied_at = CURRENT_TIMESTAMP WHERE id = 1")
+    )
+
+
+# Current schema version — increment when adding new patches below.
+CURRENT_SCHEMA_VERSION = 1
+
+
 async def apply_schema(conn: AsyncConnection) -> None:
     """
     Apply all additive schema patches idempotently.
@@ -272,6 +307,14 @@ async def apply_schema(conn: AsyncConnection) -> None:
     Safe to run on every startup against fresh or legacy databases.
     Call after ``Base.metadata.create_all`` so tables exist for ALTER paths.
     """
+    version = await _ensure_schema_version(conn)
+
+    if version >= CURRENT_SCHEMA_VERSION:
+        logger.debug("Schema version %d already applied, skipping patches.", version)
+        return
+
+    logger.info("Applying schema patches (version %d → %d)...", version, CURRENT_SCHEMA_VERSION)
+
     await _add_missing_columns(conn, "photos", PHOTO_COLUMN_PATCHES)
     await _ensure_sync_peers(conn)
     await _add_missing_columns(conn, "background_jobs", BACKGROUND_JOB_COLUMN_PATCHES)
@@ -291,3 +334,7 @@ async def apply_schema(conn: AsyncConnection) -> None:
         await conn.execute(text(stmt))
 
     await _ensure_photos_fts(conn)
+
+    await _bump_schema_version(conn, CURRENT_SCHEMA_VERSION)
+    logger.info("Schema patches applied successfully.")
+

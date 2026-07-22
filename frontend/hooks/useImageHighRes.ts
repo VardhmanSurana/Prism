@@ -18,15 +18,18 @@ export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
     // For HEIC, browsers can't display the raw file — use a high-res conversion from the backend.
     // For all other formats, prefer the original full-resolution file via /local.
     if (isHeic) {
-      return resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=2048`);
+      return resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=2048&h=${photo.hash}`);
     }
 
     const url = photo.path
       ? `local://${photo.path}`
       : photo.url || '';
 
-    return resolveUrl(url);
-  }, [photo.url, photo.path, photo.filename, photo.id]);
+    const sep = url.includes('?') ? '&' : '?';
+    const buster = photo.hash ? `${sep}h=${photo.hash}` : '';
+
+    return resolveUrl(`${url}${buster}`);
+  }, [photo.url, photo.path, photo.filename, photo.id, photo.hash]);
 
   useEffect(() => {
     const isVideo = photo.type === 'video' || photo.file_type === 'video';

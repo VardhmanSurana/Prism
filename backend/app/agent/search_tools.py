@@ -7,6 +7,7 @@ from sqlalchemy.future import select
 from app.models import Album, Person, Photo, PhotoPerson
 
 from app.agent.embeddings import EmbeddingClient
+from app.agent.utils.cache import LRUCache
 
 
 logger = logging.getLogger(__name__)
@@ -30,13 +31,13 @@ def sanitize_fts5_query(query: str) -> str:
 class SearchTools:
     def __init__(self, embedding_client: EmbeddingClient | None = None):
         self.embedding_client = embedding_client or EmbeddingClient()
-        self._tool_cache = {}
+        self._tool_cache: LRUCache = LRUCache(maxsize=2048)
 
     async def search_metadata(self, db, date_range=None, location=None, favorites=None, year=None, month=None, is_locked=False, ordered=False):
         """Tool 1: Search metadata filters (location, year, month, favorites)."""
         cache_key = ("search_metadata", location, favorites, year, month, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         filters = []
@@ -70,9 +71,7 @@ class SearchTools:
         res = await db.execute(stmt)
         rows = [row[0] for row in res.fetchall()]
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = rows
+        self._tool_cache.put(cache_key, rows)
         return rows if ordered else set(rows)
 
     async def search_people(self, db, names: list[str], min_confidence=0.8, is_locked=False, ordered=False):
@@ -81,8 +80,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("search_people", tuple(sorted(names)), min_confidence, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         people_filters = [Person.name.ilike(f"%{n}%") for n in names]
@@ -116,9 +115,7 @@ class SearchTools:
         res_photos = await db.execute(stmt_photos)
         rows = [row[0] for row in res_photos.fetchall()]
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = rows
+        self._tool_cache.put(cache_key, rows)
         return rows if ordered else set(rows)
 
     async def search_captions(self, db, query: str, is_locked=False, ordered=False):
@@ -127,8 +124,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("search_captions", query, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         fts_query = sanitize_fts5_query(query)
@@ -171,9 +168,7 @@ class SearchTools:
             res = await db.execute(stmt)
             rows = [row[0] for row in res.fetchall()]
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = rows
+        self._tool_cache.put(cache_key, rows)
         return rows if ordered else set(rows)
 
     async def semantic_search(self, db, text_query: str, top_k=30, is_locked=False, ordered=False):
@@ -182,8 +177,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("semantic_search", text_query, top_k, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         try:
@@ -230,9 +225,7 @@ class SearchTools:
                     if len(result_ids) >= top_k:
                         break
 
-            if len(self._tool_cache) >= 1000:
-                self._tool_cache.clear()
-            self._tool_cache[cache_key] = result_ids
+            self._tool_cache.put(cache_key, result_ids)
             return result_ids if ordered else set(result_ids)
         except Exception as e:
             logger.error(f"Semantic search tool failed: {e}")
@@ -244,8 +237,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("search_albums", query, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         stmt = select(Album).where(Album.name.ilike(f"%{query}%"))
@@ -300,9 +293,7 @@ class SearchTools:
             except Exception as e:
                 logger.error(f"Error parsing album metadata: {e}")
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = photo_ids
+        self._tool_cache.put(cache_key, photo_ids)
         return list(photo_ids) if ordered else set(photo_ids)
 
     async def search_ocr(self, db, query: str, is_locked=False, ordered=False):
@@ -311,8 +302,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("search_ocr", query, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         loc_query = query.replace("%", "\\%").replace("_", "\\_")[:50]
@@ -341,16 +332,14 @@ class SearchTools:
         res = await db.execute(stmt)
         rows = [row[0] for row in res.fetchall()]
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = rows
+        self._tool_cache.put(cache_key, rows)
         return rows if ordered else set(rows)
 
     async def similar_image(self, db, photo_id: int, top_k=30, is_locked=False, ordered=False):
         """Tool 7: Query SigLIP embeddings of other photos to find visually matching images."""
         cache_key = ("similar_image", photo_id, top_k, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         try:
@@ -402,12 +391,52 @@ class SearchTools:
             for idx in sorted_idx[:top_k]:
                 result_ids.append(photo_ids[idx])
 
-            if len(self._tool_cache) >= 1000:
-                self._tool_cache.clear()
-            self._tool_cache[cache_key] = result_ids
+            self._tool_cache.put(cache_key, result_ids)
             return result_ids if ordered else set(result_ids)
         except Exception as e:
             logger.error(f"Similar image search tool failed: {e}")
+            return list() if ordered else set()
+
+    async def search_similar_by_embedding(self, db, query_emb: list[float], top_k=30, is_locked=False, ordered=False):
+        """Find visually similar photos in the library given an embedding vector."""
+        if not query_emb:
+            return list() if ordered else set()
+
+        try:
+            stmt_embs = select(Photo.id, Photo.embedding).where(
+                Photo.is_trash == False,
+                Photo.is_locked == is_locked,
+                Photo.embedding.isnot(None),
+            )
+            res_embs = await db.execute(stmt_embs)
+            rows = res_embs.all()
+
+            import json
+            import numpy as np
+
+            photo_ids = []
+            embs = []
+            for pid, emb_str in rows:
+                try:
+                    emb = json.loads(emb_str)
+                    if len(emb) == len(query_emb):
+                        photo_ids.append(pid)
+                        embs.append(emb)
+                except Exception:
+                    pass
+
+            if not embs:
+                return list() if ordered else set()
+
+            embs_arr = np.array(embs, dtype=np.float32)
+            q_arr = np.array(query_emb, dtype=np.float32)
+            sims = np.dot(embs_arr, q_arr)
+
+            sorted_idx = np.argsort(sims)[::-1]
+            result_ids = [photo_ids[idx] for idx in sorted_idx[:top_k]]
+            return result_ids if ordered else set(result_ids)
+        except Exception as e:
+            logger.error(f"search_similar_by_embedding failed: {e}")
             return list() if ordered else set()
 
     async def search_events(self, db, query: str, is_locked=False, ordered=False):
@@ -416,8 +445,8 @@ class SearchTools:
             return list() if ordered else set()
 
         cache_key = ("search_events", query, is_locked)
-        if cache_key in self._tool_cache:
-            cached = self._tool_cache[cache_key]
+        cached = self._tool_cache.get(cache_key)
+        if cached is not None:
             return list(cached) if ordered else set(cached)
 
         from app.models import Event
@@ -472,13 +501,10 @@ class SearchTools:
                     fallback_res = await db.execute(fallback_stmt)
                     res_set.update(row[0] for row in fallback_res.fetchall())
 
-        if len(self._tool_cache) >= 1000:
-            self._tool_cache.clear()
-        self._tool_cache[cache_key] = res_set
+        self._tool_cache.put(cache_key, res_set)
         return list(res_set) if ordered else set(res_set)
 
     async def fused_search(self, db, query: str, top_k: int = 30, is_locked: bool = False) -> list[dict]:
-        self._tool_cache.clear()
 
         tool_results = {}
 

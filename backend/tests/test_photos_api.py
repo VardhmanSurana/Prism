@@ -345,3 +345,63 @@ async def test_ocr_endpoint(db_session, monkeypatch_flags):
         ocr_module.OCRManager.unload = staticmethod(original_unload if callable(original_unload) else (lambda self: None))
         await db_session.refresh(photo)
         assert photo.ocr_text == "mocked ocr"
+
+
+@pytest.mark.asyncio
+async def test_upload_blob_overwrite(db_session):
+    from datetime import datetime
+    import io
+    from PIL import Image
+    from httpx import AsyncClient, ASGITransport
+    from app.main import app
+    from app.config import settings
+
+    image_path = _create_test_image("blob_overwrite.jpg")
+    photo = Photo(
+        filename="blob_overwrite.jpg",
+        path=str(image_path),
+        url="/thumbnails/old_hash.webp",
+        width=100,
+        height=100,
+        aspect_ratio=1.0,
+        mime_type="image/jpeg",
+        file_type="image",
+        hash="old_hash",
+        upload_date=datetime.utcnow()
+    )
+    db_session.add(photo)
+    await db_session.commit()
+    await db_session.refresh(photo)
+
+    old_thumb_file = settings.THUMBNAILS_DIR / "old_hash.webp"
+    settings.THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
+    with open(old_thumb_file, "w") as f:
+        f.write("mock_thumb_content")
+
+    new_image_data = io.BytesIO()
+    new_img = Image.new('RGB', (200, 200), color='red')
+    new_img.save(new_image_data, format='JPEG')
+    new_image_data.seek(0)
+
+    files = {
+        "file": ("blob_overwrite.jpg", new_image_data, "image/jpeg")
+    }
+    data = {
+        "original_path": str(image_path),
+        "is_save_as": "false"
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/photos/upload-blob", files=files, data=data)
+    
+    assert response.status_code == 200, response.text
+    response_data = response.json()
+    assert response_data["id"] == photo.id
+    
+    await db_session.refresh(photo)
+    assert photo.width == 200
+    assert photo.height == 200
+    assert photo.hash != "old_hash"
+    assert photo.url.startswith("/thumbnails/")
+    assert photo.url != "/thumbnails/old_hash.webp"
+    assert not old_thumb_file.exists()

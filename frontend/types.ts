@@ -38,6 +38,7 @@ export interface Photo {
   city?: string;
   state?: string;
   country?: string;
+  hash?: string;
   search_explanation?: { score: number; matched: string[] };
 }
 
@@ -131,6 +132,7 @@ export interface RawPhoto {
   city?: string;
   state?: string;
   country?: string;
+  hash?: string;
   search_explanation?: { score: number; matched: string[] };
 }
 

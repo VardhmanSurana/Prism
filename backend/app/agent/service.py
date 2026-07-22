@@ -33,6 +33,11 @@ class PrismAgent:
         LlamaManager.unload_llm()
         cls._llm = None
 
+    @classmethod
+    def schedule_unload(cls):
+        """Schedule LLM unload after keepalive period."""
+        LlamaManager.schedule_unload()
+
     def heuristic_fallback(self, message: str) -> dict:
         return self.planner.heuristic_fallback(message)
 
@@ -86,8 +91,8 @@ class PrismAgent:
     async def chat(self, message: str, history: list = None):
         return await self.orchestrator.chat(message, history=history)
 
-    async def chat_stream(self, message: str, history: list = None):
-        async for event in self.orchestrator.chat_stream(message, history=history):
+    async def chat_stream(self, message: str, history: list = None, image_path: str = None):
+        async for event in self.orchestrator.chat_stream(message, history=history, image_path=image_path):
             yield event
 
 

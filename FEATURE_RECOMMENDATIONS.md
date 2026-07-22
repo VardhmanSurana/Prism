@@ -176,44 +176,44 @@ const summary = metadata?.summary || photo.ai_summary || photo.caption;
      - Videos auto-play in slideshow and advance on `ended`
      - Addresses weakness: *static viewing experience*
 
-2. **Manual EXIF Editor**
-   - **Description**: Edit date, time, and location directly from the info panel.
-   - **User Problem**: Imported photos from old cameras often have incorrect timestamps.
-   - **Implementation**: Add edit modes to `PhotoMetadataDisplay.tsx` connected to a backend mutation API.
-   - **Dependencies**: `InfoPanel.tsx`
+2. **Manual EXIF Editor** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Edit date, time, location, caption, and camera EXIF data directly from the info panel.
+   - **User Problem**: Imported photos from old cameras often have incorrect timestamps or missing EXIF tags.
+   - **Implementation**: Updated `InfoPanel.tsx` with inline input forms and edit mode connected to `PUT /api/v1/photos/{photo_id}/metadata` mutation API, syncing SQLite DB and XMP sidecars.
+   - **Dependencies**: `InfoPanel.tsx`, `PUT /api/v1/photos/{photo_id}/metadata`
    - **ICE Score**: I:9, C:9, E:7 (Total: 25)
-   - **Priority**: P0 | **Effort**: 1 week
+   - **Priority**: P0 | **Effort**: 1 week | **Status**: ✅ Shipped
 
-3. **Face Tagging UI Adjustment**
-   - **Description**: Click on unrecognized faces to manually tag people.
+3. **Face Tagging UI Adjustment** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Click on unrecognized faces or faces in the image to manually tag or rename people.
    - **User Problem**: AI sometimes misses faces or misidentifies them.
-   - **Implementation**: Overlay bounding boxes on the high-res image when a "Tag Mode" is active.
-   - **Dependencies**: `ImageDisplay.tsx`
+   - **Implementation**: Created `FaceTaggingOverlay.tsx` overlaying interactive bounding boxes over high-res images, connected to `GET /{photo_id}/faces` and `POST /{photo_id}/tag-face` endpoints.
+   - **Dependencies**: `FaceTaggingOverlay.tsx`, `ImageDisplay.tsx`, `Toolbar.tsx`
    - **ICE Score**: I:8, C:8, E:5 (Total: 21)
-   - **Priority**: P1 | **Effort**: 2 weeks
+   - **Priority**: P1 | **Effort**: 2 weeks | **Status**: ✅ Shipped
 
-4. **Side-by-Side Comparison Mode**
-   - **Description**: Select 2-4 photos and view them simultaneously locked to the same zoom level.
-   - **User Problem**: Culling similar photos (e.g., from a burst) is difficult when flipping back and forth.
-   - **Implementation**: Modify `Lightbox.tsx` to render a CSS grid of `ImageDisplay` components that share a zoomed state.
-   - **Dependencies**: `Lightbox.tsx`, PhotoGrid selection.
+4. **Side-by-Side Comparison Mode** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Select photos and view them simultaneously side-by-side with synchronized zoom and pan.
+   - **User Problem**: Culling similar burst photos is difficult when flipping back and forth.
+   - **Implementation**: Created `ComparisonView.tsx` with 2-up and 4-up synchronized viewing grid and shared zoom/pan controls.
+   - **Dependencies**: `ComparisonView.tsx`, `Lightbox.tsx`
    - **ICE Score**: I:9, C:8, E:6 (Total: 23)
-   - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Priority**: P1 | **Effort**: 1.5 weeks | **Status**: ✅ Shipped
 
-5. **Quick Export Presets**
-   - **Description**: 1-click export for social media (e.g., "Export for Instagram 4:5").
+5. **Quick Export Presets** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: 1-click export for social media (Instagram 4:5, Instagram Square 1:1, Story 9:16, Web 1080p, Full Res Original).
    - **User Problem**: Users have to manually crop and resize photos for different platforms.
-   - **Implementation**: Add a dropdown in `Toolbar.tsx` that calls a backend resizing pipeline.
-   - **Dependencies**: `Toolbar.tsx`
+   - **Implementation**: Added Quick Export dropdown in `Toolbar.tsx` calling `POST /api/v1/photos/{photo_id}/export-preset` backend cropping/resizing pipeline.
+   - **Dependencies**: `Toolbar.tsx`, `export.py`
    - **ICE Score**: I:7, C:9, E:8 (Total: 24)
-   - **Priority**: P2 | **Effort**: 3 days
+   - **Priority**: P2 | **Effort**: 3 days | **Status**: ✅ Shipped
 
 ### C. Quick Wins
-- **Keyboard Shortcut Overlay**: Pressing '?' should show a modal of all Lightbox shortcuts.
-- **Copy Image to Clipboard**: Add a button to copy the image blob directly to the OS clipboard.
+- **Keyboard Shortcut Overlay** ✅ **IMPLEMENTED** (2026-07-22): Pressing `?` displays `KeyboardShortcutsModal.tsx` listing all Lightbox hotkeys (`Space`, `S`, `E`, `I`, `F`, `Esc`, `Left/Right`, `?`).
+- **Copy Image to Clipboard** ✅ **IMPLEMENTED** (2026-07-22): Added action button in `Toolbar.tsx` copying image blob directly to the OS clipboard via `navigator.clipboard.write`.
 
 ### D. Architecture Recommendations
-- **Preloading Strategy**: Enhance the filmstrip logic to pre-fetch the next 3 high-res images into hidden `<img>` tags to ensure zero-latency navigation.
+- **Preloading Strategy** ✅ **IMPLEMENTED** (2026-07-22): Enhanced `Lightbox.tsx` logic to pre-fetch adjacent 3 photos in hidden `Image` preloader buffers to ensure zero-latency filmstrip navigation.
 
 ---
 
@@ -479,46 +479,48 @@ export const ExploreView: React.FC = () => {
    - **ICE Score**: I:8, C:8, E:6 (Total: 22)
    - **Priority**: P1 | **Effort**: 2 weeks
    - **Status**: Done
-   - **What shipped**: `GET /api/v1/explore/insights` aggregates visible-library camera, lens, ISO, and location data; `PhotographyInsights.tsx` presents accessible camera/location rankings and shooting metrics with useful missing-metadata states. Import now persists EXIF focal length and ISO for new photos, resolving the prior lack of personal data insights rather than showing incomplete stats.
+   - **What shipped**: `GET /api/v1/explore/insights` aggregates visible-library camera, lens, ISO, and location data; `PhotographyInsights.tsx` presents accessible camera/location rankings and shooting metrics with useful missing-metadata states. Import now persists EXIF focal length and ISO for new photos.
 
-2. **Recent Activity Feed**
-   - **Description**: A timeline of recent imports, edits, and album creations.
+2. **Recent Activity Feed** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: A timeline of recent imports, edits, album creations, and AI searches.
    - **User Problem**: Hard to pick up where you left off after opening the app.
-   - **Implementation**: Track audit logs/modification dates in the DB and surface them in a list component.
-   - **Dependencies**: Database audit tracking.
+   - **Implementation**: Created `RecentActivityFeed.tsx` and `GET /api/v1/explore/activity` endpoint tracking recent imports, album creations, and neural search sessions with direct action links.
+   - **Dependencies**: `RecentActivityFeed.tsx`, `GET /api/v1/explore/activity`
    - **ICE Score**: I:7, C:9, E:8 (Total: 24)
-   - **Priority**: P2 | **Effort**: 1 week
+   - **Priority**: P2 | **Effort**: 1 week | **Status**: ✅ Shipped
 
-3. **Auto-generated Video Highlights**
-   - **Description**: Automatically compile clips from a specific event into a short reel.
+3. **Auto-generated Video Highlights** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Automatically compile clips and photos from an event/season into a short reel.
    - **User Problem**: Video editing is too time-consuming for casual memories.
-   - **Implementation**: Tie into the existing NLE backend, picking 3-second segments of videos from an event, laying them back-to-back.
-   - **Dependencies**: `VideoEditor` backend.
+   - **Implementation**: Created `HighlightReelSection.tsx`, `GET /api/v1/explore/highlights`, and `POST /api/v1/explore/highlights/generate` endpoint compiling memory reels with 1-click preview and NLE editor project generation.
+   - **Dependencies**: `HighlightReelSection.tsx`, `VideoEditor` backend.
    - **ICE Score**: I:9, C:6, E:3 (Total: 18)
-   - **Priority**: P3 | **Effort**: 4 weeks
+   - **Priority**: P3 | **Effort**: 4 weeks | **Status**: ✅ Shipped
 
-4. **Custom Dashboard Widgets**
-   - **Description**: Allow users to drag, drop, and hide sections of the Explore view.
-   - **User Problem**: Not all users care about "On This Day" or "AI Themes".
-   - **Implementation**: Save layout preferences in local storage or DB, use a library like `dnd-kit`.
-   - **Dependencies**: `ExploreView.tsx`
+4. **Custom Dashboard Widgets** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Allow users to reorder and toggle visibility of Explore view sections.
+   - **User Problem**: Not all users care about every default dashboard section.
+   - **Implementation**: Created `ExploreWidgetCustomizer.tsx` layout manager modal, allowing users to toggle section visibility and reorder widgets with layout state persisted in `localStorage`.
+   - **Dependencies**: `ExploreView.tsx`, `ExploreWidgetCustomizer.tsx`
    - **ICE Score**: I:6, C:8, E:5 (Total: 19)
-   - **Priority**: P3 | **Effort**: 2 weeks
+   - **Priority**: P3 | **Effort**: 2 weeks | **Status**: ✅ Shipped
 
-5. **"Rediscover" Smart Prompts**
-   - **Description**: Prompt the user to tag unnamed faces or review unorganized imports.
+5. **"Rediscover" Smart Prompts** ✅ **IMPLEMENTED** (2026-07-22)
+   - **Description**: Prompt the user to tag unnamed faces, organize un-albumed photos, review blurry clutter, or add geotags.
    - **User Problem**: Organization tasks pile up.
-   - **Implementation**: Add an actionable widget that surfaces small micro-tasks.
-   - **Dependencies**: Face detection database.
+   - **Implementation**: Created `RediscoverPrompts.tsx` and `GET /api/v1/explore/rediscover-prompts` surfacing actionable micro-task cards with direct navigation buttons.
+   - **Dependencies**: `RediscoverPrompts.tsx`, `explore.py`
    - **ICE Score**: I:8, C:9, E:7 (Total: 24)
-   - **Priority**: P1 | **Effort**: 1.5 weeks
+   - **Priority**: P1 | **Effort**: 1.5 weeks | **Status**: ✅ Shipped
 
 ### C. Quick Wins
-- **Greeting Personalization**: Change the header to "Good Morning, [Name]" based on local time.
-- **Empty States**: Ensure robust, friendly empty states for "On This Day" if the user has a small library.
+- **Greeting Personalization** ✅ **IMPLEMENTED** (2026-07-22): Time-aware greeting (`getTimeGreeting()`) in `ExploreHeader.tsx` ("Good Morning", "Good Afternoon", "Good Evening", "Good Night").
+- **Empty States** ✅ **IMPLEMENTED** (2026-07-22): Friendly, informative empty-library fallbacks across all Explore widgets.
 
 ### D. Architecture Recommendations
-- **Staggered Loading**: Use Suspense or staggered fetch requests to prevent the Dashboard from blocking the main thread while 5 different components query the backend simultaneously.
+- **Staggered Loading** ✅ **IMPLEMENTED** (2026-07-22): Independent component fetching and non-blocking skeleton states in `ExploreView.tsx`.
+
+--- prevent the Dashboard from blocking the main thread while 5 different components query the backend simultaneously.
 
 ---
 

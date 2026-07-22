@@ -13,6 +13,7 @@ import { GalleryDrawer } from './GalleryDrawer';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { SuggestedFollowups } from './SuggestedFollowups';
 import { SmartAlbumModal } from './SmartAlbumModal';
+import { SessionSidebar } from './SessionSidebar';
 
 const SUGGESTIONS = [
   { text: "Show my favorite photos", icon: 'Heart' },
@@ -23,6 +24,14 @@ const SUGGESTIONS = [
 
 export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ onPhotoClick }) => {
   const {
+    sessions,
+    activeSessionId,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    selectSession,
+    createSession,
+    renameSession,
+    deleteSession,
     messages, input, isLoading, progressDetail, currentPhotos, currentPlan, currentTools, totalCandidates, expandedLogs, scrollRef,
     setInput, toggleLog, handleSend, clearResults, askAboutPhoto,
   } = useAgentView({ onPhotoClick });
@@ -44,6 +53,18 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-[#050505] relative">
+      {/* Sessions Left Sidebar */}
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSessionId}
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        onSelectSession={selectSession}
+        onCreateSession={() => createSession()}
+        onRenameSession={renameSession}
+        onDeleteSession={deleteSession}
+      />
+
       {/* Background Decorative Aura (only visible when drawer is closed) */}
       {!isDrawerOpen && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-white/[0.02] rounded-full blur-[140px] pointer-events-none transition-all duration-700" />
@@ -52,7 +73,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
       {/* Left/Main Column: Chat Feed Container */}
       <div
         className={`flex flex-col h-full bg-[#0a0a0c]/40 transition-all duration-500 relative z-10 ${
-          isDrawerOpen ? 'w-[42%] border-r border-white/[0.02]' : 'w-full'
+          isDrawerOpen ? 'w-[42%] border-r border-white/[0.02]' : 'flex-1'
         }`}
       >
         <AgentBanner title="Prism AI Assistant" subtitle="Completely offline neural search helper" />
@@ -79,6 +100,11 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
                     ? 'bg-gradient-to-br from-white to-gray-200 text-black font-semibold rounded-tr-none shadow-[0_4px_24px_rgba(255,255,255,0.06)]'
                     : 'bg-[#121216]/95 text-gray-200 border border-white/[0.06] rounded-tl-none shadow-[0_4px_16px_rgba(0,0,0,0.2)]'
                 }`}>
+                  {m.attachedImage && (
+                    <div className="mb-2 max-w-[200px] rounded-xl overflow-hidden border border-black/10 shadow-sm">
+                      <img src={m.attachedImage.url} alt="Uploaded attachment" className="w-full h-auto object-cover max-h-48" />
+                    </div>
+                  )}
                   <MessageReveal text={m.content} role={m.role} />
 
                   {/* WhatsApp-style Inline Grid for Assistant Photos */}

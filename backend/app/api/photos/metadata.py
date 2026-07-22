@@ -384,3 +384,158 @@ async def bulk_update_adjustments(
             updated_count += 1
     await db.commit()
     return {"status": "success", "updated_count": updated_count}
+
+
+class PhotoMetadataUpdateRequest(BaseModel):
+    date_taken: str | None = None
+    caption: str | None = None
+    city: str | None = None
+    state: str | None = None
+    country: str | None = None
+    exif_make: str | None = None
+    exif_model: str | None = None
+    exif_focal_length: float | None = None
+    exif_iso: int | None = None
+
+
+@router.put("/{photo_id}/metadata")
+async def update_photo_metadata(
+    photo_id: int,
+    payload: PhotoMetadataUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update manual EXIF and location metadata for a photo."""
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    if payload.date_taken:
+        try:
+            from datetime import datetime
+            photo.date_taken = datetime.fromisoformat(payload.date_taken.replace("Z", "+00:00"))
+        except Exception as e:
+            logger.warning("Failed to parse date_taken %s: %s", payload.date_taken, e)
+
+    if payload.caption is not None:
+        photo.caption = payload.caption
+    if payload.city is not None:
+        photo.city = payload.city
+    if payload.state is not None:
+        photo.state = payload.state
+    if payload.country is not None:
+        photo.country = payload.country
+    if payload.exif_make is not None:
+        photo.exif_make = payload.exif_make
+    if payload.exif_model is not None:
+        photo.exif_model = payload.exif_model
+    if payload.exif_focal_length is not None:
+        photo.exif_focal_length = payload.exif_focal_length
+    if payload.exif_iso is not None:
+        photo.exif_iso = payload.exif_iso
+
+    location_parts = [part for part in [photo.city, photo.state, photo.country] if part]
+    if location_parts:
+        photo.location = ", ".join(location_parts)
+
+    await db.commit()
+    await db.refresh(photo)
+
+    try:
+        export_xmp_to_file(photo)
+    except Exception as exc:
+        logger.warning("Failed to export XMP after metadata update: %s", exc)
+
+    return {
+        "id": photo.id,
+        "date_taken": photo.date_taken.isoformat() if photo.date_taken else None,
+        "caption": photo.caption,
+        "city": photo.city,
+        "state": photo.state,
+        "country": photo.country,
+        "location": photo.location,
+        "exif_make": photo.exif_make,
+        "exif_model": photo.exif_model,
+        "exif_focal_length": photo.exif_focal_length,
+        "exif_iso": photo.exif_iso,
+    }
+
+
+@router.get("/{photo_id}/faces")
+async def get_photo_faces(photo_id: int, db: AsyncSession = Depends(get_db)):
+    """Fetch detected face bounding boxes and assigned people for interactive face tagging."""
+    from app.models import Person
+    stmt = select(PhotoPerson).options(selectinload(PhotoPerson.person)).where(PhotoPerson.photo_id == photo_id)
+    res = await db.execute(stmt)
+    photo_people = res.scalars().all()
+    
+    faces = []
+    for pp in photo_people:
+        faces.append({
+            "photo_id": photo_id,
+            "person_id": pp.person_id if pp.person else None,
+            "person_name": pp.person.name if pp.person else "Unknown",
+            "face_box": pp.face_box_json,
+            "confidence": pp.confidence,
+        })
+    return {"faces": faces}
+
+
+class FaceTagRequest(BaseModel):
+    person_name: str
+    face_box: str | None = None  # JSON string e.g. {"x":0.2,"y":0.2,"w":0.3,"h":0.3}
+    person_id: int | None = None
+
+
+@router.post("/{photo_id}/tag-face")
+async def tag_photo_face(
+    photo_id: int,
+    payload: FaceTagRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Assign or rename a person tag on a specific face in a photo."""
+    from app.models import Person
+    photo = await db.get(Photo, photo_id)
+    if not photo:
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    person = None
+    if payload.person_id:
+        person = await db.get(Person, payload.person_id)
+    if not person and payload.person_name.strip():
+        stmt = select(Person).where(Person.name == payload.person_name.strip())
+        res = await db.execute(stmt)
+        person = res.scalar_one_or_none()
+
+    if not person:
+        person = Person(name=payload.person_name.strip() or "Person 1")
+        db.add(person)
+        await db.commit()
+        await db.refresh(person)
+    elif payload.person_name.strip() and person.name != payload.person_name.strip():
+        person.name = payload.person_name.strip()
+        await db.commit()
+
+    stmt_pp = select(PhotoPerson).where(PhotoPerson.photo_id == photo_id, PhotoPerson.person_id == person.id)
+    res_pp = await db.execute(stmt_pp)
+    pp = res_pp.scalar_one_or_none()
+
+    if not pp:
+        pp = PhotoPerson(
+            photo_id=photo_id,
+            person_id=person.id,
+            confidence=1.0,
+            face_box_json=payload.face_box or '{"x":0.25,"y":0.25,"w":0.5,"h":0.5}'
+        )
+        db.add(pp)
+    else:
+        if payload.face_box:
+            pp.face_box_json = payload.face_box
+
+    await db.commit()
+    return {
+        "status": "success",
+        "person_id": person.id,
+        "person_name": person.name,
+        "face_box": pp.face_box_json,
+    }
+

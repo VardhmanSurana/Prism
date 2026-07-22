@@ -10,6 +10,7 @@ from .favorite import router as favorite_router
 from .trash import router as trash_router
 from .ocr import router as ocr_router
 from .xmp import router as xmp_router
+from .export import router as export_router
 
 __all__ = [
     "UploadRequest",
@@ -22,4 +23,5 @@ __all__ = [
     "trash_router",
     "ocr_router",
     "xmp_router",
+    "export_router",
 ]

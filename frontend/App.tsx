@@ -14,6 +14,8 @@ import { API_BASE } from './constants';
 import { apiClient } from '@/services/apiClient';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
 import { useSettingsStore } from './store';
+import { eventService } from '@/services/EventService';
+import { normalizePhoto } from './types';
 import type { ViewMode, Album, Photo } from './types';
 
 const Lightbox = React.lazy(() =>
@@ -91,6 +93,29 @@ function App() {
     }
   }, [currentView, isAgentEnabled, setCurrentView]);
 
+  const handlePhotoLocationUpdate = useCallback((photoId: string | number, next: Partial<Photo>) => {
+    setPhotos(prev => prev.map(photo =>
+      String(photo.id) === String(photoId)
+        ? { ...photo, ...next }
+        : photo
+    ));
+    if (selectedPhoto && String(selectedPhoto.id) === String(photoId)) {
+      setSelectedPhoto({ ...selectedPhoto, ...next });
+    }
+  }, [setPhotos, setSelectedPhoto, selectedPhoto]);
+
+  React.useEffect(() => {
+    const unsubUpdate = eventService.subscribe('update_photo', (data) => {
+      const rawPhoto = data.photo as any;
+      if (rawPhoto) {
+        handlePhotoLocationUpdate(rawPhoto.id, normalizePhoto(rawPhoto));
+      }
+    });
+    return () => {
+      unsubUpdate();
+    };
+  }, [handlePhotoLocationUpdate]);
+
   const handleViewChange = useCallback((v: ViewMode) => {
     setCurrentView(v);
     setActiveFilters(null);
@@ -133,17 +158,6 @@ function App() {
   const handleAuthenticate = useCallback(() => setIsLockedAuthenticated(true), [setIsLockedAuthenticated]);
 
   const handleLightboxClose = useCallback(() => setSelectedPhoto(null), [setSelectedPhoto]);
-
-  const handlePhotoLocationUpdate = useCallback((photoId: string | number, next: Partial<Photo>) => {
-    setPhotos(prev => prev.map(photo =>
-      String(photo.id) === String(photoId)
-        ? { ...photo, ...next }
-        : photo
-    ));
-    if (selectedPhoto && String(selectedPhoto.id) === String(photoId)) {
-      setSelectedPhoto({ ...selectedPhoto, ...next });
-    }
-  }, [setPhotos, setSelectedPhoto, selectedPhoto]);
 
   // Global OS drag-and-drop import (Tauri)
   const dragDrop = useDragDropImport({

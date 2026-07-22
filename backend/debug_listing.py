@@ -3,7 +3,6 @@ from app.db import async_session
 from app.models import Photo
 from sqlalchemy.future import select
 from sqlalchemy import or_, and_
-import os
 
 async def check_listing():
     active_mounts = ["/", "/home", "/boot", "/boot/efi"] # simulation

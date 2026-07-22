@@ -18,6 +18,9 @@ import { ImageDisplay } from './lightbox/ImageDisplay';
 import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
 import { SlideshowControls } from './lightbox/SlideshowControls';
+import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
+import { ComparisonView } from './lightbox/ComparisonView';
+import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
 import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
 
@@ -69,6 +72,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
+  const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
   const unloadInpaintModels = useCallback(() => {
     fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
@@ -239,13 +245,51 @@ export const Lightbox: React.FC<LightboxProps> = ({
     onToggleFavorite?.(photo.id);
   }, [photo.id, onToggleFavorite]);
 
-  // Keyboard: slideshow-aware
+  // Zero-Latency Preloading Strategy: pre-fetch adjacent 3 photos into hidden Image buffers
+  useEffect(() => {
+    if (!photos || photos.length === 0) return;
+    const adjacentIndices = [
+      currentIndex - 3, currentIndex - 2, currentIndex - 1,
+      currentIndex + 1, currentIndex + 2, currentIndex + 3
+    ].filter(idx => idx >= 0 && idx < photos.length);
+
+    adjacentIndices.forEach(idx => {
+      const target = photos[idx];
+      if (target && (target.url || target.id)) {
+        const img = new Image();
+        img.src = target.url || `${API_BASE}/api/v1/photos/${target.id}/file`;
+      }
+    });
+  }, [photos, currentIndex]);
+
+  // Copy Image Blob to OS Clipboard
+  const handleCopyImageToClipboard = useCallback(async () => {
+    try {
+      const imgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || `${API_BASE}/api/v1/photos/${photo.id}/file`;
+      const res = await fetch(imgUrl);
+      const blob = await res.blob();
+      await navigator.clipboard.write([
+        new ClipboardItem({ [blob.type || 'image/png']: blob })
+      ]);
+      alert('Image copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy image to clipboard:', err);
+    }
+  }, [editedPhotoUrl, highRes.currentHighResUrl, photo]);
+
+  // Keyboard: slideshow-aware & shortcut overlay ('?')
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (isEditing || isNLEOpen) return;
 
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      if (e.key === '?') {
+        e.preventDefault();
+        setIsShortcutsOpen(prev => !prev);
+        return;
+      }
 
       // Slideshow mode bindings
       if (slideshowActive) {
@@ -273,6 +317,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
       }
 
       if (e.key === 'Escape') {
+        if (isFaceTaggingActive) {
+          setIsFaceTaggingActive(false);
+          return;
+        }
+        if (isComparisonOpen) {
+          setIsComparisonOpen(false);
+          return;
+        }
         onClose();
       }
       if ((e.key === 's' || e.key === 'S') && canStartSlideshow) {
@@ -290,7 +342,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [
     onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
     slideshowActive, toggleSlideshowPlay, handleStopSlideshow, handleStartSlideshow,
-    canStartSlideshow,
+    canStartSlideshow, isFaceTaggingActive, isComparisonOpen,
   ]);
 
   // Stop slideshow when entering editor
@@ -348,6 +400,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           totalCount={totalCount}
           slideshowActive={slideshowActive}
           canStartSlideshow={canStartSlideshow}
+          faceTaggingActive={isFaceTaggingActive}
           onClose={onClose}
           onSetZoomScale={setZoomScale}
           onResetInteraction={resetInteraction}
@@ -365,12 +418,18 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onRemoveFromAlbum={onRemoveFromAlbum}
           onSetAsCover={onSetAsCover}
           onStartSlideshow={handleStartSlideshow}
+          onToggleFaceTagging={() => setIsFaceTaggingActive(prev => !prev)}
+          onOpenComparison={() => setIsComparisonOpen(true)}
+          onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
+          onCopyImageToClipboard={handleCopyImageToClipboard}
         />
       )}
 
       {/* Main content area */}
       <div className="flex-1 flex overflow-hidden min-h-0 relative">
-        {showInfo && !chromeHidden && <InfoPanel photo={photo} metadata={metadata} />}
+        {showInfo && !chromeHidden && (
+          <InfoPanel photo={photo} metadata={metadata} onMetadataUpdated={fetchMetadata} />
+        )}
 
         <div
           className="flex-1 relative flex items-center justify-center overflow-hidden touch-none group"
@@ -421,6 +480,15 @@ export const Lightbox: React.FC<LightboxProps> = ({
                   kenBurns={useKenBurns}
                 />
               )}
+
+              {/* Face Tagging Overlay */}
+              {isFaceTaggingActive && !isVideo && (
+                <FaceTaggingOverlay
+                  photo={photo}
+                  onClose={() => setIsFaceTaggingActive(false)}
+                  onTagUpdated={fetchMetadata}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
 
@@ -460,6 +528,25 @@ export const Lightbox: React.FC<LightboxProps> = ({
           )}
         </div>
       </div>
+
+      {/* Side-by-Side Comparison Mode Overlay */}
+      {isComparisonOpen && (
+        <ComparisonView
+          currentPhoto={photo}
+          photos={photos}
+          onClose={() => setIsComparisonOpen(false)}
+          onSelectPhoto={(p) => {
+            onPhotoSelect?.(p);
+            setIsComparisonOpen(false);
+          }}
+        />
+      )}
+
+      {/* Keyboard Shortcuts Modal */}
+      <KeyboardShortcutsModal
+        isOpen={isShortcutsOpen}
+        onClose={() => setIsShortcutsOpen(false)}
+      />
 
       {/* Bottom metadata bar — hidden during slideshow */}
       {!chromeHidden && (

@@ -2,6 +2,7 @@ import json
 import logging
 
 from app.agent.llm import LlamaManager
+from app.agent.utils.cache import LRUCache
 
 
 logger = logging.getLogger(__name__)
@@ -10,7 +11,7 @@ logger = logging.getLogger(__name__)
 class Planner:
     def __init__(self, llm_manager: LlamaManager | None = None):
         self.llm_manager = llm_manager or LlamaManager()
-        self._planner_cache = {}
+        self._planner_cache: LRUCache = LRUCache(maxsize=512)
 
     def _parse_json_robustly(self, output_text: str) -> dict:
         text = output_text.strip()
@@ -42,8 +43,16 @@ class Planner:
         if not isinstance(data, dict):
             raise ValueError("Parsed LLM output is not a JSON object")
             
+        raw_intent = str(data.get("intent", "photo_search")).lower()
+        if any(w in raw_intent for w in ["analyze", "analyse", "describe", "inspect", "detail"]):
+            intent = "analyze_photo"
+        elif any(w in raw_intent for w in ["count", "how_many"]):
+            intent = "count_photos"
+        else:
+            intent = "photo_search"
+
         cleaned = {
-            "intent": str(data.get("intent", "photo_search")),
+            "intent": intent,
             "is_locked": False,
             "refine_previous": False,
             "entities": {},
@@ -89,6 +98,16 @@ class Planner:
                 cleaned_entities["time_range"] = None
         else:
             cleaned_entities["time_range"] = None
+
+        pid = raw_entities.get("photo_id") or data.get("photo_id")
+        if pid is not None:
+            try:
+                cleaned_entities["photo_id"] = int(pid)
+                cleaned["intent"] = "analyze_photo"
+            except (ValueError, TypeError):
+                cleaned_entities["photo_id"] = None
+        else:
+            cleaned_entities["photo_id"] = None
             
         cleaned["entities"] = cleaned_entities
 
@@ -97,7 +116,7 @@ class Planner:
             raw_constraints = {}
             
         cleaned_constraints = {}
-        valid_entity_keys = {"people", "locations", "events", "objects", "time_range"}
+        valid_entity_keys = {"people", "locations", "events", "objects", "time_range", "photo_id"}
         for key in ["must_match", "soft_match"]:
             val = raw_constraints.get(key) or []
             if isinstance(val, str):
@@ -136,10 +155,28 @@ class Planner:
 
     def heuristic_fallback(self, message: str) -> dict:
         """Previous keyword-based heuristic parsing used as a robust fallback."""
+        import re
         msg_lower = message.lower()
+
+        photo_id = None
+        id_match = re.search(r'\b(?:id|photo_id|photo|image)\D*(\d+)\b', message, re.IGNORECASE)
+        if not id_match:
+            id_match = re.search(r'\(id:\s*(\d+)\)', message, re.IGNORECASE)
+        if id_match:
+            try:
+                photo_id = int(id_match.group(1))
+            except ValueError:
+                photo_id = None
+
+        analyze_terms = ["analyze", "analyse", "describe", "description", "inspect", "details", "detail", "explain"]
+        is_analyze = any(w in msg_lower for w in analyze_terms)
+        is_count = "how many" in msg_lower or "count" in msg_lower or "total number of" in msg_lower
+
+        intent = "analyze_photo" if (is_analyze or photo_id is not None) else ("count_photos" if is_count else "photo_search")
+
         stop_words = {
             "show", "me", "find", "search", "get", "photos", "photo", "images", "image", "pictures", "picture",
-            "of", "in", "at", "the", "a", "an", "with", "my", "your", "our", "all", "any", "some",
+            "of", "in", "at", "the", "a", "an", "with", "my", "your", "our", "all", "any", "some", "analyze", "analyse", "analysis", "describe", "details", "explain",
         }
         words = msg_lower.split()
         search_terms = [w.strip("?,.!") for w in words if w.strip("?,.!") not in stop_words]
@@ -157,7 +194,7 @@ class Planner:
                 break
 
         return {
-            "intent": "photo_search",
+            "intent": intent,
             "is_locked": is_locked,
             "refine_previous": refine_previous,
             "entities": {
@@ -165,7 +202,8 @@ class Planner:
                 "locations": [search_terms[0]] if search_terms else [],
                 "events": [],
                 "objects": search_terms,
-                "time_range": year
+                "time_range": year,
+                "photo_id": photo_id
             },
             "constraints": {
                 "must_match": ["locations"] if search_terms else [],
@@ -181,9 +219,10 @@ class Planner:
         """Query Planner: Convert natural language query and context into a structured JSON search plan."""
         history_fingerprint = tuple((h.get("role"), h.get("content")) for h in history) if history else ()
         cache_key = (message.strip().lower(), history_fingerprint)
-        if cache_key in self._planner_cache:
+        cached = self._planner_cache.get(cache_key)
+        if cached is not None:
             logger.info(f"Planner cache hit for key: {cache_key}")
-            return self._planner_cache[cache_key]
+            return cached
 
         try:
             llm = self.llm_manager.get_llm()
@@ -307,14 +346,12 @@ class Planner:
             raw_data = self._parse_json_robustly(output_text)
             data = self._validate_and_clean_planner_schema(raw_data)
 
-            if len(self._planner_cache) >= 500:
-                self._planner_cache.clear()
-            self._planner_cache[cache_key] = data
+            self._planner_cache.put(cache_key, data)
             return data
         except Exception as e:
-            logger.error(f"Error during Gemma query planning: {e}. Falling back to heuristics.")
+            logger.info(f"Falling back to heuristic query planner: {e}")
             fallback_plan = self.heuristic_fallback(message)
-            self._planner_cache[cache_key] = fallback_plan
+            self._planner_cache.put(cache_key, fallback_plan)
             return fallback_plan
 
     def verify_photos_match(self, query: str, photos_metadata: list) -> list:
@@ -489,3 +526,122 @@ class Planner:
         except Exception as e:
             logger.error(f"Error during Gemma chat response generation: {e}")
             return f"I found {len(photos)} photo{'s' if len(photos) > 1 else ''} matching your query! Click on any of them to view them in full screen."
+
+    def generate_photo_analysis_response(self, message: str, photo) -> str:
+        """Generate a detailed, insightful analysis of a single photo based on its metadata and user prompt."""
+        try:
+            llm = self.llm_manager.get_llm()
+            
+            details = []
+            details.append(f"Filename: {photo.filename}")
+            details.append(f"Photo ID: {photo.id}")
+            if photo.date_taken:
+                try:
+                    details.append(f"Date Taken: {photo.date_taken.strftime('%B %d, %Y at %I:%M %p')}")
+                except Exception:
+                    details.append(f"Date Taken: {photo.date_taken}")
+            
+            loc_parts = [p for p in [photo.city, photo.state, photo.country] if p]
+            if loc_parts:
+                details.append(f"Location: {', '.join(loc_parts)}")
+            elif photo.location:
+                details.append(f"Location: {photo.location}")
+            if photo.latitude and photo.longitude:
+                details.append(f"GPS Coordinates: ({photo.latitude:.4f}, {photo.longitude:.4f})")
+                
+            exif_parts = []
+            if photo.exif_make or photo.exif_model:
+                exif_parts.append(f"Camera: {' '.join(filter(None, [photo.exif_make, photo.exif_model]))}")
+            if photo.exif_focal_length:
+                exif_parts.append(f"Focal Length: {photo.exif_focal_length}mm")
+            if photo.exif_iso:
+                exif_parts.append(f"ISO: {photo.exif_iso}")
+            if exif_parts:
+                details.append(f"Camera Details: {', '.join(exif_parts)}")
+
+            if photo.width and photo.height:
+                details.append(f"Dimensions: {photo.width}x{photo.height}")
+            if photo.file_size:
+                size_mb = photo.file_size / (1024 * 1024)
+                details.append(f"File Size: {size_mb:.2f} MB")
+            if photo.blur_score:
+                details.append(f"Blur/Sharpness Score: {photo.blur_score:.1f}")
+
+            people_names = []
+            try:
+                if photo.people:
+                    for pp in photo.people:
+                        if pp.person and pp.person.name:
+                            people_names.append(pp.person.name)
+            except Exception:
+                pass
+            if people_names:
+                details.append(f"Identified People: {', '.join(set(people_names))}")
+
+            if photo.caption:
+                details.append(f"Caption: {photo.caption}")
+            if photo.ai_summary:
+                details.append(f"AI Description: {photo.ai_summary}")
+            if photo.ocr_text:
+                details.append(f"OCR Text inside image: {photo.ocr_text}")
+                
+            photo_metadata_str = "\n".join(f"- {d}" for d in details)
+
+            import os
+            # If the photo file exists on disk, use multimodal vision analysis so Gemma can visually see the image!
+            if photo.path and os.path.exists(photo.path):
+                try:
+                    messages = [
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": (
+                                        "You are Prism, a friendly and intelligent local AI photo assistant.\n"
+                                        f"The user asked: \"{message}\"\n\n"
+                                        f"Here is the database metadata for this photo:\n{photo_metadata_str}\n\n"
+                                        "Look at the provided image and describe what you visually see (subjects, colors, scenery, objects, lighting, and composition), "
+                                        "combining your visual observation with the photo's metadata (date, location, camera details, people). "
+                                        "Provide a warm, descriptive response (2-4 sentences)."
+                                    )
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": f"file://{photo.path}"}
+                                }
+                            ]
+                        }
+                    ]
+                    chat_res = self.llm_manager.query_chat_server(messages=messages, max_tokens=350)
+                    content = chat_res["choices"][0]["message"]["content"].strip()
+                    if content:
+                        return content
+                except Exception as ve:
+                    logger.warning(f"Multimodal image vision query failed or not supported, falling back to text prompt: {ve}")
+
+            prompt = (
+                "<start_of_turn>user\n"
+                "You are Prism, a friendly and intelligent local AI photo assistant.\n"
+                f"The user asked: \"{message}\"\n\n"
+                "Here is the complete metadata for the requested photo:\n"
+                f"{photo_metadata_str}\n\n"
+                "Analyze and describe this photo for the user, answering their specific questions about date, location, camera details, people, or image content. "
+                "Keep your response informative, engaging, and clear (2-4 sentences). Do not invent details not present in the metadata.\n"
+                "<end_of_turn>\n"
+                "<start_of_turn>model\n"
+            )
+            res = llm(
+                prompt,
+                max_tokens=250,
+                temperature=0.7,
+                top_p=0.95,
+                top_k=64,
+                stop=["<end_of_turn>"],
+            )
+            return res["choices"][0]["text"].strip()
+        except Exception as e:
+            logger.error(f"Error generating photo analysis response: {e}")
+            loc = f" in {photo.city}" if photo.city else ""
+            date_str = f" taken on {photo.date_taken.strftime('%Y-%m-%d')}" if (photo.date_taken and hasattr(photo.date_taken, 'strftime')) else ""
+            return f"Photo {photo.filename} (ID: {photo.id}){date_str}{loc}. Dimensions: {photo.width}x{photo.height}."

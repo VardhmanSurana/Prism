@@ -1,8 +1,6 @@
 import asyncio
 import pytest
 import pytest_asyncio
-from fastapi import FastAPI
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from app.models import Base
 from app.db import get_db, engine, async_session

@@ -279,4 +279,41 @@ class BackgroundJob(Base):
     photo: Mapped["Photo"] = relationship()
 
 
+class AgentSession(Base):
+    __tablename__ = "agent_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(255), default="New Chat")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    messages: Mapped[list["AgentMessage"]] = relationship(
+        "AgentMessage",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="AgentMessage.id"
+    )
+
+
+class AgentMessage(Base):
+    __tablename__ = "agent_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("agent_sessions.id", ondelete="CASCADE"),
+        index=True
+    )
+    role: Mapped[str] = mapped_column(String(20))  # user | assistant
+    content: Mapped[str] = mapped_column(Text)
+    photos_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    plan_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tools_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    total_candidates: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    # Relationships
+    session: Mapped["AgentSession"] = relationship("AgentSession", back_populates="messages")
+
+
 

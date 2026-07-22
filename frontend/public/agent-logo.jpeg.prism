@@ -1,0 +1,152 @@
+{
+  "brightness": 3,
+  "contrast": 8,
+  "exposure": 0,
+  "highlights": 0,
+  "shadows": 0,
+  "whites": 0,
+  "blacks": 0,
+  "vibrance": 0,
+  "saturation": 0,
+  "hue": 0,
+  "temperature": 0,
+  "tint": 0,
+  "clarity": 10,
+  "sharpness": 20,
+  "noiseReduction": 0,
+  "dehaze": 0,
+  "perspective": 0,
+  "verticalPerspective": 0,
+  "distortion": 0,
+  "ambiance": 0,
+  "curves": {
+    "master": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 255,
+        "y": 255
+      }
+    ],
+    "red": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 255,
+        "y": 255
+      }
+    ],
+    "green": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 255,
+        "y": 255
+      }
+    ],
+    "blue": [
+      {
+        "x": 0,
+        "y": 0
+      },
+      {
+        "x": 255,
+        "y": 255
+      }
+    ]
+  },
+  "vignette": 0,
+  "regions": [],
+  "hsl": {
+    "reds": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "oranges": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "yellows": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "greens": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "aquas": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "blues": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "purples": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    },
+    "pinks": {
+      "hue": 0,
+      "saturation": 0,
+      "luminance": 0
+    }
+  },
+  "splitToning": {
+    "shadows": {
+      "hue": 0,
+      "saturation": 0
+    },
+    "highlights": {
+      "hue": 0,
+      "saturation": 0
+    },
+    "balance": 0
+  },
+  "grain": {
+    "amount": 0,
+    "size": "medium",
+    "colored": false
+  },
+  "lightLeak": {
+    "preset": null,
+    "opacity": 50
+  },
+  "frame": {
+    "style": "none",
+    "color": "#ffffff",
+    "thickness": 5
+  },
+  "blend": {
+    "photoId": null,
+    "blendImageSrc": null,
+    "mode": "screen",
+    "opacity": 50,
+    "fit": "cover"
+  },
+  "tiltShift": {
+    "enabled": false,
+    "mode": "linear",
+    "blurStrength": 30,
+    "focusPosition": 50,
+    "focusWidth": 30
+  },
+  "lut": {
+    "builtinId": null,
+    "customData": null,
+    "opacity": 100
+  }
+}

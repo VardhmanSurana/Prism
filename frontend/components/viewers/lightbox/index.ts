@@ -5,4 +5,7 @@ export * from './PhotoMetadataDisplay';
 export * from './Toolbar';
 export * from './Filmstrip';
 export * from './SlideshowControls';
+export * from './FaceTaggingOverlay';
+export * from './ComparisonView';
+export * from './KeyboardShortcutsModal';
 export * from './types';

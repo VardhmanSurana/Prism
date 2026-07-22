@@ -19,6 +19,7 @@
 ## Table of Contents
 
 - [What Prism Is](#what-prism-is)
+- [Command-Line Interface](#command-line-interface)
 - [Core Features](#core-features)
 - [Technology Stack](#technology-stack)
 - [Architecture](#architecture)
@@ -37,6 +38,18 @@
 - [Acknowledgements](#acknowledgements)
 - [Contact](#contact)
 - [License](#license)
+
+---
+
+## Command-Line Interface
+
+```bash
+prism --help
+```
+
+Prism includes a command-line interface for importing, searching, and managing the photo library without the desktop shell. Supported commands include import, search, stats, XMP sidecar management, people and album listings, background indexing, and running the FastAPI server.
+
+For the full command reference, options, and examples, see **[PRISM_CLI.md](docs/PRISM_CLI.md)**.
 
 ---
 
