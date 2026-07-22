@@ -93,7 +93,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [onNext]);
 
   const {
-    zoomScale, setZoomScale, offset, isDragging, resetInteraction,
+    containerRef, zoomScale, setZoomScale, offset, isDragging, resetInteraction,
     handleDoubleClick, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel
   } = useLightboxGestures({ onNext: handleNext, onPrev: handlePrev });
 
@@ -430,6 +430,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         )}
 
         <div
+          ref={containerRef}
           className="flex-1 relative flex items-center justify-center overflow-hidden touch-none group"
           onDoubleClick={!isVideo && !slideshowActive ? handleDoubleClick : undefined}
           onPointerDown={!isVideo && !slideshowActive ? handlePointerDown : undefined}

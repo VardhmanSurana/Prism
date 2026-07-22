@@ -125,7 +125,9 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   };
 
   const handleWheel = (e: WheelEvent) => {
-    e.preventDefault();
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     const delta = -e.deltaY * 0.001;
     const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomScale * (1 + delta)));
 
@@ -158,7 +160,54 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     }
   };
 
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const target = containerRef.current;
+    if (!target) return;
+
+    const nativeWheel = (e: globalThis.WheelEvent) => {
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+      const delta = -e.deltaY * 0.001;
+      const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom.scale * (1 + delta)));
+
+      if (newScale !== zoom.scale) {
+        if (newScale <= 1.0) {
+          setZoom({
+            scale: 1.0,
+            offsetX: 0,
+            offsetY: 0,
+            mode: 'fit',
+          });
+        } else {
+          const rect = target.getBoundingClientRect();
+          const containerCenterX = rect.left + rect.width / 2;
+          const containerCenterY = rect.top + rect.height / 2;
+          const relX = e.clientX - containerCenterX;
+          const relY = e.clientY - containerCenterY;
+
+          const ratio = newScale / zoom.scale;
+          const newOffsetX = relX - (relX - zoom.offsetX) * ratio;
+          const newOffsetY = relY - (relY - zoom.offsetY) * ratio;
+
+          setZoom({
+            scale: newScale,
+            offsetX: newOffsetX,
+            offsetY: newOffsetY,
+            mode: 'custom',
+          });
+        }
+      }
+    };
+
+    target.addEventListener('wheel', nativeWheel, { passive: false });
+    return () => target.removeEventListener('wheel', nativeWheel);
+  }, [zoom.scale, zoom.offsetX, zoom.offsetY, setZoom]);
+
   return {
+    containerRef,
     zoomScale,
     setZoomScale,
     offset,
