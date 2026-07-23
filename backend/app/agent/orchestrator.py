@@ -3,6 +3,7 @@ import hashlib
 import json
 import numpy as np
 
+import uuid
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
 
@@ -13,6 +14,9 @@ from app.models import Photo, PhotoPerson, Person
 from app.agent.planner import Planner
 from app.agent.search_tools import SearchTools
 from app.agent.utils.cache import LRUCache
+from app.agent.router.classifier import AgentRouter
+from app.agent.router.types import AgentContext, Intent
+from app.agent.executor import ToolExecutionMiddleware
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +27,8 @@ class AgentOrchestrator:
         self.planner = planner
         self.search_tools = search_tools
         self.session_cache: LRUCache = LRUCache(maxsize=64)
+        self.router = AgentRouter(llm_manager=planner.llm_manager)
+        self.executor = ToolExecutionMiddleware(search_tools=search_tools)
 
     def _get_session_key(self, history: list, current_message: str) -> str:
         if not history:
@@ -274,7 +280,7 @@ class AgentOrchestrator:
         session_key = self._get_session_key(history, message)
         logger.info(f"Session key for conversational memory: {session_key}")
 
-        # Get or initialize the session state featuring a conversational refinement filter stack
+        # Get or initialize the session state
         if session_key not in self.session_cache:
             base_query = history[0].get("content", message) if history else message
             self.session_cache[session_key] = {
@@ -283,536 +289,245 @@ class AgentOrchestrator:
                 "photo_ids": set()
             }
 
-        for attempt in range(1, 4):
-            # Yield progress state: planning
+        # Stage 1: Router Classification
+        yield {
+            "type": "progress",
+            "state": "routing",
+            "detail": "Classifying intent and analyzing tool requirements..."
+        }
+
+        route_decision = self.router.route_request(message, history=history)
+
+        # Emit routing telemetry logs
+        telemetry = {
+            "request_id": str(uuid.uuid4()),
+            "intent": route_decision.intent.value,
+            "confidence": route_decision.confidence,
+            "needs_tools": route_decision.needs_tools,
+            "allowed_tools": route_decision.selected_tool_names,
+            "rationale": route_decision.rationale
+        }
+        logger.info(f"Routing Telemetry: {json.dumps(telemetry)}")
+
+        import re
+        id_match = re.search(r'\b(?:id|photo_id|photo|image)\D*(\d+)\b', message, re.IGNORECASE)
+        if not id_match:
+            id_match = re.search(r'\(id:\s*(\d+)\)', message, re.IGNORECASE)
+
+        photo_id_param = None
+        if id_match:
+            try:
+                photo_id_param = int(id_match.group(1))
+            except ValueError:
+                pass
+
+        is_analyze_intent = route_decision.intent == Intent.PHOTO_METADATA or "analyze" in message.lower()
+
+        # Context resolution: If no photo_id in query, check session_cache or fallback to latest photo in library
+        if is_analyze_intent and not photo_id_param:
+            cached_ids = self.session_cache.get(session_key, {}).get("photo_ids")
+            if cached_ids:
+                photo_id_param = next(iter(cached_ids), None)
+
+        if is_analyze_intent and not photo_id_param:
+            async with async_session() as db:
+                stmt = (
+                    select(Photo.id)
+                    .where(Photo.is_trash == False, Photo.is_locked == False) # Default to false for lock state if unspecified
+                    .order_by(Photo.date_taken.desc(), Photo.id.desc())
+                    .limit(1)
+                )
+                res = await db.execute(stmt)
+                latest_id = res.scalar_one_or_none()
+                if latest_id:
+                    photo_id_param = latest_id
+
+        if is_analyze_intent:
             yield {
                 "type": "progress",
-                "state": "planning",
-                "detail": f"Formulating search strategy (attempt {attempt}/3)..."
-            }
-            
-            logger.info(f"Starting agent query planner attempt {attempt}/3")
-            if attempt == 1:
-                plan = self.planner.extract_search_parameters(message, history=history)
-            else:
-                plan = self.planner.reformulate_search(message, last_plan, history=history)
-
-            # Redundancy guard: if reformulation produces an equivalent plan, stop early.
-            if attempt > 1:
-                prev_plan = last_plan or {}
-                prev_signature = {
-                    "entities": prev_plan.get("entities") or {},
-                    "constraints": prev_plan.get("constraints") or {},
-                    "ranking": prev_plan.get("ranking") or {},
-                    "is_locked": prev_plan.get("is_locked") or False,
-                }
-                curr_signature = {
-                    "entities": plan.get("entities") or {},
-                    "constraints": plan.get("constraints") or {},
-                    "ranking": plan.get("ranking") or {},
-                    "is_locked": plan.get("is_locked") or False,
-                }
-
-                if prev_signature == curr_signature:
-                    logger.info(
-                        f"Attempt {attempt} produced a redundant search plan; stopping early to avoid repeated identical work."
-                    )
-                    break
-
-            last_plan = plan
-            logger.info(f"Attempt {attempt} search plan: {plan}")
-
-            # Yield plan details
-            yield {
-                "type": "progress",
-                "state": "planning",
-                "detail": "Search strategy formulated.",
-                "plan": plan
+                "state": "analyzing_photo",
+                "detail": f"Inspecting metadata & details for photo #{photo_id_param}..." if photo_id_param else "Analyzing photo details...",
             }
 
-            intent = plan.get("intent") or "photo_search"
-            is_locked = plan.get("is_locked") or False
-            entities = plan.get("entities") or {}
-            photo_id_param = entities.get("photo_id")
-
-            analyze_terms = ["analyze", "analyse", "describe", "description", "inspect", "detail", "details", "metadata", "explain"]
-            is_analyze_intent = (intent == "analyze_photo") or any(w in message.lower() for w in analyze_terms)
-
-            if not photo_id_param:
-                import re
-                id_match = re.search(r'\b(?:id|photo_id|photo|image)\D*(\d+)\b', message, re.IGNORECASE)
-                if not id_match:
-                    id_match = re.search(r'\(id:\s*(\d+)\)', message, re.IGNORECASE)
-                if id_match:
-                    try:
-                        photo_id_param = int(id_match.group(1))
-                    except ValueError:
-                        photo_id_param = None
-
-            # Context resolution: If no photo_id in query, check session_cache or fallback to latest photo in library
-            if is_analyze_intent and not photo_id_param:
-                cached_ids = self.session_cache.get(session_key, {}).get("photo_ids")
-                if cached_ids:
-                    photo_id_param = next(iter(cached_ids), None)
-
-            if is_analyze_intent and not photo_id_param:
+            target_photo = None
+            if photo_id_param:
                 async with async_session() as db:
-                    stmt = (
-                        select(Photo.id)
-                        .where(Photo.is_trash == False, Photo.is_locked == is_locked)
-                        .order_by(Photo.date_taken.desc(), Photo.id.desc())
-                        .limit(1)
+                    stmt = select(Photo).where(Photo.id == photo_id_param).options(
+                        selectinload(Photo.people).selectinload(PhotoPerson.person)
                     )
                     res = await db.execute(stmt)
-                    latest_id = res.scalar_one_or_none()
-                    if latest_id:
-                        photo_id_param = latest_id
+                    target_photo = res.scalar_one_or_none()
 
-            if is_analyze_intent:
+            if target_photo:
+                analysis_text = self.planner.generate_photo_analysis_response(message, target_photo)
+                pd = photo_to_dict(target_photo)
+                pd["search_explanation"] = {"score": 1.0, "matched": ["Photo ID Match", "Metadata Analysis"]}
+
                 yield {
                     "type": "progress",
-                    "state": "analyzing_photo",
-                    "detail": f"Inspecting metadata & details for photo #{photo_id_param}..." if photo_id_param else "Analyzing photo details...",
-                    "plan": plan
+                    "state": "generating_response",
+                    "detail": "Formulating analysis response...",
                 }
 
-                target_photo = None
-                if photo_id_param:
-                    async with async_session() as db:
-                        stmt = select(Photo).where(Photo.id == photo_id_param).options(
-                            selectinload(Photo.people).selectinload(PhotoPerson.person)
-                        )
-                        res = await db.execute(stmt)
-                        target_photo = res.scalar_one_or_none()
+                yield {
+                    "type": "result",
+                    "text": analysis_text,
+                    "photos": [pd]
+                }
+                return
+            else:
+                yield {
+                    "type": "result",
+                    "text": "To analyze or describe a photo, please select **'✨ Ask AI About Photo'** on an image in your gallery, upload an image using the **'Upload Image'** button below, or specify a photo ID (e.g., *'Analyze photo 12'*).",
+                    "photos": []
+                }
+                return
 
-                if target_photo:
-                    analysis_text = self.planner.generate_photo_analysis_response(message, target_photo)
-                    pd = photo_to_dict(target_photo)
-                    pd["search_explanation"] = {"score": 1.0, "matched": ["Photo ID Match", "Metadata Analysis"]}
+        # Initialize Agent Context
+        agent_context = AgentContext(
+            request_id=telemetry["request_id"],
+            intent=route_decision.intent,
+            allowed_tool_names=set(route_decision.selected_tool_names),
+            tool_calls_used=0,
+            max_tool_calls=route_decision.max_steps,
+            confirmed_actions=set(),
+            known_asset_ids=set(),
+            cancellation_token=None,
+            route=route_decision
+        )
 
-                    yield {
-                        "type": "progress",
-                        "state": "generating_response",
-                        "detail": "Formulating analysis response...",
-                        "plan": plan
-                    }
-
-                    yield {
-                        "type": "result",
-                        "text": analysis_text,
-                        "photos": [pd]
-                    }
-                    return
-                else:
-                    yield {
-                        "type": "result",
-                        "text": "To analyze or describe a photo, please select **'✨ Ask AI About Photo'** on an image in your gallery, upload an image using the **'Upload Image'** button below, or specify a photo ID (e.g., *'Analyze photo 12'*).",
-                        "photos": []
-                    }
-                    return
-            constraints = plan.get("constraints") or {}
-            ranking = plan.get("ranking") or {}
-
-            is_locked = plan.get("is_locked") or False
-            prefer_favorites = ranking.get("prefer_favorites") or False
-            prefer_recent = ranking.get("prefer_recent") or True
-            must_match = constraints.get("must_match") or []
-            refine_previous = plan.get("refine_previous") or False
-
-            # Parse time range year and month
-            time_range = entities.get("time_range")
-            year_param = None
-            month_param = None
-            if time_range is not None:
-                import re
-                if isinstance(time_range, (int, float)):
-                    year_param = int(time_range)
-                elif isinstance(time_range, str):
-                    time_range_str = time_range.strip().lower()
-                    if time_range_str.isdigit():
-                        year_param = int(time_range_str)
-                    else:
-                        months = {
-                            "january": 1, "jan": 1,
-                            "february": 2, "feb": 2,
-                            "march": 3, "mar": 3,
-                            "april": 4, "apr": 4,
-                            "may": 5,
-                            "june": 6, "jun": 6,
-                            "july": 7, "jul": 7,
-                            "august": 8, "aug": 8,
-                            "september": 9, "sep": 9, "sept": 9,
-                            "october": 10, "oct": 10,
-                            "november": 11, "nov": 11,
-                            "december": 12, "dec": 12
-                        }
-                        for m_name, m_val in months.items():
-                            if re.search(r'\b' + re.escape(m_name) + r'\b', time_range_str):
-                                month_param = m_val
-                                break
-                        year_match = re.search(r'\b(20\d{2}|19\d{2})\b', time_range_str)
-                        if year_match:
-                            year_param = int(year_match.group(1))
-
-            raw_limit = plan.get("limit") or 30
+        # Gate 1: Direct Response without Tools
+        if not route_decision.needs_tools:
+            yield {
+                "type": "progress",
+                "state": "generating_response",
+                "detail": "Generating direct response...",
+            }
             try:
-                query_limit = int(raw_limit)
-                if query_limit <= 0:
-                    query_limit = 30
-            except (ValueError, TypeError):
-                query_limit = 30
+                llm = self.planner.llm_manager.get_llm()
+                prompt = (
+                    "<start_of_turn>user\n"
+                    f"You are Prism, a helpful local AI photo assistant.\nUser asked: \"{message}\"\n"
+                    "Provide a warm, concise conversational response.\n<end_of_turn>\n<start_of_turn>model\n"
+                )
+                res = llm(prompt, max_tokens=150, temperature=0.7, stop=["<end_of_turn>"])
+                text = res["choices"][0]["text"].strip()
+                yield {"type": "result", "text": text, "photos": []}
+                return
+            except Exception as e:
+                logger.error(f"Error generating direct response: {e}")
+                yield {"type": "result", "text": "I'm here to help with your photos. How can I assist?", "photos": []}
+                return
 
-            executed_tools = []
+        # Stage 2: Planning with restricted tools
+        executed_tools = []
+        combined_ids = set()
 
-            # Yield progress state: running tools
+        for attempt in range(1, 4):
+            yield {
+                "type": "progress",
+                "state": "planning",
+                "detail": f"Formulating constrained search strategy (attempt {attempt}/3)..."
+            }
+
+            if attempt == 1:
+                plan = self.planner.extract_search_parameters(
+                    message,
+                    allowed_tools=route_decision.selected_tool_names,
+                    max_steps=route_decision.max_steps,
+                    history=history
+                )
+            else:
+                plan = self.planner.reformulate_search(
+                    message,
+                    last_plan,
+                    allowed_tools=route_decision.selected_tool_names,
+                    max_steps=route_decision.max_steps,
+                    history=history
+                )
+
+            # Redundancy check across attempts
+            if attempt > 1 and plan.get("steps") == last_plan.get("steps"):
+                logger.info("Redundant plan formulation; stopping early.")
+                break
+
+            last_plan = plan
+            steps = plan.get("steps") or []
+
+            if not steps:
+                logger.info("Planner returned empty step plan.")
+                continue
+
             yield {
                 "type": "progress",
                 "state": "running_tools",
-                "detail": "Scanning indexes dynamically...",
+                "detail": f"Executing {len(steps)} plan steps via middleware...",
                 "plan": plan,
                 "tools": list(executed_tools)
             }
 
+            soft_results = []
+            strict_results = []
+
             async with async_session() as db:
-                strict_results = []
-                soft_results = []
+                for step in steps:
+                    tool_name = step.get("tool_name")
+                    arguments = step.get("arguments") or {}
 
-                # 1. Metadata Search
-                locations = entities.get("locations") or []
-                if locations or year_param or month_param or prefer_favorites:
-                    location_val = locations[0] if locations else None
                     try:
-                        res_set = await self.search_tools.search_metadata(
-                            db,
-                            location=location_val,
-                            favorites=prefer_favorites,
-                            year=year_param,
-                            month=month_param,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_metadata returned {len(res_set)} IDs.")
+                        res_ids = await self.executor.execute_tool(db, tool_name, arguments, agent_context)
+                        res_set = set(res_ids)
                         
                         executed_tools.append({
-                            "name": "search_metadata",
-                            "params": {
-                                "location": location_val,
-                                "favorites": prefer_favorites,
-                                "year": year_param,
-                                "month": month_param,
-                                "is_locked": is_locked
-                            },
+                            "name": tool_name,
+                            "params": arguments,
                             "count": len(res_set)
                         })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning metadata indexes...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        is_strict = False
-                        if "locations" in must_match and locations:
-                            is_strict = True
-                        if "time_range" in must_match and (year_param or month_param):
-                            is_strict = True
-                            
-                        if is_strict:
+                        
+                        # Apply naive strict/soft constraint classification based on tool types
+                        # In the new architecture, we treat metadata/people as strict if they filter heavily,
+                        # and text/visual scans as soft union.
+                        if tool_name in ["search_metadata", "search_people"]:
                             strict_results.append(res_set)
                         else:
                             soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_metadata: {err}")
 
-                # 2. People Search
-                people = entities.get("people") or []
-                if people:
-                    try:
-                        res_set = await self.search_tools.search_people(
-                            db,
-                            names=people,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_people returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "search_people",
-                            "params": {
-                                "names": people,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning identified faces...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        if "people" in must_match:
-                            strict_results.append(res_set)
-                        else:
-                            soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_people: {err}")
-
-                # 3. Soft text-based searches
-                events = entities.get("events") or []
-                objects = entities.get("objects") or []
-                text_query_parts = events + objects
-                if not text_query_parts and not locations:
-                    text_query = message
-                else:
-                    text_query = " ".join(text_query_parts + locations)
-
-                if text_query:
-                    # search_events
-                    try:
-                        res_set = await self.search_tools.search_events(
-                            db,
-                            query=text_query,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_events returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "search_events",
-                            "params": {
-                                "query": text_query,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning events and dates...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_events: {err}")
-
-                    # search_captions
-                    try:
-                        res_set = await self.search_tools.search_captions(
-                            db,
-                            query=text_query,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_captions returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "search_captions",
-                            "params": {
-                                "query": text_query,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning captions database...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_captions: {err}")
-
-                    # semantic_search
-                    try:
-                        res_set = await self.search_tools.semantic_search(
-                            db,
-                            text_query=text_query,
-                            top_k=query_limit,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool semantic_search returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "semantic_search",
-                            "params": {
-                                "query": text_query,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Performing AI visual search...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running semantic_search: {err}")
-
-                    # search_albums
-                    try:
-                        res_set = await self.search_tools.search_albums(
-                            db,
-                            query=text_query,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_albums returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "search_albums",
-                            "params": {
-                                "query": text_query,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning albums...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_albums: {err}")
-
-                    # search_ocr
-                    try:
-                        res_set = await self.search_tools.search_ocr(
-                            db,
-                            query=text_query,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool search_ocr returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "search_ocr",
-                            "params": {
-                                "query": text_query,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Scanning OCR text in images...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running search_ocr: {err}")
-
-                # 4. Similar image search
-                photo_id_param = entities.get("photo_id") or plan.get("filters", {}).get("photo_id")
-                if photo_id_param:
-                    try:
-                        res_set = await self.search_tools.similar_image(
-                            db,
-                            photo_id=photo_id_param,
-                            top_k=query_limit,
-                            is_locked=is_locked,
-                        )
-                        logger.info(f"Tool similar_image returned {len(res_set)} IDs.")
-                        
-                        executed_tools.append({
-                            "name": "similar_image",
-                            "params": {
-                                "photo_id": photo_id_param,
-                                "is_locked": is_locked
-                            },
-                            "count": len(res_set)
-                        })
-                        yield {
-                            "type": "progress",
-                            "state": "running_tools",
-                            "detail": "Finding visually similar images...",
-                            "plan": plan,
-                            "tools": list(executed_tools)
-                        }
-
-                        soft_results.append(res_set)
-                    except Exception as err:
-                        logger.error(f"Error running similar_image: {err}")
+                    except Exception as tool_err:
+                        logger.error(f"Tool {tool_name} failed: {tool_err}")
 
                 strict_ids = None
                 if strict_results:
                     strict_ids = set.intersection(*strict_results)
-                    logger.info(f"Intersection of strict tools: {len(strict_ids)} IDs.")
 
                 soft_ids = None
                 if soft_results:
                     soft_ids = set.union(*soft_results)
-                    logger.info(f"Union of soft tools: {len(soft_ids)} IDs.")
 
-                combined_ids = set()
-                combination_mode = "none"
                 if strict_ids is not None and soft_ids is not None:
                     combined_ids = strict_ids.intersection(soft_ids)
-                    combination_mode = "strict_intersection_with_soft_union"
                     if not combined_ids:
                         combined_ids = strict_ids
-                        combination_mode = "fallback_to_strict_only"
                 elif strict_ids is not None:
                     combined_ids = strict_ids
-                    combination_mode = "strict_only"
                 elif soft_ids is not None:
                     combined_ids = soft_ids
-                    combination_mode = "soft_only"
-
-                logger.info(f"Initial combined IDs count: {len(combined_ids)} (mode: {combination_mode})")
-
-                # Apply conversational memory refinement if applicable using the session filter stack
-                if refine_previous and session_key in self.session_cache:
-                    session_state = self.session_cache[session_key]
-                    last_photo_ids = session_state.get("photo_ids")
-                    
-                    if message not in session_state["filters"]:
-                        session_state["filters"].append(message)
-                        
-                    logger.info(f"Refining search. Current stack: base='{session_state['base_query']}', filters={session_state['filters']}")
-                    
-                    if last_photo_ids:
-                        if combined_ids:
-                            combined_ids = combined_ids.intersection(last_photo_ids)
-                        else:
-                            combined_ids = last_photo_ids
-                        logger.info(f"After refinement intersection: {len(combined_ids)} IDs.")
 
                 yield {
                     "type": "progress",
                     "state": "running_tools",
-                    "detail": f"Fused results (Mode: {combination_mode}). Total: {len(combined_ids)} candidates.",
+                    "detail": f"Fused tool results. Total candidates: {len(combined_ids)}",
                     "plan": plan,
                     "tools": list(executed_tools),
                     "total_candidates": len(combined_ids)
                 }
 
                 if combined_ids:
-                    if prefer_recent:
-                        order_clause = Photo.date_taken.desc()
-                    else:
-                        order_clause = Photo.date_taken.asc()
-
-                    # Query up to 100 candidate photos loading people associations to prevent N+1 queries in local reranker
                     stmt = select(Photo).where(
                         Photo.id.in_(combined_ids),
-                        Photo.is_trash == False,
-                        Photo.is_locked == (True if is_locked else False),
+                        Photo.is_trash == False
                     ).options(
                         selectinload(Photo.people).selectinload(PhotoPerson.person)
-                    ).order_by(order_clause).limit(max(query_limit, 100))
+                    ).order_by(Photo.date_taken.desc()).limit(100)
 
                     res = await db.execute(stmt)
                     candidate_photos = res.scalars().all()
@@ -823,35 +538,26 @@ class AgentOrchestrator:
                 logger.info(f"No candidate photos found in database for attempt {attempt}. Continuing loop.")
                 continue
 
-            # Yield progress state: reranking/verifying
             yield {
                 "type": "progress",
                 "state": "verifying",
-                "detail": f"Reranking {len(candidate_photos)} candidate photos using local neural scorer...",
+                "detail": f"Reranking {len(candidate_photos)} candidate photos...",
                 "plan": plan,
                 "tools": list(executed_tools),
                 "total_candidates": len(combined_ids)
             }
 
-            logger.info(f"Database returned {len(candidate_photos)} candidate photos. Reranking...")
             ranked_photos = self.rerank_and_explain(message, candidate_photos, plan)
-            
-            # Slice top 10 as verified photos
             verified_photos = ranked_photos[:10]
-            logger.info(f"Reranking chose top {len(verified_photos)} photos.")
 
             if verified_photos:
-                logger.info(f"Found {len(verified_photos)} verified photo matches on attempt {attempt}. Ending loop.")
                 break
-            else:
-                logger.info(f"Attempt {attempt} reranking returned no matches. Continuing loop.")
 
-        # Yield progress state: generating response
         yield {
             "type": "progress",
             "state": "generating_response",
-            "detail": "Summarizing search outcomes...",
-            "plan": plan,
+            "detail": "Summarizing outcomes...",
+            "plan": last_plan,
             "tools": list(executed_tools),
             "total_candidates": len(combined_ids)
         }
@@ -861,6 +567,11 @@ class AgentOrchestrator:
             final_ids = {p.id for p in verified_photos}
             if session_key in self.session_cache:
                 self.session_cache[session_key]["photo_ids"] = final_ids
+
+                # We do not have refine_previous from planner schema anymore, so we simulate it by unconditionally storing the filter context
+                if message not in self.session_cache[session_key]["filters"]:
+                    self.session_cache[session_key]["filters"].append(message)
+
                 logger.info(
                     f"Saved {len(final_ids)} photo IDs to session cache for key: {session_key}. "
                     f"Current filters: {self.session_cache[session_key]['filters']}"
@@ -873,7 +584,7 @@ class AgentOrchestrator:
                 pd["search_explanation"] = getattr(p, "search_explanation", {"score": 0.0, "matched": []})
                 photo_dicts.append(pd)
         else:
-            response_text = f'I\'m sorry, but I couldn\'t find any photos matching "{message}," so please try searching for a different memory!'
+            response_text = f'I\'m sorry, but I couldn\'t find any photos matching "{message}".'
             photo_dicts = []
 
         yield {

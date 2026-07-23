@@ -81,7 +81,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
 
         {/* Sessions List */}
         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-          {sessions.length > 0 ? (
+          {sessions && sessions.length > 0 ? (
             sessions.map((session) => {
               const isActive = session.id === activeSessionId;
               const isEditing = editingId === session.id;

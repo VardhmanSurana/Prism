@@ -215,10 +215,11 @@ class Planner:
             }
         }
 
-    def extract_search_parameters(self, message: str, history: list = None) -> dict:
+    def extract_search_parameters(self, message: str, allowed_tools: list[str] = None, max_steps: int = 5, history: list = None) -> dict:
         """Query Planner: Convert natural language query and context into a structured JSON search plan."""
+        allowed_tools = allowed_tools or []
         history_fingerprint = tuple((h.get("role"), h.get("content")) for h in history) if history else ()
-        cache_key = (message.strip().lower(), history_fingerprint)
+        cache_key = (message.strip().lower(), history_fingerprint, tuple(allowed_tools))
         cached = self._planner_cache.get(cache_key)
         if cached is not None:
             logger.info(f"Planner cache hit for key: {cache_key}")
@@ -240,26 +241,19 @@ class Planner:
                 "You are the query planner assistant for Prism Photos. Your job is to convert the user's request into a structured JSON query plan.\n"
                 "Resolve any reference pronouns using the conversation history context and place resolved values in the entities.\n\n"
                 f"{history_context}"
+                f"Allowed tools: {', '.join(allowed_tools)}\n"
+                f"Maximum steps allowed: {max_steps}\n\n"
                 "Output JSON schema:\n"
                 "{\n"
-                "  \"intent\": \"photo_search\",\n"
-                "  \"is_locked\": boolean,\n"
-                "  \"refine_previous\": boolean (true if this request is a refinement/filter on the previous search results like 'only those with Rahul' or 'now show sunset shots'),\n"
-                "  \"entities\": {\n"
-                "    \"people\": [string] (names of people to search),\n"
-                "    \"locations\": [string] (places, cities, countries),\n"
-                "    \"events\": [string] (activities, holidays, occasions),\n"
-                "    \"objects\": [string] (objects, animals, elements like sunset, beach, car, dog),\n"
-                "    \"time_range\": string or integer or null (specific year, month, or relative date description)\n"
-                "  },\n"
-                "  \"constraints\": {\n"
-                "    \"must_match\": [string] (list of entity types that must strictly match, chosen from 'people', 'locations', 'time_range'),\n"
-                "    \"soft_match\": [string] (list of entity types that can match softly, chosen from 'events', 'objects')\n"
-                "  },\n"
-                "  \"ranking\": {\n"
-                "    \"prefer_favorites\": boolean,\n"
-                "    \"prefer_recent\": boolean (true for newest first, false for oldest/first photos)\n"
-                "  }\n"
+                "  \"steps\": [\n"
+                "    {\n"
+                "      \"tool_name\": \"string\",\n"
+                "      \"arguments\": { \"key\": \"value\" },\n"
+                "      \"depends_on\": [0],\n"
+                "      \"purpose\": \"string\"\n"
+                "    }\n"
+                "  ],\n"
+                "  \"final_response_mode\": \"answer\" | \"action_result\" | \"clarification\"\n"
                 "}\n\n"
                 "Examples:\n"
                 "User: Show family trips to Goa during sunset.\n"
@@ -403,8 +397,9 @@ class Planner:
             logger.error(f"Error during Gemma photo verification: {e}. Defaulting to allowing all matches.")
             return [p.id for p in photos_metadata]
 
-    def reformulate_search(self, query: str, previous_plan: dict, history: list = None) -> dict:
+    def reformulate_search(self, query: str, previous_plan: dict, allowed_tools: list[str] = None, max_steps: int = 5, history: list = None) -> dict:
         """Reformulate search plan using Gemma to try finding matches with synonyms or broader terms."""
+        allowed_tools = allowed_tools or []
         try:
             llm = self.llm_manager.get_llm()
             history_context = ""
@@ -422,26 +417,19 @@ class Planner:
                 f"We previously executed search plan: {json.dumps(previous_plan)} but found no matching images.\n"
                 f"{history_context}"
                 "Please reformulate the search plan using broader constraints, broader entities, or synonyms to locate the user's photos.\n"
+                f"Allowed tools: {', '.join(allowed_tools)}\n"
+                f"Maximum steps allowed: {max_steps}\n\n"
                 "You must output ONLY a valid raw JSON object matching the planner schema. Do not include explanations or markdown wrappers:\n"
                 "{\n"
-                "  \"intent\": \"photo_search\",\n"
-                "  \"is_locked\": boolean,\n"
-                "  \"refine_previous\": boolean,\n"
-                "  \"entities\": {\n"
-                "    \"people\": [string],\n"
-                "    \"locations\": [string],\n"
-                "    \"events\": [string],\n"
-                "    \"objects\": [string],\n"
-                "    \"time_range\": string or integer or null\n"
-                "  },\n"
-                "  \"constraints\": {\n"
-                "    \"must_match\": [string],\n"
-                "    \"soft_match\": [string]\n"
-                "  },\n"
-                "  \"ranking\": {\n"
-                "    \"prefer_favorites\": boolean,\n"
-                "    \"prefer_recent\": boolean\n"
-                "  }\n"
+                "  \"steps\": [\n"
+                "    {\n"
+                "      \"tool_name\": \"string\",\n"
+                "      \"arguments\": { \"key\": \"value\" },\n"
+                "      \"depends_on\": [0],\n"
+                "      \"purpose\": \"string\"\n"
+                "    }\n"
+                "  ],\n"
+                "  \"final_response_mode\": \"answer\" | \"action_result\" | \"clarification\"\n"
                 "}\n"
                 "<end_of_turn>\n"
                 "<start_of_turn>model\n"
