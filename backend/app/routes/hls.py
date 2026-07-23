@@ -199,6 +199,7 @@ async def serve_hls_segment(path: str, index: int, request: Request):
         for the same segment grab the existing asyncio.Event and await it.
       - Different segment indices for the same file encode in parallel.
     """
+    t_request = time.perf_counter()
     decoded_path = urllib.parse.unquote(path)
     try:
         resolved_path = safe_resolve_read(decoded_path)
@@ -216,7 +217,7 @@ async def serve_hls_segment(path: str, index: int, request: Request):
     # ── Fast path: segment already on disk ──────────────────────────────────
     if seg.exists() and seg.stat().st_size > 0:
         llogger.debug(f"[HLS] Cache hit: {resolved_path.name} seg={index}")
-        return _serve_seg_file(seg, request, cors)
+        return _serve_seg_file(seg, request, cors, t_request=t_request)
 
     # ── Acquire per-file lock to check/set in-progress state atomically ─────
     if h not in _seg_locks:
@@ -225,7 +226,7 @@ async def serve_hls_segment(path: str, index: int, request: Request):
     async with _seg_locks[h]:
         # Re-check under lock — may have been written while we waited
         if seg.exists() and seg.stat().st_size > 0:
-            return _serve_seg_file(seg, request, cors)
+            return _serve_seg_file(seg, request, cors, t_request=t_request)
 
         segs = _seg_in_progress.setdefault(h, {})
         if index in segs:
@@ -253,22 +254,30 @@ async def serve_hls_segment(path: str, index: int, request: Request):
         )
         raise HTTPException(status_code=500, detail="Segment transcoding failed")
 
-    return _serve_seg_file(seg, request, cors)
+    return _serve_seg_file(seg, request, cors, t_request=t_request)
 
 
-def _serve_seg_file(seg: Path, request: Request, cors: dict):
+def _serve_seg_file(seg: Path, request: Request, cors: dict, t_request: float | None = None):
     """Serve a cached .ts segment with range-request support."""
     file_size = seg.stat().st_size
     range_header = request.headers.get("range")
     parsed = _parse_range(range_header, file_size)
     if parsed:
         start, end = parsed
-        return _serve_range(seg, start, end, "video/mp2t", cors)
+        return _serve_range(seg, start, end, "video/mp2t", cors, t_request=t_request)
+
+    if t_request is not None:
+        elapsed_ms = (time.perf_counter() - t_request) * 1000
+        llogger.info(
+            f"[TIMER] [HLS] Request received → First stream byte sent: {elapsed_ms:.2f} ms | seg={seg.name}"
+        )
+
     return FileResponse(
         str(seg),
         media_type="video/mp2t",
         headers={"Accept-Ranges": "bytes", **cors},
     )
+
 
 
 # ── Segment encoder ────────────────────────────────────────────────────────────
@@ -426,6 +435,12 @@ async def _encode_segment(
         *video_args,
         "-vf", vf,
         "-metadata:s:v:0", "rotate=0",
+        # Strip any H.264 display-orientation SEI from the bitstream.
+        # hls.js reads this SEI when remuxing TS → fMP4 for Chrome's MSE and
+        # writes it into the tkhd matrix; Chrome then auto-rotates the already-
+        # corrected pixels, causing a double-rotation (upside-down in browser).
+        # Removing the SEI ensures Chrome receives raw, correctly-oriented frames.
+        "-bsf:v", "h264_metadata=display_orientation=remove",
         "-colorspace", "bt709",
         "-color_primaries", "bt709",
         "-color_trc", "bt709",

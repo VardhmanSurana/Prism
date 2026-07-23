@@ -149,9 +149,17 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const supported = ['aac', 'mp3', 'opus', 'vorbis', 'flac', 'wav'];
     return !supported.includes(lowerAudio);
   }, [photo.audio_codec]);
+  const isUnsupportedPixFmt = useMemo(() => {
+
+    if (!photo.pix_fmt) return false;
+    const p = photo.pix_fmt.toLowerCase();
+    return p.includes('j') || p.includes('10') || p.includes('12') || p.includes('422') || p.includes('444');
+  }, [photo.pix_fmt]);
+  const hasRotation = photo.rotation !== undefined && photo.rotation !== 0;
   const needsTranscodeImmediately = isHevc || isUnsupportedCodec || isNonStandardContainer
-    || isUnsupportedAudio
+    || isUnsupportedAudio || isUnsupportedPixFmt || hasRotation
     || (photo.width >= 3840 || photo.height >= 3840);
+
 
   const [state, dispatch] = useReducer(playerReducer, initialState);
   const [dragPct, setDragPct] = useState<number | null>(null);
@@ -185,9 +193,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       : state.duration > 0
       ? (state.currentTime / state.duration) * 100
       : 0;
+  // HTML5 <video> elements in modern browsers natively auto-rotate videos according
+  // to MP4 display matrix metadata. Transcoded/HLS videos have rotation baked into
+  // frames by FFmpeg. Applying photo.rotation via CSS transform causes double rotation
+  // (video displayed sideways/upside down). CSS transform is strictly for manual user rotation.
   const effectiveRotation = manualRotation % 360;
   const isQuarterTurn = effectiveRotation === 90 || effectiveRotation === 270;
-  const videoTransform = `rotate(${effectiveRotation}deg)`;
+  const videoTransform = effectiveRotation !== 0 ? `rotate(${effectiveRotation}deg)` : undefined;
   const videoStyle = {
     transform: videoTransform,
     maxWidth: isQuarterTurn ? '100vh' : '100%',
@@ -257,8 +269,9 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [state.isPlaying, scheduleHide]);
   useEffect(() => {
     if (state.loadState === 'loading') {
-      const ms = extendedTimeoutRef.current ? 90_000 : 15_000;
+      const ms = extendedTimeoutRef.current ? 90_000 : 3_500;
       loadingTimeoutRef.current = setTimeout(() => {
+        console.warn(`[VideoPlayer] Initial load timeout (${ms}ms) — falling back to transcode`);
         handlePlaybackFailureRef.current?.();
       }, ms);
     }
@@ -267,6 +280,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     };
   }, [state.loadState]);
+
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -472,7 +486,12 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.warn(
         `[VideoPlayer] abort — networkState=${v.networkState} readyState=${v.readyState}`
       );
+      if (!isConvertingRef.current && !retriedWithTranscodeRef.current) {
+        console.warn('[VideoPlayer] Native playback aborted by browser — triggering immediate transcode fallback');
+        handlePlaybackFailureRef.current?.();
+      }
     };
+
     const onEnded = () => {
       console.log(`[VideoPlayer] ended`);
       onEndedPropRef.current?.();

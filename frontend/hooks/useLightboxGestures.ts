@@ -4,12 +4,13 @@ import { useEditorUIStore } from '../store/uiStore';
 interface UseLightboxGesturesProps {
   onNext: () => void;
   onPrev: () => void;
+  disabled?: boolean;
 }
 
 const ZOOM_MIN = 1.0;
 const ZOOM_MAX = 10;
 
-export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps) => {
+export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLightboxGesturesProps) => {
   const zoom = useEditorUIStore((s) => s.zoom);
   const setZoom = useEditorUIStore((s) => s.setZoom);
   const resetZoom = useEditorUIStore((s) => s.resetZoom);
@@ -46,6 +47,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   }, [setZoom]);
 
   const handleDoubleClick = (e: MouseEvent) => {
+    if (disabled) return;
     if (zoomScale > 1) {
       resetInteraction();
     } else {
@@ -54,6 +56,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   };
 
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
     pointers.current.set(e.pointerId, e);
 
     if (pointers.current.size === 1) {
@@ -65,6 +68,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   };
 
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
     pointers.current.set(e.pointerId, e);
 
     if (isDragging && pointers.current.size === 1) {
@@ -111,6 +115,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
   };
 
   const handlePointerUp = (e: PointerEvent) => {
+    if (disabled) return;
     if (isDragging && zoomScale === 1 && pointers.current.size === 1) {
       const diffX = e.clientX - dragStart.current.x;
       if (Math.abs(diffX) > 60) {
@@ -124,52 +129,14 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     if (pointers.current.size === 0) setIsDragging(false);
   };
 
-  const handleWheel = (e: WheelEvent) => {
-    if (e.cancelable) {
-      e.preventDefault();
-    }
-    const delta = -e.deltaY * 0.001;
-    const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomScale * (1 + delta)));
-
-    if (newScale !== zoomScale) {
-      if (newScale <= 1.0) {
-        setZoom({
-          scale: 1.0,
-          offsetX: 0,
-          offsetY: 0,
-          mode: 'fit',
-        });
-      } else {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const containerCenterX = rect.left + rect.width / 2;
-        const containerCenterY = rect.top + rect.height / 2;
-        const relX = e.clientX - containerCenterX;
-        const relY = e.clientY - containerCenterY;
-
-        const ratio = newScale / zoomScale;
-        const newOffsetX = relX - (relX - offset.x) * ratio;
-        const newOffsetY = relY - (relY - offset.y) * ratio;
-
-        setZoom({
-          scale: newScale,
-          offsetX: newOffsetX,
-          offsetY: newOffsetY,
-          mode: 'custom',
-        });
-      }
-    }
-  };
-
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const target = containerRef.current;
-    if (!target) return;
+    if (!target || disabled) return;
 
     const nativeWheel = (e: globalThis.WheelEvent) => {
-      if (e.cancelable) {
-        e.preventDefault();
-      }
+      e.preventDefault();
       const delta = -e.deltaY * 0.001;
       const newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom.scale * (1 + delta)));
 
@@ -204,7 +171,7 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
 
     target.addEventListener('wheel', nativeWheel, { passive: false });
     return () => target.removeEventListener('wheel', nativeWheel);
-  }, [zoom.scale, zoom.offsetX, zoom.offsetY, setZoom]);
+  }, [disabled, zoom.scale, zoom.offsetX, zoom.offsetY, setZoom]);
 
   return {
     containerRef,
@@ -217,6 +184,5 @@ export const useLightboxGestures = ({ onNext, onPrev }: UseLightboxGesturesProps
     handlePointerDown,
     handlePointerMove,
     handlePointerUp,
-    handleWheel,
   };
 };

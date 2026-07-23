@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 import { Photo } from '@/types';
 import { API_BASE } from '@/constants';
 import { eventService } from '@/services/EventService';
@@ -20,6 +21,7 @@ import { VideoPlayer } from './lightbox/VideoPlayer';
 import { SlideshowControls } from './lightbox/SlideshowControls';
 import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
 import { ComparisonView } from './lightbox/ComparisonView';
+import { AskAIPanel } from './lightbox/AskAIPanel';
 import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
 import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
@@ -73,8 +75,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
+  const [hasFaces, setHasFaces] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+  const [isAskAIOpen, setIsAskAIOpen] = useState(false);
 
   const unloadInpaintModels = useCallback(() => {
     fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
@@ -92,13 +96,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     onNext();
   }, [onNext]);
 
-  const {
-    containerRef, zoomScale, setZoomScale, offset, isDragging, resetInteraction,
-    handleDoubleClick, handlePointerDown, handlePointerMove, handlePointerUp, handleWheel
-  } = useLightboxGestures({ onNext: handleNext, onPrev: handlePrev });
+  const isVideo = photo.type === 'video' || photo.file_type === 'video';
 
   const highRes = useImageHighRes({ photo });
-  const isVideo = photo.type === 'video' || photo.file_type === 'video';
   useZoomShortcuts();
 
   const currentIndex = useMemo(
@@ -153,6 +153,11 @@ export const Lightbox: React.FC<LightboxProps> = ({
     mediaKey: photo.id,
   });
 
+  const {
+    containerRef, zoomScale, setZoomScale, offset, isDragging, resetInteraction,
+    handleDoubleClick, handlePointerDown, handlePointerMove, handlePointerUp
+  } = useLightboxGestures({ onNext: handleNext, onPrev: handlePrev, disabled: isVideo || slideshowActive });
+
   // Keep end-of-list handler in sync with loop flag and photo list.
   useEffect(() => {
     slideshowAdvanceAtEndRef.current = () => {
@@ -186,7 +191,34 @@ export const Lightbox: React.FC<LightboxProps> = ({
     resetInteraction();
     setEditedPhotoUrl(null);
     setMetadata(null);
+    setIsFaceTaggingActive(false);
   }, [photo.id, resetInteraction]);
+
+  // Check if photo has detected faces
+  useEffect(() => {
+    if (isVideo) {
+      setHasFaces(false);
+      return;
+    }
+    if (photo.people && photo.people.length > 0) {
+      setHasFaces(true);
+      return;
+    }
+    let isCurrent = true;
+    fetch(`${API_BASE}/api/v1/photos/${photo.id}/faces`)
+      .then((res) => (res.ok ? res.json() : { faces: [] }))
+      .then((data) => {
+        if (isCurrent) {
+          setHasFaces(Array.isArray(data.faces) && data.faces.length > 0);
+        }
+      })
+      .catch(() => {
+        if (isCurrent) setHasFaces(false);
+      });
+    return () => {
+      isCurrent = false;
+    };
+  }, [photo.id, photo.people, isVideo]);
 
   const prevBlobUrlRef = useRef<string | null>(null);
   useEffect(() => {
@@ -323,6 +355,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
           setIsComparisonOpen(false);
           return;
         }
+        if (isAskAIOpen) {
+          setIsAskAIOpen(false);
+          return;
+        }
         onClose();
       }
       if ((e.key === 's' || e.key === 'S') && canStartSlideshow) {
@@ -340,7 +376,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [
     onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
     slideshowActive, toggleSlideshowPlay, handleStopSlideshow, handleStartSlideshow,
-    canStartSlideshow, isFaceTaggingActive, isComparisonOpen,
+    canStartSlideshow, isFaceTaggingActive, isComparisonOpen, isAskAIOpen,
   ]);
 
   // Stop slideshow when entering editor
@@ -416,7 +452,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onRemoveFromAlbum={onRemoveFromAlbum}
           onSetAsCover={onSetAsCover}
           onStartSlideshow={handleStartSlideshow}
-          onToggleFaceTagging={() => setIsFaceTaggingActive(prev => !prev)}
+          onToggleFaceTagging={hasFaces ? () => setIsFaceTaggingActive(prev => !prev) : undefined}
           onOpenComparison={() => setIsComparisonOpen(true)}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyImageToClipboard}
@@ -437,7 +473,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onPointerMove={!isVideo && !slideshowActive ? handlePointerMove : undefined}
           onPointerUp={!isVideo && !slideshowActive ? handlePointerUp : undefined}
           onPointerCancel={!isVideo && !slideshowActive ? handlePointerUp : undefined}
-          onWheel={!isVideo && !slideshowActive ? handleWheel : undefined}
         >
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -525,6 +560,30 @@ export const Lightbox: React.FC<LightboxProps> = ({
             />
           )}
         </div>
+
+        {/* Ask AI Side Panel */}
+        {isAskAIOpen && !chromeHidden && (
+          <AskAIPanel
+            photo={photo}
+            onClose={() => setIsAskAIOpen(false)}
+          />
+        )}
+
+        {/* Floating Ask AI Button */}
+        {!chromeHidden && !isVideo && (
+          <button
+            onClick={() => setIsAskAIOpen(prev => !prev)}
+            className={`absolute bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-200 backdrop-blur-xl border ${
+              isAskAIOpen
+                ? 'bg-primary/90 text-white border-primary/50 shadow-primary/20'
+                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white hover:border-white/20'
+            }`}
+            title="Ask AI about this photo"
+          >
+            <Sparkles size={16} />
+            <span className="text-xs font-medium">Ask AI</span>
+          </button>
+        )}
       </div>
 
       {/* Side-by-Side Comparison Mode Overlay */}

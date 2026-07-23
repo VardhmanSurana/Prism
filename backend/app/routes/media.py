@@ -237,14 +237,26 @@ def _normalize_rotation(rotation: float | int | None) -> int:
 
 
 def _rotation_filter_prefix(rotation: int) -> str:
-    """Return an ffmpeg filter prefix that bakes display rotation into frames."""
+    """Return an ffmpeg filter prefix that bakes display rotation into frames.
+
+    ffprobe reads rotation from the displaymatrix side_data as the angle the
+    *player* must rotate the frame to display it correctly.  To physically bake
+    that correction into the encoded pixels we apply the same rotation direction:
+
+      displaymatrix = -90  → normalized = 270 → player needs 90° CW → transpose=clock
+      displaymatrix = +90  → normalized =  90 → player needs 90° CCW → transpose=cclock
+      displaymatrix = 180  → normalized = 180 → flip both axes → hflip,vflip
+
+    This is confirmed by visual testing: extracting a raw frame with -noautorotate
+    and comparing transpose=clock vs cclock against ffmpeg's built-in autorotate output.
+    """
     normalized = _normalize_rotation(rotation)
     if normalized == 90:
-        return "transpose=clock,"
+        return "transpose=cclock,"
     if normalized == 180:
         return "hflip,vflip,"
     if normalized == 270:
-        return "transpose=cclock,"
+        return "transpose=clock,"
     return ""
 
 
@@ -336,9 +348,17 @@ def _serve_range(
     end: int,
     mime_type: str,
     cors: dict,
+    t_request: float | None = None,
 ) -> StreamingResponse:
     file_size = path.stat().st_size
     content_length = end - start + 1
+
+    if t_request is not None:
+        elapsed_ms = (time.perf_counter() - t_request) * 1000
+        llogger.info(
+            f"[TIMER] Request received → First stream byte sent: {elapsed_ms:.2f} ms "
+            f"| bytes={start}-{end}/{file_size} | file={path.name}"
+        )
 
     llogger.debug(
         f"[range] Serving bytes {start}-{end}/{file_size} "
@@ -401,6 +421,7 @@ def _parse_range(range_header: str, file_size: int):
 
 
 async def serve_local_file(path: str, request: Request):
+    t_request = time.perf_counter()
     decoded_path = urllib.parse.unquote(path)
     llogger.debug(f"[/local] Request headers: {dict(request.headers)}")
     llogger.debug(f"[/local] Requested path: {decoded_path!r}")
@@ -506,13 +527,18 @@ async def serve_local_file(path: str, request: Request):
         parsed = _parse_range(range_header, file_size)
         if parsed:
             start, end = parsed
-            return _serve_range(resolved_path, start, end, mime_type, cors)
+            return _serve_range(resolved_path, start, end, mime_type, cors, t_request=t_request)
 
+        elapsed_ms = (time.perf_counter() - t_request) * 1000
+        llogger.info(
+            f"[TIMER] [/local] Request received → First stream byte sent: {elapsed_ms:.2f} ms | file={resolved_path.name}"
+        )
         return FileResponse(
             str(resolved_path),
             media_type=mime_type,
             headers={"Accept-Ranges": "bytes", **cors},
         )
+
     except OSError as e:
         llogger.error(f"[/local] System/IO error serving file {resolved_path}: {e}")
         raise HTTPException(status_code=404, detail="File not found or unreadable due to system error")
@@ -521,6 +547,7 @@ async def serve_local_file(path: str, request: Request):
 async def serve_transcoded_video(path: str, request: Request, force: bool = False):
     """Serve a video, transcoding to a clean H.264 when the browser can't play it natively.
     """
+    t_request = time.perf_counter()
     decoded_path = urllib.parse.unquote(path)
 
     try:
@@ -584,6 +611,10 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
             if not mime_type:
                 mime_type = "video/mp4"
             cors = get_cors_headers(request)
+            elapsed_ms = (time.perf_counter() - t_request) * 1000
+            llogger.info(
+                f"[TIMER] [/transcode] Direct file stream sent in {elapsed_ms:.2f} ms | file={resolved_path.name}"
+            )
             return FileResponse(
                 str(resolved_path),
                 media_type=mime_type,
@@ -601,7 +632,10 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
     source_hash = hashlib.md5(str(resolved_path).encode()).hexdigest()[:16]
     cache_path = TRANSCODE_CACHE_DIR / f"{source_hash}.mp4"
     temp_cache_path = TRANSCODE_CACHE_DIR / f"{source_hash}.mp4.tmp"
-    if not force and cache_path.exists():
+
+    is_recent_cache = cache_path.exists() and (time.time() - cache_path.stat().st_mtime < 120)
+
+    if (not force or is_recent_cache) and cache_path.exists():
         file_size = cache_path.stat().st_size
         llogger.info(
             f"[/transcode] Cache hit → {cache_path.name} "
@@ -614,8 +648,12 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
         parsed = _parse_range(range_header, file_size)
         if parsed:
             start, end = parsed
-            return _serve_range(cache_path, start, end, mime_type, cors)
+            return _serve_range(cache_path, start, end, mime_type, cors, t_request=t_request)
 
+        elapsed_ms = (time.perf_counter() - t_request) * 1000
+        llogger.info(
+            f"[TIMER] [/transcode] Request received → First stream byte sent: {elapsed_ms:.2f} ms | file={resolved_path.name}"
+        )
         return FileResponse(
             str(cache_path),
             media_type="video/mp4",
@@ -627,19 +665,24 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
     lock = _transcode_locks[source_hash]
 
     async with lock:
-        if not force and cache_path.exists() and cache_path.stat().st_size > 0:
+        if (not force or is_recent_cache) and cache_path.exists() and cache_path.stat().st_size > 0:
             llogger.debug(f"[/transcode] Cache appeared while waiting: {cache_path}")
             cors = get_cors_headers(request)
+            elapsed_ms = (time.perf_counter() - t_request) * 1000
+            llogger.info(
+                f"[TIMER] [/transcode] Request received → First stream byte sent: {elapsed_ms:.2f} ms | file={resolved_path.name}"
+            )
             return FileResponse(
                 str(cache_path),
                 media_type="video/mp4",
                 headers={"Accept-Ranges": "bytes", **cors},
             )
 
-        if force:
+        if force and not is_recent_cache:
             cache_path.unlink(missing_ok=True)
             temp_cache_path.unlink(missing_ok=True)
             _transcode_in_progress.pop(source_hash, None)
+
 
         cors = get_cors_headers(request)
         mime_type = "video/mp4"
@@ -647,8 +690,12 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
         target_path = temp_cache_path if is_in_progress else cache_path
 
         range_val = request.headers.get("range")
-        if range_val and range_val.lower().startswith("bytes="):
-            if not target_path.exists() and is_in_progress:
+        # Only try to serve a range from a *growing* temp file when a transcode is
+        # already in-progress.  When is_in_progress is False we have no file yet;
+        # falling through will start (or wait for) the transcode then serve the
+        # completed file with a range response from the bottom of this handler.
+        if range_val and range_val.lower().startswith("bytes=") and is_in_progress:
+            if not target_path.exists():
                 wait_until = asyncio.get_event_loop().time() + 2.0
                 while not target_path.exists() and asyncio.get_event_loop().time() < wait_until:
                     await asyncio.sleep(0.05)
@@ -714,10 +761,11 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                 if gpu_mode in ("auto", "nvenc"):
                     use_nvenc = await _probe_nvenc()
 
-                if gpu_mode in ("auto", "vaapi"):
+                if gpu_mode in ("auto", "vaapi") and not use_nvenc:
                     use_vaapi = await _probe_vaapi()
 
                 use_full_gpu = use_nvenc and await _probe_scale_cuda()
+
 
                 if use_full_gpu:
                     encoder_tag = "h264_nvenc"
@@ -835,6 +883,9 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
                     *video_args,
                     "-vf", vf,
                     "-metadata:s:v:0", "rotate=0",
+                    # Strip display-orientation SEI so hls.js/Chrome don't
+                    # re-apply rotation on top of already-corrected pixels.
+                    "-bsf:v", "h264_metadata=display_orientation=remove",
                     "-colorspace", "bt709",
                     "-color_primaries", "bt709",
                     "-color_trc", "bt709",
@@ -949,10 +1000,15 @@ async def serve_transcoded_video(path: str, request: Request, force: bool = Fals
         parsed = _parse_range(range_header, file_size)
         if parsed:
             start, end = parsed
-            return _serve_range(cache_path, start, end, "video/mp4", cors)
+            return _serve_range(cache_path, start, end, "video/mp4", cors, t_request=t_request)
 
+        elapsed_ms = (time.perf_counter() - t_request) * 1000
+        llogger.info(
+            f"[TIMER] [/transcode] Request received → First stream byte sent: {elapsed_ms:.2f} ms | file={resolved_path.name}"
+        )
         return FileResponse(
             str(cache_path),
             media_type="video/mp4",
             headers={"Accept-Ranges": "bytes", **cors},
         )
+

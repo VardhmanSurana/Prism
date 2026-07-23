@@ -28,7 +28,10 @@ export interface Photo {
   fps?: number;
   codec?: string;
   audio_codec?: string;
+  pix_fmt?: string;
+  color_range?: string;
   rotation?: number;
+
   animated_url?: string;
   ai_summary?: string;
   latitude?: number;
@@ -203,7 +206,10 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     fps: raw.fps,
     codec: raw.codec,
     audio_codec: raw.audio_codec,
+    pix_fmt: raw.pix_fmt,
+    color_range: raw.color_range,
     rotation: raw.rotation ?? 0,
     animated_url: raw.animated_url,
   };
 }
+

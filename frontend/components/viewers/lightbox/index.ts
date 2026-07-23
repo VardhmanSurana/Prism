@@ -8,4 +8,5 @@ export * from './SlideshowControls';
 export * from './FaceTaggingOverlay';
 export * from './ComparisonView';
 export * from './KeyboardShortcutsModal';
+export * from './AskAIPanel';
 export * from './types';
