@@ -3,7 +3,8 @@
   "private": true,
   "version": "0.0.0",
   "scripts": {
-    "dev": "bash run-dev.sh",
+    "dev": "bash run-web.sh",
+
     "build": "pnpm run frontend:build",
     "frontend": "cd frontend && pnpm run dev",
     "frontend:build": "cd frontend && pnpm run build",
@@ -13,6 +14,7 @@
     "backend:sync": "cd backend && uv sync --frozen",
     "test": "pnpm run frontend:typecheck && pnpm run backend:test",
     "desktop": "bash run-desktop.sh",
+    "web": "bash run-web.sh",
     "app": "bash run-desktop.sh",
     "tauri": "cd frontend && pnpm exec tauri"
   },

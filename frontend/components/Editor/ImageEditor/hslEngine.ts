@@ -182,6 +182,70 @@ export async function renderHslPreview(
   });
 }
 
+export { rgbToHsl, hslToRgb };
+
+import { SpecializedCurvesState, isIdentitySpecializedCurves } from './curves';
+import { createMonotoneCubicSpline, generateLUT } from './spline';
+
+export function applySpecializedCurvesToImageData(
+  imageData: ImageData,
+  curves: SpecializedCurvesState
+): void {
+  if (!curves || isIdentitySpecializedCurves(curves)) return;
+
+  // Build LUTs for each curve
+  const buildLut = (pts: { x: number; y: number }[], xDomain: number, yDomain: number, samples: number = 360) => {
+    const scaled = pts.map(p => ({ x: p.x / xDomain, y: p.y / yDomain }));
+    const fn = createMonotoneCubicSpline(scaled);
+    const rawLut = generateLUT(fn, samples);
+    return rawLut.map(v => Math.max(0, Math.min(1, v)) * yDomain);
+  };
+
+  const hueVsHueLut = buildLut(curves.hueVsHue, 360, 360, 360);
+  const hueVsSatLut = buildLut(curves.hueVsSat, 360, 200, 360);
+  const hueVsLumLut = buildLut(curves.hueVsLum, 360, 200, 360);
+  const lumVsSatLut = buildLut(curves.lumVsSat, 255, 255, 256);
+  const satVsSatLut = buildLut(curves.satVsSat, 255, 255, 256);
+
+  const { data } = imageData;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+
+    const [h, s, l] = rgbToHsl(r, g, b);
+
+    const hIdx = Math.round(Math.max(0, Math.min(359, h)));
+    const lIdx = Math.round(Math.max(0, Math.min(255, l * 255)));
+    const sIdx = Math.round(Math.max(0, Math.min(255, s * 255)));
+
+    // 1. Hue vs Hue shift
+    let newH = (h + (hueVsHueLut[hIdx] - 180)) % 360;
+    if (newH < 0) newH += 360;
+
+    // 2. Hue vs Saturation multiplier
+    let newS = s * (hueVsSatLut[hIdx] / 100);
+
+    // 3. Hue vs Luminance multiplier
+    let newL = l * (hueVsLumLut[hIdx] / 100);
+
+    // 4. Lum vs Saturation multiplier
+    newS = newS * (lumVsSatLut[lIdx] / 128);
+
+    // 5. Sat vs Saturation mapping
+    newS = (satVsSatLut[Math.round(Math.max(0, Math.min(255, newS * 255)))] / 255);
+
+    newS = Math.max(0, Math.min(1, newS));
+    newL = Math.max(0, Math.min(1, newL));
+
+    const [nr, ng, nb] = hslToRgb(newH, newS, newL);
+    data[i] = nr;
+    data[i + 1] = ng;
+    data[i + 2] = nb;
+  }
+}
+
 /**
  * Applies HSL adjustments to a full-size canvas at export time.
  * Returns the same canvas (mutated in-place).

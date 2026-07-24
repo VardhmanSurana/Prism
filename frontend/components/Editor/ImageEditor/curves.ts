@@ -7,6 +7,32 @@ export type CurveState = {
   blue: Point[];
 };
 
+export type SpecializedCurveKind = 'hueVsHue' | 'hueVsSat' | 'hueVsLum' | 'lumVsSat' | 'satVsSat';
+
+export type SpecializedCurvesState = {
+  hueVsHue: Point[];
+  hueVsSat: Point[];
+  hueVsLum: Point[];
+  lumVsSat: Point[];
+  satVsSat: Point[];
+};
+
+export const DEFAULT_SPECIALIZED_CURVE_POINTS: Record<SpecializedCurveKind, Point[]> = {
+  hueVsHue: [{ x: 0, y: 180 }, { x: 90, y: 180 }, { x: 180, y: 180 }, { x: 270, y: 180 }, { x: 360, y: 180 }],
+  hueVsSat: [{ x: 0, y: 100 }, { x: 90, y: 100 }, { x: 180, y: 100 }, { x: 270, y: 100 }, { x: 360, y: 100 }],
+  hueVsLum: [{ x: 0, y: 100 }, { x: 90, y: 100 }, { x: 180, y: 100 }, { x: 270, y: 100 }, { x: 360, y: 100 }],
+  lumVsSat: [{ x: 0, y: 0 }, { x: 128, y: 128 }, { x: 255, y: 255 }],
+  satVsSat: [{ x: 0, y: 0 }, { x: 128, y: 128 }, { x: 255, y: 255 }],
+};
+
+export const DEFAULT_SPECIALIZED_CURVES: SpecializedCurvesState = {
+  hueVsHue: [...DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsHue],
+  hueVsSat: [...DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsSat],
+  hueVsLum: [...DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsLum],
+  lumVsSat: [...DEFAULT_SPECIALIZED_CURVE_POINTS.lumVsSat],
+  satVsSat: [...DEFAULT_SPECIALIZED_CURVE_POINTS.satVsSat],
+};
+
 export interface CurveLuts {
   r: Uint8Array;
   g: Uint8Array;
@@ -30,6 +56,17 @@ export const isIdentityCurve = (curves: CurveState) =>
   arePointsEqual(curves.red, DEFAULT_CURVE.red) &&
   arePointsEqual(curves.green, DEFAULT_CURVE.green) &&
   arePointsEqual(curves.blue, DEFAULT_CURVE.blue);
+
+export const isIdentitySpecializedCurves = (sc: SpecializedCurvesState | undefined) => {
+  if (!sc) return true;
+  return (
+    arePointsEqual(sc.hueVsHue, DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsHue) &&
+    arePointsEqual(sc.hueVsSat, DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsSat) &&
+    arePointsEqual(sc.hueVsLum, DEFAULT_SPECIALIZED_CURVE_POINTS.hueVsLum) &&
+    arePointsEqual(sc.lumVsSat, DEFAULT_SPECIALIZED_CURVE_POINTS.lumVsSat) &&
+    arePointsEqual(sc.satVsSat, DEFAULT_SPECIALIZED_CURVE_POINTS.satVsSat)
+  );
+};
 
 const toByteLut = (lut: number[]) => Uint8Array.from(lut.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255)));
 

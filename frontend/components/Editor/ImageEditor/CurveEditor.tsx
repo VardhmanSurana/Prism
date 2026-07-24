@@ -3,7 +3,6 @@ import {
   Point,
   splineToSvgPath,
 } from './spline';
-import { CurveState } from './curves';
 import { computeHistogram } from './Histogram';
 
 // Re-export Point so consumers can import it from here if needed
@@ -11,14 +10,19 @@ export type { Point } from './spline';
 export type { CurveState } from './curves';
 export { DEFAULT_CURVE } from './curves';
 
+import { CurveState, SpecializedCurvesState, SpecializedCurveKind, DEFAULT_SPECIALIZED_CURVE_POINTS } from './curves';
+
 interface CurveEditorProps {
   value: CurveState;
   onChange: (value: CurveState) => void;
+  specializedValue?: SpecializedCurvesState;
+  onSpecializedChange?: (value: SpecializedCurvesState) => void;
   imageSrc?: string;
   filterString?: string;
 }
 
 type Channel = 'master' | 'red' | 'green' | 'blue';
+type CurveCategory = 'rgb' | 'specialized';
 
 const CANVAS_SIZE = 255;
 const MARGIN = 10;
@@ -33,8 +37,17 @@ const channelColors = {
   blue:   '#3b82f6',
 };
 
-export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange, imageSrc, filterString }) => {
+export const CurveEditor: React.FC<CurveEditorProps> = ({
+  value,
+  onChange,
+  specializedValue,
+  onSpecializedChange,
+  imageSrc,
+  filterString,
+}) => {
+  const [category, setCategory] = useState<CurveCategory>('rgb');
   const [activeChannel, setActiveChannel] = useState<Channel>('master');
+  const [activeSpecializedKind, setActiveSpecializedKind] = useState<SpecializedCurveKind>('hueVsSat');
   const svgRef = useRef<SVGSVGElement>(null);
 
   const [dragInfo, setDragInfo] = useState<{
@@ -210,54 +223,100 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({ value, onChange, image
   };
 
   return (
-    <div className="flex flex-col">
-      {/* Channel Tabs - Sleek dark rectangles */}
-      <div className="flex rounded-lg p-0.5 gap-2 max-w-fit mb-3">
-        {channels.map(ch => {
-          const isActive = activeChannel === ch;
-          let textStyle = '';
-          let activeStyle = '';
-          let labelElement: React.ReactNode = null;
-
-          if (ch === 'master') {
-            labelElement = (
-              <svg viewBox="0 0 16 16" className="w-3.5 h-3.5">
-                <path
-                  d="M2,13 C5,13 8,3 14,3"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
-            );
-            textStyle = isActive ? 'text-black' : 'text-white/60 hover:text-white';
-            activeStyle = isActive ? 'bg-white text-black shadow-sm' : 'bg-white/5 hover:bg-white/10';
-          } else if (ch === 'red') {
-            labelElement = <span className="font-bold text-[11px] font-sans">R</span>;
-            textStyle = 'text-[#ef4444]';
-            activeStyle = isActive ? 'bg-[#ef4444]/20 border border-[#ef4444]/40 shadow-sm' : 'bg-white/5 hover:bg-[#ef4444]/10 border border-[#ef4444]/10';
-          } else if (ch === 'green') {
-            labelElement = <span className="font-bold text-[11px] font-sans">G</span>;
-            textStyle = 'text-[#22c55e]';
-            activeStyle = isActive ? 'bg-[#22c55e]/20 border border-[#22c55e]/40 shadow-sm' : 'bg-white/5 hover:bg-[#22c55e]/10 border border-[#22c55e]/10';
-          } else if (ch === 'blue') {
-            labelElement = <span className="font-bold text-[11px] font-sans">B</span>;
-            textStyle = 'text-[#3b82f6]';
-            activeStyle = isActive ? 'bg-[#3b82f6]/20 border border-[#3b82f6]/40 shadow-sm' : 'bg-white/5 hover:bg-[#3b82f6]/10 border border-[#3b82f6]/10';
-          }
-
-          return (
-            <button
-              key={ch}
-              onClick={() => setActiveChannel(ch)}
-              className={`w-9 h-7 flex items-center justify-center rounded border border-white/5 transition-all duration-150 cursor-pointer ${activeStyle} ${textStyle}`}
-            >
-              {labelElement}
-            </button>
-          );
-        })}
+    <div className="flex flex-col gap-3">
+      {/* Category selector */}
+      <div className="flex rounded-lg bg-black/40 p-1 border border-white/5">
+        <button
+          onClick={() => setCategory('rgb')}
+          className={`flex-1 py-1 text-[11px] font-medium rounded transition-all ${
+            category === 'rgb' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
+          }`}
+        >
+          RGB Curves
+        </button>
+        <button
+          onClick={() => setCategory('specialized')}
+          className={`flex-1 py-1 text-[11px] font-medium rounded transition-all ${
+            category === 'specialized' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
+          }`}
+        >
+          Color vs Color
+        </button>
       </div>
+
+      {category === 'rgb' ? (
+        /* Channel Tabs - Sleek dark rectangles */
+        <div className="flex rounded-lg p-0.5 gap-2 max-w-fit mb-1">
+          {channels.map(ch => {
+            const isActive = activeChannel === ch;
+            let textStyle = '';
+            let activeStyle = '';
+            let labelElement: React.ReactNode = null;
+
+            if (ch === 'master') {
+              labelElement = (
+                <svg viewBox="0 0 16 16" className="w-3.5 h-3.5">
+                  <path
+                    d="M2,13 C5,13 8,3 14,3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              );
+              textStyle = isActive ? 'text-black' : 'text-white/60 hover:text-white';
+              activeStyle = isActive ? 'bg-white text-black shadow-sm' : 'bg-white/5 hover:bg-white/10';
+            } else if (ch === 'red') {
+              labelElement = <span className="font-bold text-[11px] font-sans">R</span>;
+              textStyle = 'text-[#ef4444]';
+              activeStyle = isActive ? 'bg-[#ef4444]/20 border border-[#ef4444]/40 shadow-sm' : 'bg-white/5 hover:bg-[#ef4444]/10 border border-[#ef4444]/10';
+            } else if (ch === 'green') {
+              labelElement = <span className="font-bold text-[11px] font-sans">G</span>;
+              textStyle = 'text-[#22c55e]';
+              activeStyle = isActive ? 'bg-[#22c55e]/20 border border-[#22c55e]/40 shadow-sm' : 'bg-white/5 hover:bg-[#22c55e]/10 border border-[#22c55e]/10';
+            } else if (ch === 'blue') {
+              labelElement = <span className="font-bold text-[11px] font-sans">B</span>;
+              textStyle = 'text-[#3b82f6]';
+              activeStyle = isActive ? 'bg-[#3b82f6]/20 border border-[#3b82f6]/40 shadow-sm' : 'bg-white/5 hover:bg-[#3b82f6]/10 border border-[#3b82f6]/10';
+            }
+
+            return (
+              <button
+                key={ch}
+                onClick={() => setActiveChannel(ch)}
+                className={`w-9 h-7 flex items-center justify-center rounded border border-white/5 transition-all duration-150 cursor-pointer ${activeStyle} ${textStyle}`}
+              >
+                {labelElement}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-1.5 mb-1">
+          {(['hueVsHue', 'hueVsSat', 'hueVsLum', 'lumVsSat', 'satVsSat'] as SpecializedCurveKind[]).map(k => {
+            const labels: Record<SpecializedCurveKind, string> = {
+              hueVsHue: 'Hue vs Hue',
+              hueVsSat: 'Hue vs Sat',
+              hueVsLum: 'Hue vs Lum',
+              lumVsSat: 'Lum vs Sat',
+              satVsSat: 'Sat vs Sat',
+            };
+            const isActive = activeSpecializedKind === k;
+            return (
+              <button
+                key={k}
+                onClick={() => setActiveSpecializedKind(k)}
+                className={`px-2 py-1 text-[10px] rounded border transition-all ${
+                  isActive ? 'bg-primary/25 border-primary text-primary font-semibold' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
+                }`}
+              >
+                {labels[k]}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Graph Area */}
       <div className="bg-[#14151a] rounded overflow-hidden border border-white/5 select-none touch-none">

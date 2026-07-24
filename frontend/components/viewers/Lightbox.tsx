@@ -570,14 +570,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
         )}
 
         {/* Floating Ask AI Button */}
-        {!chromeHidden && !isVideo && (
+        {!chromeHidden && !isVideo && !isAskAIOpen && (
           <button
-            onClick={() => setIsAskAIOpen(prev => !prev)}
-            className={`absolute bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-200 backdrop-blur-xl border ${
-              isAskAIOpen
-                ? 'bg-primary/90 text-white border-primary/50 shadow-primary/20'
-                : 'bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white hover:border-white/20'
-            }`}
+            onClick={() => setIsAskAIOpen(true)}
+            className="absolute bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-200 backdrop-blur-xl border bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white hover:border-white/20"
             title="Ask AI about this photo"
           >
             <Sparkles size={16} />

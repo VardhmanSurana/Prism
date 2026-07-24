@@ -5,6 +5,7 @@ import { applyHslToCanvas } from './hslEngine';
 import { applyNonLinearHighlightsAndShadows } from './filterFallback';
 import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
 import { canvasToBlob, ensureImageMagick } from './exportPipeline/canvas';
+import { injectC2paHeader } from './c2paEngine';
 import {
   clamp,
   getPreviewBaseFilter,
@@ -12,6 +13,8 @@ import {
   getExportFormat,
   cloneCanvas,
 } from './exportPipeline/helpers';
+import { applyColorWheelsToImageData } from './colorWheelsEngine';
+import { applySpecializedCurvesToImageData } from './hslEngine';
 import {
   applyRegionalAdjustments,
   applyBlur,
@@ -28,6 +31,7 @@ import {
   applyPerspective,
   renderCanvasWithFilter,
   applyLensCorrection,
+  applyDefringeAndOpticalVignetting,
 } from './exportPipeline/stages';
 
 const DEFAULT_EXPORT_MIME = 'image/jpeg';
@@ -53,6 +57,7 @@ export {
   applyCurveLutsToCanvas,
   applyBlur,
   applyLensCorrection,
+  applyDefringeAndOpticalVignetting,
 } from './exportPipeline/stages';
 
 export const exportEditedCanvas = async ({
@@ -64,7 +69,7 @@ export const exportEditedCanvas = async ({
   onProgress,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
   const report = (step: string, current: number, total: number) => onProgress?.(step, current, total);
-  const TOTAL_STEPS = 16;
+  const TOTAL_STEPS = 18;
 
   let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
   report('Preparing canvas', 1, TOTAL_STEPS);
@@ -125,6 +130,28 @@ export const exportEditedCanvas = async ({
 
   report('Applying HSL adjustments', 5, TOTAL_STEPS);
   applyHslToCanvas(preparedCanvas, effectiveAdj.hsl);
+
+  if (adjustments.specializedCurves) {
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      applySpecializedCurvesToImageData(imgData, adjustments.specializedCurves);
+      ctx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  if (adjustments.colorWheels) {
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      applyColorWheelsToImageData(imgData, adjustments.colorWheels);
+      ctx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  if (adjustments.defringe) {
+    applyDefringeAndOpticalVignetting(preparedCanvas, adjustments.defringe);
+  }
 
   report('Applying noise reduction', 6, TOTAL_STEPS);
   applyBlur(preparedCanvas, effectiveNoise / 100 * 1.2);
@@ -188,16 +215,20 @@ export const exportEditedCanvas = async ({
 
   report('Encoding final image', TOTAL_STEPS, TOTAL_STEPS);
 
+  let rawBlob: Blob;
   try {
     await ensureImageMagick();
     const exportFormat = getExportFormat(mimeType);
 
-    return await ImageMagick.readFromCanvas(preparedCanvas, async (image) => {
+    rawBlob = await ImageMagick.readFromCanvas(preparedCanvas, async (image) => {
       image.quality = Math.round(clamp(quality, 0, 1) * 100);
       return image.write(exportFormat, (data) => new Blob([new Uint8Array(data)], { type: mimeType }));
     });
   } catch (error) {
     console.error('ImageMagick encoding failed, falling back to canvas export.', error);
-    return canvasToBlob(preparedCanvas, mimeType, quality);
+    rawBlob = await canvasToBlob(preparedCanvas, mimeType, quality);
   }
+
+  // Inject C2PA Content Authenticity Manifest Header
+  return await injectC2paHeader(rawBlob);
 };

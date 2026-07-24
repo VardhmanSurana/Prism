@@ -78,7 +78,9 @@ interface InputMessageProps
   status?: "idle" | "streaming";
   onStop?: () => void;
   history?: string[];
+  onActivate?: () => void;
 }
+
 
 // ─── InputMessage ─────────────────────────────────────────────────────────────
 
@@ -104,6 +106,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
       status,
       onStop,
       history = [],
+      onActivate,
       className,
       style,
       ...props
@@ -233,6 +236,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
 
     const handleContainerMouseDown = useCallback(
       (e: React.MouseEvent<HTMLDivElement>) => {
+        onActivate?.();
         if (!clickToFocus || disabled) return;
         const target = e.target as HTMLElement;
         if (target === textareaRef.current) return;
@@ -240,7 +244,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
         e.preventDefault();
         textareaRef.current?.focus();
       },
-      [clickToFocus, disabled]
+      [clickToFocus, disabled, onActivate]
     );
 
     // ── File helpers ──────────────────────────────────────────────────────────
@@ -452,11 +456,13 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
           ref={textareaRef}
           value={value}
           onChange={(e) => {
+            onActivate?.();
             setHistoryIndex(null);
             onValueChange(e.target.value);
           }}
           onKeyDown={handleKeyDown}
           onFocus={(e) => {
+            onActivate?.();
             if (e.target.matches(":focus-visible")) setFocusVisible(true);
             textareaProps?.onFocus?.(e);
           }}

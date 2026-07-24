@@ -262,6 +262,93 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                       </div>
                     </div>
                   )}
+                  {/* Range Mask Section */}
+                  <div className="pt-3 border-t border-white/5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Range Masking</span>
+                      <div className="flex bg-black/40 p-0.5 rounded border border-white/5 text-[9px]">
+                        {(['none', 'luminance', 'color'] as const).map(mode => (
+                          <button
+                            key={mode}
+                            onClick={() => {
+                              const rm = reg.rangeMask || { mode: 'none', lumRange: [0, 100], lumFeather: 20, colorSample: '#ef4444', colorTolerance: 30, refineEdge: false, refineRadius: 5 };
+                              const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, mode } } : r);
+                              onChange({ ...adjustments, regions: newRegions });
+                            }}
+                            className={`px-2 py-0.5 rounded capitalize ${
+                              (reg.rangeMask?.mode || 'none') === mode ? 'bg-primary/30 text-primary font-bold' : 'text-white/40 hover:text-white'
+                            }`}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {reg.rangeMask?.mode === 'luminance' && (
+                      <div className="space-y-2 bg-black/20 p-2.5 rounded-lg border border-white/5">
+                        <div className="flex justify-between text-[10px] text-white/60">
+                          <span>Target Luma Range</span>
+                          <span className="font-mono">{(reg.rangeMask.lumRange || [0, 100]).join('% - ')}%</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            type="range" min="0" max="100"
+                            value={(reg.rangeMask.lumRange || [0, 100])[0]}
+                            onChange={e => {
+                              const minV = Number(e.target.value);
+                              const rm = reg.rangeMask!;
+                              const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, lumRange: [minV, rm.lumRange[1]] as [number, number] } } : r);
+                              onChange({ ...adjustments, regions: newRegions });
+                            }}
+                            className="adjustment-slider flex-1"
+                          />
+                          <input
+                            type="range" min="0" max="100"
+                            value={(reg.rangeMask.lumRange || [0, 100])[1]}
+                            onChange={e => {
+                              const maxV = Number(e.target.value);
+                              const rm = reg.rangeMask!;
+                              const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, lumRange: [rm.lumRange[0], maxV] as [number, number] } } : r);
+                              onChange({ ...adjustments, regions: newRegions });
+                            }}
+                            className="adjustment-slider flex-1"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {reg.rangeMask?.mode === 'color' && (
+                      <div className="space-y-2 bg-black/20 p-2.5 rounded-lg border border-white/5">
+                        <div className="flex items-center justify-between text-[10px] text-white/60">
+                          <span>Color Tolerance</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={reg.rangeMask.colorSample || '#ef4444'}
+                              onChange={e => {
+                                const rm = reg.rangeMask!;
+                                const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, colorSample: e.target.value } } : r);
+                                onChange({ ...adjustments, regions: newRegions });
+                              }}
+                              className="w-4 h-4 rounded border-none bg-transparent cursor-pointer"
+                            />
+                            <span className="font-mono">{reg.rangeMask.colorTolerance || 30}%</span>
+                          </div>
+                        </div>
+                        <input
+                          type="range" min="5" max="100"
+                          value={reg.rangeMask.colorTolerance || 30}
+                          onChange={e => {
+                            const rm = reg.rangeMask!;
+                            const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, colorTolerance: Number(e.target.value) } } : r);
+                            onChange({ ...adjustments, regions: newRegions });
+                          }}
+                          className="adjustment-slider"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

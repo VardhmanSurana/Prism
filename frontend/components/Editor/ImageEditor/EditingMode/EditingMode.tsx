@@ -28,6 +28,16 @@ import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
 import { LutPanel } from '../LutPanel';
 import { HealingPanel, HealingSettings, DEFAULT_HEALING_SETTINGS } from '../HealingPanel';
+import { LayersPanel } from '../LayersPanel';
+import { RawEnginePanel } from '../RawEnginePanel';
+import { LiquifyPanel, DEFAULT_LIQUIFY_SETTINGS } from '../LiquifyPanel';
+import { ColorMatchPanel } from '../ColorMatchPanel';
+import { LassoPanel } from '../LassoPanel';
+import { LassoCanvas } from '../LassoCanvas';
+import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
+import { Layer, createDefaultBaseLayer } from '../layersEngine';
+import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
+import { applyColorMatch } from '../colorMatchEngine';
 
 import { HistoryActionType } from '../history';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -152,6 +162,51 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [healingSettings, setHealingSettings] = useState<HealingSettings>(DEFAULT_HEALING_SETTINGS);
   const [healingHasStrokes, setHealingHasStrokes] = useState<boolean>(false);
   const healingCanvasRef = useRef<import('../HealingCanvas').HealingCanvasRef | null>(null);
+
+  // New Professional Tools State
+  const [layers, setLayers] = useState<Layer[]>([createDefaultBaseLayer()]);
+  const [activeLayerId, setActiveLayerId] = useState<string | null>('layer-base');
+  const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
+  const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
+  const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
+
+  const handleApplyColorMatch = useCallback(async (refSrc: string, strength: number) => {
+    try {
+      const refImg = new Image();
+      refImg.crossOrigin = 'anonymous';
+      refImg.onload = () => {
+        const refCanvas = document.createElement('canvas');
+        refCanvas.width = refImg.naturalWidth;
+        refCanvas.height = refImg.naturalHeight;
+        const rCtx = refCanvas.getContext('2d', { willReadFrequently: true });
+        if (!rCtx) return;
+        rCtx.drawImage(refImg, 0, 0);
+        const refData = rCtx.getImageData(0, 0, refCanvas.width, refCanvas.height);
+
+        const targetImg = new Image();
+        targetImg.crossOrigin = 'anonymous';
+        targetImg.onload = () => {
+          const targetCanvas = document.createElement('canvas');
+          targetCanvas.width = targetImg.naturalWidth;
+          targetCanvas.height = targetImg.naturalHeight;
+          const tCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
+          if (!tCtx) return;
+          tCtx.drawImage(targetImg, 0, 0);
+          const targetData = tCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
+
+          applyColorMatch(targetData, refData, strength);
+          tCtx.putImageData(targetData, 0, 0);
+
+          const matchedUrl = targetCanvas.toDataURL('image/png');
+          setCurrentImageSrc(matchedUrl);
+        };
+        targetImg.src = currentImageSrc;
+      };
+      refImg.src = refSrc;
+    } catch (e) {
+      console.error('Color match failed:', e);
+    }
+  }, [currentImageSrc, setCurrentImageSrc]);
 
   // Export progress state
   const [exportProgress, setExportProgress] = useState<{ step: string; current: number; total: number } | null>(null);
@@ -704,6 +759,39 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               }}
               hasStrokes={healingHasStrokes}
             />],
+            ['layers', <LayersPanel
+              key="layers"
+              layers={layers}
+              onChange={setLayers}
+              activeLayerId={activeLayerId}
+              setActiveLayerId={setActiveLayerId}
+            />],
+            ['raw', <RawEnginePanel
+              key="raw"
+              settings={rawSettings}
+              onChange={setRawSettings}
+            />],
+            ['liquify', <LiquifyPanel
+              key="liquify"
+              settings={liquifySettings}
+              onChange={setLiquifySettings}
+              onResetMesh={() => setLiquifySettings(DEFAULT_LIQUIFY_SETTINGS)}
+            />],
+            ['colormatch', <ColorMatchPanel
+              key="colormatch"
+              onApplyColorMatch={handleApplyColorMatch}
+            />],
+            ['lasso', <LassoPanel
+              key="lasso"
+              state={lassoState}
+              onChange={setLassoState}
+              adjustments={adjustments}
+              onAdjustmentsChange={handleAdjChange}
+              onConvertToInpaintMask={(maskUrl) => {
+                setInpaintMask(maskUrl);
+                setActiveTool('inpaint');
+              }}
+            />],
             ['frame', <FramesPanel key="frame" adjustments={adjustments} onChange={handleAdjChange} handleRotate={handleRotate} handleFlipH={handleFlipH} handleFlipV={handleFlipV} flipH={flipH} flipV={flipV} imageSrc={currentImageSrc} />],
             ['palette', <PalettePanel key="palette" imageSrc={currentImageSrc} />],
             ['annotations', <AnnotationsPanel key="annotations"
@@ -844,6 +932,16 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           healingCanvasRef={healingCanvasRef}
           onHealingStrokeComplete={() => setHealingHasStrokes(true)}
         />
+
+        {activeTool === 'lasso' && (
+          <LassoCanvas
+            width={1920}
+            height={1080}
+            imageSrc={currentImageSrc}
+            state={lassoState}
+            onChange={setLassoState}
+          />
+        )}
 
         {showHistory && (
           <HistoryPanel

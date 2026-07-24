@@ -306,6 +306,16 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, [input, isLoading, messages, activeSessionId, createSession]);
 
+  const modelPreloadedRef = useRef(false);
+
+  const preloadModel = useCallback(() => {
+    if (modelPreloadedRef.current) return;
+    modelPreloadedRef.current = true;
+    fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' }).catch((e) => {
+      console.warn('Failed to preload AI agent model:', e);
+    });
+  }, []);
+
   const askAboutPhoto = useCallback((photo: Photo) => {
     const query = `Analyze and describe photo: "${photo.filename}" (ID: ${photo.id}). What date, metadata, and location details can you find?`;
     handleSend(query);
@@ -321,6 +331,6 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     renameSession,
     deleteSession,
     messages, input, isLoading, progressDetail, currentPhotos, currentPlan, currentTools, totalCandidates, expandedLogs, scrollRef,
-    setInput, toggleLog, handleSend, clearResults, askAboutPhoto,
+    setInput, toggleLog, handleSend, clearResults, askAboutPhoto, preloadModel,
   };
 };

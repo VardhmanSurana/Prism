@@ -1067,3 +1067,82 @@ export const applyLensCorrection = (
   ctx.putImageData(dstData, 0, 0);
   return canvas;
 };
+
+export const applyDefringeAndOpticalVignetting = (
+  canvas: HTMLCanvasElement,
+  defringe: Adjustments['defringe'],
+) => {
+  if (!defringe || (defringe.amount === 0 && defringe.vignetteCos4 === 0)) {
+    return canvas;
+  }
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return canvas;
+
+  const w = canvas.width;
+  const h = canvas.height;
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const f = Math.max(w, h); // focal distance estimate
+
+  const amount = (defringe.amount || 0) / 100;
+  const hueStart = defringe.hueStart ?? 270;
+  const hueEnd = defringe.hueEnd ?? 330;
+  const cos4Amount = (defringe.vignetteCos4 || 0) / 100;
+
+  for (let y = 0; y < h; y++) {
+    const dy = y - cy;
+    const dySq = dy * dy;
+
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      let r = data[idx];
+      let g = data[idx + 1];
+      let b = data[idx + 2];
+
+      // 1. Cosine-Fourth Optical Vignetting Correction
+      if (cos4Amount > 0) {
+        const dx = x - cx;
+        const rSq = dx * dx + dySq;
+        const tanSq = rSq / (f * f);
+        const cos4Inv = Math.pow(1 + tanSq, 2); // 1 / cos^4(theta)
+        const boost = 1 + (cos4Inv - 1) * cos4Amount * 0.4;
+
+        r = clamp(Math.round(r * boost), 0, 255);
+        g = clamp(Math.round(g * boost), 0, 255);
+        b = clamp(Math.round(b * boost), 0, 255);
+      }
+
+      // 2. Chromatic Aberration Defringe Desaturation
+      if (amount > 0) {
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        const d = max - min;
+
+        if (d > 15) {
+          let hue = 0;
+          if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+          else if (max === g) hue = ((b - r) / d + 2) * 60;
+          else hue = ((r - g) / d + 4) * 60;
+
+          if (hue >= hueStart && hue <= hueEnd) {
+            const gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            r = Math.round(r + (gray - r) * amount);
+            g = Math.round(g + (gray - g) * amount);
+            b = Math.round(b + (gray - b) * amount);
+          }
+        }
+      }
+
+      data[idx] = r;
+      data[idx + 1] = g;
+      data[idx + 2] = b;
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+};

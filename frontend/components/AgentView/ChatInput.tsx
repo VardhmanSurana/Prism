@@ -7,9 +7,10 @@ interface ChatInputProps {
   onChange: (value: string) => void;
   onSend: (text?: string, files?: File[]) => void;
   disabled: boolean;
+  onActivate?: () => void;
 }
 
-export const ChatInput: React.FC<ChatInputProps> = ({ value, onChange, onSend, disabled }) => {
+export const ChatInput: React.FC<ChatInputProps> = ({ value, onChange, onSend, disabled, onActivate }) => {
   const [files, setFiles] = useState<File[]>([]);
 
   const handleSend = (text: string, attachedFiles: File[]) => {
@@ -23,6 +24,8 @@ export const ChatInput: React.FC<ChatInputProps> = ({ value, onChange, onSend, d
         value={value}
         onValueChange={onChange}
         onSend={handleSend}
+        onActivate={onActivate}
+
         placeholder="Ask Prism to find photos, upload an image to analyze or search..."
         disabled={disabled}
         files={files}

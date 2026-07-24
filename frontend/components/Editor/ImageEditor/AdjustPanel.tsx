@@ -6,10 +6,11 @@
 
 import React, { useCallback, useMemo, useState } from 'react';
 import { RotateCcw, Sparkles, Loader2, ChevronDown, ChevronUp, Sun, Pipette } from 'lucide-react';
-import { Adjustments } from './filterEngine';
+import { Adjustments, ColorWheelsAdjustments } from './filterEngine';
 import { apiClient } from '@/services/apiClient';
 import { CurveEditor } from './CurveEditor';
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
+import { ColorWheelsPanel } from './ColorWheelsPanel';
 
 export type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
@@ -382,7 +383,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
         )}
       </div>
 
-      {/* ── 2. TONE CURVE ACCORDION ── */}
+      {/* ── 2. TONE & COLOR CURVES ACCORDION ── */}
       <div className="border-b border-white/5">
         <button
           onClick={() => setCurvesOpen(!curvesOpen)}
@@ -390,7 +391,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
         >
           <div className="flex items-center gap-2">
             <Sun size={14} className="text-white/40" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/75">Tone Curve</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-white/75">Curves (RGB & Color)</span>
           </div>
           <div className="flex items-center gap-2">
             {hasActiveCurves && <span className="text-[10px] text-white/35 font-bold select-none mr-1 font-sans">✓</span>}
@@ -403,11 +404,24 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
             <CurveEditor
               value={adjustments.curves}
               onChange={handleCurvesChange}
+              specializedValue={adjustments.specializedCurves}
+              onSpecializedChange={(sc) => onChange({ ...adjustments, specializedCurves: sc })}
               imageSrc={imageSrc}
               filterString={filterString}
             />
           </div>
         )}
+      </div>
+
+      {/* ── 2.5 COLOR WHEELS (3-WAY & LOG) ACCORDION ── */}
+      <div className="border-b border-white/5">
+        <div className="px-4 py-3">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-white/75 mb-3 block">Color Wheels</span>
+          <ColorWheelsPanel
+            value={adjustments.colorWheels}
+            onChange={(cw) => onChange({ ...adjustments, colorWheels: cw })}
+          />
+        </div>
       </div>
 
       {/* ── 3. COLOR ACCORDION ── */}

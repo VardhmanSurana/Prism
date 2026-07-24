@@ -54,11 +54,25 @@ class AIOrchestrator:
             "--host", "0.0.0.0",
             "--port", str(port),
             "-ngl", ngl_layers,
-            "-c", "8192",        # Context size (larger for vision)
+            "-c", "8192",
+            "-np", "1",
         ]
 
         if mmproj_path and mmproj_path.exists():
-            cmd.extend(["--mmproj", str(mmproj_path.absolute())])
+            cmd.extend([
+                "--mmproj", str(mmproj_path.absolute()),
+                "--no-mmproj-offload",
+            ])
+
+        # GPU acceleration options: flash-attn & 8-bit KV cache quantization
+        if settings.GPU_MODE != "cpu":
+            cmd.extend([
+                "--flash-attn", "on",
+                "-ctk", "q8_0",
+                "-ctv", "q8_0",
+                "-fit", "off",
+            ])
+
 
         logger.info(f"Starting llama-server for {mode} mode: {' '.join(cmd)}")
         

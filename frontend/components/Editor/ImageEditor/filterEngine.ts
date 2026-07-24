@@ -10,7 +10,14 @@
  *   - curves.ts         → CurveState, DEFAULT_CURVE, getCurvesTableValues
  */
 
-import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
+import {
+  CurveState,
+  DEFAULT_CURVE,
+  isIdentityCurve,
+  SpecializedCurvesState,
+  DEFAULT_SPECIALIZED_CURVES,
+  isIdentitySpecializedCurves,
+} from './curves';
 import type { LutData } from './lutEngine';
 
 // ── HSL Per-Band Types ───────────────────────────────────────────────────────
@@ -38,9 +45,19 @@ export const HSL_BAND_DEFAULTS: HslAdjustments = {
   pinks:   { hue: 0, saturation: 0, luminance: 0 },
 };
 
+export interface RangeMaskSettings {
+  mode: 'none' | 'luminance' | 'color';
+  lumRange: [number, number]; // [min, max] 0-100
+  lumFeather: number; // 0-100
+  colorSample: string | null; // hex color or null
+  colorTolerance: number; // 0-100
+  refineEdge: boolean;
+  refineRadius: number; // 0-100
+}
+
 export interface RegionalAdjustment {
   id: string;
-  type: 'face' | 'background' | 'subject' | 'custom';
+  type: 'face' | 'background' | 'subject' | 'custom' | 'linear' | 'radial';
   maskUrl: string;
   adjustments: {
     brightness?: number;
@@ -53,6 +70,33 @@ export interface RegionalAdjustment {
     teethWhitening?: number;
     faceReshape?: number;
   };
+  rangeMask?: RangeMaskSettings;
+}
+
+export interface ColorWheelVal {
+  x: number; // -100 to 100
+  y: number; // -100 to 100
+  yuma: number; // -100 to 100
+}
+
+export interface ColorWheelsAdjustments {
+  mode: 'primary' | 'log';
+  lift: ColorWheelVal;
+  gamma: ColorWheelVal;
+  gain: ColorWheelVal;
+  offset: ColorWheelVal;
+  shadows: ColorWheelVal;
+  midtones: ColorWheelVal;
+  highlights: ColorWheelVal;
+  lowPivot: number;  // 0 -> 100
+  highPivot: number; // 0 -> 100
+}
+
+export interface DefringeAdjustments {
+  amount: number; // 0 -> 100
+  hueStart: number; // 0 -> 360
+  hueEnd: number; // 0 -> 360
+  vignetteCos4: number; // 0 -> 100
 }
 
 // ── Combined State Type ──────────────────────────────────────────────────────
@@ -88,6 +132,7 @@ export interface Adjustments {
   // Effects
   ambiance:    number; // -100 → 100  (Snapseed-style local contrast + colour)
   curves:      CurveState;
+  specializedCurves: SpecializedCurvesState;
   vignette:    number; // -100 → 100
 
   // AI Regions
@@ -95,6 +140,12 @@ export interface Adjustments {
 
   // HSL per-band
   hsl:         HslAdjustments;
+
+  // Professional Color Wheels
+  colorWheels: ColorWheelsAdjustments;
+
+  // Lens Defringe & Optical Vignetting
+  defringe:    DefringeAdjustments;
 
   // New adjustments
   splitToning: SplitToningAdjustments;
@@ -158,6 +209,28 @@ export interface LutAdjustments {
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
 
+export const DEFAULT_COLOR_WHEEL_VAL: ColorWheelVal = { x: 0, y: 0, yuma: 0 };
+
+export const DEFAULT_COLOR_WHEELS: ColorWheelsAdjustments = {
+  mode: 'primary',
+  lift: { ...DEFAULT_COLOR_WHEEL_VAL },
+  gamma: { ...DEFAULT_COLOR_WHEEL_VAL },
+  gain: { ...DEFAULT_COLOR_WHEEL_VAL },
+  offset: { ...DEFAULT_COLOR_WHEEL_VAL },
+  shadows: { ...DEFAULT_COLOR_WHEEL_VAL },
+  midtones: { ...DEFAULT_COLOR_WHEEL_VAL },
+  highlights: { ...DEFAULT_COLOR_WHEEL_VAL },
+  lowPivot: 20,
+  highPivot: 80,
+};
+
+export const DEFAULT_DEFRINGE: DefringeAdjustments = {
+  amount: 0,
+  hueStart: 270,
+  hueEnd: 330,
+  vignetteCos4: 0,
+};
+
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
   brightness:  0,
   contrast:    0,
@@ -180,9 +253,12 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   distortion:          0,
   ambiance:    0,
   curves:      DEFAULT_CURVE,
+  specializedCurves: DEFAULT_SPECIALIZED_CURVES,
   vignette:    0,
   regions:     [],
   hsl:         { ...HSL_BAND_DEFAULTS },
+  colorWheels: DEFAULT_COLOR_WHEELS,
+  defringe:    DEFAULT_DEFRINGE,
   splitToning: {
     shadows:    { hue: 0, saturation: 0 },
     highlights: { hue: 0, saturation: 0 },

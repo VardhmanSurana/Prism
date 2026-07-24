@@ -13,7 +13,7 @@
 
 import React, { useRef, useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
 
-export type HealingToolMode = 'clone-stamp' | 'healing-brush';
+export type HealingToolMode = 'clone-stamp' | 'healing-brush' | 'frequency-separation' | 'content-patch' | 'dodge-burn';
 
 export interface HealingCanvasRef {
   /** Returns a data URL of all healing strokes applied to the source image */

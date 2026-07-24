@@ -65,7 +65,7 @@ class LlamaManager:
         # Map llama-cpp-python args to OpenAI API format
         payload = {
             "prompt": prompt,
-            "max_tokens": kwargs.get("max_tokens", 250),
+            "max_tokens": kwargs.get("max_tokens", 500),
             "temperature": kwargs.get("temperature", 0.1),
             "top_p": kwargs.get("top_p", 0.95),
             "top_k": kwargs.get("top_k", 64),

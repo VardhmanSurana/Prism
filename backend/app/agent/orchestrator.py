@@ -263,7 +263,7 @@ class AgentOrchestrator:
                             ]
                         }
                     ]
-                    chat_res = self.planner.llm_manager.query_chat_server(messages=multimodal_msgs, max_tokens=350)
+                    chat_res = self.planner.llm_manager.query_chat_server(messages=multimodal_msgs, max_tokens=1000)
                     answer_text = chat_res["choices"][0]["message"]["content"].strip()
 
                     yield {
@@ -410,7 +410,7 @@ class AgentOrchestrator:
                     f"You are Prism, a helpful local AI photo assistant.\nUser asked: \"{message}\"\n"
                     "Provide a warm, concise conversational response.\n<end_of_turn>\n<start_of_turn>model\n"
                 )
-                res = llm(prompt, max_tokens=150, temperature=0.7, stop=["<end_of_turn>"])
+                res = llm(prompt, max_tokens=1000, temperature=0.7, stop=["<end_of_turn>"])
                 text = res["choices"][0]["text"].strip()
                 yield {"type": "result", "text": text, "photos": []}
                 return

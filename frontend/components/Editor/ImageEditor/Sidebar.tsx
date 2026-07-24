@@ -15,6 +15,9 @@ import {
   PenTool,
   Clapperboard,
   Eraser,
+  Camera,
+  Smile,
+  MousePointer,
 } from 'lucide-react';
 
 export type ToolId =
@@ -31,7 +34,12 @@ export type ToolId =
   | 'lut'
   | 'frame'
   | 'palette'
-  | 'annotations';
+  | 'annotations'
+  | 'layers'
+  | 'raw'
+  | 'liquify'
+  | 'colormatch'
+  | 'lasso';
 
 interface SidebarProps {
   activeTool: ToolId | null;
@@ -42,6 +50,11 @@ interface SidebarProps {
 const DEFAULT_TABS_ORDER: ToolId[] = [
   'inpaint',
   'healing',
+  'lasso',
+  'layers',
+  'raw',
+  'liquify',
+  'colormatch',
   'presets',
   'adjust',
   'hsl',
@@ -60,6 +73,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     inpaint:      { icon: <Paintbrush size={20} strokeWidth={1.5} />,   label: 'AI Tools',             description: 'AI-powered object removal and mask-based image inpainting' },
     healing:      { icon: <Eraser size={20} strokeWidth={1.5} />,       label: 'Clone & Heal',         description: 'Clone Stamp and Healing Brush — Alt+click to set source, then paint' },
+    lasso:        { icon: <MousePointer size={20} strokeWidth={1.5} />, label: 'Lasso Studio',        description: 'Freehand, Polygonal, and Magnetic Edge-Snapping Lasso Selection' },
+    layers:       { icon: <Layers size={20} strokeWidth={1.5} />,       label: 'Layer Stack',          description: 'Non-destructive Layer Stack, Fill Layers, and 27 Blend Modes' },
+    raw:          { icon: <Camera size={20} strokeWidth={1.5} />,       label: 'Camera RAW',           description: 'Sensor Demosaicing (AMaZE/AHD), Kelvin 2000K-50000K WB & Highlight Recovery' },
+    liquify:      { icon: <Smile size={20} strokeWidth={1.5} />,        label: 'Liquify & Reshape',    description: 'Interactive Mesh Displacement, Forward Warp, Pucker, Bloat & Face Reshape' },
+    colormatch:   { icon: <Pipette size={20} strokeWidth={1.5} />,      label: 'Shot Matcher',         description: '3D Color Histogram Matching to sample reference photos and cinema stills' },
     presets:      { icon: <BookMarked size={20} strokeWidth={1.5} />,   label: 'Presets',              description: 'Apply curated cinematic, vintage, and creative look presets' },
     adjust:       { icon: <SlidersHorizontal size={20} strokeWidth={1.5} />, label: 'Light',                description: 'Adjust exposure, brightness, contrast, highlights, and shadows' },
     hsl:          { icon: <Palette size={20} strokeWidth={1.5} />,       label: 'Color',                description: 'Finely tune hue, saturation, and luminance of specific color bands' },

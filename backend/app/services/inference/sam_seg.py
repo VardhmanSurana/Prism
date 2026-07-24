@@ -45,9 +45,26 @@ def _get_sam():
     global _model, _processor
     if _model is None:
         from transformers import SamModel, SamProcessor
-        logger.info("Loading SAM ViT-B via transformers...")
-        _processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
         device = _get_device()
+        sam_dir = settings.BASE_DIR / "models" / "SAM"
+        
+        if sam_dir.exists():
+            try:
+                logger.info(f"Loading local SAM model from {sam_dir}...")
+                _processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
+                safetensors = sam_dir / "SAM.safetensors"
+                if safetensors.exists():
+                    _model = SamModel.from_pretrained(str(sam_dir), weight_name="SAM.safetensors").to(device)
+                else:
+                    _model = SamModel.from_pretrained(str(sam_dir)).to(device)
+                _model.eval()
+                logger.info(f"Local SAM model loaded successfully on {device}")
+                return _model, _processor
+            except Exception as e:
+                logger.warning(f"Could not load local SAM weights from {sam_dir}: {e}. Falling back to facebook/sam-vit-base.")
+
+        logger.info("Loading SAM ViT-B via transformers from HuggingFace hub...")
+        _processor = SamProcessor.from_pretrained("facebook/sam-vit-base")
         _model = SamModel.from_pretrained("facebook/sam-vit-base").to(device)
         _model.eval()
         logger.info(f"SAM loaded on {device}")

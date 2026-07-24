@@ -30,7 +30,7 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
       style={{ transform: `translateY(${virtualRowStart}px)` }}
     >
       <div
-        className="flex items-baseline justify-between select-none py-4 bg-background border-b border-white/5"
+        className="flex items-baseline justify-between select-none py-4 bg-background"
         onMouseEnter={() => setIsHeaderHovered(true)}
         onMouseLeave={() => setIsHeaderHovered(false)}
       >

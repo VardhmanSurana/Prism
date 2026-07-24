@@ -33,11 +33,12 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
     renameSession,
     deleteSession,
     messages, input, isLoading, progressDetail, currentPhotos, currentPlan, currentTools, totalCandidates, expandedLogs, scrollRef,
-    setInput, toggleLog, handleSend, clearResults, askAboutPhoto,
+    setInput, toggleLog, handleSend, clearResults, askAboutPhoto, preloadModel,
   } = useAgentView({ onPhotoClick });
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAlbumModalOpen, setIsAlbumModalOpen] = useState(false);
+
 
   // Auto-open drawer when new search photos are fetched
   useEffect(() => {
@@ -214,8 +215,9 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
           </motion.div>
         )}
 
-        <SuggestionsPanel suggestions={SUGGESTIONS} onSend={handleSend} />
-        <ChatInput value={input} onChange={setInput} onSend={() => handleSend()} disabled={isLoading} />
+        <SuggestionsPanel suggestions={SUGGESTIONS} onSend={(prompt) => { preloadModel(); handleSend(prompt); }} />
+        <ChatInput value={input} onChange={setInput} onSend={() => handleSend()} disabled={isLoading} onActivate={preloadModel} />
+
       </div>
 
       {/* Sliding Right Gallery Drawer */}

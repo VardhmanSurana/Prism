@@ -59,28 +59,37 @@ export const HealingPanel: React.FC<HealingPanelProps> = ({
       {/* ── Mode selector ── */}
       <div className="px-4 pt-4 pb-3 border-b border-white/5">
         <p className="text-[9px] font-bold uppercase tracking-wider text-white/25 mb-2">Tool</p>
-        <div className="flex bg-white/[0.02] border border-white/5 rounded-lg p-0.5">
-          {(['clone-stamp', 'healing-brush'] as HealingToolMode[]).map(m => (
+        <div className="grid grid-cols-3 gap-1 bg-white/[0.02] border border-white/5 rounded-lg p-1">
+          {(
+            [
+              { id: 'clone-stamp', label: 'Clone' },
+              { id: 'healing-brush', label: 'Heal' },
+              { id: 'frequency-separation', label: 'Freq Sep' },
+              { id: 'content-patch', label: 'Patch' },
+              { id: 'dodge-burn', label: 'Dodge/Burn' },
+            ] as const
+          ).map(m => (
             <button
-              key={m}
-              onClick={() => update({ mode: m })}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                settings.mode === m
-                  ? 'bg-white/10 text-white border border-white/10'
-                  : 'text-white/30 hover:text-white/60'
+              key={m.id}
+              onClick={() => update({ mode: m.id as HealingToolMode })}
+              className={`py-1.5 px-1 text-center rounded text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                settings.mode === m.id
+                  ? 'bg-white/15 text-white border border-white/20 shadow-sm'
+                  : 'text-white/40 hover:text-white/80 hover:bg-white/5'
               }`}
             >
-              {m === 'clone-stamp' ? <Stamp size={11} /> : <Brush size={11} />}
-              {m === 'clone-stamp' ? 'Clone' : 'Heal'}
+              {m.label}
             </button>
           ))}
         </div>
 
         {/* Mode description */}
-        <p className="text-[9px] text-white/30 mt-2 leading-relaxed">
-          {settings.mode === 'clone-stamp'
-            ? 'Exactly copies pixels from the source point. Best for textures and patterns.'
-            : 'Blends the cloned patch with the destination texture. Best for skin and organic surfaces.'}
+        <p className="text-[9px] text-white/40 mt-2 leading-relaxed">
+          {settings.mode === 'clone-stamp' && 'Exactly copies pixels from source. Best for repeating patterns and textures.'}
+          {settings.mode === 'healing-brush' && 'Blends sampled patch with destination texture for skin & organic surfaces.'}
+          {settings.mode === 'frequency-separation' && 'Separates low-frequency color & high-frequency texture for skin smoothing.'}
+          {settings.mode === 'content-patch' && 'Replaces target selection area with seamless Poisson gradient blending.'}
+          {settings.mode === 'dodge-burn' && 'Selective non-destructive brush to lighten (Dodge) or darken (Burn) tonal zones.'}
         </p>
       </div>
 

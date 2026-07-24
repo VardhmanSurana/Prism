@@ -1,6 +1,7 @@
 import { Adjustments, HslBand, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
-import { applyHslToImageData } from './hslEngine';
+import { applyHslToImageData, applySpecializedCurvesToImageData } from './hslEngine';
+import { applyColorWheelsToImageData } from './colorWheelsEngine';
 import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
 import {
   applySplitToning,
@@ -13,6 +14,7 @@ import {
   applyCurveLutsToCanvas,
   applyBlur,
   applyLensCorrection,
+  applyDefringeAndOpticalVignetting,
 } from './exportPipeline';
 import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows } from './filterFallback';
 
@@ -112,6 +114,20 @@ export function drawFilteredImageToCanvas(
   // 6. Curves
   applyCurveLutsToCanvas(canvas, adjustments);
 
+  // 6.2. Specialized Color Curves (Hue vs Hue, Hue vs Sat, etc.)
+  if (adjustments.specializedCurves) {
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    applySpecializedCurvesToImageData(imgData, adjustments.specializedCurves);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // 6.4. Professional 3-Way & Log Color Wheels
+  if (adjustments.colorWheels) {
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    applyColorWheelsToImageData(imgData, adjustments.colorWheels);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
   // 6.5. LUT (3D Look-Up Table) — Canvas2D pixel-based, no SVG filter overhead
   if (adjustments.lut && (adjustments.lut.builtinId || adjustments.lut.customData)) {
     const lutData = adjustments.lut.customData || getBuiltinLutData(adjustments.lut.builtinId!);
@@ -134,6 +150,11 @@ export function drawFilteredImageToCanvas(
       applyHslToImageData(imgData, adjustments.hsl);
       ctx.putImageData(imgData, 0, 0);
     }
+  }
+
+  // 7.5. Defringe & Cosine-Fourth Vignetting
+  if (adjustments.defringe) {
+    applyDefringeAndOpticalVignetting(canvas, adjustments.defringe);
   }
 
   // 8. Split Toning
