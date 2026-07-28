@@ -21,15 +21,13 @@
 
 - [What Prism Is](#what-prism-is)
 - [Core Features](#core-features)
-- [Universal UUID Architecture](#universal-uuid-architecture)
 - [Technology Stack](#technology-stack)
 - [Architecture](#architecture)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [One-Click Startup](#one-click-startup)
   - [Manual Setup](#manual-setup)
-- [User Guide](#user-guide)
-- [Optional Local AI Features](#optional-local-ai-features)
+  - [Optional Local AI Features](#optional-local-ai-features)
 - [Security Boundaries](#security-boundaries)
 - [License](#license)
 
