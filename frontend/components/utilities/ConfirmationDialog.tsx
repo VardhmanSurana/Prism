@@ -24,7 +24,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
       <div className="absolute inset-0 bg-black/70" onClick={onCancel} />
       <div className="relative bg-[#0c0c0c] border border-[#23252a] rounded-2xl w-full max-w-md mx-4 shadow-2xl">
         <div className="p-6">
-          <h3 className="font-serif italic text-[#f7f8f8] text-xl leading-tight">
+          <h3 className="font-serif font-semibold text-[#f7f8f8] text-xl leading-tight">
             {title}
           </h3>
           <p className="text-sm text-[#d0d6e0] mt-3 leading-relaxed">
@@ -47,7 +47,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             className={`flex-1 px-4 py-2.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-white transition-colors ${
               type === 'rose'
                 ? 'bg-[#e5484d] hover:bg-[#dc3d42]'
-                : 'bg-[#5e6ad2] hover:bg-[#828fff]'
+                : 'bg-[#5e6ad2] hover:brightness-110'
             }`}
           >
             Confirm

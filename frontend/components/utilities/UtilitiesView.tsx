@@ -114,7 +114,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               <div className="lg:col-span-1 pr-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Cpu size={16} className="text-[#5e6ad2]" />
-                  <h4 className="font-serif italic text-white text-xl leading-tight">
+                  <h4 className="font-serif font-semibold text-white text-xl leading-tight">
                     AI Core Settings
                   </h4>
                 </div>
@@ -132,7 +132,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               <div className="lg:col-span-1 pr-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Folder size={16} className="text-[#5e6ad2]" />
-                  <h4 className="font-serif italic text-white text-xl leading-tight">
+                  <h4 className="font-serif font-semibold text-white text-xl leading-tight">
                     Territory Sync
                   </h4>
                 </div>
@@ -165,7 +165,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               <div className="lg:col-span-1 pr-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Users size={16} className="text-[#5e6ad2]" />
-                  <h4 className="font-serif italic text-white text-xl leading-tight">
+                  <h4 className="font-serif font-semibold text-white text-xl leading-tight">
                     People Recognition
                   </h4>
                 </div>
@@ -186,7 +186,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               <div className="lg:col-span-1 pr-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Trash2 size={16} className="text-red-400" />
-                  <h4 className="font-serif italic text-white text-xl leading-tight">
+                  <h4 className="font-serif font-semibold text-white text-xl leading-tight">
                     Cleanse Territories
                   </h4>
                 </div>
@@ -206,11 +206,11 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
             </div>
 
             {/* Danger Zone */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-8">
               <div className="lg:col-span-1 pr-4">
                 <div className="flex items-center gap-2 mb-2">
                   <ShieldAlert size={16} className="text-red-500" />
-                  <h4 className="font-serif italic text-white text-xl leading-tight">
+                  <h4 className="font-serif font-semibold text-white text-xl leading-tight">
                     Danger Zone
                   </h4>
                 </div>

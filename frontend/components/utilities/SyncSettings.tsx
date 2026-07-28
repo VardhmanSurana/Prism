@@ -47,13 +47,13 @@ const FolderInput: React.FC<{
         onClick={onBrowse}
         className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-white border-l border-white/[0.06] hover:bg-white/[0.02] transition-all"
       >
-        Browse
+        Select path
       </button>
     </div>
     <button 
       onClick={onAdd}
       disabled={disabled}
-      className="px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
+      className="px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:brightness-110 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
     >
       Add
     </button>
@@ -110,13 +110,6 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
 
   return (
     <section className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-6">
-      {/* Top Tag line */}
-      <div className="flex justify-between items-center border-b border-white/[0.04] pb-4">
-        <span className="px-2.5 py-1 bg-white/[0.02] border border-white/[0.04] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
-          Automatic Daemon Scan
-        </span>
-      </div>
-      
       <div className="space-y-6">
         {/* Auto sync toggle */}
         <div className="flex items-center justify-between bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
@@ -149,7 +142,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
             onChange={setWInput}
             onBrowse={browseW}
             onAdd={addW}
-            placeholder="/home/user/Pictures"
+            placeholder="~/Pictures"
             disabled={!wInput}
           />
 
@@ -176,7 +169,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
             onChange={setEInput}
             onBrowse={browseE}
             onAdd={addE}
-            placeholder="/home/user/Downloads"
+            placeholder="~/Downloads"
             disabled={!eInput}
           />
 

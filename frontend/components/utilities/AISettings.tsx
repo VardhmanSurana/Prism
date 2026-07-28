@@ -284,7 +284,7 @@ export const AISettings: React.FC = () => {
                 {isWorkerPaused ? (
                   <button
                     onClick={handleStartWorker}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5e6ad2] hover:bg-[#828fff] text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5e6ad2] hover:brightness-110 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
                   >
                     <Play size={10} className="fill-white" />
                     Start Services
@@ -301,47 +301,40 @@ export const AISettings: React.FC = () => {
               </div>
             </div>
 
-            {/* Log Terminal Window */}
-            <div>
-              <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-black">
-                {/* macOS style title bar */}
-                <div className="bg-white/[0.02] px-4 py-2 border-b border-white/[0.05] flex items-center justify-between select-none">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-                    </div>
-                    <span className="text-[10px] font-mono text-gray-500 ml-2">backend.log - stream</span>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
-                    <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
-                      <input
-                        type="checkbox"
-                        checked={autoRefreshLogs}
-                        onChange={(e) => setAutoRefreshLogs(e.target.checked)}
-                        className="rounded border-white/[0.1] bg-black text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
-                      />
-                      <span>Auto-refresh</span>
-                    </label>
-                    <button
-                      onClick={fetchLogs}
-                      className="hover:text-white flex items-center gap-1 transition-colors"
-                    >
-                      <RefreshCw size={9} />
-                      <span>Sync</span>
-                    </button>
-                  </div>
+            {/* Log Terminal */}
+            <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-[#0c0c0c]">
+              <div className="px-4 py-2 border-b border-white/[0.05] flex items-center justify-between select-none">
+                <div className="flex items-center gap-2">
+                  <Terminal size={12} className="text-[#5e6ad2]" />
+                  <span className="text-[10px] font-mono text-gray-500">backend.log — live</span>
                 </div>
+                
+                <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
+                  <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={autoRefreshLogs}
+                      onChange={(e) => setAutoRefreshLogs(e.target.checked)}
+                      className="rounded border-white/[0.1] bg-[#0c0c0c] text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
+                    />
+                    <span>Auto-refresh</span>
+                  </label>
+                  <button
+                    onClick={fetchLogs}
+                    className="hover:text-white flex items-center gap-1 transition-colors"
+                  >
+                    <RefreshCw size={9} />
+                    <span>Sync</span>
+                  </button>
+                </div>
+              </div>
 
-                {/* Terminal Output */}
-                <div
-                  ref={logTerminalRef}
-                  className="p-4 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] bg-[#020203] select-text whitespace-pre-wrap custom-scrollbar"
-                >
-                  {highlightLogs(logs)}
-                </div>
+              {/* Terminal Output */}
+              <div
+                ref={logTerminalRef}
+                className="p-4 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] select-text whitespace-pre-wrap custom-scrollbar"
+              >
+                {highlightLogs(logs)}
               </div>
             </div>
           </div>

@@ -12,14 +12,7 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
   systemStatus
 }) => {
   return (
-    <section className="bg-red-500/[0.01] border border-red-500/10 hover:border-red-500/20 rounded-3xl p-6 shadow-[0_0_30px_rgba(229,72,77,0.03)] transition-all relative space-y-6">
-      {/* Top pill tag */}
-      <div className="flex justify-between items-center border-b border-red-500/10 pb-4">
-        <span className="px-2.5 py-1 bg-red-500/5 border border-red-500/10 rounded-full text-[9px] font-mono uppercase tracking-wider text-red-400">
-          Destructive operations
-        </span>
-      </div>
-
+    <div className="bg-red-500/[0.01] border border-red-500/10 hover:border-red-500/20 rounded-3xl p-6 shadow-[0_0_30px_rgba(229,72,77,0.03)] transition-all relative space-y-6">
       <div 
         onClick={!isResetting ? onReset : undefined}
         className={`group border border-red-500/20 rounded-2xl p-5 transition-all duration-200 ${
@@ -92,6 +85,6 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
           {systemStatus}
         </p>
       )}
-    </section>
+    </div>
   );
 };

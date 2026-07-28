@@ -184,7 +184,7 @@ export const DiagnosticsLogs: React.FC = () => {
         <div className="lg:col-span-1 pr-4">
           <div className="flex items-center gap-2 mb-2">
             <Activity size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif italic text-white text-xl leading-tight">
+            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
               Diagnostics Metadata
             </h4>
           </div>
@@ -255,7 +255,7 @@ export const DiagnosticsLogs: React.FC = () => {
         <div className="lg:col-span-1 pr-4">
           <div className="flex items-center gap-2 mb-2">
             <HardDrive size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif italic text-white text-xl leading-tight">
+            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
               Vault Backup
             </h4>
           </div>
@@ -270,7 +270,7 @@ export const DiagnosticsLogs: React.FC = () => {
               onClick={handleExportBackup}
               disabled={isExporting}
               title="Download a ZIP backup of your database and settings"
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-[#828fff] disabled:opacity-40 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(94,106,210,0.3)]"
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:brightness-110 disabled:opacity-40 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(94,106,210,0.3)]"
             >
               <Download size={12} />
               <span>{isExporting ? 'Exporting...' : 'Export Backup ZIP'}</span>
@@ -310,7 +310,7 @@ export const DiagnosticsLogs: React.FC = () => {
         <div className="lg:col-span-1 pr-4">
           <div className="flex items-center gap-2 mb-2">
             <Terminal size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif italic text-white text-xl leading-tight">
+            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
               Logs Stream
             </h4>
           </div>
@@ -320,16 +320,11 @@ export const DiagnosticsLogs: React.FC = () => {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-black">
-            {/* macOS style title bar */}
-            <div className="bg-white/[0.02] px-4 py-2.5 border-b border-white/[0.05] flex items-center justify-between select-none">
+          <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-[#0c0c0c]">
+            <div className="px-4 py-2.5 border-b border-white/[0.05] flex items-center justify-between select-none">
               <div className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-                </div>
-                <span className="text-[10px] font-mono text-gray-500 ml-2">backend.log - stream</span>
+                <Terminal size={12} className="text-[#5e6ad2]" />
+                <span className="text-[10px] font-mono text-gray-500">backend.log — live</span>
               </div>
               
               <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
@@ -344,7 +339,7 @@ export const DiagnosticsLogs: React.FC = () => {
                     type="checkbox" 
                     checked={autoRefresh} 
                     onChange={(e) => setAutoRefresh(e.target.checked)}
-                    className="rounded border-white/[0.1] bg-black text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
+                    className="rounded border-white/[0.1] bg-[#0c0c0c] text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
                   />
                   <span>Auto-sync</span>
                 </label>
@@ -362,7 +357,7 @@ export const DiagnosticsLogs: React.FC = () => {
 
             <div 
               ref={logContainerRef}
-              className="p-4 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed bg-[#020203] select-text whitespace-pre-wrap custom-scrollbar"
+              className="p-4 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] select-text whitespace-pre-wrap custom-scrollbar"
             >
               {highlightLogs(logs)}
             </div>

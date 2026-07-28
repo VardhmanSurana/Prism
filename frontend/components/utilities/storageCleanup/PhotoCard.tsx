@@ -7,8 +7,8 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onDelete, variant }
   const isDocument = variant === 'document';
 
   return (
-    <div className="group bg-[#050505] border border-[#23252a] rounded-xl overflow-hidden hover:border-[#34343a] transition-all duration-200">
-      <div className="aspect-square overflow-hidden bg-[#141516]">
+    <div className="group bg-[#0c0c0c] border border-[#23252a] rounded-xl overflow-hidden hover:border-[#34343a] transition-all duration-200">
+      <div className="aspect-square overflow-hidden bg-[#0c0c0c]">
         <img 
           src={resolveUrl(photo.url)} 
           alt="preview" 

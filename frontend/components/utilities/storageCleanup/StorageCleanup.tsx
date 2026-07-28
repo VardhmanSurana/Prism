@@ -46,7 +46,7 @@ export const StorageCleanup: React.FC = () => {
             </div>
             <div className="text-right sm:text-right">
               <span className="text-[10px] font-mono text-gray-500 block">Total Used</span>
-              <span className="text-lg font-serif italic text-white font-semibold">{formatBytes(totalBytes)}</span>
+              <span className="text-lg font-serif font-semibold text-white">{formatBytes(totalBytes)}</span>
             </div>
           </div>
           
@@ -59,7 +59,7 @@ export const StorageCleanup: React.FC = () => {
             />
             <div 
               style={{ width: `${thumbPercent}%` }} 
-              className="h-full bg-[#828fff] rounded-full transition-all duration-500 ease-out -ml-1" 
+              className="h-full bg-white/20 rounded-full transition-all duration-500 ease-out -ml-1" 
               title={`Thumbnail Cache: ${thumbPercent.toFixed(1)}%`}
             />
           </div>
@@ -67,7 +67,7 @@ export const StorageCleanup: React.FC = () => {
           {/* Legend and stats details */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 text-xs border-t border-white/[0.03]">
             <div className="flex items-start gap-2.5">
-              <span className="w-3 h-3 rounded-md bg-[#5e6ad2] shrink-0 mt-0.5 shadow-[0_0_8px_rgba(94,106,210,0.4)]" />
+              <span className="w-3 h-3 rounded-md bg-[#5e6ad2] shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-[#f7f8f8]">Database Records</p>
                 <p className="text-[11px] font-mono text-gray-400 mt-0.5">{formatBytes(dbBytes)}</p>
@@ -76,7 +76,7 @@ export const StorageCleanup: React.FC = () => {
             </div>
 
             <div className="flex items-start gap-2.5">
-              <span className="w-3 h-3 rounded-md bg-[#828fff] shrink-0 mt-0.5 shadow-[0_0_8px_rgba(130,143,255,0.4)]" />
+              <span className="w-3 h-3 rounded-md bg-white/20 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-[#f7f8f8]">Thumbnail Cache</p>
                 <p className="text-[11px] font-mono text-gray-400 mt-0.5">{formatBytes(thumbBytes)}</p>
