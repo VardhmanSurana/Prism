@@ -28,7 +28,6 @@
   - [One-Click Startup](#one-click-startup)
   - [Manual Setup](#manual-setup)
   - [Optional Local AI Features](#optional-local-ai-features)
-- [Security Boundaries](#security-boundaries)
 - [License](#license)
 
 ---
