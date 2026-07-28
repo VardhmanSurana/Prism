@@ -1,6 +1,6 @@
 # Prism Setup Guide
 
-Comprehensive setup instructions for the Prism photo and video library desktop application.
+Comprehensive setup instructions for the Prism photo and video library desktop application, powered by a Rust (Axum) backend.
 
 ---
 
@@ -21,8 +21,8 @@ Comprehensive setup instructions for the Prism photo and video library desktop a
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | [pnpm](https://pnpm.io/) | 9+ | Frontend package manager |
-| [Python](https://www.python.org/) | 3.11+ | Backend runtime |
-| [uv](https://github.com/astral-sh/uv) | latest | Python package manager and virtual environment tool |
+| [Rust](https://www.rust-lang.org/) | 1.75+ | Backend runtime and compiler |
+| [cargo](https://doc.rust-lang.org/cargo/) | latest | Rust package manager (included with Rust) |
 | [ffmpeg](https://ffmpeg.org/) | latest | Video thumbnail generation, metadata extraction, transcoding |
 | [Tauri system deps](#per-os-tauri-dependencies) | — | Native OS libraries for the Tauri v2 shell |
 
@@ -30,6 +30,8 @@ Comprehensive setup instructions for the Prism photo and video library desktop a
 
 | Dependency | Purpose |
 |------------|---------|
+| [Python](https://www.python.org/) 3.11+ | External Python ML microservice |
+| [uv](https://github.com/astral-sh/uv) | Python package manager for external Python ML microservice |
 | NVIDIA CUDA Toolkit | GPU-accelerated AI features (face detection, embeddings, inpainting) |
 | `llama-server` | Local LLM inference for agent search, vision, and OCR |
 | `execstack` | Fix executable-stack issues for InspireFace shared library (Linux) |
@@ -59,16 +61,16 @@ flowchart TD
     B --> C["pnpm run desktop"]
     C --> D{Port 8269 in use?}
     D -->|Yes| E["Reconnect to existing backend"]
-    D -->|No| F["Spawn FastAPI backend<br/>(uvicorn on 127.0.0.1:8269)"]
+    D -->|No| F["Spawn Rust backend<br/>(cargo run on 127.0.0.1:8269)"]
     F --> G["Initialize database<br/>(WAL mode, tables, migrations)"]
-    G --> H["Start background services<br/>(Sync, LAN, Processing Queue)"]
+    G --> H["Start background services<br/>(SSE events, settings)"]
     H --> I["Launch Tauri desktop shell<br/>(Vite frontend on port 3005)"]
     E --> I
     I --> J["React UI connects via REST API"]
 ```
 
 `pnpm run desktop` does the following:
-1. Starts the FastAPI backend on `127.0.0.1:8269`
+1. Starts the Rust backend on `127.0.0.1:8269`
 2. Streams backend logs to the terminal
 3. Opens the Tauri desktop shell using the Vite frontend on port `3005`
 4. Detects if the backend is already running and reconnects to the existing log stream
@@ -79,31 +81,14 @@ flowchart TD
 
 For developers who want separate terminal windows for backend and frontend.
 
-### Terminal 1: Python API Backend
+### Terminal 1: Rust Backend
 
 ```bash
-cd backend
-
-# Create and activate virtual environment
-uv venv
-source .venv/bin/activate
-
-# Install dependencies
-uv sync
-
-# Start the FastAPI server
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8269 --reload --log-level info
+cd backend_rust
+cargo run
 ```
 
-On Windows PowerShell:
-
-```powershell
-cd backend
-uv venv
-.\.venv\Scripts\Activate.ps1
-uv sync
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8269 --reload --log-level info
-```
+The Rust backend starts on `127.0.0.1:8269` by default.
 
 ### Terminal 2: Frontend Client
 
@@ -115,20 +100,29 @@ pnpm run dev
 
 The Vite dev server is pinned to port `3005` (configured in `frontend/vite.config.ts`).
 
+### Terminal 3 (Optional): Python ML Microservice
+
+If you need AI features (face detection, embeddings, etc.):
+
+```bash
+cd ../Prism_python_backend
+uv venv
+source .venv/bin/activate
+uv sync
+uv run python ml_service.py
+```
+
+The ML microservice runs on port `8270`.
+
 ### Useful Scripts
 
 | Command | Description |
 |---------|-------------|
-| `pnpm run dev` | Run backend and frontend concurrently |
+| `./run-web.sh` | Start Rust backend + Vite frontend |
+| `./run-desktop.sh` | Start Rust backend + Tauri desktop shell |
 | `pnpm run frontend` | Start Vite frontend dev server |
 | `pnpm run frontend:build` | Build frontend assets |
 | `pnpm run frontend:typecheck` | Run frontend TypeScript checks |
-| `pnpm run backend` | Start FastAPI backend with reload |
-| `pnpm run backend:test` | Run backend pytest suite |
-| `pnpm run backend:sync` | Install backend dependencies with frozen lockfile |
-| `pnpm run test` | Run frontend typecheck and backend tests |
-| `pnpm run desktop` | Start backend and Tauri desktop shell |
-| `pnpm run tauri` | Run Tauri CLI from the frontend package |
 
 ---
 
@@ -170,7 +164,7 @@ xcode-select --install
 
 ## Environment Variables
 
-Configuration is managed through `backend/.env`. Below are all available settings:
+Configuration is managed through environment variables and `backend_rust/src/config.rs`. Below are all available settings:
 
 ### Core Settings
 
@@ -234,7 +228,8 @@ Configuration is managed through `backend/.env`. Below are all available setting
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| Backend API | `127.0.0.1:8269` | FastAPI server |
+| Backend API | `127.0.0.1:8269` | Rust Axum server |
+| ML Microservice | `127.0.0.1:8270` | Python ML service (optional) |
 | Agent server | `127.0.0.1:9090` | llama-server for agent search |
 | Vision server | `127.0.0.1:9091` | llama-server for vision/captioning |
 | OCR server | `127.0.0.1:9092` | llama-server for PaddleOCR-VL |
@@ -262,19 +257,19 @@ Stored files include:
 
 1. Install NVIDIA CUDA Toolkit 12.x from [developer.nvidia.com](https://developer.nvidia.com/cuda-downloads)
 2. Ensure `LD_LIBRARY_PATH` includes `/usr/local/cuda/lib64`
-3. Set `GPU_MODE=cuda` in `backend/.env`
+3. Set `GPU_MODE=cuda` in your environment or settings
 
 The `run-desktop.sh` script automatically sets common CUDA `LD_LIBRARY_PATH` entries.
 
 ### AMD ROCm
 
 1. Install ROCm from [rocm.docs.amd.com](https://rocm.docs.amd.com)
-2. Set `GPU_MODE=rocm` in `backend/.env`
+2. Set `GPU_MODE=rocm` in your environment or settings
 
 ### Intel Arc / SYCL
 
 1. Install Intel oneAPI Base Toolkit
-2. Set `GPU_MODE=sycl` in `backend/.env`
+2. Set `GPU_MODE=sycl` in your environment or settings
 
 ### Vulkan
 
@@ -283,7 +278,7 @@ The `run-desktop.sh` script automatically sets common CUDA `LD_LIBRARY_PATH` ent
 
 ### CPU Only
 
-Set `GPU_MODE=cpu` in `backend/.env` to disable GPU acceleration entirely.
+Set `GPU_MODE=cpu` in your environment or settings to disable GPU acceleration entirely.
 
 ---
 
@@ -301,7 +296,7 @@ Set `GPU_MODE=cpu` in `backend/.env` to disable GPU acceleration entirely.
 
 ### AI features are disabled
 
-Most AI components are behind feature flags and are not required for basic import, browsing, search, albums, maps, or Locked Folder usage. Enable only the features you need in `backend/.env`.
+Most AI components are behind feature flags and are not required for basic import, browsing, search, albums, maps, or Locked Folder usage. Enable only the features you need in your environment settings.
 
 ### Video thumbnails not generating
 
@@ -320,7 +315,7 @@ choco install ffmpeg
 
 ### Port conflicts
 
-If port `8269` is already in use, kill the existing process or change the port in `backend/.env`.
+If port `8269` is already in use, kill the existing process or change the port via the PORT environment variable.
 
 ### Database issues
 

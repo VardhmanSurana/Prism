@@ -1,19 +1,19 @@
 # Prism CLI
 
-The `prism` command is a command-line companion for Prism's photo-management backend. It is installed with the backend package and provides import, search, metadata, and server operations directly from the terminal.
+The `prism` CLI was part of the original Python backend. The backend has since been migrated to Rust (Axum). The CLI commands below document the original Python CLI interface; equivalent functionality is now available through the Rust backend REST API endpoints.
 
 ## Installation
 
-The CLI entry point is registered in the backend package:
+The CLI was part of the original Python backend package. With the Rust backend migration, most operations are performed through:
+
+- The **desktop UI** (Tauri shell)
+- The **REST API** at `http://127.0.0.1:8269/api/v1/`
+- Direct **cargo run** for the Rust backend
+
+If you still have the Python backend available:
 
 ```bash
-prism --help
-```
-
-If the backend virtual environment is active, `prism` is available globally. Otherwise:
-
-```bash
-cd backend
+cd Prism_python_backend
 uv run prism --help
 ```
 
@@ -157,6 +157,8 @@ Classifies each photo based on width, height, file extension, EXIF make/model, O
 
 Start the Prism FastAPI server.
 
+> **Note:** With the Rust backend migration, the server is now started via `cargo run` in the `backend_rust/` directory, or automatically by `./run-web.sh` / `./run-desktop.sh`.
+
 ```bash
 prism serve
 prism serve --host 127.0.0.1 --port 8269 --reload
@@ -175,7 +177,7 @@ Add `--json` to any data-returning command (`search`, `stats`, `people`, `albums
 
 ## Database Location
 
-The CLI operates against the SQLite database configured in `backend/.env` via `DATABASE_PATH` or Prism's platform data directory:
+The CLI operates against the SQLite database configured via the `DATABASE_PATH` environment variable or `backend_rust/src/config.rs` or Prism's platform data directory:
 
 | OS | Default data directory |
 | --- | --- |

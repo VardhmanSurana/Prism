@@ -47,8 +47,8 @@ The Prism video editor is a full-featured non-linear editing (NLE) workspace bui
 | Editor utilities | `frontend/components/Editor/VideoEditor/editorUtils.ts` |
 | Store | `frontend/store/nleStore.ts` |
 | Types | `frontend/types/nle.ts` |
-| Backend APIs | `backend/app/api/nle/` |
-| Backend engine | `backend/app/services/nle_engine.py` |
+| Backend APIs | `backend_rust/src/routes/nle.rs` |
+| Backend engine | `backend_rust/src/routes/nle.rs` |
 
 ---
 
@@ -66,11 +66,11 @@ The Prism video editor is a full-featured non-linear editing (NLE) workspace bui
 └───────┼─────────────────────────────────────────────────┘
         │
 ┌───────┴─────────────────────────────────────────────────┐
-│                  FastAPI Backend                          │
+│               Rust (Axum) Backend                       │
 │  ┌──────────┐  ┌──────────┐  ┌────────────┐            │
-│  │ NLE APIs │  │ NLE      │  │ Video      │            │
-│  │ (clips,  │  │ Engine   │  │ Export     │            │
-│  │ projects)│  │          │  │ Service    │            │
+│  │ NLE APIs │  │ NLE      │  │ Python ML  │            │
+│  │ (nle.rs) │  │ Engine   │  │ Service    │            │
+│  │          │  │ (nle.rs) │  │            │            │
 │  └──────────┘  └──────────┘  └────────────┘            │
 └─────────────────────────────────────────────────────────┘
 ```
@@ -392,7 +392,7 @@ Multi-cam editing supports up to 4 camera angles synchronized by timecode.
 
 ## Export
 
-**File**: `ExportDialog.tsx`, `backend/app/api/video/export.py`, `backend/app/services/video_export.py`
+**File**: `ExportDialog.tsx`, `backend_rust/src/routes/nle.rs`, Python ML microservice
 
 ### Export Settings
 
@@ -445,7 +445,7 @@ Multi-cam editing supports up to 4 camera angles synchronized by timecode.
 
 ## Backend APIs
 
-**Directory**: `backend/app/api/nle/`
+**Directory**: `backend_rust/src/routes/nle.rs`
 
 | Endpoint | File | Description |
 |----------|------|-------------|
@@ -464,8 +464,8 @@ Multi-cam editing supports up to 4 camera angles synchronized by timecode.
 
 | Service | File | Description |
 |---------|------|-------------|
-| NLE Engine | `services/nle_engine.py` | Core NLE logic (timeline processing, clip analysis) |
-| NLE Preview | `services/nle_preview.py` | Preview generation and caching |
-| NLE Proxy | `services/nle_proxy.py` | Proxy file management |
-| Video Export | `services/video_export.py` | ffmpeg-based video export |
-| Subtitle Gen | `services/subtitle_gen.py` | Whisper-based subtitle generation |
+| NLE Engine | `backend_rust/src/routes/nle.rs` | Core NLE logic (timeline processing, clip analysis) |
+| NLE Preview | `backend_rust/src/routes/nle.rs` | Preview generation and caching |
+| NLE Proxy | `backend_rust/src/routes/nle.rs` | Proxy file management |
+| Video Export | Python ML microservice | ffmpeg-based video export |
+| Subtitle Gen | Python ML microservice | Whisper-based subtitle generation |

@@ -52,20 +52,20 @@ Prism runs several background processes that handle media analysis, file system 
 
 | Component | Path |
 |-----------|------|
-| Processing Queue | `backend/app/services/processing_queue.py` |
-| AI Orchestrator | `backend/app/services/ai_orchestrator.py` |
-| Sync Service | `backend/app/services/sync/` |
-| Content Classifier | `backend/app/services/content_classifier.py` |
-| Vision Pipeline | `backend/app/services/vision_pipeline.py` |
-| Background Job Model | `backend/app/models.py` (BackgroundJob table) |
+| Processing Queue | Python ML microservice (`Prism_python_backend/`) |
+| AI Orchestrator | Python ML microservice (`Prism_python_backend/`) |
+| Sync Service | Python ML microservice (`Prism_python_backend/`) |
+| Content Classifier | Python ML microservice (`Prism_python_backend/`) |
+| Vision Pipeline | Python ML microservice (`Prism_python_backend/`) |
+| Background Job Model | `backend_rust/src/db.rs` (background_jobs table) |
 
 ---
 
 ## Processing Queue Architecture
 
-**File**: `backend/app/services/processing_queue.py`
+**File**: Python ML microservice
 
-The processing queue is a persistent, database-backed job queue that runs as a background asyncio task within the FastAPI application.
+The processing queue is a persistent, database-backed job queue that runs as a background task managed by the Python ML microservice.
 
 ### Architecture
 
@@ -210,7 +210,7 @@ This runs on all non-encrypted photos regardless of other stage results.
 
 ## Adaptive Throttling
 
-**File**: `processing_queue.py` → `AdaptiveThrottler` class
+**File**: Python ML microservice (`AdaptiveThrottler` class)
 
 The adaptive throttler monitors system resources and pauses background processing when conditions are unfavorable.
 
@@ -246,7 +246,7 @@ throttler.decrement_video_ops()  # Releases background queue
 
 ### Startup Recovery
 
-On application startup (`lifespan.py`):
+On application startup:
 
 1. **Reset interrupted jobs**: All jobs with status `"processing"` are reset to `"pending"` with error "Interrupted by application restart"
 2. **Enqueue unfinished photos**: Scan all non-locked, non-trashed photos and enqueue jobs for those missing any analysis data (embeddings, captions, OCR, faces)
@@ -278,7 +278,7 @@ On application shutdown:
 
 ## Sync Service
 
-**Directory**: `backend/app/services/sync/`
+**Directory**: Python ML microservice
 
 The sync service watches configured directories for file system changes and automatically ingests new media files.
 
@@ -287,7 +287,7 @@ The sync service watches configured directories for file system changes and auto
 The sync service is decomposed into modular submodules:
 
 ```
-services/sync/
+Prism_python_backend/app/services/sync/
 ├── core.py          # Main SyncService class
 ├── lifecycle.py     # Initialization, shutdown, parent process monitoring
 ├── config.py        # Settings persistence and configuration updates
@@ -343,7 +343,7 @@ Server-Sent Events (SSE) system for real-time UI updates:
 
 ## Content Classification
 
-**File**: `backend/app/services/content_classifier.py`
+**File**: Python ML microservice
 
 Automatically classifies each photo into one of three content types.
 

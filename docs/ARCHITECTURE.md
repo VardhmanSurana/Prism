@@ -1,6 +1,6 @@
 # Prism Architecture
 
-Architectural overview of the Prism photo and video library desktop application.
+Architectural overview of the Prism photo and video library desktop application, powered by a Rust (Axum) backend.
 
 ---
 
@@ -37,7 +37,7 @@ Prism follows a three-tier desktop application architecture:
 └──────────────────────┬─────────────────────────┘   │
                        │ HTTP (127.0.0.1:8269)        │
 ┌──────────────────────┴──────────────────────────────┘
-│                   FastAPI Backend                      │
+│                  Rust (Axum) Backend                  │
 │  ┌─────────┐  ┌──────────┐  ┌──────────────────┐    │
 │  │ CORS /  │  │  Routes  │  │    Services       │    │
 │  │  Auth   │  │  / API   │  │  (Business Logic) │    │
@@ -62,7 +62,7 @@ Prism follows a three-tier desktop application architecture:
 
 1. **Local-first**: All data stays on the user's machine. No cloud dependencies.
 2. **Desktop-native**: Tauri v2 provides a lightweight, secure native shell.
-3. **Separate backend process**: FastAPI runs as a subprocess, enabling rich Python ecosystem.
+3. **High-performance backend**: Rust (Axum) runs as the core backend, with an optional Python ML microservice for AI inference.
 4. **SQLite WAL mode**: Write-Ahead Logging for concurrent read/write performance.
 5. **REST API**: Frontend communicates with backend via HTTP REST (no IPC bridge).
 6. **Opt-in AI**: All AI features are behind feature flags, disabled by default.
@@ -75,32 +75,25 @@ Prism follows a three-tier desktop application architecture:
 graph TD
     Tauri[Tauri v2] --> React[Vite React UI]
     React --> Zustand[Zustand Stores]
-    React -->|REST| FastAPI[FastAPI on 127.0.0.1:8269]
-    FastAPI --> Middleware[CORS / API Key / Logging]
-    Middleware --> Routes[Media / Thumbnail / System]
-    Middleware --> APIRouters[Feature Routers]
-    APIRouters --> Services[Services Layer]
-    Services --> DB[(SQLite WAL + FTS5)]
-    Services --> Storage[Thumbnails / Uploads]
-    Watchdog[Watchdog Observer] --> Queue[Processing Queue]
-    Queue --> Services
-    FastAPI -. optional .-> AI[Optional Local AI]
+    React -->|REST / SSE| Axum[Rust Axum on 127.0.0.1:8269]
+    Axum --> SQLx[(SQLite WAL + FTS5)]
+    Axum --> Storage[Thumbnails / Uploads / Sample Images]
+    Axum -. REST .-> PyML[Python ML Service on 127.0.0.1:8270]
 ```
 
 ### Startup Sequence
 
 1. `pnpm run desktop` launches the Tauri shell
-2. Tauri spawns the FastAPI backend (`uvicorn`) as a subprocess
-3. FastAPI startup (`lifespan.py`):
+2. Tauri spawns the Rust backend (`cargo run`) as a subprocess
+3. Rust backend startup (`main.rs`):
    - Initializes the database (WAL mode, create tables, apply schema migrations)
    - Auto-purges trashed photos older than 30 days
    - Starts the LAN sync service
    - Initializes the sync (watchdog) service
    - Starts the background processing queue
    - Recovers interrupted Locked Folder files
-   - Cleans up any orphaned llama-server processes
 4. Vite dev server (or built frontend) loads the React UI
-5. React UI connects to FastAPI via REST API at `http://127.0.0.1:8269`
+5. React UI connects to the Rust backend via REST API at `http://127.0.0.1:8269`
 
 ---
 
@@ -180,76 +173,64 @@ Key hooks found in `frontend/hooks/`:
 
 ### Technology Stack
 
-- **FastAPI 0.136** with Uvicorn
-- **SQLAlchemy 2.x** async ORM with `aiosqlite`
-- **SQLite** WAL mode, `synchronous=NORMAL`, 64 MB cache, memory temp store
-- **Pydantic v2** settings and validation
-- **OpenCV** blur scoring
-- **Pillow/Pillow-Heif** metadata extraction, thumbnail generation
-- **ffmpeg/ffprobe** video metadata extraction, frame sampling, transcoding
-- **Watchdog** directory observer for file system changes
-- **Argon2** password hashing for Locked Folder
-- **Cryptography (Fernet)** envelope encryption
+- **Rust** with **Axum** web framework and **Tokio** async runtime
+- **SQLx** async SQLite driver with compile-time query checking
+- **SQLite** WAL mode with FTS5 full-text search
+- **uuid** crate for universal UUID generation
+- **serde / serde_json** for serialization
+- **tower-http** for CORS middleware
+- **ffmpeg/ffprobe** (via CLI) for video metadata extraction and thumbnails
+- **Optional Python ML Microservice** (external, at `../Prism_python_backend`) for face detection, embeddings, and AI inference
 
 ### Application Structure
 
 ```
-backend/app/
-├── main.py              # FastAPI app factory, router registration
-├── config.py            # Pydantic settings with dynamic loading
-├── db.py                # SQLAlchemy engine and session
-├── models.py            # SQLAlchemy ORM models
-├── schema_migrations.py # Additive schema patches
-├── lifespan.py          # Startup/shutdown lifecycle
-├── api/                 # API route handlers
-│   ├── photos/          # Photo CRUD, upload, metadata, lock, etc.
-│   ├── settings/        # Settings management
-│   ├── albums/          # Album management
-│   ├── nle/             # Non-linear video editing
-│   ├── video/           # Video export, subtitles
-│   └── ...              # Agent, people, explore, utilities
-├── routes/              # Low-level route handlers
-│   ├── media.py         # Local file serving, transcoding
-│   ├── photos.py        # Thumbnail serving
-│   ├── hls.py           # HLS streaming
-│   └── system.py        # Health check, root
-├── services/            # Business logic layer
-│   ├── sync/            # File system watching, ingestion
-│   ├── ocr/             # PaddleOCR text extraction
-│   ├── inference/       # ML inference (SD inpainting, SAM)
-│   ├── image_summary/   # AI caption/tag generation
-│   ├── cloud_locations/ # External mount management
-│   └── ...              # Face, locked, NLE, etc.
-├── middleware/           # FastAPI middleware
-│   ├── cors.py          # CORS configuration
-│   ├── logging.py       # Request logging
-│   └── security.py      # API key verification
-├── agent/               # AI agent (planner, tools, orchestrator)
-└── utils/               # Utility functions
-    ├── security.py      # Path traversal protection
-    ├── image.py         # Image operations
-    ├── video.py         # Video operations
-    ├── rate_limit.py    # Rate limiting
-    └── mounts.py        # Mount point detection
+backend_rust/src/
+├── main.rs              # Axum app factory, router registration, server startup
+├── config.rs            # Configuration (ports, paths, env vars)
+├── db.rs                # SQLite connection pool, table creation, migrations, UUID population
+├── models/              # Data models and structs
+│   └── mod.rs           # Photo, Person, Album, etc. structs
+├── routes/              # API route handlers
+│   ├── mod.rs           # Router composition and shared helpers
+│   ├── photos/          # Photo CRUD, upload, metadata, masks
+│   │   ├── mod.rs       # Photo sub-router
+│   │   ├── listing.rs   # Photo listing, stats, search
+│   │   ├── upload.rs    # File upload and directory import
+│   │   ├── metadata.rs  # Photo metadata, tags, faces, favorites
+│   │   └── masks.rs     # Portrait and background masks
+│   ├── albums.rs        # Album CRUD, smart albums
+│   ├── people.rs        # People listing, rename, person photos
+│   ├── nle.rs           # Video project CRUD, clip analysis
+│   ├── agent.rs         # AI agent sessions and chat
+│   ├── explore.rs       # Explore view collections
+│   ├── settings.rs      # Settings management, SSE events
+│   ├── system.rs        # Health check, sample images
+│   ├── utilities.rs     # Diagnostics, backup, storage cleanup
+│   └── privacy.rs       # Locked folder endpoints
+└── services/            # Business logic
+    ├── mod.rs           # Service module exports
+    ├── thumbnail.rs     # WebP thumbnail generation
+    ├── exif.rs          # EXIF metadata extraction
+    └── ml_client.rs     # HTTP client for Python ML microservice
 ```
 
-### Services Layer
+### Route Modules
 
-The services layer contains all business logic, organized by domain:
+The route layer contains all API endpoint handlers, organized by domain:
 
-| Service | File | Purpose |
-|---------|------|---------|
-| Sync Service | `services/sync/service.py` | File system watching and ingestion |
-| Processing Queue | `services/processing_queue.py` | Background analysis pipeline |
-| AI Orchestrator | `services/ai_orchestrator.py` | Manages llama-server lifecycle |
-| Vision Pipeline | `services/vision_pipeline.py` | SigLIP2 embeddings |
-| Face Detection | `services/face_detection.py` | Face detection via InspireFace |
-| Face Clustering | `services/face_clustering.py` | Person clustering |
-| Locked Service | `services/locked_service.py` | Envelope encryption management |
-| LAN Sync | `services/lan_sync.py` | Peer-to-peer sync |
-| NLE Engine | `services/nle_engine.py` | Video editing engine |
-| Story Service | `services/story_service.py` | AI story generation |
-| Content Classifier | `services/content_classifier.py` | Photo classification |
+| Module | File | Purpose |
+|--------|------|---------|
+| Photos | `routes/photos/` | Photo CRUD, upload, search, stats, metadata, masks |
+| Albums | `routes/albums.rs` | Album listing, creation, smart albums |
+| People | `routes/people.rs` | People listing, rename, person photos |
+| NLE | `routes/nle.rs` | Video project CRUD, clip analysis |
+| Agent | `routes/agent.rs` | AI chat sessions and messaging |
+| Explore | `routes/explore.rs` | Explore view with themed collections |
+| Settings | `routes/settings.rs` | App settings, SSE event stream |
+| Utilities | `routes/utilities.rs` | Diagnostics, backup, cleanup |
+| Privacy | `routes/privacy.rs` | Locked folder management |
+| System | `routes/system.rs` | Health check, sample image serving |
 
 ---
 
@@ -281,6 +262,7 @@ SyncPeer (standalone)
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | Integer (PK) | Primary key |
+| `uuid` | Text | Unique UUID identifier |
 | `filename` | String(255) | Original filename |
 | `path` | String(512) | Full file path |
 | `url` | String(512) | Thumbnail URL |
@@ -317,6 +299,7 @@ SyncPeer (standalone)
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | Integer (PK) | Primary key |
+| `uuid` | Text | Unique UUID identifier |
 | `name` | String(255) | Person name |
 | `cover_face_thumbnail` | String(512) | Cover photo thumbnail |
 | `face_embedding` | Text | JSON float array |
@@ -335,6 +318,7 @@ SyncPeer (standalone)
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | Integer (PK) | Primary key |
+| `uuid` | Text | Unique UUID identifier |
 | `name` | String(255) | Album name |
 | `type` | String(20) | `places`, `memories`, `people`, `custom` |
 | `is_smart` | Boolean | Auto-generated |

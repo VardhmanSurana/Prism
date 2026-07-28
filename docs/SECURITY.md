@@ -100,7 +100,7 @@ Encrypted thumbnails use a separate header: `Prism_ENC_THUMB:` (17 bytes).
 
 ## Path Isolation
 
-File access is centralized in `backend/app/utils/security.py` to prevent directory traversal attacks.
+File access is centralized in the Rust backend route handlers (`backend_rust/src/routes/`) to prevent directory traversal attacks.
 
 ### Allowed Read Roots
 
@@ -128,16 +128,17 @@ The `safe_resolve_read()` and `safe_resolve_write()` functions enforce:
 3. **Root validation**: Checks that the resolved path is within an allowed root
 4. **Error handling**: Returns appropriate HTTP 403/400 responses
 
-```python
-# Example: safe_resolve_read
-def safe_resolve_read(path):
-    p = Path(path)
-    if ".." in p.parts:
-        raise HTTPException(403, "Path traversal attempt")
-    resolved = p.resolve()
-    if not resolved.is_relative_to(any_allowed_root):
-        raise HTTPException(403, "Access denied")
-    return resolved
+```rust
+// Example: path validation in route handlers
+fn validate_path(path: &str) -> Result<PathBuf, StatusCode> {
+    let p = PathBuf::from(path);
+    if path.contains("..") {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let resolved = p.canonicalize().map_err(|_| StatusCode::NOT_FOUND)?;
+    // Check against allowed roots
+    Ok(resolved)
+}
 ```
 
 Out-of-boundary requests return `403 Access Denied`.
@@ -148,7 +149,7 @@ Out-of-boundary requests return `403 Access Denied`.
 
 ### API Key Configuration
 
-Set `API_KEY` in `backend/.env` to enable token-based authentication:
+Set `API_KEY` as an environment variable to enable token-based authentication:
 
 ```env
 API_KEY=your-secret-api-key
@@ -160,13 +161,7 @@ When `API_KEY` is empty (default), the API is open for local development.
 
 ### Verification Middleware
 
-The `verify_api_key` dependency is applied to all feature routers in `main.py`:
-
-```python
-app.include_router(photos.listing_router, ..., dependencies=[Depends(verify_api_key)])
-```
-
-The middleware checks:
+The Rust backend checks the `X-API-Key` header via Axum middleware layers:
 1. If `API_KEY` is empty → allow all requests (development mode)
 2. If `API_KEY` is set → require `X-API-Key` header match
 3. Failed verification → `403 Forbidden`
@@ -177,14 +172,14 @@ The middleware checks:
 
 The API allows only local Tauri/Vite origins:
 
-```python
-allow_origins=[
-    "tauri://localhost",
-    "http://tauri.localhost",
-    "http://localhost:3005",
-    "http://127.0.0.1:3005",
-    "http://172.17.0.1:3005",  # Docker bridge network
-]
+The Rust backend configures CORS via `tower-http::CorsLayer`:
+
+```rust
+// Allowed origins
+"tauri://localhost"
+"http://tauri.localhost"
+"http://localhost:3005"
+"http://127.0.0.1:3005"
 ```
 
 - **Methods**: All methods allowed (`*`)
@@ -204,7 +199,7 @@ Photo upload endpoints enforce per-client rate limiting:
 | Scope | Per client IP |
 | Implementation | In-memory token bucket |
 
-Rate limiting is implemented in `backend/app/utils/rate_limit.py`.
+Rate limiting is implemented in the Rust backend route handlers.
 
 ---
 
@@ -289,7 +284,7 @@ flowchart TD
 
 ## Startup Recovery
 
-On application startup (`lifespan.py`), the system:
+On application startup (`main.rs` / `db.rs`), the system:
 
 1. **Scans for interrupted operations**: Checks `uploads/` and `thumbnails/` directories for `.prism_backup` files
 2. **Restores originals**: If a backup file is found, it restores the original file and removes the backup

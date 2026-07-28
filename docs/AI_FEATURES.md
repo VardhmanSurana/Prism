@@ -1,6 +1,6 @@
 # Prism AI Features
 
-Prism includes several optional local AI features that run entirely on your machine. All AI features are disabled by default and must be explicitly enabled via feature flags in `backend/.env`.
+Prism includes several optional local AI features that run entirely on your machine. All AI features are disabled by default and must be explicitly enabled via feature flags via environment variables or settings.
 
 ---
 
@@ -24,7 +24,7 @@ Prism includes several optional local AI features that run entirely on your mach
 
 ## Feature Flag Overview
 
-All AI features are controlled by environment variables in `backend/.env`. Set them to `True` to enable.
+All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend delegates AI inference to an external Python ML microservice.
 
 | Flag | Default | Description | Hardware Required |
 |------|---------|-------------|-------------------|
@@ -248,7 +248,7 @@ Tracks detected faces across video frames:
 
 ### Services
 
-Key service files: `backend/app/services/face_detection.py`, `face_clustering.py`, `face_recognition.py`, `face_sdk.py`, `face_tracker.py`, `face_utils.py`
+AI face detection is handled by the external Python ML microservice (`Prism_python_backend/`). The Rust backend (`backend_rust/src/services/ml_client.rs`) communicates with it via HTTP REST calls.
 
 ---
 
@@ -314,8 +314,8 @@ flowchart LR
 - **Feature flag**: `ENABLE_AI_INPAINTING`
 - **Hardware**: GPU required (CUDA recommended)
 - **Fallback**: CPU inference supported but significantly slower
-- **Service**: `backend/app/services/inference/sd_inpaint.py`
-- **API endpoint**: Inpaint API router in `backend/app/api/photos/inpaint.py`
+- **Service**: Python ML microservice
+- **API endpoint**: Inpaint API router in `backend_rust/src/routes/photos/`
 
 ---
 
@@ -326,8 +326,8 @@ Uses `rembg` library for automatic background removal from photos.
 ### Configuration
 
 - **Feature flag**: `ENABLE_AI_REMBG`
-- **Dependency**: Optional `rembg` package (install via `uv sync --extra rembg`)
-- **Service**: `backend/app/services/portrait_service.py`
+- **Dependency**: Optional `rembg` package (install via the Python ML microservice)
+- **Service**: Python ML microservice
 
 ---
 
@@ -360,7 +360,7 @@ flowchart LR
 - **Server port**: 9092
 - **Model**: `PaddleOCR-VL-1.6-GGUF.gguf` in `models/PaddleOCR/`
 - **MMProj**: `PaddleOCR-VL-1.6-GGUF-mmproj.gguf`
-- **Service**: `backend/app/services/ocr/ocr_extract.py`, `ocr_manager.py`
+- **Service**: Python ML microservice
 
 ---
 
@@ -409,7 +409,7 @@ flowchart TD
 
 ### GBNF Grammar
 
-Tag generation follows a structured JSON schema defined in `backend/app/services/image_summary/tags_schema.json` and enforced via a GBNF grammar file `tags.gbnf`.
+Tag generation follows a structured JSON schema defined in the Python ML microservice and enforced via a GBNF grammar file `tags.gbnf`.
 
 ---
 
@@ -447,21 +447,15 @@ When `ENABLE_VIDEO_EDITOR_AI` is enabled:
 ### Required Model Locations
 
 ```
-backend/
+Prism_python_backend/
 └── models/
     ├── llm/
     │   ├── gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf  (agent model)
-    │   ├── gemma-4-E4B-it-Q4_0-MTP.gguf          (draft model)
-    │   ├── mmproj-BF16-E4B.gguf                   (agent mmproj)
-    │   ├── gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf    (vision model)
-    │   ├── gemma-4-E2B-it-Q4_0-MTP.gguf           (vision draft)
-    │   └── mmproj-BF16-E2B.gguf                   (vision mmproj)
+    │   └── ...
     ├── PaddleOCR/
-    │   ├── PaddleOCR-VL-1.6-GGUF.gguf             (OCR model)
-    │   └── PaddleOCR-VL-1.6-GGUF-mmproj.gguf     (OCR mmproj)
+    │   └── ...
     └── .cache/
         └── huggingface/
-            └── models--google--siglip2-base-patch16-224/
 ```
 
 ### Server Port Map
@@ -471,12 +465,13 @@ backend/
 | Agent server | 9090 | LLM agent search |
 | Vision server | 9091 | Image captioning and tagging |
 | OCR server | 9092 | PaddleOCR-VL text extraction |
-| Backend API | 8269 | FastAPI application |
+| Backend API | 8269 | Rust Axum backend |
+| ML Microservice | 8270 | Python ML service (optional) |
 | Frontend (dev) | 3005 | Vite dev server |
 
 ### llama-server Configuration
 
-The `AIOrchestrator` class manages llama-server lifecycle:
+The Python ML microservice manages llama-server lifecycle:
 
 - **Start**: Launches the server with appropriate model, port, and GPU flags
 - **Stop**: Terminates the server and clears CUDA cache
