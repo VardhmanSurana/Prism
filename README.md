@@ -61,23 +61,6 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 
 ---
 
-## Universal UUID Architecture
-
-Prism enforces clean, collision-free unique identification across all entities in the database and frontend routing:
-
-| Entity | Primary ID | UUID Column | Route / Deep-link Example |
-| --- | --- | --- | --- |
-| **Photo** | `i64` | `uuid TEXT UNIQUE` | `/api/v1/photos/:id_or_uuid` |
-| **Album** | `i64` | `uuid TEXT UNIQUE` | `/albums?albumId=:id_or_uuid` |
-| **Video Project** | `i64` | `uuid TEXT UNIQUE` | `/projects/:id_or_uuid` |
-| **Person** | `i64` | `uuid TEXT UNIQUE` | `/people?personId=:id_or_uuid` |
-| **Agent Session** | `TEXT` | `uuid TEXT UNIQUE` | `/api/v1/agent/sessions/:id_or_uuid` |
-| **Agent Message** | `i64` | `uuid TEXT UNIQUE` | Included in `/api/v1/agent/sessions/:id` |
-
-*Backward compatibility:* All API endpoints accept both integer `id` and string `uuid`, automatically upgrading legacy database records with fresh UUIDs on startup or access.
-
----
-
 ## Technology Stack
 
 <p align="left">
@@ -138,24 +121,6 @@ To start the Rust backend and launch the application:
 # Start Desktop environment (Tauri + Rust Backend)
 ./run-desktop.sh
 ```
-
----
-
-## User Guide
-
-### 1. Import & Library Browsing
-Click **Import** or drag folders into Prism. Images and videos are ingested into SQLite, thumbnails are generated instantly, and metadata is indexed into FTS5 search.
-
-### 2. Video Projects (NLE Editor)
-Navigate to **Video Projects** to create a new edit project with customizable aspect ratios (16:9, 9:16, 1:1) and FPS settings. Projects are accessible via permanent UUID URLs (`/projects/<uuid>`).
-
-### 3. Image Editor & Presets
-Select any image to adjust exposure, contrast, color matching, and curves, or apply presets using dedicated sample preview images (`sample_images/`).
-
-### 4. Locked Folder
-Secure private files using Argon2id envelope encryption. Decrypted keys exist only in memory during active authenticated sessions.
-
----
 
 ## License
 
