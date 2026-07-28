@@ -6,20 +6,26 @@ export function usePhotoSelection(photos: Photo[]) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPhotoOverride, setSelectedPhotoOverride] = useState<Photo | null>(null);
 
-  const photoId = searchParams.get('photo');
+  const photoKey = searchParams.get('photo');
 
   const selectedPhoto = useMemo(() => {
-    if (!photoId) return null;
-    if (selectedPhotoOverride && String(selectedPhotoOverride.id) === String(photoId)) {
+    if (!photoKey) return null;
+    if (
+      selectedPhotoOverride &&
+      (String(selectedPhotoOverride.uuid) === String(photoKey) || String(selectedPhotoOverride.id) === String(photoKey))
+    ) {
       return selectedPhotoOverride;
     }
-    return photos.find(p => String(p.id) === String(photoId)) || null;
-  }, [photoId, photos, selectedPhotoOverride]);
+    return (
+      photos.find(p => (p.uuid && String(p.uuid) === String(photoKey)) || String(p.id) === String(photoKey)) || null
+    );
+  }, [photoKey, photos, selectedPhotoOverride]);
 
   const setSelectedPhoto = useCallback((photo: Photo | null, onClearContext?: () => void) => {
     setSelectedPhotoOverride(photo);
     if (photo) {
-      setSearchParams({ photo: String(photo.id) });
+      const key = photo.uuid || photo.id;
+      setSearchParams({ photo: String(key) });
     } else {
       setSearchParams({});
       onClearContext?.();

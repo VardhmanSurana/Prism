@@ -13,6 +13,7 @@ import { apiClient } from '@/services/apiClient';
 
 export interface VideoProject {
   id: number;
+  uuid?: string;
   name: string;
   width: number;
   height: number;
@@ -27,8 +28,8 @@ interface UseVideoProjectsReturn {
   isLoading: boolean;
   error: string | null;
   createProject: (name: string, width: number, height: number, fps: number) => Promise<VideoProject>;
-  renameProject: (id: number, name: string) => Promise<void>;
-  deleteProject: (id: number) => Promise<void>;
+  renameProject: (id: number | string, name: string) => Promise<void>;
+  deleteProject: (id: number | string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -79,18 +80,18 @@ export function useVideoProjects(): UseVideoProjectsReturn {
     []
   );
 
-  const renameProject = useCallback(async (id: number, name: string): Promise<void> => {
+  const renameProject = useCallback(async (id: number | string, name: string): Promise<void> => {
     // Non-optimistic rename: update local state only after backend confirms
     const updated = await apiClient.put<VideoProject>(`/api/v1/nle/projects/${id}`, { name });
     setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name: updated.name, updated_at: updated.updated_at } : p))
+      prev.map((p) => (String(p.id) === String(id) || p.uuid === String(id) ? { ...p, name: updated.name, updated_at: updated.updated_at } : p))
     );
   }, []);
 
-  const deleteProject = useCallback(async (id: number): Promise<void> => {
+  const deleteProject = useCallback(async (id: number | string): Promise<void> => {
     // Optimistic delete: remove from UI immediately, restore on error
     const snapshot = projects;
-    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setProjects((prev) => prev.filter((p) => String(p.id) !== String(id) && p.uuid !== String(id)));
     try {
       await apiClient.delete(`/api/v1/nle/projects/${id}`);
     } catch (err) {

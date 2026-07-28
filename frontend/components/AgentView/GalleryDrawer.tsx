@@ -5,6 +5,12 @@ import { Photo } from '../../types';
 import { GalleryDrawerProps } from './types';
 import { resolveUrl } from '../../constants';
 
+const getPhotoUrl = (p: Photo) => {
+  if (p.url && p.url.trim().length > 0) return resolveUrl(p.url);
+  if (p.path) return resolveUrl(`local://${p.path}`);
+  return resolveUrl(`/api/v1/photos/${p.id}/thumbnail`);
+};
+
 export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
   photos,
   isOpen,
@@ -71,7 +77,7 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
                     className="aspect-square rounded-xl overflow-hidden cursor-pointer shadow-md border border-white/5 relative group bg-white/[0.02]"
                   >
                     <img
-                      src={resolveUrl(photo.url)}
+                      src={getPhotoUrl(photo)}
                       alt={photo.filename}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />

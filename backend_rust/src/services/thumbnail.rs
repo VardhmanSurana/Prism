@@ -1,0 +1,49 @@
+#![allow(dead_code)]
+
+use image::GenericImageView;
+use std::fs;
+use std::path::{Path, PathBuf};
+
+pub struct ImageInfo {
+    pub width: u32,
+    pub height: u32,
+    pub aspect_ratio: f64,
+}
+
+pub fn get_image_info(path: &Path) -> Result<ImageInfo, String> {
+    let img = image::open(path).map_err(|e| e.to_string())?;
+    let (width, height) = img.dimensions();
+    let aspect_ratio = if height > 0 {
+        width as f64 / height as f64
+    } else {
+        1.0
+    };
+
+    Ok(ImageInfo {
+        width,
+        height,
+        aspect_ratio,
+    })
+}
+
+pub fn generate_thumbnail(
+    source_path: &Path,
+    thumb_dir: &Path,
+    photo_id: i64,
+    max_dim: u32,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
+
+    let thumb_filename = format!("{}_thumb.jpg", photo_id);
+    let thumb_path = thumb_dir.join(&thumb_filename);
+
+    if thumb_path.exists() {
+        return Ok(thumb_path);
+    }
+
+    let img = image::open(source_path).map_err(|e| e.to_string())?;
+    let resized = img.thumbnail(max_dim, max_dim);
+    resized.save(&thumb_path).map_err(|e| e.to_string())?;
+
+    Ok(thumb_path)
+}

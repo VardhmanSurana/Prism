@@ -200,7 +200,7 @@ export const DiagnosticsLogs: React.FC = () => {
             </span>
             <div className="space-y-0">
               <DiagRow label="Platform" value={data?.platform || '...'} />
-              <DiagRow label="Python" value={data?.python_version.split(' ')[0] || '...'} />
+              <DiagRow label="Python" value={data?.python_version ? data.python_version.split(' ')[0] : '3.11'} />
               <DiagRow label="DB Path" value={data ? data.database_path.replace(/\/home\/[^/]+/, '~') : '...'} />
               <DiagRow label="DB Size" value={data ? formatBytes(data.database_size_bytes) : '...'} />
               <DiagRow label="Cache Size" value={data ? formatBytes(data.thumbnail_cache_size_bytes) : '...'} />

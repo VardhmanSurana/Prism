@@ -8,7 +8,9 @@ interface DuplicatesTabProps {
 }
 
 export const DuplicatesTab: React.FC<DuplicatesTabProps> = ({ clusters, onDelete }) => {
-  if (clusters.length === 0) {
+  const safeClusters = Array.isArray(clusters) ? clusters : [];
+
+  if (safeClusters.length === 0) {
     return (
       <div className="text-center py-12">
         <p className="text-sm text-[#62666d]">No duplicate clusters detected.</p>
@@ -25,7 +27,7 @@ export const DuplicatesTab: React.FC<DuplicatesTabProps> = ({ clusters, onDelete
         </p>
       </div>
 
-      {clusters.map((cluster) => (
+      {safeClusters.map((cluster) => (
         <div key={cluster.key}>
           <div className="flex items-center gap-2 mb-3">
             <span className="px-2 py-0.5 bg-[#141516] border border-[#23252a] rounded-full text-[9px] font-mono text-[#8a8f98]">

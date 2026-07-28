@@ -286,8 +286,8 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
             <div className="flex flex-wrap gap-2">
               {metadata.people.map((person: any) => (
                 <button
-                  key={person.id}
-                  onClick={() => navigate(`/people?personId=${person.id}`)}
+                  key={person.uuid || person.id}
+                  onClick={() => navigate(`/people?personId=${person.uuid || person.id}`)}
                   className="flex items-center gap-2 bg-surface hover:bg-surfaceHover border border-white/5 hover:border-primary/30 rounded-full pr-3 pl-1 py-1 transition-all group"
                 >
                   <img

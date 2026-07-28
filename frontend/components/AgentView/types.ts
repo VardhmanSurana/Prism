@@ -1,6 +1,8 @@
 import { Photo } from '../../types';
 
 export interface Message {
+  id?: number | string;
+  uuid?: string;
   role: 'assistant' | 'user';
   content: string;
   photos?: Photo[];
@@ -12,6 +14,7 @@ export interface Message {
 
 export interface SessionItem {
   id: string;
+  uuid?: string;
   title: string;
   created_at?: string;
   updated_at?: string;

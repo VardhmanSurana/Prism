@@ -193,7 +193,7 @@ export const AISettings: React.FC = () => {
 
   // Determine worker status styling
   const isWorkerPaused = status?.paused ?? false;
-  const isWorkerProcessing = status ? (status.queue.pending > 0 || status.queue.processing > 0) : false;
+  const isWorkerProcessing = status?.queue ? ((status.queue.pending || 0) > 0 || (status.queue.processing || 0) > 0) : false;
 
   let statusText = 'Stopped (Paused)';
   let statusBadgeStyle = 'border-red-500/20 bg-red-500/5 text-red-400';

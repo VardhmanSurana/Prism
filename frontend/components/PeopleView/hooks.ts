@@ -45,7 +45,8 @@ export function usePersonPhotos(person: Person | null) {
     setIsLoading(true);
     setPhotos([]);
     try {
-      const response = await fetch(`${API_BASE}/api/v1/people/${person.id}/photos`);
+      const personKey = person.uuid || person.id;
+      const response = await fetch(`${API_BASE}/api/v1/people/${personKey}/photos`);
       if (response.ok) {
         const data = await response.json();
         const photos = data.photos || [];
@@ -66,13 +67,13 @@ export function usePersonPhotos(person: Person | null) {
 }
 
 export function usePersonRename(
-  onSuccess: (personId: number, newName: string) => void
+  onSuccess: (personId: number | string, newName: string) => void
 ) {
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | string | null>(null);
   const [editName, setEditName] = useState('');
 
   const startRename = useCallback((person: Person) => {
-    setEditingId(person.id);
+    setEditingId(person.uuid || person.id);
     setEditName(person.name);
   }, []);
 
@@ -82,7 +83,7 @@ export function usePersonRename(
   }, []);
 
   const saveRename = useCallback(
-    async (personId: number) => {
+    async (personId: number | string) => {
       if (!editName.trim()) return;
 
       try {
@@ -126,7 +127,7 @@ export interface PendingFace {
   created_at: string | null;
 }
 
-export function usePendingFaces(personId: number | null) {
+export function usePendingFaces(personId: number | string | null) {
   const [pendingFaces, setPendingFaces] = useState<PendingFace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 

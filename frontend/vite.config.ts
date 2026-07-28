@@ -15,6 +15,12 @@ export default defineConfig(({ mode }) => {
         port: 3005,
         strictPort: true,
         host: '0.0.0.0',
+        hmr: {
+          protocol: 'ws',
+          host: 'localhost',
+          port: 3005,
+          clientPort: 3005,
+        },
         watch: {
           ignored: ['**/src-tauri/target/**'],
         },

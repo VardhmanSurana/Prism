@@ -28,7 +28,21 @@ interface PresetsPanelProps {
   imageSrc?: string;
 }
 
-export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChange, imageSrc }) => {
+const getSampleUrlForPreset = (category?: string, presetId?: string) => {
+  let filename = 'nature.png';
+  if (category === 'Portrait') {
+    filename = 'woman.png';
+  } else if (category === 'Vintage' || (presetId && (presetId.includes('film') || presetId.includes('kodachrome') || presetId.includes('polaroid')))) {
+    filename = 'pet.png';
+  } else if (category === 'Landscape') {
+    filename = 'nature.png';
+  } else if (category === 'Film') {
+    filename = 'pet.png';
+  }
+  return resolveUrl(`/api/v1/sample-images/${filename}`);
+};
+
+export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChange }) => {
   const [userPresets, setUserPresets] = useState<UserPreset[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveName, setSaveName] = useState('');
@@ -37,13 +51,6 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
   const [presetIntensity, setPresetIntensity] = useState(100);
 
   const categories = ['All', 'Film', 'Portrait', 'Landscape', 'Vintage'];
-
-  const previewUrl = useMemo(() => {
-    if (!imageSrc) return '';
-    const resolved = resolveUrl(imageSrc);
-    const separator = resolved.includes('?') ? '&' : '?';
-    return `${resolved}${separator}previewKey=${Date.now()}`;
-  }, [imageSrc]);
 
   useEffect(() => {
     setUserPresets(loadUserPresets());
@@ -119,7 +126,11 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
       <div className="px-4 pt-4 pb-3">
         {isSaving ? (
           <div className="flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
+            <label htmlFor="preset-name-input" className="sr-only">Preset Name</label>
             <input
+              id="preset-name-input"
+              name="presetName"
+              aria-label="Preset Name"
               type="text"
               autoFocus
               value={saveName}
@@ -163,6 +174,7 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
           <div className="space-y-2">
             {userPresets.map(preset => {
               const isActive = activePresetId === preset.id;
+              const sampleUrl = getSampleUrlForPreset('Film', preset.id);
               return (
                 <div
                   key={preset.id}
@@ -173,24 +185,15 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
                   }`}
                   onClick={() => handleApplyUser(preset)}
                 >
-                  {/* Color swatch or image preview */}
+                  {/* Color swatch or sample image preview */}
                   <div className="w-8 h-8 rounded-lg shrink-0 overflow-hidden border border-white/10 bg-black/30">
-                    {imageSrc ? (
-                      <img
-                        src={previewUrl}
-                        alt={preset.name}
-                        className="w-full h-full object-cover"
-                        style={{ filter: toFilterString(preset.adjustments) }}
-                        crossOrigin="anonymous"
-                      />
-                    ) : (
-                      <div
-                        className="w-full h-full flex items-center justify-center"
-                        style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}
-                      >
-                        <BookMarked size={12} className="text-white/60" />
-                      </div>
-                    )}
+                    <img
+                      src={sampleUrl}
+                      alt={preset.name}
+                      className="w-full h-full object-cover"
+                      style={{ filter: toFilterString(preset.adjustments) }}
+                      crossOrigin="anonymous"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold truncate ${isActive ? 'text-primary' : 'text-white/70'}`}>
@@ -238,7 +241,7 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
         {activePresetId && (
           <div className="mb-4 group/item">
             <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Intensity</label>
+              <label htmlFor="preset-intensity-slider" className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Intensity</label>
               <span className="text-[10px] tabular-nums text-primary font-mono font-bold">{presetIntensity}%</span>
             </div>
             <div className="relative h-4 flex items-center">
@@ -253,6 +256,9 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
                 }}
               />
               <input
+                id="preset-intensity-slider"
+                name="presetIntensity"
+                aria-label="Preset Intensity"
                 type="range"
                 min={0}
                 max={100}
@@ -267,6 +273,7 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
         <div className="grid grid-cols-2 gap-2">
           {filteredPresets.map(preset => {
             const isActive = activePresetId === preset.id;
+            const sampleUrl = getSampleUrlForPreset(preset.category, preset.id);
             return (
               <button
                 key={preset.id}
@@ -277,22 +284,15 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
                     : 'border-white/5 hover:border-white/15 hover:scale-[1.01]'
                 }`}
               >
-                {/* Image preview area with preset filter */}
+                {/* Sample image preview area with preset filter applied */}
                 <div className="w-full h-[90px] shrink-0 relative overflow-hidden bg-black/30">
-                  {imageSrc ? (
-                    <img
-                      src={previewUrl}
-                      alt={preset.name}
-                      className="w-full h-full object-cover"
-                      style={{ filter: toFilterString(applyPreset(adjustments, preset.adjustments)) }}
-                      crossOrigin="anonymous"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full"
-                      style={{ background: preset.accent }}
-                    />
-                  )}
+                  <img
+                    src={sampleUrl}
+                    alt={preset.name}
+                    className="w-full h-full object-cover"
+                    style={{ filter: toFilterString(applyPreset(adjustments, preset.adjustments)) }}
+                    crossOrigin="anonymous"
+                  />
                 </div>
 
                 {/* Active check overlay */}

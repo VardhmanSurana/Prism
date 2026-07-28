@@ -400,11 +400,12 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }), [aspect, slideshowActive]);
 
   const editingSrc = useMemo(() => {
-    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url;
+    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `/api/v1/photos/${photo.id}/file`);
+    if (!baseSrc) return '';
     if (baseSrc.startsWith('blob:') || baseSrc.startsWith('data:')) return baseSrc;
     const sep = baseSrc.includes('?') ? '&' : '?';
     return `${baseSrc}${sep}nocache=${photo.id}-${highRes.highResStatus}`;
-  }, [photo.id, photo.url, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
+  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
 
   const variants = slideVariants[slideshowTransition] ?? slideVariants.fade;
   const useKenBurns =

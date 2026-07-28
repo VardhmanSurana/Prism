@@ -51,6 +51,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
           )}
         </div>
         <input
+          id="header-search-input"
+          name="headerSearchQuery"
+          aria-label="Query deep library"
           type="text"
           className="w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-all font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
           placeholder="Query deep library..."

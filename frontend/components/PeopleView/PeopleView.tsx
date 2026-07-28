@@ -18,9 +18,9 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
   const { photos: personPhotos, isLoading: photosLoading, fetchPhotos: fetchPersonPhotos } = usePersonPhotos(selectedPerson);
 
   const handleRenameSuccess = useCallback(
-    (personId: number, newName: string) => {
+    (personId: number | string, newName: string) => {
       fetchPeople();
-      if (selectedPerson && selectedPerson.id === personId) {
+      if (selectedPerson && (String(selectedPerson.id) === String(personId) || selectedPerson.uuid === String(personId))) {
         setSelectedPerson((prev) => (prev ? { ...prev, name: newName } : null));
       }
     },
@@ -39,7 +39,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
   // Handle URL param for selected person
   useEffect(() => {
     if (personIdParam && people.length > 0 && !selectedPerson) {
-      const p = people.find((p) => String(p.id) === personIdParam);
+      const p = people.find((p) => String(p.id) === personIdParam || p.uuid === personIdParam);
       if (p) {
         setSelectedPerson(p);
       }
@@ -56,7 +56,7 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
   const handlePersonClick = useCallback(
     (person: Person) => {
       setSelectedPerson(person);
-      setSearchParams({ personId: String(person.id) });
+      setSearchParams({ personId: person.uuid || String(person.id) });
     },
     [setSearchParams]
   );

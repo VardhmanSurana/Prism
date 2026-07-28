@@ -46,6 +46,9 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
 
         <form onSubmit={handleCreate} className="flex gap-2 mb-6">
           <input
+            id="add-to-album-name-input"
+            name="newAlbumName"
+            aria-label="New album name"
             type="text"
             placeholder="New album name..."
             value={newAlbumName}

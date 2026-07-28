@@ -303,6 +303,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
                 </div>
                 <input
+                  id="photo-grid-search-input"
+                  name="photoGridSearch"
+                  aria-label="Search photos"
                   type="text"
                   className="w-full bg-[#161616]/40 border border-white/[0.08] rounded-full py-2.5 pl-11 pr-4 text-sm text-gray-100 placeholder:text-gray-500 focus:border-white/[0.15] focus:outline-none transition-all font-mono"
                   placeholder="Search photos"

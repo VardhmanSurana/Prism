@@ -72,6 +72,9 @@ export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             ref={inputRef}
+            id="album-name-input"
+            name="albumName"
+            aria-label="Album name"
             type="text"
             placeholder={isCreate ? 'e.g. Summer 2025' : 'Album name'}
             value={value}

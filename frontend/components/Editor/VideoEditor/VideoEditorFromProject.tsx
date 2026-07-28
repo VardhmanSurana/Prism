@@ -17,7 +17,7 @@ import type { Photo } from '@/types';
 import { VideoEditorMode } from './VideoEditorMode';
 
 interface VideoEditorFromProjectProps {
-  projectId: number;
+  projectId: number | string;
   onClose: () => void;
 }
 

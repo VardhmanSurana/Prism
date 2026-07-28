@@ -385,12 +385,14 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
         {supportsFiles && (
           <input
             ref={fileInputRef}
+            id="chat-file-input"
+            name="chatFileInput"
             type="file"
             accept={accept}
             multiple={maxFiles == null || maxFiles > 1}
             className="hidden"
             onChange={handleFileInputChange}
-            aria-hidden="true"
+            aria-label="Upload chat files"
             tabIndex={-1}
           />
         )}
@@ -454,6 +456,8 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
         {/* Textarea */}
         <textarea
           ref={textareaRef}
+          id="chat-message-textarea"
+          name="chatMessage"
           value={value}
           onChange={(e) => {
             onActivate?.();

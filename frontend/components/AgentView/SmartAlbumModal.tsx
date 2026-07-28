@@ -91,8 +91,11 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
         ) : (
           <>
             <div className="space-y-1.5">
-              <label className="text-[11px] font-semibold text-gray-400 block">Album Name</label>
+              <label htmlFor="smart-album-name" className="text-[11px] font-semibold text-gray-400 block">Album Name</label>
               <input
+                id="smart-album-name"
+                name="smartAlbumName"
+                aria-label="Album Name"
                 type="text"
                 value={albumName}
                 onChange={(e) => setAlbumName(e.target.value)}

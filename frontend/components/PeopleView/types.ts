@@ -2,6 +2,7 @@ import { Photo } from '../../types';
 
 export interface Person {
   id: number;
+  uuid?: string;
   name: string;
   cover_face_thumbnail: string;
   photo_count: number;

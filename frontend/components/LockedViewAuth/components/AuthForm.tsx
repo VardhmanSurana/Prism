@@ -99,11 +99,14 @@ export function AuthForm({
         {/* Action Form */}
         <form onSubmit={isConfigured ? handleVerify : handleSetup} className="space-y-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+            <label htmlFor="auth-password-input" className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
               Password
             </label>
             <div className="relative">
               <input
+                id="auth-password-input"
+                name="authPassword"
+                aria-label="Password"
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -123,11 +126,14 @@ export function AuthForm({
 
           {!isConfigured && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
+              <label htmlFor="auth-confirm-password-input" className="text-[10px] font-bold uppercase tracking-widest text-gray-500">
                 Confirm Password
               </label>
               <div className="relative">
                 <input
+                  id="auth-confirm-password-input"
+                  name="authConfirmPassword"
+                  aria-label="Confirm Password"
                   type={showPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}

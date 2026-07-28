@@ -3,6 +3,12 @@ import { Photo } from '../../types';
 import { InlinePhotoGridProps } from './types';
 import { resolveUrl } from '../../constants';
 
+const getPhotoUrl = (p: Photo) => {
+  if (p.url && p.url.trim().length > 0) return resolveUrl(p.url);
+  if (p.path) return resolveUrl(`local://${p.path}`);
+  return resolveUrl(`/api/v1/photos/${p.id}/thumbnail`);
+};
+
 export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
   photos,
   onPhotoClick,
@@ -21,7 +27,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
       return (
         <div className="w-full aspect-[16/10] rounded-xl overflow-hidden border border-white/10 shadow-md">
           <img
-            src={resolveUrl(displayPhotos[0].url)}
+            src={getPhotoUrl(displayPhotos[0])}
             alt="Result photo"
             className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
             onClick={() => onPhotoClick(displayPhotos[0])}
@@ -36,7 +42,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
           {displayPhotos.map((photo) => (
             <div key={photo.id} className="rounded-xl overflow-hidden border border-white/10 shadow-sm h-full">
               <img
-                src={resolveUrl(photo.url)}
+                src={getPhotoUrl(photo)}
                 alt="Result photo"
                 className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
                 onClick={() => onPhotoClick(photo)}
@@ -52,7 +58,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
         <div className="grid grid-cols-3 gap-2 aspect-[16/10]">
           <div className="col-span-2 rounded-xl overflow-hidden border border-white/10 shadow-sm h-full">
             <img
-              src={resolveUrl(displayPhotos[0].url)}
+              src={getPhotoUrl(displayPhotos[0])}
               alt="Result photo"
               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
               onClick={() => onPhotoClick(displayPhotos[0])}
@@ -62,7 +68,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
             {displayPhotos.slice(1, 3).map((photo) => (
               <div key={photo.id} className="rounded-xl overflow-hidden border border-white/10 shadow-sm h-full">
                 <img
-                  src={resolveUrl(photo.url)}
+                  src={getPhotoUrl(photo)}
                   alt="Result photo"
                   className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
                   onClick={() => onPhotoClick(photo)}
@@ -80,7 +86,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
         {displayPhotos.slice(0, 3).map((photo) => (
           <div key={photo.id} className="rounded-xl overflow-hidden border border-white/10 shadow-sm h-full">
             <img
-              src={resolveUrl(photo.url)}
+              src={getPhotoUrl(photo)}
               alt="Result photo"
               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
               onClick={() => onPhotoClick(photo)}
@@ -90,7 +96,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
         {/* 4th slot, shows photo, or overlay if 5+ photos */}
         <div className="relative rounded-xl overflow-hidden border border-white/10 shadow-sm h-full cursor-pointer" onClick={onShowMore}>
           <img
-            src={resolveUrl(displayPhotos[3].url)}
+            src={getPhotoUrl(displayPhotos[3])}
             alt="Result photo"
             className="w-full h-full object-cover"
           />

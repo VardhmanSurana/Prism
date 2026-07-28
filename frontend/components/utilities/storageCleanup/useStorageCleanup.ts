@@ -55,9 +55,18 @@ export const useStorageCleanup = () => {
         activeSubTab === 'documents' ? fetch(`${API_BASE}/api/v1/utilities/documents`) : Promise.resolve(null),
         fetchDiagnostics()
       ]);
-      if (blurryRes?.ok) setBlurryPhotos(await blurryRes.json());
-      if (duplicatesRes?.ok) setDuplicateClusters(await duplicatesRes.json());
-      if (documentsRes?.ok) setDocumentPhotos(await documentsRes.json());
+      if (blurryRes?.ok) {
+        const data = await blurryRes.json();
+        setBlurryPhotos(Array.isArray(data) ? data : []);
+      }
+      if (duplicatesRes?.ok) {
+        const data = await duplicatesRes.json();
+        setDuplicateClusters(Array.isArray(data) ? data : []);
+      }
+      if (documentsRes?.ok) {
+        const data = await documentsRes.json();
+        setDocumentPhotos(Array.isArray(data) ? data : []);
+      }
     } catch (e) {
       console.error("Failed to fetch cleanup data:", e);
     } finally {

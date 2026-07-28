@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_LOG="$ROOT/backend/backend.log"
+BACKEND_LOG="$ROOT/backend_rust/backend.log"
 
 # Cleanup: kill frontend and log streamer
 cleanup() {
@@ -14,67 +14,38 @@ trap cleanup EXIT INT TERM
 
 # ── Check if Backend is already running ─────────────────────────────────────
 BACKEND_PORT=8269
+ML_PORT=8270
+
 if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "[web] Backend is already running on port $BACKEND_PORT."
     echo "[web] Killing existing backend for clean restart..."
+    pkill -f "prism-backend-rust" 2>/dev/null || true
     pkill -f "uvicorn app.main:app" 2>/dev/null || true
-    sleep 1
-    pkill -9 -f "uvicorn app.main:app" 2>/dev/null || true
+    pkill -f "vite" 2>/dev/null || true
     sleep 1
 fi
-if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
-    echo "[web] WARNING: Port $BACKEND_PORT still in use after kill."
+
+PYTHON_BACKEND_DIR="${PYTHON_BACKEND_DIR:-$ROOT/../Prism_python_backend}"
+if [ -d "$PYTHON_BACKEND_DIR" ]; then
+  echo "[web] Starting Python ML microservice on port $ML_PORT..."
+  (
+    cd "$PYTHON_BACKEND_DIR"
+    nohup uv run python ml_service.py > "$PYTHON_BACKEND_DIR/ml_service.log" 2>&1 &
+  )
 else
-    echo "[web] Starting Backend in background..."
-    touch "$BACKEND_LOG"
-    (
-      cd "$ROOT/backend"
-
-      if [ -x "/home/linuxbrew/.linuxbrew/bin/gcc-15" ]; then
-        export CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_C_COMPILER=gcc-15 -DCMAKE_CXX_COMPILER=g++-15 -DCMAKE_CUDA_HOST_COMPILER=gcc-15"
-        export CUDAHOSTCXX=gcc-15
-        export PATH="/home/linuxbrew/.linuxbrew/bin:$PATH"
-      fi
-
-      LIB_PATH=".venv/lib/python3.11/site-packages/inspireface/modules/core/libs/linux/x64/libInspireFace.so"
-      if [ -f "$LIB_PATH" ] && which execstack >/dev/null 2>&1; then
-        if execstack -q "$LIB_PATH" | grep -q "^X"; then
-          echo "[web] Fixing executable stack for inspireface library..."
-          execstack -c "$LIB_PATH"
-        fi
-      fi
-
-      VENV_LIBS="$ROOT/backend/.venv/lib/python3.11/site-packages/nvidia"
-      SYSTEM_CUDA="/usr/local/cuda/lib64"
-      
-      NEW_LD_PATH=""
-      if [ -d "$VENV_LIBS" ]; then
-        NEW_LD_PATH="$VENV_LIBS/cublas/lib:$VENV_LIBS/cudnn/lib:$VENV_LIBS/cuda_runtime/lib:$VENV_LIBS/cufft/lib:$VENV_LIBS/cusolver/lib:$VENV_LIBS/cusparse/lib"
-      fi
-      
-      if [ -d "$SYSTEM_CUDA" ]; then
-        if [ -n "$NEW_LD_PATH" ]; then
-          NEW_LD_PATH="$NEW_LD_PATH:$SYSTEM_CUDA"
-        else
-          NEW_LD_PATH="$SYSTEM_CUDA"
-        fi
-      fi
-
-      if [ -n "$NEW_LD_PATH" ]; then
-        export LD_LIBRARY_PATH="$NEW_LD_PATH:${LD_LIBRARY_PATH:-}"
-      fi
-
-      export PYTHONUNBUFFERED=1
-      nohup uv run python -m uvicorn app.main:app \
-        --reload \
-        --host 127.0.0.1 \
-        --port $BACKEND_PORT \
-        --log-level info > "$BACKEND_LOG" 2>&1 &
-      
-      echo $! > "$ROOT/backend/backend.pid"
-      echo "[web] Backend started (PID $(cat "$ROOT/backend/backend.pid"))"
-    )
+  echo "[web] Python ML microservice directory ($PYTHON_BACKEND_DIR) not found, skipping ML service launch."
 fi
+
+echo "[web] Starting Rust Backend on port $BACKEND_PORT..."
+touch "$BACKEND_LOG"
+(
+  cd "$ROOT/backend_rust"
+  export PORT=$BACKEND_PORT
+  export PYTHON_ML_URL="http://127.0.0.1:$ML_PORT"
+  nohup cargo run > "$BACKEND_LOG" 2>&1 &
+  echo $! > "$ROOT/backend_rust/backend.pid"
+  echo "[web] Rust Backend started (PID $(cat "$ROOT/backend_rust/backend.pid"))"
+)
 
 # ── Wait for backend to be ready ─────────────────────────────────────────────
 echo "[web] Waiting for backend on port $BACKEND_PORT..."

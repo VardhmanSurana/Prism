@@ -1,5 +1,6 @@
 export interface Photo {
   id: string | number;
+  uuid?: string;
   url: string;
   path: string;           // absolute filesystem path (used for local:// fallback)
   width: number;
@@ -37,7 +38,7 @@ export interface Photo {
   latitude?: number;
   longitude?: number;
   summary?: string;
-  people?: { id: string | number; name: string; cover_face_thumbnail: string }[];
+  people?: { id: string | number; uuid?: string; name: string; cover_face_thumbnail: string }[];
   city?: string;
   state?: string;
   country?: string;
@@ -57,7 +58,8 @@ export interface AlbumMetadata {
 }
 
 export interface Album {
-  id: number;
+  id: number | string;
+  uuid?: string;
   name: string;
   type: 'places' | 'memories' | 'people' | 'custom' | 'smart';
   photo_count: number;
@@ -69,6 +71,7 @@ export interface Album {
 
 export interface SmartAlbum {
   id: string;
+  uuid?: string;
   name: string;
   type: 'smart';
   smart_type: 'screenshots' | 'documents' | 'places';
@@ -99,6 +102,7 @@ export interface SearchFilters {
 
 export interface RawPhoto {
   id: string | number;
+  uuid?: string;
   url?: string;
   path?: string;
   width?: number;
@@ -108,15 +112,12 @@ export interface RawPhoto {
   date_taken?: string;
   upload_date?: string;
   uploadDate?: string;
-  location?: string;
-  caption?: string;
-  filename?: string;
-  is_favorite?: boolean;
   isFavorite?: boolean;
-  is_locked?: boolean;
+  is_favorite?: boolean;
   isLocked?: boolean;
-  is_trash?: boolean;
+  is_locked?: boolean;
   isTrash?: boolean;
+  is_trash?: boolean;
   type?: 'image' | 'video';
   mime_type?: string;
   file_type?: string;
@@ -131,7 +132,7 @@ export interface RawPhoto {
   latitude?: number;
   longitude?: number;
   summary?: string;
-  people?: { id: string | number; name: string; cover_face_thumbnail: string }[];
+  people?: { id: string | number; uuid?: string; name: string; cover_face_thumbnail: string }[];
   city?: string;
   state?: string;
   country?: string;
@@ -166,8 +167,14 @@ function sanitizeDateString(dateStr: string | undefined | null): string {
  * This prevents inconsistencies when backend changes field naming.
  */
 export function normalizePhoto(raw: RawPhoto): Photo {
+  const photoKey = raw.uuid || raw.id;
   const isLocked = raw.is_locked ?? raw.isLocked ?? false;
-  const resolvedUrl = isLocked ? `/api/v1/photos/${raw.id}/thumbnail` : (raw.url || '');
+  const fallbackUrl = raw.path
+    ? (raw.path.startsWith('local://') ? raw.path : `local://${raw.path}`)
+    : `/api/v1/photos/${photoKey}/thumbnail`;
+  const resolvedUrl = isLocked
+    ? `/api/v1/photos/${photoKey}/thumbnail`
+    : (raw.url && raw.url.trim().length > 0 ? raw.url : fallbackUrl);
   const rawDate = raw.date || raw.date_taken || '';
   const sanitizedDate = sanitizeDateString(rawDate);
   const rawUploadDate = raw.upload_date ?? raw.uploadDate ?? rawDate;
@@ -179,6 +186,7 @@ export function normalizePhoto(raw: RawPhoto): Photo {
   return {
     ...raw,
     id: raw.id,
+    uuid: raw.uuid,
     url: resolvedUrl,
     path: raw.path || '',
     width: raw.width || 0,
@@ -208,8 +216,17 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     audio_codec: raw.audio_codec,
     pix_fmt: raw.pix_fmt,
     color_range: raw.color_range,
-    rotation: raw.rotation ?? 0,
+    rotation: raw.rotation,
     animated_url: raw.animated_url,
+    ai_summary: raw.ai_summary,
+    latitude: raw.latitude,
+    longitude: raw.longitude,
+    summary: raw.summary,
+    people: raw.people,
+    city: raw.city,
+    state: raw.state,
+    country: raw.country,
+    hash: raw.hash,
+    search_explanation: raw.search_explanation,
   };
 }
-

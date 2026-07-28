@@ -337,6 +337,10 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(currentPlaybackTimestamp));
   }, [currentPlaybackTimestamp, timeLapseActive]);
 
+  const handleZoomReady = useCallback((action: () => void) => {
+    setZoomToExtents(() => action);
+  }, []);
+
   return (
     <div className="w-full h-full relative bg-[#0a0a0a]" style={{ contain: 'layout style' }}>
       <MapContainer
@@ -350,7 +354,7 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
         <ZoomToExtentsControl
           bounds={bounds}
           center={center}
-          onReady={(action) => setZoomToExtents(() => action)}
+          onReady={handleZoomReady}
         />
         <TileLayer
           key={selectedStyleId}

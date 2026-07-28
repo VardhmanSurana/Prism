@@ -83,14 +83,15 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {sessions && sessions.length > 0 ? (
             sessions.map((session) => {
-              const isActive = session.id === activeSessionId;
-              const isEditing = editingId === session.id;
-              const isDeleting = deletingId === session.id;
+              const sessionKey = session.uuid || session.id;
+              const isActive = session.id === activeSessionId || session.uuid === activeSessionId;
+              const isEditing = editingId === session.id || editingId === session.uuid;
+              const isDeleting = deletingId === session.id || deletingId === session.uuid;
 
               return (
                 <div
-                  key={session.id}
-                  onClick={() => !isEditing && onSelectSession(session.id)}
+                  key={sessionKey}
+                  onClick={() => !isEditing && onSelectSession(sessionKey)}
                   className={`group relative flex items-center justify-between p-2.5 rounded-xl text-xs transition-all cursor-pointer ${
                     isActive
                       ? 'bg-white/10 text-white font-semibold shadow-md border border-white/10'
@@ -101,6 +102,9 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                     <MessageSquare size={14} className={isActive ? 'text-purple-400 shrink-0' : 'text-gray-500 shrink-0'} />
                     {isEditing ? (
                       <input
+                        id={`session-title-${session.id}`}
+                        name="sessionTitle"
+                        aria-label="Edit chat session title"
                         type="text"
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
@@ -138,7 +142,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                       </>
                     ) : isDeleting ? (
                       <button
-                        onClick={(e) => handleDelete(e, session.id)}
+                        onClick={(e) => handleDelete(e, sessionKey)}
                         className="px-1.5 py-0.5 text-[10px] bg-red-500/30 text-red-300 border border-red-500/40 rounded hover:bg-red-500/50 font-bold transition-colors"
                         title="Click again to confirm delete"
                       >
@@ -154,7 +158,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                           <Edit2 size={12} />
                         </button>
                         <button
-                          onClick={(e) => handleDelete(e, session.id)}
+                          onClick={(e) => handleDelete(e, sessionKey)}
                           className="p-1 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                           title="Delete chat"
                         >

@@ -31,7 +31,7 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMa
 
       {/* Reference Image Picker */}
       <div className="space-y-2">
-        <label className="text-[10px] font-semibold text-white/60 uppercase">Reference Photo / Cinema Still</label>
+        <label htmlFor="ref-image-input" className="text-[10px] font-semibold text-white/60 uppercase">Reference Photo / Cinema Still</label>
         <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center gap-3">
           {refImageSrc ? (
             <div className="relative w-full h-32 rounded overflow-hidden border border-white/10">
@@ -44,10 +44,10 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMa
             </div>
           )}
 
-          <label className="w-full py-1.5 flex items-center justify-center gap-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-medium text-white/80 cursor-pointer transition-all">
+          <label htmlFor="ref-image-input" className="w-full py-1.5 flex items-center justify-center gap-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-medium text-white/80 cursor-pointer transition-all">
             <Upload size={12} />
             {refImageSrc ? 'Change Reference Image' : 'Upload Reference Photo'}
-            <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+            <input id="ref-image-input" name="refImageInput" aria-label="Upload reference image" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
           </label>
         </div>
       </div>
@@ -55,10 +55,13 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMa
       {/* Match Strength Slider */}
       <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 space-y-2">
         <div className="flex justify-between items-center text-[10px]">
-          <span className="font-semibold text-white/60 uppercase">Match Transfer Strength</span>
+          <label htmlFor="color-match-strength" className="font-semibold text-white/60 uppercase">Match Transfer Strength</label>
           <span className="font-mono text-primary font-bold">{strength}%</span>
         </div>
         <input
+          id="color-match-strength"
+          name="colorMatchStrength"
+          aria-label="Match Transfer Strength"
           type="range"
           min={10}
           max={100}

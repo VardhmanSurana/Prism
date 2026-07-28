@@ -160,7 +160,7 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   {/* Brightness */}
                   <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Brightness</label>
+                      <label htmlFor={`selective-brightness-${reg.id}`} className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Brightness</label>
                       <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.brightness || 0}</span>
                     </div>
                     <div className="relative h-4 flex items-center group/slider">
@@ -175,6 +175,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         }}
                       />
                       <input
+                        id={`selective-brightness-${reg.id}`}
+                        name="brightness"
+                        aria-label="Selective Brightness"
                         type="range" min="-100" max="100"
                         value={reg.adjustments.brightness || 0}
                         onChange={(e) => handleRegionChange(reg.id, 'brightness', Number(e.target.value))}
@@ -186,7 +189,7 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   {/* Contrast */}
                   <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Contrast</label>
+                      <label htmlFor={`selective-contrast-${reg.id}`} className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Contrast</label>
                       <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.contrast || 0}</span>
                     </div>
                     <div className="relative h-4 flex items-center group/slider">
@@ -201,6 +204,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         }}
                       />
                       <input
+                        id={`selective-contrast-${reg.id}`}
+                        name="contrast"
+                        aria-label="Selective Contrast"
                         type="range" min="-100" max="100"
                         value={reg.adjustments.contrast || 0}
                         onChange={(e) => handleRegionChange(reg.id, 'contrast', Number(e.target.value))}
@@ -212,7 +218,7 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   {/* Saturation */}
                   <div className="space-y-2 group/item">
                     <div className="flex justify-between items-baseline">
-                      <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Saturation</label>
+                      <label htmlFor={`selective-saturation-${reg.id}`} className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Saturation</label>
                       <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.saturation || 0}</span>
                     </div>
                     <div className="relative h-4 flex items-center group/slider">
@@ -227,6 +233,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         }}
                       />
                       <input
+                        id={`selective-saturation-${reg.id}`}
+                        name="saturation"
+                        aria-label="Selective Saturation"
                         type="range" min="-100" max="100"
                         value={reg.adjustments.saturation || 0}
                         onChange={(e) => handleRegionChange(reg.id, 'saturation', Number(e.target.value))}
@@ -239,7 +248,7 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                   {reg.type === 'background' && (
                     <div className="space-y-2 group/item">
                       <div className="flex justify-between items-baseline">
-                        <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Blur (Bokeh)</label>
+                        <label htmlFor={`selective-blur-${reg.id}`} className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Blur (Bokeh)</label>
                         <span className="text-[10px] tabular-nums text-primary font-mono font-bold transition-all duration-300">{reg.adjustments.blur || 0}</span>
                       </div>
                       <div className="relative h-4 flex items-center group/slider">
@@ -254,6 +263,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                           }}
                         />
                         <input
+                          id={`selective-blur-${reg.id}`}
+                          name="blur"
+                          aria-label="Selective Blur"
                           type="range" min="0" max="100"
                           value={reg.adjustments.blur || 0}
                           onChange={(e) => handleRegionChange(reg.id, 'blur', Number(e.target.value))}
@@ -293,6 +305,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                         </div>
                         <div className="flex gap-2">
                           <input
+                            id={`luma-min-${reg.id}`}
+                            name="lumaMin"
+                            aria-label="Target Luma Range Min"
                             type="range" min="0" max="100"
                             value={(reg.rangeMask.lumRange || [0, 100])[0]}
                             onChange={e => {
@@ -304,6 +319,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                             className="adjustment-slider flex-1"
                           />
                           <input
+                            id={`luma-max-${reg.id}`}
+                            name="lumaMax"
+                            aria-label="Target Luma Range Max"
                             type="range" min="0" max="100"
                             value={(reg.rangeMask.lumRange || [0, 100])[1]}
                             onChange={e => {
@@ -324,6 +342,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                           <span>Color Tolerance</span>
                           <div className="flex items-center gap-2">
                             <input
+                              id={`color-sample-${reg.id}`}
+                              name="colorSample"
+                              aria-label="Color Sample"
                               type="color"
                               value={reg.rangeMask.colorSample || '#ef4444'}
                               onChange={e => {
@@ -337,6 +358,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                           </div>
                         </div>
                         <input
+                          id={`color-tolerance-${reg.id}`}
+                          name="colorTolerance"
+                          aria-label="Color Tolerance"
                           type="range" min="5" max="100"
                           value={reg.rangeMask.colorTolerance || 30}
                           onChange={e => {

@@ -57,7 +57,7 @@ export const PhotoMetadataDisplay: React.FC<PhotoMetadataDisplayProps> = ({ phot
             <div className="flex -space-x-1.5">
               {people.slice(0, 3).map((person) => (
                 <div
-                  key={person.id}
+                  key={person.uuid || person.id}
                   className="w-5 h-5 rounded-full border border-[#0D0F14] bg-white/10 overflow-hidden"
                   title={person.name}
                 >

@@ -184,7 +184,7 @@ const ViewfinderOverlay: React.FC = () => (
 
 interface ProjectCardProps {
   project: VideoProject;
-  onOpen: (id: number) => void;
+  onOpen: (id: number | string) => void;
   onRename: (project: VideoProject) => void;
   onDuplicate: (project: VideoProject) => void;
   onDelete: (project: VideoProject) => void;
@@ -203,6 +203,8 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   const ratioKey = getAspectRatioKey(project.width, project.height);
   const ratioLabel =
     ratioKey === 'custom' ? `${project.width}:${project.height}` : ratioKey;
+
+  const targetKey = project.uuid || project.id;
 
   // Close menu on outside click
   useEffect(() => {
@@ -242,7 +244,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
       className="bg-[#0c0c0c] border border-[#20212b] rounded-xl overflow-hidden flex flex-col group cursor-pointer transition-shadow hover:border-[#2e2f3d] hover:shadow-[0_10px_24px_rgba(0,0,0,0.4)]"
-      onClick={() => onOpen(project.id)}
+      onClick={() => onOpen(targetKey)}
     >
       {/* Thumbnail preview area */}
       <div className="relative">
@@ -252,7 +254,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
         <button
           onClick={(e) => {
             e.stopPropagation();
-            onOpen(project.id);
+            onOpen(targetKey);
           }}
           aria-label={`Open ${project.name} in editor`}
           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10"
@@ -483,7 +485,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
                   onClick={() => setSelectedRatio(opt)}
                   className={`border rounded-lg p-4 flex flex-col items-center gap-2.5 text-center transition-all ${
                     isActive
-                      ? 'border-[#585cf3] bg-[#585cf3]/[0.06]'
+                      ? 'border-[#585cf3] bg-[#585cf3]/[0.06] shadow-[0_0_0_1px_#585cf3_inset]'
                       : 'border-[#20212b] bg-white/[0.01] hover:border-[#2e2f3d] hover:bg-white/[0.03]'
                   }`}
                 >
@@ -554,7 +556,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
 interface RenameProjectModalProps {
   project: VideoProject;
   onClose: () => void;
-  onRename: (id: number, name: string) => Promise<void>;
+  onRename: (id: number | string, name: string) => Promise<void>;
 }
 
 const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClose, onRename }) => {
@@ -584,14 +586,14 @@ const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClos
     setSubmitting(true);
     setError(null);
     try {
-      await onRename(project.id, trimmed);
+      await onRename(project.uuid || project.id, trimmed);
       onClose();
     } catch {
       setError('Failed to rename. Please try again.');
     } finally {
       setSubmitting(false);
     }
-  }, [name, project.id, onRename, onClose]);
+  }, [name, project, onRename, onClose]);
 
   return (
     <div
@@ -662,7 +664,7 @@ const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClos
 interface DeleteProjectModalProps {
   project: VideoProject;
   onClose: () => void;
-  onDelete: (id: number) => Promise<void>;
+  onDelete: (id: number | string) => Promise<void>;
 }
 
 const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClose, onDelete }) => {
@@ -684,14 +686,14 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClos
     setDeleting(true);
     setError(null);
     try {
-      await onDelete(project.id);
+      await onDelete(project.uuid || project.id);
       onClose();
     } catch {
       setError('Failed to delete. Please try again.');
     } finally {
       setDeleting(false);
     }
-  }, [project.id, onDelete, onClose]);
+  }, [project, onDelete, onClose]);
 
   return (
     <div
@@ -858,13 +860,12 @@ export const ProjectsDashboard: React.FC = () => {
   const openProjectId = useMemo(() => {
     const parts = location.pathname.split('/');
     if (parts[1] === 'projects' && parts[2]) {
-      const id = parseInt(parts[2], 10);
-      return isNaN(id) ? null : id;
+      return parts[2];
     }
     return null;
   }, [location.pathname]);
 
-  const handleOpenProject = useCallback((id: number) => {
+  const handleOpenProject = useCallback((id: number | string) => {
     navigate(`/projects/${id}`);
   }, [navigate]);
 

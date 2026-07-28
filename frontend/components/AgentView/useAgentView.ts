@@ -69,11 +69,12 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
       });
       if (res.ok) {
         const newSess = await res.json();
+        const key = newSess.uuid || newSess.id;
         setSessions(prev => [newSess, ...prev]);
-        setActiveSessionId(newSess.id);
+        setActiveSessionId(key);
         setMessages([DEFAULT_GREETING]);
         setCurrentPhotos([]);
-        return newSess.id;
+        return key;
       }
     } catch (e) {
       console.error('Failed to create session:', e);
@@ -88,8 +89,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
       const data: SessionItem[] = await res.json();
       setSessions(data);
       if (data.length > 0) {
-        setActiveSessionId(data[0].id);
-        fetchSessionMessages(data[0].id);
+        const key = data[0].uuid || data[0].id;
+        setActiveSessionId(key);
+        fetchSessionMessages(key);
       } else {
         createSession();
       }
@@ -116,7 +118,7 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
         body: JSON.stringify({ title: newTitle }),
       });
       if (res.ok) {
-        setSessions(prev => prev.map(s => (s.id === sessionId ? { ...s, title: newTitle } : s)));
+        setSessions(prev => prev.map(s => (s.id === sessionId || s.uuid === sessionId ? { ...s, title: newTitle } : s)));
       }
     } catch (e) {
       console.error('Failed to rename session:', e);
@@ -130,11 +132,12 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
       });
       if (res.ok) {
         setSessions(prev => {
-          const filtered = prev.filter(s => s.id !== sessionId);
+          const filtered = prev.filter(s => s.id !== sessionId && s.uuid !== sessionId);
           if (sessionId === activeSessionId) {
             if (filtered.length > 0) {
-              setActiveSessionId(filtered[0].id);
-              fetchSessionMessages(filtered[0].id);
+              const key = filtered[0].uuid || filtered[0].id;
+              setActiveSessionId(key);
+              fetchSessionMessages(key);
             } else {
               createSession();
             }

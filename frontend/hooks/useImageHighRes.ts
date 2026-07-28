@@ -18,7 +18,8 @@ export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
     // For HEIC, browsers can't display the raw file — use a high-res conversion from the backend.
     // For all other formats, prefer the original full-resolution file via /local.
     if (isHeic) {
-      return resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=2048&h=${photo.hash}`);
+      const key = photo.uuid || photo.id;
+      return resolveUrl(`/api/v1/photos/${key}/thumbnail?size=2048&h=${photo.hash}`);
     }
 
     const url = photo.path

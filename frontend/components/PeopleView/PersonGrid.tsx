@@ -7,13 +7,13 @@ import { PersonCard } from './PersonCard';
 interface PersonGridProps {
   people: Person[];
   isLoading: boolean;
-  editingId: number | null;
+  editingId: number | string | null;
   editName: string;
   onPersonClick: (person: Person) => void;
   onRefresh: () => void;
   onStartRename: (person: Person) => void;
   onCancelRename: () => void;
-  onSaveRename: (personId: number) => void;
+  onSaveRename: (personId: number | string) => void;
   onEditNameChange: (value: string) => void;
 }
 
@@ -78,28 +78,32 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
           className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
         >
           <AnimatePresence>
-            {people.map((person) => (
-              <PersonCard
-                key={person.id}
-                person={person}
-                isEditing={editingId === person.id}
-                editName={editingId === person.id ? editName : ''}
-                onClick={() => onPersonClick(person)}
-                onStartRename={(e) => {
-                  e.stopPropagation();
-                  onStartRename(person);
-                }}
-                onCancelRename={(e) => {
-                  e.stopPropagation();
-                  onCancelRename();
-                }}
-                onSaveRename={(e) => {
-                  e.stopPropagation();
-                  onSaveRename(person.id);
-                }}
-                onEditNameChange={onEditNameChange}
-              />
-            ))}
+            {people.map((person) => {
+              const personKey = person.uuid || person.id;
+              const isEdit = editingId === person.id || (person.uuid && editingId === person.uuid);
+              return (
+                <PersonCard
+                  key={personKey}
+                  person={person}
+                  isEditing={!!isEdit}
+                  editName={isEdit ? editName : ''}
+                  onClick={() => onPersonClick(person)}
+                  onStartRename={(e) => {
+                    e.stopPropagation();
+                    onStartRename(person);
+                  }}
+                  onCancelRename={(e) => {
+                    e.stopPropagation();
+                    onCancelRename();
+                  }}
+                  onSaveRename={(e) => {
+                    e.stopPropagation();
+                    onSaveRename(personKey);
+                  }}
+                  onEditNameChange={onEditNameChange}
+                />
+              );
+            })}
           </AnimatePresence>
         </motion.div>
       </div>
