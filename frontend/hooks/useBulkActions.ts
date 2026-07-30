@@ -244,7 +244,7 @@ export function useBulkActions({
     // Call API in chunks of 6
     const results = await fetchInBatches(
       idsArray,
-      id => fetch(`${API_BASE}/api/v1/photos/${id}/restore`, { method: 'POST' })
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' })
     );
 
     // Rollback failed ones
