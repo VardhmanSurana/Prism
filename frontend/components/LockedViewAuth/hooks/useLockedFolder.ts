@@ -23,6 +23,7 @@ export function useLockedFolder(onAuthenticate: () => void): UseLockedFolderRetu
   const checkStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/locked-folder/status`);
+      if (!res.ok) return;
       const data: LockedFolderStatus = await res.json();
       setIsConfigured(data.is_configured);
       if (data.is_authenticated) {
@@ -34,6 +35,7 @@ export function useLockedFolder(onAuthenticate: () => void): UseLockedFolderRetu
       setLoading(false);
     }
   }, [onAuthenticate]);
+
 
   useEffect(() => {
     checkStatus();

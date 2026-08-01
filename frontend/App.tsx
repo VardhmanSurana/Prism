@@ -17,6 +17,10 @@ import { useSettingsStore } from './store';
 import { eventService } from '@/services/EventService';
 import { normalizePhoto } from './types';
 import type { ViewMode, Album, Photo } from './types';
+import { useGalleryLayout } from './hooks/useGalleryLayout';
+import { GoogleImportToast } from './components/ui/GoogleImportToast';
+import { photoSrc } from './constants';
+import { useTelemetry } from './hooks/useTelemetry';
 
 const Lightbox = React.lazy(() =>
   import('./components/viewers/Lightbox').then((m) => ({ default: m.Lightbox }))
@@ -80,6 +84,9 @@ function App() {
     handleSetAlbumCover,
   } = useAppState();
 
+  const { galleryStyle } = useGalleryLayout();
+  const { logAction, logNavigation, logError } = useTelemetry();
+
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
   const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
 
@@ -119,11 +126,12 @@ function App() {
   const handleViewChange = useCallback((v: ViewMode) => {
     setCurrentView(v);
     setActiveFilters(null);
+    logNavigation(`view:${v}`, { view: v });
     if (v !== 'locked') {
       handleLockSession();
       clearSelection();
     }
-  }, [setCurrentView, setActiveFilters, handleLockSession, clearSelection]);
+  }, [setCurrentView, setActiveFilters, handleLockSession, clearSelection, logNavigation]);
 
   const handleResetSuccess = useCallback(() => {
     setPhotos([]);
@@ -132,6 +140,7 @@ function App() {
   }, [setPhotos, setSelectedPhoto, clearSelection]);
 
   const handleLightboxToggleFavorite = useCallback(async (id: string | number) => {
+    logAction('Lightbox', 'toggle_favorite', { photoId: id });
     await apiClient.post(`/api/v1/photos/${id}/favorite`, {});
     setPhotos(prev => {
       const updated = prev.map(p =>
@@ -143,7 +152,7 @@ function App() {
       if (toggled) setSelectedPhoto(toggled);
       return updated;
     });
-  }, [setPhotos, setSelectedPhoto]);
+  }, [setPhotos, setSelectedPhoto, logAction]);
 
   const handleLightboxRemoveFromAlbum = useMemo(() =>
     selectedAlbum ? () => selectedPhoto && handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined,
@@ -157,7 +166,13 @@ function App() {
 
   const handleAuthenticate = useCallback(() => setIsLockedAuthenticated(true), [setIsLockedAuthenticated]);
 
-  const handleLightboxClose = useCallback(() => setSelectedPhoto(null), [setSelectedPhoto]);
+  const selectedPhotoRef = React.useRef(selectedPhoto);
+  selectedPhotoRef.current = selectedPhoto;
+
+  const handleLightboxClose = useCallback(() => {
+    logAction('Lightbox', 'close', { photoId: selectedPhotoRef.current?.id });
+    setSelectedPhoto(null);
+  }, [setSelectedPhoto, logAction]);
 
   // Global OS drag-and-drop import (Tauri)
   const dragDrop = useDragDropImport({
@@ -184,6 +199,7 @@ function App() {
     const copied = useEditStore.getState().copiedAdjustments;
     if (!copied || selectedIds.size === 0) return;
 
+    logAction('BulkActions', 'paste_adjustments', { count: selectedIds.size });
     try {
       const ids = Array.from(selectedIds).map(Number);
       const res = await fetch(`${API_BASE}/api/v1/photos/bulk-adjustments`, {
@@ -201,13 +217,14 @@ function App() {
         console.error('Failed to paste adjustments bulk:', await res.text());
       }
     } catch (e) {
+      logError('BulkActions', 'paste_adjustments_failed', e);
       console.error('Failed to paste adjustments:', e);
     }
-  }, [selectedIds, clearSelection]);
+  }, [selectedIds, clearSelection, logAction, logError]);
 
   return (
     <ErrorBoundary>
-      <div className="relative flex h-screen w-screen overflow-hidden bg-background text-gray-100">
+      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex h-screen w-screen overflow-hidden bg-background text-gray-100`}>
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 
@@ -217,11 +234,14 @@ function App() {
         />
 
         <main className="flex-1 flex flex-col min-w-0 relative z-10">
-          {currentView !== 'gallery' && currentView !== 'agent' && currentView !== 'projects' && (
+          {currentView === 'gallery' && (
             <Header
               onSearch={setActiveFilters}
               sortMode={sortMode}
               onSortChange={setSortMode}
+              onChangeView={handleViewChange}
+              onUpload={handleUpload}
+              onImportProgress={setImportStatus}
             />
           )}
 
@@ -304,6 +324,13 @@ function App() {
           phase={dragDrop.phase}
           error={dragDrop.error}
           onDismissError={dragDrop.clearError}
+        />
+
+        <GoogleImportToast
+          previewImg={displayedPhotos.length > 0 ? photoSrc(displayedPhotos[0]) : undefined}
+          onStop={() => {
+            fetch(`${API_BASE}/api/v1/utilities/background-jobs/stop`, { method: 'POST' }).catch(() => {});
+          }}
         />
 
         <Suspense fallback={null}>

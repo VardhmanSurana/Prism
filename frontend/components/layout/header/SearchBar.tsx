@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, Loader2, ArrowDownWideNarrow, ChevronDown, Check } from 'lucide-react';
 import { SearchFilters, SortMode } from '@/types';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface SearchBarProps {
   onSearch: (filters: SearchFilters | null) => void;
@@ -40,12 +41,17 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
     { label: 'Recently added', value: 'added' },
   ];
 
+  const { galleryStyle } = useGalleryLayout();
+  const isGoogle = galleryStyle === 'google';
+
   return (
     <div className="flex-1 max-w-xl">
       <div className="relative group">
-        <div className="absolute inset-y-0 left-0 pl-1 flex items-center pointer-events-none">
+        <div className={`absolute inset-y-0 left-0 flex items-center pointer-events-none ${isGoogle ? 'pl-4' : 'pl-1'}`}>
           {isSearching ? (
             <Loader2 className="h-4 w-4 text-primary animate-spin" />
+          ) : isGoogle ? (
+            <span className="material-symbols-outlined text-[20px] text-gray-400 group-focus-within:text-white leading-none">search</span>
           ) : (
             <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
           )}
@@ -55,8 +61,11 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
           name="headerSearchQuery"
           aria-label="Query deep library"
           type="text"
-          className="w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-all font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
-          placeholder="Query deep library..."
+          className={isGoogle ? 
+            "w-full bg-[#28292C] border-none rounded-full py-2.5 pl-11 pr-12 text-sm text-[#E3E2E6] placeholder:text-gray-400 font-sans focus:outline-none focus:ring-1 focus:ring-[#A8C7FA]" :
+            "w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-all font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
+          }
+          placeholder={isGoogle ? 'Search "photos, places, people"' : 'Query deep library...'}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -67,8 +76,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
             className={`p-1.5 rounded-lg flex items-center gap-1 transition-colors ${isSortOpen ? 'text-primary' : 'text-gray-500 hover:text-white'}`}
             title="Sort options"
           >
-            <ArrowDownWideNarrow size={16} />
-            <ChevronDown size={12} className={`transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+            {isGoogle ? (
+              <span className="material-symbols-outlined text-[20px] leading-none">swap_vert</span>
+            ) : (
+              <ArrowDownWideNarrow size={16} />
+            )}
+            {isGoogle ? (
+              <span className={`material-symbols-outlined text-[18px] leading-none transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}>expand_more</span>
+            ) : (
+              <ChevronDown size={12} className={`transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`} />
+            )}
           </button>
 
           {isSortOpen && (

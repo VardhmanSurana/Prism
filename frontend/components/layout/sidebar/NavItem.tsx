@@ -1,5 +1,6 @@
 import React from 'react';
 import type { NavItemData } from '../types/sidebar';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -10,8 +11,39 @@ interface NavItemProps {
   onMouseEnter?: () => void;
 }
 
+const MATERIAL_ICON_MAP: Record<string, string> = {
+  gallery: 'photo_library',
+  explore: 'explore',
+  map: 'map',
+  agent: 'auto_awesome',
+  albums: 'photo_album',
+  people: 'group',
+  projects: 'movie',
+  trash: 'delete',
+  utilities: 'settings',
+  locked: 'lock',
+};
+
 export const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView, onChangeView, onMouseEnter }) => {
+  const { galleryStyle } = useGalleryLayout();
   const isActive = currentView === view;
+
+  if (galleryStyle === 'google') {
+    const materialSymbol = MATERIAL_ICON_MAP[view] || 'circle';
+    return (
+      <button
+        onClick={() => onChangeView(view)}
+        onMouseEnter={onMouseEnter}
+        className={`w-full flex items-center gap-3.5 px-4 py-2.5 text-xs font-sans rounded-full transition-all duration-150 relative group select-none
+          ${isActive ? 'bg-[#004A77] text-[#C2E7FF] font-medium shadow-sm' : 'text-[#C4C6D0] hover:bg-white/10 hover:text-white font-normal'}`}
+      >
+        <span className={`material-symbols-outlined text-[20px] leading-none ${isActive ? 'text-[#C2E7FF]' : 'text-[#C4C6D0] group-hover:text-white'}`}>
+          {materialSymbol}
+        </span>
+        <span className="tracking-normal font-sans text-xs">{label}</span>
+      </button>
+    );
+  }
 
   return (
     <button

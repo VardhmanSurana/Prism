@@ -1,4 +1,3 @@
-import { MagickFormat } from '@imagemagick/magick-wasm';
 import { Adjustments } from '../filterEngine';
 import { isCtxFilterSupported, applyBlurFallback } from '../filterFallback';
 
@@ -56,18 +55,6 @@ export const hasGlobalPreviewAdjustments = (adj: Adjustments) =>
   adj.tint !== 0 ||
   adj.clarity !== 0 ||
   adj.ambiance !== 0;
-
-export const getExportFormat = (mimeType: string): MagickFormat => {
-  switch (mimeType) {
-    case 'image/png':
-      return MagickFormat.Png;
-    case 'image/webp':
-      return MagickFormat.WebP;
-    case 'image/jpeg':
-    default:
-      return MagickFormat.Jpeg;
-  }
-};
 
 export const hasRegionAdjustments = (adjustments: Adjustments) =>
   adjustments.regions.some((region) =>

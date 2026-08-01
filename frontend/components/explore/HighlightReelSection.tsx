@@ -79,7 +79,7 @@ export const HighlightReelSection: React.FC = () => {
     <section className="px-10 py-6 shrink-0" aria-labelledby="highlight-reels-title">
       <ExploreHeader
         headingId="highlight-reels-title"
-        icon={<Film size={14} />}
+        label="Curated"
         title="Auto-Generated Highlight Reels"
         subtitle="Cinematic memory compilations automatically assembled for you"
       />

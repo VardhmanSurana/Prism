@@ -33,7 +33,16 @@ export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
   }, [photo.url, photo.path, photo.filename, photo.id, photo.hash]);
 
   useEffect(() => {
-    const isVideo = photo.type === 'video' || photo.file_type === 'video';
+    const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.flv', '.wmv', '.3gp', '.ts', '.m2ts'];
+    const isVideo =
+      photo.type === 'video' ||
+      photo.file_type === 'video' ||
+      photo.mime_type?.startsWith('video/') ||
+      VIDEO_EXTENSIONS.some(ext =>
+        photo.path?.toLowerCase().endsWith(ext) ||
+        photo.filename?.toLowerCase().endsWith(ext)
+      );
+
     if (isVideo) {
       setHighResStatus('loaded');
       setCurrentHighResUrl(null);

@@ -28,3 +28,24 @@ export const resolveUrl = (url: string) => {
   }
   return resolvedBase;
 };
+
+/**
+ * Resolve a Photo object's display URL.
+ * Many explore-API endpoints return raw Photo rows where `url` is null.
+ * This helper falls back to the thumbnail endpoint using uuid or id.
+ * @param size - Optional thumbnail size (default 400, max 2048)
+ */
+export const photoSrc = (photo: { url?: string | null; uuid?: string; id?: string | number }, size?: number): string => {
+  if (photo.url && photo.url.trim().length > 0) {
+    const resolved = resolveUrl(photo.url);
+    if (size && size > 400) {
+      const separator = resolved.includes('?') ? '&' : '?';
+      return `${resolved}${separator}size=${size}`;
+    }
+    return resolved;
+  }
+  const key = photo.uuid || photo.id;
+  if (!key) return '';
+  const sizeParam = size && size > 400 ? `?size=${size}` : '';
+  return `${API_BASE}/api/v1/photos/${key}/thumbnail${sizeParam}`;
+};

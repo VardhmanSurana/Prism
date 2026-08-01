@@ -1,0 +1,51 @@
+/* ── Apple Photos macOS / iOS Theme Styles ──────────────────────────── */
+
+[data-theme="apple"], .theme-apple {
+  /* Apple Cupertino Dark Tokens */
+  --color-primary: 0 122 255;   /* #007AFF Apple System Blue */
+  --color-ink: 255 255 255;
+  --color-canvas: 28 28 30;     /* #1C1C1E macOS System Background */
+  --bg-primary: #1C1C1E;
+  --bg-secondary: #2C2C2E;
+  --bg-tertiary: #3A3A3C;
+
+  background-color: #1C1C1E !important;
+  color: #FFFFFF !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+}
+
+/* Translucent frosted glass effect for Apple Sidebar */
+.theme-apple .apple-sidebar {
+  background-color: rgba(44, 44, 46, 0.75) !important;
+  backdrop-filter: blur(30px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(210%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Apple Sidebar Active Item */
+.theme-apple .apple-nav-active {
+  background-color: #007AFF !important;
+  color: #FFFFFF !important;
+  border-radius: 8px !important;
+}
+
+/* Apple Rounded Cards */
+.theme-apple .apple-card {
+  background-color: #2C2C2E !important;
+  border-radius: 12px !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Apple Segmented Control Tabs */
+.theme-apple .apple-segmented-tabs {
+  background-color: rgba(118, 118, 128, 0.24) !important;
+  border-radius: 9px !important;
+  padding: 2px !important;
+}
+
+.theme-apple .apple-tab-active {
+  background-color: #636366 !important;
+  color: #FFFFFF !important;
+  border-radius: 7px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}

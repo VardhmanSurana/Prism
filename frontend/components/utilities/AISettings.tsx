@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Play, Square, RefreshCw, Terminal } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Play, Square, RefreshCw, Terminal, Gauge } from 'lucide-react';
 import { API_BASE } from '../../constants';
 import { Switch, Select } from '../ui';
 import { useSettingsStore } from '../../store';
@@ -50,10 +50,22 @@ export const AISettings: React.FC = () => {
   const setAgentEnabled = useSettingsStore(s => s.setAgentEnabled);
   const logTerminalRef = useRef<HTMLDivElement>(null);
 
+  // Telemetry sample rate state
+  const telemetrySampleRate = useSettingsStore((s) => s.telemetrySampleRate);
+  const fetchTelemetrySettings = useSettingsStore((s) => s.fetchTelemetrySettings);
+  const setTelemetrySampleRate = useSettingsStore((s) => s.setTelemetrySampleRate);
+  const [localSampleRate, setLocalSampleRate] = useState(telemetrySampleRate);
+  const [sampleRateStatus, setSampleRateStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  useEffect(() => {
+    setLocalSampleRate(telemetrySampleRate);
+  }, [telemetrySampleRate]);
+
   useEffect(() => {
     fetchSettings();
     fetchWorkerStatus();
     fetchLogs();
+    fetchTelemetrySettings();
   }, []);
 
   // Poll status and logs
@@ -181,6 +193,18 @@ export const AISettings: React.FC = () => {
     }
   };
 
+  const handleApplySampleRate = useCallback(async () => {
+    setSampleRateStatus('saving');
+    try {
+      await setTelemetrySampleRate(localSampleRate);
+      setSampleRateStatus('saved');
+      setTimeout(() => setSampleRateStatus('idle'), 2000);
+    } catch {
+      setSampleRateStatus('error');
+      setTimeout(() => setSampleRateStatus('idle'), 3000);
+    }
+  }, [localSampleRate, setTelemetrySampleRate]);
+
   if (!settings) {
     return (
       <section className="bg-[#0c0c0c] border border-[#23252a] rounded-3xl p-6 flex justify-center items-center h-48">
@@ -228,253 +252,282 @@ export const AISettings: React.FC = () => {
   };
 
   return (
-    <section className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 relative space-y-6 shadow-xl">
-      {/* Top Status Indicators */}
-      <div className="flex justify-between items-center border-b border-white/[0.04] pb-4">
-        <span className="px-2.5 py-1 bg-white/[0.02] border border-white/[0.04] rounded-full text-[9px] font-mono uppercase tracking-wider text-[#8a8f98]">
-          Prism Core Config
-        </span>
-        <div className="text-[10px] font-mono shrink-0">
-          {isSaving && <span className="text-[#828fff] animate-pulse">Saving...</span>}
-          {error && <span className="text-[#e5484d]">{error}</span>}
-          {!isSaving && !error && <span className="text-[#62666d]">All changes saved</span>}
-        </div>
-      </div>
+    <div className="space-y-4">
+      {/* ═══════ GRID ROW 1: GPU ACCELERATION & BACKGROUND WORKERS ═══════ */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Card 1: GPU Acceleration */}
+        <div className="cr-card">
+          <div className="cr-card-title flex items-center justify-between">
+            <span>GPU Acceleration</span>
+            <span className="font-mono text-[10px] text-[var(--cr-accent)] font-bold">
+              {settings.GPU_MODE !== 'cpu' ? '[ACTIVE]' : '[STANDBY]'}
+            </span>
+          </div>
 
-      <div className="space-y-6">
-        {/* Hardware Acceleration Select */}
-        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="max-w-md">
-              <h4 className="text-sm font-medium text-[#f7f8f8]">Hardware Acceleration</h4>
-              <p className="text-xs text-[#8a8f98] mt-1 leading-relaxed">
-                Choose the hardware backend matching your GPU. PyTorch and llama-server will target this acceleration runtime.
-              </p>
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Device Selection</span>
+              <span className="cr-toggle-desc">Runtime backend for PyTorch & local inference models</span>
             </div>
-            <div className="w-full md:w-64 shrink-0">
-              <Select
-                options={GPU_OPTIONS}
-                value={settings.GPU_MODE}
-                onChange={handleSelectChange}
-                ariaLabel="GPU processing mode"
-              />
+            <select
+              className="cr-terminal-select"
+              value={settings.GPU_MODE}
+              onChange={(e) => handleSelectChange(e.target.value)}
+              aria-label="GPU processing mode"
+            >
+              {GPU_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Mixed Precision</span>
+              <span className="cr-toggle-desc">FP16 inference for reduced VRAM footprint</span>
             </div>
+            <span
+              className={`cr-toggle-indicator ${settings.GPU_MODE !== 'cpu' ? 'on' : 'off'}`}
+            >
+              {settings.GPU_MODE !== 'cpu' ? '[ON]' : '[OFF]'}
+            </span>
+          </div>
+
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Inpainting & Video AI</span>
+              <span className="cr-toggle-desc">Smart object removal & multi-track timeline AI</span>
+            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_INPAINTING ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_INPAINTING')}
+            >
+              {settings.ENABLE_AI_INPAINTING ? '[ON]' : '[OFF]'}
+            </span>
           </div>
         </div>
 
-        {/* Background Services Control and Real-time Logs */}
-        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <div className="flex flex-col gap-4">
-            {/* Status and Buttons */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/[0.04]">
-              <div>
-                <h4 className="text-sm font-medium text-[#f7f8f8] flex items-center gap-2">
-                  Background Services Status
-                  <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono uppercase border ${statusBadgeStyle}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${statusDotStyle}`} />
-                    {statusText}
-                  </span>
-                </h4>
-                <p className="text-xs text-[#8a8f98] mt-1 max-w-lg leading-relaxed">
-                  Toggle dynamic queue worker processing for background uploads and imports. Start will automatically scan and catch up on any unfinished media files.
-                </p>
-              </div>
-
-              <div className="shrink-0 flex items-center gap-2">
-                {isWorkerPaused ? (
-                  <button
-                    onClick={handleStartWorker}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-[#5e6ad2] hover:brightness-110 text-white text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
-                  >
-                    <Play size={10} className="fill-white" />
-                    Start Services
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleStopWorker}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-transparent border border-white/[0.08] hover:bg-white/[0.02] text-red-400 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all duration-150 active:scale-[0.97]"
-                  >
-                    <Square size={10} className="fill-red-400" />
-                    Stop Services
-                  </button>
-                )}
-              </div>
+        {/* Card 2: Background Workers */}
+        <div className="cr-card">
+          <div className="cr-card-title flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <span>Background Workers</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${statusBadgeStyle}`}>
+                {statusText}
+              </span>
             </div>
-
-            {/* Log Terminal */}
-            <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-[#0c0c0c]">
-              <div className="px-4 py-2 border-b border-white/[0.05] flex items-center justify-between select-none">
-                <div className="flex items-center gap-2">
-                  <Terminal size={12} className="text-[#5e6ad2]" />
-                  <span className="text-[10px] font-mono text-gray-500">backend.log — live</span>
-                </div>
-                
-                <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
-                  <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={autoRefreshLogs}
-                      onChange={(e) => setAutoRefreshLogs(e.target.checked)}
-                      className="rounded border-white/[0.1] bg-[#0c0c0c] text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
-                    />
-                    <span>Auto-refresh</span>
-                  </label>
-                  <button
-                    onClick={fetchLogs}
-                    className="hover:text-white flex items-center gap-1 transition-colors"
-                  >
-                    <RefreshCw size={9} />
-                    <span>Sync</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Terminal Output */}
-              <div
-                ref={logTerminalRef}
-                className="p-4 h-40 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] select-text whitespace-pre-wrap custom-scrollbar"
+            {isWorkerPaused ? (
+              <button
+                onClick={handleStartWorker}
+                className="cr-inline-btn primary flex items-center gap-1 text-[9px]"
               >
-                {highlightLogs(logs)}
-              </div>
-            </div>
+                <Play size={9} className="fill-current" />
+                START
+              </button>
+            ) : (
+              <button
+                onClick={handleStopWorker}
+                className="cr-inline-btn text-[9px] text-[var(--cr-status-error)] hover:border-[var(--cr-status-error)]"
+              >
+                <Square size={9} className="fill-current" />
+                HALT
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Background workers toggles grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Image workers card */}
-          <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between transition-all">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <h4 className="text-sm font-medium text-[#f7f8f8]">Image Background Processes</h4>
-                <div className="scale-90">
-                  <Switch
-                    label=""
-                    checked={settings.ENABLE_IMAGE_BG_PROCESS}
-                    onToggle={() => handleToggle('ENABLE_IMAGE_BG_PROCESS')}
-                    ariaLabel="Enable image background processes"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-[#8a8f98] leading-relaxed mb-4">
-                Automated cataloging pipelines running when new images are discovered.
-              </p>
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Auto-Index & Background Sync</span>
+              <span className="cr-toggle-desc">Index new media assets upon import</span>
             </div>
-
-            {/* Sub-processes */}
-            <div
-              className={`space-y-1.5 border-t border-white/[0.04] pt-3.5 transition-all duration-300 ${
-                settings.ENABLE_IMAGE_BG_PROCESS ? 'opacity-100' : 'opacity-30 pointer-events-none'
-              }`}
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_IMAGE_BG_PROCESS ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_IMAGE_BG_PROCESS')}
             >
-              <Switch
-                label="Semantic Search (SigLIP)"
-                checked={settings.ENABLE_AI_CLIP}
-                onToggle={() => handleToggle('ENABLE_AI_CLIP')}
-                disabled={!settings.ENABLE_IMAGE_BG_PROCESS}
-              />
-              <Switch
-                label="Face Detection & Clustering"
-                checked={settings.ENABLE_AI_FACE}
-                onToggle={() => handleToggle('ENABLE_AI_FACE')}
-                disabled={!settings.ENABLE_IMAGE_BG_PROCESS}
-              />
-              <Switch
-                label="Gemma Image Captioning"
-                checked={settings.ENABLE_AI_CAPTION}
-                onToggle={() => handleToggle('ENABLE_AI_CAPTION')}
-                disabled={!settings.ENABLE_IMAGE_BG_PROCESS}
-              />
-              <Switch
-                label="Text Extraction (OCR)"
-                checked={settings.ENABLE_AI_OCR}
-                onToggle={() => handleToggle('ENABLE_AI_OCR')}
-                disabled={!settings.ENABLE_IMAGE_BG_PROCESS}
-              />
-            </div>
+              {settings.ENABLE_IMAGE_BG_PROCESS ? '[ON]' : '[OFF]'}
+            </span>
           </div>
 
-          {/* Video workers card */}
-          <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 flex flex-col justify-between transition-all">
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <h4 className="text-sm font-medium text-[#f7f8f8]">Video Background Processes</h4>
-                <div className="scale-90">
-                  <Switch
-                    label=""
-                    checked={settings.ENABLE_VIDEO_BG_PROCESS}
-                    onToggle={() => handleToggle('ENABLE_VIDEO_BG_PROCESS')}
-                    ariaLabel="Enable video background processes"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-[#8a8f98] leading-relaxed mb-4">
-                Automated analysis pipelines running when new video assets are added.
-              </p>
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Face Recognition & Clustering</span>
+              <span className="cr-toggle-desc">Detect & cluster faces when system is idle</span>
             </div>
-
-            {/* Sub-processes */}
-            <div
-              className={`space-y-1.5 border-t border-white/[0.04] pt-3.5 transition-all duration-300 ${
-                settings.ENABLE_VIDEO_BG_PROCESS ? 'opacity-100' : 'opacity-30 pointer-events-none'
-              }`}
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_FACE ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_FACE')}
             >
-              <Switch
-                label="Video Face Tracking"
-                checked={settings.ENABLE_VIDEO_FACE}
-                onToggle={() => handleToggle('ENABLE_VIDEO_FACE')}
-                disabled={!settings.ENABLE_VIDEO_BG_PROCESS}
-              />
-              <Switch
-                label="Subtitle Generation (Whisper)"
-                checked={settings.ENABLE_AI_SUBTITLES}
-                onToggle={() => handleToggle('ENABLE_AI_SUBTITLES')}
-                disabled={!settings.ENABLE_VIDEO_BG_PROCESS}
-              />
-              {/* Spacer matching heights */}
-              <div className="h-[72px]" />
-            </div>
+              {settings.ENABLE_AI_FACE ? '[ON]' : '[OFF]'}
+            </span>
           </div>
-        </div>
 
-        {/* Feature Switches Card */}
-        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <h4 className="text-sm font-medium text-[#f7f8f8] mb-3">AI Agent & Application Features</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-1">
-            <div>
-              <Switch
-                label="AI Chat Agent"
-                checked={settings.ENABLE_AI_AGENT}
-                onToggle={() => handleToggle('ENABLE_AI_AGENT')}
-              />
-              <p className="text-[10px] text-[#8a8f98] mt-1 pl-1 leading-relaxed">
-                Unlock natural language interaction and query understanding.
-              </p>
+          <div className="cr-toggle-row">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Video Keyframe Processing</span>
+              <span className="cr-toggle-desc">Automated video face & speech subtitles</span>
             </div>
-            <div>
-              <Switch
-                label="AI Object Removal"
-                checked={settings.ENABLE_AI_INPAINTING}
-                onToggle={() => handleToggle('ENABLE_AI_INPAINTING')}
-              />
-              <p className="text-[10px] text-[#8a8f98] mt-1 pl-1 leading-relaxed">
-                Smart inpainting editor to clean, replace, or outpaint canvas.
-              </p>
-            </div>
-            <div>
-              <Switch
-                label="Video Editor AI"
-                checked={settings.ENABLE_VIDEO_EDITOR_AI}
-                onToggle={() => handleToggle('ENABLE_VIDEO_EDITOR_AI')}
-              />
-              <p className="text-[10px] text-[#8a8f98] mt-1 pl-1 leading-relaxed">
-                Multi-track video timeline and local composition export tools.
-              </p>
-            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_VIDEO_BG_PROCESS ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_VIDEO_BG_PROCESS')}
+            >
+              {settings.ENABLE_VIDEO_BG_PROCESS ? '[ON]' : '[OFF]'}
+            </span>
           </div>
         </div>
       </div>
-    </section>
+
+      {/* ═══════ GRID ROW 2: AI MODEL CONFIGURATION ═══════ */}
+      <div className="cr-card">
+        <div className="cr-card-title mb-3">AI Model Configuration & Pipelines</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 mb-3">
+          <div className="cr-toggle-row border-none">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">SigLIP Semantic Search</span>
+              <span className="cr-toggle-desc">Vector indexing for natural language query</span>
+            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_CLIP ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_CLIP')}
+            >
+              {settings.ENABLE_AI_CLIP ? '[ON]' : '[OFF]'}
+            </span>
+          </div>
+
+          <div className="cr-toggle-row border-none">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Gemma Scene Captioning</span>
+              <span className="cr-toggle-desc">Detailed scene description generation</span>
+            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_CAPTION ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_CAPTION')}
+            >
+              {settings.ENABLE_AI_CAPTION ? '[ON]' : '[OFF]'}
+            </span>
+          </div>
+
+          <div className="cr-toggle-row border-none">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">OCR Text Extraction</span>
+              <span className="cr-toggle-desc">Index embedded text in screenshots & receipts</span>
+            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_OCR ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_OCR')}
+            >
+              {settings.ENABLE_AI_OCR ? '[ON]' : '[OFF]'}
+            </span>
+          </div>
+
+          <div className="cr-toggle-row border-none">
+            <div className="cr-toggle-info">
+              <span className="cr-toggle-label">Conversational AI Agent</span>
+              <span className="cr-toggle-desc">Interactive photo query assistant</span>
+            </div>
+            <span
+              className={`cr-toggle-indicator ${settings.ENABLE_AI_AGENT ? 'on' : 'off'}`}
+              onClick={() => handleToggle('ENABLE_AI_AGENT')}
+            >
+              {settings.ENABLE_AI_AGENT ? '[ON]' : '[OFF]'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════ GRID ROW 3: TELEMETRY CONFIGURATION ═══════ */}
+      <div className="cr-card">
+        <div className="cr-card-title flex items-center gap-2 mb-3">
+          <Gauge size={13} className="text-[var(--cr-accent)]" />
+          <span>Telemetry & Diagnostics</span>
+          <span className="font-mono text-[10px] text-[var(--cr-accent)] font-bold ml-auto">
+            {localSampleRate === 0 ? '[OFF]' : localSampleRate === 1 ? '[MAX]' : `[1/${localSampleRate}]`}
+          </span>
+        </div>
+
+        <div className="cr-toggle-row">
+          <div className="cr-toggle-info">
+            <span className="cr-toggle-label">Backend API Sample Rate</span>
+            <span className="cr-toggle-desc">Controls how often backend API requests are logged for diagnostics. Errors (4xx/5xx) are always captured regardless of this setting.</span>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            <input
+              type="range"
+              min={0}
+              max={50}
+              step={1}
+              value={localSampleRate}
+              onChange={(e) => setLocalSampleRate(Number(e.target.value))}
+              className="flex-1 h-1 bg-[var(--cr-border)] rounded-lg appearance-none cursor-pointer accent-[var(--cr-accent)]"
+              aria-label="Telemetry sample rate"
+            />
+            <span className="font-mono text-[10px] text-[var(--cr-text-muted)] w-24 text-right">
+              {localSampleRate === 0 ? 'OFF' : localSampleRate === 1 ? 'ALL' : `1 in ${localSampleRate}`}
+            </span>
+            <button
+              onClick={handleApplySampleRate}
+              disabled={sampleRateStatus === 'saving'}
+              className={`cr-inline-btn text-[9px] px-2 py-0.5 ${
+                sampleRateStatus === 'saved' ? 'bg-green-900/40 text-green-400 border-green-500/30' :
+                sampleRateStatus === 'error' ? 'bg-red-900/40 text-red-400 border-red-500/30' :
+                sampleRateStatus === 'saving' ? 'opacity-60' : ''
+              }`}
+            >
+              {sampleRateStatus === 'saving' ? '...' :
+               sampleRateStatus === 'saved' ? '✓' :
+               sampleRateStatus === 'error' ? '✗' : 'SET'}
+            </button>
+          </div>
+        </div>
+
+        <div className="cr-toggle-row border-none">
+          <div className="cr-toggle-info">
+            <span className="cr-toggle-label">Frontend Event Buffering</span>
+            <span className="cr-toggle-desc">User actions are batched (800ms debounce) and sent in bulk to minimize network overhead. Errors bypass the buffer and are sent immediately.</span>
+          </div>
+          <span className="cr-toggle-indicator on">[ON]</span>
+        </div>
+      </div>
+
+      {/* ═══════ GRID ROW 4: LIVE LOG STREAM ═══════ */}
+      <div className="cr-card">
+        <div className="cr-card-title flex items-center justify-between mb-2">
+          <span className="flex items-center gap-2">
+            <Terminal size={12} className="text-[var(--cr-accent)]" />
+            LIVE ENGINE LOG STREAM
+          </span>
+          <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--cr-text-muted)]">
+            <label className="flex items-center gap-1.5 cursor-pointer hover:text-[var(--cr-text-primary)]">
+              <input
+                type="checkbox"
+                checked={autoRefreshLogs}
+                onChange={(e) => setAutoRefreshLogs(e.target.checked)}
+                className="rounded border-[var(--cr-border)] bg-[var(--cr-surface-sunken)] text-[var(--cr-accent)]"
+              />
+              <span>AUTO_SYNC</span>
+            </label>
+            <button
+              onClick={fetchLogs}
+              className="hover:text-[var(--cr-accent)] flex items-center gap-1"
+            >
+              <RefreshCw size={9} />
+              <span>REFRESH</span>
+            </button>
+          </div>
+        </div>
+
+        <div
+          ref={logTerminalRef}
+          className="cr-log-viewer"
+        >
+          {highlightLogs(logs)}
+        </div>
+      </div>
+    </div>
   );
 };
+
+
 

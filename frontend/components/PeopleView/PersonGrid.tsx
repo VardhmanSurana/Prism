@@ -1,8 +1,9 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, RefreshCw } from 'lucide-react';
+import { Users, RefreshCw, EyeOff } from 'lucide-react';
 import { Person } from './types';
 import { PersonCard } from './PersonCard';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface PersonGridProps {
   people: Person[];
@@ -29,6 +30,8 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
   onSaveRename,
   onEditNameChange,
 }) => {
+  const { galleryStyle } = useGalleryLayout();
+
   if (isLoading && people.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -50,32 +53,43 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
   }
 
   return (
-    <div className="p-6 sm:p-8 h-full flex flex-col overflow-hidden">
-      {/* Title & Refresh Controller */}
-      <div className="flex items-center justify-between mb-8 shrink-0">
+    <div className="p-6 sm:p-8 h-full flex flex-col overflow-hidden font-sans">
+      {/* Title & Controller */}
+      <div className="flex items-center justify-between mb-6 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-            <Users className="text-primary" size={24} />
-            <span>People Albums</span>
+          <h1 className="text-2xl font-sans font-normal text-white tracking-tight flex items-center gap-3">
+            <span>{galleryStyle === 'google' ? 'People & Pets' : 'People Albums'}</span>
           </h1>
-          <p className="text-sm text-gray-400 font-medium">
-            Clustered automatically using InspireFace detection
-          </p>
+          {galleryStyle !== 'google' && (
+            <p className="text-sm text-gray-400 font-medium mt-1">
+              Clustered automatically using InspireFace detection
+            </p>
+          )}
         </div>
-        <button
-          onClick={onRefresh}
-          className="p-3 bg-white/5 border border-white/10 text-gray-400 rounded-xl hover:text-white hover:bg-white/10 hover:border-white/20 transition-all shadow-lg flex items-center justify-center"
-          title="Rescan & Refresh People"
-        >
-          <RefreshCw size={16} className={`${isLoading ? 'animate-spin' : ''}`} />
-        </button>
+        {galleryStyle === 'google' ? (
+          <button className="flex items-center gap-2 text-xs font-sans text-gray-300 hover:text-white px-3 py-1.5 rounded-full hover:bg-white/10 transition-colors">
+            <EyeOff size={16} />
+            <span>Hide faces from memories</span>
+          </button>
+        ) : (
+          <button
+            onClick={onRefresh}
+            className="p-3 bg-white/5 border border-white/10 text-gray-400 rounded-xl hover:text-white hover:bg-white/10 hover:border-white/20 transition-all shadow-lg flex items-center justify-center"
+            title="Rescan & Refresh People"
+          >
+            <RefreshCw size={16} className={`${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        )}
       </div>
 
       {/* Grid Container */}
       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
         <motion.div
           layout
-          className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+          className={galleryStyle === 'google' ? 
+            "grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3" :
+            "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6"
+          }
         >
           <AnimatePresence>
             {people.map((person) => {

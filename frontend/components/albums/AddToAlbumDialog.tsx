@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Plus, Folder } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { X, Plus, Search, ArrowUpDown, Folder } from 'lucide-react';
 import { Album } from '../../types';
 
 interface AddToAlbumDialogProps {
@@ -11,6 +11,8 @@ interface AddToAlbumDialogProps {
   selectedCount: number;
 }
 
+type FilterTab = 'all' | 'mine' | 'shared';
+
 export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   isOpen,
   onClose,
@@ -19,7 +21,22 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   onCreateAlbum,
   selectedCount
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [showNewAlbumInput, setShowNewAlbumInput] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
+
+  const filteredAlbums = useMemo(() => {
+    let filtered = albums;
+
+    if (searchQuery) {
+      filtered = filtered.filter(a =>
+        a.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }, [albums, searchQuery]);
 
   if (!isOpen) return null;
 
@@ -28,65 +45,135 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
     if (newAlbumName.trim()) {
       onCreateAlbum(newAlbumName.trim());
       setNewAlbumName('');
+      setShowNewAlbumInput(false);
     }
   };
 
+  const tabs: { id: FilterTab; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'mine', label: 'My albums' },
+    { id: 'shared', label: 'Shared with me' },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-      <div className="bg-surface border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-        <button 
-          onClick={onClose} 
-          className="absolute top-4 right-4 p-1.5 hover:bg-surfaceHover rounded-full text-gray-400 hover:text-white transition-colors"
-        >
-          <X size={18} />
-        </button>
-        
-        <h3 className="text-xl font-bold text-white mb-1">Add to Album</h3>
-        <p className="text-sm text-gray-400 mb-6">Select or create an album for {selectedCount} items.</p>
-
-        <form onSubmit={handleCreate} className="flex gap-2 mb-6">
-          <input
-            id="add-to-album-name-input"
-            name="newAlbumName"
-            aria-label="New album name"
-            type="text"
-            placeholder="New album name..."
-            value={newAlbumName}
-            onChange={(e) => setNewAlbumName(e.target.value)}
-            className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-primary/50 text-sm"
-          />
+      <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-3">
+          <h3 className="text-lg font-semibold text-white">Add to album</h3>
           <button
-            type="submit"
-            disabled={!newAlbumName.trim()}
-            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-400 disabled:bg-indigo-500/30 disabled:cursor-not-allowed rounded-xl text-white text-sm font-semibold flex items-center gap-1.5 transition-colors"
+            onClick={onClose}
+            className="p-1.5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
           >
-            <Plus size={16} />
-            Create
+            <X size={18} />
           </button>
-        </form>
+        </div>
 
-        <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
-          {albums.length === 0 ? (
-            <div className="text-center py-6 text-gray-500 text-sm font-mono uppercase tracking-widest opacity-60">
-              No albums yet
+        {/* Search */}
+        <div className="px-5 pb-3">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              placeholder="Search albums"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-white/20 text-sm"
+            />
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="px-5 pb-3 flex gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+              }`}
+            >
+              {activeTab === tab.id && <span className="mr-1">✓</span>}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort */}
+        <div className="px-5 pb-3">
+          <button className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+            <ArrowUpDown size={14} />
+            <span>Last modified</span>
+          </button>
+        </div>
+
+        {/* Album List */}
+        <div className="px-5 pb-5 max-h-[320px] overflow-y-auto custom-scrollbar">
+          {/* New Album Button */}
+          {showNewAlbumInput ? (
+            <form onSubmit={handleCreate} className="flex gap-2 mb-3">
+              <input
+                type="text"
+                placeholder="Album name"
+                value={newAlbumName}
+                onChange={(e) => setNewAlbumName(e.target.value)}
+                autoFocus
+                className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-white/20 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={!newAlbumName.trim()}
+                className="px-3 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/30 disabled:cursor-not-allowed rounded-xl text-white text-sm font-medium transition-colors"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewAlbumInput(false);
+                  setNewAlbumName('');
+                }}
+                className="px-3 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 text-sm transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <button
+              onClick={() => setShowNewAlbumInput(true)}
+              className="w-full flex items-center gap-3 p-3 mb-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-left transition-all"
+            >
+              <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
+                <Plus size={20} className="text-white" />
+              </div>
+              <span className="text-sm font-medium text-white">New album</span>
+            </button>
+          )}
+
+          {/* Albums */}
+          {filteredAlbums.length === 0 ? (
+            <div className="text-center py-8 text-gray-500 text-sm">
+              No albums found
             </div>
           ) : (
-            albums.map((album) => (
+            filteredAlbums.map((album) => (
               <button
                 key={album.id}
-                onClick={() => onSelectAlbum(album.id)}
-                className="w-full flex items-center gap-3 p-3 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-left transition-all"
+                onClick={() => onSelectAlbum(Number(album.id))}
+                className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl text-left transition-all"
               >
-                <div className="w-10 h-10 bg-white/5 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center text-gray-400 shrink-0">
+                <div className="w-12 h-12 bg-white/5 rounded-lg overflow-hidden flex items-center justify-center text-gray-400 shrink-0">
                   {album.cover_url ? (
                     <img src={album.cover_url} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <Folder size={18} />
+                    <Folder size={20} />
                   )}
                 </div>
                 <div>
-                  <h4 className="font-semibold text-white text-sm">{album.name}</h4>
-                  <p className="text-xs text-gray-400">{album.photo_count || 0} photos</p>
+                  <h4 className="font-medium text-white text-sm">{album.name}</h4>
+                  <p className="text-xs text-gray-500">{album.photo_count || 0} items</p>
                 </div>
               </button>
             ))

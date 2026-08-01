@@ -3,3 +3,4 @@ export { GlassMaterial, GlassEffectContainer } from './GlassMaterial';
 export { LazyImage } from './LazyImage';
 export * from './Switch';
 export * from './Select';
+export { SmoothTab } from './SmoothTab';

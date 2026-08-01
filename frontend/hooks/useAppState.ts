@@ -67,11 +67,12 @@ export function useAppState() {
   } = useSelection();
 
   const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
-  const { albums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum, setAlbumCover } = useAlbums();
+  const { albums, fetchAlbums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum, setAlbumCover } = useAlbums();
 
   const handleAddToAlbumClick = useCallback(() => {
+    fetchAlbums();
     setIsAddToAlbumOpen(true);
-  }, []);
+  }, [fetchAlbums]);
 
   const handleSelectAlbumToAdd = useCallback(async (albumId: number) => {
     const photoIds = Array.from(selectedIds).map(Number);

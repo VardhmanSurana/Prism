@@ -204,8 +204,36 @@ pub async fn upload_blob(
         .fetch_optional(&state.db)
         .await
     {
+        // Remove old cached thumbnails so they regenerate with the newly edited image
+        if let Ok(entries) = fs::read_dir(&state.config.thumbnails_dir) {
+            let prefix = format!("{}_thumb", existing.id);
+            for entry in entries.flatten() {
+                if let Some(name) = entry.file_name().to_str() {
+                    if name.starts_with(&prefix) {
+                        fs::remove_file(entry.path()).ok();
+                    }
+                }
+            }
+        }
+
+        let new_hash = Utc::now().timestamp_millis().to_string();
+        sqlx::query("UPDATE photos SET width = ?, height = ?, aspect_ratio = ?, hash = ? WHERE id = ?")
+            .bind(img_info.width as i32)
+            .bind(img_info.height as i32)
+            .bind(img_info.aspect_ratio)
+            .bind(&new_hash)
+            .bind(existing.id)
+            .execute(&state.db)
+            .await
+            .ok();
+
+        existing.width = img_info.width as i32;
+        existing.height = img_info.height as i32;
+        existing.aspect_ratio = img_info.aspect_ratio;
+        existing.hash = Some(new_hash.clone());
+
         let p_key = existing.uuid.as_deref().unwrap_or(&existing.id.to_string()).to_string();
-        existing.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key));
+        existing.url = Some(format!("/api/v1/photos/{}/thumbnail?h={}", p_key, new_hash));
         return Ok(Json(existing));
     }
 
@@ -279,4 +307,8 @@ pub async fn expand_directory(
     Ok(Json(json!({
         "files": media_files
     })))
+}
+
+pub async fn unload_inpaint() -> Json<Value> {
+    Json(json!({ "status": "unloaded" }))
 }

@@ -35,40 +35,40 @@ const FolderInput: React.FC<{
   disabled?: boolean;
 }> = ({ value, onChange, onBrowse, onAdd, placeholder, disabled }) => (
   <div className="flex gap-2">
-    <div className="flex-1 flex gap-1.5 bg-white/[0.01] border border-white/[0.06] focus-within:border-white/[0.15] focus-within:bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200">
+    <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
       <input 
         type="text" 
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent px-4 py-2.5 text-xs text-[#d0d6e0] placeholder:text-gray-600 outline-none font-mono"
+        className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
       />
       <button 
         onClick={onBrowse}
-        className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-white border-l border-white/[0.06] hover:bg-white/[0.02] transition-all"
+        className="px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
       >
-        Select path
+        SELECT_PATH
       </button>
     </div>
     <button 
       onClick={onAdd}
       disabled={disabled}
-      className="px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:brightness-110 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
+      className="cr-inline-btn primary"
     >
-      Add
+      ADD_PATH
     </button>
   </div>
 );
 
 const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder, onRemove }) => (
-  <div className="group flex items-center justify-between gap-3 bg-white/[0.01] border border-white/[0.05] rounded-xl px-4 py-2.5 hover:border-white/[0.1] hover:bg-white/[0.02] transition-all duration-200">
-    <span className="text-[11px] font-mono text-[#8a8f98] group-hover:text-gray-300 truncate transition-colors">{folder}</span>
+  <div className="group flex items-center justify-between gap-3 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] rounded px-3 py-2 hover:border-[var(--cr-accent)] transition-all">
+    <span className="text-[11px] font-mono text-[var(--cr-text-secondary)] group-hover:text-[var(--cr-text-primary)] truncate">{folder}</span>
     <button 
       onClick={onRemove}
-      className="shrink-0 text-gray-600 hover:text-red-400 hover:bg-white/[0.05] px-2 py-0.5 rounded-md transition-all font-mono text-xs"
+      className="shrink-0 text-[var(--cr-status-error)] hover:bg-[var(--cr-surface-card-hover)] px-2 py-0.5 rounded font-mono text-[10px] uppercase font-bold"
       title={`Remove ${folder}`}
     >
-      remove
+      [REMOVE]
     </button>
   </div>
 );
@@ -109,82 +109,74 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   const removeE = onRemoveExcludedFolder || onRemoveFolder || (() => {});
 
   return (
-    <section className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-6">
-      <div className="space-y-6">
-        {/* Auto sync toggle */}
-        <div className="flex items-center justify-between bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <div>
-            <p className="text-sm font-medium text-[#f7f8f8]">Automatic System Scan</p>
-            <p className="text-xs text-[#8a8f98] mt-1">Automatically index all images from your watched folders, excluding hidden folders.</p>
+    <div className="space-y-4">
+      {/* Auto sync toggle card */}
+      <div className="cr-card">
+        <div className="cr-toggle-row border-none p-0">
+          <div className="cr-toggle-info">
+            <span className="cr-toggle-label">Automatic System File Watcher</span>
+            <span className="cr-toggle-desc">Automatically index photo assets added to watched territories</span>
           </div>
-          <button 
+          <span 
             onClick={onToggleSync}
-            title={syncEnabled ? 'Disable automatic sync' : 'Enable automatic sync'}
-            className={`relative shrink-0 w-10 h-5.5 rounded-full transition-colors duration-200 ${
-              syncEnabled ? 'bg-[#5e6ad2]' : 'bg-white/[0.08] border border-white/[0.02]'
-            }`}
+            className={`cr-toggle-indicator ${syncEnabled ? 'on' : 'off'}`}
           >
-            <div className={`absolute top-0.5 w-4.5 h-4.5 rounded-full bg-white transition-transform duration-200 ${
-              syncEnabled ? 'translate-x-4.5' : 'translate-x-0.5'
-            }`} />
-          </button>
-        </div>
-
-        {/* Watched folders */}
-        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <div className="mb-4">
-            <h4 className="text-sm font-medium text-[#f7f8f8]">Watched Library Territories</h4>
-            <p className="text-xs text-[#8a8f98] mt-1">Specified directories containing photo assets that the background engine will index.</p>
-          </div>
-          
-          <FolderInput
-            value={wInput}
-            onChange={setWInput}
-            onBrowse={browseW}
-            onAdd={addW}
-            placeholder="~/Pictures"
-            disabled={!wInput}
-          />
-
-          <div className="mt-4 space-y-2">
-            {wFolders.length === 0 ? (
-              <p className="text-[11px] text-gray-500 font-mono py-1">Defaulting to user Pictures directory</p>
-            ) : (
-              wFolders.map((folder, idx) => (
-                <FolderTag key={idx} folder={folder} onRemove={() => removeW(folder)} />
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Excluded folders */}
-        <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-          <div className="mb-4">
-            <h4 className="text-sm font-medium text-[#f7f8f8]">Excluded Territories</h4>
-            <p className="text-xs text-[#8a8f98] mt-1">Specified paths that will be ignored by the background indexer.</p>
-          </div>
-          
-          <FolderInput
-            value={eInput}
-            onChange={setEInput}
-            onBrowse={browseE}
-            onAdd={addE}
-            placeholder="~/Downloads"
-            disabled={!eInput}
-          />
-
-          <div className="mt-4 space-y-2">
-            {eFolders.length === 0 ? (
-              <p className="text-[11px] text-gray-500 font-mono py-1">No exclusions defined</p>
-            ) : (
-              eFolders.map((folder, idx) => (
-                <FolderTag key={idx} folder={folder} onRemove={() => removeE(folder)} />
-              ))
-            )}
-          </div>
+            {syncEnabled ? '[ON]' : '[OFF]'}
+          </span>
         </div>
       </div>
-    </section>
+
+      {/* Watched folders card */}
+      <div className="cr-card">
+        <div className="cr-card-title">Watched Library Territories</div>
+        <p className="text-xs text-[var(--cr-text-muted)] mb-3">Directories monitored by the background indexer engine.</p>
+        
+        <FolderInput
+          value={wInput}
+          onChange={setWInput}
+          onBrowse={browseW}
+          onAdd={addW}
+          placeholder="~/Pictures"
+          disabled={!wInput}
+        />
+
+        <div className="mt-3 space-y-1.5">
+          {wFolders.length === 0 ? (
+            <p className="text-[11px] text-[var(--cr-text-muted)] font-mono py-1">Defaulting to user Pictures directory</p>
+          ) : (
+            wFolders.map((folder, idx) => (
+              <FolderTag key={idx} folder={folder} onRemove={() => removeW(folder)} />
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Excluded folders card */}
+      <div className="cr-card">
+        <div className="cr-card-title">Excluded Territories</div>
+        <p className="text-xs text-[var(--cr-text-muted)] mb-3">Paths ignored by the indexer engine.</p>
+        
+        <FolderInput
+          value={eInput}
+          onChange={setEInput}
+          onBrowse={browseE}
+          onAdd={addE}
+          placeholder="~/Downloads"
+          disabled={!eInput}
+        />
+
+        <div className="mt-3 space-y-1.5">
+          {eFolders.length === 0 ? (
+            <p className="text-[11px] text-[var(--cr-text-muted)] font-mono py-1">No exclusions defined</p>
+          ) : (
+            eFolders.map((folder, idx) => (
+              <FolderTag key={idx} folder={folder} onRemove={() => removeE(folder)} />
+            ))
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
+
 

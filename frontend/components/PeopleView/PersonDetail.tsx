@@ -6,6 +6,8 @@ import { PhotoGrid } from '../PhotoGrid';
 import { Person } from './types';
 import { usePendingFaces } from './hooks';
 
+import { useTelemetry } from '../../hooks/useTelemetry';
+
 interface PersonDetailProps {
   person: Person;
   photos: Photo[];
@@ -26,9 +28,11 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const { pendingFaces, submitFeedback } = usePendingFaces(person.id);
   const [resolvingId, setResolvingId] = useState<number | null>(null);
+  const { logAction } = useTelemetry();
 
   const handleDecision = async (pendingId: number, decision: 'same' | 'different') => {
     setResolvingId(pendingId);
+    logAction('PeopleView', 'face_decision', { personId: person.id, personName: person.name, decision });
     const success = await submitFeedback(pendingId, decision);
     if (success) {
       onRefreshPhotos?.();

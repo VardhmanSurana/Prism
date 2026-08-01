@@ -1,0 +1,84 @@
+/* ── Google Photos Material You Theme Styles ─────────────────────────── */
+
+[data-theme="google"], .theme-google {
+  /* Google Dark Mode Tokens */
+  --color-primary: 168 199 250; /* #A8C7FA Google Material Blue */
+  --color-ink: 227 226 230;     /* #E3E2E6 Light Gray Text */
+  --color-canvas: 19 19 20;     /* #131314 Canvas Background */
+  --bg-primary: #131314;
+  --bg-secondary: #1E1F22;
+  --bg-tertiary: #28292C;
+
+  background-color: #131314 !important;
+  color: #E3E2E6 !important;
+  font-family: 'Google Sans', 'Product Sans', Roboto, Inter, system-ui, sans-serif;
+}
+
+/* Hide ambient glow and noise overlays for clean Material design */
+[data-theme="google"] .grain-overlay,
+[data-theme="google"] .mesh-atmos,
+.theme-google .grain-overlay,
+.theme-google .mesh-atmos {
+  display: none !important;
+}
+
+/* Override all serif fonts to clean Google Sans / sans-serif */
+.theme-google font-serif,
+.theme-google .font-serif {
+  font-family: 'Google Sans', 'Product Sans', Roboto, Inter, system-ui, sans-serif !important;
+  font-style: normal !important;
+}
+
+/* Material 3 Search Bar */
+.theme-google .google-search-input {
+  background-color: #28292C !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  color: #E3E2E6 !important;
+  box-shadow: none !important;
+}
+
+/* Material 3 Active Navigation Pill */
+.theme-google .google-pill-active {
+  background-color: #004A77 !important;
+  color: #C2E7FF !important;
+  border-radius: 9999px !important;
+}
+
+.theme-google .google-pill-active svg {
+  color: #C2E7FF !important;
+}
+
+/* Rounded Cards */
+.theme-google .google-card {
+  background-color: #1F1F23 !important;
+  border-radius: 16px !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Google Radio Buttons */
+.theme-google input[type="radio"] {
+  accent-color: #A8C7FA !important;
+}
+
+/* Google Outline Buttons */
+.theme-google .google-btn-outline {
+  border-radius: 9999px !important;
+  border: 1px solid #444746 !important;
+  color: #A8C7FA !important;
+  background-color: transparent !important;
+  transition: background-color 0.15s ease;
+}
+
+.theme-google .google-btn-outline:hover {
+  background-color: rgba(168, 199, 250, 0.08) !important;
+}
+
+/* Sharp square corners for Photo Grid Tiles in Google Photos Theme */
+.theme-google .photo-item-hover,
+.theme-google .photo-item-hover > div,
+[data-theme="google"] .photo-item-hover,
+[data-theme="google"] .photo-item-hover > div {
+  border-radius: 0px !important;
+}
+

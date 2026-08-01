@@ -10,6 +10,7 @@ import { useLightboxGestures } from '@/hooks/useLightboxGestures';
 import { useImageHighRes } from '@/hooks/useImageHighRes';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
 import { useSlideshow } from '@/hooks/useSlideshow';
+import { useTelemetry } from '@/hooks/useTelemetry';
 
 import { InfoPanel } from './lightbox/InfoPanel';
 import { Toolbar } from './lightbox/Toolbar';
@@ -80,6 +81,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAskAIOpen, setIsAskAIOpen] = useState(false);
 
+  const { logAction, logError } = useTelemetry();
+
   const unloadInpaintModels = useCallback(() => {
     fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
   }, []);
@@ -88,13 +91,15 @@ export const Lightbox: React.FC<LightboxProps> = ({
   // so arrow/swipe direction matches the reversed filmstrip (oldest → newest L→R).
   const handlePrev = useCallback(() => {
     setLastNavDir('prev');
+    logAction('Lightbox', 'navigate_prev', { photoId: photo.id });
     onPrev();
-  }, [onPrev]);
+  }, [onPrev, logAction, photo.id]);
 
   const handleNext = useCallback(() => {
     setLastNavDir('next');
+    logAction('Lightbox', 'navigate_next', { photoId: photo.id });
     onNext();
-  }, [onNext]);
+  }, [onNext, logAction, photo.id]);
 
   const isVideo = photo.type === 'video' || photo.file_type === 'video';
 
@@ -172,14 +177,16 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   const handleStartSlideshow = useCallback(() => {
     if (!canStartSlideshow) return;
+    logAction('Lightbox', 'start_slideshow', { photoId: photo.id, totalCount });
     setShowInfo(false);
     resetInteraction();
     startSlideshow();
-  }, [canStartSlideshow, resetInteraction, startSlideshow]);
+  }, [canStartSlideshow, resetInteraction, startSlideshow, logAction, photo.id, totalCount]);
 
   const handleStopSlideshow = useCallback(() => {
+    logAction('Lightbox', 'stop_slideshow');
     stopSlideshow();
-  }, [stopSlideshow]);
+  }, [stopSlideshow, logAction]);
 
   const handleVideoEnded = useCallback(() => {
     if (slideshowActive && slideshowPlaying) {
@@ -254,6 +261,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [showInfo, fetchMetadata]);
 
   const handleTrash = useCallback(async () => {
+    logAction('Lightbox', 'trash', { photoId: photo.id });
     if (!await customConfirm('Move this photo to trash?', 'Confirm Trash')) return;
 
     try {
@@ -264,16 +272,17 @@ export const Lightbox: React.FC<LightboxProps> = ({
         eventService.emit('photo_trashed', { type: 'photo_trashed', photoId: photo.id });
         onClose();
       } else {
-        console.error("Failed to trash photo");
+        logError('Lightbox', 'trash_failed', new Error('API failed'), { photoId: photo.id });
       }
     } catch (e) {
-      console.error("Error trashing photo", e);
+      logError('Lightbox', 'trash_failed', e, { photoId: photo.id });
     }
-  }, [photo.id, onClose]);
+  }, [photo.id, onClose, logAction, logError]);
 
   const handleToggleFavorite = useCallback(() => {
+    logAction('Lightbox', 'toggle_favorite', { photoId: photo.id });
     onToggleFavorite?.(photo.id);
-  }, [photo.id, onToggleFavorite]);
+  }, [photo.id, onToggleFavorite, logAction]);
 
   // Zero-Latency Preloading Strategy: pre-fetch adjacent 3 photos into hidden Image buffers
   useEffect(() => {
@@ -294,6 +303,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   // Copy Image Blob to OS Clipboard
   const handleCopyImageToClipboard = useCallback(async () => {
+    logAction('Lightbox', 'copy_to_clipboard', { photoId: photo.id });
     try {
       const imgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || `${API_BASE}/api/v1/photos/${photo.id}/file`;
       const res = await fetch(imgUrl);
@@ -303,9 +313,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
       ]);
       alert('Image copied to clipboard!');
     } catch (err) {
-      console.error('Failed to copy image to clipboard:', err);
+      logError('Lightbox', 'copy_to_clipboard_failed', err, { photoId: photo.id });
     }
-  }, [editedPhotoUrl, highRes.currentHighResUrl, photo]);
+  }, [editedPhotoUrl, highRes.currentHighResUrl, photo, logAction, logError]);
 
   // Keyboard: slideshow-aware & shortcut overlay ('?')
   useEffect(() => {
@@ -443,6 +453,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onToggleFavorite={handleToggleFavorite}
           onEdit={() => {
             const video = photo.type === 'video' || photo.file_type === 'video';
+            logAction('Lightbox', video ? 'open_video_editor' : 'open_image_editor', { photoId: photo.id });
             if (video) {
               setIsNLEOpen(true);
             } else {
@@ -453,8 +464,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onRemoveFromAlbum={onRemoveFromAlbum}
           onSetAsCover={onSetAsCover}
           onStartSlideshow={handleStartSlideshow}
-          onToggleFaceTagging={hasFaces ? () => setIsFaceTaggingActive(prev => !prev) : undefined}
-          onOpenComparison={() => setIsComparisonOpen(true)}
+          onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
+          onOpenComparison={() => { logAction('Lightbox', 'open_comparison', { photoId: photo.id }); setIsComparisonOpen(true); }}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyImageToClipboard}
         />
@@ -573,7 +584,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
         {/* Floating Ask AI Button */}
         {!chromeHidden && !isVideo && !isAskAIOpen && (
           <button
-            onClick={() => setIsAskAIOpen(true)}
+            onClick={() => { logAction('Lightbox', 'open_ask_ai', { photoId: photo.id }); setIsAskAIOpen(true); }}
             className="absolute bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-200 backdrop-blur-xl border bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white hover:border-white/20"
             title="Ask AI about this photo"
           >
@@ -642,19 +653,22 @@ export const Lightbox: React.FC<LightboxProps> = ({
             formData.append('is_save_as', isSaveAs ? 'true' : 'false');
 
             if (isSaveAs) {
-              try {
-                const { save } = await import('@tauri-apps/plugin-dialog');
-                const saveAsPath = await save({
-                  defaultPath: photo.filename || 'edited.jpg',
-                  filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
-                });
+              const isTauriEnv = typeof window !== 'undefined' && Boolean((window as any).__TAURI_INTERNALS__ || (window as any).__TAURI__);
+              if (isTauriEnv) {
+                try {
+                  const { save } = await import('@tauri-apps/plugin-dialog');
+                  const saveAsPath = await save({
+                    defaultPath: photo.filename || 'edited.jpg',
+                    filters: [{ name: 'Image', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
+                  });
 
-                if (!saveAsPath) {
-                  return;
+                  if (!saveAsPath) {
+                    return;
+                  }
+                  formData.append('save_as_path', saveAsPath);
+                } catch (e) {
+                  console.warn("Tauri dialog warning:", e);
                 }
-                formData.append('save_as_path', saveAsPath);
-              } catch (e) {
-                console.error("Tauri dialog error:", e);
               }
             }
 
@@ -665,9 +679,11 @@ export const Lightbox: React.FC<LightboxProps> = ({
               });
 
               if (res.ok) {
+                const updatedPhotoData = await res.json();
                 setEditedPhotoUrl(URL.createObjectURL(blob));
                 setIsEditing(false);
                 unloadInpaintModels();
+                eventService.emit('photo_updated', { type: 'photo_updated', photo: updatedPhotoData });
               } else {
                 console.error("Failed to save photo", await res.text());
               }

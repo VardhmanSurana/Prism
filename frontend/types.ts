@@ -206,7 +206,7 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
     upload_date: sanitizedUploadDate,
-    type: raw.type || (raw.mime_type?.startsWith('video/') ? 'video' : 'image'),
+    type: (raw.type === 'video' || raw.file_type === 'video' || raw.mime_type?.startsWith('video/') || (raw.path && ['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.flv', '.wmv', '.3gp'].some(ext => raw.path.toLowerCase().endsWith(ext)))) ? 'video' : 'image',
     mime_type: raw.mime_type,
     file_type: raw.file_type,
     file_size: raw.file_size,

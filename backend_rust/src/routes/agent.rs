@@ -65,35 +65,15 @@ pub async fn find_session_by_id_or_uuid(
     Err((StatusCode::NOT_FOUND, "Session not found".to_string()))
 }
 
-pub async fn preload_agent() -> Json<Value> {
-    Json(json!({
-        "status": "ok",
-        "message": "Agent preloaded to GPU"
-    }))
-}
-
 pub async fn list_sessions(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<AgentSession>>, (StatusCode, String)> {
-    let mut sessions = sqlx::query_as::<_, AgentSession>(
+    let sessions = sqlx::query_as::<_, AgentSession>(
         "SELECT * FROM agent_sessions ORDER BY updated_at DESC, id DESC"
     )
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
-
-    for s in &mut sessions {
-        if s.uuid.is_none() {
-            let u = s.id.clone();
-            sqlx::query("UPDATE agent_sessions SET uuid = ? WHERE id = ?")
-                .bind(&u)
-                .bind(&s.id)
-                .execute(&state.db)
-                .await
-                .ok();
-            s.uuid = Some(u);
-        }
-    }
 
     Ok(Json(sessions))
 }
@@ -135,18 +115,7 @@ pub async fn get_session(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let mut session = find_session_by_id_or_uuid(&state.db, &id).await?;
-
-    if session.uuid.is_none() {
-        let u = session.id.clone();
-        sqlx::query("UPDATE agent_sessions SET uuid = ? WHERE id = ?")
-            .bind(&u)
-            .bind(&session.id)
-            .execute(&state.db)
-            .await
-            .ok();
-        session.uuid = Some(u);
-    }
+    let session = find_session_by_id_or_uuid(&state.db, &id).await?;
 
     let messages_rows = sqlx::query(
         "SELECT * FROM agent_messages WHERE session_id = ? ORDER BY id ASC"
@@ -160,17 +129,7 @@ pub async fn get_session(
     for row in messages_rows {
         use sqlx::Row;
         let msg_id: i64 = row.try_get("id").unwrap_or(0);
-        let mut msg_uuid: Option<String> = row.try_get("uuid").ok().flatten();
-        if msg_uuid.is_none() {
-            let new_u = Uuid::new_v4().to_string();
-            sqlx::query("UPDATE agent_messages SET uuid = ? WHERE id = ?")
-                .bind(&new_u)
-                .bind(msg_id)
-                .execute(&state.db)
-                .await
-                .ok();
-            msg_uuid = Some(new_u);
-        }
+        let msg_uuid: Option<String> = row.try_get("uuid").ok().flatten();
 
         let role: String = row.try_get("role").unwrap_or_default();
         let content: String = row.try_get("content").unwrap_or_default();

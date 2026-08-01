@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { ArrowLeft, CheckSquare } from 'lucide-react';
 import { Album, SmartAlbum, Photo } from '../../types';
 import { PhotoGrid } from '../PhotoGrid';
+import { useTelemetry } from '../../hooks/useTelemetry';
 
 interface AlbumDetailProps {
   album: Album | SmartAlbum;
@@ -24,6 +25,7 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
   onToggleSelection,
   onToggleGroupSelection
 }) => {
+  const { logAction } = useTelemetry();
   const albumScrollRef = useRef<HTMLDivElement>(null);
 
   const allSelected = photos.length > 0 && photos.every(p => selectedIds.has(String(p.id)));
@@ -49,7 +51,7 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-4 p-6 sm:px-8 shrink-0 bg-background sticky top-0 z-20">
         <button 
-          onClick={onBack}
+          onClick={() => { logAction('AlbumDetail', 'back', { albumId: album.id, albumName: album.name }); onBack(); }}
           className="p-2 hover:bg-surfaceHover rounded-full text-gray-400 hover:text-white transition-colors"
         >
           <ArrowLeft size={20} />
@@ -62,7 +64,7 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
         </div>
         {photos.length > 0 && (
           <button
-            onClick={handleSelectAll}
+            onClick={() => { logAction('AlbumDetail', allSelected ? 'deselect_all' : 'select_all', { albumId: album.id, photoCount: photos.length }); handleSelectAll(); }}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
               allSelected
                 ? 'bg-primary/10 text-primary border border-primary/20'

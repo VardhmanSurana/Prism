@@ -34,7 +34,11 @@ pub fn generate_thumbnail(
 ) -> Result<PathBuf, String> {
     fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
 
-    let thumb_filename = format!("{}_thumb.jpg", photo_id);
+    let thumb_filename = if max_dim == 400 {
+        format!("{}_thumb.jpg", photo_id)
+    } else {
+        format!("{}_thumb_{}.jpg", photo_id, max_dim)
+    };
     let thumb_path = thumb_dir.join(&thumb_filename);
 
     if thumb_path.exists() {

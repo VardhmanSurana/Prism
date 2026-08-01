@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { PhotoGridRowProps } from './types';
 import { PhotoItem } from './PhotoItem';
 import { ROW_PADDING } from './constants';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   photos,
@@ -19,6 +20,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   isRowHovered,
   onRowHover,
 }) => {
+  const { galleryStyle } = useGalleryLayout();
+  const isGoogle = galleryStyle === 'google';
   const handleMouseEnter = useCallback(() => onRowHover(dateKey), [dateKey, onRowHover]);
   const handleMouseLeave = useCallback(() => onRowHover(null), [onRowHover]);
 
@@ -27,11 +30,11 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
       key={virtualRowKey}
       data-index={virtualRowIndex}
       ref={measureElement}
-      className="absolute top-0 left-0 w-full pl-4 sm:pl-8 pr-32 flex gap-2"
+      className={`absolute top-0 left-0 w-full flex ${isGoogle ? 'pl-6 sm:pl-10 pr-24 gap-1' : 'pl-4 sm:pl-8 pr-32 gap-2'}`}
       style={{
         transform: `translateY(${virtualRowStart}px)`,
         height: `${rowHeight}px`,
-        paddingBottom: `${ROW_PADDING}px`,
+        paddingBottom: `${isGoogle ? 4 : ROW_PADDING}px`,
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}

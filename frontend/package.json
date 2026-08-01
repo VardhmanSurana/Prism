@@ -12,7 +12,6 @@
     "test": "vitest run --environment jsdom"
   },
   "dependencies": {
-    "@imagemagick/magick-wasm": "^0.0.40",
     "@tanstack/react-virtual": "3.5.0",
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-dialog": "^2.7.1",

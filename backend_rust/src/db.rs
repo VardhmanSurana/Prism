@@ -120,19 +120,6 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             summary TEXT
         );
 
-        CREATE TABLE IF NOT EXISTS background_jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            photo_id INTEGER NOT NULL,
-            job_type TEXT NOT NULL,
-            status TEXT DEFAULT 'pending',
-            attempt_count INTEGER DEFAULT 0,
-            last_error TEXT,
-            current_stage TEXT,
-            stage_progress TEXT,
-            created_at DATETIME,
-            updated_at DATETIME
-        );
-
         CREATE TABLE IF NOT EXISTS video_projects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             uuid TEXT UNIQUE,
@@ -166,6 +153,21 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             total_candidates INTEGER,
             created_at DATETIME
         );
+
+        CREATE TABLE IF NOT EXISTS telemetry_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            source TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            component TEXT,
+            action TEXT,
+            metadata_json TEXT,
+            status TEXT DEFAULT 'ok',
+            duration_ms REAL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_telemetry_created_at ON telemetry_events(created_at);
+        CREATE INDEX IF NOT EXISTS idx_telemetry_status ON telemetry_events(status);
         "#
     )
     .execute(pool)

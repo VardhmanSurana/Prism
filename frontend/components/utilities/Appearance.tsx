@@ -1,112 +1,191 @@
 import React from 'react';
-import { useGalleryLayout, GalleryStyle } from '../../hooks/useGalleryLayout';
+import { useGalleryLayout, GalleryStyle, ImageGrouping } from '../../hooks/useGalleryLayout';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import { Palette } from 'lucide-react';
+import { Switch } from '../ui';
 
-const GooglePhotosIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20Z" fill="#4285F4"/>
-    <path d="M12 6C8.69 6 6 8.69 6 12C6 15.31 8.69 18 12 18C15.31 18 18 15.31 18 12C18 8.69 15.31 6 12 6ZM12 16C9.79 16 8 14.21 8 12C8 9.79 9.79 8 12 8C14.21 8 16 9.79 16 12C16 14.21 14.21 16 12 16Z" fill="#EA4335"/>
-    <path d="M12 9C10.34 9 9 10.34 9 12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12C15 10.34 13.66 9 12 9Z" fill="#FBBC05"/>
-    <path d="M12 10C10.9 10 10 10.9 10 12C10 13.1 10.9 14 12 14C13.1 14 14 13.1 14 12C14 10.9 13.1 10 12 10Z" fill="#34A853"/>
-  </svg>
-);
-
-const AppleIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M18.71 19.5C17.88 20.74 17 21.95 15.66 21.97C14.32 22 13.89 21.18 12.37 21.18C10.84 21.18 10.37 21.95 9.1 22C7.79 22.05 6.8 20.68 5.96 19.47C4.25 16.56 2.93 11.3 4.7 7.72C5.57 5.94 7.36 4.86 9.28 4.84C10.56 4.81 11.78 5.72 12.57 5.72C13.36 5.72 14.85 4.62 16.4 4.8C17.06 4.83 18.82 5.06 19.95 6.78C19.87 6.84 17.56 8.18 17.58 11.03C17.61 14.43 20.55 15.54 20.58 15.55C20.55 15.63 20.12 17.15 18.71 19.5ZM13 3.5C13.73 2.67 14.94 2.04 15.94 2C16.07 3.17 15.6 4.35 14.9 5.19C14.21 6.04 13.07 6.7 11.95 6.61C11.8 5.46 12.36 4.26 13 3.5Z" fill="white"/>
-  </svg>
-);
-
-const GALLERY_STYLE_OPTIONS: { value: GalleryStyle; label: string; desc: string; icon: React.ReactNode; bgColor: string; available: boolean }[] = [
+const GALLERY_STYLE_OPTIONS: { 
+  value: GalleryStyle; 
+  label: string; 
+  icon: React.ReactNode; 
+  bgColor: string; 
+  available: boolean 
+}[] = [
   { 
     value: 'prism', 
     label: 'Prism', 
-    desc: 'Original layout', 
-    icon: <Palette size={20} />,
-    bgColor: 'bg-[#5e6ad2]',
+    icon: <Palette size={20} className="text-[var(--cr-accent)]" />,
+    bgColor: 'bg-[#5e6ad2]/20 border border-[#5e6ad2]/30',
     available: true 
   },
   { 
     value: 'google', 
     label: 'Google Photos', 
-    desc: 'Coming soon', 
-    icon: <GooglePhotosIcon />,
+    icon: <img src="/images.jpeg" alt="Google Photos" className="w-8 h-8 object-contain rounded-full" />,
     bgColor: 'bg-white',
-    available: false 
+    available: true 
   },
   { 
     value: 'apple', 
     label: 'Apple Photos', 
-    desc: 'Coming soon', 
-    icon: <AppleIcon />,
-    bgColor: 'bg-black',
+    icon: <img src="/apple-photos.jpeg" alt="Apple Photos" className="w-8 h-8 object-contain rounded-xl" />,
+    bgColor: 'bg-white',
     available: false 
   },
 ];
 
+const IMAGE_GROUPING_OPTIONS: { value: ImageGrouping; label: string; description: string }[] = [
+  { value: 'none', label: 'All Photos', description: 'All photos without date grouping' },
+  { value: 'months', label: 'Months Grouping', description: 'Group photos by month' },
+  { value: 'years', label: 'Years Grouping', description: 'Group photos by year like Apple iCloud Photos' },
+];
+
 export const Appearance: React.FC = () => {
-  const { settings, setGalleryStyle } = useGalleryLayout();
+  const { settings, setGalleryStyle, setImageGrouping, setCornerRadius } = useGalleryLayout();
+  const { logAction } = useTelemetry();
+  const isPrism = settings.galleryStyle === 'prism';
+  const [prevRadius, setPrevRadius] = React.useState(settings.cornerRadius > 0 ? settings.cornerRadius : 8);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
-      {/* Left Column: Title & Description */}
-      <div className="lg:col-span-1 pr-2">
-        <div className="flex items-center gap-2 mb-2">
-          <Palette size={16} className="text-[#5e6ad2]" />
-          <h4 className="font-serif font-semibold text-white text-xl leading-tight">
-            Themes
-          </h4>
+    <div className="cr-card space-y-6">
+      <div className="border-b border-[var(--cr-border)] pb-3">
+        <div className="cr-card-title flex items-center gap-2 mb-1">
+          <Palette size={14} className="text-[var(--cr-accent)]" />
+          <span>Themes & Interface Customization</span>
         </div>
-        <p className="text-xs text-[#8a8f98] leading-relaxed">
+        <p className="text-xs text-[var(--cr-text-muted)]">
           Choose a gallery theme to change the overall look and feel of your photo library. Each theme offers a unique visual experience.
         </p>
       </div>
 
-      {/* Right Column: Interactive cards */}
-      <div className="lg:col-span-2 space-y-6 bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl">
-        <div>
-          <p className="text-[10px] font-mono uppercase tracking-[0.25em] text-gray-500 mb-4">
-            Gallery Theme
-          </p>
-          <div className="grid grid-cols-3 gap-3">
-            {GALLERY_STYLE_OPTIONS.map((opt) => {
-              const isActive = settings.galleryStyle === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => opt.available && setGalleryStyle(opt.value)}
-                  disabled={!opt.available}
-                  className={`flex flex-col items-center p-4 rounded-2xl border transition-all duration-300 h-36 justify-center gap-3 ${
-                    !opt.available
-                      ? 'opacity-40 cursor-not-allowed border-white/[0.03] bg-white/[0.002]'
-                      : isActive
-                        ? 'border-[#5e6ad2] bg-[#5e6ad2]/[0.04] shadow-[0_0_15px_rgba(94,106,210,0.15)] cursor-pointer active:scale-[0.98]'
-                        : 'border-white/[0.05] bg-white/[0.005] hover:border-white/[0.1] hover:bg-white/[0.02] cursor-pointer active:scale-[0.98]'
-                  }`}
-                >
-                  <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${opt.bgColor} ${
-                    opt.value === 'google' ? 'shadow-md' : ''
-                  }`}>
-                    {opt.icon}
-                  </div>
-                  <div className="flex flex-col items-center">
-                    <span className={`text-[11px] font-mono tracking-[0.1em] ${
-                      isActive ? 'text-white' : 'text-gray-400'
-                    }`}>
-                      {opt.label}
-                    </span>
-                    <span className={`text-[9px] font-mono mt-1 ${
-                      opt.available ? 'text-gray-600' : 'text-gray-700'
-                    }`}>
-                      {opt.desc}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
+      <div>
+        <div className="font-mono text-[10px] uppercase text-[var(--cr-text-muted)] tracking-wider mb-4">
+          Gallery Theme Options
+        </div>
+        <div className="cr-theme-grid">
+          {GALLERY_STYLE_OPTIONS.map((opt) => {
+            const isActive = settings.galleryStyle === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => { if (opt.available) { logAction('Appearance', 'theme_change', { from: settings.galleryStyle, to: opt.value }); setGalleryStyle(opt.value); } }}
+                disabled={!opt.available}
+                className={`cr-theme-card flex items-center gap-4 text-left ${
+                  !opt.available
+                    ? 'opacity-40 cursor-not-allowed'
+                    : isActive
+                      ? 'selected'
+                      : ''
+                }`}
+              >
+                <div className={`w-10 h-10 rounded-md flex items-center justify-center shrink-0 ${opt.bgColor}`}>
+                  {opt.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <span className="font-mono text-xs font-semibold text-[var(--cr-text-primary)]">
+                    {opt.label}
+                  </span>
+                  {!opt.available && (
+                    <span className="ml-2 text-[10px] text-[var(--cr-text-muted)]">Coming soon</span>
+                  )}
+                </div>
+                {isActive && (
+                  <span className="font-mono text-[10px] font-bold text-[var(--cr-accent)]">ACTIVE</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Gallery page customizations (customizable only if Prism theme is active) */}
+      <div className="border-t border-[var(--cr-border)] pt-4 space-y-5">
+        <div className="font-mono text-[10px] uppercase text-[var(--cr-text-muted)] tracking-wider flex items-center justify-between">
+          <span>Gallery Page Customization</span>
+          {!isPrism && (
+            <span className="text-[10px] text-amber-500 font-semibold uppercase tracking-wider">Locked</span>
+          )}
+        </div>
+
+        {!isPrism && (
+          <div className="rounded-xl p-3 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs">
+            ℹ️ Customizations below are locked and only configurable when using the <strong>Prism</strong> theme. Select Prism under Theme Options above to customize.
+          </div>
+        )}
+
+        <div className={!isPrism ? 'opacity-40 pointer-events-none' : 'space-y-5'}>
+          {/* Image grouping */}
+          <div>
+            <div className="text-[13px] font-medium text-[var(--cr-text-primary)] mb-3">Image View Mode (Grouping)</div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {IMAGE_GROUPING_OPTIONS.map((opt) => {
+                const isActive = settings.imageGrouping === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    disabled={!isPrism}
+                    onClick={() => { logAction('Appearance', 'image_grouping', { value: opt.value }); setImageGrouping(opt.value); }}
+                    className={`flex flex-col justify-between rounded-xl p-3 text-left transition-all border ${
+                      isActive
+                        ? 'bg-[var(--cr-accent)]/10 border-[var(--cr-accent)]/40 shadow-sm'
+                        : 'border-[var(--cr-border)] bg-transparent hover:bg-[var(--cr-surface-hover)] hover:border-[#444]'
+                    } ${!isPrism ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'}`}
+                  >
+                    <div className="w-full flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-[var(--cr-text-primary)]">{opt.label}</span>
+                      {isActive && (
+                        <span className="w-2 h-2 rounded-full bg-[var(--cr-accent)] animate-pulse" />
+                      )}
+                    </div>
+                    <span className="text-[11px] text-[var(--cr-text-muted)] leading-tight">{opt.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Corner roundness */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div>
+                <div className="text-[13px] font-medium text-[var(--cr-text-primary)]">Custom Corner Roundness</div>
+                <div className="text-[11px] text-[var(--cr-text-muted)]">Toggle custom rounding and slide to adjust pixel radius</div>
+              </div>
+              <Switch
+                label=""
+                checked={settings.cornerRadius > 0}
+                disabled={!isPrism}
+                onToggle={() => {
+                  if (settings.cornerRadius > 0) {
+                    setCornerRadius(0);
+                  } else {
+                    setCornerRadius(prevRadius);
+                  }
+                }}
+                ariaLabel="Toggle rounded corners"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min={0}
+                max={32}
+                disabled={!isPrism || settings.cornerRadius === 0}
+                value={settings.cornerRadius}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setCornerRadius(val);
+                  if (val > 0) setPrevRadius(val);
+                }}
+                className="flex-1 h-1 appearance-none bg-[var(--cr-border)] rounded-full outline-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--cr-accent)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              />
+              <span className="font-mono text-[11px] text-[var(--cr-text-muted)] w-8 text-right">{settings.cornerRadius}px</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+

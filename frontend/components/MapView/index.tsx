@@ -19,6 +19,7 @@ import { DensityLayer } from './components/DensityLayer';
 import { apiClient } from '@/services/apiClient';
 import { MapTemporalSlider } from './components/MapTemporalSlider';
 import { MapPlaybackPanel } from './components/MapPlaybackPanel';
+import { useTelemetry } from '@/hooks/useTelemetry';
 
 interface MapViewProps {
   photos: Photo[];
@@ -190,6 +191,8 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     (temporalRange.start !== temporalBounds.min || temporalRange.end !== temporalBounds.max)
   );
 
+  const { logAction } = useTelemetry();
+
   const handleToggleRoute = useCallback(() => {
     if (!canShowRoute) return;
     setShowRoute((current) => !current);
@@ -203,6 +206,7 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   const handleToggleTimeLapse = useCallback(() => {
     setTimeLapseActive((current) => {
       const next = !current;
+      logAction('MapView', 'toggle_timelapse', { active: next });
       if (!next) {
         setTimeLapsePlaying(false);
         setTimeLapseProgress(1);
@@ -211,10 +215,11 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
       }
       return next;
     });
-  }, []);
+  }, [logAction]);
 
   const handlePhotoLocationChange = useCallback(async (photo: Photo, coords: { latitude: number; longitude: number }) => {
     const photoId = String(photo.id);
+    logAction('MapView', 'update_photo_location', { photoId, coords });
     setSavingPhotoIds((current) => {
       const next = new Set(current);
       next.add(photoId);

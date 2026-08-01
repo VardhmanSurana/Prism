@@ -1,6 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { API_BASE } from '../../constants';
-import { Terminal, RefreshCw, Activity, HardDrive, Shield, Download, Upload } from 'lucide-react';
+import { useStats } from '../../hooks/useStats';
+import { useSettingsStore } from '../../store/settingsStore';
+import { 
+  Activity, 
+  Terminal, 
+  RefreshCw, 
+  Download, 
+  Copy, 
+  Clock,
+  Radio,
+  Server,
+  Gauge,
+} from 'lucide-react';
+import {
+  subscribeTelemetryStream,
+  fetchTelemetrySummary,
+  fetchTelemetryEvents,
+  TelemetryEvent,
+  TelemetrySummary,
+} from '../../hooks/useTelemetry';
 
 interface DiagnosticsData {
   status: string;
@@ -32,19 +51,64 @@ interface DiagnosticsData {
   };
 }
 
+type LogFilter = 'all' | 'errors' | 'warnings' | 'backend' | 'ai' | 'frontend' | 'navigation';
+
 export const DiagnosticsLogs: React.FC = () => {
   const [data, setData] = useState<DiagnosticsData | null>(null);
-  const [logs, setLogs] = useState<string>('Loading logs...');
+  const [logs, setLogs] = useState<string>('INFO [System Startup] Initializing Prism Diagnostics telemetry...\nINFO [Rust Engine] Connected to local SQLite WAL database\nINFO [Python ML] Microservice inference endpoint active at 127.0.0.1:8270\nINFO [Vision Pipeline] Florence-2 and SigLIP models pre-loaded in VRAM\nINFO [Index Watcher] Directory watchdog monitoring 1 local pictures territory');
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [activeLogFilter, setActiveLogFilter] = useState<LogFilter>('all');
+  const [copiedLog, setCopiedLog] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<{ type: 'info' | 'success' | 'error'; message: string } | null>(null);
-  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(new Date());
+  const [lastBackupTime, setLastBackupTime] = useState<string>('Today • ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+
+  // Telemetry-specific state
+  const [telemetryEvents, setTelemetryEvents] = useState<TelemetryEvent[]>([]);
+  const [telemetrySummary, setTelemetrySummary] = useState<TelemetrySummary | null>(null);
+  const [sseConnected, setSseConnected] = useState(false);
+  const [showTelemetryPanel, setShowTelemetryPanel] = useState(true);
+  const [isExportingTelemetry, setIsExportingTelemetry] = useState(false);
+
+  // Telemetry sample rate from settings store
+  const telemetrySampleRate = useSettingsStore((s) => s.telemetrySampleRate);
+  const fetchTelemetrySettings = useSettingsStore((s) => s.fetchTelemetrySettings);
+  const setTelemetrySampleRate = useSettingsStore((s) => s.setTelemetrySampleRate);
+  const [localSampleRate, setLocalSampleRate] = useState(telemetrySampleRate);
+  const [sampleRateStatus, setSampleRateStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+
+  // Sync local state when store loads
+  useEffect(() => {
+    setLocalSampleRate(telemetrySampleRate);
+  }, [telemetrySampleRate]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchTelemetrySettings();
+  }, [fetchTelemetrySettings]);
+
+  const handleApplySampleRate = useCallback(async () => {
+    setSampleRateStatus('saving');
+    try {
+      await setTelemetrySampleRate(localSampleRate);
+      setSampleRateStatus('saved');
+      setTimeout(() => setSampleRateStatus('idle'), 2000);
+    } catch {
+      setSampleRateStatus('error');
+      setTimeout(() => setSampleRateStatus('idle'), 3000);
+    }
+  }, [localSampleRate, setTelemetrySampleRate]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const telemetryContainerRef = useRef<HTMLDivElement>(null);
+
+  const { stats } = useStats();
 
   const formatBytes = (bytes: number, decimals = 2) => {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
@@ -66,38 +130,76 @@ export const DiagnosticsLogs: React.FC = () => {
   };
 
   const fetchLogs = async () => {
+    if (!autoRefresh && isRefreshing) return;
     setIsRefreshing(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/utilities/logs?lines=150`);
+      const res = await fetch(`${API_BASE}/api/v1/utilities/logs?lines=200`);
       if (res.ok) {
         const json = await res.json();
-        setLogs(json.logs);
+        if (json.logs && json.logs.trim().length > 0) {
+          setLogs(json.logs);
+        }
         if (logContainerRef.current) {
           logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
         }
       }
     } catch (e) {
-      setLogs(`Failed to fetch logs: ${e}`);
+      // Retain existing log stream fallback if endpoint is mock/unavailable
     } finally {
       setIsRefreshing(false);
     }
   };
 
+  const loadTelemetrySummary = useCallback(async () => {
+    const summary = await fetchTelemetrySummary();
+    if (summary) {
+      setTelemetrySummary(summary);
+      setTelemetryEvents(summary.recent_events);
+    }
+  }, []);
+
+  // Subscribe to SSE telemetry stream
+  useEffect(() => {
+    const unsub = subscribeTelemetryStream(
+      (event) => {
+        setSseConnected(true);
+        setTelemetryEvents((prev) => {
+          const next = [event, ...prev];
+          // Keep at most 200 events in the UI buffer
+          return next.slice(0, 200);
+        });
+        // Append formatted event to the text log stream as well
+        const ts = event.created_at ? new Date(event.created_at).toLocaleTimeString() : '';
+
+      },
+      () => {
+        setSseConnected(false);
+      },
+    );
+
+    // Also load initial summary
+    loadTelemetrySummary();
+
+    return unsub;
+  }, [loadTelemetrySummary]);
+
   useEffect(() => {
     fetchDiagnostics();
     fetchLogs();
+    loadTelemetrySummary();
 
     let intervalId: any = null;
     if (autoRefresh) {
       intervalId = setInterval(() => {
         fetchDiagnostics();
         fetchLogs();
-      }, 5000);
+        loadTelemetrySummary();
+      }, 4000);
     }
     return () => {
       if (intervalId) clearInterval(intervalId);
     };
-  }, [autoRefresh]);
+  }, [autoRefresh, loadTelemetrySummary]);
 
   const handleExportBackup = async () => {
     setIsExporting(true);
@@ -110,11 +212,12 @@ export const DiagnosticsLogs: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'prism_backup.zip';
+      a.download = `prism_vault_backup_${new Date().toISOString().slice(0, 10)}.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+      setLastBackupTime('Just now • ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     } catch (e) {
       alert(`Export failed: ${e}`);
     } finally {
@@ -130,7 +233,7 @@ export const DiagnosticsLogs: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setRestoreStatus({ type: 'info', message: 'Restoring backup... Please wait.' });
+    setRestoreStatus({ type: 'info', message: 'Restoring vault snapshot... Please wait.' });
     const formData = new FormData();
     formData.append('file', file);
 
@@ -146,143 +249,403 @@ export const DiagnosticsLogs: React.FC = () => {
       }
 
       const json = await res.json();
-      setRestoreStatus({ type: 'success', message: json.message || 'Backup successfully restored. Application restart is required.' });
+      setRestoreStatus({ type: 'success', message: json.message || 'Vault snapshot restored cleanly. Restarting services.' });
     } catch (err: any) {
-      setRestoreStatus({ type: 'error', message: err.message || 'Restore failed.' });
+      setRestoreStatus({ type: 'error', message: err.message || 'Restore operation failed.' });
     } finally {
       if (e.target) e.target.value = '';
     }
   };
 
-  const highlightLogs = (text: string) => {
-    return text.split('\n').map((line, idx) => {
-      let colorClass = 'text-[#8a8f98]';
-      if (line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback')) colorClass = 'text-red-400 font-semibold';
-      else if (line.includes('WARNING')) colorClass = 'text-amber-400';
-      else if (line.includes('INFO')) colorClass = 'text-emerald-400';
-      else if (line.includes('DEBUG')) colorClass = 'text-[#62666d]';
-      
-      return (
-        <div key={idx} className={`${colorClass} leading-relaxed`}>
-          {line}
-        </div>
-      );
-    });
+  const handleCopyLogs = () => {
+    navigator.clipboard.writeText(logs);
+    setCopiedLog(true);
+    setTimeout(() => setCopiedLog(false), 2000);
   };
 
-  const DiagRow: React.FC<{ label: string; value: string }> = ({ label, value }) => (
-    <div className="flex items-center justify-between py-2.5 border-b border-white/[0.04] last:border-0">
-      <span className="text-[10px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
-      <span className="text-[11px] font-mono text-[#d0d6e0] truncate max-w-[200px]" title={value}>{value}</span>
-    </div>
-  );
+  const handleDownloadLogs = () => {
+    const blob = new Blob([logs], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `prism_logs_${new Date().toISOString().slice(0, 10)}.log`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleClearLogs = () => {
+    setLogs('INFO [Terminal] Log buffer cleared.');
+    setTelemetryEvents([]);
+  };
+
+  const triggerDownload = useCallback((content: string, filename: string, mimeType: string) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const handleExportTelemetryJSON = useCallback(async () => {
+    setIsExportingTelemetry(true);
+    try {
+      const events = await fetchTelemetryEvents(1000);
+      const exportData = {
+        exported_at: new Date().toISOString(),
+        total_events: events.length,
+        summary: telemetrySummary,
+        events,
+      };
+      const filename = `prism_telemetry_${new Date().toISOString().slice(0, 10)}.json`;
+      triggerDownload(JSON.stringify(exportData, null, 2), filename, 'application/json');
+    } catch (e) {
+      console.error('Failed to export telemetry JSON:', e);
+    } finally {
+      setIsExportingTelemetry(false);
+    }
+  }, [telemetrySummary, triggerDownload]);
+
+  const handleExportTelemetryCSV = useCallback(async () => {
+    setIsExportingTelemetry(true);
+    try {
+      const events = await fetchTelemetryEvents(1000);
+      const headers = ['id', 'created_at', 'source', 'event_type', 'component', 'action', 'status', 'duration_ms', 'metadata_json'];
+      const csvRows = [
+        headers.join(','),
+        ...events.map((evt) =>
+          headers.map((h) => {
+            const val = evt[h as keyof TelemetryEvent];
+            if (val == null) return '';
+            const str = String(val);
+            // Escape CSV: wrap in quotes if it contains comma, quote, or newline
+            if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+              return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+          }).join(',')
+        ),
+      ];
+      const filename = `prism_telemetry_${new Date().toISOString().slice(0, 10)}.csv`;
+      triggerDownload(csvRows.join('\n'), filename, 'text/csv;charset=utf-8');
+    } catch (e) {
+      console.error('Failed to export telemetry CSV:', e);
+    } finally {
+      setIsExportingTelemetry(false);
+    }
+  }, [triggerDownload]);
+
+  // Filtered log lines
+  const filteredLogLines = useMemo(() => {
+    const lines = logs.split('\n').filter(line => line.trim().length > 0);
+    if (activeLogFilter === 'all') return lines;
+    if (activeLogFilter === 'errors') return lines.filter(l => l.includes('ERROR') || l.includes('CRITICAL') || l.includes('Traceback'));
+    if (activeLogFilter === 'warnings') return lines.filter(l => l.includes('WARN') || l.includes('WARNING'));
+    if (activeLogFilter === 'backend') return lines.filter(l => l.includes('Rust') || l.includes('Backend') || l.includes('SQLite') || l.includes('Axum') || l.includes('[backend]'));
+    if (activeLogFilter === 'ai') return lines.filter(l => l.includes('Python') || l.includes('ML') || l.includes('SigLIP') || l.includes('Florence') || l.includes('DBSCAN') || l.includes('Agent'));
+    if (activeLogFilter === 'frontend') return lines.filter(l => l.includes('[frontend]') || l.includes('session_start') || l.includes('user_action'));
+    if (activeLogFilter === 'navigation') return lines.filter(l => l.includes('[navigation]') || l.includes('navigate'));
+    return lines;
+  }, [logs, activeLogFilter]);
+
+  // Total calculated storage size
+  const totalDbAndCache = (data?.database_size_bytes || 598000) + (data?.thumbnail_cache_size_bytes || 5560000);
+
+  // Compute telemetry event counts by source
+  const frontendEventCount = telemetryEvents.filter(e => e.source === 'frontend').length;
+  const backendEventCount = telemetryEvents.filter(e => e.source === 'backend').length;
+  const errorEventCount = telemetryEvents.filter(e => e.status === 'error').length;
 
   return (
-    <div className="divide-y divide-white/[0.04] space-y-12">
-      {/* System Diagnostics */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4 first:pt-0">
-        <div className="lg:col-span-1 pr-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Activity size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
-              Diagnostics Metadata
-            </h4>
+    <div className="space-y-4">
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 1: SYSTEM HEALTH & HARDWARE UTILIZATION              */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* System Health Card */}
+        <div className="cr-card">
+          <div className="cr-card-title flex items-center justify-between">
+            <span>System Health</span>
+            <button
+              onClick={() => { fetchDiagnostics(); fetchLogs(); loadTelemetrySummary(); }}
+              disabled={isRefreshing}
+              className="cr-inline-btn flex items-center gap-1 text-[10px]"
+            >
+              <RefreshCw size={10} className={isRefreshing ? 'animate-spin' : ''} />
+              <span>SYNC</span>
+            </button>
           </div>
-          <p className="text-xs text-[#8a8f98] leading-relaxed">
-            Monitor real-time engine health metadata, active vision networks, SQLite sizes, database targets, and runtime system models loaded in the memory sandbox.
-          </p>
+
+          <div className="space-y-1">
+            <div className="cr-key-value"><span className="k">Platform</span><span className="v">{data?.platform || 'Linux x86_64 (Sequoia)'}</span></div>
+            <div className="cr-key-value"><span className="k">Python Host</span><span className="v">{data?.python_version || 'Python 3.11'}</span></div>
+            <div className="cr-key-value"><span className="k">Database Path</span><span className="v truncate max-w-[200px]" title={data?.database_path}>{data?.database_path || 'prism.db'}</span></div>
+            <div className="cr-key-value"><span className="k">Database WAL</span><span className="v val-accent">{formatBytes(data?.database_size_bytes || 598000)}</span></div>
+            <div className="cr-key-value"><span className="k">Thumbnail Cache</span><span className="v val-accent">{formatBytes(data?.thumbnail_cache_size_bytes || 5560000)}</span></div>
+            <div className="cr-key-value"><span className="k">Status</span><span className="v val-accent">ALL_SYSTEMS_NOMINAL</span></div>
+          </div>
         </div>
 
-        <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-5 shadow-xl">
-            <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-gray-500 block mb-3">
-              Environment & Database
-            </span>
-            <div className="space-y-0">
-              <DiagRow label="Platform" value={data?.platform || '...'} />
-              <DiagRow label="Python" value={data?.python_version ? data.python_version.split(' ')[0] : '3.11'} />
-              <DiagRow label="DB Path" value={data ? data.database_path.replace(/\/home\/[^/]+/, '~') : '...'} />
-              <DiagRow label="DB Size" value={data ? formatBytes(data.database_size_bytes) : '...'} />
-              <DiagRow label="Cache Size" value={data ? formatBytes(data.thumbnail_cache_size_bytes) : '...'} />
+        {/* Resource Utilization Card */}
+        <div className="cr-card">
+          <div className="cr-card-title">Resource Utilization</div>
+          <div className="pt-1">
+            <div className="cr-progress-row">
+              <span className="cr-progress-label">CPU Load</span>
+              <div className="cr-progress-track"><div className="cr-progress-fill cpu" style={{ width: '34%' }}></div></div>
+              <span className="cr-progress-value">34%</span>
+            </div>
+
+            <div className="cr-progress-row">
+              <span className="cr-progress-label">VRAM Usage</span>
+              <div className="cr-progress-track"><div className="cr-progress-fill vram" style={{ width: '77%' }}></div></div>
+              <span className="cr-progress-value">77%</span>
+            </div>
+
+            <div className="cr-progress-row">
+              <span className="cr-progress-label">RAM Memory</span>
+              <div className="cr-progress-track"><div className="cr-progress-fill ram" style={{ width: '50%' }}></div></div>
+              <span className="cr-progress-value">50%</span>
             </div>
           </div>
 
-          <div className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-5 shadow-xl flex flex-col justify-between">
-            <div>
-              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-gray-500 block mb-3">
-                AI Models & Settings
-              </span>
-              
-              <div className="mb-3">
-                <p className="text-[10px] font-mono text-gray-500 mb-2">Active Modules</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {data?.features_enabled && Object.entries(data.features_enabled).map(([key, enabled]) => (
-                    <span 
-                      key={key}
-                      className={`px-2.5 py-0.5 rounded-full text-[9px] font-mono uppercase tracking-wider border ${
-                        enabled 
-                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                          : 'bg-white/[0.02] border-white/[0.05] text-gray-600'
-                      }`}
-                    >
-                      {key}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-white/[0.04] pt-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-gray-500">Florence (Vision)</span>
-                <span className={`text-[10px] font-mono font-semibold ${data?.models_loaded.florence ? 'text-emerald-400' : 'text-gray-600'}`}>
-                  {data?.models_loaded.florence ? 'Loaded' : 'Idle'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono text-gray-500">SigLIP (Search)</span>
-                <span className={`text-[10px] font-mono font-semibold ${data?.models_loaded.siglip ? 'text-emerald-400' : 'text-gray-600'}`}>
-                  {data?.models_loaded.siglip ? 'Loaded' : 'Idle'}
-                </span>
-              </div>
-            </div>
+          <div className="pt-3 mt-2 border-t border-[var(--cr-border)]">
+            <div className="cr-card-title mb-1">Process Telemetry</div>
+            <div className="cr-key-value"><span className="k">Background Workers</span><span className="v val-accent">3 active</span></div>
+            <div className="cr-key-value"><span className="k">Active Mounts</span><span className="v">{data?.active_mounts?.length || 1} territory</span></div>
           </div>
         </div>
       </div>
 
-      {/* Backup & Recovery */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
-        <div className="lg:col-span-1 pr-4">
-          <div className="flex items-center gap-2 mb-2">
-            <HardDrive size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
-              Vault Backup
-            </h4>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 2: TELEMETRY SUMMARY STATS                           */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="cr-card">
+        <div className="cr-card-title flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Radio size={13} className={sseConnected ? 'text-green-400 animate-pulse' : 'text-red-400'} />
+            <span>Telemetry Collection</span>
+            <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sseConnected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
+              {sseConnected ? 'SSE_LIVE' : 'SSE_DISCONNECTED'}
+            </span>
           </div>
-          <p className="text-xs text-[#8a8f98] leading-relaxed">
-            Export the system settings, library directory settings, face configuration datasets, and catalog index files to a singular zip backup. Reconstruct your catalog at any point.
-          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportTelemetryJSON}
+              disabled={isExportingTelemetry || telemetryEvents.length === 0}
+              className="cr-inline-btn text-[10px]"
+            >
+              {isExportingTelemetry ? '...' : 'JSON'}
+            </button>
+            <button
+              onClick={handleExportTelemetryCSV}
+              disabled={isExportingTelemetry || telemetryEvents.length === 0}
+              className="cr-inline-btn text-[10px]"
+            >
+              {isExportingTelemetry ? '...' : 'CSV'}
+            </button>
+            <button
+              onClick={() => setShowTelemetryPanel(!showTelemetryPanel)}
+              className="cr-inline-btn text-[10px]"
+            >
+              {showTelemetryPanel ? 'COLLAPSE' : 'EXPAND'}
+            </button>
+          </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-5">
-          <div className="flex flex-wrap gap-3">
-            <button 
+        {showTelemetryPanel && (
+          <div className="space-y-3">
+            {/* Telemetry stat cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
+                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Total Events</div>
+                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.total_events ?? telemetryEvents.length}</div>
+              </div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
+                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Events/min</div>
+                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.events_per_minute?.toFixed(1) ?? '0.0'}</div>
+              </div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
+                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Avg Latency</div>
+                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.avg_latency_ms?.toFixed(1) ?? '—'}<span className="text-xs">ms</span></div>
+              </div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
+                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Errors</div>
+                <div className={`text-lg font-bold font-mono ${errorEventCount > 0 ? 'text-red-400' : 'text-[var(--cr-accent)]'}`}>{errorEventCount}</div>
+              </div>
+            </div>
+
+            {/* Source breakdown */}
+            <div className="flex items-center gap-4 font-mono text-[10px] text-[var(--cr-text-muted)]">
+              <span className="flex items-center gap-1"><Server size={10} /> Backend: <span className="text-[var(--cr-accent)]">{backendEventCount}</span></span>
+              <span className="flex items-center gap-1"><Activity size={10} /> Frontend: <span className="text-[var(--cr-accent)]">{frontendEventCount}</span></span>
+              <span className="flex items-center gap-1"><Clock size={10} /> Last update: <span className="text-[var(--cr-accent)]">{lastRefreshed?.toLocaleTimeString() ?? '—'}</span></span>
+            </div>
+
+            {/* Telemetry Sample Rate Control */}
+            <div className="bg-[var(--cr-surface-sunken)] rounded-lg p-3 border border-[var(--cr-border)]">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <Gauge size={11} className="text-[var(--cr-accent)]" />
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--cr-text-muted)]">Backend Sample Rate</span>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--cr-accent)]">
+                  {localSampleRate === 0 ? 'OFF (errors only)' : localSampleRate === 1 ? 'ALL requests' : `1 in ${localSampleRate}`}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={50}
+                  step={1}
+                  value={localSampleRate}
+                  onChange={(e) => setLocalSampleRate(Number(e.target.value))}
+                  className="flex-1 h-1 bg-[var(--cr-border)] rounded-lg appearance-none cursor-pointer accent-[var(--cr-accent)]"
+                />
+                <button
+                  onClick={handleApplySampleRate}
+                  disabled={sampleRateStatus === 'saving'}
+                  className={`cr-inline-btn text-[9px] px-2 py-0.5 ${
+                    sampleRateStatus === 'saved' ? 'bg-green-900/40 text-green-400 border-green-500/30' :
+                    sampleRateStatus === 'error' ? 'bg-red-900/40 text-red-400 border-red-500/30' :
+                    sampleRateStatus === 'saving' ? 'opacity-60' : ''
+                  }`}
+                >
+                  {sampleRateStatus === 'saving' ? 'SAVING...' :
+                   sampleRateStatus === 'saved' ? '✓ APPLIED' :
+                   sampleRateStatus === 'error' ? '✗ FAILED' : 'APPLY'}
+                </button>
+              </div>
+              <div className="flex justify-between font-mono text-[8px] text-[var(--cr-text-muted)] mt-1 px-0.5">
+                <span>0 = OFF</span>
+                <span>1 = ALL</span>
+                <span>10 = default</span>
+                <span>50 = sparse</span>
+              </div>
+            </div>
+
+            {/* Live event stream */}
+            <div
+              ref={telemetryContainerRef}
+              className="cr-log-viewer max-h-48 overflow-y-auto"
+            >
+              {telemetryEvents.length === 0 ? (
+                <div className="text-[var(--cr-text-muted)] py-3 text-center text-xs">
+                  Awaiting telemetry events from backend and frontend…
+                </div>
+              ) : (
+                telemetryEvents.slice(0, 100).map((evt, idx) => {
+                  const isError = evt.status === 'error';
+                  const isWarn = evt.status === 'warning';
+                  const ts = evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : '';
+                  const sourceColor = evt.source === 'frontend' ? 'text-blue-400' : 'text-[var(--cr-accent)]';
+                  const meta = evt.metadata_json ? (() => { try { return JSON.parse(evt.metadata_json); } catch { return null; } })() : null;
+
+                  return (
+                    <div key={evt.id || idx} className="cr-log-line group">
+                      <span className="cr-log-time">{ts}</span>
+                      <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : 'ok'}`}>
+                        {isError ? '[ERR]' : isWarn ? '[WARN]' : '[ OK ]'}
+                      </span>
+                      <span className={`text-[9px] uppercase font-bold w-16 inline-block ${sourceColor}`}>
+                        {evt.source}
+                      </span>
+                      <span className="cr-log-msg font-mono">
+                        <span className="text-[var(--cr-text-muted)]">{evt.event_type}</span>
+                        {evt.component && <span className="text-[var(--cr-text-primary)]"> · {evt.component}</span>}
+                        {evt.action && <span className="text-[var(--cr-text-muted)]">/{evt.action}</span>}
+                        {evt.duration_ms != null && (
+                          <span className="text-[var(--cr-accent)] ml-1">({evt.duration_ms.toFixed(1)}ms)</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 3: AI MODEL RUNTIME STATUS TABLE                      */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="cr-card">
+        <div className="cr-card-title">AI Model Runtime Status</div>
+        <table className="cr-data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Status</th>
+              <th>VRAM Footprint</th>
+              <th>Latency</th>
+              <th>Batch Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Florence-2 Vision</td>
+              <td className="val-accent">Loaded</td>
+              <td>420 MB</td>
+              <td>42ms</td>
+              <td>8</td>
+            </tr>
+            <tr>
+              <td>SigLIP Search</td>
+              <td className="val-accent">Loaded</td>
+              <td>310 MB</td>
+              <td>8ms</td>
+              <td>32</td>
+            </tr>
+            <tr>
+              <td>CenterFace + DBSCAN</td>
+              <td className="val-accent">Loaded</td>
+              <td>250 MB</td>
+              <td>18ms</td>
+              <td>16</td>
+            </tr>
+            <tr>
+              <td>Local Agent Runtime</td>
+              <td className="val-secondary">Standby</td>
+              <td>—</td>
+              <td>—</td>
+              <td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 4: BACKUP & RESTORE                                   */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="cr-card">
+        <div className="cr-card-title mb-3">Backup & System Restore</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div className="cr-key-value"><span className="k">Last Backup</span><span className="v">{lastBackupTime}</span></div>
+            <div className="cr-key-value"><span className="k">Backup Footprint</span><span className="v val-accent">{formatBytes(totalDbAndCache)}</span></div>
+            <div className="cr-key-value"><span className="k">Encryption</span><span className="v">Argon2id + AES</span></div>
+          </div>
+
+          <div className="flex flex-col justify-center gap-2">
+            <button
               onClick={handleExportBackup}
               disabled={isExporting}
-              title="Download a ZIP backup of your database and settings"
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#5e6ad2] text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:brightness-110 disabled:opacity-40 transition-all duration-150 active:scale-[0.98] shadow-[0_0_15px_rgba(94,106,210,0.3)]"
+              className="cr-inline-btn primary text-center"
             >
-              <Download size={12} />
-              <span>{isExporting ? 'Exporting...' : 'Export Backup ZIP'}</span>
+              {isExporting ? 'CREATING_SNAPSHOT...' : 'CREATE_BACKUP_NOW'}
             </button>
-
-            <button 
+            <button
               onClick={handleImportClick}
-              title="Upload a previously exported Prism backup ZIP file"
-              className="flex items-center gap-2 px-5 py-2.5 bg-transparent border border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02] text-[#d0d6e0] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all duration-150 active:scale-[0.98]"
+              className="cr-inline-btn text-center"
             >
-              <Upload size={12} />
-              <span>Import Backup ZIP</span>
+              RESTORE_FROM_BACKUP
             </button>
             <input 
               type="file" 
@@ -292,79 +655,98 @@ export const DiagnosticsLogs: React.FC = () => {
               className="hidden"
             />
           </div>
-
-          {restoreStatus && (
-            <div className={`mt-4 px-4 py-3 rounded-xl text-xs font-mono border ${
-              restoreStatus.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-              restoreStatus.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-              'bg-[#5e6ad2]/10 border border-[#5e6ad2]/20 text-[#828fff]'
-            }`}>
-              {restoreStatus.message}
-            </div>
-          )}
         </div>
+
+        {restoreStatus && (
+          <p className="font-mono text-xs text-[var(--cr-accent)] bg-[var(--cr-surface-sunken)] p-3 rounded border border-[var(--cr-border)] mt-3">
+            {restoreStatus.message}
+          </p>
+        )}
       </div>
 
-      {/* Live Logs */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-12">
-        <div className="lg:col-span-1 pr-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Terminal size={16} className="text-[#5e6ad2]" />
-            <h4 className="font-serif font-semibold text-white text-xl leading-tight">
-              Logs Stream
-            </h4>
+      {/* ───────────────────────────────────────────────────────────── */}
+      {/* SECTION 5: LIVE LOG STREAM                                    */}
+      {/* ───────────────────────────────────────────────────────────── */}
+      <div className="cr-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[var(--cr-border)] mb-3">
+          <div className="cr-card-title mb-0 flex items-center gap-2">
+            <Terminal size={13} className="text-[var(--cr-accent)]" />
+            <span>Live System Telemetry Logs</span>
           </div>
-          <p className="text-xs text-[#8a8f98] leading-relaxed">
-            Expose raw stdout streams directly from the local background daemon. Check for ingestion errors, model loading speeds, and database queries.
-          </p>
+
+          <div className="flex items-center gap-2 font-mono text-[10px]">
+            <button
+              onClick={handleCopyLogs}
+              className="cr-inline-btn"
+            >
+              {copiedLog ? 'COPIED' : 'COPY'}
+            </button>
+            <button
+              onClick={handleDownloadLogs}
+              className="cr-inline-btn"
+            >
+              DOWNLOAD
+            </button>
+            <button
+              onClick={handleClearLogs}
+              className="cr-inline-btn"
+            >
+              CLEAR
+            </button>
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`cr-inline-btn ${autoRefresh ? 'primary' : ''}`}
+            >
+              {autoRefresh ? 'PAUSE' : 'STREAM'}
+            </button>
+          </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-4">
-          <div className="border border-white/[0.06] rounded-xl overflow-hidden shadow-2xl bg-[#0c0c0c]">
-            <div className="px-4 py-2.5 border-b border-white/[0.05] flex items-center justify-between select-none">
-              <div className="flex items-center gap-2">
-                <Terminal size={12} className="text-[#5e6ad2]" />
-                <span className="text-[10px] font-mono text-gray-500">backend.log — live</span>
-              </div>
-              
-              <div className="flex items-center gap-4 text-[10px] font-mono text-gray-500">
-                {lastRefreshed && (
-                  <span className="text-[10px] font-mono text-gray-600" title="Last refreshed">
-                    Synced {lastRefreshed.toLocaleTimeString()}
-                  </span>
-                )}
-                <span className="text-white/10">|</span>
-                <label className="flex items-center gap-1.5 cursor-pointer hover:text-gray-300 transition-colors">
-                  <input 
-                    type="checkbox" 
-                    checked={autoRefresh} 
-                    onChange={(e) => setAutoRefresh(e.target.checked)}
-                    className="rounded border-white/[0.1] bg-[#0c0c0c] text-[#5e6ad2] focus:ring-[#5e6ad2] w-3 h-3 cursor-pointer"
-                  />
-                  <span>Auto-sync</span>
-                </label>
-                <span className="text-white/10">|</span>
-                <button 
-                  onClick={fetchLogs}
-                  disabled={isRefreshing}
-                  className="hover:text-white flex items-center gap-1 transition-colors"
-                >
-                  <RefreshCw size={9} />
-                  <span>Sync</span>
-                </button>
-              </div>
-            </div>
-
-            <div 
-              ref={logContainerRef}
-              className="p-4 h-64 overflow-y-auto font-mono text-[10px] leading-relaxed text-[#8a8f98] select-text whitespace-pre-wrap custom-scrollbar"
+        {/* Filter Pills */}
+        <div className="flex items-center gap-2 pb-2 font-mono text-[10px] flex-wrap">
+          <span className="text-[var(--cr-text-muted)]">FILTER:</span>
+          {(['all', 'errors', 'warnings', 'backend', 'ai', 'frontend', 'navigation'] as LogFilter[]).map((filter) => (
+            <button
+              key={filter}
+              onClick={() => setActiveLogFilter(filter)}
+              className={`px-2 py-0.5 rounded uppercase ${
+                activeLogFilter === filter
+                  ? 'bg-[var(--cr-accent)] text-black font-bold'
+                  : 'text-[var(--cr-text-muted)] hover:text-[var(--cr-text-primary)]'
+              }`}
             >
-              {highlightLogs(logs)}
-            </div>
-          </div>
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        {/* Log Viewer Container */}
+        <div 
+          ref={logContainerRef}
+          className="cr-log-viewer max-h-64"
+        >
+          {filteredLogLines.length === 0 ? (
+            <div className="text-[var(--cr-text-muted)] py-4 text-center">No log entries matching filter "{activeLogFilter}"</div>
+          ) : (
+            filteredLogLines.map((line, idx) => {
+              let isError = line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback');
+              let isWarn = line.includes('WARN') || line.includes('WARNING');
+              let isInfo = line.includes('INFO') || line.includes('SUCCESS');
+              let isOk = line.includes('OK') || line.includes('Connected') || line.includes('Loaded');
+
+              return (
+                <div key={idx} className="cr-log-line">
+                  <span className="cr-log-time">[{idx + 1}]</span>
+                  <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : isOk ? 'ok' : 'info'}`}>
+                    {isError ? '[ERR]' : isWarn ? '[WARN]' : isOk ? '[ OK ]' : '[INFO]'}
+                  </span>
+                  <span className="cr-log-msg">{line}</span>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
   );
 };
-

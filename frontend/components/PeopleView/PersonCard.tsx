@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Edit2, Check, X } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 import { Person } from './types';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface PersonCardProps {
   person: Person;
@@ -25,6 +26,8 @@ export const PersonCard: React.FC<PersonCardProps> = ({
   onSaveRename,
   onEditNameChange,
 }) => {
+  const { galleryStyle } = useGalleryLayout();
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSaveRename(e as unknown as React.MouseEvent);
@@ -33,6 +36,30 @@ export const PersonCard: React.FC<PersonCardProps> = ({
       onCancelRename(e as unknown as React.MouseEvent);
     }
   };
+
+  if (galleryStyle === 'google') {
+    return (
+      <motion.div
+        layout
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        onClick={onClick}
+        className="group relative cursor-pointer aspect-square rounded-2xl overflow-hidden border border-white/5 bg-[#1F1F23] hover:shadow-xl transition-all duration-300"
+      >
+        <img
+          src={resolveUrl(person.cover_face_thumbnail)}
+          alt={person.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent p-3 flex flex-col justify-end pointer-events-none">
+          <span className="font-sans font-medium text-white text-xs tracking-tight truncate drop-shadow-md">
+            {person.name}
+          </span>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div

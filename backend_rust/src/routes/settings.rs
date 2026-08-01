@@ -14,6 +14,7 @@ use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::{Stream, StreamExt};
 
 use crate::AppState;
+use super::{get_telemetry_sample_rate, set_telemetry_sample_rate};
 
 pub async fn get_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({
@@ -70,61 +71,6 @@ pub async fn save_map_style(
     }))
 }
 
-pub async fn get_locked_folder_status() -> Json<Value> {
-    Json(json!({
-        "is_configured": false,
-        "is_unlocked": false
-    }))
-}
-
-pub async fn setup_locked_folder() -> Json<Value> {
-    Json(json!({
-        "status": "success",
-        "is_configured": true,
-        "is_unlocked": true
-    }))
-}
-
-pub async fn verify_locked_folder() -> Json<Value> {
-    Json(json!({
-        "status": "success",
-        "is_unlocked": true
-    }))
-}
-
-pub async fn lock_session() -> Json<Value> {
-    Json(json!({
-        "status": "success",
-        "is_unlocked": false
-    }))
-}
-
-pub async fn get_sync_settings() -> Json<Value> {
-    Json(json!({
-        "is_enabled": true,
-        "auto_sync": true,
-        "sync_interval_mins": 30,
-        "sync_enabled": true
-    }))
-}
-
-#[derive(Deserialize)]
-#[allow(dead_code)]
-pub struct SaveSyncRequest {
-    pub is_enabled: Option<bool>,
-    pub excluded_folders: Option<Vec<String>>,
-}
-
-pub async fn save_sync_settings(
-    Json(payload): Json<SaveSyncRequest>,
-) -> Json<Value> {
-    let is_enabled = payload.is_enabled.unwrap_or(true);
-    Json(json!({
-        "status": "success",
-        "is_enabled": is_enabled
-    }))
-}
-
 pub async fn get_folders_settings() -> Json<Value> {
     let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
     Json(json!({
@@ -161,7 +107,6 @@ pub async fn reset_library(
 
     sqlx::query("DELETE FROM photo_albums").execute(&state.db).await.ok();
     sqlx::query("DELETE FROM photo_people").execute(&state.db).await.ok();
-    sqlx::query("DELETE FROM background_jobs").execute(&state.db).await.ok();
     sqlx::query("DELETE FROM photos").execute(&state.db).await.ok();
     sqlx::query("DELETE FROM albums").execute(&state.db).await.ok();
     sqlx::query("DELETE FROM people").execute(&state.db).await.ok();
@@ -177,13 +122,6 @@ pub async fn reset_library(
         "deleted_assets": deleted_photos,
         "locked_files_deleted": 0
     })))
-}
-
-pub async fn trigger_face_sync() -> Json<Value> {
-    Json(json!({
-        "status": "success",
-        "message": "Face discovery initiated"
-    }))
 }
 
 pub async fn clear_cache(
@@ -254,3 +192,66 @@ pub async fn sse_events() -> Sse<impl Stream<Item = Result<Event, Infallible>>> 
             .text("keep-alive"),
     )
 }
+
+pub async fn get_locked_folder_status() -> Json<Value> {
+    Json(json!({
+        "is_configured": false,
+        "has_passcode": false,
+        "is_authenticated": false,
+        "locked_count": 0
+    }))
+}
+
+
+pub async fn get_sync_settings() -> Json<Value> {
+    let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    Json(json!({
+        "is_enabled": true,
+        "sync_enabled": true,
+        "watched_folders": [format!("{}/Pictures", home)],
+        "excluded_folders": []
+    }))
+}
+
+pub async fn save_sync_settings(
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    Json(json!({
+        "status": "success",
+        "is_enabled": payload.get("is_enabled").and_then(|v| v.as_bool()).unwrap_or(true)
+    }))
+}
+
+/// GET /settings/telemetry — returns the current telemetry configuration.
+pub async fn get_telemetry_settings() -> Json<Value> {
+    Json(json!({
+        "sample_rate": get_telemetry_sample_rate(),
+    }))
+}
+
+/// POST /settings/telemetry — updates the telemetry sample rate at runtime.
+#[derive(Deserialize)]
+pub struct SaveTelemetrySettingsRequest {
+    pub sample_rate: Option<u64>,
+}
+
+pub async fn save_telemetry_settings(
+    Json(payload): Json<SaveTelemetrySettingsRequest>,
+) -> Json<Value> {
+    if let Some(rate) = payload.sample_rate {
+        // Clamp to 0..=1000 to prevent abuse
+        let clamped = rate.min(1000);
+        set_telemetry_sample_rate(clamped);
+        Json(json!({
+            "status": "success",
+            "sample_rate": clamped,
+        }))
+    } else {
+        Json(json!({
+            "status": "error",
+            "message": "Missing sample_rate field",
+        }))
+    }
+}
+
+

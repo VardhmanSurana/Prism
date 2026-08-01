@@ -104,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   return (
     <div className="flex h-full shrink-0 relative z-30 bg-[var(--bg-primary)]">
       {/* Narrow vertical tab column on the left - scrollable for fit */}
-      <div className="w-[56px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-6 space-y-4 h-full">
+      <div className="w-[56px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col items-center py-4 space-y-3 h-full overflow-y-auto custom-scrollbar min-h-0 select-none">
         {DEFAULT_TABS_ORDER.map(id => {
           const tab = tabDefinitions[id];
           const isActive = activeTool === id;
@@ -154,13 +154,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
 
       {/* Active Panel Content on the right with dark secondary background */}
       {activeTool && (
-        <div className="w-[260px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300">
+        <div className="w-[260px] shrink-0 bg-[var(--bg-secondary)] border-r border-white/5 flex flex-col overflow-hidden animate-in slide-in-from-left-4 duration-300 h-full">
           <div className="px-5 py-4 shrink-0 flex items-center border-b border-white/5 bg-[var(--bg-secondary)]">
             <h2 className="text-xs font-bold tracking-wider uppercase text-white/80">
               {tabDefinitions[activeTool]?.label}
             </h2>
           </div>
-          <div className="flex-1 overflow-hidden flex flex-col bg-[var(--bg-secondary)]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar flex flex-col bg-[var(--bg-secondary)] min-h-0">
             {children}
           </div>
         </div>

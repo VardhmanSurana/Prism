@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MapPin, Calendar, PartyPopper, Heart, Plane } from 'lucide-react';
-import { API_BASE, resolveUrl } from '@/constants';
+import { API_BASE, resolveUrl, photoSrc } from '@/constants';
 import { Photo } from '@/types';
 import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
@@ -132,7 +132,7 @@ const EventCard: React.FC<{
             {coverPhotos.map((photo) => (
               <div key={photo.id} className="relative h-16 flex-1 min-w-0 rounded-lg overflow-hidden">
                 <img
-                  src={resolveUrl(photo.url)}
+                  src={photoSrc(photo)}
                   alt=""
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -169,8 +169,8 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events: propEvents
 
   if (isLoading) {
     return (
-      <div className="px-10 py-6 shrink-0">
-        <ExploreHeader icon={<Calendar size={14} />} title="Event Timeline" />
+      <div className="px-10 py-6 pb-12 shrink-0">
+        <ExploreHeader label="Chronicle" title="Event Timeline" />
         <div className="space-y-4 ml-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-24 rounded-xl bg-white/5 border border-white/5 animate-pulse" />
@@ -183,8 +183,8 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ events: propEvents
   if (events.length === 0) return null;
 
   return (
-    <div className="px-10 py-6 shrink-0">
-      <ExploreHeader icon={<Calendar size={14} />} title="Event Timeline" />
+    <div className="px-10 py-6 pb-12 shrink-0">
+      <ExploreHeader label="Chronicle" title="Event Timeline" />
       <div className="ml-4">
         {events.map((event, idx) => (
           <EventCard

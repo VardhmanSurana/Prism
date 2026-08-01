@@ -73,34 +73,62 @@ export const PhotographyInsights: React.FC = () => {
   const hasTechnicalData = insights.metadata_coverage.camera || insights.metadata_coverage.focal_length || insights.metadata_coverage.iso;
   return (
     <section className="px-10 py-6 shrink-0" aria-labelledby="photography-insights-title">
-      <ExploreHeader headingId="photography-insights-title" icon={<Aperture size={14} />} title="Your photography, in focus" subtitle={`${formatCount(insights.photo_count)} photos analysed`} />
+      <ExploreHeader
+        headingId="photography-insights-title"
+        label="Analytics"
+        title="Your photography, in focus"
+        subtitle={`${formatCount(insights.photo_count)} photos analysed`}
+      />
       {!hasTechnicalData ? (
         <GlassMaterial intensity="subtle" className="p-6 border border-white/5">
           <div className="flex gap-3">
-            <ScanLine size={20} className="mt-0.5 shrink-0 text-primary" />
+            <ScanLine size={20} className="mt-0.5 shrink-0 text-white/40" />
             <div>
               <h4 className="font-medium text-white">Add a camera roll to reveal your shooting habits</h4>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-gray-400">These photos do not include usable camera EXIF data yet. New imports with camera metadata will surface lens, ISO, and camera insights here.</p>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-white/30">These photos do not include usable camera EXIF data yet. New imports with camera metadata will surface lens, ISO, and camera insights here.</p>
             </div>
           </div>
         </GlassMaterial>
       ) : (
         <div className="space-y-4">
-          <div className="bg-surface border border-white/5 rounded-xl p-5">
-            <div className="mb-5 text-sm font-medium text-white">How you shoot</div>
-            <dl className="grid grid-cols-2 gap-5 sm:grid-cols-4">
-              <div><dt className="text-xs text-gray-500">Favourite focal length</dt><dd className="mt-1 text-2xl font-medium text-white">{insights.favorite_focal_length ? `${insights.favorite_focal_length} mm` : '—'}</dd></div>
-              <div><dt className="text-xs text-gray-500">Average ISO</dt><dd className="mt-1 text-2xl font-medium text-white">{insights.average_iso ? formatCount(insights.average_iso) : '—'}</dd></div>
-              <div className="col-span-2 border-t border-white/10 pt-4"><dt className="text-xs text-gray-500">Average focal length</dt><dd className="mt-1 text-base text-gray-200">{insights.average_focal_length ? `${insights.average_focal_length} mm` : 'No lens metadata yet'}</dd></div>
-            </dl>
+          {/* Big stat row — glass cards with large numbers */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white/[0.04] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-colors">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-3">Favourite Lens</p>
+              <p className="text-3xl font-sans font-semibold text-white">
+                {insights.favorite_focal_length ? `${insights.favorite_focal_length}mm` : '—'}
+              </p>
+              <p className="text-[11px] text-white/25 mt-1">Prime</p>
+            </div>
+            <div className="bg-white/[0.04] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-colors">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-3">Average ISO</p>
+              <p className="text-3xl font-sans font-semibold text-white">
+                {insights.average_iso ? formatCount(insights.average_iso) : '—'}
+              </p>
+              <p className="text-[11px] text-white/25 mt-1">Low-light ready</p>
+            </div>
+            <div className="bg-white/[0.04] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-colors">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-3">Total Photos</p>
+              <p className="text-3xl font-sans font-semibold text-white">{formatCount(insights.photo_count)}</p>
+              <p className="text-[11px] text-white/25 mt-1">In your library</p>
+            </div>
+            <div className="bg-white/[0.04] border border-white/5 rounded-2xl p-6 hover:border-white/10 transition-colors">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-white/30 mb-3">Avg Focal Length</p>
+              <p className="text-3xl font-sans font-semibold text-white">
+                {insights.average_focal_length ? `${insights.average_focal_length}mm` : '—'}
+              </p>
+              <p className="text-[11px] text-white/25 mt-1">All shots</p>
+            </div>
           </div>
+
+          {/* Camera ranking + locations */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-            <div className="lg:col-span-3 bg-surface border border-white/5 rounded-xl p-5">
-              <div className="mb-5 text-sm font-medium text-white">Most-used cameras</div>
+            <div className="lg:col-span-3 bg-white/[0.04] border border-white/5 rounded-2xl p-6">
+              <p className="text-sm font-medium text-white mb-5">Most-used cameras</p>
               <RankingList items={insights.cameras} emptyLabel="No camera metadata yet" />
             </div>
-            <div className="lg:col-span-2 bg-surface border border-white/5 rounded-xl p-5">
-              <div className="mb-5 text-sm font-medium text-white">Places photographed</div>
+            <div className="lg:col-span-2 bg-white/[0.04] border border-white/5 rounded-2xl p-6">
+              <p className="text-sm font-medium text-white mb-5">Places photographed</p>
               <RankingList items={insights.locations} emptyLabel="No location metadata yet" />
             </div>
           </div>

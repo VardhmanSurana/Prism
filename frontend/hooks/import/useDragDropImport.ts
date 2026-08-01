@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Photo } from '../../types';
 import { useImportProcess } from './useImportProcess';
 import { isTauriRuntime, resolveDroppedPaths, ImportProgressStatus } from './importPaths';
+import { useTelemetry } from '../useTelemetry';
 
 interface UseDragDropImportProps {
   onUpload: (photos: Photo[]) => void;
@@ -24,6 +25,7 @@ export function useDragDropImport({
   isImporting = false,
   enabled = true,
 }: UseDragDropImportProps) {
+  const { logAction, logError } = useTelemetry();
   const [phase, setPhase] = useState<DragDropPhase>('idle');
   const [lastDropCount, setLastDropCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +48,7 @@ export function useDragDropImport({
       setPhase('processing');
       setError(null);
       setLastDropCount(paths.length);
+      logAction('DragDrop', 'import_start', { pathCount: paths.length });
 
       try {
         const files = await resolveDroppedPaths(paths, onImportProgress);
@@ -60,8 +63,10 @@ export function useDragDropImport({
           return;
         }
         await startImport(files);
+        logAction('DragDrop', 'import_complete', { fileCount: files.length });
       } catch (e) {
         console.error('[drag-drop] Import failed', e);
+        logError('DragDrop', 'import_failed', e, { pathCount: paths.length });
         setError('Failed to import dropped files');
         onImportProgress({
           is_scanning: false,
@@ -72,10 +77,7 @@ export function useDragDropImport({
       } finally {
         processingRef.current = false;
         setPhase('idle');
-      }
-    },
-    [onImportProgress, startImport]
-  );
+      }    }, [onImportProgress, startImport, logAction, logError]);
 
   useEffect(() => {
     if (!enabled || !isTauriRuntime()) return;

@@ -5,6 +5,7 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { isWebCodecsSupported, exportVideoWithWebCodecs } from '@/lib/webcodecsExporter';
+import { useTelemetry } from '@/hooks/useTelemetry';
 
 interface ExportDialogProps {
   onClose: () => void;
@@ -33,6 +34,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
   const [progressPercent, setProgressPercent] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
+  const { logAction, logError } = useTelemetry();
+
   const applyPreset = (preset: typeof EXPORT_PRESETS[number]) => {
     setActivePreset(preset.name);
     if (preset.name === 'Custom') return;
@@ -44,6 +47,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     setDownloadUrl(null);
+    logAction('VideoEditor', 'export_start', { engine: exportEngine, resolution, fps, quality });
 
     try {
       // 1. Hardware WebCodecs Export Engine
@@ -73,6 +77,7 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
         const url = URL.createObjectURL(blob);
         setDownloadUrl(url);
         setProgress(`Hardware export completed successfully!\nReady for download or save.`);
+        logAction('VideoEditor', 'export_success', { engine: 'webcodecs', resolution, fps });
         return;
       }
 
@@ -132,15 +137,17 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
 
         setProgress(`Export completed successfully!\nSaved to: ${filePath}`);
         setProgressPercent(100);
+        logAction('VideoEditor', 'export_success', { engine: 'melt', resolution, fps, filePath });
       } finally {
         unlisten();
       }
     } catch (e) {
+      logError('VideoEditor', 'export_failed', e, { engine: exportEngine, resolution, fps });
       setProgress(`Export failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
     } finally {
       setIsExporting(false);
     }
-  }, [exportEngine, duration, resolution, fps, quality, seek, toProjectJson]);
+  }, [exportEngine, duration, resolution, fps, quality, seek, toProjectJson, logAction, logError]);
 
   return (
     <div className="fixed inset-0 z-[110] bg-black/60 flex items-center justify-center" onClick={onClose}>

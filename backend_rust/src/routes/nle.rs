@@ -45,29 +45,6 @@ pub struct UpdateProjectRequest {
     pub fps: Option<i32>,
 }
 
-#[derive(Deserialize)]
-#[allow(dead_code)]
-pub struct ThumbnailStripRequest {
-    pub source_path: String,
-    pub num_thumbnails: Option<usize>,
-    pub width: Option<u32>,
-    pub speed: Option<f64>,
-    pub in_point: Option<f64>,
-    pub out_point: Option<f64>,
-}
-
-#[derive(Deserialize)]
-#[allow(dead_code)]
-pub struct WaveformRequest {
-    pub source_path: String,
-}
-
-#[derive(Deserialize)]
-pub struct AnalyzeClipRequest {
-    pub source_path: String,
-    pub photo_id: Option<i64>,
-}
-
 pub async fn find_project_by_id_or_uuid(
     db: &sqlx::SqlitePool,
     id_or_uuid: &str,
@@ -96,25 +73,12 @@ pub async fn find_project_by_id_or_uuid(
 pub async fn list_projects(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<VideoProject>>, (StatusCode, String)> {
-    let mut projects = sqlx::query_as::<_, VideoProject>(
+    let projects = sqlx::query_as::<_, VideoProject>(
         "SELECT * FROM video_projects ORDER BY updated_at DESC, id DESC"
     )
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
-
-    for p in &mut projects {
-        if p.uuid.is_none() {
-            let u = Uuid::new_v4().to_string();
-            sqlx::query("UPDATE video_projects SET uuid = ? WHERE id = ?")
-                .bind(&u)
-                .bind(p.id)
-                .execute(&state.db)
-                .await
-                .ok();
-            p.uuid = Some(u);
-        }
-    }
 
     Ok(Json(projects))
 }
@@ -163,18 +127,7 @@ pub async fn get_project(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let mut project = find_project_by_id_or_uuid(&state.db, &id).await?;
-
-    if project.uuid.is_none() {
-        let u = Uuid::new_v4().to_string();
-        sqlx::query("UPDATE video_projects SET uuid = ? WHERE id = ?")
-            .bind(&u)
-            .bind(project.id)
-            .execute(&state.db)
-            .await
-            .ok();
-        project.uuid = Some(u);
-    }
+    let project = find_project_by_id_or_uuid(&state.db, &id).await?;
 
     let parsed_json: Option<Value> = project.project_json.as_deref().and_then(|s| serde_json::from_str(s).ok());
 
@@ -200,17 +153,6 @@ pub async fn update_project(
     let now = Utc::now();
 
     let mut project = find_project_by_id_or_uuid(&state.db, &id).await?;
-
-    if project.uuid.is_none() {
-        let u = Uuid::new_v4().to_string();
-        sqlx::query("UPDATE video_projects SET uuid = ? WHERE id = ?")
-            .bind(&u)
-            .bind(project.id)
-            .execute(&state.db)
-            .await
-            .ok();
-        project.uuid = Some(u);
-    }
 
     if let Some(name) = payload.name {
         project.name = name;
@@ -270,39 +212,5 @@ pub async fn delete_project(
         "status": "success",
         "id": project.id,
         "uuid": project.uuid
-    })))
-}
-
-pub async fn analyze_clip(
-    Json(payload): Json<AnalyzeClipRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    Ok(Json(json!({
-        "source_path": payload.source_path,
-        "photo_id": payload.photo_id,
-        "duration": 10.0,
-        "width": 1920,
-        "height": 1080,
-        "fps": 30.0,
-        "has_audio": true,
-        "audio_channels": 2,
-        "sample_rate": 48000
-    })))
-}
-
-pub async fn get_waveform(
-    Json(payload): Json<WaveformRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    Ok(Json(json!({
-        "source_path": payload.source_path,
-        "peaks": [0.1, 0.4, 0.8, 0.5, 0.9, 0.3, 0.2, 0.6, 0.7, 0.4]
-    })))
-}
-
-pub async fn get_thumbnail_strip(
-    Json(payload): Json<ThumbnailStripRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    Ok(Json(json!({
-        "source_path": payload.source_path,
-        "thumbnails": []
     })))
 }

@@ -17,12 +17,13 @@ import {
 } from './constants';
 import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
-import { API_BASE } from '../../constants';
+import { API_BASE, photoSrc } from '../../constants';
 import { NotificationsButton } from '@/components/layout/header/NotificationsButton';
 import { useSyncStore } from '@/store/syncStore';
 
 import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
+import { useTelemetry } from '../../hooks/useTelemetry';
 import { 
   Image as ImageIcon, 
   Search, 
@@ -88,6 +89,24 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onBulkDelete,
   onBulkLockToggle,
 }) => {
+  const { logAction, logError } = useTelemetry();
+
+  // Telemetry-wrapped callbacks for actions not handled in this component directly
+  const handlePhotoClickTelemetry = useCallback((photo: Photo) => {
+    logAction('PhotoGrid', 'photo_click', { photoId: photo.id, filename: photo.filename });
+    onPhotoClick?.(photo);
+  }, [onPhotoClick, logAction]);
+
+  const handleToggleSelectionTelemetry = useCallback((id: string) => {
+    logAction('PhotoGrid', 'photo_select', { photoId: id });
+    onToggleSelection?.(id);
+  }, [onToggleSelection, logAction]);
+
+  const handleToggleGroupSelectionTelemetry = useCallback((ids: string[]) => {
+    logAction('PhotoGrid', 'group_select', { count: ids.length });
+    onToggleGroupSelection?.(ids);
+  }, [onToggleGroupSelection, logAction]);
+
   const isSelectionMode = selectedIds.size > 0;
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const logRender = useRenderCounter('PhotoGrid');
@@ -100,7 +119,24 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
 
   // Gallery layout settings
-  const { rowHeightPx, maxRowWidth } = useGalleryLayout();
+  const { rowHeightPx, maxRowWidth, galleryStyle } = useGalleryLayout();
+
+  // Container width measurement for dynamic row packing
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.contentRect.width > 0) {
+          setContainerWidth(entry.contentRect.width);
+        }
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Stats Integration
   const { stats, refetch: refetchStats } = useStats(photos.length);
@@ -122,6 +158,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   // Handle Inline Toggles for List View
   const handleFavoriteToggle = useCallback(async (id: string | number, current: boolean) => {
+    logAction('PhotoGrid', 'favorite_toggle', { photoId: id, newValue: !current });
     if (onBulkFavorite) {
       await onBulkFavorite(new Set([String(id)]));
       refetchStats();
@@ -138,12 +175,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         onUpdatePhotos?.(prev => prev.map(p =>
           String(p.id) === String(id) ? { ...p, isFavorite: current, is_favorite: current } : p
         ));
-        console.error('Failed to toggle favorite status', e);
+        logError('PhotoGrid', 'favorite_toggle_failed', e, { photoId: id });
       }
     }
-  }, [onBulkFavorite, onUpdatePhotos, refetchStats]);
+  }, [onBulkFavorite, onUpdatePhotos, refetchStats, logAction, logError]);
 
   const handleLockToggle = useCallback(async (id: string | number, current: boolean) => {
+    logAction('PhotoGrid', 'lock_toggle', { photoId: id, newValue: !current });
     if (onBulkLockToggle) {
       await onBulkLockToggle(new Set([String(id)]));
       refetchStats();
@@ -164,12 +202,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         onUpdatePhotos?.(prev => prev.map(p =>
           String(p.id) === String(id) ? { ...p, isLocked: current, is_locked: current } : p
         ));
-        console.error('Failed to toggle lock status', e);
+        logError('PhotoGrid', 'lock_toggle_failed', e, { photoId: id });
       }
     }
-  }, [onBulkLockToggle, onUpdatePhotos, refetchStats]);
+  }, [onBulkLockToggle, onUpdatePhotos, refetchStats, logAction, logError]);
 
   const handleDeleteToggle = useCallback(async (id: string | number) => {
+    logAction('PhotoGrid', 'delete_toggle', { photoId: id });
     if (onBulkDelete) {
       await onBulkDelete(new Set([String(id)]));
       refetchStats();
@@ -186,10 +225,10 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         onUpdatePhotos?.(prev => prev.map(p =>
           String(p.id) === String(id) ? { ...p, isTrash: false, is_trash: false } : p
         ));
-        console.error('Failed to trash photo', e);
+        logError('PhotoGrid', 'delete_toggle_failed', e, { photoId: id });
       }
     }
-  }, [onBulkDelete, onUpdatePhotos, refetchStats]);
+  }, [onBulkDelete, onUpdatePhotos, refetchStats, logAction, logError]);
 
   const handleRowHover = useCallback((dateKey: string | null) => {
     setHoveredDateKey(dateKey);
@@ -201,6 +240,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       if (!searchQuery.trim()) {
         onSearch?.(null);
       } else {
+        logAction('PhotoGrid', 'search', { query: searchQuery.trim() });
         onSearch?.({ query: searchQuery.trim() });
       }
     }
@@ -210,7 +250,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   // When the library is empty we still emit [ dashboard, empty ] so the header
   // (and Import button) are always visible regardless of photo count.
   // In trash views, hide the dashboard header.
-  const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth);
+  const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth, containerWidth, rowHeightPx);
   const isCompactView = compact || currentView === 'trash';
   const rowItems = useMemo(() => {
     if (isCompactView) {
@@ -280,55 +320,47 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   logRender?.();
 
   return (
-    <div className="relative w-full">
-      {/* Dynamic Header (Dashboard) rendered outside virtualization */}
-      {!isCompactView && (
-        <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
-          {/* Top Section */}
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6 mb-5 select-none">
-            <div>
-              <h1 className="text-5xl font-bold text-[#f2efe9] tracking-tight font-sans">
-                Your moments
-              </h1>
-              <p className="text-sm text-gray-400 mt-2">
-                A private, local archive. Browse by memory, not filename.
-              </p>
-            </div>
-
-            {/* Search and Ingestion buttons */}
-            <div className="flex items-center gap-3 mt-1">
-              {/* Integrated Search Bar */}
-              <div className="relative group w-80">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-500 group-focus-within:text-primary transition-colors" />
+    <div ref={containerRef} className="relative w-full font-sans">
+      {/* Google Photos Memory Highlights Carousel (Screenshot 1) */}
+      {galleryStyle === 'google' && !isCompactView && (
+        <div className="w-full pl-10 pr-10 pt-6 pb-2 z-20">
+          <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3 select-none">
+            {(photos.length > 0 ? photos.slice(0, 5) : [1, 2, 3, 4, 5]).map((p, idx) => {
+              const titles = ['Video spotlight', 'Video spotlight', 'Exploring trails', 'Golden hour', 'Mom'];
+              const subtitles = ['', '', 'Over the years', 'Over the years', 'Same face, different places'];
+              const imgSrc = typeof p === 'object' ? photoSrc(p) : '';
+              return (
+                <div
+                  key={idx}
+                  className="shrink-0 w-64 h-36 rounded-2xl overflow-hidden relative shadow-md border border-white/10 group cursor-pointer"
+                >
+                  {imgSrc ? (
+                    <img src={imgSrc} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-900/40 via-purple-900/30 to-gray-900 flex items-center justify-center text-white/40 font-sans text-xs">
+                      Highlight {idx + 1}
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4 flex flex-col justify-end">
+                    <h4 className="text-white font-sans font-medium text-sm leading-tight drop-shadow">{titles[idx % titles.length]}</h4>
+                    {subtitles[idx % subtitles.length] && (
+                      <p className="text-[11px] font-sans text-gray-300 mt-0.5 opacity-90">{subtitles[idx % subtitles.length]}</p>
+                    )}
+                  </div>
                 </div>
-                <input
-                  id="photo-grid-search-input"
-                  name="photoGridSearch"
-                  aria-label="Search photos"
-                  type="text"
-                  className="w-full bg-[#161616]/40 border border-white/[0.08] rounded-full py-2.5 pl-11 pr-4 text-sm text-gray-100 placeholder:text-gray-500 focus:border-white/[0.15] focus:outline-none transition-all font-mono"
-                  placeholder="Search photos"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                />
-              </div>
-
-              {/* Filter Setting Button */}
-              <button
-                className="p-2.5 bg-[#161616]/40 border border-white/[0.08] hover:bg-white/5 text-gray-400 hover:text-white rounded-xl transition-all active:scale-95"
-                title="Advanced Filter Options"
-              >
-                <SlidersHorizontal size={18} />
-              </button>
-
-              {/* Notifications Button */}
-              <NotificationsButton />
-            </div>
+              );
+            })}
           </div>
+          <div className="mt-4 mb-2">
+            <h2 className="text-2xl font-sans font-normal text-[#E3E2E6]">February</h2>
+          </div>
+        </div>
+      )}
 
-          <hr className="border-white/[0.06] mb-5" />
+      {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
+      {!isCompactView && galleryStyle !== 'google' && (
+        <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
+
 
           {/* Sub Navigation and View Filters */}
           <div className="flex items-center justify-between py-2 mb-4 select-none">
@@ -342,7 +374,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               ] as const).map((pill) => (
                 <button
                   key={pill.id}
-                  onClick={() => setActivePill(pill.id)}
+                  onClick={() => { logAction('PhotoGrid', 'filter_change', { filter: pill.id }); setActivePill(pill.id); }}
                   className={`px-5 py-2 text-sm rounded-full transition-all duration-300
                     ${
                       activePill === pill.id
@@ -365,7 +397,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               {/* Layout switch controls */}
               <div className="flex items-center bg-[#161616]/40 p-1 rounded-xl border border-white/[0.08]">
                 <button
-                  onClick={() => setViewMode('grid')}
+                  onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'grid' }); setViewMode('grid'); }}
                   className={`p-2 rounded-lg transition-all duration-300 ${
                     viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                   }`}
@@ -374,7 +406,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   <LayoutGrid size={15} />
                 </button>
                 <button
-                  onClick={() => setViewMode('list')}
+                  onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'list' }); setViewMode('list'); }}
                   className={`p-2 rounded-lg transition-all duration-300 ${
                     viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                   }`}
@@ -421,7 +453,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 photoIds={item.photoIds}
                 location={item.location}
                 selectedIds={selectedIds}
-                onToggleGroupSelection={onToggleGroupSelection}
+                onToggleGroupSelection={handleToggleGroupSelectionTelemetry}
                 virtualRowStart={virtualRow.start}
                 virtualRowKey={virtualRow.key}
                 virtualRowIndex={virtualRow.index}
@@ -440,8 +472,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 isFull={item.isFull}
                 selectedIds={selectedIds}
                 isSelectionMode={isSelectionMode}
-                onPhotoClick={onPhotoClick}
-                onToggleSelection={onToggleSelection}
+                onPhotoClick={handlePhotoClickTelemetry}
+                onToggleSelection={handleToggleSelectionTelemetry}
                 virtualRowStart={virtualRow.start}
                 virtualRowKey={virtualRow.key}
                 virtualRowIndex={virtualRow.index}
@@ -469,8 +501,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   photo={item.photo}
                   isSelected={selectedIds.has(String(item.photo.id))}
                   isSelectionMode={isSelectionMode}
-                  onPhotoClick={onPhotoClick}
-                  onToggleSelection={onToggleSelection}
+                  onPhotoClick={handlePhotoClickTelemetry}
+                  onToggleSelection={handleToggleSelectionTelemetry}
                   onFavoriteToggle={handleFavoriteToggle}
                   onLockToggle={handleLockToggle}
                   onDeleteToggle={handleDeleteToggle}

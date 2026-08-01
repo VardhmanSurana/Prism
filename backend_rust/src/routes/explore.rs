@@ -181,10 +181,6 @@ pub async fn explore_themes(
     Ok(Json(json!({ "themes": themes })))
 }
 
-pub async fn explore_timeline() -> Json<Value> {
-    Json(json!({ "events": [] }))
-}
-
 pub async fn explore_on_this_day(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -206,94 +202,6 @@ pub async fn explore_on_this_day(
     };
 
     Ok(Json(json!({ "items": items })))
-}
-
-pub async fn explore_seasons(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let photos = sqlx::query_as::<_, Photo>(
-        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 24"
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let seasons = if photos.is_empty() {
-        vec![]
-    } else {
-        vec![json!({
-            "label": "Summer 2025",
-            "season": "summer",
-            "year": 2025,
-            "photo_count": photos.len(),
-            "photos": photos.into_iter().take(6).collect::<Vec<_>>()
-        })]
-    };
-
-    Ok(Json(json!({ "seasons": seasons })))
-}
-
-pub async fn explore_activity(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let photos = sqlx::query_as::<_, Photo>(
-        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY id DESC LIMIT 6"
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let mut activities = Vec::new();
-    if !photos.is_empty() {
-        activities.push(json!({
-            "id": "import-latest",
-            "type": "import",
-            "title": format!("Imported {} photos", photos.len()),
-            "subtitle": "Recent Media Library items",
-            "timestamp": chrono::Utc::now().to_rfc3339(),
-            "photo_count": photos.len(),
-            "photos": photos
-        }));
-    }
-
-    Ok(Json(json!({ "activities": activities })))
-}
-
-pub async fn explore_highlights(
-    State(state): State<Arc<AppState>>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let photos = sqlx::query_as::<_, Photo>(
-        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 8"
-    )
-    .fetch_all(&state.db)
-    .await
-    .unwrap_or_default();
-
-    let highlights = if photos.is_empty() {
-        vec![]
-    } else {
-        vec![json!({
-            "id": "highlight-library",
-            "event_id": null,
-            "title": "Library Highlights",
-            "subtitle": format!("Curated Highlights • {} items", photos.len()),
-            "location": "Library",
-            "duration_sec": 30,
-            "photo_count": photos.len(),
-            "cover_photos": photos.into_iter().take(4).collect::<Vec<_>>(),
-            "summary": "Your top moments compiled into a highlight reel."
-        })]
-    };
-
-    Ok(Json(json!({ "highlights": highlights })))
-}
-
-pub async fn generate_highlight_project() -> Json<Value> {
-    Json(json!({
-        "status": "ok",
-        "project_id": 1,
-        "name": "Library Highlight Reel"
-    }))
 }
 
 pub async fn explore_rediscover_prompts(

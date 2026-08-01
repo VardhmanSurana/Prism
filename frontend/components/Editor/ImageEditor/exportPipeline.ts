@@ -1,16 +1,14 @@
-import { ImageMagick } from '@imagemagick/magick-wasm';
 import { Adjustments } from './filterEngine';
 import { Annotation } from './AnnotationsPanel';
 import { applyHslToCanvas } from './hslEngine';
 import { applyNonLinearHighlightsAndShadows } from './filterFallback';
 import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
-import { canvasToBlob, ensureImageMagick } from './exportPipeline/canvas';
+import { canvasToBlob } from './exportPipeline/canvas';
 import { injectC2paHeader } from './c2paEngine';
 import {
   clamp,
   getPreviewBaseFilter,
   hasGlobalPreviewAdjustments,
-  getExportFormat,
   cloneCanvas,
 } from './exportPipeline/helpers';
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
@@ -215,19 +213,7 @@ export const exportEditedCanvas = async ({
 
   report('Encoding final image', TOTAL_STEPS, TOTAL_STEPS);
 
-  let rawBlob: Blob;
-  try {
-    await ensureImageMagick();
-    const exportFormat = getExportFormat(mimeType);
-
-    rawBlob = await ImageMagick.readFromCanvas(preparedCanvas, async (image) => {
-      image.quality = Math.round(clamp(quality, 0, 1) * 100);
-      return image.write(exportFormat, (data) => new Blob([new Uint8Array(data)], { type: mimeType }));
-    });
-  } catch (error) {
-    console.error('ImageMagick encoding failed, falling back to canvas export.', error);
-    rawBlob = await canvasToBlob(preparedCanvas, mimeType, quality);
-  }
+  const rawBlob = await canvasToBlob(preparedCanvas, mimeType, quality);
 
   // Inject C2PA Content Authenticity Manifest Header
   return await injectC2paHeader(rawBlob);

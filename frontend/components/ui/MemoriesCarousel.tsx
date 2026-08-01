@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Calendar, MapPin, ChevronRight } from 'lucide-react';
-import { API_BASE, resolveUrl } from '@/constants';
+import { API_BASE, photoSrc } from '@/constants';
 import { Photo } from '@/types';
 import { StoryViewer } from '@/components/viewers/StoryViewer';
 import { GlassMaterial, GlassEffectContainer } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
+import { ExploreHeader } from '@/components/explore/ExploreHeader';
 
 interface Highlight {
   id: string;
@@ -36,7 +37,7 @@ const MemoryCard: React.FC<{
     >
       {highlight.cover_url ? (
         <motion.img
-          src={resolveUrl(highlight.cover_url)}
+          src={photoSrc({ url: highlight.cover_url }, 640)}
           alt={highlight.title}
           className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
         />
@@ -133,20 +134,10 @@ export const MemoriesCarousel: React.FC = () => {
   return (
     <div className="px-10 pt-12 pb-6 shrink-0 select-none relative z-10">
       <div className="flex items-end justify-between mb-8">
-        <div className="space-y-1">
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 text-primary/60"
-          >
-            <Sparkles size={14} />
-            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.4em]">Curated</span>
-          </motion.div>
-          <h3 className="text-4xl font-serif italic text-white tracking-tight">Your Memories</h3>
-        </div>
-        <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-primary transition-colors group">
+        <ExploreHeader label="Curated" title="Your Memories" />
+        <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white/70 transition-colors group mb-8">
           View All Stories
-          <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+          <ChevronRight size={12} className="group-hover:translate-x-1 transition-transform" />
         </button>
       </div>
 

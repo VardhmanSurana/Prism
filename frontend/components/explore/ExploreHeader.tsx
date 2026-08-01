@@ -2,6 +2,8 @@ import React from 'react';
 
 interface ExploreHeaderProps {
   icon?: React.ReactNode;
+  /** The small mono label shown above the main title (e.g. "Retro", "Analytics") */
+  label?: string;
   title: string;
   subtitle?: string;
   headingId?: string;
@@ -16,18 +18,37 @@ export const getTimeGreeting = (): string => {
   return 'Good Night';
 };
 
-export const ExploreHeader: React.FC<ExploreHeaderProps> = ({ icon, title, subtitle, headingId, showTimeGreeting }) => {
+export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
+  icon,
+  label,
+  title,
+  subtitle,
+  headingId,
+  showTimeGreeting,
+}) => {
   const displayTitle = showTimeGreeting ? `${getTimeGreeting()}, ${title}` : title;
   return (
-    <div className="mb-8 space-y-1">
-      <div className="flex items-center gap-2">
-        {icon && <span className="p-1.5 rounded-lg bg-white/10 text-primary">{icon}</span>}
-        <h3 id={headingId} className="text-4xl font-serif font-bold text-white tracking-tight">
-          {displayTitle}
-        </h3>
-      </div>
+    <div className="mb-8">
+      {/* Mono overline label */}
+      {(label || icon) && (
+        <div className="flex items-center gap-2 mb-2">
+          {icon && <span className="text-white/40">{icon}</span>}
+          {label && (
+            <span className="text-[10px] font-mono font-bold uppercase tracking-[0.35em] text-white/30">
+              {label}
+            </span>
+          )}
+        </div>
+      )}
+      {/* Serif italic title */}
+      <h3
+        id={headingId}
+        className="font-serif italic text-4xl text-white tracking-tight leading-tight"
+      >
+        {displayTitle}
+      </h3>
       {subtitle && (
-        <p className="text-sm text-gray-400">{subtitle}</p>
+        <p className="text-sm text-white/30 mt-1.5">{subtitle}</p>
       )}
     </div>
   );

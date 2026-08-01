@@ -3,7 +3,7 @@ use axum::{
     http::{header, StatusCode},
     response::{Json, Response},
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -57,18 +57,11 @@ pub async fn list_photos(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let now: DateTime<Utc> = Utc::now();
-    for photo in &mut photos {
-        let photo_key = photo.uuid.as_deref().unwrap_or(&photo.id.to_string()).to_string();
-        if photo.url.is_none() || photo.url.as_deref().unwrap_or("").is_empty() {
-            photo.url = Some(format!("/api/v1/photos/{}/thumbnail", photo_key));
-        }
-        if photo.date_taken.is_none() {
-            photo.date_taken = photo.upload_date.or(Some(now));
-        }
-        if photo.date.is_none() {
-            photo.date = photo.date_taken;
-        }
+    for p in &mut photos {
+        let p_key = p.uuid.as_deref().unwrap_or(&p.id.to_string()).to_string();
+        if p.url.as_deref().unwrap_or("").is_empty() { p.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key)); }
+        if p.date_taken.is_none() { p.date_taken = p.upload_date.or(Some(Utc::now())); }
+        if p.date.is_none() { p.date = p.date_taken; }
     }
 
     Ok(Json(photos))
@@ -113,13 +106,20 @@ pub async fn get_photo_file(
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, mime)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .unwrap())
+}
+
+#[derive(Deserialize)]
+pub struct ThumbnailQuery {
+    pub size: Option<u32>,
 }
 
 pub async fn get_photo_thumbnail(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
+    Query(query): Query<ThumbnailQuery>,
 ) -> Result<Response, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
 
@@ -128,7 +128,8 @@ pub async fn get_photo_thumbnail(
         return Err((StatusCode::NOT_FOUND, "Source file missing".to_string()));
     }
 
-    let target_file_path = match generate_thumbnail(&source_path, &state.config.thumbnails_dir, photo.id, 400) {
+    let max_dim = query.size.unwrap_or(400).clamp(64, 2048);
+    let target_file_path = match generate_thumbnail(&source_path, &state.config.thumbnails_dir, photo.id, max_dim) {
         Ok(tp) => tp,
         Err(_) => source_path.clone(),
     };
@@ -146,6 +147,7 @@ pub async fn get_photo_thumbnail(
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, mime)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .unwrap())
 }
@@ -198,6 +200,7 @@ async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode,
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, mime)
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .unwrap())
 }

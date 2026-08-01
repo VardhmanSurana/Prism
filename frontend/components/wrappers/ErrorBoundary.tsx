@@ -21,6 +21,25 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    try {
+      fetch(`${import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8270'}/api/v1/telemetry/log`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: 'error',
+          component: 'ErrorBoundary',
+          action: 'react_component_crash',
+          metadata_json: JSON.stringify({
+            message: error.message,
+            stack: error.stack,
+            componentStack: errorInfo.componentStack,
+          }),
+          status: 'error',
+        }),
+      }).catch(() => {});
+    } catch {
+      // Ignore telemetry failures in error boundary
+    }
   }
 
   private handleRetry = () => {

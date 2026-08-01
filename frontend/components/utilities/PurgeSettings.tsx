@@ -16,48 +16,45 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
   onPurge
 }) => {
   return (
-    <div className="bg-white/[0.01] border border-white/[0.05] rounded-3xl p-6 shadow-xl space-y-6">
-      <div className="bg-white/[0.01] border border-white/[0.05] hover:border-white/[0.08] rounded-2xl p-4 transition-all">
-        <div className="mb-4">
-          <p className="text-sm font-medium text-[#f7f8f8]">Remove from Library</p>
-          <p className="text-xs text-[#8a8f98] mt-1 leading-relaxed">
-            Permanently delete all indexed photos from a folder and their cached thumbnails. Original files remain on your disk.
-          </p>
-        </div>
+    <div className="cr-card">
+      <div className="cr-card-title mb-1">Remove Territory from Library</div>
+      <p className="text-xs text-[var(--cr-text-muted)] mb-3">
+        Permanently purge indexed photo records and cached thumbnails of a folder from database. Original source files remain untouched on disk.
+      </p>
 
-        <div className="flex gap-2">
-          <div className="flex-1 flex gap-1.5 bg-white/[0.01] border border-white/[0.06] focus-within:border-white/[0.15] focus-within:bg-white/[0.02] rounded-xl overflow-hidden transition-all duration-200">
-            <input
-              type="text"
-              value={purgeInput}
-              onChange={(e) => setPurgeInput(e.target.value)}
-              placeholder="~/Android/sdk"
-              className="flex-1 bg-transparent px-4 py-2.5 text-xs text-[#d0d6e0] placeholder:text-gray-600 outline-none font-mono"
-            />
-            <button
-              onClick={onBrowse}
-              title="Browse for a folder to purge from the library"
-              className="px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[#8a8f98] hover:text-white border-l border-white/[0.06] hover:bg-white/[0.02] transition-all"
-            >
-              Browse
-            </button>
-          </div>
+      <div className="flex gap-2">
+        <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
+          <input
+            type="text"
+            value={purgeInput}
+            onChange={(e) => setPurgeInput(e.target.value)}
+            placeholder="~/Pictures/FolderToPurge"
+            className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
+          />
           <button
-            onClick={onPurge}
-            disabled={!purgeInput}
-            className="px-5 py-2.5 bg-red-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-wider hover:bg-red-600 disabled:opacity-20 disabled:cursor-not-allowed transition-all duration-150 active:scale-[0.98]"
+            onClick={onBrowse}
+            title="Browse for a folder to purge"
+            className="px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
           >
-            Purge
+            BROWSE
           </button>
         </div>
-
-        {purgeStatus && (
-          <p className="text-xs text-red-400 mt-4 font-mono leading-relaxed bg-red-500/5 border border-red-500/10 px-4 py-3 rounded-xl">
-            {purgeStatus}
-          </p>
-        )}
+        <button
+          onClick={onPurge}
+          disabled={!purgeInput}
+          className="cr-inline-btn font-mono text-[10px] uppercase font-bold text-[var(--cr-status-error)] border-[var(--cr-status-error)]/40 hover:bg-[var(--cr-status-error)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          PURGE_TERRITORY
+        </button>
       </div>
+
+      {purgeStatus && (
+        <p className="text-xs text-[var(--cr-status-error)] mt-3 font-mono bg-[var(--cr-surface-sunken)] border border-[var(--cr-status-error)]/30 p-3 rounded">
+          {purgeStatus}
+        </p>
+      )}
     </div>
   );
 };
+
 

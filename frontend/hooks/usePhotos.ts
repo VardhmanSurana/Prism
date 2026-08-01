@@ -86,6 +86,25 @@ export function usePhotos() {
       setPhotos(prev => prev.filter(p => p.id !== data.photoId));
     });
 
+    const unsubUpdate = eventService.subscribe('photo_updated', (data) => {
+      const rawPhoto = data.photo as RawPhoto;
+      if (rawPhoto) {
+        const updated = normalizePhoto(rawPhoto);
+        setPhotos(prev => prev.map(p => {
+          if (String(p.id) === String(updated.id)) {
+            return {
+              ...p,
+              ...updated,
+              url: `${updated.url || `/api/v1/photos/${updated.id}/thumbnail`}?h=${Date.now()}`
+            };
+          }
+          return p;
+        }));
+      } else {
+        fetchPhotos(true);
+      }
+    });
+
     // Re-fetch all photos when SSE reconnects (backend restart recovery)
     const unsubReconnect = eventService.subscribe('reconnected', () => {
       fetchPhotos(true);
@@ -95,6 +114,7 @@ export function usePhotos() {
       unsubStatus();
       unsubNewPhoto();
       unsubTrash();
+      unsubUpdate();
       unsubReconnect();
       eventService.disconnect();
     };

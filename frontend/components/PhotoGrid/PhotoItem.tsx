@@ -4,6 +4,7 @@ import { PhotoItemProps } from './types';
 import { LazyImage } from '../ui/LazyImage';
 import { formatDuration } from '@/utils/formatDuration';
 import { resolveUrl } from '@/constants';
+import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 export const PhotoItem = React.memo<PhotoItemProps>(({
   photo,
@@ -24,6 +25,11 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
   const animSrc = photo.animated_url && !animFailed
     ? resolveUrl(photo.animated_url)
     : null;
+
+  const { settings, galleryStyle } = useGalleryLayout();
+  const isGoogle = galleryStyle === 'google';
+  const cornerRadius = isGoogle ? 0 : settings.cornerRadius;
+  const roundedClass = cornerRadius > 0 ? '' : 'rounded-none';
 
   return (
     <div
@@ -51,12 +57,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           }
         }
       }}
-      style={{
-        flex: isFullRow ? `${aspectRatio} 1 0%` : `0 0 auto`,
-        width: isFullRow ? undefined : `calc(${rowHeight - rowPadding}px * ${aspectRatio})`,
-        maxWidth: '100%',
-      }}
-      className={`relative group cursor-pointer rounded-[1.5rem] bg-[#0c0c0c]
+      className={`relative group cursor-pointer ${roundedClass} bg-[#0c0c0c]
       transition-all duration-200 ease-out photo-item-hover
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
       ${
@@ -65,8 +66,17 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           : 'active:scale-[0.97]'
       }
   `}
+      style={{
+        flex: isFullRow ? `${aspectRatio} 1 0%` : `0 0 auto`,
+        width: isFullRow ? undefined : `calc(${rowHeight - rowPadding}px * ${aspectRatio})`,
+        maxWidth: '100%',
+        borderRadius: cornerRadius > 0 ? `${cornerRadius}px` : undefined,
+      }}
     >
-      <div className={`absolute inset-0 overflow-hidden rounded-[1.5rem] transition-all duration-200 ${isSelected ? 'border-4 border-primary' : ''}`}>
+      <div
+        className={`absolute inset-0 overflow-hidden ${roundedClass} transition-all duration-200 ${isSelected ? 'border-4 border-primary' : ''}`}
+        style={{ borderRadius: cornerRadius > 0 ? `${cornerRadius}px` : undefined }}
+      >
         <LazyImage
           src={photo.url || `local://${photo.path}`}
           fallbackSrc={`local://${photo.path}`}

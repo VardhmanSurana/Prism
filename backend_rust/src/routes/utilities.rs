@@ -252,6 +252,12 @@ pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> 
     }))
 }
 
+pub async fn get_logs() -> Json<Value> {
+    Json(json!({
+        "logs": "INFO [Prism Core Engine] Rust Backend active on port 8269\nINFO [Python ML Microservice] Ready on port 8270\nINFO System monitoring operational."
+    }))
+}
+
 pub async fn get_background_jobs_status() -> Json<Value> {
     Json(json!({
         "total_photos": 0,
@@ -263,12 +269,6 @@ pub async fn get_background_jobs_status() -> Json<Value> {
     }))
 }
 
-pub async fn get_logs() -> Json<Value> {
-    Json(json!({
-        "logs": "INFO [Prism Core Engine] Rust Backend active on port 8269\nINFO [Python ML Microservice] Ready on port 8270\nINFO System monitoring operational."
-    }))
-}
-
 pub async fn start_background_jobs() -> Json<Value> {
     Json(json!({ "status": "started" }))
 }
@@ -276,3 +276,12 @@ pub async fn start_background_jobs() -> Json<Value> {
 pub async fn stop_background_jobs() -> Json<Value> {
     Json(json!({ "status": "stopped" }))
 }
+
+pub async fn pause_background_jobs() -> Json<Value> {
+    Json(json!({ "status": "paused" }))
+}
+
+pub async fn resume_background_jobs() -> Json<Value> {
+    Json(json!({ "status": "resumed" }))
+}
+

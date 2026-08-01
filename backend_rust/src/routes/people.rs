@@ -6,7 +6,6 @@ use axum::{
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::sync::Arc;
-use uuid::Uuid;
 
 use crate::models::{Person, Photo};
 use crate::AppState;
@@ -39,23 +38,10 @@ pub async fn find_person_by_id_or_uuid(
 pub async fn list_people(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Person>>, (StatusCode, String)> {
-    let mut people = sqlx::query_as::<_, Person>("SELECT * FROM people ORDER BY name ASC")
+    let people = sqlx::query_as::<_, Person>("SELECT * FROM people ORDER BY name ASC")
         .fetch_all(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    for p in &mut people {
-        if p.uuid.is_none() {
-            let u = Uuid::new_v4().to_string();
-            sqlx::query("UPDATE people SET uuid = ? WHERE id = ?")
-                .bind(&u)
-                .bind(p.id)
-                .execute(&state.db)
-                .await
-                .ok();
-            p.uuid = Some(u);
-        }
-    }
 
     Ok(Json(people))
 }

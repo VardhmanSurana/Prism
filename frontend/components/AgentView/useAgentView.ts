@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { Photo } from '../../types';
 import { Message, AgentViewProps, SessionItem } from './types';
 import { API_BASE } from '../../constants';
+import { useTelemetry } from '../../hooks/useTelemetry';
 
 const DEFAULT_GREETING: Message = {
   role: 'assistant',
@@ -22,6 +23,7 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
   const [currentTools, setCurrentTools] = useState<any[]>([]);
   const [totalCandidates, setTotalCandidates] = useState<number | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<Record<number, boolean>>({});
+  const { logAction, logError } = useTelemetry();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -106,11 +108,13 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
 
   const selectSession = useCallback((sessionId: string) => {
     if (sessionId === activeSessionId) return;
+    logAction('AgentView', 'session_select', { sessionId });
     setActiveSessionId(sessionId);
     fetchSessionMessages(sessionId);
-  }, [activeSessionId, fetchSessionMessages]);
+  }, [activeSessionId, fetchSessionMessages, logAction]);
 
   const renameSession = useCallback(async (sessionId: string, newTitle: string) => {
+    logAction('AgentView', 'session_rename', { sessionId, newTitle });
     try {
       const res = await fetch(`${API_BASE}/api/v1/agent/sessions/${sessionId}`, {
         method: 'PATCH',
@@ -121,11 +125,12 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
         setSessions(prev => prev.map(s => (s.id === sessionId || s.uuid === sessionId ? { ...s, title: newTitle } : s)));
       }
     } catch (e) {
-      console.error('Failed to rename session:', e);
+      logError('AgentView', 'session_rename_failed', e, { sessionId });
     }
-  }, []);
+  }, [logAction, logError]);
 
   const deleteSession = useCallback(async (sessionId: string) => {
+    logAction('AgentView', 'session_delete', { sessionId });
     try {
       const res = await fetch(`${API_BASE}/api/v1/agent/sessions/${sessionId}`, {
         method: 'DELETE',
@@ -146,15 +151,16 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
         });
       }
     } catch (e) {
-      console.error('Failed to delete session:', e);
+      logError('AgentView', 'session_delete_failed', e, { sessionId });
     }
-  }, [activeSessionId, fetchSessionMessages, createSession]);
+  }, [activeSessionId, fetchSessionMessages, createSession, logAction, logError]);
 
   const toggleLog = useCallback((idx: number) => {
+    logAction('AgentView', 'toggle_log', { messageIndex: idx });
     setExpandedLogs(prev => ({ ...prev, [idx]: !prev[idx] }));
-  }, []);
+  }, [logAction]);
 
-  const clearResults = useCallback(() => setCurrentPhotos([]), []);
+  const clearResults = useCallback(() => { logAction('AgentView', 'clear_results'); setCurrentPhotos([]); }, [logAction]);
 
   const handleSend = useCallback(async (textToSend?: string, attachedFiles?: File[]) => {
     let query = (textToSend || input).trim();
@@ -162,6 +168,8 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
 
     if (!query && !fileToUpload) return;
     if (isLoading) return;
+
+    logAction('AgentView', 'chat_send', { queryLength: query.length, hasAttachment: !!fileToUpload });
 
     if (!query && fileToUpload) {
       query = "Describe this image and find similar photos in my library.";
@@ -302,27 +310,30 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
         setSessions(updatedSessions);
       }
     } catch (e) {
+      logError('AgentView', 'chat_send_failed', e, { query: query.substring(0, 100) });
       setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an issue accessing my search indexing brain.' }]);
     } finally {
       setIsLoading(false);
       setProgressDetail(null);
     }
-  }, [input, isLoading, messages, activeSessionId, createSession]);
+  }, [input, isLoading, messages, activeSessionId, createSession, logAction, logError]);
 
   const modelPreloadedRef = useRef(false);
 
   const preloadModel = useCallback(() => {
     if (modelPreloadedRef.current) return;
     modelPreloadedRef.current = true;
+    logAction('AgentView', 'model_preload');
     fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' }).catch((e) => {
-      console.warn('Failed to preload AI agent model:', e);
+      logError('AgentView', 'model_preload_failed', e);
     });
-  }, []);
+  }, [logAction, logError]);
 
   const askAboutPhoto = useCallback((photo: Photo) => {
+    logAction('AgentView', 'ask_about_photo', { photoId: photo.id, filename: photo.filename });
     const query = `Analyze and describe photo: "${photo.filename}" (ID: ${photo.id}). What date, metadata, and location details can you find?`;
     handleSend(query);
-  }, [handleSend]);
+  }, [handleSend, logAction]);
 
   return {
     sessions,
