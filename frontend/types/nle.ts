@@ -63,7 +63,7 @@ export interface Keyframe {
 
 export interface Clip {
   id: string;
-  sourceId: number;
+  sourceId: number | string;
   sourcePath: string;
   proxyPath?: string;
   sourceDuration: number;
@@ -111,7 +111,14 @@ export const DEFAULT_AUDIO_EQ: ClipAudioEQ = {
 };
 
 export interface Transition {
-  type: 'crossfade' | 'wipe-left' | 'wipe-right' | 'dissolve' | 'slide-left' | 'slide-right';
+  type:
+    | 'crossfade' | 'dissolve' | 'dip-to-black' | 'dip-to-white' | 'additive'
+    | 'iris-circle' | 'iris-box' | 'iris-diamond' | 'iris-star' | 'iris-heart'
+    | 'slide-left' | 'slide-right' | 'push-left' | 'push-right' | 'push-up' | 'push-down' | 'split' | 'whip-pan'
+    | 'wipe-left' | 'wipe-right' | 'wipe-up' | 'wipe-down' | 'barn-doors' | 'clock-wipe' | 'checkerboard'
+    | 'zoom' | 'zoom-in' | 'zoom-out' | 'spin'
+    | 'glitch' | 'pixelate' | 'light-leak' | 'burn' | 'page-turn'
+    | 'cube-spin' | 'flip';
   duration: number;  // in seconds
 }
 

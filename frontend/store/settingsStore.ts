@@ -32,13 +32,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const res = await fetch(`${API_BASE}/api/v1/settings/telemetry`);
       if (res.ok) {
         const data = await res.json();
-        set({ telemetrySampleRate: data.sample_rate ?? 10 });
+        if (typeof data.sample_rate === 'number') {
+          set({ telemetrySampleRate: data.sample_rate });
+        }
       }
     } catch (e) {
       console.error('Failed to fetch telemetry settings:', e);
     }
   },
   setTelemetrySampleRate: async (rate: number) => {
+    set({ telemetrySampleRate: rate });
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/telemetry`, {
         method: 'POST',
@@ -48,26 +51,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       if (res.ok) {
         const data = await res.json();
         set({ telemetrySampleRate: data.sample_rate ?? rate });
-      } else {
-        // Refetch to recover the actual backend state
-        const getRes = await fetch(`${API_BASE}/api/v1/settings/telemetry`);
-        if (getRes.ok) {
-          const fresh = await getRes.json();
-          set({ telemetrySampleRate: fresh.sample_rate ?? 10 });
-        }
       }
     } catch (e) {
       console.error('Failed to save telemetry settings:', e);
-      // Refetch on network error too
-      try {
-        const getRes = await fetch(`${API_BASE}/api/v1/settings/telemetry`);
-        if (getRes.ok) {
-          const fresh = await getRes.json();
-          set({ telemetrySampleRate: fresh.sample_rate ?? 10 });
-        }
-      } catch {
-        // Give up
-      }
     }
   },
 }));

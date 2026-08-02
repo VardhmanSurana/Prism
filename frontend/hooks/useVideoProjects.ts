@@ -90,8 +90,11 @@ export function useVideoProjects(): UseVideoProjectsReturn {
 
   const deleteProject = useCallback(async (id: number | string): Promise<void> => {
     // Optimistic delete: remove from UI immediately, restore on error
-    const snapshot = projects;
-    setProjects((prev) => prev.filter((p) => String(p.id) !== String(id) && p.uuid !== String(id)));
+    let snapshot: VideoProject[] = [];
+    setProjects((prev) => {
+      snapshot = prev;  // capture at time of removal
+      return prev.filter((p) => String(p.id) !== String(id) && p.uuid !== String(id));
+    });
     try {
       await apiClient.delete(`/api/v1/nle/projects/${id}`);
     } catch (err) {
@@ -100,7 +103,7 @@ export function useVideoProjects(): UseVideoProjectsReturn {
       setProjects(snapshot);
       throw err;
     }
-  }, [projects]);
+  }, []);
 
   return {
     projects,

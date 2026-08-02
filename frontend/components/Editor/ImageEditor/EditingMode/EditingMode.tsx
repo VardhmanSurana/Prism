@@ -369,15 +369,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     cropperRef.current?.setAspectRatio(ratio);
   }, []);
 
-  const editingSrc = useMemo(() => {
-    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || (photo.path ? `local://${photo.path}` : photo.url) || `/api/v1/photos/${photo.id}/file`;
-    if (!baseSrc) return '';
-    if (baseSrc.startsWith('blob:') || baseSrc.startsWith('data:')) return baseSrc;
-    const resolved = resolveUrl(baseSrc);
-    const sep = resolved.includes('?') ? '&' : '?';
-    return `${resolved}${sep}nocache=${photo.id}`;
-  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl]);
-
   const handleReady = useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;

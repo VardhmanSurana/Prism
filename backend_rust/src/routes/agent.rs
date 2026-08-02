@@ -329,3 +329,7 @@ pub async fn chat_with_agent(
         .body(body)
         .unwrap())
 }
+
+pub async fn preload_agent() -> Json<Value> {
+    Json(json!({ "status": "ok", "message": "Agent preloaded" }))
+}

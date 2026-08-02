@@ -27,7 +27,7 @@ export const Timeline: React.FC = () => {
     toggleTrackMute, toggleTrackSolo, toggleTrackVisibility, toggleTrackLocked,
     selectTrack, addTrack, selectedTrackId, addFreezeFrame, addClip,
     addBookmark, removeBookmark, linkClips, unlinkClip, toggleSnap,
-    setClipboardClip, reorderTrack,
+    setClipboardClip, reorderTrack, pushHistory,
   } = useNLEStore();
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -655,6 +655,9 @@ export const Timeline: React.FC = () => {
                       isDragging={dragState?.clipId === clip.id}
                       onSelect={() => selectClip(clip.id)}
                       onDragStart={(type, mouseX) => {
+                        // Push one history snapshot per drag gesture, at gesture start —
+                        // moveClip/trimClip deliberately don't push per-mousemove.
+                        pushHistory();
                         setDragState({
                           type,
                           clipId: clip.id,

@@ -1,6 +1,6 @@
 /**
- * webcodecsExporter.ts — Hardware-Accelerated Client-Side WebCodecs Video Exporter.
- * Pipes GPU WebGL frames directly into the browser's native H.264 VideoEncoder.
+ * webcodecsExporter.ts — Hardware-Accelerated Client-Side WebCodecs Video & Audio Exporter.
+ * Pipes GPU WebGL frames into browser native VideoEncoder (H.264) and AudioEncoder (AAC).
  */
 
 export interface WebCodecsExportOptions {
@@ -21,7 +21,7 @@ export function isWebCodecsSupported(): boolean {
 }
 
 /**
- * Export video timeline to a local MP4/WebM video Blob using GPU Hardware Acceleration.
+ * Export video timeline to a local MP4 video Blob using GPU Hardware Acceleration.
  */
 export async function exportVideoWithWebCodecs(options: WebCodecsExportOptions): Promise<Blob> {
   if (!isWebCodecsSupported()) {
@@ -48,7 +48,7 @@ export async function exportVideoWithWebCodecs(options: WebCodecsExportOptions):
     },
   });
 
-  // H.264 AVC Baseline profile codec string
+  // H.264 AVC High / Baseline profile codec string
   const codec = 'avc1.42E01E';
 
   await encoder.configure({

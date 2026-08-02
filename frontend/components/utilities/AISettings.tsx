@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Play, Square, RefreshCw, Terminal, Gauge } from 'lucide-react';
+import { Play, Square, RefreshCw, Terminal, Gauge, Zap } from 'lucide-react';
 import { API_BASE } from '../../constants';
 import { Switch, Select } from '../ui';
 import { useSettingsStore } from '../../store';
@@ -260,7 +260,7 @@ export const AISettings: React.FC = () => {
           <div className="cr-card-title flex items-center justify-between">
             <span>GPU Acceleration</span>
             <span className="font-mono text-[10px] text-[var(--cr-accent)] font-bold">
-              {settings.GPU_MODE !== 'cpu' ? '[ACTIVE]' : '[STANDBY]'}
+              {settings.GPU_MODE !== 'cpu' ? 'Active' : 'Standby'}
             </span>
           </div>
 
@@ -271,6 +271,8 @@ export const AISettings: React.FC = () => {
             </div>
             <select
               className="cr-terminal-select"
+              id="gpu-mode-select"
+              name="gpuMode"
               value={settings.GPU_MODE}
               onChange={(e) => handleSelectChange(e.target.value)}
               aria-label="GPU processing mode"
@@ -288,11 +290,13 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Mixed Precision</span>
               <span className="cr-toggle-desc">FP16 inference for reduced VRAM footprint</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.GPU_MODE !== 'cpu' ? 'on' : 'off'}`}
-            >
-              {settings.GPU_MODE !== 'cpu' ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.GPU_MODE !== 'cpu'}
+              disabled={true}
+              onToggle={() => {}}
+              ariaLabel="Mixed Precision FP16 inference status"
+            />
           </div>
 
           <div className="cr-toggle-row">
@@ -300,41 +304,60 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Inpainting & Video AI</span>
               <span className="cr-toggle-desc">Smart object removal & multi-track timeline AI</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_INPAINTING ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_INPAINTING')}
-            >
-              {settings.ENABLE_AI_INPAINTING ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_INPAINTING}
+              onToggle={() => handleToggle('ENABLE_AI_INPAINTING')}
+              ariaLabel="Toggle Inpainting & Video AI"
+            />
           </div>
         </div>
 
         {/* Card 2: Background Workers */}
         <div className="cr-card">
-          <div className="cr-card-title flex justify-between items-center">
+          <div className="cr-card-title flex flex-wrap justify-between items-center gap-2">
             <div className="flex items-center gap-2">
               <span>Background Workers</span>
               <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase border ${statusBadgeStyle}`}>
                 {statusText}
               </span>
             </div>
-            {isWorkerPaused ? (
+
+            <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={handleStartWorker}
-                className="cr-inline-btn primary flex items-center gap-1 text-[9px]"
+                className="px-3 py-1.5 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+                title="Trigger immediate background indexing run"
               >
-                <Play size={9} className="fill-current" />
-                START
+                <Zap size={13} className="fill-current text-blue-400" />
+                Run Sync
               </button>
-            ) : (
-              <button
-                onClick={handleStopWorker}
-                className="cr-inline-btn text-[9px] text-[var(--cr-status-error)] hover:border-[var(--cr-status-error)]"
-              >
-                <Square size={9} className="fill-current" />
-                HALT
-              </button>
-            )}
+
+              {isWorkerPaused ? (
+                <button
+                  type="button"
+                  onClick={handleStartWorker}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-mono text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Play size={13} className="fill-current" />
+                  Start Workers
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleStopWorker}
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 font-mono text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                >
+                  <Square size={13} className="fill-current" />
+                  Pause Workers
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="p-3 my-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-xs text-zinc-400 leading-relaxed">
+            💡 <strong>How Background Workers operate:</strong> Workers run automatically when active to index photos, generate embeddings, and detect faces. If status shows <em>Active (Idle)</em>, workers are running and awaiting new imports. Click <strong>Run Sync</strong> to trigger an immediate pass.
           </div>
 
           <div className="cr-toggle-row">
@@ -342,12 +365,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Auto-Index & Background Sync</span>
               <span className="cr-toggle-desc">Index new media assets upon import</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_IMAGE_BG_PROCESS ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_IMAGE_BG_PROCESS')}
-            >
-              {settings.ENABLE_IMAGE_BG_PROCESS ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_IMAGE_BG_PROCESS}
+              onToggle={() => handleToggle('ENABLE_IMAGE_BG_PROCESS')}
+              ariaLabel="Toggle Auto-Index & Background Sync"
+            />
           </div>
 
           <div className="cr-toggle-row">
@@ -355,12 +378,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Face Recognition & Clustering</span>
               <span className="cr-toggle-desc">Detect & cluster faces when system is idle</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_FACE ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_FACE')}
-            >
-              {settings.ENABLE_AI_FACE ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_FACE}
+              onToggle={() => handleToggle('ENABLE_AI_FACE')}
+              ariaLabel="Toggle Face Recognition & Clustering"
+            />
           </div>
 
           <div className="cr-toggle-row">
@@ -368,12 +391,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Video Keyframe Processing</span>
               <span className="cr-toggle-desc">Automated video face & speech subtitles</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_VIDEO_BG_PROCESS ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_VIDEO_BG_PROCESS')}
-            >
-              {settings.ENABLE_VIDEO_BG_PROCESS ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_VIDEO_BG_PROCESS}
+              onToggle={() => handleToggle('ENABLE_VIDEO_BG_PROCESS')}
+              ariaLabel="Toggle Video Keyframe Processing"
+            />
           </div>
         </div>
       </div>
@@ -388,12 +411,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">SigLIP Semantic Search</span>
               <span className="cr-toggle-desc">Vector indexing for natural language query</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_CLIP ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_CLIP')}
-            >
-              {settings.ENABLE_AI_CLIP ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_CLIP}
+              onToggle={() => handleToggle('ENABLE_AI_CLIP')}
+              ariaLabel="Toggle SigLIP Semantic Search"
+            />
           </div>
 
           <div className="cr-toggle-row border-none">
@@ -401,12 +424,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Gemma Scene Captioning</span>
               <span className="cr-toggle-desc">Detailed scene description generation</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_CAPTION ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_CAPTION')}
-            >
-              {settings.ENABLE_AI_CAPTION ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_CAPTION}
+              onToggle={() => handleToggle('ENABLE_AI_CAPTION')}
+              ariaLabel="Toggle Gemma Scene Captioning"
+            />
           </div>
 
           <div className="cr-toggle-row border-none">
@@ -414,12 +437,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">OCR Text Extraction</span>
               <span className="cr-toggle-desc">Index embedded text in screenshots & receipts</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_OCR ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_OCR')}
-            >
-              {settings.ENABLE_AI_OCR ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_OCR}
+              onToggle={() => handleToggle('ENABLE_AI_OCR')}
+              ariaLabel="Toggle OCR Text Extraction"
+            />
           </div>
 
           <div className="cr-toggle-row border-none">
@@ -427,12 +450,12 @@ export const AISettings: React.FC = () => {
               <span className="cr-toggle-label">Conversational AI Agent</span>
               <span className="cr-toggle-desc">Interactive photo query assistant</span>
             </div>
-            <span
-              className={`cr-toggle-indicator ${settings.ENABLE_AI_AGENT ? 'on' : 'off'}`}
-              onClick={() => handleToggle('ENABLE_AI_AGENT')}
-            >
-              {settings.ENABLE_AI_AGENT ? '[ON]' : '[OFF]'}
-            </span>
+            <Switch
+              label=""
+              checked={settings.ENABLE_AI_AGENT}
+              onToggle={() => handleToggle('ENABLE_AI_AGENT')}
+              ariaLabel="Toggle Conversational AI Agent"
+            />
           </div>
         </div>
       </div>
@@ -455,6 +478,8 @@ export const AISettings: React.FC = () => {
           <div className="flex items-center gap-3 shrink-0">
             <input
               type="range"
+              id="ai-telemetry-sample-rate-input"
+              name="aiTelemetrySampleRate"
               min={0}
               max={50}
               step={1}
@@ -487,7 +512,13 @@ export const AISettings: React.FC = () => {
             <span className="cr-toggle-label">Frontend Event Buffering</span>
             <span className="cr-toggle-desc">User actions are batched (800ms debounce) and sent in bulk to minimize network overhead. Errors bypass the buffer and are sent immediately.</span>
           </div>
-          <span className="cr-toggle-indicator on">[ON]</span>
+          <Switch
+            label=""
+            checked={true}
+            disabled={true}
+            onToggle={() => {}}
+            ariaLabel="Frontend Event Buffering status"
+          />
         </div>
       </div>
 
@@ -496,24 +527,26 @@ export const AISettings: React.FC = () => {
         <div className="cr-card-title flex items-center justify-between mb-2">
           <span className="flex items-center gap-2">
             <Terminal size={12} className="text-[var(--cr-accent)]" />
-            LIVE ENGINE LOG STREAM
+            Live Engine Logs
           </span>
           <div className="flex items-center gap-4 text-[10px] font-mono text-[var(--cr-text-muted)]">
             <label className="flex items-center gap-1.5 cursor-pointer hover:text-[var(--cr-text-primary)]">
               <input
                 type="checkbox"
+                id="auto-refresh-logs-checkbox"
+                name="autoRefreshLogs"
                 checked={autoRefreshLogs}
                 onChange={(e) => setAutoRefreshLogs(e.target.checked)}
                 className="rounded border-[var(--cr-border)] bg-[var(--cr-surface-sunken)] text-[var(--cr-accent)]"
               />
-              <span>AUTO_SYNC</span>
+              <span>Auto Sync</span>
             </label>
             <button
               onClick={fetchLogs}
               className="hover:text-[var(--cr-accent)] flex items-center gap-1"
             >
               <RefreshCw size={9} />
-              <span>REFRESH</span>
+              <span>Refresh</span>
             </button>
           </div>
         </div>

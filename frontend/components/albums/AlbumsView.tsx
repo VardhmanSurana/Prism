@@ -59,7 +59,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
 
   const handleConfirmDelete = async () => {
     if (dialog.type !== 'delete') return;
-    await deleteAlbum(dialog.album.id);
+    await deleteAlbum(Number(dialog.album.id));
     closeDialog();
   };
 

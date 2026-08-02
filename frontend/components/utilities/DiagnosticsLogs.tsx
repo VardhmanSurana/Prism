@@ -377,17 +377,17 @@ export const DiagnosticsLogs: React.FC = () => {
               className="cr-inline-btn flex items-center gap-1 text-[10px]"
             >
               <RefreshCw size={10} className={isRefreshing ? 'animate-spin' : ''} />
-              <span>SYNC</span>
+              <span>Sync</span>
             </button>
           </div>
 
           <div className="space-y-1">
-            <div className="cr-key-value"><span className="k">Platform</span><span className="v">{data?.platform || 'Linux x86_64 (Sequoia)'}</span></div>
-            <div className="cr-key-value"><span className="k">Python Host</span><span className="v">{data?.python_version || 'Python 3.11'}</span></div>
+            <div className="cr-key-value"><span className="k">Operating System</span><span className="v">{data?.platform || 'Linux x86_64 (Sequoia)'}</span></div>
+            <div className="cr-key-value"><span className="k">Python Runtime</span><span className="v">{data?.python_version || 'Python 3.11'}</span></div>
             <div className="cr-key-value"><span className="k">Database Path</span><span className="v truncate max-w-[200px]" title={data?.database_path}>{data?.database_path || 'prism.db'}</span></div>
-            <div className="cr-key-value"><span className="k">Database WAL</span><span className="v val-accent">{formatBytes(data?.database_size_bytes || 598000)}</span></div>
+            <div className="cr-key-value"><span className="k">Database Log</span><span className="v val-accent">{formatBytes(data?.database_size_bytes || 598000)}</span></div>
             <div className="cr-key-value"><span className="k">Thumbnail Cache</span><span className="v val-accent">{formatBytes(data?.thumbnail_cache_size_bytes || 5560000)}</span></div>
-            <div className="cr-key-value"><span className="k">Status</span><span className="v val-accent">ALL_SYSTEMS_NOMINAL</span></div>
+            <div className="cr-key-value"><span className="k">Status</span><span className="v val-accent">Nominal</span></div>
           </div>
         </div>
 
@@ -417,7 +417,7 @@ export const DiagnosticsLogs: React.FC = () => {
           <div className="pt-3 mt-2 border-t border-[var(--cr-border)]">
             <div className="cr-card-title mb-1">Process Telemetry</div>
             <div className="cr-key-value"><span className="k">Background Workers</span><span className="v val-accent">3 active</span></div>
-            <div className="cr-key-value"><span className="k">Active Mounts</span><span className="v">{data?.active_mounts?.length || 1} territory</span></div>
+            <div className="cr-key-value"><span className="k">Watched Folders</span><span className="v">{data?.active_mounts?.length || 1} active</span></div>
           </div>
         </div>
       </div>
@@ -431,7 +431,7 @@ export const DiagnosticsLogs: React.FC = () => {
             <Radio size={13} className={sseConnected ? 'text-green-400 animate-pulse' : 'text-red-400'} />
             <span>Telemetry Collection</span>
             <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sseConnected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-              {sseConnected ? 'SSE_LIVE' : 'SSE_DISCONNECTED'}
+              {sseConnected ? 'Live' : 'Disconnected'}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -453,7 +453,7 @@ export const DiagnosticsLogs: React.FC = () => {
               onClick={() => setShowTelemetryPanel(!showTelemetryPanel)}
               className="cr-inline-btn text-[10px]"
             >
-              {showTelemetryPanel ? 'COLLAPSE' : 'EXPAND'}
+              {showTelemetryPanel ? 'Collapse' : 'Expand'}
             </button>
           </div>
         </div>
@@ -462,29 +462,29 @@ export const DiagnosticsLogs: React.FC = () => {
           <div className="space-y-3">
             {/* Telemetry stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
-                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Total Events</div>
-                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.total_events ?? telemetryEvents.length}</div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
+                <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Total Events</div>
+                <div className="text-xl font-bold text-[var(--cr-accent)] font-mono tabular-nums">{telemetrySummary?.total_events ?? telemetryEvents.length}</div>
               </div>
-              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
-                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Events/min</div>
-                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.events_per_minute?.toFixed(1) ?? '0.0'}</div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
+                <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Events/min</div>
+                <div className="text-xl font-bold text-[var(--cr-accent)] font-mono tabular-nums">{telemetrySummary?.events_per_minute?.toFixed(1) ?? '0.0'}</div>
               </div>
-              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
-                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Avg Latency</div>
-                <div className="text-lg font-bold text-[var(--cr-accent)] font-mono">{telemetrySummary?.avg_latency_ms?.toFixed(1) ?? '—'}<span className="text-xs">ms</span></div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
+                <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Avg Latency</div>
+                <div className="text-xl font-bold text-[var(--cr-accent)] font-mono tabular-nums">{telemetrySummary?.avg_latency_ms?.toFixed(1) ?? '—'}<span className="text-xs ml-0.5">ms</span></div>
               </div>
-              <div className="bg-[var(--cr-surface-sunken)] rounded p-2 text-center">
-                <div className="text-[9px] text-[var(--cr-text-muted)] uppercase tracking-wider">Errors</div>
-                <div className={`text-lg font-bold font-mono ${errorEventCount > 0 ? 'text-red-400' : 'text-[var(--cr-accent)]'}`}>{errorEventCount}</div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
+                <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Errors</div>
+                <div className={`text-xl font-bold font-mono tabular-nums ${errorEventCount > 0 ? 'text-red-400' : 'text-[var(--cr-accent)]'}`}>{errorEventCount}</div>
               </div>
             </div>
 
             {/* Source breakdown */}
-            <div className="flex items-center gap-4 font-mono text-[10px] text-[var(--cr-text-muted)]">
-              <span className="flex items-center gap-1"><Server size={10} /> Backend: <span className="text-[var(--cr-accent)]">{backendEventCount}</span></span>
-              <span className="flex items-center gap-1"><Activity size={10} /> Frontend: <span className="text-[var(--cr-accent)]">{frontendEventCount}</span></span>
-              <span className="flex items-center gap-1"><Clock size={10} /> Last update: <span className="text-[var(--cr-accent)]">{lastRefreshed?.toLocaleTimeString() ?? '—'}</span></span>
+            <div className="flex items-center gap-4 font-mono text-xs text-[var(--cr-text-muted)]">
+              <span className="flex items-center gap-1"><Server size={12} /> Backend: <span className="text-[var(--cr-accent)] tabular-nums">{backendEventCount}</span></span>
+              <span className="flex items-center gap-1"><Activity size={12} /> Frontend: <span className="text-[var(--cr-accent)] tabular-nums">{frontendEventCount}</span></span>
+              <span className="flex items-center gap-1"><Clock size={12} /> Last update: <span className="text-[var(--cr-accent)] tabular-nums">{lastRefreshed?.toLocaleTimeString() ?? '—'}</span></span>
             </div>
 
             {/* Telemetry Sample Rate Control */}
@@ -494,39 +494,45 @@ export const DiagnosticsLogs: React.FC = () => {
                   <Gauge size={11} className="text-[var(--cr-accent)]" />
                   <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--cr-text-muted)]">Backend Sample Rate</span>
                 </div>
-                <span className="font-mono text-[10px] text-[var(--cr-accent)]">
-                  {localSampleRate === 0 ? 'OFF (errors only)' : localSampleRate === 1 ? 'ALL requests' : `1 in ${localSampleRate}`}
+                <span className="font-mono text-[10px] text-[var(--cr-accent)] font-semibold">
+                  {localSampleRate === 0 ? 'Off (errors only)' : localSampleRate === 1 ? 'All requests' : `1 in ${localSampleRate}`}
                 </span>
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="range"
-                  min={0}
-                  max={50}
-                  step={1}
-                  value={localSampleRate}
-                  onChange={(e) => setLocalSampleRate(Number(e.target.value))}
-                  className="flex-1 h-1 bg-[var(--cr-border)] rounded-lg appearance-none cursor-pointer accent-[var(--cr-accent)]"
-                />
+              <div className="flex items-start gap-3 pt-1">
+                <div className="flex-1 space-y-2">
+                  <input
+                    type="range"
+                    id="telemetry-sample-rate-input"
+                    name="telemetrySampleRate"
+                    aria-label="Backend sample rate slider"
+                    min={0}
+                    max={50}
+                    step={1}
+                    value={localSampleRate}
+                    onChange={(e) => setLocalSampleRate(Number(e.target.value))}
+                    className="w-full h-1 bg-[var(--cr-border)] rounded-lg appearance-none cursor-pointer accent-[var(--cr-accent)] block my-1.5"
+                  />
+                  {/* Ticks positioned below the slider input */}
+                  <div className="relative h-4 font-mono text-[10px] text-[var(--cr-text-muted)] select-none pointer-events-none">
+                    <span className="absolute left-0 top-0">Off (0)</span>
+                    <span className="absolute left-[20%] -translate-x-1/2 top-0">Default (10)</span>
+                    <span className="absolute left-[50%] -translate-x-1/2 top-0">25</span>
+                    <span className="absolute right-0 top-0">Sparse (50)</span>
+                  </div>
+                </div>
                 <button
                   onClick={handleApplySampleRate}
                   disabled={sampleRateStatus === 'saving'}
-                  className={`cr-inline-btn text-[9px] px-2 py-0.5 ${
+                  className={`cr-inline-btn text-[10px] shrink-0 ${
                     sampleRateStatus === 'saved' ? 'bg-green-900/40 text-green-400 border-green-500/30' :
                     sampleRateStatus === 'error' ? 'bg-red-900/40 text-red-400 border-red-500/30' :
                     sampleRateStatus === 'saving' ? 'opacity-60' : ''
                   }`}
                 >
-                  {sampleRateStatus === 'saving' ? 'SAVING...' :
-                   sampleRateStatus === 'saved' ? '✓ APPLIED' :
-                   sampleRateStatus === 'error' ? '✗ FAILED' : 'APPLY'}
+                  {sampleRateStatus === 'saving' ? 'Saving...' :
+                   sampleRateStatus === 'saved' ? '✓ Applied' :
+                   sampleRateStatus === 'error' ? '✗ Failed' : 'Apply'}
                 </button>
-              </div>
-              <div className="flex justify-between font-mono text-[8px] text-[var(--cr-text-muted)] mt-1 px-0.5">
-                <span>0 = OFF</span>
-                <span>1 = ALL</span>
-                <span>10 = default</span>
-                <span>50 = sparse</span>
               </div>
             </div>
 
@@ -548,7 +554,7 @@ export const DiagnosticsLogs: React.FC = () => {
                   const meta = evt.metadata_json ? (() => { try { return JSON.parse(evt.metadata_json); } catch { return null; } })() : null;
 
                   return (
-                    <div key={evt.id || idx} className="cr-log-line group">
+                    <div key={evt.id != null ? `telemetry-${evt.id}-${idx}` : `telemetry-idx-${idx}`} className="cr-log-line group">
                       <span className="cr-log-time">{ts}</span>
                       <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : 'ok'}`}>
                         {isError ? '[ERR]' : isWarn ? '[WARN]' : '[ OK ]'}
@@ -639,16 +645,19 @@ export const DiagnosticsLogs: React.FC = () => {
               disabled={isExporting}
               className="cr-inline-btn primary text-center"
             >
-              {isExporting ? 'CREATING_SNAPSHOT...' : 'CREATE_BACKUP_NOW'}
+              {isExporting ? 'Creating Backup...' : 'Create Backup'}
             </button>
             <button
               onClick={handleImportClick}
               className="cr-inline-btn text-center"
             >
-              RESTORE_FROM_BACKUP
+              Restore from Backup
             </button>
             <input 
               type="file" 
+              id="restore-backup-file-input"
+              name="restoreBackupFile"
+              aria-label="Restore backup file input"
               ref={fileInputRef} 
               onChange={handleFileChange} 
               accept=".zip" 
@@ -679,32 +688,32 @@ export const DiagnosticsLogs: React.FC = () => {
               onClick={handleCopyLogs}
               className="cr-inline-btn"
             >
-              {copiedLog ? 'COPIED' : 'COPY'}
+              {copiedLog ? 'Copied' : 'Copy'}
             </button>
             <button
               onClick={handleDownloadLogs}
               className="cr-inline-btn"
             >
-              DOWNLOAD
+              Download
             </button>
             <button
               onClick={handleClearLogs}
               className="cr-inline-btn"
             >
-              CLEAR
+              Clear
             </button>
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
               className={`cr-inline-btn ${autoRefresh ? 'primary' : ''}`}
             >
-              {autoRefresh ? 'PAUSE' : 'STREAM'}
+              {autoRefresh ? 'Pause' : 'Stream'}
             </button>
           </div>
         </div>
 
         {/* Filter Pills */}
         <div className="flex items-center gap-2 pb-2 font-mono text-[10px] flex-wrap">
-          <span className="text-[var(--cr-text-muted)]">FILTER:</span>
+          <span className="text-[var(--cr-text-muted)]">Filter:</span>
           {(['all', 'errors', 'warnings', 'backend', 'ai', 'frontend', 'navigation'] as LogFilter[]).map((filter) => (
             <button
               key={filter}
@@ -735,7 +744,7 @@ export const DiagnosticsLogs: React.FC = () => {
               let isOk = line.includes('OK') || line.includes('Connected') || line.includes('Loaded');
 
               return (
-                <div key={idx} className="cr-log-line">
+                <div key={`log-${idx}`} className="cr-log-line">
                   <span className="cr-log-time">[{idx + 1}]</span>
                   <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : isOk ? 'ok' : 'info'}`}>
                     {isError ? '[ERR]' : isWarn ? '[WARN]' : isOk ? '[ OK ]' : '[INFO]'}

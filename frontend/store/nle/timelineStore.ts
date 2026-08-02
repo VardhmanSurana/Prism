@@ -78,7 +78,7 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   },
 
   moveClip: (clipId, newStartFrame, newTrackId) => {
-    get().pushHistory();
+    // ponytail: no pushHistory here — UI pushes once on drag start
     set((s) => {
       let movedClip: Clip | undefined;
       let originalStartFrame = 0;
@@ -183,7 +183,7 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   },
 
   trimClip: (clipId, side, newFrame) => {
-    get().pushHistory();
+    // ponytail: no pushHistory here — UI pushes once on drag start
     set((s) => {
       let trimmedClip: Clip | null = null;
       let targetTrackId: string | null = null;

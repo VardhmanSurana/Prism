@@ -8,7 +8,7 @@ import { nextClipId } from './helpers';
 export interface ActionsSlice {
   addClipFromLibrary: (
     trackId: string,
-    photo: { id: number; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }
+    photo: { id: number | string; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }
   ) => Promise<void>;
   linkClips: (clipIdA: string, clipIdB: string) => void;
   unlinkClip: (clipId: string) => void;
@@ -23,21 +23,44 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
     const fps = photo.fps ?? state.projectFps;
     const duration = photo.duration ?? 5;
 
-    let clipAnalysis: { clip_id: number; source_path: string; duration: number; fps?: number } | null = null;
+    let clipAnalysis: { clip_id: number | string; source_path: string; duration: number; fps?: number } | null = null;
     try {
       clipAnalysis = await apiClient.post(`/api/v1/nle/clips/analyze`, { photo_id: photo.id, source_path: photo.path });
     } catch (e) {
-      console.error('Failed to analyze video clip:', e);
-      return;
+      console.warn('Clip analysis fallback:', e);
     }
 
     const clipDuration = clipAnalysis?.duration ?? duration;
     const clipFps = clipAnalysis?.fps ?? fps;
 
-    const track = state.tracks.find((t) => t.id === trackId);
+    let currentTracks = [...state.tracks];
+
+    // If no tracks exist, create a default Video 1 track
+    if (currentTracks.length === 0) {
+      const defaultTrack: Track = {
+        id: `track_${Date.now()}`,
+        type: 'video',
+        name: 'Video 1',
+        muted: false,
+        solo: false,
+        visible: true,
+        locked: false,
+        clips: [],
+      };
+      currentTracks.push(defaultTrack);
+      trackId = defaultTrack.id;
+    }
+
+    // Ensure target track exists
+    let targetTrack = currentTracks.find((t) => t.id === trackId);
+    if (!targetTrack) {
+      targetTrack = currentTracks[0];
+      trackId = targetTrack.id;
+    }
+
     let startFrame = 0;
-    if (track && track.clips.length > 0) {
-      const lastClip = track.clips.reduce((latest, c) =>
+    if (targetTrack.clips.length > 0) {
+      const lastClip = targetTrack.clips.reduce((latest, c) =>
         (c.startFrame + c.durationFrames) > (latest.startFrame + latest.durationFrames) ? c : latest
       );
       startFrame = lastClip.startFrame + lastClip.durationFrames;
@@ -50,7 +73,7 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
       proxyPath: (clipAnalysis as any)?.proxy_path,
       sourceDuration: clipDuration,
       startFrame,
-      durationFrames: Math.round(clipDuration * clipFps),
+      durationFrames: Math.max(1, Math.round(clipDuration * clipFps)),
       inPoint: 0,
       outPoint: clipDuration,
       speed: 1.0,
@@ -65,10 +88,10 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
 
     get().pushHistory();
     set((s) => {
-      const tracks = s.tracks.map((t) =>
+      const updatedTracks = (s.tracks.length === 0 ? currentTracks : s.tracks).map((t) =>
         t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
       );
-      return { tracks, duration: computeTimelineDuration(tracks, s.projectFps), isDirty: true };
+      return { tracks: updatedTracks, duration: computeTimelineDuration(updatedTracks, s.projectFps), isDirty: true };
     });
   },
 

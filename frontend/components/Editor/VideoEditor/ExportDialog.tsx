@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useNLEStore } from '@/store/nleStore';
 import { API_BASE } from '@/constants';
 import { save } from '@tauri-apps/plugin-dialog';
@@ -21,7 +21,12 @@ const EXPORT_PRESETS = [
 ] as const;
 
 export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
-  const { toProjectJson, projectWidth, projectHeight, projectFps, duration, seek } = useNLEStore();
+  const toProjectJson = useNLEStore((s) => s.toProjectJson);
+  const projectWidth = useNLEStore((s) => s.projectWidth);
+  const projectHeight = useNLEStore((s) => s.projectHeight);
+  const projectFps = useNLEStore((s) => s.projectFps);
+  const duration = useNLEStore((s) => s.duration);
+  const seek = useNLEStore((s) => s.seek);
   const [resolution, setResolution] = useState<[number, number]>([projectWidth, projectHeight]);
   const [fps, setFps] = useState(projectFps);
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
@@ -33,6 +38,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
   const [progress, setProgress] = useState<string | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
+  // Revoke ObjectURL on unmount or when replaced
+  useEffect(() => {
+    return () => { if (downloadUrl) URL.revokeObjectURL(downloadUrl); };
+  }, [downloadUrl]);
 
   const { logAction, logError } = useTelemetry();
 
@@ -65,7 +75,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
           quality,
           renderFrameAtTime: async (tSec) => {
             seek(tSec);
-            await new Promise((r) => setTimeout(r, 16));
+            // ponytail: rAF yields to the render pipeline; setTimeout(16) didn't
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
             return (document.querySelector('canvas') as HTMLCanvasElement) || undefined;
           },
           onProgress: (pct, currentFrame, totalFrames) => {
@@ -75,7 +86,8 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
         });
 
         const url = URL.createObjectURL(blob);
-        setDownloadUrl(url);
+        // Revoke previous URL if any before setting new one
+        setDownloadUrl((prev) => { if (prev) URL.revokeObjectURL(prev); return url; });
         setProgress(`Hardware export completed successfully!\nReady for download or save.`);
         logAction('VideoEditor', 'export_success', { engine: 'webcodecs', resolution, fps });
         return;

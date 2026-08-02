@@ -12,6 +12,8 @@ const LockedViewAuth = React.lazy(() => import('../LockedViewAuth/index').then(m
 const LockedFolderView = React.lazy(() => import('../LockedViewAuth/LockedFolderView').then(m => ({ default: m.LockedFolderView })));
 const AgentView = React.lazy(() => import('../AgentView/AgentView').then(m => ({ default: m.AgentView })));
 const ProjectsDashboard = React.lazy(() => import('../projects/ProjectsDashboard').then(m => ({ default: m.ProjectsDashboard })));
+const Appearance = React.lazy(() => import('../utilities/Appearance').then(m => ({ default: m.Appearance })));
+const TrashView = React.lazy(() => import('../TrashView/TrashView').then(m => ({ default: m.TrashView })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -101,6 +103,12 @@ export const MainContent = React.memo(function MainContent({
             onResetSuccess={onResetSuccess}
           />
         );
+      case 'appearance':
+        return (
+          <div className="p-4 md:p-7 max-w-5xl mx-auto flex-1">
+            <Appearance />
+          </div>
+        );
       case 'locked':
         if (!isLockedAuthenticated) {
           return <LockedViewAuth onAuthenticate={onAuthenticate} />;
@@ -114,6 +122,17 @@ export const MainContent = React.memo(function MainContent({
             onToggleGroupSelection={onToggleGroupSelection}
             onLockSession={onLockSession}
             scrollParentRef={scrollRef}
+          />
+        );
+      case 'trash':
+        return (
+          <TrashView
+            photos={photos}
+            selectedIds={selectedIds}
+            onPhotoClick={onPhotoClick}
+            onToggleSelection={onToggleSelection}
+            onToggleGroupSelection={onToggleGroupSelection}
+            onUpdatePhotos={onUpdatePhotos}
           />
         );
       default:

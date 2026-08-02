@@ -2,7 +2,7 @@ import { NLEProject, Track, Clip, ClipEffects, ClipTransform, Transition, VideoC
 export * from '@/types/nle';
 
 export interface ProjectAsset {
-  id: number;
+  id: number | string;
   path: string;
   filename?: string;
   duration?: number;
@@ -97,7 +97,7 @@ export interface NLEStore {
   detachAudio: (clipId: string) => void;
 
   // Multi-clip
-  addClipFromLibrary: (trackId: string, photo: { id: number; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }) => Promise<void>;
+  addClipFromLibrary: (trackId: string, photo: { id: number | string; path: string; filename?: string; duration?: number; width?: number; height?: number; fps?: number }) => Promise<void>;
 
   // Playback
   play: () => void;
@@ -127,7 +127,7 @@ export interface NLEStore {
 
   // Project assets
   addProjectAsset: (asset: ProjectAsset) => void;
-  removeProjectAsset: (assetId: number) => void;
+  removeProjectAsset: (assetId: number | string) => void;
 
   // Undo/Redo
   pushHistory: () => void;

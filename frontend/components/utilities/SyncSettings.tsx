@@ -1,4 +1,5 @@
 import React from 'react';
+import { Switch } from '../ui';
 
 interface SyncSettingsProps {
   syncEnabled: boolean;
@@ -38,6 +39,9 @@ const FolderInput: React.FC<{
     <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
       <input 
         type="text" 
+        id={placeholder ? `folder-input-${placeholder.replace(/[^a-zA-Z0-9]/g, '-')}` : 'folder-input'}
+        name={placeholder ? `folderInput-${placeholder.replace(/[^a-zA-Z0-9]/g, '')}` : 'folderInput'}
+        aria-label={placeholder ? `Folder path for ${placeholder}` : 'Folder path input'}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -45,9 +49,9 @@ const FolderInput: React.FC<{
       />
       <button 
         onClick={onBrowse}
-        className="px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
+        className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
       >
-        SELECT_PATH
+        Browse...
       </button>
     </div>
     <button 
@@ -55,7 +59,7 @@ const FolderInput: React.FC<{
       disabled={disabled}
       className="cr-inline-btn primary"
     >
-      ADD_PATH
+      Add Path
     </button>
   </div>
 );
@@ -68,7 +72,7 @@ const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder,
       className="shrink-0 text-[var(--cr-status-error)] hover:bg-[var(--cr-surface-card-hover)] px-2 py-0.5 rounded font-mono text-[10px] uppercase font-bold"
       title={`Remove ${folder}`}
     >
-      [REMOVE]
+      Remove
     </button>
   </div>
 );
@@ -112,17 +116,19 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
     <div className="space-y-4">
       {/* Auto sync toggle card */}
       <div className="cr-card">
-        <div className="cr-toggle-row border-none p-0">
+        <div className="flex items-center justify-between gap-4">
           <div className="cr-toggle-info">
             <span className="cr-toggle-label">Automatic System File Watcher</span>
             <span className="cr-toggle-desc">Automatically index photo assets added to watched territories</span>
           </div>
-          <span 
-            onClick={onToggleSync}
-            className={`cr-toggle-indicator ${syncEnabled ? 'on' : 'off'}`}
-          >
-            {syncEnabled ? '[ON]' : '[OFF]'}
-          </span>
+          <div className="shrink-0">
+            <Switch
+              label=""
+              checked={syncEnabled}
+              onToggle={onToggleSync}
+              ariaLabel="Toggle automatic system file watcher"
+            />
+          </div>
         </div>
       </div>
 

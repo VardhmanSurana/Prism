@@ -214,3 +214,194 @@ pub async fn delete_project(
         "uuid": project.uuid
     })))
 }
+
+#[derive(Deserialize)]
+pub struct GenerateProxyRequest {
+    pub source_path: String,
+    pub target_height: Option<i32>,
+}
+
+pub fn is_ffmpeg_installed() -> bool {
+    std::process::Command::new("ffmpeg")
+        .arg("-version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+pub async fn generate_proxy_video(
+    Json(payload): Json<GenerateProxyRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    if !is_ffmpeg_installed() {
+        return Ok(json!({
+            "status": "skipped",
+            "message": "FFmpeg binary not detected on host system. Using native original video source.",
+            "ffmpeg_available": false
+        }).into());
+    }
+
+    let height = payload.target_height.unwrap_or(720);
+    let source_path = std::path::Path::new(&payload.source_path);
+
+    if !source_path.exists() {
+        return Err((StatusCode::NOT_FOUND, "Source video file not found".to_string()));
+    }
+
+    let stem = source_path.file_stem().and_then(|s| s.to_str()).unwrap_or("proxy");
+    let proxy_filename = format!("{}_proxy_{}p.webm", stem, height);
+    let proxy_dir = std::env::temp_dir().join("prism_proxies");
+
+    if let Err(e) = std::fs::create_dir_all(&proxy_dir) {
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create proxy directory: {}", e)));
+    }
+
+    let proxy_path = proxy_dir.join(proxy_filename);
+    let proxy_path_str = proxy_path.to_string_lossy().to_string();
+
+    if proxy_path.exists() {
+        return Ok(Json(json!({
+            "status": "ready",
+            "proxy_path": proxy_path_str,
+            "ffmpeg_available": true
+        })));
+    }
+
+    let status = std::process::Command::new("ffmpeg")
+        .arg("-i")
+        .arg(&payload.source_path)
+        .arg("-vf")
+        .arg(format!("scale=-2:{}", height))
+        .arg("-c:v")
+        .arg("libvpx-vp9")
+        .arg("-b:v")
+        .arg("1M")
+        .arg("-c:a")
+        .arg("libopus")
+        .arg("-y")
+        .arg(&proxy_path_str)
+        .status();
+
+    match status {
+        Ok(s) if s.success() => Ok(Json(json!({
+            "status": "created",
+            "proxy_path": proxy_path_str,
+            "ffmpeg_available": true
+        }))),
+        _ => Err((StatusCode::INTERNAL_SERVER_ERROR, "FFmpeg proxy transcoding failed".to_string())),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct AnalyzeClipRequest {
+    pub photo_id: Option<Value>,
+    pub source_path: Option<String>,
+}
+
+pub async fn analyze_video_clip(
+    Json(payload): Json<AnalyzeClipRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let photo_id = payload.photo_id.unwrap_or(json!(0));
+    let source_path = payload.source_path.unwrap_or_default();
+
+    Ok(Json(json!({
+        "clip_id": photo_id,
+        "source_path": source_path,
+        "duration": 5.0,
+        "fps": 30
+    })))
+}
+
+// ---------------------------------------------------------------------------
+// Video streaming endpoint — serves media files for the preview player.
+// Resolves relative paths (e.g. "uploads/...") relative to the working dir.
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct StreamQuery {
+    pub path: String,
+}
+
+pub async fn stream_video(
+    axum::extract::Query(query): axum::extract::Query<StreamQuery>,
+) -> Result<axum::response::Response, (StatusCode, String)> {
+    use axum::http::header;
+    use std::path::PathBuf;
+    use tokio::fs::File;
+    use tokio_util::io::ReaderStream;
+
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let path_str = query.path.trim();
+
+    let mut file_path = if std::path::Path::new(path_str).is_absolute() {
+        PathBuf::from(path_str)
+    } else {
+        cwd.join(path_str)
+    };
+
+    if !file_path.exists() {
+        let alt1 = cwd.join("uploads").join(path_str);
+        if alt1.exists() {
+            file_path = alt1;
+        } else {
+            let filename_only = std::path::Path::new(path_str)
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let alt2 = cwd.join("uploads").join(&filename_only);
+            if alt2.exists() {
+                file_path = alt2;
+            } else {
+                return Err((StatusCode::NOT_FOUND, format!("File not found: {}", query.path)));
+            }
+        }
+    }
+
+    let metadata = tokio::fs::metadata(&file_path)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let file_size = metadata.len();
+    let mime = mime_guess::from_path(&file_path)
+        .first_or_octet_stream()
+        .to_string();
+
+    let file = File::open(&file_path)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let stream = ReaderStream::new(file);
+    let body = axum::body::Body::from_stream(stream);
+
+    Ok(axum::response::Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, mime)
+        .header(header::CONTENT_LENGTH, file_size.to_string())
+        .header(header::ACCEPT_RANGES, "bytes")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
+        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
+        .body(body)
+        .unwrap())
+}
+
+// ---------------------------------------------------------------------------
+// Thumbnail strip — returns empty array (real generation needs FFmpeg).
+// ClipElement.tsx silently ignores an empty thumbnails array.
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+#[allow(dead_code)]
+pub struct ThumbnailStripRequest {
+    pub source_path: Option<String>,
+    pub num_thumbnails: Option<u32>,
+    pub speed: Option<f64>,
+    pub in_point: Option<f64>,
+    pub out_point: Option<f64>,
+}
+
+pub async fn thumbnail_strip(
+    Json(_payload): Json<ThumbnailStripRequest>,
+) -> axum::response::Json<Value> {
+    // TODO: generate actual thumbnails with FFmpeg when available
+    Json(json!({ "thumbnails": [] }))
+}

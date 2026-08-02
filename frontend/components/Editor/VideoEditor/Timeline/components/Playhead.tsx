@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { formatTimecode } from '../utils';
+import { formatTimecode } from '../../editorUtils';
 
 interface PlayheadProps {
   playheadPosition: number;

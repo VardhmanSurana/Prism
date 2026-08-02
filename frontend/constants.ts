@@ -4,6 +4,9 @@ export const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_API_BASE;
 
 export const resolveUrl = (url: string) => {
   if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
   const [base, query] = url.split('?');
   let resolvedBase = base;
 
@@ -11,6 +14,8 @@ export const resolveUrl = (url: string) => {
     resolvedBase = `${API_BASE}${base}`;
   } else if (base.startsWith('thumbnails/') || base.startsWith('uploads/') || base.startsWith('crop_face/') || base.startsWith('api/v1/')) {
     resolvedBase = `${API_BASE}/${base}`;
+  } else if (base.startsWith('upload_')) {
+    resolvedBase = `${API_BASE}/uploads/${base}`;
   } else if (base.startsWith('local://')) {
     const path = base.replace('local://', '');
     resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(path)}`;
@@ -20,6 +25,8 @@ export const resolveUrl = (url: string) => {
   } else if (base.startsWith('hls://')) {
     const path = base.replace('hls://', '');
     resolvedBase = `${API_BASE}/hls/playlist?path=${encodeURIComponent(path)}`;
+  } else if (base.startsWith('/') || base.match(/^[a-zA-Z]:\\/)) {
+    resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(base)}`;
   }
 
   if (query) {

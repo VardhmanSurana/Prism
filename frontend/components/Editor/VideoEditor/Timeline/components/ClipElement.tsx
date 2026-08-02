@@ -169,7 +169,7 @@ export const ClipElement: React.FC<ClipElementProps> = ({
 
 const waveformCache = new Map<string, number[]>();
 
-const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number; height: number; speed: number; inPoint: number; outPoint: number }> = ({ clipId, sourcePath, width, height, speed, inPoint, outPoint }) => {
+const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number; height: number; speed: number; inPoint: number; outPoint: number }> = ({ sourcePath, width, height, speed, inPoint, outPoint }) => {
   const cacheKey = `${sourcePath}_${speed}_${inPoint}_${outPoint}`;
   const [peaks, setPeaks] = useState<number[]>(() => waveformCache.get(cacheKey) || []);
 
@@ -180,25 +180,62 @@ const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number;
     }
 
     let cancelled = false;
+    const mediaUrl = `${API_BASE}/api/v1/nle/stream?path=${encodeURIComponent(sourcePath)}`;
+
     fetch(`${API_BASE}/api/v1/nle/clips/waveform`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source_path: sourcePath, speed, in_point: inPoint, out_point: outPoint }),
-    }).then(r => r.json()).then(data => {
-      if (!cancelled && data.peaks) {
-        waveformCache.set(cacheKey, data.peaks);
-        setPeaks(data.peaks);
-      }
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [sourcePath, speed, inPoint, outPoint, cacheKey]);
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled && data.peaks && data.peaks.length > 0) {
+          waveformCache.set(cacheKey, data.peaks);
+          setPeaks(data.peaks);
+        } else if (!cancelled) {
+          // Fallback to client-side Web Audio API peak extraction
+          import('@/utils/audioWaveformExtractor').then(({ extractAudioPeaks }) => {
+            extractAudioPeaks(mediaUrl, Math.max(30, Math.floor(width / 4))).then((extracted) => {
+              if (!cancelled && extracted.length > 0) {
+                waveformCache.set(cacheKey, extracted);
+                setPeaks(extracted);
+              }
+            });
+          });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          // Fallback to client-side Web Audio API peak extraction on error
+          import('@/utils/audioWaveformExtractor').then(({ extractAudioPeaks }) => {
+            extractAudioPeaks(mediaUrl, Math.max(30, Math.floor(width / 4))).then((extracted) => {
+              if (!cancelled && extracted.length > 0) {
+                waveformCache.set(cacheKey, extracted);
+                setPeaks(extracted);
+              }
+            });
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sourcePath, width, speed, inPoint, outPoint, cacheKey]);
 
   if (peaks.length === 0) return null;
   const barWidth = width / peaks.length;
   return (
     <svg className="absolute inset-0 pointer-events-none" width={width} height={height}>
       {peaks.map((p, i) => (
-        <rect key={i} x={i * barWidth} y={height / 2 - (p * height / 2.5)} width={Math.max(barWidth - 0.5, 0.5)} height={p * height * 0.8} fill="rgba(52, 211, 153, 0.35)" />
+        <rect
+          key={i}
+          x={i * barWidth}
+          y={height / 2 - (p * height) / 2.5}
+          width={Math.max(barWidth - 0.5, 0.5)}
+          height={p * height * 0.8}
+          fill="rgba(52, 211, 153, 0.45)"
+        />
       ))}
     </svg>
   );

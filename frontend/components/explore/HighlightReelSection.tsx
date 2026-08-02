@@ -55,9 +55,11 @@ export const HighlightReelSection: React.FC = () => {
         const data = await res.json();
         if (data.project_json) {
           const project = JSON.parse(data.project_json);
-          const { setTracks, setProjectName } = useNLEStore.getState();
-          if (project.tracks) setTracks(project.tracks);
-          if (project.name) setProjectName(project.name);
+          useNLEStore.setState((s) => ({
+            ...(project.tracks ? { tracks: project.tracks } : {}),
+            ...(project.name ? { projectName: project.name } : {}),
+            isDirty: true,
+          }));
           // Navigate or open video editor tab if needed
           alert(`Highlight project '${reel.title}' generated and loaded into Video Editor!`);
         }

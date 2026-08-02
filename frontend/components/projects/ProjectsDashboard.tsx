@@ -243,11 +243,11 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -2, transition: { duration: 0.15 } }}
-      className="bg-[#0c0c0c] border border-[#20212b] rounded-xl overflow-hidden flex flex-col group cursor-pointer transition-shadow hover:border-[#2e2f3d] hover:shadow-[0_10px_24px_rgba(0,0,0,0.4)]"
+      className="bg-[#0c0c0c] border border-[#20212b] rounded-xl flex flex-col group cursor-pointer transition-shadow hover:border-[#2e2f3d] hover:shadow-[0_10px_24px_rgba(0,0,0,0.4)] relative"
       onClick={() => onOpen(targetKey)}
     >
       {/* Thumbnail preview area */}
-      <div className="relative">
+      <div className="relative rounded-t-xl overflow-hidden">
         <AspectPreview ratioKey={ratioKey} label={ratioLabel} />
 
         {/* Play overlay button */}
@@ -295,7 +295,7 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.97 }}
                   transition={{ duration: 0.12 }}
-                  className="absolute top-7 right-0 z-50 min-w-[140px] bg-[#161616] border border-[#20212b] rounded-lg shadow-[0_12px_28px_rgba(0,0,0,0.6)] p-1"
+                  className="absolute top-7 right-0 z-[100] min-w-[140px] bg-[#161616] border border-[#20212b] rounded-lg shadow-[0_12px_28px_rgba(0,0,0,0.8)] p-1"
                   role="menu"
                   aria-label="Project actions menu"
                 >

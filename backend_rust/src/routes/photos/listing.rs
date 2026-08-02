@@ -82,16 +82,35 @@ pub async fn get_photo_metadata(
     get_photo(State(state), Path(id)).await
 }
 
+fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
+    let path = PathBuf::from(raw_path);
+    if path.exists() {
+        return Some(path);
+    }
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let alt1 = cwd.join(raw_path);
+    if alt1.exists() {
+        return Some(alt1);
+    }
+    let filename = PathBuf::from(raw_path)
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let alt2 = cwd.join("uploads").join(&filename);
+    if alt2.exists() {
+        return Some(alt2);
+    }
+    None
+}
+
 pub async fn get_photo_file(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
 
-    let file_path = PathBuf::from(&photo.path);
-    if !file_path.exists() {
-        return Err((StatusCode::NOT_FOUND, "Source file missing".to_string()));
-    }
+    let file_path = resolve_photo_path(&photo.path)
+        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
 
     let mime = mime_guess::from_path(&file_path)
         .first_or_octet_stream()
@@ -123,10 +142,8 @@ pub async fn get_photo_thumbnail(
 ) -> Result<Response, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
 
-    let source_path = PathBuf::from(&photo.path);
-    if !source_path.exists() {
-        return Err((StatusCode::NOT_FOUND, "Source file missing".to_string()));
-    }
+    let source_path = resolve_photo_path(&photo.path)
+        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
 
     let max_dim = query.size.unwrap_or(400).clamp(64, 2048);
     let target_file_path = match generate_thumbnail(&source_path, &state.config.thumbnails_dir, photo.id, max_dim) {

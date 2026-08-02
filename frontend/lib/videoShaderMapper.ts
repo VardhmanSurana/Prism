@@ -25,9 +25,13 @@ const FRAGMENT_SHADER_SRC = `
   uniform float u_vignette;
   uniform float u_opacity;
 
+  // Chroma Key Uniforms
+  uniform float u_chromaKeyEnabled;
+  uniform vec3 u_chromaKeyColor;
+  uniform float u_chromaSimilarity;
+  uniform float u_chromaSmoothness;
+
   vec3 adjustTemperature(vec3 color, float temp) {
-    // temp range -100 to 100.
-    // Positive temp -> warm (more yellow/red). Negative temp -> cool (more blue).
     color.r += temp * 0.003;
     color.b -= temp * 0.003;
     return clamp(color, 0.0, 1.0);
@@ -36,6 +40,14 @@ const FRAGMENT_SHADER_SRC = `
   void main() {
     vec4 texColor = texture2D(u_image, v_texCoord);
     vec3 color = texColor.rgb;
+    float alpha = texColor.a;
+
+    // Chroma Key (Green/Blue Screen Removal)
+    if (u_chromaKeyEnabled > 0.5) {
+      float distance = distance(color, u_chromaKeyColor);
+      float keyAlpha = smoothstep(u_chromaSimilarity, u_chromaSimilarity + u_chromaSmoothness, distance);
+      alpha *= keyAlpha;
+    }
 
     // Brightness & Highlights
     float b = 1.0 + u_brightness / 100.0 + (u_highlights / 200.0);
@@ -63,9 +75,16 @@ const FRAGMENT_SHADER_SRC = `
       color *= vignetteVal;
     }
 
-    gl_FragColor = vec4(clamp(color, 0.0, 1.0), texColor.a * u_opacity);
+    gl_FragColor = vec4(clamp(color, 0.0, 1.0), alpha * u_opacity);
   }
 `;
+
+export interface ChromaKeySettings {
+  enabled: boolean;
+  keyColor: [number, number, number]; // RGB 0..1
+  similarity: number; // 0.1 to 0.8
+  smoothness: number; // 0.01 to 0.3
+}
 
 export class WebGLVideoRenderer {
   private gl: WebGLRenderingContext;
@@ -73,6 +92,10 @@ export class WebGLVideoRenderer {
   private positionBuffer: WebGLBuffer | null = null;
   private texCoordBuffer: WebGLBuffer | null = null;
   private texture: WebGLTexture | null = null;
+  // ponytail: cached uniform locations — avoid string-based getUniformLocation per frame
+  private u: Record<string, WebGLUniformLocation | null> = {};
+  // ponytail: reusable matrix scratch — avoids alloc per frame
+  private scratchMatrix = new Float32Array(9);
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: false });
@@ -81,6 +104,11 @@ export class WebGLVideoRenderer {
     }
     this.gl = gl;
     this.program = this.initShaderProgram(VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC);
+    // Cache all uniform locations once after link
+    const names = ['u_brightness','u_contrast','u_saturation','u_temperature','u_highlights',
+      'u_shadows','u_vignette','u_opacity','u_chromaKeyEnabled','u_chromaKeyColor',
+      'u_chromaSimilarity','u_chromaSmoothness','u_matrix'];
+    for (const n of names) this.u[n] = gl.getUniformLocation(this.program, n);
     this.initBuffers();
     this.initTexture();
   }
@@ -151,26 +179,29 @@ export class WebGLVideoRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
   }
 
-  private isSourceReady(source: HTMLVideoElement | VideoFrame): boolean {
+  private isSourceReady(source: HTMLVideoElement | VideoFrame | HTMLImageElement): boolean {
     if (!source) return false;
 
-    // Check if it's a VideoFrame
     if (typeof VideoFrame !== 'undefined' && source instanceof VideoFrame) {
       try {
-        // Accessing codedWidth on a closed VideoFrame throws an error
         return source.codedWidth > 0;
       } catch {
-        return false; // VideoFrame is closed
+        return false;
       }
     }
 
-    // Check if it's an HTMLVideoElement
-    if (source instanceof HTMLVideoElement) {
+    if (typeof source === 'object' && 'naturalWidth' in source) {
+      const img = source as HTMLImageElement;
+      return img.complete && img.naturalWidth > 0;
+    }
+
+    if (typeof source === 'object' && 'readyState' in source) {
+      const video = source as HTMLVideoElement;
       return (
-        source.readyState >= 2 && // HAVE_CURRENT_DATA
-        !!source.src &&
-        !source.src.endsWith('?path=') &&
-        !source.src.endsWith('?path=undefined')
+        video.readyState >= 2 &&
+        !!video.src &&
+        !video.src.endsWith('?path=') &&
+        !video.src.endsWith('?path=undefined')
       );
     }
 
@@ -178,11 +209,13 @@ export class WebGLVideoRenderer {
   }
 
   public render(
-    source: HTMLVideoElement | VideoFrame,
+    source: HTMLVideoElement | VideoFrame | HTMLImageElement,
     effects: ClipEffects,
     transform: ClipTransform,
     canvasWidth: number,
-    canvasHeight: number
+    canvasHeight: number,
+    chromaKey?: ChromaKeySettings,
+    skipTextureUpload = false
   ) {
     if (!this.isSourceReady(source)) {
       return;
@@ -191,8 +224,6 @@ export class WebGLVideoRenderer {
     const gl = this.gl;
 
     gl.viewport(0, 0, canvasWidth, canvasHeight);
-    
-    // Enable blending for transparency
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
@@ -209,23 +240,36 @@ export class WebGLVideoRenderer {
     gl.vertexAttribPointer(texLocation, 2, gl.FLOAT, false, 0, 0);
 
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    try {
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    } catch {
-      return;
+    if (!skipTextureUpload) {
+      try {
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      } catch {
+        return;
+      }
     }
 
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_brightness'), effects.brightness);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_contrast'), effects.contrast);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_saturation'), effects.saturation);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_temperature'), effects.temperature);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_highlights'), effects.highlights);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_shadows'), effects.shadows);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_vignette'), effects.vignette);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_opacity'), transform.opacity);
+    gl.uniform1f(this.u['u_brightness'], effects.brightness);
+    gl.uniform1f(this.u['u_contrast'], effects.contrast);
+    gl.uniform1f(this.u['u_saturation'], effects.saturation);
+    gl.uniform1f(this.u['u_temperature'], effects.temperature);
+    gl.uniform1f(this.u['u_highlights'], effects.highlights);
+    gl.uniform1f(this.u['u_shadows'], effects.shadows);
+    gl.uniform1f(this.u['u_vignette'], effects.vignette);
+    gl.uniform1f(this.u['u_opacity'], transform.opacity);
+
+    // Chroma Key
+    const keyEnabled = chromaKey?.enabled ? 1.0 : 0.0;
+    const keyColor = chromaKey?.keyColor ?? [0.0, 1.0, 0.0];
+    const similarity = chromaKey?.similarity ?? 0.4;
+    const smoothness = chromaKey?.smoothness ?? 0.1;
+
+    gl.uniform1f(this.u['u_chromaKeyEnabled'], keyEnabled);
+    gl.uniform3fv(this.u['u_chromaKeyColor'], keyColor);
+    gl.uniform1f(this.u['u_chromaSimilarity'], similarity);
+    gl.uniform1f(this.u['u_chromaSmoothness'], smoothness);
 
     const matrix = this.buildTransformMatrix(transform, canvasWidth, canvasHeight);
-    gl.uniformMatrix3fv(gl.getUniformLocation(this.program, 'u_matrix'), false, matrix);
+    gl.uniformMatrix3fv(this.u['u_matrix'], false, matrix);
 
     gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
@@ -247,11 +291,12 @@ export class WebGLVideoRenderer {
     const sx = transform.scaleX;
     const sy = transform.scaleY;
 
-    return new Float32Array([
-      sx * c,  sx * s,  0,
-     -sy * s,  sy * c,  0,
-      tx,      ty,      1
-    ]);
+    // ponytail: write into pre-allocated scratch — zero alloc per frame
+    const m = this.scratchMatrix;
+    m[0] = sx * c;  m[1] = sx * s;  m[2] = 0;
+    m[3] = -sy * s; m[4] = sy * c;  m[5] = 0;
+    m[6] = tx;      m[7] = ty;      m[8] = 1;
+    return m;
   }
 
   public destroy() {

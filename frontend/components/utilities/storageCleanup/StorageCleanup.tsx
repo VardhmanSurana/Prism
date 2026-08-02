@@ -78,7 +78,7 @@ export const StorageCleanup: React.FC = () => {
               disabled={isClearingCache}
               className="cr-inline-btn"
             >
-              {isClearingCache ? 'CLEARING...' : 'CLEAR_CACHE'}
+              {isClearingCache ? 'Clearing...' : 'Clear Cache'}
             </button>
 
             <button
@@ -86,7 +86,7 @@ export const StorageCleanup: React.FC = () => {
               disabled={isVacuuming}
               className="cr-inline-btn primary"
             >
-              {isVacuuming ? 'VACUUMING...' : 'VACUUM_DATABASE'}
+              {isVacuuming ? 'Optimizing...' : 'Optimize Database'}
             </button>
           </div>
         </div>

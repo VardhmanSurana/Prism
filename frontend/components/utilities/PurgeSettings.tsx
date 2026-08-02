@@ -26,6 +26,9 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
         <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
           <input
             type="text"
+            id="purge-folder-input"
+            name="purgeFolderInput"
+            aria-label="Territory path to purge"
             value={purgeInput}
             onChange={(e) => setPurgeInput(e.target.value)}
             placeholder="~/Pictures/FolderToPurge"
@@ -34,17 +37,17 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
           <button
             onClick={onBrowse}
             title="Browse for a folder to purge"
-            className="px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
+            className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
           >
-            BROWSE
+            Browse...
           </button>
         </div>
         <button
           onClick={onPurge}
           disabled={!purgeInput}
-          className="cr-inline-btn font-mono text-[10px] uppercase font-bold text-[var(--cr-status-error)] border-[var(--cr-status-error)]/40 hover:bg-[var(--cr-status-error)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="cr-inline-btn font-mono text-xs font-semibold text-[var(--cr-status-error)] border-[var(--cr-status-error)]/40 hover:bg-[var(--cr-status-error)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
         >
-          PURGE_TERRITORY
+          Purge Territory
         </button>
       </div>
 

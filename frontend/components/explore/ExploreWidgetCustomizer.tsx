@@ -87,7 +87,7 @@ export const ExploreWidgetCustomizer: React.FC<ExploreWidgetCustomizerProps> = (
 
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-6">
-          <GlassMaterial intensity="medium" className="relative w-full max-w-lg rounded-2xl border border-white/15 p-6 shadow-2xl">
+          <GlassMaterial intensity="regular" className="relative w-full max-w-lg rounded-2xl border border-white/15 p-6 shadow-2xl">
             <button
               onClick={() => setIsOpen(false)}
               className="absolute top-4 right-4 p-2 rounded-full bg-white/10 text-white hover:bg-white/20"

@@ -119,7 +119,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
 
   // Gallery layout settings
-  const { rowHeightPx, maxRowWidth, galleryStyle } = useGalleryLayout();
+  const { settings, rowHeightPx, maxRowWidth, galleryStyle, setImageGrouping } = useGalleryLayout();
+  const imageGrouping = settings.imageGrouping;
 
   // Container width measurement for dynamic row packing
   const containerRef = useRef<HTMLDivElement>(null);
@@ -357,8 +358,25 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         </div>
       )}
 
+      {/* Apple Photos iPadOS 18 Header (Photo 4) */}
+      {galleryStyle === 'apple' && !isCompactView && (
+        <div className="w-full pl-10 pr-10 pt-8 pb-2 z-20">
+          <div className="flex items-baseline justify-between mb-4 border-b border-white/10 pb-4">
+            <div>
+              <h2 className="text-3xl font-sans font-bold text-white tracking-tight">Library</h2>
+              <p className="text-xs font-sans text-[#8e8e93] mt-1 font-medium">10 Nov 2025 – 28 Feb 2026</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-[#0a84ff] bg-[#0a84ff]/10 border border-[#0a84ff]/20 px-3 py-1 rounded-full font-bold">
+                 iPadOS 18
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
-      {!isCompactView && galleryStyle !== 'google' && (
+      {!isCompactView && galleryStyle !== 'google' && galleryStyle !== 'apple' && (
         <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
 
 
@@ -521,6 +539,33 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
           scrollProgress={scrollState.progress}
           scrollHeight={scrollState.height}
         />
+      )}
+
+      {/* Apple Photos Floating Bottom Segmented Control Bar (Photo 3) */}
+      {galleryStyle === 'apple' && (
+        <div className="fixed bottom-8 left-1/2 md:left-[calc(50%+128px)] -translate-x-1/2 z-50 flex items-center backdrop-blur-3xl bg-[#1c1c1e]/95 border border-white/20 rounded-full p-1.5 md:p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] space-x-1.5 select-none transition-all">
+          {[
+            { id: 'years', label: 'Years' },
+            { id: 'months', label: 'Months' },
+            { id: 'none', label: 'All Photos' },
+          ].map((item) => {
+            const isActive = imageGrouping === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setImageGrouping(item.id as any)}
+                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${
+                  isActive
+                    ? 'bg-white/25 text-white font-bold shadow-md scale-[1.03] border border-white/20'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );

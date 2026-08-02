@@ -44,7 +44,7 @@ export const PrivacyDashboard: React.FC = () => {
     return (
       <div className="cr-card flex items-center justify-center py-12">
         <span className="font-mono text-xs text-[var(--cr-text-muted)] animate-pulse">
-          AUDITING_PRIVACY_SANDBOX...
+          Auditing privacy sandbox...
         </span>
       </div>
     );
@@ -53,7 +53,7 @@ export const PrivacyDashboard: React.FC = () => {
   if (!status) {
     return (
       <div className="cr-card text-center py-12 font-mono text-xs text-[var(--cr-status-error)]">
-        FAILED_TO_LOAD_PRIVACY_AUDIT
+        Failed to load privacy audit
       </div>
     );
   }
@@ -67,7 +67,7 @@ export const PrivacyDashboard: React.FC = () => {
         <div className="flex items-center justify-between border-b border-[var(--cr-border)] pb-3 mb-3">
           <div className="cr-card-title mb-0">Data Flow & Privacy Audit</div>
           <span className="cr-privacy-card-badge local font-mono">
-            {summary.all_local ? 'ALL LOCAL' : 'LIMITED REMOTE'}
+            {summary.all_local ? 'All Local' : 'Remote Enabled'}
           </span>
         </div>
 

@@ -27,7 +27,14 @@ export function useAudioMixer(
     }
   }, [isPlaying, resume]);
 
+  const lastRunRef = useRef(0);
+
   useEffect(() => {
+    // ponytail: throttle to ~10Hz — audio WebAudio params don't need 60Hz updates
+    const now = performance.now();
+    if (now - lastRunRef.current < 100 && isPlaying) return;
+    lastRunRef.current = now;
+
     const { ctx, masterGain } = getOrCreateContext();
     if (!ctx || !masterGain) return;
 

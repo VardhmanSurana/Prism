@@ -89,20 +89,23 @@ const SIDEBAR_ITEMS: { panel: EditorPanel; icon: React.ReactNode; label: string 
 
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ activePanel, onPanelChange }) => {
   return (
-    <div className="w-12 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col items-center py-2 gap-1 shrink-0">
+    <div className="w-12 bg-[#0e0e10] border-r border-white/[0.06] flex flex-col items-center py-2 gap-0.5 shrink-0">
       {SIDEBAR_ITEMS.map((item) => {
         const isActive = activePanel === item.panel;
         return (
           <button
             key={item.panel}
             onClick={() => onPanelChange(item.panel)}
-            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150 ${
+            className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-150 relative ${
               isActive
-                ? 'bg-[#2a2a2a] text-[#3b82f6]'
-                : 'text-[#666] hover:text-[#999] hover:bg-[#222]'
+                ? 'bg-white/[0.08] text-white'
+                : 'text-white/30 hover:text-white/60 hover:bg-white/[0.04]'
             }`}
             title={item.label}
           >
+            {isActive && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 bg-white/80 rounded-r" />
+            )}
             {item.icon}
           </button>
         );

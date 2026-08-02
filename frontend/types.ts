@@ -42,6 +42,10 @@ export interface Photo {
   city?: string;
   state?: string;
   country?: string;
+  exif_make?: string;
+  exif_model?: string;
+  exif_focal_length?: number;
+  exif_iso?: number;
   hash?: string;
   search_explanation?: { score: number; matched: string[] };
 }
@@ -89,7 +93,7 @@ export interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
@@ -136,6 +140,12 @@ export interface RawPhoto {
   city?: string;
   state?: string;
   country?: string;
+  pix_fmt?: string;
+  color_range?: string;
+  exif_make?: string;
+  exif_model?: string;
+  exif_focal_length?: number;
+  exif_iso?: number;
   hash?: string;
   search_explanation?: { score: number; matched: string[] };
 }
@@ -206,7 +216,7 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     is_locked: isLocked,
     is_trash: raw.is_trash ?? raw.isTrash ?? false,
     upload_date: sanitizedUploadDate,
-    type: (raw.type === 'video' || raw.file_type === 'video' || raw.mime_type?.startsWith('video/') || (raw.path && ['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.flv', '.wmv', '.3gp'].some(ext => raw.path.toLowerCase().endsWith(ext)))) ? 'video' : 'image',
+    type: (raw.type === 'video' || raw.file_type === 'video' || raw.mime_type?.startsWith('video/') || (raw.path && ['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v', '.flv', '.wmv', '.3gp'].some(ext => raw.path!.toLowerCase().endsWith(ext)))) ? 'video' : 'image',
     mime_type: raw.mime_type,
     file_type: raw.file_type,
     file_size: raw.file_size,

@@ -87,7 +87,7 @@ export function useAppState() {
     const album = await createAlbum(name);
     if (album && selectedIds.size > 0) {
       const photoIds = Array.from(selectedIds).map(Number);
-      await addPhotosToAlbum(album.id, photoIds);
+      await addPhotosToAlbum(Number(album.id), photoIds);
     }
     setIsAddToAlbumOpen(false);
     clearSelection();
@@ -97,7 +97,7 @@ export function useAppState() {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     const photoIds = Array.from(selectedIds).map(Number);
     if (photoIds.length > 0) {
-      await removePhotosFromAlbum(selectedAlbum.id, photoIds);
+      await removePhotosFromAlbum(Number(selectedAlbum.id), photoIds);
     }
     clearSelection();
   }, [selectedAlbum, selectedIds, removePhotosFromAlbum, clearSelection]);
@@ -130,13 +130,13 @@ export function useAppState() {
 
   const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
-    await removePhotosFromAlbum(selectedAlbum.id, [photoId]);
+    await removePhotosFromAlbum(Number(selectedAlbum.id), [photoId]);
     setSelectedPhoto(null);
   }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
 
   const handleSetAlbumCover = useCallback(async (photoId: number) => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
-    await setAlbumCover(selectedAlbum.id, photoId);
+    await setAlbumCover(Number(selectedAlbum.id), photoId);
   }, [selectedAlbum, setAlbumCover]);
 
   const handleUpload = useCallback((newPhotos: Photo[]) => {

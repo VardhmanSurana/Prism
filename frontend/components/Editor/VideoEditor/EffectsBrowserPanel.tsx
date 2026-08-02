@@ -1,46 +1,171 @@
 /**
  * EffectsBrowserPanel — Left panel for browsing and applying visual effects presets.
+ * Uses real sample image thumbnails with live CSS filter previews instead of emojis.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useNLEStore } from '@/store/nleStore';
+import { findClipById } from '@/store/nle/helpers';
 import type { ClipEffects } from '@/types/nle';
 
 interface EffectPreset {
   name: string;
   category: string;
-  icon: string;
+  cssFilter: string;
   effects: Partial<ClipEffects>;
   description: string;
 }
 
+const SAMPLE_IMAGE_URL =
+  'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=240&q=80';
+
 const EFFECT_PRESETS: EffectPreset[] = [
   // Color
-  { name: 'Noir', category: 'Color', icon: '🎬', effects: { saturation: -100, contrast: 35, brightness: -5 }, description: 'Classic black and white' },
-  { name: 'Warm Glow', category: 'Color', icon: '🌅', effects: { temperature: 45, saturation: 20, brightness: 8 }, description: 'Warm golden tones' },
-  { name: 'Cool Blue', category: 'Color', icon: '❄️', effects: { temperature: -40, saturation: -10, contrast: 10 }, description: 'Cool blue cast' },
-  { name: 'Vintage Film', category: 'Color', icon: '📷', effects: { saturation: -25, contrast: 20, temperature: 25, vignette: 25 }, description: 'Aged film look' },
-  { name: 'Vivid', category: 'Color', icon: '🌈', effects: { saturation: 45, contrast: 20, brightness: 5 }, description: 'Punchy colors' },
-  { name: 'Muted', category: 'Color', icon: '🌫️', effects: { saturation: -35, contrast: -10, brightness: 10 }, description: 'Desaturated and soft' },
+  {
+    name: 'Noir',
+    category: 'Color',
+    cssFilter: 'grayscale(100%) contrast(135%) brightness(95%)',
+    effects: { saturation: -100, contrast: 35, brightness: -5 },
+    description: 'Classic black and white',
+  },
+  {
+    name: 'Warm Glow',
+    category: 'Color',
+    cssFilter: 'sepia(40%) saturate(150%) hue-rotate(-10deg) brightness(108%)',
+    effects: { temperature: 45, saturation: 20, brightness: 8 },
+    description: 'Warm golden tones',
+  },
+  {
+    name: 'Cool Blue',
+    category: 'Color',
+    cssFilter: 'hue-rotate(180deg) saturate(90%) contrast(110%)',
+    effects: { temperature: -40, saturation: -10, contrast: 10 },
+    description: 'Cool blue cast',
+  },
+  {
+    name: 'Vintage Film',
+    category: 'Color',
+    cssFilter: 'sepia(50%) contrast(120%) saturate(75%)',
+    effects: { saturation: -25, contrast: 20, temperature: 25, vignette: 25 },
+    description: 'Aged film look',
+  },
+  {
+    name: 'Vivid',
+    category: 'Color',
+    cssFilter: 'saturate(200%) contrast(120%) brightness(105%)',
+    effects: { saturation: 45, contrast: 20, brightness: 5 },
+    description: 'Punchy colors',
+  },
+  {
+    name: 'Muted',
+    category: 'Color',
+    cssFilter: 'saturate(50%) contrast(90%) brightness(110%)',
+    effects: { saturation: -35, contrast: -10, brightness: 10 },
+    description: 'Desaturated and soft',
+  },
 
   // Light
-  { name: 'Bright Day', category: 'Light', icon: '☀️', effects: { brightness: 25, contrast: 10, saturation: 10 }, description: 'Overexposed sunny look' },
-  { name: 'Dark Mood', category: 'Light', icon: '🌑', effects: { brightness: -20, contrast: 20, shadows: -25 }, description: 'Dark and moody' },
-  { name: 'High Key', category: 'Light', icon: '💡', effects: { brightness: 30, contrast: -15, saturation: -10 }, description: 'Bright and airy' },
-  { name: 'Low Key', category: 'Light', icon: '🕯️', effects: { brightness: -25, contrast: 30, vignette: 35 }, description: 'Dramatic shadows' },
+  {
+    name: 'Bright Day',
+    category: 'Light',
+    cssFilter: 'brightness(130%) contrast(110%) saturate(110%)',
+    effects: { brightness: 25, contrast: 10, saturation: 10 },
+    description: 'Overexposed sunny look',
+  },
+  {
+    name: 'Dark Mood',
+    category: 'Light',
+    cssFilter: 'brightness(75%) contrast(130%)',
+    effects: { brightness: -20, contrast: 20, shadows: -25 },
+    description: 'Dark and moody',
+  },
+  {
+    name: 'High Key',
+    category: 'Light',
+    cssFilter: 'brightness(140%) contrast(85%) saturate(90%)',
+    effects: { brightness: 30, contrast: -15, saturation: -10 },
+    description: 'Bright and airy',
+  },
+  {
+    name: 'Low Key',
+    category: 'Light',
+    cssFilter: 'brightness(70%) contrast(140%)',
+    effects: { brightness: -25, contrast: 30, vignette: 35 },
+    description: 'Dramatic shadows',
+  },
 
   // Texture
-  { name: 'Soft Focus', category: 'Texture', icon: '🔮', effects: { sharpness: -30, contrast: -10, brightness: 5 }, description: 'Dreamy soft look' },
-  { name: 'Crisp', category: 'Texture', icon: '💎', effects: { sharpness: 40, contrast: 15 }, description: 'Extra sharp details' },
-  { name: 'Film Grain', category: 'Texture', icon: '🎞️', effects: { noiseReduction: -20, contrast: 10, saturation: -10 }, description: 'Grainy film texture' },
-  { name: 'Smooth', category: 'Texture', icon: '🫧', effects: { noiseReduction: 50, sharpness: -20 }, description: 'Smooth skin tones' },
+  {
+    name: 'Soft Focus',
+    category: 'Texture',
+    cssFilter: 'blur(1px) brightness(105%) contrast(90%)',
+    effects: { sharpness: -30, contrast: -10, brightness: 5 },
+    description: 'Dreamy soft look',
+  },
+  {
+    name: 'Crisp',
+    category: 'Texture',
+    cssFilter: 'contrast(130%) saturate(110%)',
+    effects: { sharpness: 40, contrast: 15 },
+    description: 'Extra sharp details',
+  },
+  {
+    name: 'Film Grain',
+    category: 'Texture',
+    cssFilter: 'contrast(110%) saturate(90%) sepia(20%)',
+    effects: { noiseReduction: -20, contrast: 10, saturation: -10 },
+    description: 'Grainy film texture',
+  },
+  {
+    name: 'Smooth',
+    category: 'Texture',
+    cssFilter: 'blur(0.5px) contrast(95%)',
+    effects: { noiseReduction: 50, sharpness: -20 },
+    description: 'Smooth skin tones',
+  },
 
   // Creative
-  { name: 'Cinematic', category: 'Creative', icon: '🎥', effects: { contrast: 30, saturation: -15, temperature: -8, shadows: -20 }, description: 'Hollywood color grade' },
-  { name: 'Cyberpunk', category: 'Creative', icon: '🌆', effects: { contrast: 25, saturation: 35, temperature: -20, highlights: 20 }, description: 'Neon-lit future' },
-  { name: 'Sepia', category: 'Creative', icon: '📜', effects: { saturation: -80, temperature: 40, contrast: 10 }, description: 'Old photograph' },
-  { name: 'Cross Process', category: 'Creative', icon: '🧪', effects: { saturation: 30, temperature: -15, contrast: 20, highlights: 15 }, description: 'Shifted color channels' },
-  { name: 'Bleach Bypass', category: 'Creative', icon: '⚗️', effects: { contrast: 40, saturation: -30, brightness: -10 }, description: 'High contrast desaturated' },
-  { name: 'Dream', category: 'Creative', icon: '✨', effects: { brightness: 15, contrast: -10, saturation: 15, vignette: 20 }, description: 'Soft dreamy glow' },
+  {
+    name: 'Cinematic',
+    category: 'Creative',
+    cssFilter: 'contrast(135%) saturate(85%) hue-rotate(5deg)',
+    effects: { contrast: 30, saturation: -15, temperature: -8, shadows: -20 },
+    description: 'Hollywood color grade',
+  },
+  {
+    name: 'Cyberpunk',
+    category: 'Creative',
+    cssFilter: 'hue-rotate(280deg) saturate(220%) contrast(130%)',
+    effects: { contrast: 25, saturation: 35, temperature: -20, highlights: 20 },
+    description: 'Neon-lit future',
+  },
+  {
+    name: 'Sepia',
+    category: 'Creative',
+    cssFilter: 'sepia(100%) saturate(120%) contrast(110%)',
+    effects: { saturation: -80, temperature: 40, contrast: 10 },
+    description: 'Old photograph',
+  },
+  {
+    name: 'Cross Process',
+    category: 'Creative',
+    cssFilter: 'hue-rotate(60deg) saturate(160%) contrast(120%)',
+    effects: { saturation: 30, temperature: -15, contrast: 20, highlights: 15 },
+    description: 'Shifted color channels',
+  },
+  {
+    name: 'Bleach Bypass',
+    category: 'Creative',
+    cssFilter: 'grayscale(70%) contrast(150%) brightness(90%)',
+    effects: { contrast: 40, saturation: -30, brightness: -10 },
+    description: 'High contrast desaturated',
+  },
+  {
+    name: 'Dream',
+    category: 'Creative',
+    cssFilter: 'blur(0.8px) brightness(115%) saturate(120%)',
+    effects: { brightness: 15, contrast: -10, saturation: 15, vignette: 20 },
+    description: 'Soft dreamy glow',
+  },
 ];
 
 const CATEGORIES = ['All', 'Color', 'Light', 'Texture', 'Creative'];
@@ -48,7 +173,9 @@ const CATEGORIES = ['All', 'Color', 'Light', 'Texture', 'Creative'];
 export const EffectsBrowserPanel: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
-  const selectedClip = useNLEStore((s) => s.getSelectedClip());
+  const tracks = useNLEStore((s) => s.tracks);
+  const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  const selectedClip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
 
   const filtered = EFFECT_PRESETS.filter((p) => {
@@ -57,10 +184,13 @@ export const EffectsBrowserPanel: React.FC = () => {
     return true;
   });
 
-  const handleApply = useCallback((preset: EffectPreset) => {
-    if (!selectedClip) return;
-    setClipEffects(selectedClip.id, preset.effects);
-  }, [selectedClip, setClipEffects]);
+  const handleApply = useCallback(
+    (preset: EffectPreset) => {
+      if (!selectedClip) return;
+      setClipEffects(selectedClip.id, preset.effects);
+    },
+    [selectedClip, setClipEffects]
+  );
 
   return (
     <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
@@ -76,7 +206,7 @@ export const EffectsBrowserPanel: React.FC = () => {
           placeholder="Search effects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-[#222] text-[#ccc] text-xs rounded px-2 py-1.5 border border-[#333] focus:border-[#3b82f6] outline-none"
+          className="w-full bg-[#222] text-[#ccc] text-xs rounded px-2 py-1.5 border border-[#333] focus:border-[#3b82f6] outline-none placeholder:text-[#555]"
         />
       </div>
 
@@ -86,10 +216,10 @@ export const EffectsBrowserPanel: React.FC = () => {
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
+            className={`px-2 py-1 text-[10px] rounded whitespace-nowrap transition-colors ${
               activeCategory === cat
-                ? 'bg-[#3b82f6] text-white'
-                : 'bg-[#222] text-[#666] hover:text-[#999]'
+                ? 'bg-[#3b82f6] text-white font-medium'
+                : 'bg-[#222] text-[#777] hover:text-[#bbb]'
             }`}
           >
             {cat}
@@ -99,29 +229,56 @@ export const EffectsBrowserPanel: React.FC = () => {
 
       {/* No clip selected warning */}
       {!selectedClip && (
-        <div className="p-3 text-center">
-          <p className="text-[#666] text-[11px]">Select a clip on the timeline to apply effects.</p>
+        <div className="p-3 text-center bg-[#151515] border-b border-[#252525]">
+          <p className="text-[#888] text-[11px]">Select a clip on the timeline to apply effects.</p>
         </div>
       )}
 
       {/* Effects grid */}
       <div className="flex-1 overflow-y-auto p-2">
-        <div className="grid grid-cols-2 gap-1.5">
+        <div className="grid grid-cols-2 gap-2">
           {filtered.map((preset) => (
             <button
               key={preset.name}
               onClick={() => handleApply(preset)}
               disabled={!selectedClip}
-              className={`flex flex-col items-center gap-1 p-2 rounded border transition-colors ${
+              className={`group relative flex flex-col rounded-lg overflow-hidden border transition-all text-left ${
                 selectedClip
-                  ? 'bg-[#222] hover:bg-[#2a2a2a] border-[#333] hover:border-[#3b82f6]'
-                  : 'bg-[#1e1e1e] border-[#2a2a2a] opacity-50 cursor-not-allowed'
+                  ? 'bg-[#1e1e1e] hover:bg-[#252525] border-[#2f2f2f] hover:border-[#3b82f6] shadow-sm hover:shadow-md'
+                  : 'bg-[#181818] border-[#222] opacity-50 cursor-not-allowed'
               }`}
               title={preset.description}
             >
-              <span className="text-lg">{preset.icon}</span>
-              <span className="text-[#ccc] text-[10px] font-medium">{preset.name}</span>
-              <span className="text-[#666] text-[8px] leading-tight text-center">{preset.description}</span>
+              {/* Sample image thumbnail with live CSS filter effect */}
+              <div className="relative w-full aspect-video bg-[#111] overflow-hidden">
+                <img
+                  src={SAMPLE_IMAGE_URL}
+                  alt={preset.name}
+                  style={{ filter: preset.cssFilter }}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    // Fallback to stylized SVG gradient if image fails to load
+                    const target = e.currentTarget;
+                    target.style.display = 'none';
+                    if (target.nextElementSibling) {
+                      (target.nextElementSibling as HTMLElement).style.display = 'block';
+                    }
+                  }}
+                />
+                <div
+                  className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 hidden"
+                  style={{ filter: preset.cssFilter }}
+                />
+              </div>
+
+              <div className="p-1.5 flex flex-col gap-0.5">
+                <span className="text-[#eee] text-[11px] font-medium leading-tight truncate">
+                  {preset.name}
+                </span>
+                <span className="text-[#777] text-[9px] leading-tight line-clamp-1">
+                  {preset.description}
+                </span>
+              </div>
             </button>
           ))}
         </div>

@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { useNLEStore } from '@/store/nleStore';
+import { findClipById } from '@/store/nle/helpers';
 import type { Keyframe, KeyframeProperty } from '@/types/nle';
 import { Dropdown } from '@/components/ui/Dropdown';
 
@@ -20,8 +21,11 @@ const PAD = 8;
 const KF_R = 4;
 
 export const KeyframeEditor: React.FC = () => {
-  const clip = useNLEStore((s) => s.getSelectedClip());
+  const tracks = useNLEStore((s) => s.tracks);
+  const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  const clip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
   const setClipKeyframes = useNLEStore((s) => s.setClipKeyframes);
+  const pushHistory = useNLEStore((s) => s.pushHistory);
   const playheadPosition = useNLEStore((s) => s.playheadPosition);
   const fps = useNLEStore((s) => s.projectFps);
   const [selectedProp, setSelectedProp] = useState<KeyframeProperty>('opacity');
@@ -94,10 +98,11 @@ export const KeyframeEditor: React.FC = () => {
     const svgY = (e.clientY - rect.top) * (H / rect.height);
     const { t, v } = fromSVG(svgX, svgY);
 
+    pushHistory();
     const newKf: Keyframe = { t, v, interpolation: 'linear' };
     const updated = [...kfs, newKf].sort((a, b) => a.t - b.t);
     setClipKeyframes(clip.id, selectedProp, updated);
-  }, [kfs, fromSVG, clip.id, selectedProp, setClipKeyframes]);
+  }, [kfs, fromSVG, clip.id, selectedProp, setClipKeyframes, pushHistory]);
 
   const handleKfMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.stopPropagation();
@@ -127,9 +132,10 @@ export const KeyframeEditor: React.FC = () => {
   const handleContextMenu = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault();
     e.stopPropagation();
+    pushHistory();
     const updated = kfs.filter((_, i) => i !== idx);
     setClipKeyframes(clip.id, selectedProp, updated);
-  }, [kfs, clip.id, selectedProp, setClipKeyframes]);
+  }, [kfs, clip.id, selectedProp, setClipKeyframes, pushHistory]);
 
   const playheadX = PAD + (playheadPosition / clipDuration) * (W - 2 * PAD);
 

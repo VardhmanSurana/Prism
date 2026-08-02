@@ -401,9 +401,9 @@ div:has(> [type="range"]) > div.pointer-events-none {
   --cr-secondary-dim: oklch(45% 0.10 250);
   --cr-secondary-faint: oklch(25% 0.05 250);
 
-  --cr-text-primary: oklch(90% 0.01 260);
-  --cr-text-secondary: oklch(62% 0.01 260);
-  --cr-text-muted: oklch(42% 0.01 260);
+  --cr-text-primary: oklch(92% 0.01 260);
+  --cr-text-secondary: oklch(74% 0.01 260);
+  --cr-text-muted: oklch(58% 0.01 260);
   --cr-text-accent: oklch(75% 0.18 145);
 
   --cr-status-ok: oklch(75% 0.18 145);
@@ -994,6 +994,10 @@ div:has(> [type="range"]) > div.pointer-events-none {
   font-size: 11px;
   font-weight: 500;
   padding: 6px 14px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--cr-radius-sm);
   border: 1px solid var(--cr-border);
   background: var(--cr-surface-card);

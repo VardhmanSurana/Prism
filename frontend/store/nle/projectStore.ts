@@ -20,7 +20,7 @@ export interface ProjectSlice {
   createProject: (photoId: number, photoPath: string, name?: string) => Promise<number>;
   toProjectJson: () => Record<string, unknown>;
   addProjectAsset: (asset: any) => void;
-  removeProjectAsset: (assetId: number) => void;
+  removeProjectAsset: (assetId: number | string) => void;
 }
 
 export const createProjectSlice: StateCreator<NLEStore, [], [], ProjectSlice> = (set, get) => ({
@@ -118,6 +118,6 @@ export const createProjectSlice: StateCreator<NLEStore, [], [], ProjectSlice> = 
   }),
 
   removeProjectAsset: (assetId) => set((s) => ({
-    projectAssets: s.projectAssets.filter((a) => a.id !== assetId),
+    projectAssets: s.projectAssets.filter((a) => a.id !== assetId && a.path !== assetId),
   })),
 });

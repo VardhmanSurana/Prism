@@ -7,6 +7,7 @@ import React, { useEffect, useLayoutEffect, useCallback, useState, useMemo, useR
 import { useNLEStore } from '@/store/nleStore';
 import { API_BASE } from '@/constants';
 import type { Photo } from '@/types';
+import { findClipById } from '@/store/nle/helpers';
 import type { VideoClipAnalysis, Clip } from '@/types/nle';
 import { DEFAULT_TRANSFORM, DEFAULT_EFFECTS, isDefaultEffects } from '@/types/nle';
 import { evaluateKeyframes } from '@/lib/keyframes';
@@ -55,6 +56,11 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
   const activeClips = useMemo(
     () => getActiveVideoClips(tracks, playheadPosition, projectFps),
     [tracks, playheadPosition, projectFps],
+  );
+
+  const selectedClip = useMemo(
+    () => (selectedClipId ? findClipById(tracks, selectedClipId) : null),
+    [tracks, selectedClipId],
   );
 
   // Primary clip (first visible) for backward compat
@@ -225,15 +231,9 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
       // Copy: Ctrl+C
       if (isCtrl && e.key === 'c') {
-        if (selectedClipId) {
+        if (selectedClip) {
           e.preventDefault();
-          for (const track of tracks) {
-            const clip = track.clips.find((c) => c.id === selectedClipId);
-            if (clip) {
-              setClipboardClip(JSON.parse(JSON.stringify(clip)));
-              break;
-            }
-          }
+          setClipboardClip(JSON.parse(JSON.stringify(selectedClip)));
         }
         return;
       }
@@ -311,12 +311,24 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPlaying, playheadPosition, selectedClipId, handleClose, undo, redo, tracks, addClip, projectFps, clipboardClip, setClipboardClip, selectedTrackId]);
 
-  const selectedClip = useNLEStore((s) => s.getSelectedClip());
-
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-[100] bg-black flex items-center justify-center">
-        <div className="text-white text-lg">Loading editor...</div>
+      <div className="fixed inset-0 z-[100] bg-[#0a0a0a] flex flex-col items-center justify-center gap-6">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#3b82f6]/20 to-[#3b82f6]/5 border border-[#3b82f6]/20 flex items-center justify-center">
+            <svg className="w-6 h-6 text-[#3b82f6] animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div className="absolute -inset-4 border border-[#3b82f6]/10 rounded-2xl animate-pulse" />
+        </div>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-white/90 text-sm font-medium tracking-wide">Preparing Editor</p>
+          <p className="text-white/40 text-xs">Analyzing clip and loading project...</p>
+        </div>
+        <div className="w-48 h-0.5 bg-[#222] rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#3b82f6]/0 via-[#3b82f6] to-[#3b82f6]/0 animate-[shimmer_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
+        </div>
       </div>
     );
   }
@@ -324,35 +336,35 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
   return (
     <div className="fixed inset-0 z-[100] bg-[#1a1a1a] flex flex-col">
       {/* Top Bar */}
-      <div className="h-11 bg-[#1a1a1a] border-b border-[#2a2a2a] flex items-center px-4 gap-4 shrink-0">
+      <div className="h-11 bg-[#111113] border-b border-white/[0.06] flex items-center px-4 gap-4 shrink-0">
         <button
           onClick={handleClose}
-          className="text-[#999] hover:text-white text-sm flex items-center gap-1"
+          className="text-white/50 hover:text-white text-xs flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors duration-150"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back
         </button>
 
-        <div className="flex-1 text-center">
+        <div            className="flex-1 text-center">
           <input
             type="text"
             value={projectName}
             onChange={(e) => useNLEStore.setState({ projectName: e.target.value, isDirty: true })}
-            className="bg-transparent text-white text-sm text-center border-b border-transparent hover:border-[#444] focus:border-[#3b82f6] outline-none px-2 py-0.5"
+            className="bg-transparent text-white/90 text-sm text-center border-b border-transparent hover:border-white/20 focus:border-white/40 outline-none px-2 py-0.5 transition-colors duration-150 font-medium tracking-wide"
           />
-          <span className="text-[#666] text-xs ml-2">
-            {isSaving ? 'Saving...' : isDirty ? 'Unsaved' : 'Saved'}
+          <span className="text-white/30 text-[10px] ml-2 font-mono">
+            {isSaving ? 'Saving...' : isDirty ? '● Unsaved' : 'Saved'}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Undo */}
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="text-[#999] hover:text-white text-sm disabled:opacity-30 p-1"
+            className="text-white/40 hover:text-white disabled:opacity-20 p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
             title="Undo (Ctrl+Z)"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -363,7 +375,7 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
           <button
             onClick={redo}
             disabled={!canRedo}
-            className="text-[#999] hover:text-white text-sm disabled:opacity-30 p-1"
+            className="text-white/40 hover:text-white disabled:opacity-20 p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
             title="Redo (Ctrl+Shift+Z)"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -373,10 +385,10 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
           <button
             onClick={toggleMulticamMode}
-            className={`text-sm flex items-center gap-1 border rounded px-2 py-1 ${
+            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 transition-all duration-150 ${
               isMulticamMode
-                ? 'text-emerald-400 border-emerald-500/50 bg-emerald-500/10'
-                : 'text-[#999] border-[#333] hover:border-[#555] hover:text-white'
+                ? 'text-[#34d399] border-[#34d399]/30 bg-[#34d399]/10'
+                : 'text-white/40 border-white/[0.08] hover:border-white/20 hover:text-white/80 hover:bg-white/[0.04]'
             }`}
             title="Toggle Multi-Cam Mode"
           >
@@ -388,10 +400,10 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
           <button
             onClick={() => setCompareMode((prev) => !prev)}
-            className={`text-sm flex items-center gap-1 border rounded px-2 py-1 ${
+            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 transition-all duration-150 ${
               compareMode
-                ? 'text-[#3b82f6] border-[#3b82f6]/50 bg-[#3b82f6]/10'
-                : 'text-[#999] border-[#333] hover:border-[#555] hover:text-white'
+                ? 'text-[#3b82f6] border-[#3b82f6]/30 bg-[#3b82f6]/10'
+                : 'text-white/40 border-white/[0.08] hover:border-white/20 hover:text-white/80 hover:bg-white/[0.04]'
             }`}
             title="Toggle Before/After (\\)"
           >
@@ -407,7 +419,7 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
                 setActivePanel('assets');
               }
             }}
-            className="text-[#999] hover:text-white text-sm flex items-center gap-1 border border-[#333] rounded px-2 py-1 hover:border-[#555]"
+            className="text-white/40 hover:text-white/80 text-[11px] font-medium flex items-center gap-1.5 border border-white/[0.08] rounded-md px-2.5 py-1.5 hover:border-white/20 hover:bg-white/[0.04] transition-all duration-150"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -417,13 +429,13 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
           <button
             onClick={handleSave}
             disabled={isSaving || !isDirty}
-            className="text-[#999] hover:text-white text-sm disabled:opacity-30"
+            className="text-white/40 hover:text-white/80 text-[11px] font-medium disabled:opacity-20 px-2 py-1.5 rounded-md hover:bg-white/[0.04] transition-all duration-150"
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
           <button
             onClick={handleExport}
-            className="bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm px-3 py-1 rounded"
+            className="bg-white/90 hover:bg-white text-black text-[11px] font-semibold px-3.5 py-1.5 rounded-md transition-all duration-150"
           >
             Export
           </button>

@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "scripts": {
     "dev": "bash run-web.sh",
-
     "build": "pnpm run frontend:build",
     "frontend": "cd frontend && pnpm run dev",
     "frontend:build": "cd frontend && pnpm run build",
@@ -20,5 +19,8 @@
     "app": "bash run-desktop.sh",
     "tauri": "cd frontend && pnpm exec tauri"
   },
-  "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8"
+  "packageManager": "pnpm@11.10.0+sha512.0b7f8b98060031904c017e3a41eb187a16d40eeb829b95c4f8cb03681761fc4ab53dd219115b9b447f4dce1a05a214764461e7d3703392a9f32f9511ce8c86c8",
+  "dependencies": {
+    "framer-motion": "^12.43.0"
+  }
 }

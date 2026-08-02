@@ -1,8 +1,9 @@
 /**
  * PresetsPanel — Color grading and effect presets for quick application.
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useNLEStore } from '@/store/nleStore';
+import { findClipById } from '@/store/nle/helpers';
 import type { ClipEffects } from '@/types/nle';
 import { DEFAULT_EFFECTS } from '@/types/nle';
 
@@ -32,7 +33,9 @@ const GRADING_PRESETS: GradingPreset[] = [
 ];
 
 export const PresetsPanel: React.FC = () => {
-  const selectedClip = useNLEStore((s) => s.getSelectedClip());
+  const tracks = useNLEStore((s) => s.tracks);
+  const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  const selectedClip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
 
   const applyPreset = (preset: GradingPreset) => {

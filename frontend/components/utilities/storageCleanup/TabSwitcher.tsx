@@ -14,17 +14,22 @@ const TABS: { id: CleanupTab; label: string }[] = [
 
 export const TabSwitcher: React.FC<TabSwitcherProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="cr-sub-tabs">
+    <div className="cr-sub-tabs flex" role="tablist" aria-label="Storage cleanup views">
       {TABS.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
-          <div
+          <button
             key={tab.id}
+            type="button"
+            role="tab"
+            id={`subtab-${tab.id}`}
+            aria-selected={isActive}
+            tabIndex={isActive ? 0 : -1}
             onClick={() => onTabChange(tab.id)}
             className={`cr-sub-tab ${isActive ? 'active' : ''}`}
           >
             {tab.label}
-          </div>
+          </button>
         );
       })}
     </div>

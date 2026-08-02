@@ -5,7 +5,7 @@
  * Flow:
  * 1. Fetch the full project from /api/v1/nle/projects/{projectId}
  * 2. Call loadProject() on the NLE store to restore timeline state
- * 3. Construct a minimal Photo stub (NLE editor only needs id/path/filename/type)
+ * 3. Construct a Photo stub (path: '' signals VideoEditorMode to skip photo init)
  * 4. Render VideoEditorMode with the stub photo
  */
 import React, { useEffect, useState } from 'react';
@@ -28,6 +28,7 @@ export const VideoEditorFromProject: React.FC<VideoEditorFromProjectProps> = ({
   const loadProject = useNLEStore((s) => s.loadProject);
 
   const [photoStub, setPhotoStub] = useState<Photo | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,10 +44,8 @@ export const VideoEditorFromProject: React.FC<VideoEditorFromProjectProps> = ({
         // Load project state into the NLE store before rendering the editor
         loadProject(project);
 
-        // Build a minimal Photo stub — VideoEditorMode uses photo.id/path/filename
-        // for clip analysis. For projects opened from the dashboard (no cover photo),
-        // we use empty/stub values; the editor will work in "empty timeline" mode
-        // and the user can drag clips in from the assets panel.
+        // Build a Photo stub — VideoEditorMode uses path: '' to recognize
+        // pre-loaded projects and skip photo re-initialization.
         const stub: Photo = {
           id: project.id,
           url: '',
@@ -61,6 +60,7 @@ export const VideoEditorFromProject: React.FC<VideoEditorFromProjectProps> = ({
 
         if (!cancelled) {
           setPhotoStub(stub);
+          setIsLoaded(true);
         }
       } catch (err) {
         if (!cancelled) {
@@ -100,7 +100,7 @@ export const VideoEditorFromProject: React.FC<VideoEditorFromProjectProps> = ({
   }
 
   // Loading state — linear shimmer bar matching the editor's aesthetic
-  if (!photoStub) {
+  if (!isLoaded || !photoStub) {
     return createPortal(
       <div className="fixed inset-0 z-[100] bg-[#08090d] flex flex-col items-center justify-center gap-4">
         <p className="text-white/40 text-sm tracking-wide">Opening editor…</p>

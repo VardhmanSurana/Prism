@@ -49,6 +49,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   projectWidth = 1920, projectHeight = 1080,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const transitionVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WebGLVideoRenderer | null>(null);
@@ -58,6 +59,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   const decodersRef = useRef<Map<string, VideoFrameDecoder>>(new Map());
   const [decodedFrame, setDecodedFrame] = useState<VideoFrame | null>(null);
   const [showScopes, setShowScopes] = useState(false);
+
+  const isImagePath = (p?: string) => !!p && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(p);
 
   const isMulticamMode = useNLEStore((s) => s.isMulticamMode);
   const toggleMulticamMode = useNLEStore((s) => s.toggleMulticamMode);
@@ -270,11 +273,10 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   }, [kfOpacity, kfScaleX, kfScaleY, kfRotation, kfX, kfY, baseTransform]);
 
   const handleTimeUpdate = useCallback(() => {
-    const video = videoRef.current;
-    if (video && isPlaying) {
-      onSeek(video.currentTime);
-    }
-  }, [isPlaying, onSeek]);
+    // During playback, the master clock (line ~592) drives playheadPosition.
+    // Only write seek corrections when paused (scrubbing).
+    // This avoids three time sources fighting each other.
+  }, []);
 
   const effects = clipEffects ?? DEFAULT_EFFECTS;
   const hasEffectsApplied = !isDefaultEffects(effects);
@@ -342,8 +344,13 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   const renderWebGL = useCallback(() => {
     const renderer = rendererRef.current;
     const canvas = canvasRef.current;
-    const video = decodedFrame || videoRef.current;
-    if (!renderer || !canvas || !video) return;
+    const isImage = isImagePath(path);
+    const activeSource: HTMLVideoElement | HTMLImageElement | VideoFrame | null =
+      isImage
+        ? imageRef.current
+        : (decodedFrame || videoRef.current);
+
+    if (!renderer || !canvas || !activeSource) return;
 
     if (canvas.width !== projectWidth || canvas.height !== projectHeight) {
       canvas.width = projectWidth;
@@ -360,9 +367,15 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
       let baseOpacity = currentTransform.opacity;
       let baseTranslateX = currentTransform.x;
       let baseTranslateY = currentTransform.y;
+      let baseScaleX = currentTransform.scaleX;
+      let baseScaleY = currentTransform.scaleY;
 
       if (t === 'crossfade' || t === 'dissolve') {
         baseOpacity = (1 - progress) * currentTransform.opacity;
+      } else if (t === 'zoom' || t === 'zoom-in') {
+        baseOpacity = (1 - progress) * currentTransform.opacity;
+        baseScaleX = currentTransform.scaleX * (1.0 + progress * 0.4);
+        baseScaleY = currentTransform.scaleY * (1.0 + progress * 0.4);
       } else if (t === 'slide-left') {
         baseTranslateX = currentTransform.x - progress * projectWidth;
       } else if (t === 'slide-right') {
@@ -378,18 +391,26 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         opacity: baseOpacity,
         x: baseTranslateX,
         y: baseTranslateY,
+        scaleX: baseScaleX,
+        scaleY: baseScaleY,
       };
 
-      renderer.render(video, effects, modifiedTransform, projectWidth, projectHeight);
+      renderer.render(activeSource, effects, modifiedTransform, projectWidth, projectHeight);
 
       const nextVideo = transitionVideoRef.current;
       if (nextVideo && transitionState.nextClip) {
         let nextOpacity = transitionState.nextClip.transform.opacity;
         let nextTranslateX = transitionState.nextClip.transform.x;
         let nextTranslateY = transitionState.nextClip.transform.y;
+        let nextScaleX = transitionState.nextClip.transform.scaleX;
+        let nextScaleY = transitionState.nextClip.transform.scaleY;
 
         if (t === 'crossfade' || t === 'dissolve') {
           nextOpacity = progress * transitionState.nextClip.transform.opacity;
+        } else if (t === 'zoom' || t === 'zoom-in') {
+          nextOpacity = progress * transitionState.nextClip.transform.opacity;
+          nextScaleX = transitionState.nextClip.transform.scaleX * (0.7 + progress * 0.3);
+          nextScaleY = transitionState.nextClip.transform.scaleY * (0.7 + progress * 0.3);
         } else if (t === 'slide-left') {
           nextTranslateX = transitionState.nextClip.transform.x + (1 - progress) * projectWidth;
         } else if (t === 'slide-right') {
@@ -405,6 +426,8 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
           opacity: nextOpacity,
           x: nextTranslateX,
           y: nextTranslateY,
+          scaleX: nextScaleX,
+          scaleY: nextScaleY,
         };
 
         renderer.render(nextVideo, transitionState.nextClip.effects || DEFAULT_EFFECTS, nextModifiedTransform, projectWidth, projectHeight);
@@ -417,14 +440,14 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         gl.enable(gl.SCISSOR_TEST);
 
         gl.scissor(0, 0, splitX, projectHeight);
-        renderer.render(video, DEFAULT_EFFECTS, currentTransform, projectWidth, projectHeight);
+        renderer.render(activeSource, DEFAULT_EFFECTS, currentTransform, projectWidth, projectHeight, undefined, false);
 
         gl.scissor(splitX, 0, projectWidth - splitX, projectHeight);
-        renderer.render(video, effects, currentTransform, projectWidth, projectHeight);
+        renderer.render(activeSource, effects, currentTransform, projectWidth, projectHeight, undefined, true);
 
         gl.disable(gl.SCISSOR_TEST);
       } else {
-        renderer.render(video, effects, currentTransform, projectWidth, projectHeight);
+        renderer.render(activeSource, effects, currentTransform, projectWidth, projectHeight);
       }
     }
 
@@ -562,11 +585,47 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   }, [isPlaying, renderWebGL]);
 
   useEffect(() => {
-    renderWebGL();
-  }, [playheadPosition, renderWebGL]);
+    // During playback, the rAF loop (above) already calls renderWebGL every frame.
+    // Only render here for paused-state changes (scrub, seek, effect/transform edits).
+    if (!isPlaying) renderWebGL();
+  }, [playheadPosition, renderWebGL, isPlaying]);
+
+  // Master 60fps playhead clock during playback
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    let frameId: number;
+    let lastTime = performance.now();
+
+    const tick = (now: number) => {
+      const dt = (now - lastTime) / 1000;
+      lastTime = now;
+
+      if (dt > 0) {
+        const currentPos = useNLEStore.getState().playheadPosition;
+        const maxDuration = useNLEStore.getState().duration;
+        const nextPos = currentPos + dt;
+
+        if (maxDuration > 0 && nextPos >= maxDuration) {
+          onSeek(maxDuration);
+          onPause();
+        } else {
+          onSeek(nextPos);
+          frameId = requestAnimationFrame(tick);
+        }
+      } else {
+        frameId = requestAnimationFrame(tick);
+      }
+    };
+
+    frameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frameId);
+  }, [isPlaying, onSeek, onPause]);
+
+  const isImage = isImagePath(path);
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#111]">
+    <div className="relative w-full h-full flex flex-col bg-[#0a0a0c]">
       <div
         ref={containerRef}
         className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden"
@@ -625,19 +684,41 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         )}
       </div>
 
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        preload="metadata"
-        crossOrigin="anonymous"
-        className="hidden"
-        onLoadedMetadata={(e) => setLocalDuration(e.currentTarget.duration)}
-        onTimeUpdate={handleTimeUpdate}
-        onEnded={onPause}
-        onSeeked={() => {
-          if (!isPlaying) renderWebGL();
-        }}
-      />
+      {isImage ? (
+        <img
+          ref={imageRef}
+          src={videoUrl}
+          crossOrigin="anonymous"
+          className="hidden"
+          onLoad={() => {
+            console.log('[PreviewArea:img] Image loaded successfully:', videoUrl);
+            renderWebGL();
+          }}
+          onError={(e) => {
+            console.error('[PreviewArea:img] Error loading image from URL:', videoUrl, e);
+          }}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          preload="metadata"
+          crossOrigin="anonymous"
+          className="hidden"
+          onLoadedMetadata={(e) => {
+            console.log('[PreviewArea:video] Metadata loaded for video URL:', videoUrl);
+            setLocalDuration(e.currentTarget.duration);
+          }}
+          onTimeUpdate={handleTimeUpdate}
+          onEnded={onPause}
+          onSeeked={() => {
+            if (!isPlaying) renderWebGL();
+          }}
+          onError={(e) => {
+            console.error('[PreviewArea:video] Error loading video from URL:', videoUrl, e);
+          }}
+        />
+      )}
 
       {transitionState.active && transitionState.nextClip && (
         <video
@@ -716,7 +797,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         />
       ))}
 
-      <div className="h-11 bg-[#161616] border-t border-[#252525] flex items-center justify-between px-4 shrink-0 z-10">
+      <div className="h-11 bg-[#111113] border-t border-white/[0.06] flex items-center justify-between px-4 shrink-0 z-10">
         <div className="w-24 shrink-0" />
 
         <div className="flex items-center gap-3">
@@ -728,7 +809,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
           <button
             onClick={() => isPlaying ? onPause() : onPlay()}
-            className="text-white bg-[#333] hover:bg-[#444] rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+            className="text-white bg-[#222] hover:bg-[#333] rounded-full w-9 h-9 flex items-center justify-center transition-all duration-150 border border-white/[0.08] hover:border-white/[0.15]"
           >
             {isPlaying ? (
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
@@ -748,7 +829,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
             </svg>
           </button>
 
-          <span className="text-[#999] text-xs font-mono tabular-nums ml-2 select-none">
+          <span className="text-white/50 text-[11px] font-mono tabular-nums ml-2 select-none">
             {formatTimecode(playheadPosition)} / {formatTimecode(videoDuration)}
           </span>
         </div>
@@ -756,10 +837,10 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={toggleMulticamMode}
-            className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded border transition-colors ${
+            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all duration-150 ${
               isMulticamMode
-                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
-                : 'border-[#333] text-[#999] hover:text-white hover:border-[#555]'
+                ? 'bg-[#34d399]/15 border-[#34d399]/30 text-[#34d399]'
+                : 'border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 hover:bg-white/[0.04]'
             }`}
             title="Toggle Multi-Cam Angle Grid"
           >
@@ -771,10 +852,10 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
           <button
             onClick={() => setShowScopes((prev) => !prev)}
-            className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded border transition-colors ${
+            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all duration-150 ${
               showScopes
-                ? 'bg-[#3b82f6]/20 border-[#3b82f6] text-[#3b82f6]'
-                : 'border-[#333] text-[#999] hover:text-white hover:border-[#555]'
+                ? 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#3b82f6]'
+                : 'border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 hover:bg-white/[0.04]'
             }`}
             title="Toggle Color Scopes (Waveform / Vectorscope)"
           >
@@ -799,7 +880,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
           <button
             onClick={() => containerRef.current?.requestFullscreen?.()}
-            className="text-[#999] hover:text-white p-1 transition-colors"
+            className="text-white/40 hover:text-white p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
             title="Fullscreen"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
