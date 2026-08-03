@@ -13,6 +13,8 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentSrc, setCurrentSrc] = useState(src);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
@@ -21,12 +23,33 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
     setIsUsingFallback(false);
   }, [src]);
 
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0].isIntersecting) {
+            setIsVisible(true);
+            observer.disconnect();
+          }
+        },
+        { rootMargin: '300px' }
+      );
+      observer.observe(el);
+      return () => observer.disconnect();
+    } else {
+      setIsVisible(true);
+    }
+  }, []);
+
   // Check if image is already loaded from cache
   useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
+    if (isVisible && imgRef.current && imgRef.current.complete) {
       setStatus('loaded');
     }
-  }, [currentSrc]);
+  }, [currentSrc, isVisible]);
 
   const handleError = () => {
     if (fallbackSrc && !isUsingFallback) {
@@ -41,8 +64,8 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
   const displayUrl = resolveUrl(currentSrc);
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
-      {status !== 'error' && (
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden bg-[#0a0a0a] flex items-center justify-center">
+      {isVisible && status !== 'error' && (
         <img
           ref={imgRef}
           src={displayUrl}
@@ -50,6 +73,7 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
           onError={handleError}
           alt={alt}
           decoding="async"
+          loading="lazy"
           className={`${className} transition-opacity duration-500 ease-out 
             ${status === 'loaded' ? 'opacity-100' : 'opacity-0'}`}
         />

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { UserCheck, X, Check } from 'lucide-react';
 import { API_BASE } from '@/constants';
 import { Photo } from '@/types';
+import { useTelemetry } from '../../../hooks/useTelemetry';
 
 interface FaceData {
   photo_id: number;
@@ -18,6 +19,7 @@ interface FaceTaggingOverlayProps {
 }
 
 export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, onClose, onTagUpdated }) => {
+  const { logAction } = useTelemetry();
   const [faces, setFaces] = useState<FaceData[]>([]);
   const [activeFaceIndex, setActiveFaceIndex] = useState<number | null>(null);
   const [nameInput, setNameInput] = useState('');
@@ -56,6 +58,7 @@ export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, o
 
   const handleSaveTag = async (face: FaceData) => {
     if (!nameInput.trim()) return;
+    logAction('FaceTaggingOverlay', 'tag_face', { photoId: photo.id, personName: nameInput.trim() });
     setIsSaving(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/tag-face`, {

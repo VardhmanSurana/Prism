@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FolderPlus, Check, X } from 'lucide-react';
 import { Photo } from '../../types';
 import { API_BASE } from '../../constants';
+import { useTelemetry } from '../../hooks/useTelemetry';
 
 interface SmartAlbumModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
   onClose,
   onCreated,
 }) => {
+  const { logAction } = useTelemetry();
   const [albumName, setAlbumName] = useState(
     `AI Search (${photos.length} photos)`
   );
@@ -27,6 +29,7 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
 
   const handleCreate = async () => {
     if (!albumName.trim()) return;
+    logAction('SmartAlbumModal', 'create_smart_album', { name: albumName.trim(), photoCount: photos.length });
     setIsSubmitting(true);
     setError(null);
 

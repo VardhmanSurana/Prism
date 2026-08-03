@@ -136,6 +136,18 @@ pub async fn upload_photo(
         photo.date = photo.date_taken;
     }
 
+    // Pre-generate thumbnail in background so grid loads instantly
+    let src_path = target_path.clone();
+    let thumb_dir = state.config.thumbnails_dir.clone();
+    let photo_id = photo.id;
+    tokio::task::spawn_blocking(move || {
+        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400);
+    });
+
+    // Enqueue for 4-stage AI processing
+    crate::services::worker::enqueue_photo(&state.db, photo.id).await;
+    state.worker.notify.notify_one();
+
     Ok(Json(photo))
 }
 
@@ -269,6 +281,18 @@ pub async fn upload_blob(
 
     let p_key = photo.uuid.as_deref().unwrap_or(&photo.id.to_string()).to_string();
     photo.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key));
+
+    // Pre-generate thumbnail in background for newly saved blob
+    let src_path = target_path.clone();
+    let thumb_dir = state.config.thumbnails_dir.clone();
+    let photo_id = photo.id;
+    tokio::task::spawn_blocking(move || {
+        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400);
+    });
+
+    // Enqueue for 4-stage AI processing
+    crate::services::worker::enqueue_photo(&state.db, photo.id).await;
+    state.worker.notify.notify_one();
 
     Ok(Json(photo))
 }

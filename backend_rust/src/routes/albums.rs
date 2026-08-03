@@ -342,3 +342,116 @@ pub async fn delete_album(
 
     Ok(Json(json!({ "id": album.id, "uuid": album.uuid, "status": "deleted" })))
 }
+
+// ── Smart album photo retrieval (Python-only, TODO stubs) ──────────────────
+
+/// GET /api/v1/albums/smart/photos — Get photos in a smart album by album_id query param.
+pub async fn get_smart_album_photos_by_id(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+) -> Json<Value> {
+    let album_id = params.get("album_id").and_then(|s| s.parse::<i64>().ok()).unwrap_or(0);
+    let limit: i64 = params.get("limit").and_then(|s| s.parse().ok()).unwrap_or(100);
+    let offset: i64 = params.get("offset").and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    let photos = sqlx::query_as::<_, crate::models::Photo>(
+        "SELECT p.* FROM photos p
+         JOIN photo_albums pa ON pa.photo_id = pa.album_id
+         WHERE pa.album_id = ? AND p.is_trash = 0
+         ORDER BY p.date_taken DESC NULLS LAST
+         LIMIT ? OFFSET ?"
+    )
+    .bind(album_id)
+    .bind(limit)
+    .bind(offset)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(json!({
+        "photos": photos.iter().map(|p| json!({
+            "id": p.id, "filename": p.filename, "path": p.path,
+            "date_taken": p.date_taken, "width": p.width, "height": p.height,
+        })).collect::<Vec<_>>(),
+        "total": photos.len(),
+        "offset": offset,
+        "limit": limit,
+        "album_id": album_id,
+    }))
+}
+
+/// GET /api/v1/albums/smart/:smart_type/photos — Get photos in a fixed smart album.
+pub async fn get_smart_album_photos(
+    State(state): State<Arc<AppState>>,
+    Path(smart_type): Path<String>,
+) -> Json<Value> {
+    let limit: i64 = 100;
+    let filter = match smart_type.as_str() {
+        "favorites" => "is_favorite = 1",
+        "videos" => "mime_type LIKE 'video/%'",
+        "recent" => "1=1 ORDER BY upload_date DESC",
+        "panoramas" => "aspect_ratio > 2.5",
+        "selfies" => "1=1",
+        _ => "1=1",
+    };
+
+    let photos = sqlx::query_as::<_, crate::models::Photo>(
+        &format!(
+            "SELECT * FROM photos WHERE is_trash = 0 AND {} ORDER BY date_taken DESC NULLS LAST LIMIT ?",
+            filter
+        )
+    )
+    .bind(limit)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(json!({
+        "photos": photos.iter().map(|p| json!({
+            "id": p.id, "filename": p.filename, "path": p.path,
+            "date_taken": p.date_taken, "width": p.width, "height": p.height,
+        })).collect::<Vec<_>>(),
+        "total": photos.len(),
+        "smart_type": smart_type,
+    }))
+}
+
+/// POST /api/v1/albums/smart/reclassify — Re-run content classification on all photos.
+pub async fn reclassify_all_photos(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE is_trash = 0")
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+    // ponytail: reclassification calls ML service for each photo without auto_tags
+    let photos = sqlx::query_as::<_, crate::models::Photo>(
+        "SELECT * FROM photos WHERE is_trash = 0 AND (auto_tags IS NULL OR auto_tags = '')"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut updated = 0;
+    for photo in &photos {
+        if let Ok(resp) = state.ml_client.get_vision_caption(&photo.path).await {
+            if let Some(tags) = resp.tags.first() {
+                let tags_json = serde_json::to_string(&resp.tags).unwrap_or_default();
+                sqlx::query("UPDATE photos SET auto_tags = ? WHERE id = ?")
+                    .bind(&tags_json)
+                    .bind(photo.id)
+                    .execute(&state.db)
+                    .await
+                    .ok();
+                updated += 1;
+            }
+        }
+    }
+
+    Json(json!({
+        "status": "success",
+        "total": total,
+        "updated": updated,
+    }))
+}

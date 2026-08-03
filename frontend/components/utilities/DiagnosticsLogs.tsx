@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { API_BASE } from '../../constants';
 import { useStats } from '../../hooks/useStats';
 import { useSettingsStore } from '../../store/settingsStore';
+import { Switch } from '../ui';
 import { 
   Activity, 
-  Terminal, 
   RefreshCw, 
   Download, 
   Copy, 
@@ -12,11 +12,20 @@ import {
   Radio,
   Server,
   Gauge,
+  Trash2,
+  Play,
+  Pause,
+  Search,
+  Filter,
+  Check,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import {
   subscribeTelemetryStream,
   fetchTelemetrySummary,
   fetchTelemetryEvents,
+  clearTelemetryEvents,
   TelemetryEvent,
   TelemetrySummary,
 } from '../../hooks/useTelemetry';
@@ -51,16 +60,11 @@ interface DiagnosticsData {
   };
 }
 
-type LogFilter = 'all' | 'errors' | 'warnings' | 'backend' | 'ai' | 'frontend' | 'navigation';
+
 
 export const DiagnosticsLogs: React.FC = () => {
   const [data, setData] = useState<DiagnosticsData | null>(null);
-  const [logs, setLogs] = useState<string>('INFO [System Startup] Initializing Prism Diagnostics telemetry...\nINFO [Rust Engine] Connected to local SQLite WAL database\nINFO [Python ML] Microservice inference endpoint active at 127.0.0.1:8270\nINFO [Vision Pipeline] Florence-2 and SigLIP models pre-loaded in VRAM\nINFO [Index Watcher] Directory watchdog monitoring 1 local pictures territory');
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
-  const [activeLogFilter, setActiveLogFilter] = useState<LogFilter>('all');
-  const [copiedLog, setCopiedLog] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<{ type: 'info' | 'success' | 'error'; message: string } | null>(null);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(new Date());
   const [lastBackupTime, setLastBackupTime] = useState<string>('Today • ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -72,10 +76,14 @@ export const DiagnosticsLogs: React.FC = () => {
   const [showTelemetryPanel, setShowTelemetryPanel] = useState(true);
   const [isExportingTelemetry, setIsExportingTelemetry] = useState(false);
 
-  // Telemetry sample rate from settings store
+  // Telemetry settings from store
+  const telemetryEnabled = useSettingsStore((s) => s.telemetryEnabled);
   const telemetrySampleRate = useSettingsStore((s) => s.telemetrySampleRate);
+  const telemetryResponseLogging = useSettingsStore((s) => s.telemetryResponseLogging);
   const fetchTelemetrySettings = useSettingsStore((s) => s.fetchTelemetrySettings);
+  const setTelemetryEnabled = useSettingsStore((s) => s.setTelemetryEnabled);
   const setTelemetrySampleRate = useSettingsStore((s) => s.setTelemetrySampleRate);
+  const setTelemetryResponseLogging = useSettingsStore((s) => s.setTelemetryResponseLogging);
   const [localSampleRate, setLocalSampleRate] = useState(telemetrySampleRate);
   const [sampleRateStatus, setSampleRateStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
@@ -101,8 +109,12 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   }, [localSampleRate, setTelemetrySampleRate]);
 
+  const handleToggleTelemetry = useCallback(async () => {
+    await setTelemetryEnabled(!telemetryEnabled);
+  }, [telemetryEnabled, setTelemetryEnabled]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const logContainerRef = useRef<HTMLDivElement>(null);
+
   const telemetryContainerRef = useRef<HTMLDivElement>(null);
 
   const { stats } = useStats();
@@ -129,26 +141,63 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   };
 
-  const fetchLogs = async () => {
-    if (!autoRefresh && isRefreshing) return;
-    setIsRefreshing(true);
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/utilities/logs?lines=200`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.logs && json.logs.trim().length > 0) {
-          setLogs(json.logs);
-        }
-        if (logContainerRef.current) {
-          logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
-        }
+
+
+  // Telemetry interactive controls state (Copy, Download, Clear, Pause, Filter)
+  const [isTelemetryPaused, setIsTelemetryPaused] = useState(false);
+  const isTelemetryPausedRef = useRef(isTelemetryPaused);
+  useEffect(() => {
+    isTelemetryPausedRef.current = isTelemetryPaused;
+  }, [isTelemetryPaused]);
+
+  const [telemetryFilterText, setTelemetryFilterText] = useState('');
+  const [telemetryCategoryFilter, setTelemetryCategoryFilter] = useState<'all' | 'ai' | 'error' | 'frontend' | 'backend' | 'people' | 'sync' | 'photos'>('all');
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const filteredTelemetryEvents = useMemo(() => {
+    return telemetryEvents.filter((evt) => {
+      const eventType = (evt.event_type || '').toLowerCase();
+      const component = (evt.component || '').toLowerCase();
+      const action = (evt.action || '').toLowerCase();
+      const source = (evt.source || '').toLowerCase();
+      const status = (evt.status || '').toLowerCase();
+
+      if (telemetryCategoryFilter === 'backend' && source !== 'backend') return false;
+      if (telemetryCategoryFilter === 'frontend' && source !== 'frontend') return false;
+      if (telemetryCategoryFilter === 'error' && status !== 'error') return false;
+
+      if (telemetryCategoryFilter === 'ai') {
+        const isAI = component.includes('ai') || component.includes('agent') || component.includes('gemma') ||
+                     component.includes('florence') || component.includes('siglip') || component.includes('clip') ||
+                     eventType.includes('ai') || eventType.includes('agent') || action.includes('ai');
+        if (!isAI) return false;
       }
-    } catch (e) {
-      // Retain existing log stream fallback if endpoint is mock/unavailable
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
+
+      if (telemetryCategoryFilter === 'people') {
+        const isPeople = component.includes('people') || component.includes('person') || component.includes('face') ||
+                         eventType.includes('people') || eventType.includes('person') || eventType.includes('face');
+        if (!isPeople) return false;
+      }
+
+      if (telemetryCategoryFilter === 'sync') {
+        const isSync = component.includes('sync') || component.includes('worker') || component.includes('job') ||
+                       eventType.includes('sync') || action.includes('sync');
+        if (!isSync) return false;
+      }
+
+      if (telemetryCategoryFilter === 'photos') {
+        const isPhotos = component.includes('photo') || component.includes('media') || component.includes('album') ||
+                         eventType.includes('photo') || eventType.includes('album');
+        if (!isPhotos) return false;
+      }
+
+      if (telemetryFilterText.trim() !== '') {
+        const q = telemetryFilterText.toLowerCase();
+        return eventType.includes(q) || component.includes(q) || action.includes(q) || source.includes(q) || status.includes(q);
+      }
+      return true;
+    });
+  }, [telemetryEvents, telemetryCategoryFilter, telemetryFilterText]);
 
   const loadTelemetrySummary = useCallback(async () => {
     const summary = await fetchTelemetrySummary();
@@ -158,19 +207,17 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   }, []);
 
-  // Subscribe to SSE telemetry stream
+  // Subscribe to SSE telemetry stream (pausable)
   useEffect(() => {
     const unsub = subscribeTelemetryStream(
       (event) => {
         setSseConnected(true);
+        if (isTelemetryPausedRef.current) return;
         setTelemetryEvents((prev) => {
           const next = [event, ...prev];
           // Keep at most 200 events in the UI buffer
           return next.slice(0, 200);
         });
-        // Append formatted event to the text log stream as well
-        const ts = event.created_at ? new Date(event.created_at).toLocaleTimeString() : '';
-
       },
       () => {
         setSseConnected(false);
@@ -185,21 +232,14 @@ export const DiagnosticsLogs: React.FC = () => {
 
   useEffect(() => {
     fetchDiagnostics();
-    fetchLogs();
     loadTelemetrySummary();
 
-    let intervalId: any = null;
-    if (autoRefresh) {
-      intervalId = setInterval(() => {
-        fetchDiagnostics();
-        fetchLogs();
-        loadTelemetrySummary();
-      }, 4000);
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [autoRefresh, loadTelemetrySummary]);
+    const intervalId = setInterval(() => {
+      fetchDiagnostics();
+      loadTelemetrySummary();
+    }, 4000);
+    return () => clearInterval(intervalId);
+  }, [loadTelemetrySummary]);
 
   const handleExportBackup = async () => {
     setIsExporting(true);
@@ -257,28 +297,7 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   };
 
-  const handleCopyLogs = () => {
-    navigator.clipboard.writeText(logs);
-    setCopiedLog(true);
-    setTimeout(() => setCopiedLog(false), 2000);
-  };
 
-  const handleDownloadLogs = () => {
-    const blob = new Blob([logs], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `prism_logs_${new Date().toISOString().slice(0, 10)}.log`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleClearLogs = () => {
-    setLogs('INFO [Terminal] Log buffer cleared.');
-    setTelemetryEvents([]);
-  };
 
   const triggerDownload = useCallback((content: string, filename: string, mimeType: string) => {
     const blob = new Blob([content], { type: mimeType });
@@ -340,18 +359,44 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   }, [triggerDownload]);
 
-  // Filtered log lines
-  const filteredLogLines = useMemo(() => {
-    const lines = logs.split('\n').filter(line => line.trim().length > 0);
-    if (activeLogFilter === 'all') return lines;
-    if (activeLogFilter === 'errors') return lines.filter(l => l.includes('ERROR') || l.includes('CRITICAL') || l.includes('Traceback'));
-    if (activeLogFilter === 'warnings') return lines.filter(l => l.includes('WARN') || l.includes('WARNING'));
-    if (activeLogFilter === 'backend') return lines.filter(l => l.includes('Rust') || l.includes('Backend') || l.includes('SQLite') || l.includes('Axum') || l.includes('[backend]'));
-    if (activeLogFilter === 'ai') return lines.filter(l => l.includes('Python') || l.includes('ML') || l.includes('SigLIP') || l.includes('Florence') || l.includes('DBSCAN') || l.includes('Agent'));
-    if (activeLogFilter === 'frontend') return lines.filter(l => l.includes('[frontend]') || l.includes('session_start') || l.includes('user_action'));
-    if (activeLogFilter === 'navigation') return lines.filter(l => l.includes('[navigation]') || l.includes('navigate'));
-    return lines;
-  }, [logs, activeLogFilter]);
+
+
+  const handleCopyTelemetry = useCallback(() => {
+    const text = filteredTelemetryEvents
+      .map((evt) => {
+        const ts = evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : '';
+        const dur = evt.duration_ms != null ? ` (${evt.duration_ms.toFixed(1)}ms)` : '';
+        const header = `[${ts}] [${evt.status?.toUpperCase() || 'OK'}] [${evt.source?.toUpperCase()}] ${evt.event_type} · ${evt.component || ''}/${evt.action || ''}${dur}`;
+
+        if (!evt.metadata_json) {
+          return header;
+        }
+
+        try {
+          const parsed = JSON.parse(evt.metadata_json);
+          const prettyJson = JSON.stringify(parsed, null, 2)
+            .split('\n')
+            .map((line) => `   ${line}`)
+            .join('\n');
+          return `${header}\n   Payload:\n${prettyJson}`;
+        } catch {
+          return `${header}\n   Payload: ${evt.metadata_json}`;
+        }
+      })
+      .join('\n\n');
+
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  }, [filteredTelemetryEvents]);
+
+  const [expandedEventKey, setExpandedEventKey] = useState<string | null>(null);
+
+  const handleClearTelemetry = useCallback(async () => {
+    setTelemetryEvents([]);
+    setTelemetrySummary(prev => prev ? { ...prev, total_events: 0, session_count: 0 } : null);
+    await clearTelemetryEvents();
+  }, []);
 
   // Total calculated storage size
   const totalDbAndCache = (data?.database_size_bytes || 598000) + (data?.thumbnail_cache_size_bytes || 5560000);
@@ -372,11 +417,10 @@ export const DiagnosticsLogs: React.FC = () => {
           <div className="cr-card-title flex items-center justify-between">
             <span>System Health</span>
             <button
-              onClick={() => { fetchDiagnostics(); fetchLogs(); loadTelemetrySummary(); }}
-              disabled={isRefreshing}
+              onClick={() => { fetchDiagnostics(); loadTelemetrySummary(); }}
               className="cr-inline-btn flex items-center gap-1 text-[10px]"
             >
-              <RefreshCw size={10} className={isRefreshing ? 'animate-spin' : ''} />
+              <RefreshCw size={10} />
               <span>Sync</span>
             </button>
           </div>
@@ -426,29 +470,75 @@ export const DiagnosticsLogs: React.FC = () => {
       {/* SECTION 2: TELEMETRY SUMMARY STATS                           */}
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="cr-card">
-        <div className="cr-card-title flex items-center justify-between">
+        <div className="cr-card-title flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <Radio size={13} className={sseConnected ? 'text-green-400 animate-pulse' : 'text-red-400'} />
             <span>Telemetry Collection</span>
+            {!telemetryEnabled && (
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-900/40 text-amber-400">
+                Opted Out
+              </span>
+            )}
             <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded ${sseConnected ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-              {sseConnected ? 'Live' : 'Disconnected'}
+              {isTelemetryPaused ? 'Paused' : sseConnected ? 'Live' : 'Disconnected'}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Copy Button */}
+            <button
+              onClick={handleCopyTelemetry}
+              disabled={filteredTelemetryEvents.length === 0}
+              className="cr-inline-btn text-[10px] flex items-center gap-1"
+              title="Copy visible telemetry logs to clipboard"
+            >
+              {copySuccess ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+              <span>{copySuccess ? 'Copied' : 'Copy'}</span>
+            </button>
+
+            {/* Download Buttons */}
             <button
               onClick={handleExportTelemetryJSON}
               disabled={isExportingTelemetry || telemetryEvents.length === 0}
-              className="cr-inline-btn text-[10px]"
+              className="cr-inline-btn text-[10px] flex items-center gap-1"
+              title="Download telemetry logs as JSON"
             >
-              {isExportingTelemetry ? '...' : 'JSON'}
+              <Download size={11} />
+              <span>JSON</span>
             </button>
             <button
               onClick={handleExportTelemetryCSV}
               disabled={isExportingTelemetry || telemetryEvents.length === 0}
-              className="cr-inline-btn text-[10px]"
+              className="cr-inline-btn text-[10px] flex items-center gap-1"
+              title="Download telemetry logs as CSV"
             >
-              {isExportingTelemetry ? '...' : 'CSV'}
+              <Download size={11} />
+              <span>CSV</span>
             </button>
+
+            {/* Clear Button */}
+            <button
+              onClick={handleClearTelemetry}
+              disabled={telemetryEvents.length === 0}
+              className="cr-inline-btn text-[10px] flex items-center gap-1 text-[var(--cr-status-error)] hover:border-[var(--cr-status-error)]"
+              title="Clear live event log buffer"
+            >
+              <Trash2 size={11} />
+              <span>Clear</span>
+            </button>
+
+            {/* Pause / Resume Toggle Button */}
+            <button
+              onClick={() => setIsTelemetryPaused(!isTelemetryPaused)}
+              className={`cr-inline-btn text-[10px] flex items-center gap-1 ${
+                isTelemetryPaused ? 'primary' : ''
+              }`}
+              title={isTelemetryPaused ? 'Resume live event stream' : 'Pause live event stream'}
+            >
+              {isTelemetryPaused ? <Play size={11} /> : <Pause size={11} />}
+              <span>{isTelemetryPaused ? 'Resume' : 'Pause'}</span>
+            </button>
+
+            {/* Expand / Collapse Panel */}
             <button
               onClick={() => setShowTelemetryPanel(!showTelemetryPanel)}
               className="cr-inline-btn text-[10px]"
@@ -461,10 +551,14 @@ export const DiagnosticsLogs: React.FC = () => {
         {showTelemetryPanel && (
           <div className="space-y-3">
             {/* Telemetry stat cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
                 <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Total Events</div>
                 <div className="text-xl font-bold text-[var(--cr-accent)] font-mono tabular-nums">{telemetrySummary?.total_events ?? telemetryEvents.length}</div>
+              </div>
+              <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
+                <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Sessions</div>
+                <div className="text-xl font-bold text-[var(--cr-accent)] font-mono tabular-nums">{telemetrySummary?.session_count ?? '—'}</div>
               </div>
               <div className="bg-[var(--cr-surface-sunken)] rounded p-2.5 text-center">
                 <div className="text-[11px] font-mono text-[var(--cr-text-muted)] uppercase tracking-wider mb-1">Events/min</div>
@@ -487,8 +581,29 @@ export const DiagnosticsLogs: React.FC = () => {
               <span className="flex items-center gap-1"><Clock size={12} /> Last update: <span className="text-[var(--cr-accent)] tabular-nums">{lastRefreshed?.toLocaleTimeString() ?? '—'}</span></span>
             </div>
 
-            {/* Telemetry Sample Rate Control */}
+            {/* Telemetry master opt-out toggle */}
             <div className="bg-[var(--cr-surface-sunken)] rounded-lg p-3 border border-[var(--cr-border)]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Radio size={11} className={telemetryEnabled ? 'text-[var(--cr-accent)]' : 'text-red-400'} />
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--cr-text-muted)]">
+                    Telemetry Collection
+                  </span>
+                </div>
+                <Switch
+                  label=""
+                  checked={telemetryEnabled}
+                  onToggle={handleToggleTelemetry}
+                  ariaLabel="Toggle telemetry collection"
+                />
+              </div>
+              <p className="mt-1.5 font-mono text-[10px] text-[var(--cr-text-muted)] leading-relaxed">
+                When disabled, frontend events stop buffering and backend API sampling pauses. Errors (4xx/5xx) are always captured.
+              </p>
+            </div>
+
+            {/* Telemetry Sample Rate Control */}
+            <div className={`bg-[var(--cr-surface-sunken)] rounded-lg p-3 border border-[var(--cr-border)] ${!telemetryEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-1.5">
                   <Gauge size={11} className="text-[var(--cr-accent)]" />
@@ -536,40 +651,159 @@ export const DiagnosticsLogs: React.FC = () => {
               </div>
             </div>
 
+            {/* Response Body Logging toggle */}
+            <div className={`bg-[var(--cr-surface-sunken)] rounded-lg p-3 border border-[var(--cr-border)] ${!telemetryEnabled ? 'opacity-40 pointer-events-none' : ''}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Server size={11} className="text-[var(--cr-accent)]" />
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[var(--cr-text-muted)]">
+                    Response Body Logging
+                  </span>
+                </div>
+                <Switch
+                  label=""
+                  checked={telemetryResponseLogging}
+                  onToggle={() => setTelemetryResponseLogging(!telemetryResponseLogging)}
+                  ariaLabel="Toggle response body logging"
+                />
+              </div>
+              <p className="mt-1.5 font-mono text-[10px] text-[var(--cr-text-muted)] leading-relaxed">
+                When enabled, API response summaries are captured alongside each telemetry event. Turn off to reduce log verbosity.
+              </p>
+            </div>
+
+            {/* Filter Bar (Search + Category Filter Chips) */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-[var(--cr-surface-sunken)] p-2 rounded border border-[var(--cr-border)]">
+              <div className="relative flex-1">
+                <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--cr-text-muted)]" />
+                <input
+                  type="text"
+                  placeholder="Filter events by type, component, or status..."
+                  value={telemetryFilterText}
+                  onChange={(e) => setTelemetryFilterText(e.target.value)}
+                  className="w-full pl-7 pr-3 py-1 bg-[var(--cr-surface-card)] border border-[var(--cr-border)] rounded text-xs font-mono text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none focus:border-[var(--cr-accent)]"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 flex-wrap">
+                <Filter size={11} className="text-[var(--cr-text-muted)] mr-1 shrink-0" />
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'ai', label: 'AI' },
+                  { id: 'error', label: 'Errors' },
+                  { id: 'frontend', label: 'Frontend' },
+                  { id: 'backend', label: 'Backend' },
+                  { id: 'people', label: 'People' },
+                  { id: 'sync', label: 'Sync' },
+                  { id: 'photos', label: 'Photos' },
+                ] as const).map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setTelemetryCategoryFilter(cat.id)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono uppercase font-semibold transition-all ${
+                      telemetryCategoryFilter === cat.id
+                        ? 'bg-[var(--cr-accent)] text-black font-bold shadow-sm'
+                        : 'bg-[var(--cr-surface-card)] text-[var(--cr-text-muted)] hover:text-[var(--cr-text-primary)] border border-[var(--cr-border)]'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Live event stream */}
             <div
               ref={telemetryContainerRef}
-              className="cr-log-viewer max-h-48 overflow-y-auto"
+              className="cr-log-viewer max-h-64 overflow-y-auto"
             >
-              {telemetryEvents.length === 0 ? (
-                <div className="text-[var(--cr-text-muted)] py-3 text-center text-xs">
-                  Awaiting telemetry events from backend and frontend…
+              {filteredTelemetryEvents.length === 0 ? (
+                <div className="text-[var(--cr-text-muted)] py-3 text-center text-xs font-mono">
+                  {telemetryEvents.length === 0
+                    ? 'Awaiting telemetry events from backend and frontend…'
+                    : 'No telemetry events match current filter.'}
                 </div>
               ) : (
-                telemetryEvents.slice(0, 100).map((evt, idx) => {
+                filteredTelemetryEvents.slice(0, 100).map((evt, idx) => {
+                  const eventKey = evt.id != null ? `telemetry-${evt.id}-${idx}` : `telemetry-idx-${idx}`;
+                  const isExpanded = expandedEventKey === eventKey;
                   const isError = evt.status === 'error';
                   const isWarn = evt.status === 'warning';
                   const ts = evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : '';
                   const sourceColor = evt.source === 'frontend' ? 'text-blue-400' : 'text-[var(--cr-accent)]';
-                  const meta = evt.metadata_json ? (() => { try { return JSON.parse(evt.metadata_json); } catch { return null; } })() : null;
 
                   return (
-                    <div key={evt.id != null ? `telemetry-${evt.id}-${idx}` : `telemetry-idx-${idx}`} className="cr-log-line group">
-                      <span className="cr-log-time">{ts}</span>
-                      <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : 'ok'}`}>
-                        {isError ? '[ERR]' : isWarn ? '[WARN]' : '[ OK ]'}
-                      </span>
-                      <span className={`text-[9px] uppercase font-bold w-16 inline-block ${sourceColor}`}>
-                        {evt.source}
-                      </span>
-                      <span className="cr-log-msg font-mono">
-                        <span className="text-[var(--cr-text-muted)]">{evt.event_type}</span>
-                        {evt.component && <span className="text-[var(--cr-text-primary)]"> · {evt.component}</span>}
-                        {evt.action && <span className="text-[var(--cr-text-muted)]">/{evt.action}</span>}
-                        {evt.duration_ms != null && (
-                          <span className="text-[var(--cr-accent)] ml-1">({evt.duration_ms.toFixed(1)}ms)</span>
+                    <div
+                      key={eventKey}
+                      onClick={() => setExpandedEventKey(isExpanded ? null : eventKey)}
+                      className="cr-log-line group cursor-pointer hover:bg-white/5 transition-colors rounded px-1 py-0.5"
+                    >
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {evt.metadata_json ? (
+                          isExpanded ? <ChevronDown size={11} className="text-[var(--cr-text-muted)]" /> : <ChevronRight size={11} className="text-[var(--cr-text-muted)]" />
+                        ) : (
+                          <span className="w-2.5 inline-block" />
                         )}
-                      </span>
+                        <span className="cr-log-time">{ts}</span>
+                        <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : 'ok'}`}>
+                          {isError ? '[ERR]' : isWarn ? '[WARN]' : '[ OK ]'}
+                        </span>
+                        <span className={`text-[9px] uppercase font-bold w-16 inline-block ${sourceColor}`}>
+                          {evt.source}
+                        </span>
+                        <span className="cr-log-msg font-mono flex-1">
+                          <span className="text-[var(--cr-text-muted)]">{evt.event_type}</span>
+                          {evt.component && <span className="text-[var(--cr-text-primary)]"> · {evt.component}</span>}
+                          {evt.action && <span className="text-[var(--cr-text-muted)]">/{evt.action}</span>}
+                          {evt.duration_ms != null && (
+                            <span className="text-[var(--cr-accent)] ml-1">({evt.duration_ms.toFixed(1)}ms)</span>
+                          )}
+                        </span>
+
+                        {/* Inline Response Data / Metadata Summary Badge — only shown when there is extra data beyond basic method/path/status */}
+                        {evt.metadata_json && (() => {
+                          try {
+                            const parsed = JSON.parse(evt.metadata_json);
+                            const CORE_KEYS = new Set(['method', 'path', 'status']);
+                            const extraKeys = Object.keys(parsed).filter(k => !CORE_KEYS.has(k));
+                            if (extraKeys.length === 0) return null;
+                            const extra = Object.fromEntries(extraKeys.map(k => [k, parsed[k]]));
+                            const extraStr = JSON.stringify(extra);
+                            return (
+                              <span className="font-mono text-[10px] text-amber-300/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 max-w-xs truncate" title={extraStr}>
+                                data: {extraStr}
+                              </span>
+                            );
+                          } catch {
+                            return null;
+                          }
+                        })()}
+                      </div>
+
+                      {/* Expanded Raw JSON View */}
+                      {isExpanded && (
+                        <div className="mt-1.5 p-2 bg-[#09090b] rounded border border-white/10 font-mono text-[10px] text-gray-300 overflow-x-auto space-y-1">
+                          <div className="text-[var(--cr-accent)] font-bold mb-1">Telemetry Payload Details:</div>
+                          <pre className="whitespace-pre-wrap break-all leading-normal text-green-400/90">
+                            {JSON.stringify(
+                              {
+                                id: evt.id,
+                                source: evt.source,
+                                session_id: evt.session_id,
+                                event_type: evt.event_type,
+                                component: evt.component,
+                                action: evt.action,
+                                status: evt.status,
+                                duration_ms: evt.duration_ms,
+                                created_at: evt.created_at,
+                                response_or_payload: evt.metadata_json ? (() => { try { return JSON.parse(evt.metadata_json); } catch { return evt.metadata_json; } })() : null
+                              },
+                              null,
+                              2
+                            )}
+                          </pre>
+                        </div>
+                      )}
                     </div>
                   );
                 })
@@ -673,89 +907,7 @@ export const DiagnosticsLogs: React.FC = () => {
         )}
       </div>
 
-      {/* ───────────────────────────────────────────────────────────── */}
-      {/* SECTION 5: LIVE LOG STREAM                                    */}
-      {/* ───────────────────────────────────────────────────────────── */}
-      <div className="cr-card">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[var(--cr-border)] mb-3">
-          <div className="cr-card-title mb-0 flex items-center gap-2">
-            <Terminal size={13} className="text-[var(--cr-accent)]" />
-            <span>Live System Telemetry Logs</span>
-          </div>
 
-          <div className="flex items-center gap-2 font-mono text-[10px]">
-            <button
-              onClick={handleCopyLogs}
-              className="cr-inline-btn"
-            >
-              {copiedLog ? 'Copied' : 'Copy'}
-            </button>
-            <button
-              onClick={handleDownloadLogs}
-              className="cr-inline-btn"
-            >
-              Download
-            </button>
-            <button
-              onClick={handleClearLogs}
-              className="cr-inline-btn"
-            >
-              Clear
-            </button>
-            <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`cr-inline-btn ${autoRefresh ? 'primary' : ''}`}
-            >
-              {autoRefresh ? 'Pause' : 'Stream'}
-            </button>
-          </div>
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex items-center gap-2 pb-2 font-mono text-[10px] flex-wrap">
-          <span className="text-[var(--cr-text-muted)]">Filter:</span>
-          {(['all', 'errors', 'warnings', 'backend', 'ai', 'frontend', 'navigation'] as LogFilter[]).map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setActiveLogFilter(filter)}
-              className={`px-2 py-0.5 rounded uppercase ${
-                activeLogFilter === filter
-                  ? 'bg-[var(--cr-accent)] text-black font-bold'
-                  : 'text-[var(--cr-text-muted)] hover:text-[var(--cr-text-primary)]'
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
-        </div>
-
-        {/* Log Viewer Container */}
-        <div 
-          ref={logContainerRef}
-          className="cr-log-viewer max-h-64"
-        >
-          {filteredLogLines.length === 0 ? (
-            <div className="text-[var(--cr-text-muted)] py-4 text-center">No log entries matching filter "{activeLogFilter}"</div>
-          ) : (
-            filteredLogLines.map((line, idx) => {
-              let isError = line.includes('ERROR') || line.includes('CRITICAL') || line.includes('Traceback');
-              let isWarn = line.includes('WARN') || line.includes('WARNING');
-              let isInfo = line.includes('INFO') || line.includes('SUCCESS');
-              let isOk = line.includes('OK') || line.includes('Connected') || line.includes('Loaded');
-
-              return (
-                <div key={`log-${idx}`} className="cr-log-line">
-                  <span className="cr-log-time">[{idx + 1}]</span>
-                  <span className={`cr-log-level ${isError ? 'err' : isWarn ? 'warn' : isOk ? 'ok' : 'info'}`}>
-                    {isError ? '[ERR]' : isWarn ? '[WARN]' : isOk ? '[ OK ]' : '[INFO]'}
-                  </span>
-                  <span className="cr-log-msg">{line}</span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
     </div>
   );
 };

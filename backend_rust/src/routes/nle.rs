@@ -7,6 +7,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sqlx::FromRow;
+use std::process::Command;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -400,8 +401,336 @@ pub struct ThumbnailStripRequest {
 }
 
 pub async fn thumbnail_strip(
-    Json(_payload): Json<ThumbnailStripRequest>,
+    Json(payload): Json<ThumbnailStripRequest>,
 ) -> axum::response::Json<Value> {
-    // TODO: generate actual thumbnails with FFmpeg when available
-    Json(json!({ "thumbnails": [] }))
+    // ponytail: generate thumbnails at 1s intervals for video strips
+    let path = payload.source_path.clone().unwrap_or_default();
+    let in_point = payload.in_point.unwrap_or(0.0);
+    let out_point = payload.out_point.unwrap_or(60.0);
+    let count = payload.num_thumbnails.unwrap_or(12);
+    let interval = if count > 0 {
+        (out_point - in_point) / count as f64
+    } else {
+        1.0
+    };
+
+    let mut thumbnails = Vec::new();
+    let mut t = in_point;
+    while t < out_point && thumbnails.len() < 50 {
+        let out = std::env::temp_dir().join(format!("thumb_{}_{}.jpg", Uuid::new_v4(), thumbnails.len()));
+        let ts = format!("{:.3}", t);
+        let _ = Command::new("ffmpeg")
+            .args(["-y", "-ss", &ts, "-i", &path, "-frames:v", "1", "-q:v", "8", "-vf", "scale=160:-1", out.to_str().unwrap_or_default()])
+            .output();
+        if out.exists() {
+            thumbnails.push(json!({ "timestamp": t, "path": out.to_string_lossy() }));
+        }
+        t += interval;
+    }
+
+    Json(json!({ "thumbnails": thumbnails }))
+}
+
+
+// ── NLE endpoints (Python-only, TODO stubs) ────────────────────────────────
+
+#[derive(serde::Deserialize)]
+pub struct WaveformRequest {
+    pub source_path: String,
+    #[serde(default)]
+    pub photo_id: Option<i64>,
+}
+
+/// POST /api/v1/nle/clips/waveform — Extract audio waveform peaks for visualization.
+pub async fn get_waveform(
+    Json(payload): Json<WaveformRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let output = Command::new("ffmpeg")
+        .args([
+            "-i", &payload.source_path,
+            "-ac", "1", "-ar", "44100",
+            "-f", "f32le", "-",
+        ])
+        .output()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg not found: {}", e)))?;
+
+    if !output.status.success() {
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, "FFmpeg audio extraction failed".to_string()));
+    }
+
+    let bytes = &output.stdout;
+    let samples: Vec<f32> = bytes.chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+
+    // Downsample to 200 peaks
+    let num_peaks = 200;
+    let chunk_size = (samples.len() / num_peaks).max(1);
+    let peaks: Vec<f32> = samples.chunks(chunk_size)
+        .map(|chunk| chunk.iter().map(|s| s.abs()).fold(0.0f32, f32::max))
+        .take(num_peaks)
+        .collect();
+
+    let max_peak = peaks.iter().cloned().fold(0.0f32, f32::max).max(0.001);
+    let normalized: Vec<f32> = peaks.iter().map(|p| p / max_peak).collect();
+
+    Ok(Json(json!({ "peaks": normalized })))
+}
+
+/// POST /api/v1/nle/preview/render — Preview rendering.
+pub async fn render_preview(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("");
+    let time = payload.get("time").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let width = payload.get("width").and_then(|v| v.as_u64()).unwrap_or(640) as u32;
+
+    let output_path = std::env::temp_dir().join(format!("prism_preview_{}.jpg", Uuid::new_v4()));
+    let ts = format!("{:.3}", time);
+
+    let output = Command::new("ffmpeg")
+        .args([
+            "-y", "-ss", &ts, "-i", source,
+            "-frames:v", "1", "-q:v", "5",
+            "-vf", &format!("scale={}:-1", width),
+            output_path.to_str().unwrap_or_default(),
+        ])
+        .output()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg not found: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg failed: {}", stderr)));
+    }
+
+    Ok(Json(json!({
+        "status": "success",
+        "preview_path": output_path.to_string_lossy(),
+    })))
+}
+
+/// POST /api/v1/nle/export — NLE project export via FFmpeg.
+pub async fn export_project(
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let project_json = payload.get("project_json").and_then(|v| v.as_str()).unwrap_or("{}");
+    let project: Value = serde_json::from_str(project_json).unwrap_or(json!({}));
+
+    let tracks = project.get("tracks").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+    let mut inputs = Vec::new();
+    let mut filter_parts = Vec::new();
+
+    for (i, track) in tracks.iter().enumerate() {
+        let clips = track.get("clips").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+        for (j, clip) in clips.iter().enumerate() {
+            if let Some(path) = clip.get("path").and_then(|v| v.as_str()) {
+                inputs.push(path.to_string());
+                let idx = inputs.len() - 1;
+                filter_parts.push(format!("[{}:v]trim=start={}:duration={},setpts=PTS-STARTPTS[v{}]", idx, 0, 4, idx));
+            }
+        }
+    }
+
+    if inputs.is_empty() {
+        return Ok(Json(json!({ "status": "error", "message": "No clips to export" })));
+    }
+
+    let output_path = std::env::temp_dir().join(format!("prism_export_{}.mp4", Uuid::new_v4()));
+    let mut cmd = Command::new("ffmpeg");
+    cmd.arg("-y");
+    for input in &inputs {
+        cmd.args(["-i", input]);
+    }
+
+    let filter = if filter_parts.len() == 1 {
+        filter_parts.join(";")
+    } else {
+        format!("{};{}",
+            filter_parts.join(";"),
+            (0..filter_parts.len()).map(|i| format!("[v{}]", i)).collect::<Vec<_>>().join("") + "concat=n=" + &filter_parts.len().to_string() + ":v=1:a=0[outv]"
+        )
+    };
+
+    cmd.args(["-filter_complex", &filter, "-map", "[outv]"]);
+    cmd.args(["-c:v", "libx264", "-preset", "fast", "-crf", "23"]);
+    cmd.arg(output_path.to_str().unwrap_or_default());
+
+    let output = cmd.output()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg not found: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg export failed: {}", stderr)));
+    }
+
+    Ok(Json(json!({
+        "status": "success",
+        "output_path": output_path.to_string_lossy(),
+    })))
+}
+
+// ── New stubs for Python-parity endpoints ──────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct PreviewFrameRequest {
+    pub video_path: String,
+    pub timestamp: f64,
+    #[serde(default = "default_width")]
+    pub width: u32,
+}
+
+fn default_width() -> u32 { 640 }
+
+/// POST /api/v1/nle/preview/frame — Render a single preview frame via FFmpeg.
+pub async fn preview_frame(
+    Json(payload): Json<PreviewFrameRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let output_path = std::env::temp_dir().join(format!("prism_frame_{}.jpg", Uuid::new_v4()));
+    let ts = format!("{:.3}", payload.timestamp);
+
+    let output = Command::new("ffmpeg")
+        .args([
+            "-y", "-ss", &ts, "-i", &payload.video_path,
+            "-frames:v", "1", "-q:v", "5",
+            "-vf", &format!("scale={}:-1", payload.width),
+            output_path.to_str().unwrap_or_default(),
+        ])
+        .output()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg not found: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg failed: {}", stderr)));
+    }
+
+    Ok(Json(json!({
+        "status": "success",
+        "frame_path": output_path.to_string_lossy(),
+        "timestamp": payload.timestamp,
+    })))
+}
+
+#[derive(Deserialize)]
+pub struct PreviewSegmentRequest {
+    pub video_path: String,
+    pub start_time: f64,
+    pub end_time: f64,
+    #[serde(default = "default_width")]
+    pub width: u32,
+}
+
+/// POST /api/v1/nle/preview/segment — Render a preview segment via FFmpeg.
+pub async fn preview_segment(
+    Json(payload): Json<PreviewSegmentRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let output_path = std::env::temp_dir().join(format!("prism_segment_{}.mp4", Uuid::new_v4()));
+    let duration = payload.end_time - payload.start_time;
+    let start = format!("{:.3}", payload.start_time);
+    let dur = format!("{:.3}", duration);
+
+    let output = Command::new("ffmpeg")
+        .args([
+            "-y", "-ss", &start, "-i", &payload.video_path,
+            "-t", &dur,
+            "-vf", &format!("scale={}:-1", payload.width),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-an",
+            output_path.to_str().unwrap_or_default(),
+        ])
+        .output()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg not found: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, format!("FFmpeg failed: {}", stderr)));
+    }
+
+    Ok(Json(json!({
+        "status": "success",
+        "segment_path": output_path.to_string_lossy(),
+        "start_time": payload.start_time,
+        "end_time": payload.end_time,
+    })))
+}
+
+#[derive(Deserialize)]
+pub struct ExportXmlRequest {
+    pub project_name: String,
+    pub tracks: Vec<Value>,
+}
+
+/// POST /api/v1/nle/export/xml — Generate MLT XML for Kdenlive.
+pub async fn export_xml(
+    Json(payload): Json<ExportXmlRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let mut mlt = String::from(
+        r#"<?xml version="1.0" encoding="utf-8"?>
+<mlt LC_NUMERIC="C" version="7.0.0" title="Prism Export">
+  <profile description="HD 1080p" width="1920" height="1080" progressive="1" sample_aspect_num="1" sample_aspect_den="1" display_aspect_num="16" display_aspect_den="9" frame_rate_num="30" frame_rate_den="1"/>
+  <playlist id="maintrack">"#
+    );
+
+    for track in &payload.tracks {
+        if let Some(path) = track.get("path").and_then(|v| v.as_str()) {
+            let producer_id = Uuid::new_v4();
+            mlt.push_str(&format!(
+                r#"
+    <producer id="{}">
+      <property name="resource">{}</property>
+    </producer>"#,
+                producer_id, path
+            ));
+        }
+    }
+
+    mlt.push_str(
+        r#"
+  </playlist>
+</mlt>"#
+    );
+
+    let output_path = std::env::temp_dir().join(format!("prism_{}.mlt", Uuid::new_v4()));
+    std::fs::write(&output_path, &mlt)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "xml_path": output_path.to_string_lossy(),
+        "project_name": payload.project_name,
+    })))
+}
+
+/// GET /api/v1/nle/export/:job_id — Get NLE export job status.
+pub async fn get_export_status(
+    Path(job_id): Path<String>,
+) -> Json<Value> {
+    // ponytail: export jobs are tracked via filesystem, not DB
+    let job_dir = std::env::temp_dir().join(format!("prism_export_{}", job_id));
+    if job_dir.exists() {
+        let output_file = job_dir.join("output.mp4");
+        if output_file.exists() {
+            let size = std::fs::metadata(&output_file).map(|m| m.len()).unwrap_or(0);
+            Json(json!({ "job_id": job_id, "status": "completed", "output_path": output_file.to_string_lossy(), "size": size }))
+        } else {
+            Json(json!({ "job_id": job_id, "status": "processing" }))
+        }
+    } else {
+        Json(json!({ "job_id": job_id, "status": "not_found" }))
+    }
+}
+
+/// GET /api/v1/nle/export/:job_id/download — Download NLE export result.
+pub async fn download_export(
+    Path(job_id): Path<String>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let output_file = std::env::temp_dir().join(format!("prism_export_{}/output.mp4", job_id));
+    if !output_file.exists() {
+        return Err((StatusCode::NOT_FOUND, "Export not found".to_string()));
+    }
+    Ok(Json(json!({
+        "status": "success",
+        "download_path": output_file.to_string_lossy(),
+        "job_id": job_id,
+    })))
 }

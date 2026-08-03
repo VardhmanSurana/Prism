@@ -18,7 +18,7 @@ import { SessionSidebar } from './SessionSidebar';
 const SUGGESTIONS = [
   { text: "Show my favorite photos", icon: 'Heart' },
   { text: "Find photos from 2024", icon: 'Calendar' },
-  { text: "Search locked photos", icon: 'Lock' },
+  { text: "Find documents & receipts", icon: 'FileText' },
   { text: "Show all my images", icon: 'ImageIcon' },
 ];
 

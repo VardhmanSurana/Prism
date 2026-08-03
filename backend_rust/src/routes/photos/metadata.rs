@@ -44,6 +44,21 @@ pub async fn toggle_trash(
     Ok(Json(json!({ "id": photo.id, "uuid": photo.uuid, "is_trash": new_trash })))
 }
 
+pub async fn restore_photo(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
+
+    sqlx::query("UPDATE photos SET is_trash = 0 WHERE id = ?")
+        .bind(photo.id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({ "id": photo.id, "uuid": photo.uuid, "is_trash": false })))
+}
+
 #[derive(Deserialize)]
 pub struct LocationUpdateRequest {
     pub latitude: f64,

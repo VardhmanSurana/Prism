@@ -13,6 +13,7 @@ use std::convert::Infallible;
 use std::sync::Arc;
 
 use crate::AppState;
+use super::get_telemetry_enabled;
 
 #[derive(Deserialize)]
 pub struct EventLimitQuery {
@@ -21,6 +22,7 @@ pub struct EventLimitQuery {
 
 #[derive(Deserialize)]
 pub struct FrontendEventPayload {
+    pub session_id: Option<String>,
     pub event_type: String,
     pub component: Option<String>,
     pub action: Option<String>,
@@ -31,6 +33,7 @@ pub struct FrontendEventPayload {
 #[derive(Serialize)]
 pub struct TelemetrySummaryResponse {
     pub total_events: i64,
+    pub session_count: i64,
     pub error_count: i64,
     pub warning_count: i64,
     pub avg_latency_ms: f64,
@@ -56,6 +59,7 @@ pub async fn get_telemetry_summary(
             serde_json::json!({
                 "id": e.id,
                 "source": e.source,
+                "session_id": e.session_id,
                 "event_type": e.event_type,
                 "component": e.component,
                 "action": e.action,
@@ -69,6 +73,7 @@ pub async fn get_telemetry_summary(
 
     Ok(Json(TelemetrySummaryResponse {
         total_events: summary.total_events,
+        session_count: summary.session_count,
         error_count: summary.error_count,
         warning_count: summary.warning_count,
         avg_latency_ms: summary.avg_latency_ms,
@@ -100,6 +105,7 @@ pub async fn get_telemetry_events(
             serde_json::json!({
                 "id": e.id,
                 "source": e.source,
+                "session_id": e.session_id,
                 "event_type": e.event_type,
                 "component": e.component,
                 "action": e.action,
@@ -126,6 +132,7 @@ pub async fn telemetry_sse_stream(
                 let data = serde_json::json!({
                     "id": event.id,
                     "source": event.source,
+                    "session_id": event.session_id,
                     "event_type": event.event_type,
                     "component": event.component,
                     "action": event.action,
@@ -162,10 +169,20 @@ pub async fn log_frontend_event(
 ) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
     let status = payload.status.unwrap_or_else(|| "ok".to_string());
 
+    // Respect global opt-out: when disabled, only error events are stored
+    if !get_telemetry_enabled() && status != "error" {
+        return Ok(Json(serde_json::json!({
+            "status": "ok",
+            "event_id": 0,
+            "skipped": true
+        })));
+    }
+
     let event_id = state
         .telemetry
         .log_event(
             "frontend",
+            payload.session_id.as_deref(),
             &payload.event_type,
             payload.component.as_deref(),
             payload.action.as_deref(),
@@ -204,12 +221,16 @@ pub async fn log_frontend_event_batch(
         return Ok(Json(serde_json::json!({ "status": "ok", "count": 0 })));
     }
 
+    // Respect global opt-out: when disabled, only error events are stored
+    let enabled = get_telemetry_enabled();
     let events_to_insert: Vec<_> = payload
         .events
         .into_iter()
+        .filter(|evt| enabled || evt.status.as_deref() == Some("error"))
         .map(|evt| {
             (
                 "frontend".to_string(),
+                evt.session_id,
                 evt.event_type,
                 evt.component,
                 evt.action,
@@ -234,5 +255,25 @@ pub async fn log_frontend_event_batch(
     Ok(Json(serde_json::json!({
         "status": "ok",
         "count": count
+    })))
+}
+
+/// DELETE /api/v1/telemetry/events - Clear all telemetry events
+pub async fn clear_telemetry_events(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<serde_json::Value>, (StatusCode, String)> {
+    let deleted = sqlx::query("DELETE FROM telemetry_events")
+        .execute(&state.db)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to clear telemetry events: {}", e),
+            )
+        })?;
+
+    Ok(Json(serde_json::json!({
+        "status": "ok",
+        "deleted": deleted.rows_affected()
     })))
 }

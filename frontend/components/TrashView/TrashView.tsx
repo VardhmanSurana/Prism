@@ -4,6 +4,7 @@ import { Trash2, RotateCcw, ShieldAlert, CheckSquare, Square, AlertCircle } from
 import { Photo } from '../../types';
 import { API_BASE, photoSrc } from '../../constants';
 import { customConfirm } from '../../services/ConfirmService';
+import { useTelemetry } from '../../hooks/useTelemetry';
 
 interface TrashViewProps {
   photos: Photo[];
@@ -22,6 +23,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
   onToggleGroupSelection,
   onUpdatePhotos,
 }) => {
+  const { logAction, logError } = useTelemetry();
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Filter items in trash
@@ -49,6 +51,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
     async (e: React.MouseEvent, photoId: string | number) => {
       e.stopPropagation();
       const idStr = String(photoId);
+      logAction('TrashView', 'restore_single', { photoId: idStr });
 
       // Optimistic update
       onUpdatePhotos?.((prev) =>
@@ -61,6 +64,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
         await fetch(`${API_BASE}/api/v1/photos/${idStr}/trash`, { method: 'POST' });
       } catch (err) {
         console.error('Failed to restore photo:', err);
+        logError('TrashView', 'restore_single_failed', err, { photoId: idStr });
         // Rollback
         onUpdatePhotos?.((prev) =>
           prev.map((p) =>
@@ -69,7 +73,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
         );
       }
     },
-    [onUpdatePhotos]
+    [onUpdatePhotos, logAction, logError]
   );
 
   // Permanently remove a single photo from local state
@@ -87,9 +91,10 @@ export const TrashView: React.FC<TrashViewProps> = ({
         return;
       }
 
+      logAction('TrashView', 'delete_permanent_single', { photoId: idStr });
       onUpdatePhotos?.((prev) => prev.filter((p) => String(p.id) !== idStr));
     },
-    [onUpdatePhotos]
+    [onUpdatePhotos, logAction]
   );
 
   // Restore all trashed photos
@@ -104,6 +109,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
       return;
     }
 
+    logAction('TrashView', 'restore_all', { count: trashedPhotos.length });
     setIsProcessing(true);
     const ids = trashedPhotos.map((p) => String(p.id));
 
@@ -122,10 +128,11 @@ export const TrashView: React.FC<TrashViewProps> = ({
       );
     } catch (err) {
       console.error('Failed to restore all photos:', err);
+      logError('TrashView', 'restore_all_failed', err, { count: ids.length });
     } finally {
       setIsProcessing(false);
     }
-  }, [trashedPhotos, onUpdatePhotos]);
+  }, [trashedPhotos, onUpdatePhotos, logAction, logError]);
 
   // Empty Trash completely
   const handleEmptyTrash = useCallback(async () => {
@@ -139,13 +146,14 @@ export const TrashView: React.FC<TrashViewProps> = ({
       return;
     }
 
+    logAction('TrashView', 'empty_trash', { count: trashedPhotos.length });
     setIsProcessing(true);
     const ids = new Set(trashedPhotos.map((p) => String(p.id)));
 
     // Optimistic removal
     onUpdatePhotos?.((prev) => prev.filter((p) => !ids.has(String(p.id))));
     setIsProcessing(false);
-  }, [trashedPhotos, onUpdatePhotos]);
+  }, [trashedPhotos, onUpdatePhotos, logAction]);
 
   // Select all / deselect all in Trash
   const allSelected = useMemo(

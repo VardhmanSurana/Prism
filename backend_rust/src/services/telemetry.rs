@@ -7,6 +7,7 @@ use tokio::sync::broadcast;
 pub struct TelemetryEvent {
     pub id: Option<i64>,
     pub source: String,
+    pub session_id: Option<String>,
     pub event_type: String,
     pub component: Option<String>,
     pub action: Option<String>,
@@ -19,6 +20,7 @@ pub struct TelemetryEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TelemetrySummary {
     pub total_events: i64,
+    pub session_count: i64,
     pub error_count: i64,
     pub warning_count: i64,
     pub avg_latency_ms: f64,
@@ -58,6 +60,7 @@ impl TelemetryService {
     pub async fn log_event(
         &self,
         source: &str,
+        session_id: Option<&str>,
         event_type: &str,
         component: Option<&str>,
         action: Option<&str>,
@@ -69,9 +72,10 @@ impl TelemetryService {
         let status_val = status.unwrap_or("ok");
 
         let result = sqlx::query(
-            "INSERT INTO telemetry_events (source, event_type, component, action, metadata_json, status, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+            "INSERT INTO telemetry_events (source, session_id, event_type, component, action, metadata_json, status, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .bind(source)
+        .bind(session_id)
         .bind(event_type)
         .bind(component)
         .bind(action)
@@ -85,6 +89,7 @@ impl TelemetryService {
         let event = TelemetryEvent {
             id: Some(result.last_insert_rowid()),
             source: source.to_string(),
+            session_id: session_id.map(|s| s.to_string()),
             event_type: event_type.to_string(),
             component: component.map(|s| s.to_string()),
             action: action.map(|s| s.to_string()),
@@ -103,7 +108,7 @@ impl TelemetryService {
     /// Log a batch of telemetry events within a single database transaction
     pub async fn log_events_batch(
         &self,
-        events: Vec<(String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<f64>)>,
+        events: Vec<(String, Option<String>, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<f64>)>,
     ) -> Result<i64, sqlx::Error> {
         if events.is_empty() {
             return Ok(0);
@@ -112,14 +117,15 @@ impl TelemetryService {
         let mut tx = self.db.begin().await?;
         let mut count = 0i64;
 
-        for (source, event_type, component, action, metadata, status, duration_ms) in events {
+        for (source, session_id, event_type, component, action, metadata, status, duration_ms) in events {
             let now = Utc::now().to_rfc3339();
             let status_val = status.as_deref().unwrap_or("ok");
 
             let result = sqlx::query(
-                "INSERT INTO telemetry_events (source, event_type, component, action, metadata_json, status, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO telemetry_events (source, session_id, event_type, component, action, metadata_json, status, duration_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
             )
             .bind(&source)
+            .bind(&session_id)
             .bind(&event_type)
             .bind(&component)
             .bind(&action)
@@ -136,6 +142,7 @@ impl TelemetryService {
                     let event = TelemetryEvent {
                         id: Some(res.last_insert_rowid()),
                         source,
+                        session_id,
                         event_type,
                         component,
                         action,
@@ -159,7 +166,7 @@ impl TelemetryService {
     /// Get recent telemetry events
     pub async fn get_recent_events(&self, limit: i64) -> Result<Vec<TelemetryEvent>, sqlx::Error> {
         let events = sqlx::query_as::<_, TelemetryEvent>(
-            "SELECT id, source, event_type, component, action, metadata_json, status, duration_ms, created_at FROM telemetry_events ORDER BY id DESC LIMIT ?"
+            "SELECT id, source, session_id, event_type, component, action, metadata_json, status, duration_ms, created_at FROM telemetry_events ORDER BY id DESC LIMIT ?"
         )
         .bind(limit)
         .fetch_all(&self.db)
@@ -174,6 +181,13 @@ impl TelemetryService {
             .fetch_one(&self.db)
             .await
             .unwrap_or(0);
+
+        let session_count: i64 = sqlx::query_scalar::<_, i64>(
+            "SELECT COUNT(DISTINCT session_id) FROM telemetry_events WHERE session_id IS NOT NULL AND session_id != ''"
+        )
+        .fetch_one(&self.db)
+        .await
+        .unwrap_or(0);
 
         let error_count: i64 = sqlx::query_scalar::<_, i64>(
             "SELECT COUNT(*) FROM telemetry_events WHERE status = 'error'"
@@ -213,6 +227,7 @@ impl TelemetryService {
 
         Ok(TelemetrySummary {
             total_events,
+            session_count,
             error_count,
             warning_count,
             avg_latency_ms: avg_latency,
@@ -242,6 +257,7 @@ mod tests {
             "CREATE TABLE telemetry_events (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 source TEXT NOT NULL,
+                session_id TEXT,
                 event_type TEXT NOT NULL,
                 component TEXT,
                 action TEXT,
@@ -267,6 +283,7 @@ mod tests {
         let id = service
             .log_event(
                 "frontend",
+                Some("sess-abc"),
                 "click",
                 Some("Button"),
                 Some("submit"),
@@ -283,12 +300,14 @@ mod tests {
         let broadcasted = rx.recv().await.unwrap();
         assert_eq!(broadcasted.id, Some(id));
         assert_eq!(broadcasted.source, "frontend");
+        assert_eq!(broadcasted.session_id.as_deref(), Some("sess-abc"));
         assert_eq!(broadcasted.event_type, "click");
 
         // Verify database persistence
         let events = service.get_recent_events(10).await.unwrap();
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].component.as_deref(), Some("Button"));
+        assert_eq!(events[0].session_id.as_deref(), Some("sess-abc"));
     }
 
     #[tokio::test]
@@ -299,6 +318,7 @@ mod tests {
         let batch = vec![
             (
                 "frontend".to_string(),
+                Some("sess-1".to_string()),
                 "action_1".to_string(),
                 Some("CompA".to_string()),
                 None,
@@ -308,6 +328,7 @@ mod tests {
             ),
             (
                 "frontend".to_string(),
+                Some("sess-1".to_string()),
                 "action_2".to_string(),
                 Some("CompB".to_string()),
                 None,
@@ -322,6 +343,7 @@ mod tests {
 
         let summary = service.get_summary().await.unwrap();
         assert_eq!(summary.total_events, 2);
+        assert_eq!(summary.session_count, 1);
         assert_eq!(summary.error_count, 1);
         assert_eq!(summary.avg_latency_ms, 30.0);
     }

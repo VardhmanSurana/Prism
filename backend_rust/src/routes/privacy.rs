@@ -1,3 +1,4 @@
+use axum::extract::Path;
 use axum::response::Json;
 use serde_json::{json, Value};
 
@@ -15,4 +16,34 @@ pub async fn get_privacy_status() -> Json<Value> {
             { "id": "inpainting", "label": "AI Object Removal & Inpainting", "enabled": true, "description": "Generative mask removal and background restoration", "network_calls": [], "what_runs_locally": ["Canvas mask tensor generation", "Inpainting diffusion pass"], "what_is_sent": "Zero data transmitted. Runs inside local PyTorch runtime.", "model": "LaMa / Stable Diffusion Inpainting" }
         ]
     }))
+}
+
+
+/// GET /api/v1/privacy/feature/:feature_id — Return detailed privacy info for a specific feature.
+pub async fn get_privacy_feature_detail(
+    Path(feature_id): Path<String>,
+) -> Json<Value> {
+    let features = [
+        ("semantic_search", "Semantic Vector Search", "On-device SigLIP embedding generation for natural language image retrieval", "SigLIP-Base-384", vec!["Image vector embeddings", "Local cosine similarity search index"]),
+        ("face_detection", "Face Recognition & Clustering", "Local face bounding box detection and identity grouping", "InsightFace / SCRFD", vec!["Face detection & cropping", "Euclidean vector distance clustering"]),
+        ("ocr_text", "Text & Document OCR", "On-device document classification and optical character recognition", "PaddleOCR / Tesseract", vec!["Text extraction from images", "Document indexing"]),
+        ("inpainting", "AI Object Removal & Inpainting", "Generative mask removal and background restoration", "LaMa / Stable Diffusion Inpainting", vec!["Canvas mask tensor generation", "Inpainting diffusion pass"]),
+    ];
+
+    if let Some((id, label, desc, model, runs_locally)) = features.iter().find(|(id, _, _, _, _)| *id == feature_id.as_str()) {
+        Json(json!({
+            "id": id,
+            "label": label,
+            "enabled": true,
+            "description": desc,
+            "network_calls": [],
+            "what_runs_locally": runs_locally,
+            "what_is_sent": "Zero data transmitted. Fully airgapped on local device.",
+            "model": model,
+        }))
+    } else {
+        Json(json!({
+            "error": format!("Unknown feature: {}", feature_id),
+        }))
+    }
 }

@@ -91,7 +91,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
   const activeTabObj = TABS.find(t => t.id === activeTab) || TABS[0];
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-screen cr-container select-none">
+    <div className="flex flex-col md:flex-row h-full min-h-screen cr-container">
       {/* ═══════ MOBILE NAV HEADER (md:hidden) ═══════ */}
       <div className="md:hidden border-b border-[var(--cr-border)] bg-[var(--cr-surface-sidebar)] p-4 flex flex-col gap-3">
         <div className="flex items-center justify-between">
@@ -266,7 +266,24 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
 
           {/* Active Tab Views */}
           {activeTab === 'storage' && (
-            <StorageCleanup />
+            <div className="space-y-8">
+              <StorageCleanup />
+
+              {/* Danger Zone */}
+              <div className="pt-6 border-t border-[var(--cr-border)]">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldAlert size={15} className="text-[var(--cr-status-error)]" />
+                  <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--cr-text-secondary)] font-medium">
+                    Danger Zone
+                  </h4>
+                </div>
+                <SystemIntegrity 
+                  isResetting={isResetting}
+                  onReset={handleResetLibrary}
+                  systemStatus={systemStatus}
+                />
+              </div>
+            </div>
           )}
 
           {activeTab === 'engine' && (
@@ -330,21 +347,6 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                   purgeStatus={purgeStatus}
                   onBrowse={handlePurgeBrowse}
                   onPurge={handlePurgeFolder}
-                />
-              </div>
-
-              {/* Danger Zone */}
-              <div className="pt-6 border-t border-[var(--cr-border)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <ShieldAlert size={15} className="text-[var(--cr-status-error)]" />
-                  <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--cr-text-secondary)] font-medium">
-                    Danger Zone
-                  </h4>
-                </div>
-                <SystemIntegrity 
-                  isResetting={isResetting}
-                  onReset={handleResetLibrary}
-                  systemStatus={systemStatus}
                 />
               </div>
             </div>

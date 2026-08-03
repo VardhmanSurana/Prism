@@ -4,7 +4,6 @@ import { eventService } from '../../services/EventService';
 
 interface UseLibraryOperationsProps {
   onConfirm: (config: {
-    isOpen: boolean;
     title: string;
     message: string;
     onConfirm: () => void;
@@ -41,7 +40,6 @@ export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOp
 
   const handleResetLibrary = () => {
     onConfirm({
-      isOpen: true,
       title: 'Reset Library',
       message: 'Completely clear the photo library? This will remove all indexed photos, thumbnails, and encrypted Locked Folder files. Your original files will NOT be deleted.',
       onConfirm: executeReset,

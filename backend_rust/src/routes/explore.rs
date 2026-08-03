@@ -45,10 +45,31 @@ pub async fn explore_photos(
 
     sql.push_str(&format!(" ORDER BY date_taken DESC LIMIT {}", limit));
 
+    let start_time = std::time::Instant::now();
     let photos = sqlx::query_as::<_, Photo>(&sql)
         .fetch_all(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let duration_ms = start_time.elapsed().as_secs_f64() * 1000.0;
+    let meta = json!({
+        "query": params.query.as_deref().unwrap_or(""),
+        "results_count": photos.len(),
+        "city": params.city.as_deref(),
+        "country": params.country.as_deref(),
+        "camera_make": params.camera_make.as_deref()
+    }).to_string();
+
+    let _ = state.telemetry.log_event(
+        "backend",
+        None,
+        "search_query",
+        Some("explore"),
+        Some("search"),
+        Some(&meta),
+        Some("ok"),
+        Some(duration_ms),
+    ).await;
 
     Ok(Json(photos))
 }
@@ -227,5 +248,235 @@ pub async fn explore_rediscover_prompts(
         "blurry_count": 0,
         "missing_location_count": photos.iter().filter(|p| p.latitude.is_none()).count(),
         "sample_photos": photos
+    })))
+}
+
+
+// ── Explore endpoints (Python-only, TODO stubs) ────────────────────────────
+
+/// GET /api/v1/explore/timeline — Event-based timeline with cover photos.
+pub async fn explore_timeline(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let events = sqlx::query_as::<_, crate::models::Event>(
+        "SELECT * FROM events ORDER BY start_date DESC NULLS LAST"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut timeline = Vec::new();
+    for e in &events {
+        let cover_url: Option<String> = if let Some(pid) = e.cover_photo_id {
+            sqlx::query_scalar::<_, String>("SELECT path FROM photos WHERE id = ?")
+                .bind(pid)
+                .fetch_optional(&state.db)
+                .await
+                .ok()
+                .flatten()
+        } else {
+            None
+        };
+
+        timeline.push(json!({
+            "id": e.id,
+            "title": e.title,
+            "event_type": e.event_type,
+            "start_date": e.start_date,
+            "end_date": e.end_date,
+            "location": e.location,
+            "summary": e.summary,
+            "cover_url": cover_url,
+        }));
+    }
+
+    Json(json!({ "events": timeline }))
+}
+
+/// GET /api/v1/explore/seasons — Seasonal photo grouping.
+pub async fn explore_seasons(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let season_map = json!({
+        "3": "spring", "4": "spring", "5": "spring",
+        "6": "summer", "7": "summer", "8": "summer",
+        "9": "autumn", "10": "autumn", "11": "autumn",
+        "12": "winter", "1": "winter", "2": "winter",
+    });
+
+    let photos = sqlx::query_as::<_, crate::models::Photo>(
+        "SELECT * FROM photos WHERE is_trash = 0 AND date_taken IS NOT NULL ORDER BY date_taken DESC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut buckets: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    for photo in &photos {
+        if let Some(ref dt) = photo.date_taken {
+            let month = dt.format("%m").to_string().parse::<i32>().unwrap_or(1);
+            let season = season_map.get(&month.to_string()).and_then(|v| v.as_str()).unwrap_or("unknown");
+            let year = dt.format("%Y").to_string();
+            let key = format!("{}_{}", season, year);
+            buckets.entry(key).or_default().push(json!({
+                "id": photo.id,
+                "filename": photo.filename,
+                "path": photo.path,
+                "date_taken": photo.date_taken,
+            }));
+        }
+    }
+
+    let seasons: Vec<Value> = buckets.into_iter().map(|(key, photos)| {
+        let parts: Vec<&str> = key.split('_').collect();
+        let season = parts.first().unwrap_or(&"unknown");
+        let year = parts.get(1).unwrap_or(&"0");
+        json!({
+            "label": format!("{} {}", season.chars().next().unwrap().to_uppercase().collect::<String>() + &season[1..], year),
+            "season": season,
+            "year": year.parse::<i32>().unwrap_or(0),
+            "photo_count": photos.len(),
+            "photos": photos.into_iter().take(6).collect::<Vec<_>>(),
+        })
+    }).collect();
+
+    Json(json!({ "seasons": seasons }))
+}
+
+/// GET /api/v1/explore/activity — Recent activity timeline.
+pub async fn explore_activity(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let recent_photos = sqlx::query_as::<_, crate::models::Photo>(
+        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY id DESC LIMIT 12"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut activities = Vec::new();
+
+    if !recent_photos.is_empty() {
+        let locations: Vec<&str> = recent_photos.iter()
+            .filter_map(|p| p.city.as_deref().or(p.country.as_deref()))
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter().take(3).collect();
+
+        activities.push(json!({
+            "id": "import-latest",
+            "type": "import",
+            "title": format!("Imported {} photos", recent_photos.len()),
+            "subtitle": if locations.is_empty() { format!("{} new items", recent_photos.len()) } else { locations.join(", ") },
+            "timestamp": recent_photos[0].upload_date,
+            "photo_count": recent_photos.len(),
+        }));
+    }
+
+    Json(json!({ "activities": activities }))
+}
+
+/// GET /api/v1/explore/highlights — Memory highlight reels from events.
+pub async fn explore_highlights(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let events = sqlx::query_as::<_, crate::models::Event>(
+        "SELECT * FROM events ORDER BY start_date DESC NULLS LAST LIMIT 6"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut highlights = Vec::new();
+    for e in &events {
+        let cover_photos: Vec<Value> = sqlx::query_as::<_, crate::models::Photo>(
+            "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 4"
+        )
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default()
+        .iter()
+        .map(|p| json!({ "id": p.id, "filename": p.filename, "path": p.path }))
+        .collect();
+
+        highlights.push(json!({
+            "id": format!("highlight-event-{}", e.id),
+            "event_id": e.id,
+            "title": format!("{} Highlights", e.title),
+            "subtitle": format!("{}", e.event_type),
+            "location": e.location,
+            "duration_sec": 30,
+            "photo_count": cover_photos.len(),
+            "cover_photos": cover_photos,
+            "summary": e.summary,
+        }));
+    }
+
+    Json(json!({ "highlights": highlights }))
+}
+
+/// POST /api/v1/explore/highlights/generate — Generate NLE project from event.
+pub async fn generate_highlight_project(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<Value>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let event_id = payload.get("event_id").and_then(|v| v.as_i64());
+
+    let photos = if let Some(eid) = event_id {
+        sqlx::query_as::<_, crate::models::Photo>(
+            "SELECT * FROM photos WHERE is_trash = 0 AND id IN (SELECT photo_id FROM event_photos WHERE event_id = ?) ORDER BY date_taken DESC LIMIT 12"
+        )
+        .bind(eid)
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default()
+    } else {
+        sqlx::query_as::<_, crate::models::Photo>(
+            "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 12"
+        )
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default()
+    };
+
+    let project_name = if let Some(eid) = event_id {
+        let title: Option<String> = sqlx::query_scalar("SELECT title FROM events WHERE id = ?")
+            .bind(eid).fetch_optional(&state.db).await.unwrap_or_default();
+        format!("{} Reel", title.unwrap_or_else(|| "Event".to_string()))
+    } else {
+        "Library Highlight Reel".to_string()
+    };
+
+    let mut time_offset: f64 = 0.0;
+    let mut clips = Vec::new();
+    for (i, photo) in photos.iter().enumerate() {
+        let duration: f64 = 4.0;
+        clips.push(json!({
+            "id": format!("clip-hl-{}-{}", photo.id, i),
+            "photoId": photo.id,
+            "name": photo.filename,
+            "path": photo.path,
+            "type": "image",
+            "startTime": (time_offset * 100.0_f64).round() / 100.0_f64,
+            "duration": duration,
+            "sourceStart": 0.0,
+            "sourceDuration": duration,
+            "volume": 1.0,
+            "opacity": 1.0,
+        }));
+        time_offset += duration - 0.5;
+    }
+
+    Ok(Json(json!({
+        "status": "ok",
+        "name": project_name,
+        "tracks": [{
+            "id": "track-video-main",
+            "name": "Video Track 1",
+            "type": "video",
+            "clips": clips,
+        }],
+        "fps": 30,
+        "width": 1920,
+        "height": 1080,
     })))
 }

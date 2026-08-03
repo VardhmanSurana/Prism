@@ -6,6 +6,7 @@ import { API_BASE, resolveUrl } from '@/constants';
 import { formatDuration } from '@/utils/formatDuration';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
+import { useTelemetry } from '../../../hooks/useTelemetry';
 
 interface ChangeMapViewProps {
   center: [number, number];
@@ -28,6 +29,7 @@ interface InfoPanelProps {
 
 export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadataUpdated }) => {
   const navigate = useNavigate();
+  const { logAction } = useTelemetry();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -58,6 +60,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
   }, [metadata, photo]);
 
   const handleSaveMetadata = async () => {
+    logAction('InfoPanel', 'save_metadata', { photoId: photo.id });
     setIsSaving(true);
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/metadata`, {

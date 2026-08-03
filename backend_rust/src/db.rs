@@ -109,6 +109,33 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             PRIMARY KEY (photo_id, person_id)
         );
 
+        CREATE TABLE IF NOT EXISTS faces (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            photo_id INTEGER NOT NULL,
+            confidence REAL DEFAULT 1.0,
+            box_json TEXT,
+            embedding_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS background_jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            photo_id INTEGER NOT NULL,
+            job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
+            status TEXT NOT NULL DEFAULT 'pending',
+            current_stage TEXT,
+            stage_progress TEXT,
+            attempt_count INTEGER DEFAULT 0,
+            last_error TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);
+        CREATE INDEX IF NOT EXISTS idx_background_jobs_photo ON background_jobs(photo_id);
+
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -133,30 +160,11 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             updated_at DATETIME
         );
 
-        CREATE TABLE IF NOT EXISTS agent_sessions (
-            id TEXT PRIMARY KEY,
-            uuid TEXT UNIQUE,
-            title TEXT NOT NULL DEFAULT 'New Chat',
-            created_at DATETIME,
-            updated_at DATETIME
-        );
-
-        CREATE TABLE IF NOT EXISTS agent_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            uuid TEXT UNIQUE,
-            session_id TEXT NOT NULL,
-            role TEXT NOT NULL,
-            content TEXT NOT NULL,
-            photos_json TEXT,
-            plan_json TEXT,
-            tools_json TEXT,
-            total_candidates INTEGER,
-            created_at DATETIME
-        );
 
         CREATE TABLE IF NOT EXISTS telemetry_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source TEXT NOT NULL,
+            session_id TEXT,
             event_type TEXT NOT NULL,
             component TEXT,
             action TEXT,
@@ -166,20 +174,50 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT UNIQUE NOT NULL,
+            title TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS agent_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            photos_json TEXT,
+            plan_json TEXT,
+            tools_json TEXT,
+            attached_image_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
         CREATE INDEX IF NOT EXISTS idx_telemetry_created_at ON telemetry_events(created_at);
         CREATE INDEX IF NOT EXISTS idx_telemetry_status ON telemetry_events(status);
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         "#
     )
     .execute(pool)
     .await?;
 
-    // Perform migrations for existing schemas
+    // Perform migrations for existing schemas (adds columns if missing)
     sqlx::query("ALTER TABLE photos ADD COLUMN uuid TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE albums ADD COLUMN uuid TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE video_projects ADD COLUMN uuid TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE people ADD COLUMN uuid TEXT").execute(pool).await.ok();
-    sqlx::query("ALTER TABLE agent_sessions ADD COLUMN uuid TEXT").execute(pool).await.ok();
-    sqlx::query("ALTER TABLE agent_messages ADD COLUMN uuid TEXT").execute(pool).await.ok();
+    sqlx::query("ALTER TABLE telemetry_events ADD COLUMN session_id TEXT").execute(pool).await.ok();
+    sqlx::query("ALTER TABLE agent_messages ADD COLUMN session_id TEXT").execute(pool).await.ok();
+    sqlx::query("ALTER TABLE photos ADD COLUMN clip_embedding TEXT").execute(pool).await.ok();
+
+    // Create session indexes after column migrations
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
 
     ensure_uuids(pool).await?;
 
@@ -247,25 +285,6 @@ async fn ensure_uuids(pool: &DbPool) -> Result<(), Error> {
             .ok();
     }
 
-    sqlx::query("UPDATE agent_sessions SET uuid = id WHERE uuid IS NULL OR uuid = ''")
-        .execute(pool)
-        .await
-        .ok();
-
-    let unassigned_msgs: Vec<i64> = sqlx::query_scalar("SELECT id FROM agent_messages WHERE uuid IS NULL OR uuid = ''")
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
-
-    for msg_id in unassigned_msgs {
-        let u = Uuid::new_v4().to_string();
-        sqlx::query("UPDATE agent_messages SET uuid = ? WHERE id = ?")
-            .bind(&u)
-            .bind(msg_id)
-            .execute(pool)
-            .await
-            .ok();
-    }
 
     Ok(())
 }

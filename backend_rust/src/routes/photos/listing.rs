@@ -82,6 +82,28 @@ pub async fn get_photo_metadata(
     get_photo(State(state), Path(id)).await
 }
 
+// ponytail: canonicalize a user-supplied path to resolve `..` / symlinks.
+// Returns Err if the path is invalid or doesn't exist.
+fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
+    let raw = PathBuf::from(path);
+    let canonical = raw
+        .canonicalize()
+        .map_err(|_| (StatusCode::BAD_REQUEST, format!("Invalid path: {}", path)))?;
+    if !canonical.exists() {
+        return Err((StatusCode::NOT_FOUND, "File not found".to_string()));
+    }
+    Ok(canonical)
+}
+
+// ponytail: ensure resolved path stays under an allowed directory root.
+fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (StatusCode, String)> {
+    let resolved = safe_resolve(path)?;
+    if !resolved.starts_with(root) {
+        return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
+    }
+    Ok(resolved)
+}
+
 fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     let path = PathBuf::from(raw_path);
     if path.exists() {
@@ -146,10 +168,16 @@ pub async fn get_photo_thumbnail(
         .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
 
     let max_dim = query.size.unwrap_or(400).clamp(64, 2048);
-    let target_file_path = match generate_thumbnail(&source_path, &state.config.thumbnails_dir, photo.id, max_dim) {
-        Ok(tp) => tp,
-        Err(_) => source_path.clone(),
-    };
+    let source_path_clone = source_path.clone();
+    let thumbnails_dir = state.config.thumbnails_dir.clone();
+    let photo_id = photo.id;
+
+    let target_file_path = tokio::task::spawn_blocking(move || {
+        generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .unwrap_or_else(|_| source_path.clone());
 
     let mime = mime_guess::from_path(&target_file_path)
         .first_or_octet_stream()
@@ -177,11 +205,7 @@ pub struct ServeLocalQuery {
 pub async fn serve_local_file(
     Query(query): Query<ServeLocalQuery>,
 ) -> Result<Response, (StatusCode, String)> {
-    let file_path = PathBuf::from(&query.path);
-    if !file_path.exists() {
-        return Err((StatusCode::NOT_FOUND, "File not found".to_string()));
-    }
-
+    let file_path = safe_resolve(&query.path)?;
     serve_file_by_path(file_path).await
 }
 
@@ -190,17 +214,26 @@ pub async fn serve_sample_image(
 ) -> Result<Response, (StatusCode, String)> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let sample_dir = cwd.join("sample_images");
-    let file_path = sample_dir.join(&filename);
-
-    if !file_path.exists() {
-        let alt_path = PathBuf::from("/home/chotaxdon/Work/Projects/Prism/sample_images").join(&filename);
-        if alt_path.exists() {
-            return serve_file_by_path(alt_path).await;
-        }
-        return Err((StatusCode::NOT_FOUND, "Sample image not found".to_string()));
+    let file_path = safe_resolve_under(
+        &sample_dir.join(&filename).to_string_lossy(),
+        &sample_dir,
+    );
+    match file_path {
+        Ok(p) if p.exists() => return serve_file_by_path(p).await,
+        _ => {}
     }
 
-    serve_file_by_path(file_path).await
+    let alt_dir = PathBuf::from("/home/chotaxdon/Work/Projects/Prism/sample_images");
+    let alt_path = safe_resolve_under(
+        &alt_dir.join(&filename).to_string_lossy(),
+        &alt_dir,
+    );
+    match alt_path {
+        Ok(p) if p.exists() => return serve_file_by_path(p).await,
+        _ => {}
+    }
+
+    Err((StatusCode::NOT_FOUND, "Sample image not found".to_string()))
 }
 
 async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode, String)> {

@@ -46,6 +46,7 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
           plan: m.plan || null,
           tools: m.tools || [],
           totalCandidates: m.totalCandidates ?? null,
+          attachedImage: m.attachedImage || m.attached_image || null,
         })));
         const lastWithPhotos = [...data.messages].reverse().find((m: any) => m.photos && m.photos.length > 0);
         if (lastWithPhotos) {

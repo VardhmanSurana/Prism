@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Calendar, Lock, Image as ImageIcon } from 'lucide-react';
+import { Heart, Calendar, FileText, Image as ImageIcon } from 'lucide-react';
 import { springs, motionTokens } from '../../lib/motion-tokens';
 import { Suggestion } from './types';
 
@@ -13,7 +13,7 @@ export const SuggestionsPanel: React.FC<SuggestionsPanelProps> = ({ suggestions,
   const iconMap: Record<string, React.ElementType> = {
     'Show my favorite photos': Heart,
     'Find photos from 2024': Calendar,
-    'Search locked photos': Lock,
+    'Find documents & receipts': FileText,
     'Show all my images': ImageIcon,
   };
 

@@ -1,9 +1,11 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { API_BASE } from '../constants';
+import { useSettingsStore } from '../store/settingsStore';
 
 export interface TelemetryEvent {
   id?: number;
   source: string;
+  session_id?: string;
   event_type: string;
   component?: string;
   action?: string;
@@ -15,6 +17,7 @@ export interface TelemetryEvent {
 
 export interface TelemetrySummary {
   total_events: number;
+  session_count: number;
   error_count: number;
   warning_count: number;
   avg_latency_ms: number;
@@ -26,7 +29,23 @@ export interface TelemetrySummary {
 const BUFFER_FLUSH_INTERVAL_MS = 800;
 const BUFFER_MAX_SIZE = 30;
 
+/**
+ * Session identifier generated once per app launch. All events from this
+ * module share the same ID so they can be grouped into a single session
+ * on the backend (summarized via the `session_count` stat).
+ */
+function generateSessionId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure contexts
+  return `sess-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export const TELEMETRY_SESSION_ID = generateSessionId();
+
 type PendingEvent = {
+  session_id: string;
   event_type: string;
   component?: string;
   action?: string;
@@ -70,6 +89,12 @@ function scheduleFlush(): void {
 }
 
 function enqueueEvent(event: PendingEvent): void {
+  // Respect the global telemetry opt-out. Errors are always captured so
+  // diagnostics remain available even when telemetry collection is paused.
+  if (!useSettingsStore.getState().telemetryEnabled && event.status !== 'error') {
+    return;
+  }
+
   eventBuffer.push(event);
 
   // Flush immediately if buffer is full
@@ -135,6 +160,7 @@ export function useTelemetry() {
       status?: string,
     ) => {
       enqueueEvent({
+        session_id: TELEMETRY_SESSION_ID,
         event_type: eventType,
         component,
         action,
@@ -149,6 +175,7 @@ export function useTelemetry() {
   const logAction = useCallback(
     (component: string, action: string, metadata?: Record<string, unknown>) => {
       enqueueEvent({
+        session_id: TELEMETRY_SESSION_ID,
         event_type: 'user_action',
         component,
         action,
@@ -161,6 +188,7 @@ export function useTelemetry() {
   /** Convenience: log a navigation / view change */
   const logNavigation = useCallback((path: string, metadata?: Record<string, unknown>) => {
     enqueueEvent({
+      session_id: TELEMETRY_SESSION_ID,
       event_type: 'navigation',
       component: 'router',
       action: 'navigate',
@@ -173,6 +201,7 @@ export function useTelemetry() {
     (component: string, action: string, error: Error | unknown, metadata?: Record<string, unknown>) => {
       const errorObj = error instanceof Error ? error : new Error(String(error));
       enqueueEvent({
+        session_id: TELEMETRY_SESSION_ID,
         event_type: 'error',
         component,
         action,
@@ -196,6 +225,7 @@ export function useTelemetry() {
   /** Log app session start (once per hook lifetime) — sent immediately */
   useEffect(() => {
     enqueueEvent({
+      session_id: TELEMETRY_SESSION_ID,
       event_type: 'session_start',
       component: 'app',
       action: 'init',
@@ -213,7 +243,26 @@ export function useTelemetry() {
     flushBuffer();
   }, []);
 
-  return { logEvent, logAction, logNavigation, logError };
+  const logAIInference = useCallback(
+    (modelName: string, inferenceMs: number, itemCount: number, metadata?: Record<string, unknown>) => {
+      enqueueEvent({
+        session_id: TELEMETRY_SESSION_ID,
+        event_type: 'ai_inference',
+        component: modelName.toLowerCase(),
+        action: 'infer',
+        metadata_json: JSON.stringify({
+          model_name: modelName,
+          inference_ms: inferenceMs,
+          item_count: itemCount,
+          ...metadata,
+        }),
+        status: 'ok',
+      });
+    },
+    [],
+  );
+
+  return { logEvent, logAction, logNavigation, logError, logAIInference };
 }
 
 /**
@@ -282,4 +331,18 @@ export async function fetchTelemetryEvents(limit = 100): Promise<TelemetryEvent[
     // Silently fail
   }
   return [];
+}
+
+/**
+ * Clear all stored telemetry events from the backend database.
+ */
+export async function clearTelemetryEvents(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/telemetry/events`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
 }

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useVideoProjects, type VideoProject } from '@/hooks/useVideoProjects';
+import { useTelemetry } from '@/hooks/useTelemetry';
 
 // Lazy-load the editor wrapper so it doesn't bloat the initial bundle
 const VideoEditorFromProject = React.lazy(() =>
@@ -848,6 +849,7 @@ const FormatSelect: React.FC<{
 export const ProjectsDashboard: React.FC = () => {
   const { projects, isLoading, error, createProject, renameProject, deleteProject, refresh } =
     useVideoProjects();
+  const { logAction } = useTelemetry();
 
   const [search, setSearch] = useState('');
   const [formatFilter, setFormatFilter] = useState<FormatFilter>('all');
@@ -940,6 +942,7 @@ export const ProjectsDashboard: React.FC = () => {
 
   const handleDuplicate = useCallback(
     async (project: VideoProject) => {
+      logAction('ProjectsDashboard', 'duplicate_project', { projectId: project.id, name: project.name });
       await createProject(
         `${project.name} Copy`,
         project.width,
@@ -947,14 +950,15 @@ export const ProjectsDashboard: React.FC = () => {
         project.fps
       );
     },
-    [createProject]
+    [createProject, logAction]
   );
 
   const handleCreate = useCallback(
     async (name: string, width: number, height: number, fps: number) => {
+      logAction('ProjectsDashboard', 'create_project', { name, width, height, fps });
       await createProject(name, width, height, fps);
     },
-    [createProject]
+    [createProject, logAction]
   );
 
   const hasFilters = search.trim() || formatFilter !== 'all';
