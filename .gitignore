@@ -23,6 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .codecontext/*
+*.freebuff
+*.kiro
 .impeccable/
 *_preview.html
 .codecontext.yaml
