@@ -226,4 +226,19 @@ impl MlClient {
         }
         resp.json::<Value>().await.map_err(|e| e.to_string())
     }
+
+    pub async fn interrogate(&self, photo_path: &str, prompt: Option<&str>) -> Result<Value, String> {
+        let url = format!("{}/ml/interrogate", self.base_url);
+        let body = serde_json::json!({
+            "photo_path": photo_path,
+            "prompt": prompt,
+        });
+        let resp = self.client.post(&url).json(&body).send().await
+            .map_err(|e| format!("Failed to reach Python ML service: {}", e))?;
+        if !resp.status().is_success() {
+            let err_text = resp.text().await.unwrap_or_default();
+            return Err(format!("ML service error: {}", err_text));
+        }
+        resp.json::<Value>().await.map_err(|e| e.to_string())
+    }
 }
