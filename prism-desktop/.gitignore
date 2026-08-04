@@ -29,9 +29,9 @@ dist-ssr
 *_preview.html
 .codecontext.yaml
 # Generated folders
-backend/models/*
-backend/thumbnails/*
-backend/face_crops/*
+backend_rust/models/*
+backend_rust/thumbnails/*
+backend_rust/face_crops/*
 
 # Ignore media and generated files
 models/
