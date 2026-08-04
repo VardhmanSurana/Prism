@@ -7,6 +7,19 @@ use uuid::Uuid;
 pub type DbPool = Pool<Sqlite>;
 
 pub async fn init_db(database_url: &str) -> Result<DbPool, Error> {
+    // Extract the filesystem path from the connection URL and ensure its parent
+    // directory exists. SQLite's `create_if_missing` will create the *file* when
+    // absent, but it will NOT create missing parent directories — which causes
+    // `SQLITE_CANTOPEN` (code 14, "unable to open database file") on a fresh
+    // checkout. Creating the directory first lets the backend auto-create the
+    // database file from scratch.
+    let db_file_path = database_url.trim_start_matches("sqlite://");
+    if let Some(parent) = std::path::Path::new(db_file_path).parent() {
+        if !parent.as_os_str().is_empty() {
+            std::fs::create_dir_all(parent).ok();
+        }
+    }
+
     let options = SqliteConnectOptions::from_str(database_url)?
         .create_if_missing(true);
 

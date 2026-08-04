@@ -239,8 +239,8 @@ pub async fn upload_blob(
             .await
             .ok();
 
-        existing.width = img_info.width as i32;
-        existing.height = img_info.height as i32;
+        existing.width = img_info.width as i64;
+        existing.height = img_info.height as i64;
         existing.aspect_ratio = img_info.aspect_ratio;
         existing.hash = Some(new_hash.clone());
 

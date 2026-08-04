@@ -20,6 +20,7 @@ pub async fn health_check(State(state): State<Arc<AppState>>) -> Json<HealthStat
 
     Json(HealthStatus {
         status: if db_ok { "ok" } else { "degraded" }.to_string(),
+        service: "prism-backend-rust".to_string(),
         version: "0.1.0-rust".to_string(),
         database: if db_ok { "connected" } else { "disconnected" }.to_string(),
         python_ml_service: if ml_ok { "connected" } else { "offline" }.to_string(),

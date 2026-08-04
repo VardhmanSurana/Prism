@@ -38,6 +38,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env();
     info!("Starting Prism Rust Backend on {}:{}", config.host, config.port);
 
+    // Ensure required working directories exist (uploads, thumbnails) so the
+    // server can start cleanly on a fresh checkout.
+    std::fs::create_dir_all(&config.upload_dir).ok();
+    std::fs::create_dir_all(&config.thumbnails_dir).ok();
+
     let db_pool = init_db(&config.database_url).await?;
     let ml_client = MlClient::new(config.python_ml_url.clone());
     let telemetry = TelemetryService::new(db_pool.clone());

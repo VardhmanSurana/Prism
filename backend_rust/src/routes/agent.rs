@@ -281,7 +281,7 @@ pub async fn chat(
 
     // MODE 1: Ask Image (Single-Image Interrogation)
     if has_image || query_lower.contains("inspect") || query_lower.contains("analyze photo") || query_lower.contains("describe this image") {
-        let progress_chunk = json!({
+        let progress_chunk = json!( {
             "type": "progress",
             "detail": "Interrogating single image via Grounding DINO, SAM2, PaddleOCR, and EXIF tools...",
             "plan": { "mode": "ask_image", "tools": ["detect_objects", "segment_region", "extract_ocr_regions", "extract_exif_metadata"] },
@@ -290,12 +290,61 @@ pub async fn chat(
         body_chunks.push(progress_chunk);
 
         let img_ref = payload.image_path.as_deref().unwrap_or("attached photo");
-        let response_text = format!(
-            "Single-Image Analysis for `{}`:\n• **Object Grounding & Scene**: Detailed visual inspection indicates high-contrast natural lighting, central subject, and vibrant foreground.\n• **OCR & Text Extraction**: Detected signage and document text extracted successfully.\n• **Metadata & EXIF**: Full camera technical specs parsed.",
-            img_ref
-        );
+        let mut text_parts: Vec<String> = Vec::new();
+        text_parts.push(format!("Single-Image Analysis for `{}`:\n", img_ref));
 
-        let result_chunk = json!({
+        match state.ml_client.interrogate(img_ref, Some(&query)).await {
+            Ok(data) => {
+                if let Some(exif) = data.get("exif").and_then(|v| v.as_object()) {
+                    if !exif.is_empty() {
+                        text_parts.push("**EXIF Metadata**:".into());
+                        for (k, v) in exif {
+                            text_parts.push(format!("- {}: {}", k, v));
+                        }
+                    }
+                }
+                if let Some(objects) = data.get("objects").and_then(|v| v.as_array()) {
+                    if !objects.is_empty() {
+                        text_parts.push(format!("\n**Detected Objects** ({}):", objects.len()));
+                        for obj in objects.iter().take(10) {
+                            let label = obj.get("class").and_then(|v| v.as_str()).unwrap_or("object");
+                            let conf = obj.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                            text_parts.push(format!("- {} ({:.0}%)", label, conf * 100.0));
+                        }
+                    }
+                }
+                if let Some(ocr) = data.get("ocr").and_then(|v| v.as_object()) {
+                    if let Some(status) = ocr.get("status").and_then(|v| v.as_str()) {
+                        if status == "success" || status == "empty" {
+                            if let Some(text) = ocr.get("text").and_then(|v| v.as_str()) {
+                                if !text.trim().is_empty() {
+                                    text_parts.push(format!("\n**OCR Text**:\n> {}", text.trim()));
+                                }
+                            }
+                        }
+                    }
+                }
+                if let Some(vision) = data.get("vision").and_then(|v| v.as_object()) {
+                    if let Some(caption) = vision.get("caption").and_then(|v| v.as_str()) {
+                        if !caption.is_empty() {
+                            text_parts.push(format!("\n**Caption**: {}", caption));
+                        }
+                    }
+                    if let Some(tags) = vision.get("tags").and_then(|v| v.as_array()) {
+                        if !tags.is_empty() {
+                            let tag_str: Vec<String> = tags.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect();
+                            text_parts.push(format!("\n**Tags**: {}", tag_str.join(", ")));
+                        }
+                    }
+                }
+            }
+            Err(err) => {
+                text_parts.push(format!("\n_Interrogation backend unavailable: {}_", err));
+            }
+        }
+
+        let response_text = text_parts.join("\n");
+        let result_chunk = json!( {
             "type": "result",
             "text": response_text,
             "photos": []

@@ -22,9 +22,11 @@ impl Config {
             .and_then(|p| p.parse().ok())
             .unwrap_or(8269);
 
+        // The backend is always launched from the `backend_rust/` directory
+        // (run-web.sh / run-desktop.sh / package.json `backend:rust` all `cd`
+        // into it), so the database lives at `<cwd>/prism.db`.
         let default_db_path = env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
-            .join("backend_rust")
             .join("prism.db");
 
         let database_url = env::var("DATABASE_URL")
