@@ -180,7 +180,7 @@ Key hooks found in `frontend/hooks/`:
 - **serde / serde_json** for serialization
 - **tower-http** for CORS middleware
 - **ffmpeg/ffprobe** (via CLI) for video metadata extraction and thumbnails
-- **Optional Python ML Microservice** (external, at `../Prism_python_backend`) for face detection, embeddings, and AI inference
+- **Optional Python ML Microservice** (in-repo, at `backend/`) for face detection, embeddings, and AI inference
 
 ### Application Structure
 

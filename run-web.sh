@@ -25,7 +25,7 @@ if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     sleep 1
 fi
 
-PYTHON_BACKEND_DIR="${PYTHON_BACKEND_DIR:-$ROOT/../Prism_python_backend}"
+PYTHON_BACKEND_DIR="${PYTHON_BACKEND_DIR:-$ROOT/backend}"
 if [ -d "$PYTHON_BACKEND_DIR" ]; then
   echo "[web] Starting Python ML microservice on port $ML_PORT..."
   (

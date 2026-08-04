@@ -24,7 +24,7 @@ Prism includes several optional local AI features that run entirely on your mach
 
 ## Feature Flag Overview
 
-All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend delegates AI inference to an external Python ML microservice.
+All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend delegates AI inference to the in-repo Python ML microservice.
 
 | Flag | Default | Description | Hardware Required |
 |------|---------|-------------|-------------------|
@@ -248,7 +248,7 @@ Tracks detected faces across video frames:
 
 ### Services
 
-AI face detection is handled by the external Python ML microservice (`Prism_python_backend/`). The Rust backend (`backend_rust/src/services/ml_client.rs`) communicates with it via HTTP REST calls.
+AI face detection is handled by the Python ML microservice (`backend/`). The Rust backend (`backend_rust/src/services/ml_client.rs`) communicates with it via HTTP REST calls.
 
 ---
 
@@ -447,7 +447,7 @@ When `ENABLE_VIDEO_EDITOR_AI` is enabled:
 ### Required Model Locations
 
 ```
-Prism_python_backend/
+backend/
 └── models/
     ├── llm/
     │   ├── gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf  (agent model)

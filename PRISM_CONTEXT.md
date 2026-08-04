@@ -39,7 +39,7 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 - **serde / serde_json** for serialization
 - **tower-http** for CORS + tracing middleware
 - **ffmpeg/ffprobe** (via CLI) for video metadata and thumbnails
-- Optional **Python ML microservice** (`Prism_python_backend`) for AI inference
+- Optional **Python ML microservice** (`backend/`) for AI inference
 
 ### AI Stack (Optional, feature-flagged)
 - **Gemma 4 E4B** (`gguf`) for agent LLM search (port 9090)

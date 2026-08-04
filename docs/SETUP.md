@@ -30,8 +30,8 @@ Comprehensive setup instructions for the Prism photo and video library desktop a
 
 | Dependency | Purpose |
 |------------|---------|
-| [Python](https://www.python.org/) 3.11+ | External Python ML microservice |
-| [uv](https://github.com/astral-sh/uv) | Python package manager for external Python ML microservice |
+| [Python](https://www.python.org/) 3.11+ | In-repo Python ML microservice (`backend/`) |
+| [uv](https://github.com/astral-sh/uv) | Python package manager for the in-repo Python ML microservice |
 | NVIDIA CUDA Toolkit | GPU-accelerated AI features (face detection, embeddings, inpainting) |
 | `llama-server` | Local LLM inference for agent search, vision, and OCR |
 | `execstack` | Fix executable-stack issues for InspireFace shared library (Linux) |
@@ -105,7 +105,7 @@ The Vite dev server is pinned to port `3005` (configured in `frontend/vite.confi
 If you need AI features (face detection, embeddings, etc.):
 
 ```bash
-cd ../Prism_python_backend
+cd backend
 uv venv
 source .venv/bin/activate
 uv sync

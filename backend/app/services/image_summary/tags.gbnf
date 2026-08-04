@@ -1,0 +1,6 @@
+root ::= object
+object ::= "{" ws "\"tags\"" ws ":" ws array ws "}"
+array ::= "[" ws string ("," ws string)* ws "]"
+string ::= "\"" chars "\"" ws
+chars ::= [^"\\]*
+ws ::= [ \t\n\r]*

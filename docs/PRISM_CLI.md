@@ -1,5 +1,46 @@
 # Prism CLI
 
+Prism ships a **Rust CLI** (`prism`) that talks to the running Rust backend's REST API. It is a thin, self-contained binary — no Python or `uv` required for CLI operations.
+
+> The original Python CLI (`backend/prism_cli.py`) operated directly against SQLite (offline). It is retained for reference; a fuller offline Rust CLI that reuses the backend's internal modules is planned next.
+
+## Build & run
+
+```bash
+# from the prism-desktop root
+pnpm run cli -- --help          # build + run via cargo
+# or directly:
+cd cli && cargo run -- --help
+# or build a release binary:
+pnpm run cli:build && ./cli/target/release/prism --help
+```
+
+The CLI requires the backend to be running (`./run-web.sh`, `./run-desktop.sh`, or `pnpm run backend`).
+
+## Configuration
+
+| Option | Description |
+| --- | --- |
+| `--api-url <url>` | Backend base URL, default `http://127.0.0.1:8269` (env: `PRISM_API_URL`) |
+| `--json` | Print raw JSON instead of human-readable tables |
+| `-v`, `--verbose` | Show the request URL and full error detail |
+
+## Commands
+
+| Command | Endpoint | Description |
+| --- | --- | --- |
+| `prism status` | `GET /health` + `GET /api/v1/photos/stats` | Backend health + library stats |
+| `prism stats` | `GET /api/v1/photos/stats` | Library statistics |
+| `prism photos [--limit N]` | `GET /api/v1/photos?limit=N` | List recent photos |
+| `prism photo <id>` | `GET /api/v1/photos/:id` | Show a single photo's metadata (id or uuid) |
+| `prism search [query] [--limit N]` | `GET /api/v1/utilities/search/fused` | Fused metadata search |
+| `prism people` | `GET /api/v1/people` | List known people |
+| `prism albums` | `GET /api/v1/albums` | List albums |
+
+---
+
+## Original Python CLI (legacy)
+
 The `prism` CLI was part of the original Python backend. The backend has since been migrated to Rust (Axum). The CLI commands below document the original Python CLI interface; equivalent functionality is now available through the Rust backend REST API endpoints.
 
 ## Installation
@@ -13,7 +54,7 @@ The CLI was part of the original Python backend package. With the Rust backend m
 If you still have the Python backend available:
 
 ```bash
-cd Prism_python_backend
+cd backend
 uv run prism --help
 ```
 

@@ -80,7 +80,7 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 ### Backend
 - **Core Engine:** Rust (`backend_rust`), Axum, Tokio async runtime
 - **Database:** SQLite with SQLx, WAL mode, FTS5 full-text search index
-- **ML Microservice:** Standalone Python ML microservice (`Prism_python_backend`) for face detection & embedding inference
+- **ML Microservice:** In-repo Python ML microservice (`backend/`) for face detection & embedding inference
 
 ---
 

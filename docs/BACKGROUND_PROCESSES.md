@@ -52,11 +52,11 @@ Prism runs several background processes that handle media analysis, file system 
 
 | Component | Path |
 |-----------|------|
-| Processing Queue | Python ML microservice (`Prism_python_backend/`) |
-| AI Orchestrator | Python ML microservice (`Prism_python_backend/`) |
-| Sync Service | Python ML microservice (`Prism_python_backend/`) |
-| Content Classifier | Python ML microservice (`Prism_python_backend/`) |
-| Vision Pipeline | Python ML microservice (`Prism_python_backend/`) |
+| Processing Queue | Python ML microservice (`backend/`) |
+| AI Orchestrator | Python ML microservice (`backend/`) |
+| Sync Service | Python ML microservice (`backend/`) |
+| Content Classifier | Python ML microservice (`backend/`) |
+| Vision Pipeline | Python ML microservice (`backend/`) |
 | Background Job Model | `backend_rust/src/db.rs` (background_jobs table) |
 
 ---
@@ -287,7 +287,7 @@ The sync service watches configured directories for file system changes and auto
 The sync service is decomposed into modular submodules:
 
 ```
-Prism_python_backend/app/services/sync/
+backend/app/services/sync/
 ├── core.py          # Main SyncService class
 ├── lifecycle.py     # Initialization, shutdown, parent process monitoring
 ├── config.py        # Settings persistence and configuration updates
