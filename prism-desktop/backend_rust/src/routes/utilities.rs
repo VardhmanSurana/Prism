@@ -448,7 +448,7 @@ pub async fn export_backup(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let db_path = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "prism.db".to_string())
+        .unwrap_or_else(|_| "backend_rust/prism.db".to_string())
         .replace("sqlite://", "");
 
     let backup_path = std::env::temp_dir().join(format!("prism_backup_{}.db", chrono::Utc::now().format("%Y%m%d_%H%M%S")));
@@ -467,7 +467,7 @@ pub async fn restore_backup(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     // ponytail: restore = replace the active DB file. Requires app restart.
     let db_path = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "prism.db".to_string())
+        .unwrap_or_else(|_| "backend_rust/prism.db".to_string())
         .replace("sqlite://", "");
 
     let backup_dir = std::env::temp_dir();

@@ -173,7 +173,7 @@ Configuration is managed through environment variables and `backend_rust/src/con
 | `PROJECT_NAME` | `Prism Photos API` | Application name |
 | `API_V1_STR` | `/api/v1` | API version prefix |
 | `DATA_DIR` | Platform-specific | User data directory (see below) |
-| `DATABASE_PATH` | `{DATA_DIR}/Prism.db` | SQLite database file path |
+| `DATABASE_URL` | `{DATA_DIR}/prism.db` | SQLite database file path |
 | `FFMPEG_PATH` | `""` (use system PATH) | Custom ffmpeg binary path |
 | `API_KEY` | `""` (disabled) | API key for production authentication |
 

@@ -24,6 +24,7 @@ impl Config {
 
         let default_db_path = env::current_dir()
             .unwrap_or_else(|_| PathBuf::from("."))
+            .join("backend_rust")
             .join("prism.db");
 
         let database_url = env::var("DATABASE_URL")

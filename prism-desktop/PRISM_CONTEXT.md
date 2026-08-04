@@ -301,7 +301,7 @@ Prism/
 │   │
 │   ├── uploads/                 # Imported media files
 │   ├── thumbnails/              # Generated thumbnails
-│   └── prism.db                 # SQLite database (WAL mode)
+│   └── prism.db                 # SQLite database (WAL mode, inside backend_rust/)
 │
 ├── .codecontext.yaml
 ├── .codecontext/
@@ -635,7 +635,7 @@ The `MainContent` component acts as the view router. `currentView` (a `ViewMode`
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Bind host |
 | `PORT` | `8269` | Bind port |
-| `DATABASE_URL` | `sqlite://{cwd}/prism.db` | SQLite database URL |
+| `DATABASE_URL` | `sqlite://{cwd}/backend_rust/prism.db` | SQLite database URL |
 | `UPLOAD_DIR` | `uploads` | Upload directory |
 | `THUMBNAILS_DIR` | `thumbnails` | Thumbnail directory |
 | `PYTHON_ML_URL` | `http://127.0.0.1:8270` | Python ML service URL |
@@ -1020,7 +1020,7 @@ Background AI worker:
 |----------|---------|-------------|
 | `HOST` | `0.0.0.0` | Backend bind host |
 | `PORT` | `8269` | Backend bind port |
-| `DATABASE_URL` | `sqlite://{cwd}/prism.db` | SQLite database |
+| `DATABASE_URL` | `sqlite://{cwd}/backend_rust/prism.db` | SQLite database URL |
 | `UPLOAD_DIR` | `uploads` | Upload directory |
 | `THUMBNAILS_DIR` | `thumbnails` | Thumbnails directory |
 | `PYTHON_ML_URL` | `http://127.0.0.1:8270` | ML service URL |

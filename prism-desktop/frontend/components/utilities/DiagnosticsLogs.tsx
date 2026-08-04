@@ -428,7 +428,7 @@ export const DiagnosticsLogs: React.FC = () => {
           <div className="space-y-1">
             <div className="cr-key-value"><span className="k">Operating System</span><span className="v">{data?.platform || 'Linux x86_64 (Sequoia)'}</span></div>
             <div className="cr-key-value"><span className="k">Python Runtime</span><span className="v">{data?.python_version || 'Python 3.11'}</span></div>
-            <div className="cr-key-value"><span className="k">Database Path</span><span className="v truncate max-w-[200px]" title={data?.database_path}>{data?.database_path || 'prism.db'}</span></div>
+            <div className="cr-key-value"><span className="k">Database Path</span><span className="v truncate max-w-[200px]" title={data?.database_path}>{data?.database_path || 'backend_rust/prism.db'}</span></div>
             <div className="cr-key-value"><span className="k">Database Log</span><span className="v val-accent">{formatBytes(data?.database_size_bytes || 598000)}</span></div>
             <div className="cr-key-value"><span className="k">Thumbnail Cache</span><span className="v val-accent">{formatBytes(data?.thumbnail_cache_size_bytes || 5560000)}</span></div>
             <div className="cr-key-value"><span className="k">Status</span><span className="v val-accent">Nominal</span></div>
