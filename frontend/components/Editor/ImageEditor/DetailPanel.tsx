@@ -9,16 +9,16 @@ import { Adjustments } from './filterEngine';
 
 // UI Group Definitions
 
-export type DetailKey = 'clarity' | 'sharpness' | 'noiseReduction';
+type DetailKey = 'clarity' | 'sharpness' | 'noiseReduction';
 
-export interface DetailItem {
+interface DetailItem {
   key:   DetailKey;
   label: string;
   min:   number;
   max:   number;
 }
 
-export interface DetailGroup {
+interface DetailGroup {
   label: string;
   items: DetailItem[];
 }

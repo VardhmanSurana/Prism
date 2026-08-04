@@ -5,11 +5,11 @@
 
 const isDev = import.meta.env.DEV;
 
-export function mark(name: string) {
+function mark(name: string) {
   if (isDev) performance.mark(`prism:${name}`);
 }
 
-export function measure(name: string, startMark: string, endMark?: string) {
+function measure(name: string, startMark: string, endMark?: string) {
   if (!isDev) return;
   const end = endMark || `prism:${name}:end`;
   performance.mark(end);
@@ -26,7 +26,7 @@ export function measure(name: string, startMark: string, endMark?: string) {
 }
 
 /** Wrap a callback with performance measurement. Logs if >16ms (one frame). */
-export function profiled<T extends (...args: any[]) => any>(
+function profiled<T extends (...args: any[]) => any>(
   name: string,
   fn: T
 ): T {

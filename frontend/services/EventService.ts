@@ -1,7 +1,7 @@
 
 import { API_BASE } from '../constants';
 
-export interface SSEEvent {
+interface SSEEvent {
   type: string;
   photoId?: string | number;
   [key: string]: unknown;

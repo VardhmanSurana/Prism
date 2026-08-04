@@ -3,7 +3,7 @@
  * Common TypeScript definitions for annotation elements, drawn markers, shapes, and properties.
  */
 
-export type AnnotationToolType = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'highlighter' | 'text' | 'textPath';
+type AnnotationToolType = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'highlighter' | 'text' | 'textPath';
 
 export interface Annotation {
   id: string;

@@ -6,7 +6,7 @@ export interface NavItemData {
   label: string;
 }
 
-export interface SidebarProps {
+interface SidebarProps {
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
 }

@@ -50,7 +50,7 @@ export interface Photo {
   search_explanation?: { score: number; matched: string[] };
 }
 
-export interface AlbumMetadata {
+interface AlbumMetadata {
   total_size?: number;
   date_range?: { start: string; end: string };
   location_count?: number;
@@ -84,9 +84,9 @@ export interface SmartAlbum {
   metadata?: AlbumMetadata;
 }
 
-export type AnyAlbum = Album | SmartAlbum;
+type AnyAlbum = Album | SmartAlbum;
 
-export interface Place {
+interface Place {
   id: string;
   name: string;
   coverUrl: string;

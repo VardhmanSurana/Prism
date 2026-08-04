@@ -7,7 +7,7 @@ export function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-export function formatCompactDuration(seconds: number): string {
+function formatCompactDuration(seconds: number): string {
   if (!seconds || !isFinite(seconds) || seconds <= 0) return '0s';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
