@@ -33,6 +33,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
   const browser = useFileFolderBrowser();
   const [showSaveSmart, setShowSaveSmart] = useState(false);
   const [showAddLocation, setShowAddLocation] = useState(false);
+  const [editingLocation, setEditingLocation] = useState<ExternalLocation | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [renamePaths, setRenamePaths] = useState<string[] | null>(null);
   const [dialogSize, setDialogSize] = useState(sessionDialogSize);
@@ -242,8 +243,15 @@ export const FileFolderBrowserDialog: React.FC = () => {
                 onRecentClick={handleShortcutClick}
                 onSmartFolderClick={browser.activateSmartFolder}
                 onSmartFolderDelete={browser.removeSmartFolder}
+                onExternalEdit={(loc) => {
+                  setEditingLocation(loc);
+                  setShowAddLocation(true);
+                }}
                 onExternalDelete={browser.removeExternalLocation}
-                onAddLocation={() => setShowAddLocation((v) => !v)}
+                onAddLocation={() => {
+                  setEditingLocation(null);
+                  setShowAddLocation((v) => !v);
+                }}
               />
             </aside>
 
@@ -331,11 +339,23 @@ export const FileFolderBrowserDialog: React.FC = () => {
                 <div className="shrink-0 border-b border-white/10 px-5 py-3">
                   <AddExternalLocationForm
                     providers={browser.cloudProviders}
-                    onCancel={() => setShowAddLocation(false)}
+                    editingLocation={editingLocation}
+                    onCancel={() => {
+                      setShowAddLocation(false);
+                      setEditingLocation(null);
+                    }}
                     onCreated={(loc) => {
                       browser.addExternalLocation(loc);
                       setShowAddLocation(false);
+                      setEditingLocation(null);
                       if (loc.mount_path && loc.status === 'available')
+                        browser.navigateTo(loc.mount_path);
+                    }}
+                    onUpdated={(loc) => {
+                      browser.updateExternalLocation(loc);
+                      setShowAddLocation(false);
+                      setEditingLocation(null);
+                      if (loc.mount_path)
                         browser.navigateTo(loc.mount_path);
                     }}
                   />

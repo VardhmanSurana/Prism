@@ -505,6 +505,14 @@ export const useFileFolderBrowser = () => {
     }));
   }, []);
 
+  const updateExternalLocation = useCallback((loc: ExternalLocation) => {
+    setState((prev) => ({
+      ...prev,
+      externalLocations: prev.externalLocations.map((l) => (String(l.id) === String(loc.id) ? { ...l, ...loc } : l)),
+    }));
+    fetchBrowserLocations();
+  }, [fetchBrowserLocations]);
+
   const removeExternalLocation = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/external-locations/${id}`, {
@@ -513,12 +521,13 @@ export const useFileFolderBrowser = () => {
       if (!res.ok) return;
       setState((prev) => ({
         ...prev,
-        externalLocations: prev.externalLocations.filter((l) => l.id !== id),
+        externalLocations: prev.externalLocations.filter((l) => String(l.id) !== String(id)),
       }));
+      fetchBrowserLocations();
     } catch {
       // ignore
     }
-  }, []);
+  }, [fetchBrowserLocations]);
 
   const openInOsExplorer = useCallback(async (path: string) => {
     const res = await fetch(`${API_BASE}/api/v1/utilities/open-in-os-explorer`, {
@@ -560,6 +569,7 @@ export const useFileFolderBrowser = () => {
     toggleSortDirection,
     setGroupBy,
     addExternalLocation,
+    updateExternalLocation,
     removeExternalLocation,
     openInOsExplorer,
   };

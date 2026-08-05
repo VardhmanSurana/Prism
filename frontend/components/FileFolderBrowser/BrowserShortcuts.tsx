@@ -1,4 +1,3 @@
-import React from 'react';
 import {
   Star,
   Clock,
@@ -10,6 +9,7 @@ import {
   Image as ImageIcon,
   Download,
   FolderOpen,
+  Pencil,
 } from 'lucide-react';
 import {
   BrowserMount,
@@ -30,6 +30,7 @@ interface BrowserShortcutsProps {
   onRecentClick?: (path: string) => void;
   onSmartFolderClick?: (folder: SmartFolder) => void;
   onSmartFolderDelete?: (id: string) => void;
+  onExternalEdit?: (loc: ExternalLocation) => void;
   onExternalDelete?: (id: string) => void;
   onAddLocation?: () => void;
   variant?: 'inline' | 'sidebar';
@@ -151,13 +152,25 @@ export const BrowserShortcuts: React.FC<BrowserShortcutsProps> = ({
                       {kindIcon(loc.provider === 'smb' ? 'network' : 'volume')}
                       <span className="truncate">{loc.name}</span>
                     </button>
+                    {onExternalEdit && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onExternalEdit(loc);
+                        }}
+                        className="text-white/28 transition-colors hover:text-primary cursor-pointer"
+                        title="Edit location"
+                      >
+                        <Pencil size={11} />
+                      </button>
+                    )}
                     {onExternalDelete && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onExternalDelete(loc.id);
                         }}
-                        className="text-white/28 transition-colors hover:text-red-400"
+                        className="text-white/28 transition-colors hover:text-red-400 cursor-pointer"
                         title="Remove location"
                       >
                         <X size={12} />
@@ -313,6 +326,18 @@ export const BrowserShortcuts: React.FC<BrowserShortcutsProps> = ({
                 {kindIcon(loc.provider === 'smb' ? 'network' : 'volume')}
                 <span className="truncate">{loc.name}</span>
               </button>
+              {onExternalEdit && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExternalEdit(loc);
+                  }}
+                  className="px-1 py-1 text-white/30 hover:text-primary transition-colors cursor-pointer"
+                  title="Edit location"
+                >
+                  <Pencil size={9} />
+                </button>
+              )}
               {onExternalDelete && (
                 <button
                   onClick={(e) => {

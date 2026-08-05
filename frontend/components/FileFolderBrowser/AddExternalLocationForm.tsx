@@ -5,21 +5,25 @@ import { CloudProviderInfo, ExternalLocation, ExternalProviderId } from './types
 
 interface AddExternalLocationFormProps {
   providers: CloudProviderInfo[];
+  editingLocation?: ExternalLocation | null;
   onCreated: (loc: ExternalLocation) => void;
+  onUpdated?: (loc: ExternalLocation) => void;
   onCancel: () => void;
 }
 
 export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = ({
   providers,
+  editingLocation,
   onCreated,
+  onUpdated,
   onCancel,
 }) => {
   const readyProviders = providers.filter((p) => p.ready);
   const [provider, setProvider] = useState<ExternalProviderId>(
-    (readyProviders[0]?.id as ExternalProviderId) || 'local_path'
+    (editingLocation?.provider as ExternalProviderId) || (readyProviders[0]?.id as ExternalProviderId) || 'local_path'
   );
-  const [name, setName] = useState('');
-  const [mountPath, setMountPath] = useState('');
+  const [name, setName] = useState(editingLocation?.name || '');
+  const [mountPath, setMountPath] = useState(editingLocation?.mount_path || '');
   const [smbHost, setSmbHost] = useState('');
   const [smbShare, setSmbShare] = useState('');
   const [bucket, setBucket] = useState('');
@@ -68,8 +72,13 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/utilities/external-locations`, {
-        method: 'POST',
+      const url = editingLocation
+        ? `${API_BASE}/api/v1/utilities/external-locations/${editingLocation.id}`
+        : `${API_BASE}/api/v1/utilities/external-locations`;
+      const method = editingLocation ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -78,7 +87,11 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
         setError(typeof data.detail === 'string' ? data.detail : 'Failed to save location');
         return;
       }
-      onCreated(data as ExternalLocation);
+      if (editingLocation) {
+        onUpdated?.({ ...editingLocation, ...body } as ExternalLocation);
+      } else {
+        onCreated(data as ExternalLocation);
+      }
     } catch {
       setError('Connection failed');
     } finally {
