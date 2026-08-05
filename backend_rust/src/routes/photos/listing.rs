@@ -213,27 +213,24 @@ pub async fn serve_sample_image(
     Path(filename): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let sample_dir = cwd.join("sample_images");
-    let file_path = safe_resolve_under(
-        &sample_dir.join(&filename).to_string_lossy(),
-        &sample_dir,
-    );
-    match file_path {
-        Ok(p) if p.exists() => return serve_file_by_path(p).await,
-        _ => {}
+    let candidates = [
+        cwd.join("frontend/public/sample_images"),
+        cwd.join("../frontend/public/sample_images"),
+        cwd.join("sample_images"),
+        PathBuf::from("/home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/public/sample_images"),
+    ];
+
+    for sample_dir in &candidates {
+        if sample_dir.exists() {
+            if let Ok(p) = safe_resolve_under(&sample_dir.join(&filename).to_string_lossy(), sample_dir) {
+                if p.exists() {
+                    return serve_file_by_path(p).await;
+                }
+            }
+        }
     }
 
-    let alt_dir = PathBuf::from("/home/chotaxdon/Work/Projects/Prism/sample_images");
-    let alt_path = safe_resolve_under(
-        &alt_dir.join(&filename).to_string_lossy(),
-        &alt_dir,
-    );
-    match alt_path {
-        Ok(p) if p.exists() => return serve_file_by_path(p).await,
-        _ => {}
-    }
-
-    Err((StatusCode::NOT_FOUND, "Sample image not found".to_string()))
+    Err((StatusCode::NOT_FOUND, format!("Sample image '{}' not found", filename)))
 }
 
 async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode, String)> {

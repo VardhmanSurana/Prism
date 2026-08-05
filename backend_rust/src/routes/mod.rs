@@ -491,6 +491,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/agent/preload", post(agent::preload_model))
         .route("/agent/chat", post(agent::chat))
         .route("/agent/uploads/:filename", get(agent::serve_agent_upload))
+        .route("/sample-images/:filename", get(photos::serve_sample_image))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 
 
@@ -501,6 +502,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/local", get(photos::serve_local_file))
         .route("/transcode", get(nle::stream_video))
         .route("/hls/playlist", get(nle::stream_video))
+        .nest_service("/thumbnails", tower_http::services::ServeDir::new(&state.config.thumbnails_dir))
         .nest("/api/v1", api_routes)
         .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024 * 1024))
         .layer(cors)
