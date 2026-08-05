@@ -91,12 +91,6 @@ async def lifespan(app):
         await processing_queue.shutdown()
     except Exception:
         pass
-    try:
-        from app.services import face_service
-
-        face_service.shutdown()
-    except Exception:
-        pass
 
     try:
         AIOrchestrator.stop_server()

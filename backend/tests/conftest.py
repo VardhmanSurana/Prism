@@ -5,7 +5,6 @@ from sqlalchemy import text
 from app.models import Base
 from app.db import get_db, engine, async_session
 from app.main import app
-from app.services.face_sdk import face_sdk
 
 
 @pytest.fixture(scope="session")
@@ -52,11 +51,6 @@ async def init_test_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
 
-    try:
-        face_sdk.shutdown()
-    except Exception:
-        pass
-
 
 @pytest_asyncio.fixture(autouse=True)
 async def clean_database():
@@ -89,7 +83,6 @@ def override_db(db_session):
 def pytest_configure(config):
     config.addinivalue_line("markers", "requires_ai_agent: requires ENABLE_AI_AGENT")
     config.addinivalue_line("markers", "requires_inpaint: requires ENABLE_AI_INPAINTING")
-    config.addinivalue_line("markers", "requires_face: requires ENABLE_AI_FACE")
     config.addinivalue_line("markers", "requires_lan_sync: requires ENABLE_LAN_SYNC")
     config.addinivalue_line("markers", "requires_raw: requires ENABLE_RAW_PROCESSING")
     config.addinivalue_line("markers", "requires_ocr: requires ENABLE_AI_OCR")

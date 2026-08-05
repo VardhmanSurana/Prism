@@ -435,6 +435,7 @@ pub async fn thumbnail_strip(
 // ── NLE endpoints (Python-only, TODO stubs) ────────────────────────────────
 
 #[derive(serde::Deserialize)]
+#[allow(dead_code)]
 pub struct WaveformRequest {
     pub source_path: String,
     #[serde(default)]
@@ -479,7 +480,7 @@ pub async fn get_waveform(
 
 /// POST /api/v1/nle/preview/render — Preview rendering.
 pub async fn render_preview(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Json(payload): Json<Value>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let source = payload.get("source").and_then(|v| v.as_str()).unwrap_or("");
@@ -521,9 +522,9 @@ pub async fn export_project(
     let mut inputs = Vec::new();
     let mut filter_parts = Vec::new();
 
-    for (i, track) in tracks.iter().enumerate() {
+    for track in tracks.iter() {
         let clips = track.get("clips").and_then(|v| v.as_array()).cloned().unwrap_or_default();
-        for (j, clip) in clips.iter().enumerate() {
+        for clip in clips.iter() {
             if let Some(path) = clip.get("path").and_then(|v| v.as_str()) {
                 inputs.push(path.to_string());
                 let idx = inputs.len() - 1;

@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct ExportClip {
     pub source_path: String,
     pub start_time: f64,
@@ -26,6 +27,7 @@ pub struct ExportClip {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct ExportTrack {
     pub r#type: String,
     pub clips: Vec<ExportClip>,
@@ -38,6 +40,7 @@ pub struct ExportTrack {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct ExportRequest {
     pub tracks: Vec<ExportTrack>,
     #[serde(default = "default_resolution")]

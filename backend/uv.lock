@@ -698,27 +698,6 @@ wheels = [
 ]
 
 [[package]]
-name = "inspireface"
-version = "1.2.3.post5"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "filelock" },
-    { name = "loguru" },
-    { name = "modelscope" },
-    { name = "numpy" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/7c/7689044901948a128eb7bc4bf22b8bf2ed6edf8cd32da0ae7b69e1706a2c/inspireface-1.2.3.post5-cp311-cp311-macosx_13_0_universal2.whl", hash = "sha256:ea92807fe1116bd0c9d37df6a4c658b273eed68ec1662b62a81acc17d62fdfcb", size = 2499224, upload-time = "2025-08-01T08:09:40.911Z" },
-    { url = "https://files.pythonhosted.org/packages/69/76/4e8b6b38f6bdef5286d5e4d3c9f0d7e4e2deb1a0f0f3c8135110e2a0aebd/inspireface-1.2.3.post5-cp311-cp311-macosx_14_0_universal2.whl", hash = "sha256:8b4bbac6ca714db2eb55303b8a137e777c3aba672da4d6599cbda916699445c5", size = 2052283, upload-time = "2025-08-01T08:09:50.527Z" },
-    { url = "https://files.pythonhosted.org/packages/83/9a/54d17a7e4f8e9349b75abe38f8ea591eec007d9a0640f7852cefb20c161b/inspireface-1.2.3.post5-cp311-cp311-manylinux2014_aarch64.whl", hash = "sha256:0dea8096151570fa8f49149128aea473d438d6746d4a6a344656ef298dc30e79", size = 2707592, upload-time = "2025-08-01T08:10:04.803Z" },
-    { url = "https://files.pythonhosted.org/packages/2a/62/fac235a9584e6cab7eb73dbe88ada155fdf0fabaf9527b814ab7747972b9/inspireface-1.2.3.post5-cp311-cp311-manylinux2014_x86_64.whl", hash = "sha256:d480ef0790730eff606a5fbf42f9cc8ca0eb590ab108ebb2d534287314bdcf23", size = 2948799, upload-time = "2025-08-01T08:09:52.244Z" },
-    { url = "https://files.pythonhosted.org/packages/12/51/c52d7effe51ec6fe9d493d1a472b932da8a30cbb951da6f8e053ba6d86c3/inspireface-1.2.3.post5-cp312-cp312-macosx_13_0_universal2.whl", hash = "sha256:264656aae249c1d71b0cc8611e578188f0c53843f38f26902102b6ee68c6fd10", size = 2499277, upload-time = "2025-08-01T08:09:58.125Z" },
-    { url = "https://files.pythonhosted.org/packages/4c/c2/60e2a207ca126e48898ace9c291cd27c22b41d196b06a55e8e4af3030426/inspireface-1.2.3.post5-cp312-cp312-macosx_14_0_universal2.whl", hash = "sha256:de8e831d1dc2d71e6bcd20b4d359583a24fcbe042af44a473a160d54b182507a", size = 2052330, upload-time = "2025-08-01T08:10:01.523Z" },
-    { url = "https://files.pythonhosted.org/packages/43/5b/14ae8e4330f330f7c463765d912951074ebb04c43c1643a58979154c201f/inspireface-1.2.3.post5-cp312-cp312-manylinux2014_aarch64.whl", hash = "sha256:f144ad75227b81e3121cc6d2fa6ab7b24300cf1da8768bc3b4eec375aee34d8f", size = 2707591, upload-time = "2025-08-01T08:09:35.695Z" },
-    { url = "https://files.pythonhosted.org/packages/54/b2/61a513f4218df9f4f7ea3e24c86553e990250209b327a7a44088ae8cdc4a/inspireface-1.2.3.post5-cp312-cp312-manylinux2014_x86_64.whl", hash = "sha256:e533ed52b671f8a259794b504f4a906290a97b149bb856c4039b689f7a409f43", size = 2948801, upload-time = "2025-08-01T08:09:48.443Z" },
-]
-
-[[package]]
 name = "jinja2"
 version = "3.1.6"
 source = { registry = "https://pypi.org/simple" }
@@ -836,23 +815,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
-]
-
-[[package]]
-name = "modelscope"
-version = "1.37.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "filelock" },
-    { name = "packaging" },
-    { name = "requests" },
-    { name = "setuptools" },
-    { name = "tqdm" },
-    { name = "urllib3" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/fa/9e/9fd75db9797b9543ce78a646538a3c5537cb6adb015d128b4cbc2b4169e2/modelscope-1.37.1.tar.gz", hash = "sha256:7d9124970b4e53639bebe89f60473dee7d5a80589bf35bfbef4c839933cdaf93", size = 4594233, upload-time = "2026-05-22T05:57:09.621Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/f5/286dd2d21802e4954a28e73913af7bc79e882f23fcd98db2b5810fc590cf/modelscope-1.37.1-py3-none-any.whl", hash = "sha256:7f7af2dd37339188cbd3c18a858b1297b8a75222b9a0fbf176c7df8189cac39a", size = 6089945, upload-time = "2026-05-22T05:57:05.931Z" },
 ]
 
 [[package]]
@@ -1341,7 +1303,6 @@ dependencies = [
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "inspireface" },
     { name = "loguru" },
     { name = "numpy" },
     { name = "onnxruntime" },
@@ -1363,9 +1324,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-face = [
-    { name = "inspireface" },
-]
 inpaint = [
     { name = "accelerate" },
     { name = "diffusers" },
@@ -1390,8 +1348,6 @@ requires-dist = [
     { name = "diffusers", marker = "extra == 'inpaint'", specifier = ">=0.37.1" },
     { name = "fastapi", specifier = ">=0.136.0" },
     { name = "httpx", specifier = ">=0.28.0" },
-    { name = "inspireface", specifier = ">=1.2.3.post5" },
-    { name = "inspireface", marker = "extra == 'face'", specifier = ">=1.2.3.post5" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "numpy", specifier = ">=2.4.4" },
     { name = "onnxruntime", specifier = ">=1.24.4" },
@@ -1413,7 +1369,7 @@ requires-dist = [
     { name = "watchdog", specifier = ">=6.0.0" },
     { name = "zeroconf", specifier = ">=0.131.0" },
 ]
-provides-extras = ["inpaint", "face", "rembg"]
+provides-extras = ["inpaint", "rembg"]
 
 [package.metadata.requires-dev]
 dev = [

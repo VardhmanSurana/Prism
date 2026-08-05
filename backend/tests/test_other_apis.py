@@ -1,31 +1,10 @@
-"""Tests for people, explore, stories, privacy, LAN sync, utilities, and settings APIs."""
+"""Tests for explore, stories, privacy, LAN sync, utilities, and settings APIs."""
 
 import pytest
 from httpx import AsyncClient, ASGITransport
 
 from app.main import app
 from app.models import Photo
-
-
-@pytest.mark.asyncio
-async def test_people_api_empty():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.get("/api/v1/people/")
-    assert response.status_code == 200
-    data = response.json()
-    assert isinstance(data, list)
-
-
-@pytest.mark.asyncio
-async def test_people_api_crud():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        response = await client.post("/api/v1/people/", json={"name": "Test Person"})
-    assert response.status_code == 405
-
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        get_resp = await client.get("/api/v1/people/")
-    assert get_resp.status_code == 200
-    assert isinstance(get_resp.json(), list)
 
 
 @pytest.mark.asyncio
@@ -126,11 +105,9 @@ async def test_general_settings_api():
         post_payload = {
             "ENABLE_IMAGE_BG_PROCESS": True,
             "ENABLE_AI_CLIP": True,
-            "ENABLE_AI_FACE": True,
             "ENABLE_AI_CAPTION": True,
             "ENABLE_AI_OCR": True,
             "ENABLE_VIDEO_BG_PROCESS": True,
-            "ENABLE_VIDEO_FACE": True,
             "ENABLE_AI_SUBTITLES": True,
             "ENABLE_AI_AGENT": True,
             "ENABLE_AI_INPAINTING": False,  # disable inpainting

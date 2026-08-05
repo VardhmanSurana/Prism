@@ -16,7 +16,6 @@ from app.config import settings
 from app.utils.image import reverse_geocode_coords
 from app.services.xmp_service import export_xmp_to_file
 
-from app.services.portrait_service import portrait_service
 from app.services.background_service import background_service
 from app.services.semantic_service import semantic_service
 from app.services.face_utils import load_image
@@ -102,61 +101,6 @@ async def get_background_mask(photo_id: int, db: AsyncSession = Depends(get_db))
     cv2.imwrite(mask_path, mask_img)
 
     return {"mask_url": f"/thumbnails/masks/{mask_filename}"}
-
-
-@router.get("/portrait-masks/{photo_id}")
-async def get_portrait_masks(photo_id: int, db: AsyncSession = Depends(get_db)):
-    """
-    Detects faces and generates high-precision semantic masks.
-    """
-    photo = await db.get(Photo, photo_id)
-    if not photo:
-        raise HTTPException(status_code=404, detail="Photo not found")
-        
-    img = load_image(photo.path)
-    if img is None:
-        raise HTTPException(status_code=500, detail="Failed to load image")
-
-    # 1. Detect faces (lazy import - only when endpoint is called)
-    from app.services.face_sdk import face_sdk
-    from app.services.face_detection import FaceDetector
-    detector = FaceDetector(face_sdk)
-    faces_data, _, scale, _ = detector.detect_faces(img)
-    if not faces_data:
-        return {"faces": []}
-
-    # Extract coordinates
-    faces_coords = []
-    for face in faces_data:
-        x1, y1, x2, y2 = detector.get_face_location_scaled(face, scale)
-        faces_coords.append((x1, y1, x2, y2))
-
-    # 2. Generate Masks
-    results = portrait_service.get_face_masks(img, faces_coords)
-    if not results:
-        return {"faces": []}
-
-    # 3. Save masks as static assets and return URLs
-    response_data = []
-    mask_dir = os.path.join(settings.THUMBNAILS_DIR, "masks")
-    os.makedirs(mask_dir, exist_ok=True)
-
-    for i, res in enumerate(results):
-        face_entry = {
-            "id": f"face_{i}",
-            "box": res["box"],
-            "masks": {}
-        }
-        
-        for mask_name, mask_img in res["masks"].items():
-            mask_filename = f"mask_{photo_id}_{i}_{mask_name}.png"
-            mask_path = os.path.join(mask_dir, mask_filename)
-            cv2.imwrite(mask_path, mask_img)
-            face_entry["masks"][mask_name] = f"/thumbnails/masks/{mask_filename}"
-            
-        response_data.append(face_entry)
-
-    return {"faces": response_data}
 
 
 @router.get("/auto-enhance/{photo_id}")
@@ -458,84 +402,3 @@ async def update_photo_metadata(
         "exif_focal_length": photo.exif_focal_length,
         "exif_iso": photo.exif_iso,
     }
-
-
-@router.get("/{photo_id}/faces")
-async def get_photo_faces(photo_id: int, db: AsyncSession = Depends(get_db)):
-    """Fetch detected face bounding boxes and assigned people for interactive face tagging."""
-    from app.models import Person
-    stmt = select(PhotoPerson).options(selectinload(PhotoPerson.person)).where(PhotoPerson.photo_id == photo_id)
-    res = await db.execute(stmt)
-    photo_people = res.scalars().all()
-    
-    faces = []
-    for pp in photo_people:
-        faces.append({
-            "photo_id": photo_id,
-            "person_id": pp.person_id if pp.person else None,
-            "person_name": pp.person.name if pp.person else "Unknown",
-            "face_box": pp.face_box_json,
-            "confidence": pp.confidence,
-        })
-    return {"faces": faces}
-
-
-class FaceTagRequest(BaseModel):
-    person_name: str
-    face_box: str | None = None  # JSON string e.g. {"x":0.2,"y":0.2,"w":0.3,"h":0.3}
-    person_id: int | None = None
-
-
-@router.post("/{photo_id}/tag-face")
-async def tag_photo_face(
-    photo_id: int,
-    payload: FaceTagRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """Assign or rename a person tag on a specific face in a photo."""
-    from app.models import Person
-    photo = await db.get(Photo, photo_id)
-    if not photo:
-        raise HTTPException(status_code=404, detail="Photo not found")
-
-    person = None
-    if payload.person_id:
-        person = await db.get(Person, payload.person_id)
-    if not person and payload.person_name.strip():
-        stmt = select(Person).where(Person.name == payload.person_name.strip())
-        res = await db.execute(stmt)
-        person = res.scalar_one_or_none()
-
-    if not person:
-        person = Person(name=payload.person_name.strip() or "Person 1")
-        db.add(person)
-        await db.commit()
-        await db.refresh(person)
-    elif payload.person_name.strip() and person.name != payload.person_name.strip():
-        person.name = payload.person_name.strip()
-        await db.commit()
-
-    stmt_pp = select(PhotoPerson).where(PhotoPerson.photo_id == photo_id, PhotoPerson.person_id == person.id)
-    res_pp = await db.execute(stmt_pp)
-    pp = res_pp.scalar_one_or_none()
-
-    if not pp:
-        pp = PhotoPerson(
-            photo_id=photo_id,
-            person_id=person.id,
-            confidence=1.0,
-            face_box_json=payload.face_box or '{"x":0.25,"y":0.25,"w":0.5,"h":0.5}'
-        )
-        db.add(pp)
-    else:
-        if payload.face_box:
-            pp.face_box_json = payload.face_box
-
-    await db.commit()
-    return {
-        "status": "success",
-        "person_id": person.id,
-        "person_name": person.name,
-        "face_box": pp.face_box_json,
-    }
-

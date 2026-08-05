@@ -27,15 +27,15 @@ impl Analyzer for FaceAnalyzer {
 
     async fn execute(
         &self,
-        ml_client: &MlClient,
+        _ml_client: &MlClient,
         db: &DbPool,
         worker: &WorkerState,
         photo_id: i64,
         photo_path: &str,
     ) -> bool {
-        match ml_client.scan_faces(photo_path).await {
-            Ok(resp) if resp.status == "success" => {
-                for face in &resp.faces {
+        match crate::services::face_engine::scan_faces(photo_path).await {
+            Ok(faces) => {
+                for face in &faces {
                     let _ = sqlx::query(
                         "INSERT OR IGNORE INTO faces (photo_id, confidence, box_json, embedding_json) VALUES (?, ?, ?, ?)"
                     )
@@ -50,16 +50,9 @@ impl Analyzer for FaceAnalyzer {
                 info!(
                     "[Scheduler] Face scan done for photo_id={}, {} face(s)",
                     photo_id,
-                    resp.faces.len()
+                    faces.len()
                 );
                 true
-            }
-            Ok(resp) => {
-                warn!(
-                    "[Scheduler] Face scan error for photo_id={}: {:?}",
-                    photo_id, resp.status
-                );
-                false
             }
             Err(e) => {
                 warn!(

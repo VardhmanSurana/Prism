@@ -270,7 +270,6 @@ async def get_diagnostics():
         "features_enabled": {
             "agent": settings.ENABLE_AI_AGENT,
             "inpainting": settings.ENABLE_AI_INPAINTING,
-            "face": settings.ENABLE_AI_FACE,
             "clip": settings.ENABLE_AI_CLIP,
             "rembg": settings.ENABLE_AI_REMBG
         }

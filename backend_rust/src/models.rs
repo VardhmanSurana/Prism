@@ -1,7 +1,6 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
-use uuid::Uuid;
 use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -135,34 +134,6 @@ pub struct Person {
     pub name: String,
     pub cover_face_thumbnail: Option<String>,
     pub face_embedding: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct VideoProject {
-    pub id: i64,
-    pub uuid: Option<String>,
-    pub name: String,
-    pub cover_photo_id: Option<i64>,
-    pub width: i64,
-    pub height: i64,
-    pub fps: f64,
-    pub project_json: Option<String>,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, FromRow)]
-pub struct TelemetryEvent {
-    pub id: i64,
-    pub source: String,
-    pub session_id: Option<String>,
-    pub event_type: String,
-    pub component: Option<String>,
-    pub action: Option<String>,
-    pub metadata_json: Option<String>,
-    pub status: String,
-    pub duration_ms: Option<f64>,
-    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

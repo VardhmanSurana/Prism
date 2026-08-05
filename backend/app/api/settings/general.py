@@ -70,13 +70,11 @@ class GeneralSettingsRequest(BaseModel):
     # Image background
     ENABLE_IMAGE_BG_PROCESS: bool
     ENABLE_AI_CLIP: bool
-    ENABLE_AI_FACE: bool
     ENABLE_AI_CAPTION: bool
     ENABLE_AI_OCR: bool
 
     # Video background
     ENABLE_VIDEO_BG_PROCESS: bool
-    ENABLE_VIDEO_FACE: bool
     ENABLE_AI_SUBTITLES: bool
 
     # Features
@@ -93,12 +91,10 @@ async def get_general_settings():
     return {
         "ENABLE_IMAGE_BG_PROCESS": settings.ENABLE_IMAGE_BG_PROCESS,
         "ENABLE_AI_CLIP": settings.ENABLE_AI_CLIP,
-        "ENABLE_AI_FACE": settings.ENABLE_AI_FACE,
         "ENABLE_AI_CAPTION": settings.ENABLE_AI_CAPTION,
         "ENABLE_AI_OCR": settings.ENABLE_AI_OCR,
 
         "ENABLE_VIDEO_BG_PROCESS": settings.ENABLE_VIDEO_BG_PROCESS,
-        "ENABLE_VIDEO_FACE": settings.ENABLE_VIDEO_FACE,
         "ENABLE_AI_SUBTITLES": settings.ENABLE_AI_SUBTITLES,
 
         "ENABLE_AI_AGENT": settings.ENABLE_AI_AGENT,
@@ -114,12 +110,10 @@ async def update_general_settings(req: GeneralSettingsRequest):
     # Update settings in-memory
     settings.ENABLE_IMAGE_BG_PROCESS = req.ENABLE_IMAGE_BG_PROCESS
     settings.ENABLE_AI_CLIP = req.ENABLE_AI_CLIP
-    settings.ENABLE_AI_FACE = req.ENABLE_AI_FACE
     settings.ENABLE_AI_CAPTION = req.ENABLE_AI_CAPTION
     settings.ENABLE_AI_OCR = req.ENABLE_AI_OCR
 
     settings.ENABLE_VIDEO_BG_PROCESS = req.ENABLE_VIDEO_BG_PROCESS
-    settings.ENABLE_VIDEO_FACE = req.ENABLE_VIDEO_FACE
     settings.ENABLE_AI_SUBTITLES = req.ENABLE_AI_SUBTITLES
 
     settings.ENABLE_AI_AGENT = req.ENABLE_AI_AGENT
@@ -132,12 +126,10 @@ async def update_general_settings(req: GeneralSettingsRequest):
     config = _read_settings()
     config["ENABLE_IMAGE_BG_PROCESS"] = req.ENABLE_IMAGE_BG_PROCESS
     config["ENABLE_AI_CLIP"] = req.ENABLE_AI_CLIP
-    config["ENABLE_AI_FACE"] = req.ENABLE_AI_FACE
     config["ENABLE_AI_CAPTION"] = req.ENABLE_AI_CAPTION
     config["ENABLE_AI_OCR"] = req.ENABLE_AI_OCR
 
     config["ENABLE_VIDEO_BG_PROCESS"] = req.ENABLE_VIDEO_BG_PROCESS
-    config["ENABLE_VIDEO_FACE"] = req.ENABLE_VIDEO_FACE
     config["ENABLE_AI_SUBTITLES"] = req.ENABLE_AI_SUBTITLES
 
     config["ENABLE_AI_AGENT"] = req.ENABLE_AI_AGENT

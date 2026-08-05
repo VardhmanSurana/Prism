@@ -29,20 +29,6 @@ FEATURE_FLAGS = [
         "model": "gemma-4-E4B-it (QAT quantized, ~4GB VRAM)",
     },
     {
-        "id": "ENABLE_AI_FACE",
-        "label": "Face Detection & Recognition",
-        "enabled": settings.ENABLE_AI_FACE,
-        "description": "Detects faces in photos, clusters them by person, and enables People view.",
-        "network_calls": [],
-        "what_runs_locally": [
-            "InspireFace SDK (local C library)",
-            "Face embedding computation (on-device)",
-            "DBSCAN clustering (pure Python)",
-        ],
-        "what_is_sent": "Face crops are processed entirely on-device. No face data leaves your machine.",
-        "model": "InspireFace (face detection + embedding, ~200MB)",
-    },
-    {
         "id": "ENABLE_AI_CLIP",
         "label": "Semantic Search & Embeddings",
         "enabled": settings.ENABLE_AI_CLIP,

@@ -145,18 +145,16 @@ pub async fn scan_photo_faces(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or((StatusCode::NOT_FOUND, "Photo not found".to_string()))?;
 
-    // Call Python ML service via ML client
-    let scan_res = state
-        .ml_client
-        .scan_faces(&photo_path)
+    // Run in-process face engine (SCRFD + ArcFace)
+    let faces = crate::services::face_engine::scan_faces(&photo_path)
         .await
         .map_err(|e| (StatusCode::BAD_GATEWAY, e))?;
 
     Ok(Json(json!({
         "photo_id": photo_id,
-        "faces_detected": scan_res.faces.len(),
+        "faces_detected": faces.len(),
         "status": "success",
-        "faces": scan_res.faces
+        "faces": faces
     })))
 }
 
@@ -187,7 +185,7 @@ pub async fn submit_pending_face_feedback(
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .ok_or((StatusCode::NOT_FOUND, "Pending face not found".to_string()))?;
 
-    let (_id, photo_id, embedding_json) = pending;
+    let (_id, photo_id, _embedding_json) = pending;
 
     if payload.decision == "same" {
         // Get the person_id from the pending face

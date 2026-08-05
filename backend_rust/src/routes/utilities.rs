@@ -445,7 +445,7 @@ pub async fn get_visual_duplicates(
 
 /// POST /api/v1/utilities/backup/export — Export backup (DB + settings as zip).
 pub async fn export_backup(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let db_path = std::env::var("DATABASE_URL")
         .unwrap_or_else(|_| "backend_rust/prism.db".to_string())
@@ -463,7 +463,7 @@ pub async fn export_backup(
 
 /// POST /api/v1/utilities/backup/restore — Restore backup from zip.
 pub async fn restore_backup(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     // ponytail: restore = replace the active DB file. Requires app restart.
     let db_path = std::env::var("DATABASE_URL")
@@ -660,14 +660,6 @@ pub async fn open_in_os_explorer(
 }
 
 // ── New stubs for Python-parity endpoints ──────────────────────────────────
-
-#[derive(Deserialize)]
-pub struct FusedSearchRequest {
-    pub query: Option<String>,
-    pub semantic: Option<bool>,
-    pub metadata: Option<bool>,
-    pub faces: Option<bool>,
-}
 
 /// GET /api/v1/utilities/search/fused — Multi-strategy fused search.
 pub async fn fused_search(

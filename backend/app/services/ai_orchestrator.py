@@ -23,9 +23,7 @@ class AIOrchestrator:
         # Mutual Exclusion: Ensure other GPU models are unloaded
         try:
             from app.services.vision_pipeline import unload_models
-            from app.services.face_sdk import face_sdk
             unload_models()
-            face_sdk.shutdown()
         except Exception as e:
             logger.warning(f"Error clearing VRAM before server start: {e}")
 

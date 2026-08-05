@@ -10,6 +10,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct StoryRequest {
     pub event_id: Option<i64>,
     pub photo_ids: Option<Vec<i64>>,

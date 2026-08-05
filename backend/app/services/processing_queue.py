@@ -73,7 +73,6 @@ class AdaptiveThrottler:
             await asyncio.sleep(5)
 
 
-STAGE_ORDER = ["siglip", "face", "vision", "ocr"]
 
 
 class ProcessingQueue:
@@ -365,17 +364,9 @@ class ProcessingQueue:
 
     async def _get_resume_stage_index(self, photo) -> int:
         if photo.ocr_text is not None:
-            return 4
-        if photo.ai_summary is not None:
             return 3
-        try:
-            async with async_session() as db:
-                stmt = select(PhotoPerson.photo_id).where(PhotoPerson.photo_id == photo.id).limit(1)
-                res = await db.execute(stmt)
-                if res.scalar() is not None:
-                    return 2
-        except Exception as e:
-            logger.error(f"Error checking face assignment in resume index: {e}")
+        if photo.ai_summary is not None:
+            return 2
         if photo.embedding is not None:
             return 1
         return 0
@@ -437,7 +428,6 @@ class ProcessingQueue:
                         "caption": None,
                         "tags_json": None,
                         "embedding_json": None,
-                        "faces_found": 0,
                         "is_encrypted": False,
                         "ocr_text": None,
                         "stage1_success": True,
@@ -479,7 +469,7 @@ class ProcessingQueue:
                         if is_encrypted:
                             logger.info(f"Skipping vision pipeline analysis for encrypted/locked photo ID {photo_id}")
                             results[photo_id]["summary"] = "Summary unavailable: this photo is stored encrypted in the Locked Folder."
-                            results[photo_id]["resume_from"] = 4
+                            results[photo_id]["resume_from"] = 3
                     except Exception as e:
                         logger.error(f"Failed to initialize photo {photo_id}: {e}")
                         results[photo_id]["errors"].append(str(e))
@@ -534,76 +524,6 @@ class ProcessingQueue:
                     logger.info("Pausing between stages due to system load")
                     await self._throttler.wait_if_paused()
 
-                # ── Stage 2: Face Detection & Clustering (InspireFace) (CRITICAL) ──
-                active_stage2_photos = []
-                for j in job_infos:
-                    pid = j["photo_id"]
-                    if results[pid]["is_encrypted"] or not results[pid]["stage2_success"] or results[pid]["resume_from"] > 1:
-                        continue
-                    path = results[pid]["photo_path"]
-                    from app.services.sync.handler import is_video_file
-                    is_video = is_video_file(path) if path else False
-                    if is_video:
-                        if settings.ENABLE_VIDEO_BG_PROCESS and settings.ENABLE_VIDEO_FACE:
-                            active_stage2_photos.append(j)
-                    else:
-                        if settings.ENABLE_IMAGE_BG_PROCESS and settings.ENABLE_AI_FACE:
-                            active_stage2_photos.append(j)
-                if active_stage2_photos:
-                    from app.services.face_sdk import face_sdk
-                    from app.services.face_clustering import face_service
-
-                    logger.info("Stage 2: Initializing Face SDK for batch (CRITICAL)...")
-                    try:
-                        session = face_sdk.session
-
-                        from app.services.sync.handler import is_video_file
-
-                        video_jobs = [j for j in active_stage2_photos if is_video_file(results[j["photo_id"]]["photo_path"])]
-                        image_jobs = [j for j in active_stage2_photos if not is_video_file(results[j["photo_id"]]["photo_path"])]
-
-                        for idx, job in enumerate(image_jobs):
-                            pid = job["photo_id"]
-                            await self._update_job_stage(job["id"], "face", idx, len(image_jobs))
-                            await self._broadcast_stage_progress("face", idx, len(image_jobs))
-                            path = results[pid]["photo_path"]
-                            try:
-                                async with async_session() as db:
-                                    faces_found = await face_service.scan_and_cluster_face(pid, path, db)
-                                results[pid]["faces_found"] = faces_found
-                                logger.info(f"Face scan complete. Detected {faces_found} faces in photo ID {pid}.")
-                            except Exception as e:
-                                logger.error(f"Face scanning failed for photo {pid}: {e}")
-                                results[pid]["errors"].append(f"Face scan error: {str(e)}")
-                                results[pid]["stage3_success"] = False
-
-                        for idx, job in enumerate(video_jobs):
-                            pid = job["photo_id"]
-                            await self._update_job_stage(job["id"], "face", idx, len(video_jobs))
-                            await self._broadcast_stage_progress("face", idx, len(video_jobs))
-                            path = results[pid]["photo_path"]
-                            try:
-                                async with async_session() as db:
-                                    faces_found = await face_service.scan_and_cluster_video_faces(pid, path, db)
-                                results[pid]["faces_found"] = faces_found
-                                logger.info(f"Video face scan complete. Detected {faces_found} unique faces in video ID {pid}.")
-                            except Exception as e:
-                                logger.error(f"Video face scanning failed for video {pid}: {e}")
-                                results[pid]["errors"].append(f"Video face scan error: {str(e)}")
-                                results[pid]["stage3_success"] = False
-                        await self._broadcast_stage_progress("face", len(active_stage2_photos), len(active_stage2_photos))
-                    except Exception as e:
-                        logger.error(f"Failed to launch Face SDK: {e}")
-                        for job in active_stage2_photos:
-                            pid = job["photo_id"]
-                            results[pid]["stage3_success"] = False
-                            results[pid]["errors"].append(f"Failed to launch Face SDK: {str(e)}")
-                    finally:
-                        logger.info("Stage 2 complete. Shutting down Face SDK resources.")
-                        face_sdk.shutdown()
-                else:
-                    logger.info("Stage 2: Face detection skipped - all photos already have face data.")
-
                 for job in job_infos:
                     pid = job["photo_id"]
                     res = results[pid]
@@ -618,7 +538,7 @@ class ProcessingQueue:
                                         if res["embedding_json"] is not None:
                                             photo.embedding = res["embedding_json"]
                                     await db.commit()
-                                    logger.info(f"Saved critical AI data (embeddings/faces) for photo ID {pid}.")
+                                    logger.info(f"Saved critical AI data (embeddings) for photo ID {pid}.")
                         except Exception as e:
                             logger.error(f"Failed to update Photo fields in DB for photo {pid}: {e}")
                             res["errors"].append(f"DB update error: {str(e)}")
@@ -634,7 +554,7 @@ class ProcessingQueue:
                         j for j in job_infos
                         if not results[j["photo_id"]]["is_encrypted"]
                         and results[j["photo_id"]]["stage3_success"]
-                        and results[j["photo_id"]]["resume_from"] <= 2
+                        and results[j["photo_id"]]["resume_from"] <= 1
                         and not (results[j["photo_id"]]["photo_path"] and is_video_file(results[j["photo_id"]]["photo_path"]))
                     ]
                     if active_stage3_photos:
@@ -711,7 +631,7 @@ class ProcessingQueue:
                         j for j in job_infos
                         if not results[j["photo_id"]]["is_encrypted"]
                         and results[j["photo_id"]]["stage4_success"]
-                        and results[j["photo_id"]]["resume_from"] <= 3
+                        and results[j["photo_id"]]["resume_from"] <= 2
                         and not (results[j["photo_id"]]["photo_path"] and is_video_file(results[j["photo_id"]]["photo_path"]))
                     ]
                     if active_stage4_photos:
@@ -812,7 +732,7 @@ class ProcessingQueue:
                     s4_ok = res["stage4_success"] if stage4_needed else True
 
                     if not res["stage1_success"] and not res["is_encrypted"]:
-                        logger.warning(f"Gemma Vision failed for photo {pid}, but embeddings/faces succeeded. Job will complete.")
+                        logger.warning(f"Gemma Vision failed for photo {pid}, but embeddings succeeded. Job will complete.")
 
                     success = s2_ok and s3_ok and s4_ok
                     err_msg = "\n".join(res["errors"]) if res["errors"] else None

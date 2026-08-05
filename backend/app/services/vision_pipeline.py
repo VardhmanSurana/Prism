@@ -76,12 +76,10 @@ def _get_siglip():
         from transformers import AutoProcessor, AutoModel
         start_time = time.time()
 
-        # Mutual Exclusion: Unload LLM, Face SDK, and Summary Vision model
+        # Mutual Exclusion: Unload LLM and Summary Vision model
         from app.agent.service import PrismAgent
-        from app.services.face_sdk import face_sdk
         from app.services.image_summary.llm import VisionManager
         PrismAgent.unload_llm()
-        face_sdk.shutdown()
         VisionManager.unload_vision()
 
         device, dtype = get_device_and_dtype()

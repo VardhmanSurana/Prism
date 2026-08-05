@@ -31,6 +31,7 @@ pub async fn pair_with_peer(
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct PairIncomingRequest {
     pub peer_id: String,
     pub hostname: String,
@@ -116,7 +117,7 @@ pub async fn get_photo_metadata(
 
 /// GET /api/v1/lan/photos/:photo_id/file — Serve a photo file to a peer.
 pub async fn get_photo_file(
-    Path(photo_id): Path<i64>,
+    Path(_photo_id): Path<i64>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     // TODO: Implement real file serving to peers
         Err((StatusCode::NOT_IMPLEMENTED, "LAN sync not yet implemented in Rust backend".to_string()))

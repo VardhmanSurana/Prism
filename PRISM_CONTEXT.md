@@ -46,7 +46,7 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 - **Gemma 4 E2B** for vision/captioning (port 9091)
 - **PaddleOCR-VL** for OCR text extraction (port 9092)
 - **SigLIP2** (`google/siglip2-base-patch16-224`) for semantic embeddings
-- **InspireFace SDK** for face detection and clustering
+- **face-id (SCRFD + ArcFace w600k, ONNX Runtime)** for in-process face detection and embeddings
 - **Stable Diffusion 1.5** for inpainting/object removal
 - **rembg** for background removal
 - **Whisper** for subtitle generation
@@ -985,8 +985,9 @@ Adjustments stored as JSON in `adjustments_json` column, applied during export.
 ## 13. Rust Backend Services
 
 ### `ml_client.rs`
-HTTP client for Python ML microservice (`http://127.0.0.1:8270`):
-- `scan_faces(photo_path)` → `/ml/face`
+HTTP client for Python ML microservice (`http://127.0.0.1:8270`). Face scanning is
+now in-process (`services/face_engine.rs`, SCRFD + ArcFace via ONNX Runtime) and no
+longer uses the ML service:
 - `get_siglip_embedding(photo_path)` → `/ml/siglip`
 - `get_vision_caption(photo_path)` → `/ml/vision`
 - `get_ocr_text(photo_path)` → `/ml/ocr`
@@ -1048,7 +1049,6 @@ Background AI worker:
 |----------|---------|-------------|
 | `ENABLE_IMAGE_BG_PROCESS` | `True` | Image analysis master switch |
 | `ENABLE_VIDEO_BG_PROCESS` | `True` | Video analysis master switch |
-| `ENABLE_VIDEO_FACE` | `True` | Video face detection |
 | `ENABLE_VIDEO_EDITOR_AI` | `True` | Video editor AI |
 | `GPU_MODE` | `cuda` | GPU backend (`cuda`, `rocm`, `sycl`, `vulkan`, `cpu`) |
 | `GPU_ENCODING_MODE` | `auto` | Video encoding (`auto`, `nvenc`, `vaapi`, `cpu`) |
@@ -1098,7 +1098,6 @@ Starts Rust backend + Vite frontend for web development.
 Starts Rust backend + Tauri desktop shell. Handles:
 - Common CUDA `LD_LIBRARY_PATH` entries
 - Local `gcc-15` compiler override
-- `execstack` fixes for InspireFace shared library
 - Port 8269 detection (reconnects to existing backend if running)
 
 ---

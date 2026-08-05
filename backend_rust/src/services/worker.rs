@@ -1,3 +1,4 @@
+
 /// AI Job Scheduler — decides *which* analyzers to run based on system state.
 ///
 /// Instead of a dumb FIFO queue, the scheduler polls:
@@ -437,7 +438,7 @@ fn get_resume_priority(
     if has_summary { return 100; } // vision priority=100 done → skip ≤100
     if has_faces { return 200; }   // face priority=200 done → skip ≤200
     if has_embedding { return 300; } // siglip priority=300 done → skip ≤300
-    u32::MAX // nothing done yet → run everything
+    0 // nothing done yet → run everything (priority > 0 for all analyzers)
 }
 
 // ─── Worker Loop (scheduler-driven) ───────────────────────────────────────
@@ -689,7 +690,7 @@ async fn update_job_status(
                 MAX_RETRY_DELAY_SECS,
             );
             let _ = sqlx::query(
-                "UPDATE background_jobs SET status = 'pending', last_error = 'Partial failure', current_stage = NULL, stage_progress = NULL, created_at = datetime('now', ? || ' seconds'), updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+                "UPDATE background_jobs SET status = 'pending', last_error = 'Partial failure', current_stage = NULL, stage_progress = NULL, created_at = datetime('now', ?), updated_at = CURRENT_TIMESTAMP WHERE id = ?"
             )
             .bind(format!("+{} seconds", delay))
             .bind(job_id)

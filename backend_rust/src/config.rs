@@ -10,6 +10,8 @@ pub struct Config {
     pub thumbnails_dir: PathBuf,
     pub python_ml_url: String,
     pub api_key: Option<String>,
+    pub gpu_mode: String,
+    pub models_dir: PathBuf,
 }
 
 impl Config {
@@ -45,6 +47,20 @@ impl Config {
 
         let api_key = env::var("API_KEY").ok();
 
+        // GPU mode mirrors Python's settings.GPU_MODE ("cuda" | "rocm" | "sycl" | "vulkan" | "cpu").
+        // "cpu" disables llama-server GPU flags (-ngl 0, no flash-attn).
+        let gpu_mode = env::var("GPU_MODE").unwrap_or_else(|_| "cuda".to_string());
+
+        // Model files live under backend_rust/models (llama GGUFs, PaddleOCR,
+        // ONNX models). Overridable via MODELS_DIR.
+        let models_dir = env::var("MODELS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join("models")
+            });
+
         Config {
             port,
             host,
@@ -53,6 +69,8 @@ impl Config {
             thumbnails_dir,
             python_ml_url,
             api_key,
+            gpu_mode,
+            models_dir,
         }
     }
 }

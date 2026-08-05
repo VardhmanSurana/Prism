@@ -5,6 +5,9 @@ edition = "2021"
 description = "High-performance Rust backend for Prism local-first photo library"
 
 [dependencies]
+ort = { version = "2.0.0-rc.13", features = ["ndarray"] }
+
+tokenizers = "0.20.0"
 axum = { version = "0.7", features = ["macros", "multipart"] }
 tokio = { version = "1.38", features = ["full"] }
 tower = { version = "0.4", features = ["util"] }
@@ -31,4 +34,6 @@ bytes = "1"
 sysinfo = "0.33"
 sha2 = "0.10"
 async-trait = "0.1"
+face_id = "0.4"
+base64 = "0.22"
 

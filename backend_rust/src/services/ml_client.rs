@@ -4,10 +4,13 @@ use serde_json::Value;
 use std::time::Duration;
 use tracing::{error, info};
 
+use super::llm_client::LlmClient;
+
 #[derive(Clone)]
 pub struct MlClient {
     client: Client,
     base_url: String,
+    llm: LlmClient,
 }
 
 #[derive(Serialize)]
@@ -20,12 +23,6 @@ pub struct DetectedFace {
     pub confidence: f64,
     pub box_json: String,
     pub embedding_json: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct FaceScanResponse {
-    pub status: String,
-    pub faces: Vec<DetectedFace>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
@@ -49,13 +46,13 @@ pub struct OcrResponse {
 }
 
 impl MlClient {
-    pub fn new(base_url: String) -> Self {
+    pub fn new(base_url: String, llm: LlmClient) -> Self {
         let client = Client::builder()
             .timeout(Duration::from_secs(120))
             .build()
             .unwrap_or_else(|_| Client::new());
 
-        MlClient { client, base_url }
+        MlClient { client, base_url, llm }
     }
 
     pub async fn post_json(&self, url: &str, body: &Value) -> Result<Value, String> {
@@ -73,33 +70,6 @@ impl MlClient {
             Ok(resp) => resp.status().is_success(),
             Err(_) => false,
         }
-    }
-
-    pub async fn scan_faces(&self, photo_path: &str) -> Result<FaceScanResponse, String> {
-        let url = format!("{}/ml/face", self.base_url);
-        let req = PhotoPathRequest {
-            photo_path: photo_path.to_string(),
-        };
-
-        info!("Sending ML face scan request for path: {}", photo_path);
-
-        let resp = self
-            .client
-            .post(&url)
-            .json(&req)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to reach Python ML service: {}", e))?;
-
-        if !resp.status().is_success() {
-            let err_text = resp.text().await.unwrap_or_default();
-            error!("ML service face error: {}", err_text);
-            return Err(format!("ML service error: {}", err_text));
-        }
-
-        resp.json::<FaceScanResponse>()
-            .await
-            .map_err(|e| format!("Failed to parse ML response: {}", e))
     }
 
     pub async fn get_siglip_embedding(&self, photo_path: &str) -> Result<SiglipResponse, String> {
@@ -129,58 +99,27 @@ impl MlClient {
             .map_err(|e| format!("Failed to parse SigLIP response: {}", e))
     }
 
+    /// Vision caption + tags via local llama-server (Gemma E2B :9091) —
+    /// replaces the Python `/ml/vision` endpoint.
     pub async fn get_vision_caption(&self, photo_path: &str) -> Result<VisionResponse, String> {
-        let url = format!("{}/ml/vision", self.base_url);
-        let req = PhotoPathRequest {
-            photo_path: photo_path.to_string(),
-        };
-
         info!("Sending Vision caption request for path: {}", photo_path);
 
-        let resp = self
-            .client
-            .post(&url)
-            .json(&req)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to reach Python ML service: {}", e))?;
-
-        if !resp.status().is_success() {
-            let err_text = resp.text().await.unwrap_or_default();
-            error!("ML service Vision error: {}", err_text);
-            return Err(format!("ML service error: {}", err_text));
-        }
-
-        resp.json::<VisionResponse>()
-            .await
-            .map_err(|e| format!("Failed to parse Vision response: {}", e))
+        let result = self.llm.vision(photo_path).await?;
+        Ok(VisionResponse {
+            status: "success".to_string(),
+            summary: result.summary,
+            caption: result.caption,
+            tags: result.tags,
+        })
     }
 
+    /// OCR via local llama-server (PaddleOCR-VL :9092) — replaces the Python
+    /// `/ml/ocr` endpoint.
     pub async fn get_ocr_text(&self, photo_path: &str) -> Result<OcrResponse, String> {
-        let url = format!("{}/ml/ocr", self.base_url);
-        let req = PhotoPathRequest {
-            photo_path: photo_path.to_string(),
-        };
-
         info!("Sending OCR request for path: {}", photo_path);
 
-        let resp = self
-            .client
-            .post(&url)
-            .json(&req)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to reach Python ML service: {}", e))?;
-
-        if !resp.status().is_success() {
-            let err_text = resp.text().await.unwrap_or_default();
-            error!("ML service OCR error: {}", err_text);
-            return Err(format!("ML service error: {}", err_text));
-        }
-
-        resp.json::<OcrResponse>()
-            .await
-            .map_err(|e| format!("Failed to parse OCR response: {}", e))
+        let text = self.llm.ocr(photo_path).await?;
+        Ok(OcrResponse { status: "success".to_string(), text })
     }
 
     pub async fn get_semantic_masks(&self, photo_path: &str) -> Result<Value, String> {

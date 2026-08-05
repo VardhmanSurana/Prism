@@ -69,7 +69,6 @@ class Settings(BaseSettings):
     # AI Feature Flags (Opt-in)
     ENABLE_AI_AGENT: bool = False
     ENABLE_AI_INPAINTING: bool = False
-    ENABLE_AI_FACE: bool = False
     ENABLE_AI_CLIP: bool = False
     ENABLE_AI_REMBG: bool = False
     ENABLE_AI_OCR: bool = False
@@ -85,7 +84,6 @@ class Settings(BaseSettings):
     ENABLE_IMAGE_BG_PROCESS: bool = True
     ENABLE_AI_CAPTION: bool = True
     ENABLE_VIDEO_BG_PROCESS: bool = True
-    ENABLE_VIDEO_FACE: bool = True
     ENABLE_VIDEO_EDITOR_AI: bool = True
     GPU_MODE: str = "cuda"  # "cuda" | "rocm" | "sycl" | "vulkan" | "cpu"
 
@@ -95,15 +93,6 @@ class Settings(BaseSettings):
 
     # Video face detection settings
     VIDEO_FACE_SCENE_THRESHOLD: float = 0.3
-    VIDEO_FACE_MAX_FRAMES: int = 50
-    VIDEO_FACE_MIN_GAP_SECONDS: float = 5.0
-    VIDEO_FACE_DEDUP_THRESHOLD: float = 0.7
-
-    # Video face tracker settings
-    VIDEO_FACE_TRACKER_IOU_THRESHOLD: float = 0.3
-    VIDEO_FACE_TRACKER_CENTROID_DIST: float = 150.0
-    VIDEO_FACE_TRACKER_EMB_SIM_THRESHOLD: float = 0.4
-    VIDEO_FACE_TRACKER_MAX_MISSED: int = 5
 
     JOB_QUEUE_MAX_RETRIES: int = 5
     JOB_QUEUE_THROTTLE_CPU_THRESHOLD: float = 85.0

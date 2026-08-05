@@ -4,6 +4,7 @@ use tracing::{info, warn};
 use super::super::worker::{Analyzer, PhotoRecord, ResourceNeed, WorkerState};
 use crate::db::DbPool;
 use crate::services::ml_client::MlClient;
+use crate::services::siglip::get_engine;
 
 pub struct SiglipAnalyzer;
 
@@ -27,15 +28,28 @@ impl Analyzer for SiglipAnalyzer {
 
     async fn execute(
         &self,
-        ml_client: &MlClient,
+        _ml_client: &MlClient,
         db: &DbPool,
         worker: &WorkerState,
         photo_id: i64,
         photo_path: &str,
     ) -> bool {
-        match ml_client.get_siglip_embedding(photo_path).await {
-            Ok(resp) if resp.status == "success" && !resp.embedding.is_empty() => {
-                let json = serde_json::to_string(&resp.embedding).unwrap_or_default();
+        let engine = match get_engine() {
+            Ok(engine) => engine,
+            Err(e) => {
+                warn!("[Scheduler] Failed to get SigLIP engine: {}", e);
+                return false;
+            }
+        };
+
+        let path = photo_path.to_string();
+        let result = tokio::task::spawn_blocking(move || {
+            engine.embed_image(&path)
+        }).await;
+
+        match result {
+            Ok(Ok(embedding)) if !embedding.is_empty() => {
+                let json = serde_json::to_string(&embedding).unwrap_or_default();
                 let _ = sqlx::query("UPDATE photos SET embedding = ?, clip_embedding = ? WHERE id = ?")
                     .bind(&json)
                     .bind(&json)
@@ -46,15 +60,16 @@ impl Analyzer for SiglipAnalyzer {
                 info!("[Scheduler] SigLIP done for photo_id={}", photo_id);
                 true
             }
-            Ok(resp) => {
-                warn!(
-                    "[Scheduler] SigLIP empty/error for photo_id={}: {:?}",
-                    photo_id, resp.status
-                );
+            Ok(Ok(_)) => {
+                warn!("[Scheduler] SigLIP returned empty embedding for photo_id={}", photo_id);
+                false
+            }
+            Ok(Err(e)) => {
+                warn!("[Scheduler] SigLIP error for photo_id={}: {}", photo_id, e);
                 false
             }
             Err(e) => {
-                warn!("[Scheduler] SigLIP failed for photo_id={}: {}", photo_id, e);
+                warn!("[Scheduler] SigLIP task panicked for photo_id={}: {}", photo_id, e);
                 false
             }
         }

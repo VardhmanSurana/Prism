@@ -436,7 +436,7 @@ pub async fn reclassify_all_photos(
     let mut updated = 0;
     for photo in &photos {
         if let Ok(resp) = state.ml_client.get_vision_caption(&photo.path).await {
-            if let Some(tags) = resp.tags.first() {
+            if let Some(_tags) = resp.tags.first() {
                 let tags_json = serde_json::to_string(&resp.tags).unwrap_or_default();
                 sqlx::query("UPDATE photos SET auto_tags = ? WHERE id = ?")
                     .bind(&tags_json)

@@ -18,7 +18,6 @@ from app.api import (
     settings as settings_api,
     albums as albums_api,
     agent as agent_api,
-    people as people_api,
     utilities as utilities_api,
     summaries as summaries_api,
     explore as explore_api,
@@ -101,7 +100,6 @@ app.include_router(settings_api.router, prefix=f"{settings.API_V1_STR}/settings"
 app.include_router(albums_api.router, prefix=f"{settings.API_V1_STR}/albums", tags=["albums"], dependencies=[Depends(verify_api_key)])
 app.include_router(agent_api.router, prefix=f"{settings.API_V1_STR}/agent", tags=["agent"], dependencies=[Depends(verify_api_key)])
 app.include_router(interrogate_api.router, prefix=f"{settings.API_V1_STR}/ml", tags=["ml"], dependencies=[Depends(verify_api_key)])
-app.include_router(people_api.router, prefix=f"{settings.API_V1_STR}/people", tags=["people"], dependencies=[Depends(verify_api_key)])
 app.include_router(utilities_api.router, prefix=f"{settings.API_V1_STR}/utilities", tags=["utilities"], dependencies=[Depends(verify_api_key)])
 app.include_router(summaries_api.router, prefix=f"{settings.API_V1_STR}/photos", tags=["summaries"], dependencies=[Depends(verify_api_key)])
 app.include_router(explore_api.router, prefix=f"{settings.API_V1_STR}/explore", tags=["explore"], dependencies=[Depends(verify_api_key)])

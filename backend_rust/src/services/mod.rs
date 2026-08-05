@@ -1,6 +1,13 @@
 pub mod analyzers;
 pub mod exif;
+pub mod face_engine;
+pub mod llm_client;
+pub mod llm_server;
 pub mod ml_client;
 pub mod telemetry;
 pub mod thumbnail;
 pub mod worker;
+pub mod siglip;
+pub mod auto_enhance;
+pub mod segmentation;
+pub mod inpaint;

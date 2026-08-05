@@ -11,6 +11,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::config::Config;
 use crate::db::init_db;
+use crate::services::llm_client::LlmClient;
+use crate::services::llm_server::LlmServer;
 use crate::services::ml_client::MlClient;
 use crate::services::telemetry::TelemetryService;
 use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn_worker_loop};
@@ -44,7 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&config.thumbnails_dir).ok();
 
     let db_pool = init_db(&config.database_url).await?;
-    let ml_client = MlClient::new(config.python_ml_url.clone());
+    let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
+    let ml_client = MlClient::new(config.python_ml_url.clone(), LlmClient::new(llm_server.clone()));
     let telemetry = TelemetryService::new(db_pool.clone());
     let registry = Arc::new(AnalyzerRegistry::new());
     let analyzer_names = registry.names();
@@ -100,7 +103,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("Prism Rust Backend listening on http://{}", addr);
 
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async move {
+            let _ = tokio::signal::ctrl_c().await;
+            info!("Shutting down; stopping llama-server if running");
+            llm_server.stop().await;
+        })
+        .await?;
 
     Ok(())
 }

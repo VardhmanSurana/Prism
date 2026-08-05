@@ -32,15 +32,6 @@ app.include_router(interrogate_api.router, prefix="/ml", tags=["ml"])
 class PhotoPathRequest(BaseModel):
     photo_path: str
 
-class FaceBox(BaseModel):
-    confidence: float
-    box_json: str
-    embedding_json: str
-
-class FaceScanResponse(BaseModel):
-    status: str
-    faces: List[FaceBox]
-
 class SiglipResponse(BaseModel):
     status: str
     embedding: List[float]
@@ -66,40 +57,7 @@ class ClipResponse(BaseModel):
 def health():
     return {"status": "ok", "service": "prism-python-ml", "port": 8270}
 
-# ─── Face Detection (InspireFace) ─────────────────────────────────────────
-
-@app.post("/ml/face", response_model=FaceScanResponse)
-def scan_faces(req: PhotoPathRequest):
-    if not os.path.exists(req.photo_path):
-        raise HTTPException(status_code=404, detail="Photo file not found")
-
-    try:
-        from app.services.face_sdk import face_sdk
-        import cv2
-
-        img = cv2.imread(req.photo_path)
-        if img is None:
-            return FaceScanResponse(status="error", faces=[])
-
-        faces = face_sdk.detect_faces(img)
-        results = []
-        for face in faces:
-            feature = face_sdk.extract_feature(img, face)
-            embedding_list = feature.tolist() if feature is not None else []
-            box = getattr(face, "location", None) or [0, 0, 0, 0]
-
-            results.append(
-                FaceBox(
-                    confidence=float(getattr(face, "confidence", 1.0)),
-                    box_json=str(list(box)),
-                    embedding_json=str(embedding_list),
-                )
-            )
-
-        return FaceScanResponse(status="success", faces=results)
-    except Exception as e:
-        logger.exception(f"Error scanning faces: {e}")
-        return FaceScanResponse(status="error", faces=[])
+# ─── SigLIP Embeddings ──────────────────────────────────────────────────────
 
 # ─── SigLIP 2 Embedding ───────────────────────────────────────────────────
 

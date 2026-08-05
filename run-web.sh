@@ -21,7 +21,16 @@ if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "[web] Killing existing backend for clean restart..."
     pkill -f "prism-backend-rust" 2>/dev/null || true
     pkill -f "uvicorn app.main:app" 2>/dev/null || true
+    pkill -f "ml_service.py" 2>/dev/null || true
     pkill -f "vite" 2>/dev/null || true
+    sleep 1
+fi
+
+# Always free ML port 8270 if any process is holding it (stale ML server)
+ML_PID=$(lsof -Pi :$ML_PORT -sTCP:LISTEN -t 2>/dev/null || true)
+if [ -n "$ML_PID" ]; then
+    echo "[web] Killing stale ML service on port $ML_PORT (PID $ML_PID)..."
+    kill $ML_PID 2>/dev/null || true
     sleep 1
 fi
 

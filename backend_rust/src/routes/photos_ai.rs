@@ -9,6 +9,7 @@ use std::sync::Arc;
 use tracing::warn;
 
 use crate::AppState;
+use crate::services::{auto_enhance, inpaint, segmentation};
 
 pub async fn trigger_ocr(
     State(state): State<Arc<AppState>>,
@@ -58,19 +59,21 @@ pub async fn process_inpaint(
     } else { None };
 
     let path = photo_path.ok_or((StatusCode::BAD_REQUEST, "photo_id required".to_string()))?;
-    let url = format!("{}/ml/inpaint", state.config.python_ml_url);
-    let body = json!({
-        "photo_path": path,
-        "mask_data": payload.mask_data,
-        "operation": payload.operation,
-        "model": payload.model,
-        "prompt": payload.prompt,
-        "guidance_scale": payload.guidance_scale,
-        "num_inference_steps": payload.num_inference_steps,
-    });
-    match state.ml_client.post_json(&url, &body).await {
+
+    let engine = inpaint::InpaintEngine::get();
+    match engine.process_inpaint(
+        &path,
+        &payload.mask_data,
+        &payload.operation,
+        payload.prompt.as_deref(),
+        payload.guidance_scale,
+        payload.num_inference_steps,
+    ) {
         Ok(val) => Ok(Json(val)),
-        Err(e) => Ok(Json(json!({ "success": false, "error": e }))),
+        Err(e) => {
+            warn!("Inpaint failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
     }
 }
 
@@ -264,11 +267,13 @@ pub async fn get_semantic_masks(
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
-    match state.ml_client.get_semantic_masks(&photo.path).await {
-        Ok(masks) => Ok(Json(masks)),
+    let masks_dir = state.config.thumbnails_dir.join("masks");
+    let engine = segmentation::SegmentationEngine::get();
+    match engine.get_semantic_masks(&photo.path, photo.id, &masks_dir) {
+        Ok(resp) => Ok(Json(serde_json::to_value(resp).unwrap_or_default())),
         Err(e) => {
-            warn!("Semantic masks ML call failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "masks": null, "error": e })))
+            warn!("Semantic masks failed: {}", e);
+            Ok(Json(json!({ "photo_id": photo.id, "regions": [], "error": e })))
         }
     }
 }
@@ -278,11 +283,21 @@ pub async fn get_background_mask(
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
-    match state.ml_client.get_background_mask(&photo.path).await {
-        Ok(mask) => Ok(Json(mask)),
+    let masks_dir = state.config.thumbnails_dir.join("masks");
+
+    // Return cached mask if it already exists
+    let cached_filename = format!("mask_{}_background.png", photo.id);
+    let cached_path = masks_dir.join(&cached_filename);
+    if cached_path.exists() {
+        return Ok(Json(json!({ "mask_url": format!("/thumbnails/masks/{}", cached_filename) })));
+    }
+
+    let engine = segmentation::SegmentationEngine::get();
+    match engine.get_background_mask(&photo.path, photo.id, &masks_dir) {
+        Ok(resp) => Ok(Json(serde_json::to_value(resp).unwrap_or_default())),
         Err(e) => {
-            warn!("Background mask ML call failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "mask": null, "error": e })))
+            warn!("Background mask failed: {}", e);
+            Ok(Json(json!({ "photo_id": photo.id, "mask_url": null, "error": e })))
         }
     }
 }
@@ -292,25 +307,30 @@ pub async fn get_portrait_masks(
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
-    match state.ml_client.get_portrait_masks(&photo.path).await {
-        Ok(masks) => Ok(Json(masks)),
+    let masks_dir = state.config.thumbnails_dir.join("masks");
+    let engine = segmentation::SegmentationEngine::get();
+    match engine.get_portrait_masks(&photo.path, photo.id, &masks_dir) {
+        Ok(resp) => Ok(Json(serde_json::to_value(resp).unwrap_or_default())),
         Err(e) => {
-            warn!("Portrait masks ML call failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "masks": null, "error": e })))
+            warn!("Portrait masks failed: {}", e);
+            Ok(Json(json!({ "photo_id": photo.id, "faces": [], "error": e })))
         }
     }
 }
 
 pub async fn get_auto_enhance(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
-    match state.ml_client.get_auto_enhance(&photo.path).await {
-        Ok(enhance) => Ok(Json(enhance)),
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&_state.db, &photo_id).await?;
+    match image::open(&photo.path) {
+        Ok(img) => {
+            let params = auto_enhance::calculate_auto_enhance(&img);
+            Ok(Json(serde_json::to_value(params).unwrap_or_default()))
+        }
         Err(e) => {
-            warn!("Auto-enhance ML call failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "enhancements": null, "error": e })))
+            warn!("Auto-enhance image load failed: {}", e);
+            Ok(Json(json!({ "photo_id": photo.id, "error": e.to_string() })))
         }
     }
 }

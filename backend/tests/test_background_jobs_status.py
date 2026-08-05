@@ -11,7 +11,6 @@ async def test_get_background_jobs_status():
         assert "total_photos" in data
         assert "clip" in data
         assert "gemma" in data
-        assert "face" in data
         assert "ocr" in data
         assert "queue" in data
         
@@ -26,11 +25,6 @@ async def test_get_background_jobs_status():
         assert "progress" in data["gemma"]
         assert "is_processing" in data["gemma"]
         
-        assert "processed" in data["face"]
-        assert "total" in data["face"]
-        assert "progress" in data["face"]
-        assert "is_processing" in data["face"]
-
         assert "processed" in data["ocr"]
         assert "total" in data["ocr"]
         assert "progress" in data["ocr"]

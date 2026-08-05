@@ -445,7 +445,6 @@ pub async fn trigger_face_sync(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
     let db = state.db.clone();
-    let ml = state.ml_client.clone();
 
     tokio::spawn(async move {
         let photos: Vec<(i64, String)> = sqlx::query_as("SELECT id, path FROM photos WHERE is_trash = 0 LIMIT 100")
@@ -454,7 +453,7 @@ pub async fn trigger_face_sync(
             .unwrap_or_default();
 
         for (_photo_id, path) in photos {
-            let _ = ml.scan_faces(&path).await;
+            let _ = crate::services::face_engine::scan_faces(&path).await;
         }
     });
 
