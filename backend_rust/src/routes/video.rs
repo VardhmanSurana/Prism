@@ -53,8 +53,11 @@ pub struct ExportRequest {
     pub format: String,
 }
 
+#[allow(dead_code)]
 fn default_resolution() -> (i32, i32) { (1920, 1080) }
+#[allow(dead_code)]
 fn default_fps() -> i32 { 30 }
+#[allow(dead_code)]
 fn default_format() -> String { "mp4".to_string() }
 
 /// POST /api/v1/video/export — Start FFmpeg video export job.

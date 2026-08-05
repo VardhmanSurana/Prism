@@ -224,7 +224,6 @@ pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> 
     Json(json!({
         "status": "healthy",
         "backend": "rust-axum",
-        "python_version": "Python 3.11.0 (main, Prism ML Subservice)",
         "platform": "Linux x86_64",
         "database_path": db_path,
         "database_size_bytes": db_size,
@@ -246,14 +245,13 @@ pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> 
             "face": true,
             "clip": true,
             "rembg": true
-        },
-        "python_ml_url": state.config.python_ml_url
+        }
     }))
 }
 
 pub async fn get_logs() -> Json<Value> {
     Json(json!({
-        "logs": "INFO [Prism Core Engine] Rust Backend active on port 8269\nINFO [Python ML Microservice] Ready on port 8270\nINFO System monitoring operational."
+        "logs": "INFO [Prism Core Engine] Rust Backend active on port 8269\nINFO System monitoring operational."
     }))
 }
 

@@ -79,7 +79,6 @@ struct HealthStatus {
     service: String,
     version: String,
     database: String,
-    python_ml_service: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -225,7 +224,6 @@ async fn cmd_status(c: &PrismClient, json: bool) -> Result<()> {
     println!("  service      : {}", health.service);
     println!("  version      : {}", health.version);
     println!("  database     : {}", health.database);
-    println!("  python ML    : {}", health.python_ml_service);
     println!();
     print_stats_table(&stats);
     Ok(())

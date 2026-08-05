@@ -8,7 +8,6 @@ pub struct Config {
     pub database_url: String,
     pub upload_dir: PathBuf,
     pub thumbnails_dir: PathBuf,
-    pub python_ml_url: String,
     pub api_key: Option<String>,
     pub gpu_mode: String,
     pub models_dir: PathBuf,
@@ -42,9 +41,6 @@ impl Config {
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("thumbnails"));
 
-        let python_ml_url = env::var("PYTHON_ML_URL")
-            .unwrap_or_else(|_| "http://127.0.0.1:8270".to_string());
-
         let api_key = env::var("API_KEY").ok();
 
         // GPU mode mirrors Python's settings.GPU_MODE ("cuda" | "rocm" | "sycl" | "vulkan" | "cpu").
@@ -67,7 +63,6 @@ impl Config {
             database_url,
             upload_dir,
             thumbnails_dir,
-            python_ml_url,
             api_key,
             gpu_mode,
             models_dir,

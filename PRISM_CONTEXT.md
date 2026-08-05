@@ -39,7 +39,7 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 - **serde / serde_json** for serialization
 - **tower-http** for CORS + tracing middleware
 - **ffmpeg/ffprobe** (via CLI) for video metadata and thumbnails
-- Optional **Python ML microservice** (`backend/`) for AI inference
+- **In-process ML**: ONNX Runtime (SigLIP2 embeddings, segmentation, detection) and `face_id` for face detection & embeddings
 
 ### AI Stack (Optional, feature-flagged)
 - **Gemma 4 E4B** (`gguf`) for agent LLM search (port 9090)
@@ -83,21 +83,12 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 │                    │  (uploads/, thumbnails/) │    │
 │                    └──────────────────────────┘    │
 └────────────────────────────────────────────────────┘
-        │
-        │ REST (127.0.0.1:8270)
-        ▼
-┌──────────────────────────────────────┐
-│   Python ML Microservice (optional)  │
-│  - Face detection / embeddings       │
-│  - SigLIP2 / Vision / OCR            │
-│  - Inpainting / background removal   │
-└──────────────────────────────────────┘
 ```
 
 ### Key Design Decisions
 1. **Local-first**: All data stays on the user's machine. No cloud dependencies.
 2. **Desktop-native**: Tauri v2 provides a lightweight, secure native shell.
-3. **High-performance backend**: Rust (Axum) runs as the core backend, with optional Python ML microservice for AI inference.
+3. **High-performance backend**: Rust (Axum) runs as the core backend with in-process ONNX/ML inference.
 4. **SQLite WAL + FTS5**: Write-Ahead Logging for concurrent read/write performance, with full-text search.
 5. **REST API**: Frontend communicates with backend via HTTP REST.
 6. **Opt-in AI**: All AI features are behind feature flags, disabled by default.
@@ -123,7 +114,7 @@ Prism/
 │   ├── IMAGE_EDITOR.md          # 19-tool image editor reference
 │   ├── VIDEO_EDITOR.md          # NLE video editor reference
 │   ├── SECURITY.md              # Encryption, auth, path isolation, CSP
-│   ├── PRISM_CLI.md             # CLI command reference (legacy Python)
+│   ├── PRISM_CLI.md             # CLI command reference (Rust REST client)
 │   ├── SETUP.md                 # Setup guide, env vars, GPU config
 │
 ├── frontend/
@@ -290,7 +281,7 @@ Prism/
 │   │   │   └── mod.rs
 │   │   └── services/
 │   │       ├── mod.rs
-│   │       ├── ml_client.rs     # HTTP client for Python ML microservice
+│   │       ├── ml_client.rs     # LLM client wrapper (vision/OCR via llama-server)
 │   │       ├── thumbnail.rs     # WebP thumbnail generation
 │   │       ├── exif.rs          # EXIF metadata extraction
 │   │       ├── telemetry.rs     # Telemetry service
@@ -638,7 +629,6 @@ The `MainContent` component acts as the view router. `currentView` (a `ViewMode`
 | `DATABASE_URL` | `sqlite://{cwd}/backend_rust/prism.db` | SQLite database URL |
 | `UPLOAD_DIR` | `uploads` | Upload directory |
 | `THUMBNAILS_DIR` | `thumbnails` | Thumbnail directory |
-| `PYTHON_ML_URL` | `http://127.0.0.1:8270` | Python ML service URL |
 | `API_KEY` | `""` (disabled) | API key for auth |
 
 ### Middleware Stack (in `routes/mod.rs`)
@@ -812,7 +802,6 @@ Jobs support resume from interruption: if a stage already has data, it's skipped
 | Service | Port | Purpose |
 |---------|------|---------|
 | Rust Backend API | 8269 | Main REST API |
-| Python ML Microservice | 8270 | ML inference |
 | Agent LLM server | 9090 | llama-server (Gemma 4 E4B) |
 | Vision/caption server | 9091 | llama-server (Gemma 4 E2B) |
 | OCR server | 9092 | llama-server (PaddleOCR-VL) |
@@ -985,17 +974,9 @@ Adjustments stored as JSON in `adjustments_json` column, applied during export.
 ## 13. Rust Backend Services
 
 ### `ml_client.rs`
-HTTP client for Python ML microservice (`http://127.0.0.1:8270`). Face scanning is
-now in-process (`services/face_engine.rs`, SCRFD + ArcFace via ONNX Runtime) and no
-longer uses the ML service:
-- `get_siglip_embedding(photo_path)` → `/ml/siglip`
-- `get_vision_caption(photo_path)` → `/ml/vision`
-- `get_ocr_text(photo_path)` → `/ml/ocr`
-- `get_semantic_masks(photo_path)` → `/ml/semantic-masks`
-- `get_background_mask(photo_path)` → `/ml/background-mask`
-- `get_portrait_masks(photo_path)` → `/ml/portrait-masks`
-- `get_auto_enhance(photo_path)` → `/ml/auto-enhance`
-- `check_health()` → `/health`
+Wraps the local llama-server via `llm_client.rs` (vision captions, OCR, agent
+completions). Embeddings, masks, and auto-enhance run in-process
+(`siglip.rs`, `segmentation.rs`, `auto_enhance.rs`, `face_engine.rs`).
 
 ### `worker.rs`
 Background AI worker:
@@ -1024,7 +1005,6 @@ Background AI worker:
 | `DATABASE_URL` | `sqlite://{cwd}/backend_rust/prism.db` | SQLite database URL |
 | `UPLOAD_DIR` | `uploads` | Upload directory |
 | `THUMBNAILS_DIR` | `thumbnails` | Thumbnails directory |
-| `PYTHON_ML_URL` | `http://127.0.0.1:8270` | ML service URL |
 | `API_KEY` | `""` | API auth key (empty = disabled) |
 | `FFMPEG_PATH` | `""` (use PATH) | Custom ffmpeg binary |
 
@@ -1128,7 +1108,7 @@ Starts Rust backend + Tauri desktop shell. Handles:
 - Frontend uses `ApiError` class with status + data
 - Backend logs errors to `backend.log`
 - Telemetry captures errors with stack traces
-- Graceful degradation when ML service is unavailable
+- Graceful degradation when local LLM engines are unavailable
 
 ### Rate Limiting
 - 20 requests per minute per IP+path
@@ -1139,15 +1119,12 @@ Starts Rust backend + Tauri desktop shell. Handles:
 
 ## 17. Testing
 
-- Tests run against a temporary directory (`/tmp/prism_tests/` when `PRISM_TEST=1`)
-- Python pytest for Python ML microservice
-- No Rust unit test suite currently in `backend_rust/`
+- Rust unit tests (`cargo test`) in `backend_rust/` (telemetry, siglip)
 
 ---
 
 ## 18. Known Issues / Future Work
 
-- Rust backend is actively replacing Python backend; some CLI docs reference Python
 - AI features are opt-in and require model files to be placed in specific directories
 - GPU memory management requires careful model scheduling (mutual exclusion)
 - Locked Folder is not available in Tauri web mode (desktop only)

@@ -68,8 +68,8 @@ The Prism video editor is a full-featured non-linear editing (NLE) workspace bui
 ┌───────┴─────────────────────────────────────────────────┐
 │               Rust (Axum) Backend                       │
 │  ┌──────────┐  ┌──────────┐  ┌────────────┐            │
-│  │ NLE APIs │  │ NLE      │  │ Python ML  │            │
-│  │ (nle.rs) │  │ Engine   │  │ Service    │            │
+│  │ NLE APIs │  │ NLE      │  │  Export    │            │
+│  │ (nle.rs) │  │ Engine   │  │  (ffmpeg)  │            │
 │  │          │  │ (nle.rs) │  │            │            │
 │  └──────────┘  └──────────┘  └────────────┘            │
 └─────────────────────────────────────────────────────────┘
@@ -392,7 +392,7 @@ Multi-cam editing supports up to 4 camera angles synchronized by timecode.
 
 ## Export
 
-**File**: `ExportDialog.tsx`, `backend_rust/src/routes/nle.rs`, Python ML microservice
+**File**: `ExportDialog.tsx`, `backend_rust/src/routes/nle.rs` (ffmpeg-based export)
 
 ### Export Settings
 
@@ -467,5 +467,5 @@ Multi-cam editing supports up to 4 camera angles synchronized by timecode.
 | NLE Engine | `backend_rust/src/routes/nle.rs` | Core NLE logic (timeline processing, clip analysis) |
 | NLE Preview | `backend_rust/src/routes/nle.rs` | Preview generation and caching |
 | NLE Proxy | `backend_rust/src/routes/nle.rs` | Proxy file management |
-| Video Export | Python ML microservice | ffmpeg-based video export |
-| Subtitle Gen | Python ML microservice | Whisper-based subtitle generation |
+| Video Export | `backend_rust/src/routes/nle.rs` | ffmpeg-based video export |
+| Subtitle Gen | `backend_rust/src/services/subtitle_gen.rs` | Whisper-based subtitle generation (whisper-cli) |

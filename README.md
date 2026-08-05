@@ -80,7 +80,7 @@ All photo metadata, search indexes, thumbnails, and Locked Folder operations rem
 ### Backend
 - **Core Engine:** Rust (`backend_rust`), Axum, Tokio async runtime
 - **Database:** SQLite with SQLx, WAL mode, FTS5 full-text search index
-- **ML Microservice:** In-repo Python ML microservice (`backend/`) for face detection & embedding inference
+- **In-process ML:** ONNX Runtime for SigLIP2 embeddings, segmentation, and detection; `face_id` for face detection & embeddings
 
 ---
 
@@ -93,7 +93,6 @@ graph TD
     React -->|REST / SSE| Axum[Rust Backend on 127.0.0.1:8269]
     Axum --> SQLx[(SQLite WAL + FTS5)]
     Axum --> Storage[Thumbnails / Assets / Sample Images]
-    Axum -. REST .-> PyML[Python ML Service on 127.0.0.1:8270]
 ```
 
 ---
@@ -104,7 +103,6 @@ graph TD
 
 - **Node.js** v18+ & **pnpm** v9+
 - **Rust** & `cargo` (1.75+)
-- **Python** 3.11+ & `uv` (optional, for standalone Python ML microservice)
 - **ffmpeg** and **ffprobe** (for video frame extraction and animated WebP thumbnails)
 
 ### One-Click Startup

@@ -1,6 +1,4 @@
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tracing::{info, warn, error};
 use std::sync::Arc;
 use crate::models::Photo;
 use crate::services::llm_client::LlmClient;
@@ -8,11 +6,13 @@ use crate::services::llm_server::LlmMode;
 use crate::services::llm_server::LlmServer;
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct Planner {
     llm_client: LlmClient,
     server: Arc<LlmServer>,
 }
 
+#[allow(dead_code)]
 impl Planner {
     pub fn new(llm_client: LlmClient, server: Arc<LlmServer>) -> Self {
         Self { llm_client, server }
@@ -291,7 +291,7 @@ impl Planner {
         self.heuristic_fallback(message)
     }
 
-    pub async fn verify_photos_match(&self, query: &str, photos_metadata: &[Photo]) -> Vec<i64> {
+    pub async fn verify_photos_match(&self, _query: &str, photos_metadata: &[Photo]) -> Vec<i64> {
         let mut ids = Vec::new();
         for p in photos_metadata {
             ids.push(p.id);

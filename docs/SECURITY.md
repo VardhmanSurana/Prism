@@ -224,7 +224,7 @@ Rate limiting is implemented in the Rust backend route handlers.
 
 ### Test Mode
 
-When running tests (`pytest` or `PRISM_TEST=1`), data is stored in a temporary directory:
+When running tests (`PRISM_TEST=1`), data is stored in a temporary directory:
 
 ```
 /tmp/prism_tests/

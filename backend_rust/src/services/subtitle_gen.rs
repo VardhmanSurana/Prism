@@ -1,5 +1,4 @@
 use std::process::Command;
-use std::path::Path;
 use serde_json::{json, Value};
 
 pub async fn generate_subtitles(video_path: &str) -> Result<Vec<Value>, String> {

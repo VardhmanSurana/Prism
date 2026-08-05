@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use std::path::Path;
-use image::{DynamicImage, GenericImageView};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 use crate::services::exif::extract_exif;
@@ -20,7 +19,7 @@ pub struct InterrogateResult {
     pub sam: JsonValue,
 }
 
-pub async fn run_interrogate(photo_path: &str, prompt: Option<&str>, llm_client: &LlmClient) -> Result<InterrogateResult, String> {
+pub async fn run_interrogate(photo_path: &str, _prompt: Option<&str>, llm_client: &LlmClient) -> Result<InterrogateResult, String> {
     if !Path::new(photo_path).exists() {
         return Err("Photo file not found".to_string());
     }
@@ -87,8 +86,8 @@ pub async fn run_interrogate(photo_path: &str, prompt: Option<&str>, llm_client:
                     }));
                 }
             }
-            Err(e) => {
-                // Ignore or log
+            Err(_) => {
+                // Object detection is best-effort; skip on failure
             }
         }
     }

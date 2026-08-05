@@ -24,7 +24,6 @@ pub async fn get_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
         "port": state.config.port,
         "upload_dir": state.config.upload_dir.to_string_lossy(),
         "thumbnails_dir": state.config.thumbnails_dir.to_string_lossy(),
-        "python_ml_url": state.config.python_ml_url,
         "backend": "rust-axum"
     }))
 }

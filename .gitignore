@@ -68,20 +68,5 @@ settings.json
 .jules/
 .mimocode/
 
-# Python ML backend (backend/)
-backend/.venv/
-backend/models/
-backend/uploads/
-backend/thumbnails/
-backend/__pycache__/
-backend/.ruff_cache/
-backend/.pytest_cache/
-backend/*.log
-backend/*.pid
-backend/Prism.db
-backend/Prism.db-*
-backend/.env
-backend/settings.json
-
 # Rust CLI build artifacts
 cli/target/

@@ -30,8 +30,6 @@ Comprehensive setup instructions for the Prism photo and video library desktop a
 
 | Dependency | Purpose |
 |------------|---------|
-| [Python](https://www.python.org/) 3.11+ | In-repo Python ML microservice (`backend/`) |
-| [uv](https://github.com/astral-sh/uv) | Python package manager for the in-repo Python ML microservice |
 | NVIDIA CUDA Toolkit | GPU-accelerated AI features (face detection, embeddings, inpainting) |
 | `llama-server` | Local LLM inference for agent search, vision, and OCR |
 | `execstack` | Fix executable-stack issues for InspireFace shared library (Linux) |
@@ -99,20 +97,6 @@ pnpm run dev
 ```
 
 The Vite dev server is pinned to port `3005` (configured in `frontend/vite.config.ts`).
-
-### Terminal 3 (Optional): Python ML Microservice
-
-If you need AI features (face detection, embeddings, etc.):
-
-```bash
-cd backend
-uv venv
-source .venv/bin/activate
-uv sync
-uv run python ml_service.py
-```
-
-The ML microservice runs on port `8270`.
 
 ### Useful Scripts
 
@@ -229,7 +213,6 @@ Configuration is managed through environment variables and `backend_rust/src/con
 | Variable | Default | Description |
 |----------|---------|-------------|
 | Backend API | `127.0.0.1:8269` | Rust Axum server |
-| ML Microservice | `127.0.0.1:8270` | Python ML service (optional) |
 | Agent server | `127.0.0.1:9090` | llama-server for agent search |
 | Vision server | `127.0.0.1:9091` | llama-server for vision/captioning |
 | OCR server | `127.0.0.1:9092` | llama-server for PaddleOCR-VL |
@@ -274,7 +257,7 @@ The `run-desktop.sh` script automatically sets common CUDA `LD_LIBRARY_PATH` ent
 ### Vulkan
 
 1. Install Vulkan SDK
-2. Set `GPU_MODE=vulkan` in `backend/.env`
+2. Set `GPU_MODE=vulkan` in `backend_rust/.env`
 
 ### CPU Only
 

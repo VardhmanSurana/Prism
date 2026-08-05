@@ -1,5 +1,5 @@
-use image::{DynamicImage, GenericImageView};
-use ndarray::{Array, Array4, Axis, IxDyn, s};
+use image::DynamicImage;
+use ndarray::Array4;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
 use ort::value::Value;
@@ -69,7 +69,7 @@ impl SamEngine {
 
         let (emb_shape, emb_data) = enc_outputs["image_embeddings"].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
         
-        let mut emb_array = ndarray::Array::from_shape_vec(emb_shape.iter().map(|&x| x as usize).collect::<Vec<usize>>(), emb_data.to_vec()).unwrap();
+        let emb_array = ndarray::Array::from_shape_vec(emb_shape.iter().map(|&x| x as usize).collect::<Vec<usize>>(), emb_data.to_vec()).unwrap();
 
         // decoder expects image_embeddings, point_coords, point_labels
         let scale_x = 1024.0 / orig_w;

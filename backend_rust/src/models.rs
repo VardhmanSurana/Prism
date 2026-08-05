@@ -142,7 +142,6 @@ pub struct HealthStatus {
     pub service: String,
     pub version: String,
     pub database: String,
-    pub python_ml_service: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]

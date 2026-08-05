@@ -14,35 +14,13 @@ trap cleanup EXIT INT TERM
 
 # ── Check if Backend is already running ─────────────────────────────────────
 BACKEND_PORT=8269
-ML_PORT=8270
 
 if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "[web] Backend is already running on port $BACKEND_PORT."
     echo "[web] Killing existing backend for clean restart..."
     pkill -f "prism-backend-rust" 2>/dev/null || true
-    pkill -f "uvicorn app.main:app" 2>/dev/null || true
-    pkill -f "ml_service.py" 2>/dev/null || true
     pkill -f "vite" 2>/dev/null || true
     sleep 1
-fi
-
-# Always free ML port 8270 if any process is holding it (stale ML server)
-ML_PID=$(lsof -Pi :$ML_PORT -sTCP:LISTEN -t 2>/dev/null || true)
-if [ -n "$ML_PID" ]; then
-    echo "[web] Killing stale ML service on port $ML_PORT (PID $ML_PID)..."
-    kill $ML_PID 2>/dev/null || true
-    sleep 1
-fi
-
-PYTHON_BACKEND_DIR="${PYTHON_BACKEND_DIR:-$ROOT/backend}"
-if [ -d "$PYTHON_BACKEND_DIR" ]; then
-  echo "[web] Starting Python ML microservice on port $ML_PORT..."
-  (
-    cd "$PYTHON_BACKEND_DIR"
-    nohup uv run python ml_service.py > "$PYTHON_BACKEND_DIR/ml_service.log" 2>&1 &
-  )
-else
-  echo "[web] Python ML microservice directory ($PYTHON_BACKEND_DIR) not found, skipping ML service launch."
 fi
 
 echo "[web] Starting Rust Backend on port $BACKEND_PORT..."
@@ -50,7 +28,6 @@ touch "$BACKEND_LOG"
 (
   cd "$ROOT/backend_rust"
   export PORT=$BACKEND_PORT
-  export PYTHON_ML_URL="http://127.0.0.1:$ML_PORT"
   nohup cargo run > "$BACKEND_LOG" 2>&1 &
   echo $! > "$ROOT/backend_rust/backend.pid"
   echo "[web] Rust Backend started (PID $(cat "$ROOT/backend_rust/backend.pid"))"

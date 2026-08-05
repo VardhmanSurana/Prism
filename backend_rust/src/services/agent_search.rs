@@ -1,6 +1,5 @@
 use sqlx::{SqlitePool, Row};
 use std::sync::Arc;
-use crate::models::{Photo, Album, Event, Person};
 use crate::services::siglip::SiglipEngine;
 
 #[derive(Clone)]
@@ -14,7 +13,7 @@ impl SearchTools {
         Self { db, siglip }
     }
 
-    pub async fn semantic_search(&self, text_query: &str, top_k: usize, is_locked: bool, ordered: bool) -> Vec<i64> {
+    pub async fn semantic_search(&self, text_query: &str, top_k: usize, is_locked: bool, _ordered: bool) -> Vec<i64> {
         if text_query.is_empty() {
             return vec![];
         }
@@ -68,7 +67,8 @@ impl SearchTools {
         final_ids
     }
 
-    pub async fn similar_image(&self, photo_id: i64, top_k: usize, is_locked: bool, ordered: bool) -> Vec<i64> {
+    #[allow(dead_code)]
+    pub async fn similar_image(&self, photo_id: i64, top_k: usize, is_locked: bool, _ordered: bool) -> Vec<i64> {
         let row = sqlx::query(
             "SELECT embedding FROM photos WHERE id = ? AND is_locked = ? AND is_trash = 0 AND embedding IS NOT NULL"
         )

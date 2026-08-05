@@ -116,8 +116,8 @@ AI-powered object removal using Stable Diffusion 1.5 inpainting.
 
 #### Backend API
 
-- **Endpoint**: Inpaint API router in `backend_rust/src/routes/photos/`
-- **Service**: Python ML microservice (`backend/`)
+- **Endpoint**: `POST /api/v1/photos/inpaint/process` (`backend_rust/src/routes/photos_ai.rs`)
+- **Service**: `backend_rust/src/services/inpaint.rs` (LaMa)
 - **Feature flag**: `ENABLE_AI_INPAINTING`
 
 ---

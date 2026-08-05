@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { API_BASE } from '../../constants';
 
 interface Props {
   children: ReactNode;
@@ -22,7 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     try {
-      fetch(`${import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8270'}/api/v1/telemetry/log`, {
+      fetch(`${API_BASE}/api/v1/telemetry/log`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

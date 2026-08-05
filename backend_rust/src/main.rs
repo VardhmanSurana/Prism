@@ -47,7 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let db_pool = init_db(&config.database_url).await?;
     let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
-    let ml_client = MlClient::new(config.python_ml_url.clone(), LlmClient::new(llm_server.clone()));
+    let ml_client = MlClient::new(LlmClient::new(llm_server.clone()));
     let telemetry = TelemetryService::new(db_pool.clone());
     let registry = Arc::new(AnalyzerRegistry::new());
     let analyzer_names = registry.names();

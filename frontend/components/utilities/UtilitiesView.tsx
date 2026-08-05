@@ -235,10 +235,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
               </div>
             </div>
             <div className="cr-status-card">
-              <div className="cr-status-card-label">Python ML</div>
+              <div className="cr-status-card-label">AI Engines</div>
               <div className="cr-status-card-row">
                 <span className="cr-status-dot ok"></span>
-                <span className="cr-status-card-value">Connected</span>
+                <span className="cr-status-card-value">On-device</span>
               </div>
             </div>
             <div className="cr-status-card">

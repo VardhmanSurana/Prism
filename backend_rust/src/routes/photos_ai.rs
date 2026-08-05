@@ -26,6 +26,7 @@ pub async fn trigger_ocr(
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct InpaintRequest {
     pub photo_id: Option<i64>,
     pub image_data: Option<String>,
@@ -42,9 +43,13 @@ pub struct InpaintRequest {
     pub expand_pixels: Option<i32>,
 }
 
+#[allow(dead_code)]
 fn default_operation() -> String { "remove".to_string() }
+#[allow(dead_code)]
 fn default_model() -> String { "lama".to_string() }
+#[allow(dead_code)]
 fn default_guidance() -> f64 { 7.5 }
+#[allow(dead_code)]
 fn default_steps() -> i32 { 50 }
 
 pub async fn process_inpaint(
@@ -136,6 +141,7 @@ pub async fn xmp_operation(
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct LockRequest {
     #[serde(default)]
     pub lock: bool,
@@ -429,6 +435,7 @@ pub async fn xmp_import(
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 pub struct XmpUploadImportRequest {
     pub photo_id: Option<String>,
 }
@@ -449,21 +456,3 @@ pub async fn xmp_check(
     Ok(Json(json!({ "photo_id": photo.id, "has_xmp": exists })))
 }
 
-#[derive(Deserialize)]
-pub struct InterrogateRequest {
-    pub photo_path: String,
-    pub prompt: Option<String>,
-}
-
-pub async fn interrogate(
-    State(state): State<Arc<AppState>>,
-    axum::extract::Json(req): axum::extract::Json<InterrogateRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let result = crate::services::interrogate::run_interrogate(
-        &req.photo_path,
-        req.prompt.as_deref(),
-        &state.ml_client.llm,
-    ).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
-
-    Ok(Json(serde_json::to_value(result).unwrap()))
-}

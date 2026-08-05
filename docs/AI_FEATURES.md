@@ -259,7 +259,7 @@ AI face detection and recognition are handled natively in the Rust backend (`bac
 Uses Google's SigLIP2 model to generate visual embeddings for semantic similarity search.
 
 - **Model**: `google/siglip2-base-patch16-224`
-- **Cache location**: `backend/models/.cache/huggingface/`
+- **Cache location**: `backend_rust/models/.cache/huggingface/`
 - **Output**: 768-dimensional L2-normalized embedding vector
 - **Storage**: JSON-serialized in the `embedding` column of the `photos` table
 - **Usage**: Semantic search, similar-image lookup
@@ -408,7 +408,7 @@ flowchart TD
 
 ### GBNF Grammar
 
-Tag generation follows a structured JSON schema defined in the Python ML microservice and enforced via a GBNF grammar file `tags.gbnf`.
+Tag generation follows a structured JSON schema defined in `backend_rust/src/services/llm_client.rs` and enforced via a GBNF grammar file `tags.gbnf`.
 
 ---
 
@@ -446,9 +446,8 @@ When `ENABLE_VIDEO_EDITOR_AI` is enabled:
 ### Required Model Locations
 
 ```
-backend/
-└── models/
-    ├── llm/
+backend_rust/models/
+├── llm/
     │   ├── gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf  (agent model)
     │   └── ...
     ├── PaddleOCR/

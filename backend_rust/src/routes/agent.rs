@@ -288,7 +288,7 @@ pub async fn chat(
     if has_image || query_lower.contains("inspect") || query_lower.contains("analyze photo") || query_lower.contains("describe this image") {
         let progress_chunk = json!( {
             "type": "progress",
-            "detail": "Interrogating single image via Grounding DINO, SAM2, PaddleOCR, and EXIF tools...",
+            "detail": "Interrogating single image via YOLO detection, SAM segmentation, OCR, and EXIF analysis...",
             "plan": { "mode": "ask_image", "tools": ["detect_objects", "segment_region", "extract_ocr_regions", "extract_exif_metadata"] },
             "tools": ["detect_objects", "segment_region", "extract_ocr_regions", "extract_exif_metadata"]
         }).to_string() + "\n";
@@ -298,8 +298,9 @@ pub async fn chat(
         let mut text_parts: Vec<String> = Vec::new();
         text_parts.push(format!("Single-Image Analysis for `{}`:\n", img_ref));
 
-        match state.ml_client.interrogate(img_ref, Some(&query)).await {
-            Ok(data) => {
+        match crate::services::interrogate::run_interrogate(img_ref, Some(&query), &state.ml_client.llm).await {
+            Ok(result) => {
+                let data = serde_json::to_value(result).unwrap_or(serde_json::json!({}));
                 if let Some(exif) = data.get("exif").and_then(|v| v.as_object()) {
                     if !exif.is_empty() {
                         text_parts.push("**EXIF Metadata**:".into());
@@ -312,7 +313,7 @@ pub async fn chat(
                     if !objects.is_empty() {
                         text_parts.push(format!("\n**Detected Objects** ({}):", objects.len()));
                         for obj in objects.iter().take(10) {
-                            let label = obj.get("class").and_then(|v| v.as_str()).unwrap_or("object");
+                            let label = obj.get("label").and_then(|v| v.as_str()).unwrap_or("object");
                             let conf = obj.get("confidence").and_then(|v| v.as_f64()).unwrap_or(0.0);
                             text_parts.push(format!("- {} ({:.0}%)", label, conf * 100.0));
                         }

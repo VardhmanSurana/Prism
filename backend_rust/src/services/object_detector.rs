@@ -1,5 +1,5 @@
-use image::{DynamicImage, GenericImageView};
-use ndarray::{Array, Array4, Axis, IxDyn, s};
+use image::DynamicImage;
+use ndarray::Array4;
 use ort::session::Session;
 use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
@@ -23,7 +23,7 @@ pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
         return Ok(detector.clone());
     }
 
-    let model_path = "models/object_detection/yolov8n.onnx";
+    let model_path = "models/detection/yolov8n.onnx";
     
     let session = Session::builder()
         .map_err(|e| e.to_string())?

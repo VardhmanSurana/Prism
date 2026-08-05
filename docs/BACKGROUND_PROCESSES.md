@@ -1,6 +1,8 @@
 # Prism Background Processes
 
-Comprehensive documentation of background processing pipelines, job queues, throttling, and event broadcasting in Prism.
+Comprehensive documentation of background processing pipelines, job queues, scheduling, throttling, and event broadcasting in Prism.
+
+All background AI processing runs **in-process** inside the Rust backend (`backend_rust/`) — there is no separate ML service.
 
 ---
 
@@ -8,10 +10,10 @@ Comprehensive documentation of background processing pipelines, job queues, thro
 
 - [Overview](#overview)
 - [Processing Queue Architecture](#processing-queue-architecture)
+- [Database-Backed Jobs](#database-backed-jobs)
 - [4-Stage Analysis Pipeline](#4-stage-analysis-pipeline)
-- [Adaptive Throttling](#adaptive-throttling)
-- [Job Recovery & Lifecycle](#job-recovery--lifecycle)
-- [Sync Service](#sync-service)
+- [Adaptive Scheduling & Throttling](#adaptive-scheduling--throttling)
+- [Job Recovery & Retry](#job-recovery--retry)
 - [Content Classification](#content-classification)
 - [SSE Event Broadcasting](#sse-event-broadcasting)
 - [Engine Settings & Worker Gating](#engine-settings--worker-gating)
@@ -20,70 +22,85 @@ Comprehensive documentation of background processing pipelines, job queues, thro
 
 ## Overview
 
-Prism runs several background processes that handle media analysis, file system watching, and data maintenance. These processes are designed to be non-blocking, resilient to failures, and adaptive to system load.
+Prism runs a background worker that analyzes imported media (embeddings, faces, captions, OCR) without blocking the UI. It is a database-backed job queue driven by a resource-aware scheduler: jobs are stored in SQLite, picked up by a persistent Tokio task, and only run when the system has capacity.
 
 ### Background Process Layers
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  Background Processing Queue              │
+│                 AI Job Scheduler (worker.rs)             │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
 │  │ Stage 1 │ │ Stage 2 │ │ Stage 3 │ │ Stage 4 │       │
 │  │ SigLIP  │ │  Face   │ │  Gemma  │ │   OCR   │       │
 │  │ Embed.  │ │ Detect. │ │ Vision  │ │ Extract │       │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘       │
+│                SystemMonitor (CPU/battery/GPU)           │
 └─────────────────────────────────────────────────────────┘
                          │
-┌─────────────────────────────────────────────────────────┐
-│                    Sync Service                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│  │ Watchdog │→ │Ingestion │→ │ Broadcast│              │
-│  │ Observer │  │ Pipeline │  │  (SSE)   │              │
-│  └──────────┘  └──────────┘  └──────────┘              │
-└─────────────────────────────────────────────────────────┘
+                         ▼
+              SQLite background_jobs table
                          │
-┌─────────────────────────────────────────────────────────┐
-│                 Content Classification                    │
-│  (photo / screenshot / document detection)               │
-└─────────────────────────────────────────────────────────┘
+                         ▼
+                 SSE events → React UI
 ```
 
 ### Key Files
 
 | Component | Path |
 |-----------|------|
-| Processing Queue | Python ML microservice (`backend/`) |
-| AI Orchestrator | Python ML microservice (`backend/`) |
-| Sync Service | Python ML microservice (`backend/`) |
-| Content Classifier | Python ML microservice (`backend/`) |
-| Vision Pipeline | Python ML microservice (`backend/`) |
-| Background Job Model | `backend_rust/src/db.rs` (background_jobs table) |
+| Worker loop, scheduler, system monitor | `backend_rust/src/services/worker.rs` |
+| Analyzer stages (SigLIP / face / vision / OCR) | `backend_rust/src/services/analyzers/` |
+| In-process SigLIP engine | `backend_rust/src/services/siglip.rs` |
+| In-process face engine (SCRFD + ArcFace via ONNX) | `backend_rust/src/services/face_engine.rs` |
+| Local LLM server (vision / OCR / agent) | `backend_rust/src/services/llm_server.rs`, `llm_client.rs` |
+| Background job table | `backend_rust/src/db.rs` (`background_jobs`) |
+| Worker control endpoints | `backend_rust/src/routes/utilities.rs` |
 
 ---
 
 ## Processing Queue Architecture
 
-**File**: Python ML microservice
+The worker lives in `backend_rust/src/services/worker.rs`. It is composed of:
 
-The processing queue is a persistent, database-backed job queue that runs as a background task managed by the Python ML microservice.
+- **`JobScheduler`** — polls system state (CPU, battery, GPU, external drives, user activity) and decides which analyzers may run.
+- **`AnalyzerRegistry`** — holds the four built-in analyzers, sorted by priority (SigLIP 300 → Face 200 → Vision 100 → OCR 0).
+- **`WorkerState`** — shared counters and a pause flag; exposes a `status_snapshot()` used by the status endpoint.
+- **`spawn_worker_loop`** — the persistent Tokio task that drains the queue.
 
-### Architecture
+### Job Lifecycle
 
 ```
-ProcessingQueue
-├── _worker_task: asyncio.Task (main processing loop)
-├── _active: bool
-├── _wakeup_event: asyncio.Event
-├── _throttler: AdaptiveThrottler
-└── Methods:
-    ├── start()           # Start the worker
-    ├── shutdown()        # Graceful shutdown
-    ├── enqueue()         # Add a job
-    ├── enqueue_unfinished_jobs()  # Recover pending jobs on restart
-    └── _worker()         # Main processing loop
+Photo Import → enqueue_photo() → status: "pending"
+                                   │
+                            worker picks up job
+                                   │
+                         status: "processing"
+                                   │
+                    plan_analyzers() filters by
+                    resume priority + system state
+                                   │
+                     Run allowed analyzers
+                                   │
+                    ┌──────────────┴──────────────┐
+                    │                             │
+              all stages OK                  any stage failed
+                    │                             │
+              status: "completed"        retry < MAX_RETRIES (5)?
+                                             │            │
+                                           yes           no
+                                            │            │
+                                     status:      status:
+                                     "pending"    "failed"
+                                     (delayed)
 ```
 
-### Database-Backed Jobs
+### Duplicate Prevention
+
+`enqueue_photo()` skips a photo that already has a `pending` or `processing` `sequential_analysis` job, so imports never create duplicate work.
+
+---
+
+## Database-Backed Jobs
 
 Jobs are stored in the `background_jobs` table:
 
@@ -100,281 +117,109 @@ Jobs are stored in the `background_jobs` table:
 | `created_at` | DateTime | Job creation time |
 | `updated_at` | DateTime | Last update time |
 
-### Job Lifecycle
-
-```
-Photo Import → enqueue() → status: "pending"
-                                 │
-                          _worker() picks up job
-                                 │
-                          status: "processing"
-                                 │
-                          Run 4 stages sequentially
-                                 │
-                          ┌──────┴──────┐
-                          │             │
-                     All stages      Stage failed
-                     succeed           │
-                          │       retry < max_retries?
-                          │       ┌────┴────┐
-                          │      Yes       No
-                          │       │         │
-                          │   status:    status:
-                          │   "pending"  "failed"
-                          │   (delayed)
-                          │
-                    status: "completed"
-```
-
-### Duplicate Prevention
-
-Before enqueuing a new job, the system checks for existing pending/processing jobs for the same photo to avoid duplicates.
-
 ---
 
 ## 4-Stage Analysis Pipeline
 
-Each background job runs 4 sequential stages on the photo. Stages are run in order and can be skipped if the data already exists (allowing resume from interruption).
+Each job runs up to four independent analyzer stages. Stages are priority-ordered and **stage-aware resume** skips any stage whose data already exists (checked per-photo in `get_resume_priority`):
 
-### Stage 1: SigLIP2 Embeddings (Critical)
+- If a photo already has OCR text → only stages with priority > 0 run.
+- If it has a summary → face and SigLIP are skipped.
+- If it has faces → only SigLIP runs.
+- If it has an embedding → nothing runs (job completes instantly).
 
-**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_CLIP=True` and photo has no embedding
+### Stage 1: SigLIP2 Embeddings (`SiglipAnalyzer`, priority 300)
 
-**Process**:
-1. Load SigLIP2 model (`google/siglip2-base-patch16-224`)
-2. Mutual exclusion: Unload llama-server, Face SDK, and Vision LLM
-3. Open image, convert to RGB
-4. Generate 768-dimensional L2-normalized embedding
-5. Store as JSON in `photo.embedding`
-6. Unload SigLIP2 model to free VRAM
-
-**Skip condition**: Photo already has an embedding (resume index >= 1)
-
-### Stage 2: Face Detection & Clustering (Critical)
-
-**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_FACE=True` (images) or `ENABLE_VIDEO_BG_PROCESS=True` and `ENABLE_VIDEO_FACE=True` (videos)
-
-**Process for images**:
-1. Initialize InspireFace SDK
-2. Detect faces with configurable confidence threshold
-3. Extract face embeddings
-4. Cluster against known people
-5. Store face assignments in `photo_people` table
-6. Create pending face assignments for borderline matches
-
-**Process for videos**:
-1. Hybrid scene-change detection + uniform frame sampling
-2. Face detection across sampled frames
-3. Cross-frame face deduplication
-4. Track faces across frame sequences
-
-**Skip condition**: Photo already has face assignments (resume index >= 2)
-
-### Stage 3: Gemma Vision Captions (Optional)
-
-**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_CAPTION=True` and not a video
+**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_CLIP=True` and photo has no embedding.
 
 **Process**:
-1. Start Gemma 4 E2B vision server on port 9091 (if not running)
-2. Generate detailed image summary using Florence-2/Gemma
-3. Extract structured tags using GBNF grammar
-4. Clean and deduplicate tags
-5. Store: `photo.ai_summary` (full description), `photo.caption` (summary, 120 chars), `photo.auto_tags` (JSON array)
+1. Run the in-process SigLIP2 model (`models/llm/siglip2_image.onnx`, ONNX Runtime)
+2. Generate a 768-dimensional L2-normalized embedding
+3. Store as JSON in `photo.embedding`
 
-**Skip condition**: Photo already has AI summary (resume index >= 3)
+### Stage 2: Face Detection & Clustering (`FaceAnalyzer`, priority 200)
 
-### Stage 4: OCR Text Extraction (Optional)
-
-**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_OCR=True` and not a video
+**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_FACE=True` (images) or `ENABLE_VIDEO_BG_PROCESS=True` and `ENABLE_VIDEO_FACE=True` (videos).
 
 **Process**:
-1. Start PaddleOCR-VL server on port 9092 (if not running)
-2. Extract visible text from image
-3. Store in `photo.ocr_text`
-4. Text is indexed in FTS5 for full-text search
+1. Run `face_engine.rs` (SCRFD + ArcFace w600k via ONNX Runtime)
+2. Detect faces, extract embeddings, cluster against known people
+3. Store assignments in `photo_people`; create pending assignments for borderline matches
 
-**Skip condition**: Photo already has OCR text (resume index >= 4)
+### Stage 3: Gemma Vision Captions (`VisionAnalyzer`, priority 100)
 
-### Stage 5: Content Classification
-
-**Condition**: `ENABLE_AI_CONTENT_CLASSIFY=True` (enabled by default)
+**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_CAPTION=True` and not a video.
 
 **Process**:
-1. Classify photo as `photo`, `screenshot`, or `document`
-2. Uses: dimensions, file extension, EXIF camera data, OCR text, thumbnail analysis
-3. Stores in `photo.content_type` column
+1. Ensure the Gemma E2B vision server is running on port 9091 (via `llm_server.rs`)
+2. Generate image summary + structured tags (GBNF grammar)
+3. Store: `photo.ai_summary`, `photo.caption`, `photo.auto_tags`
 
-This runs on all non-encrypted photos regardless of other stage results.
+### Stage 4: OCR Text Extraction (`OcrAnalyzer`, priority 0)
+
+**Condition**: `ENABLE_IMAGE_BG_PROCESS=True` and `ENABLE_AI_OCR=True` and not a video.
+
+**Process**:
+1. Ensure the PaddleOCR-VL server is running on port 9092
+2. Extract visible text, store in `photo.ocr_text` (indexed in FTS5)
 
 ---
 
-## Adaptive Throttling
+## Adaptive Scheduling & Throttling
 
-**File**: Python ML microservice (`AdaptiveThrottler` class)
+The `SystemMonitor` polls the OS and the scheduler throttles when conditions are unfavorable.
 
-The adaptive throttler monitors system resources and pauses background processing when conditions are unfavorable.
+### System State Signals
 
-### Throttle Conditions
+| Signal | Source | Effect |
+|--------|--------|--------|
+| CPU usage | `sysinfo` | > 85% → throttle (sleep 10s); GPU analyzers need < 65% |
+| Battery | `/sys/class/power_supply` | < 20% on battery → throttle (sleep 30s) |
+| GPU load | `nvidia-smi` (best-effort) | > 70% → GPU analyzers wait |
+| External drives | `/media`, `/mnt`, `/run/media` | Disconnected drives pause external-library analysis |
+| User activity | recent file edits in `uploads/` | Suspends analysis during active imports |
 
-| Condition | Threshold | Behavior |
-|-----------|-----------|----------|
-| CPU usage | > 85% (`JOB_QUEUE_THROTTLE_CPU_THRESHOLD`) | Pause until CPU < 60% |
-| Battery | < 20% and not plugged in (`JOB_QUEUE_THROTTLE_BATTERY_THRESHOLD`) | Pause until plugged in |
-| Video processing | Active video transcoding operations | Pause until video ops complete |
+### Analyzer Cost Model
 
-### Throttle Checks
-
-- CPU and battery are checked every 30 seconds
-- Video operations increment/decrement a counter to signal pause/resume
-- Wait loop: `asyncio.sleep(5)` between checks
-
-### Video Operation Coordination
-
-The throttler integrates with video processing:
-
-```python
-# Video processing starts
-throttler.increment_video_ops()  # Pauses background queue
-
-# Video processing completes
-throttler.decrement_video_ops()  # Releases background queue
-```
+Each analyzer declares a `ResourceNeed` (`Gpu`, `CpuHeavy`, `CpuLight`). `plan_analyzers()` only schedules analyzers whose resource class the current system state can support, so analysis yields to active editing and imports.
 
 ---
 
-## Job Recovery & Lifecycle
+## Job Recovery & Retry
 
 ### Startup Recovery
 
-On application startup:
-
-1. **Reset interrupted jobs**: All jobs with status `"processing"` are reset to `"pending"` with error "Interrupted by application restart"
-2. **Enqueue unfinished photos**: Scan all non-locked, non-trashed photos and enqueue jobs for those missing any analysis data (embeddings, captions, OCR, faces)
-3. **Start worker**: The background worker automatically starts
+On worker startup, `reset_interrupted_jobs()` resets all `processing` jobs back to `pending` with `last_error = 'Interrupted by restart'`, so nothing is lost across restarts.
 
 ### Retry Logic
 
 | Parameter | Value |
 |-----------|-------|
-| Max retries | 5 (`JOB_QUEUE_MAX_RETRIES`) |
-| Retry delay | `min(2^attempt * 30, 600)` seconds (exponential backoff, 30s to 10min max) |
-| Permanent failure | After 5 attempts, status set to `"failed"` |
+| Max retries | 5 (`MAX_RETRIES`) |
+| Retry delay | `min(2^attempt * 30, 600)` seconds (exponential backoff, 30s → 10min max) |
+| Permanent failure | After 5 attempts, status set to `"failed"` with `last_error` naming the failed stages |
 
-### Mid-Batch Interruption
-
-If the worker is paused or stopped mid-batch:
-1. Remaining jobs in the batch are reset to `"pending"`
-2. Their attempt counts are decremented (to avoid burning retries)
-3. Jobs are picked up on the next worker cycle
+Partial failures (some stages OK, some failed) are recorded and the job is retried — completed stages are skipped by stage-aware resume, so retries only redo what failed.
 
 ### Graceful Shutdown
 
-On application shutdown:
-1. Worker task is cancelled
-2. Active connections are cleaned up
-3. Any pending jobs remain in the database for recovery on next startup
-
----
-
-## Sync Service
-
-**Directory**: Python ML microservice
-
-The sync service watches configured directories for file system changes and automatically ingests new media files.
-
-### Architecture
-
-The sync service is decomposed into modular submodules:
-
-```
-backend/app/services/sync/
-├── core.py          # Main SyncService class
-├── lifecycle.py     # Initialization, shutdown, parent process monitoring
-├── config.py        # Settings persistence and configuration updates
-├── broadcast.py     # SSE client subscription and event broadcasting
-├── mounts.py        # Mount point detection and monitoring
-├── observer.py      # File system watcher setup
-├── scanning.py      # File system scanning and cleanup
-├── ingestion.py     # Photo ingestion and duplicate detection
-└── handler.py       # PhotoEventHandler for file system events
-```
-
-### File System Watching
-
-- Uses the **Watchdog** library for cross-platform file system monitoring
-- Watches user-configured directories for new, modified, and deleted files
-- Supported extensions: PNG, JPG, JPEG, WebP, HEIC, HEIF, DNG, TIFF, TIF, BMP, GIF, MP4, MOV, M4V, AVI, MKV, WebM, 3GP
-
-### Ingestion Pipeline
-
-When a new file is detected:
-
-1. **Path validation**: Check against allowed read/write roots
-2. **Thumbnail generation**: Create WebP thumbnail (animated WebP for videos via ffmpeg)
-3. **Metadata extraction**: EXIF date, GPS, dimensions, MIME type, file size, blur score, content hash. For videos: duration, FPS, codec, audio codec
-4. **Duplicate check**: By path and content hash
-5. **Database insert**: Write `Photo` record to SQLite
-6. **SSE broadcast**: Emit `new_photo` event to UI
-7. **Background job enqueue**: Enqueue sequential analysis (SigLIP → Face → Gemma → OCR)
-8. **Reverse geocoding**: Resolve GPS coordinates to city/state/country
-
-### Mount Point Detection
-
-**File**: `services/sync/mounts.py`
-
-- Detects new mount points (USB drives, external disks, NAS mounts)
-- Automatically watches configured external paths
-- Monitors for mounts being added or removed
-
-### Broadcast System
-
-**File**: `services/sync/broadcast.py`
-
-Server-Sent Events (SSE) system for real-time UI updates:
-
-- `new_photo`: A new photo has been imported
-- `photo_updated`: Photo metadata changed
-- `photo_deleted`: Photo was removed
-- `job_stage_progress`: Background analysis stage progress
-- `background_job_status`: Overall background processing status
-- `background_job_completed`: All background jobs finished
+The worker loop is a Tokio task owned by the process; on shutdown, pending jobs simply remain in the database and are recovered at next startup.
 
 ---
 
 ## Content Classification
 
-**File**: Python ML microservice
+Content classification (photo / screenshot / document) is a lightweight in-process heuristic that does not run inside the worker queue. It is applied at import time (`content_type` column, default `photo`) and can be re-run over the whole library via:
 
-Automatically classifies each photo into one of three content types.
+- `POST /api/v1/albums/smart/reclassify` — `backend_rust/src/routes/albums.rs`
 
-### Classification Categories
-
-| Type | Description | Examples |
-|------|-------------|----------|
-| `photo` | Natural photographs | Camera photos, DSLR images |
-| `screenshot` | Screen captures | Screenshots, screen recordings |
-| `document` | Document scans | Scanned documents, whiteboard photos |
-
-### Classification Heuristics
-
-The classifier uses a combination of signals:
-
-1. **Dimensions**: Screenshots tend to match common display resolutions
-2. **File extension**: Screenshot tools may produce specific formats
-3. **EXIF camera data**: Cameras have make/model; screenshots lack EXIF
-4. **OCR text presence**: Documents have significant text content
-5. **Thumbnail analysis**: Visual features from the generated thumbnail
-6. **Filename patterns**: Screenshot filenames often contain "Screenshot" or "Screen Shot"
-
-### Storage
-
-The classification result is stored in the `content_type` column of the `photos` table and indexed for filtering.
+Heuristics use image dimensions, file extension, EXIF camera data, OCR text presence, and filename patterns.
 
 ---
 
 ## SSE Event Broadcasting
 
-The sync service's broadcast module manages Server-Sent Events (SSE) for real-time UI updates.
+Real-time UI updates flow through the SSE endpoint at `GET /api/v1/settings/events` (`backend_rust/src/routes/settings.rs`).
 
 ### Event Types
 
@@ -382,15 +227,16 @@ The sync service's broadcast module manages Server-Sent Events (SSE) for real-ti
 |------------|---------|--------------|
 | `new_photo` | Photo import complete | Photo ID, filename, thumbnail URL |
 | `photo_updated` | Metadata change | Updated photo fields |
-| `photo_deleted` | Photo removed from library | Photo ID |
+| `photo_trashed` | Photo moved to trash | Photo ID |
 | `job_stage_progress` | Background stage progress | Stage name, completed/total count |
 | `background_job_status` | Queue status change | Queue counts, processed/total per stage |
 | `background_job_completed` | All jobs finished | Final status data |
+| `reconnected` | SSE reconnected | (triggers full refetch) |
 
 ### Broadcast Flow
 
 ```
-Photo Import → Ingestion Pipeline → Database Write
+Photo Import → enqueue_photo() → Database Write
                                          │
                                     SSE Broadcast
                                          │
@@ -401,22 +247,20 @@ Photo Import → Ingestion Pipeline → Database Write
                                     UI Re-render
 ```
 
-### Client Subscription
-
-SSE clients subscribe via the sync service's SSE endpoint. Multiple clients can subscribe simultaneously.
-
 ---
 
 ## Engine Settings & Worker Gating
 
-The Engine Settings panel in the System Utilities UI provides dynamic control over background processes.
+The Engine Settings panel in the System Utilities UI provides dynamic control over background processing via the worker control endpoints:
+
+- `GET /api/v1/utilities/background-jobs/status` — current queue + per-analyzer counters
+- `POST /api/v1/utilities/background-jobs/start` / `stop` — start/stop the worker
+- `POST /api/v1/utilities/background-jobs/pause` / `resume` — pause/resume between batches
 
 ### Background Worker Toggles
 
-Users can enable/disable individual worker pipelines in real-time:
-
-| Worker | Config Flag | Effect When Disabled |
-|--------|-------------|---------------------|
+| Analyzer | Config Flag | Effect When Disabled |
+|----------|-------------|---------------------|
 | SigLIP embeddings | `ENABLE_AI_CLIP` | No semantic search or similar-image lookup |
 | Face scanning/clustering | `ENABLE_AI_FACE` | No people detection or person albums |
 | Gemma captions | `ENABLE_AI_CAPTION` | No AI summaries or auto tags |
@@ -424,15 +268,6 @@ Users can enable/disable individual worker pipelines in real-time:
 | Video face tracking | `ENABLE_VIDEO_FACE` | No face detection in videos |
 | Subtitle generation | `ENABLE_AI_SUBTITLES` | No auto-generated subtitles |
 
-### Worker Process Controls
-
-- **Stop**: Gracefully stops the background queue worker after the current batch completes
-- **Start/Restart**: Resumes processing; automatically scans for and enqueues unfinished assets
-
-### Configuration Persistence
-
-All dynamic settings are saved to `settings.json` in the platform data directory, overriding default `.env` properties and persisting across backend restarts.
-
 ### Log Console
 
-The Engine Settings panel includes a scrollable CLI-like console that displays real-time execution logs from `backend.log`, with auto-refresh and manual refresh controls.
+The Engine Settings panel includes a scrollable CLI-like console that displays real-time execution logs from `backend_rust/backend.log`, with auto-refresh and manual refresh controls.
