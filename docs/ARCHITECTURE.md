@@ -62,7 +62,7 @@ Prism follows a three-tier desktop application architecture:
 
 1. **Local-first**: All data stays on the user's machine. No cloud dependencies.
 2. **Desktop-native**: Tauri v2 provides a lightweight, secure native shell.
-3. **High-performance backend**: Rust (Axum) runs as the core backend, with an optional Python ML microservice for AI inference.
+3. **High-performance backend**: Single Rust (Axum) backend handling API routes and in-process ONNX/ML inference.
 4. **SQLite WAL mode**: Write-Ahead Logging for concurrent read/write performance.
 5. **REST API**: Frontend communicates with backend via HTTP REST (no IPC bridge).
 6. **Opt-in AI**: All AI features are behind feature flags, disabled by default.
@@ -78,7 +78,7 @@ graph TD
     React -->|REST / SSE| Axum[Rust Axum on 127.0.0.1:8269]
     Axum --> SQLx[(SQLite WAL + FTS5)]
     Axum --> Storage[Thumbnails / Uploads / Sample Images]
-    Axum -. REST .-> PyML[Python ML Service on 127.0.0.1:8270]
+    Axum -. Local Processes .-> LlamaServer[llama-server :9090-:9092 / whisper-cli]
 ```
 
 ### Startup Sequence
@@ -180,7 +180,7 @@ Key hooks found in `frontend/hooks/`:
 - **serde / serde_json** for serialization
 - **tower-http** for CORS middleware
 - **ffmpeg/ffprobe** (via CLI) for video metadata extraction and thumbnails
-- **Optional Python ML Microservice** (in-repo, at `backend/`) for face detection, embeddings, and AI inference
+- **In-process ONNX Runtime & Local Process Managers** for face engine, SigLIP embeddings, segmentation, object detection, local LLM, and whisper-cli integrations.
 
 ### Application Structure
 
@@ -209,10 +209,15 @@ backend_rust/src/
 │   ├── utilities.rs     # Diagnostics, backup, storage cleanup
 │   └── privacy.rs       # Locked folder endpoints
 └── services/            # Business logic
-    ├── mod.rs           # Service module exports
-    ├── thumbnail.rs     # WebP thumbnail generation
-    ├── exif.rs          # EXIF metadata extraction
-    └── ml_client.rs     # HTTP client for Python ML microservice
+    ├── siglip.rs        # In-process SigLIP2 vision & text embeddings (ort)
+    ├── segmentation.rs  # U2-Net, SegFormer, & BiSeNet segmentation (ort)
+    ├── auto_enhance.rs  # Native HSV image enhancement
+    ├── inpaint.rs       # LaMa inpainting engine
+    ├── object_detector.rs # YOLOv8n object detection (ort)
+    ├── sam.rs           # SAM point-prompted segmentation (ort)
+    ├── interrogate.rs  # Unified photo interrogation service
+    ├── llm_server.rs    # Managed local llama-server lifecycle (ports 9090-9092)
+    └── llm_client.rs    # LLM completion & vision client
 ```
 
 ### Route Modules

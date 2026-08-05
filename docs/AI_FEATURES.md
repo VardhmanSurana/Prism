@@ -24,7 +24,7 @@ Prism includes several optional local AI features that run entirely on your mach
 
 ## Feature Flag Overview
 
-All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend delegates AI inference to the in-repo Python ML microservice.
+All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend handles all ML inference directly via in-process ONNX models (`ort`), native algorithms, or managed local helper processes (`llama-server`, `whisper-cli`).
 
 | Flag | Default | Description | Hardware Required |
 |------|---------|-------------|-------------------|
@@ -248,7 +248,7 @@ Tracks detected faces across video frames:
 
 ### Services
 
-AI face detection is handled by the Python ML microservice (`backend/`). The Rust backend (`backend_rust/src/services/ml_client.rs`) communicates with it via HTTP REST calls.
+AI face detection and recognition are handled natively in the Rust backend (`backend_rust/src/services/face_engine.rs`) using the InspireFace SDK and ONNX Runtime.
 
 ---
 
@@ -314,8 +314,8 @@ flowchart LR
 - **Feature flag**: `ENABLE_AI_INPAINTING`
 - **Hardware**: GPU required (CUDA recommended)
 - **Fallback**: CPU inference supported but significantly slower
-- **Service**: Python ML microservice
-- **API endpoint**: Inpaint API router in `backend_rust/src/routes/photos/`
+- **Service**: Native Rust inpainting engine (`backend_rust/src/services/inpaint.rs`) using LaMa.
+- **API endpoint**: Inpaint API route in `backend_rust/src/routes/photos_ai.rs`
 
 ---
 
@@ -326,8 +326,7 @@ Uses `rembg` library for automatic background removal from photos.
 ### Configuration
 
 - **Feature flag**: `ENABLE_AI_REMBG`
-- **Dependency**: Optional `rembg` package (install via the Python ML microservice)
-- **Service**: Python ML microservice
+- **Service**: Background segmentation engine (`backend_rust/src/services/segmentation.rs`) using U²-Net-p ONNX model.
 
 ---
 
@@ -360,7 +359,7 @@ flowchart LR
 - **Server port**: 9092
 - **Model**: `PaddleOCR-VL-1.6-GGUF.gguf` in `models/PaddleOCR/`
 - **MMProj**: `PaddleOCR-VL-1.6-GGUF-mmproj.gguf`
-- **Service**: Python ML microservice
+- **Service**: Native Rust LLM client (`llm_client.rs`) calling local `llama-server` instance.
 
 ---
 
@@ -466,15 +465,14 @@ backend/
 | Vision server | 9091 | Image captioning and tagging |
 | OCR server | 9092 | PaddleOCR-VL text extraction |
 | Backend API | 8269 | Rust Axum backend |
-| ML Microservice | 8270 | Python ML service (optional) |
 | Frontend (dev) | 3005 | Vite dev server |
 
 ### llama-server Configuration
 
-The Python ML microservice manages llama-server lifecycle:
+The Rust backend (`llm_server.rs`) manages the `llama-server` lifecycle:
 
 - **Start**: Launches the server with appropriate model, port, and GPU flags
-- **Stop**: Terminates the server and clears CUDA cache
+- **Stop**: Terminates the server process when switching modes or stopping
 - **Health check**: Polls `/health` endpoint every second (up to 60 retries)
 - **Flags**: `--flash-attn on`, `-ctk q8_0`, `-ctv q8_0`, `-ngl 999`
 
