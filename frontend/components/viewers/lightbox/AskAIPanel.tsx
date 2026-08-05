@@ -69,8 +69,28 @@ export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
     const query = (text || input).trim();
     if (!query || isLoading) return;
 
-    const targetSessionId = sessionId;
-    if (!targetSessionId) return;
+    let targetSessionId = sessionId;
+    if (!targetSessionId) {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/agent/sessions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: `About: ${photo.filename || 'photo'}` }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          targetSessionId = data.id;
+          setSessionId(data.id);
+        }
+      } catch (e) {
+        console.error('Failed to create AI session:', e);
+      }
+    }
+
+    if (!targetSessionId) {
+      setMessages(prev => [...prev, { role: 'assistant', content: "Failed to start AI session. Please try again." }]);
+      return;
+    }
 
     setInput('');
 
