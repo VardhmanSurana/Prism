@@ -124,27 +124,85 @@ pub async fn list_directory_contents(
     })))
 }
 
-pub async fn get_browser_locations() -> Json<Value> {
+pub async fn get_browser_locations(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
     let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
+    let mut mounts = vec![
+        json!({ "name": "Home", "path": home.clone() }),
+        json!({ "name": "Pictures", "path": format!("{}/Pictures", home) }),
+        json!({ "name": "Downloads", "path": format!("{}/Downloads", home) }),
+        json!({ "name": "Documents", "path": format!("{}/Documents", home) }),
+        json!({ "name": "Desktop", "path": format!("{}/Desktop", home) }),
+        json!({ "name": "Root (/)", "path": "/" }),
+    ];
+
+    let rows = sqlx::query("SELECT id, name, provider, mount_path, enabled FROM external_locations WHERE enabled = 1")
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let mut ext_locations = Vec::new();
+    for row in rows {
+        let id: i64 = row.get("id");
+        let name: String = row.get("name");
+        let provider: String = row.get("provider");
+        let mount_path: String = row.get("mount_path");
+        let enabled: bool = row.get("enabled");
+
+        ext_locations.push(json!({
+            "id": id,
+            "name": name.clone(),
+            "provider": provider,
+            "mount_path": mount_path.clone(),
+            "enabled": enabled
+        }));
+
+        if !mount_path.is_empty() && std::path::Path::new(&mount_path).exists() {
+            mounts.push(json!({ "name": name, "path": mount_path }));
+        }
+    }
+
     Json(json!({
-        "mounts": [
-            { "name": "Home", "path": home.clone() },
-            { "name": "Pictures", "path": format!("{}/Pictures", home) },
-            { "name": "Downloads", "path": format!("{}/Downloads", home) },
-            { "name": "Documents", "path": format!("{}/Documents", home) },
-            { "name": "Desktop", "path": format!("{}/Desktop", home) },
-            { "name": "Root (/)", "path": "/" }
+        "mounts": mounts,
+        "external_locations": ext_locations,
+        "providers": [
+            { "id": "local_path", "label": "Local / Network Mount", "ready": true, "description": "Existing directory mounted on your operating system" },
+            { "id": "smb", "label": "SMB / Samba Share", "ready": true, "description": "Network share mounted locally" }
         ],
-        "external_locations": [],
-        "providers": [],
         "home_path": home
     }))
 }
 
-pub async fn list_external_locations_api() -> Json<Value> {
+pub async fn list_external_locations_api(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let rows = sqlx::query("SELECT id, name, provider, mount_path, enabled FROM external_locations")
+        .fetch_all(&state.db)
+        .await
+        .unwrap_or_default();
+
+    let locations: Vec<Value> = rows.into_iter().map(|row| {
+        let id: i64 = row.get("id");
+        let name: String = row.get("name");
+        let provider: String = row.get("provider");
+        let mount_path: String = row.get("mount_path");
+        let enabled: bool = row.get("enabled");
+        json!({
+            "id": id,
+            "name": name,
+            "provider": provider,
+            "mount_path": mount_path,
+            "enabled": enabled
+        })
+    }).collect();
+
     Json(json!({
-        "locations": [],
-        "providers": []
+        "locations": locations,
+        "providers": [
+            { "id": "local_path", "label": "Local / Network Mount", "ready": true, "description": "Existing directory mounted on your operating system" },
+            { "id": "smb", "label": "SMB / Samba Share", "ready": true, "description": "Network share mounted locally" }
+        ]
     }))
 }
 
@@ -503,8 +561,18 @@ pub struct ExternalLocationCreate {
 pub async fn create_external_location(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ExternalLocationCreate>,
-) -> Result<Json<Value>, (StatusCode, String)> {
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let mount = payload.mount_path.unwrap_or_default();
+
+    if payload.provider == "local_path" || payload.provider == "smb" {
+        if mount.trim().is_empty() {
+            return Err((StatusCode::BAD_REQUEST, Json(json!({"detail": "Mount path is required"}))));
+        }
+        if !std::path::Path::new(&mount).exists() {
+            return Err((StatusCode::BAD_REQUEST, Json(json!({"detail": format!("Mount path '{}' does not exist on this system", mount)}))));
+        }
+    }
+
     let result = sqlx::query(
         "INSERT INTO external_locations (name, provider, mount_path, enabled) VALUES (?, ?, ?, ?)"
     )
@@ -514,12 +582,17 @@ pub async fn create_external_location(
     .bind(payload.enabled)
     .execute(&state.db)
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"detail": format!("Database error: {}", e)}))))?;
+
+    let id = result.last_insert_rowid();
 
     Ok(Json(json!({
         "status": "success",
-        "id": result.last_insert_rowid(),
+        "id": id,
         "name": payload.name,
+        "provider": payload.provider,
+        "mount_path": mount,
+        "enabled": payload.enabled,
     })))
 }
 

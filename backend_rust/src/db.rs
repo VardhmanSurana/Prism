@@ -214,6 +214,15 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             key   TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS external_locations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            provider TEXT NOT NULL DEFAULT 'local_path',
+            mount_path TEXT,
+            enabled BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         "#
     )
     .execute(pool)
