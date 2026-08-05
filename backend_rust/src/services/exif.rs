@@ -6,6 +6,7 @@ use std::io::BufReader;
 use std::path::Path;
 
 #[derive(Debug, Default, Clone)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct ExifMetadata {
     pub make: Option<String>,
     pub model: Option<String>,

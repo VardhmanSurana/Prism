@@ -1,3 +1,5 @@
+use axum::extract::State;
+use std::sync::Arc;
 /// Video export and subtitle endpoints.
 ///
 /// TODO: Implement real video export via FFmpeg and subtitle generation via Whisper.
@@ -94,12 +96,23 @@ pub struct SubtitleRequest {
 
 /// POST /api/v1/video/subtitles/generate — Whisper-based subtitle generation.
 pub async fn generate_subtitles(
+    State(state): State<Arc<crate::AppState>>,
     Json(payload): Json<SubtitleRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    // TODO: Implement real subtitle generation via Whisper
+    let video_path: Option<String> = sqlx::query_scalar("SELECT path FROM photos WHERE id = ?")
+        .bind(payload.photo_id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .flatten();
+
+    let path = video_path.ok_or_else(|| (StatusCode::NOT_FOUND, "Video not found".to_string()))?;
+
+    let subtitles = crate::services::subtitle_gen::generate_subtitles(&path)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
     Ok(Json(json!({
-        "subtitles": [],
-        "photo_id": payload.photo_id,
-        "message": "Subtitle generation not yet implemented in Rust backend"
+        "subtitles": subtitles,
     })))
 }

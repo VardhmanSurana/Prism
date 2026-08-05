@@ -10,7 +10,7 @@ use super::llm_client::LlmClient;
 pub struct MlClient {
     client: Client,
     base_url: String,
-    llm: LlmClient,
+    pub llm: LlmClient,
 }
 
 #[derive(Serialize)]

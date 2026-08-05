@@ -2992,6 +2992,7 @@ dependencies = [
  "image",
  "kamadak-exif",
  "mime_guess",
+ "ndarray",
  "ort",
  "reqwest 0.12.28",
  "serde",

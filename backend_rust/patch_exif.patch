@@ -1,0 +1,14 @@
+--- src/services/interrogate.rs
++++ src/services/interrogate.rs
+@@ -27,10 +27,7 @@
+         return Err("Photo file not found".to_string());
+     }
+ 
+-    let exif_data = match extract_exif(Path::new(photo_path)) {
+-        Ok(e) => serde_json::to_value(e).unwrap_or(serde_json::json!({})),
+-        Err(_) => serde_json::json!({}),
+-    };
++    let exif_data = serde_json::to_value(extract_exif(Path::new(photo_path))).unwrap_or(serde_json::json!({}));
+ 
+     let mut result = InterrogateResult {
+         status: "success".to_string(),

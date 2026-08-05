@@ -15,7 +15,7 @@ use super::llm_server::{LlmMode, LlmServer};
 
 #[derive(Clone)]
 pub struct LlmClient {
-    server: Arc<LlmServer>,
+    pub server: Arc<crate::services::llm_server::LlmServer>,
     http: reqwest::Client,
 }
 
@@ -26,6 +26,10 @@ pub struct VisionResult {
 }
 
 impl LlmClient {
+    pub async fn preload_agent(&self) -> Result<(), String> {
+        self.server.base_url(crate::services::llm_server::LlmMode::Agent).await.map(|_| ())
+    }
+
     pub fn new(server: Arc<LlmServer>) -> Self {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(180))

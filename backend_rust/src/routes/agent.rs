@@ -201,8 +201,13 @@ pub async fn upload_image(
 }
 
 /// POST /api/v1/agent/preload - Model warming
-pub async fn preload_model() -> Result<Json<Value>, (StatusCode, String)> {
-    Ok(Json(json!({ "status": "preloaded", "model": "gemma-4b" })))
+pub async fn preload_model(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    match state.ml_client.llm.preload_agent().await {
+        Ok(_) => Ok(Json(json!({ "status": "preloaded", "model": "gemma-4b" }))),
+        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to preload: {}", e))),
+    }
 }
 
 /// POST /api/v1/agent/chat - Dual-mode multimodal agent endpoint (Ask Image vs Search Prism)

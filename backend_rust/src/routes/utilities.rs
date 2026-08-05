@@ -667,30 +667,16 @@ pub async fn fused_search(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
     let query = params.get("q").map(|s| s.as_str()).unwrap_or("");
-    let limit: i64 = params.get("limit")
+    let limit: usize = params.get("limit")
         .and_then(|s| s.parse().ok())
         .unwrap_or(20);
 
-    // ponytail: fused search = metadata LIKE search. Full semantic requires embedding index.
-    let q = if query.is_empty() {
-        "SELECT id, uuid, filename, path, date_taken, city, state, country, caption
-         FROM photos ORDER BY date_taken DESC LIMIT ?".to_string()
-    } else {
-        format!(
+    if query.is_empty() {
+        let results = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
             "SELECT id, uuid, filename, path, date_taken, city, state, country, caption
-             FROM photos
-             WHERE filename LIKE '%{query}%'
-                OR caption LIKE '%{query}%'
-                OR city LIKE '%{query}%'
-                OR state LIKE '%{query}%'
-                OR country LIKE '%{query}%'
-                OR ai_summary LIKE '%{query}%'
-             ORDER BY date_taken DESC LIMIT ?"
+             FROM photos ORDER BY date_taken DESC LIMIT ?"
         )
-    };
-
-    let results = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(&q)
-        .bind(limit)
+        .bind(limit as i64)
         .fetch_all(&state.db)
         .await
         .map(|rows| rows.into_iter().map(|(id, uuid, filename, path, date_taken, city, state_val, country, caption)| {
@@ -699,6 +685,34 @@ pub async fn fused_search(
                     "country": country, "caption": caption })
         }).collect::<Vec<_>>())
         .unwrap_or_default();
+
+        return Json(json!({ "results": results, "total": results.len() }));
+    }
+
+    let search_tools = crate::services::agent_search::SearchTools::new(state.db.clone(), crate::services::siglip::get_engine().ok());
+    let similar_ids = search_tools.semantic_search(query, limit, false, true).await;
+
+    if similar_ids.is_empty() {
+        return Json(json!({ "results": [], "total": 0 }));
+    }
+    
+    // Fetch photos
+    let mut results = Vec::new();
+    for id in similar_ids {
+        if let Ok(row) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption
+             FROM photos WHERE id = ?"
+        )
+        .bind(id)
+        .fetch_one(&state.db)
+        .await {
+            results.push(json!({
+                "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
+                "date_taken": row.4, "city": row.5, "state": row.6,
+                "country": row.7, "caption": row.8
+            }));
+        }
+    }
 
     Json(json!({ "results": results, "total": results.len() }))
 }

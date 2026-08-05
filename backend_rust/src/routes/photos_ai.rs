@@ -448,3 +448,22 @@ pub async fn xmp_check(
     let exists = std::path::Path::new(&xmp_path).exists();
     Ok(Json(json!({ "photo_id": photo.id, "has_xmp": exists })))
 }
+
+#[derive(Deserialize)]
+pub struct InterrogateRequest {
+    pub photo_path: String,
+    pub prompt: Option<String>,
+}
+
+pub async fn interrogate(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Json(req): axum::extract::Json<InterrogateRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let result = crate::services::interrogate::run_interrogate(
+        &req.photo_path,
+        req.prompt.as_deref(),
+        &state.ml_client.llm,
+    ).await.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
+    Ok(Json(serde_json::to_value(result).unwrap()))
+}

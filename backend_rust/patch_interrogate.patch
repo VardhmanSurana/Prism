@@ -1,0 +1,37 @@
+--- src/services/interrogate.rs
++++ src/services/interrogate.rs
+@@ -47,21 +47,21 @@
+ 
+     // OCR
+     // TODO: if we need to call OCR via LLM client or an OCR service
+-    match llm_client.extract_ocr_text(&img).await {
+-        Ok(text) => {
++    match llm_client.ocr(photo_path).await {
++        Ok(Some(text)) => {
+             result.ocr = serde_json::json!({"status": "success", "text": text});
+         }
+-        Err(e) => {
++        Ok(None) => {
++            result.ocr = serde_json::json!({"status": "empty", "text": null});
++        }
++        Err(e) => {
+             result.ocr = serde_json::json!({"status": "error", "text": e});
+         }
+     }
+ 
+     // Vision
+-    match llm_client.generate_vision_summary(&img, prompt.unwrap_or("Describe this image")).await {
+-        Ok(summary) => {
+-            let tags = llm_client.generate_tags(&img).await.unwrap_or_default();
++    match llm_client.vision(photo_path).await {
++        Ok(v) => {
+             result.vision = serde_json::json!({
+                 "status": "success",
+-                "caption": summary.chars().take(120).collect::<String>(),
+-                "summary": summary,
+-                "tags": tags
++                "caption": v.caption,
++                "summary": v.summary,
++                "tags": v.tags
+             });
+         }
