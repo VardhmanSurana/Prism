@@ -14,6 +14,7 @@ import { SaveSmartFolderForm } from './SaveSmartFolderForm';
 import { BatchRenameModal } from './BatchRenameModal';
 import { AddExternalLocationForm } from './AddExternalLocationForm';
 import { BrowserContextMenu, ContextMenuState } from './BrowserContextMenu';
+import { ExternalLocation } from './types';
 
 const DEFAULT_DIALOG_SIZE = { width: 1080, height: 720 };
 const MIN_DIALOG_SIZE = { width: 760, height: 520 };

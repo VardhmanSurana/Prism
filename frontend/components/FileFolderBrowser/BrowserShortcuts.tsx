@@ -60,6 +60,7 @@ export const BrowserShortcuts: React.FC<BrowserShortcutsProps> = ({
   onRecentClick,
   onSmartFolderClick,
   onSmartFolderDelete,
+  onExternalEdit,
   onExternalDelete,
   onAddLocation,
   variant = 'inline',

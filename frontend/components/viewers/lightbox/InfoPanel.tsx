@@ -6,7 +6,8 @@ import { API_BASE, resolveUrl } from '@/constants';
 import { formatDuration } from '@/utils/formatDuration';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useTelemetry } from '../../../hooks/useTelemetry';
+import 'leaflet/dist/leaflet.css';
+import { useTelemetry } from '@/hooks/useTelemetry';
 
 interface ChangeMapViewProps {
   center: [number, number];
@@ -32,6 +33,8 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
   const { logAction } = useTelemetry();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCaptionEditing, setIsCaptionEditing] = useState(false);
+  const [captionDraft, setCaptionDraft] = useState('');
 
   // Form states
   const [dateTaken, setDateTaken] = useState('');
@@ -49,6 +52,8 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     if (p) {
       setDateTaken(p.date_taken ? new Date(p.date_taken).toISOString().slice(0, 16) : '');
       setCaption(p.caption || '');
+      setCaptionDraft(p.caption || '');
+      setIsCaptionEditing(false);
       setCity(p.city || '');
       setStateName(p.state || '');
       setCountry(p.country || '');
@@ -59,6 +64,28 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     }
   }, [metadata, photo]);
 
+  const handleSaveCaption = async () => {
+    logAction('InfoPanel', 'save_caption', { photoId: photo.id });
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caption: captionDraft.trim() }),
+      });
+
+      if (res.ok) {
+        setCaption(captionDraft.trim());
+        setIsCaptionEditing(false);
+        onMetadataUpdated?.();
+      }
+    } catch (e) {
+      console.error('Failed to save caption:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveMetadata = async () => {
     logAction('InfoPanel', 'save_metadata', { photoId: photo.id });
     setIsSaving(true);
@@ -68,7 +95,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date_taken: dateTaken ? new Date(dateTaken).toISOString() : null,
-          caption: caption.trim() || null,
+          caption: caption.trim(),
           city: city.trim() || null,
           state: stateName.trim() || null,
           country: country.trim() || null,
@@ -271,6 +298,66 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
           </div>
         </section>
 
+        {!isEditing && (
+          <section className="space-y-3 pt-6 border-t border-white/5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500 flex items-center gap-2">
+                <Type size={12} />
+                Caption
+              </h3>
+              {!isCaptionEditing && (
+                <button
+                  onClick={() => { setCaptionDraft(caption); setIsCaptionEditing(true); }}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white transition-colors"
+                  aria-label={caption ? 'Edit caption' : 'Add caption'}
+                  title={caption ? 'Edit caption' : 'Add caption'}
+                >
+                  <Edit2 size={12} />
+                </button>
+              )}
+            </div>
+
+            {isCaptionEditing ? (
+              <div className="space-y-2">
+                <textarea
+                  value={captionDraft}
+                  onChange={(e) => setCaptionDraft(e.target.value)}
+                  placeholder="Write a caption for this photo..."
+                  rows={3}
+                  autoFocus
+                  aria-label="Caption"
+                  className="w-full px-2.5 py-2 rounded-lg bg-black/40 border border-white/20 text-xs text-white resize-none focus:outline-none focus:border-primary placeholder:text-gray-500"
+                />
+                <div className="flex items-center justify-end gap-1.5">
+                  <button
+                    onClick={() => setIsCaptionEditing(false)}
+                    className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-gray-300 text-xs font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveCaption}
+                    disabled={isSaving}
+                    className="px-2.5 py-1 rounded-lg bg-primary text-black font-semibold text-xs hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center gap-1"
+                  >
+                    <Save size={12} />
+                    <span>{isSaving ? 'Saving...' : 'Save'}</span>
+                  </button>
+                </div>
+              </div>
+            ) : caption ? (
+              <p className="text-sm text-white/90 leading-relaxed whitespace-pre-wrap break-words">{caption}</p>
+            ) : (
+              <button
+                onClick={() => { setCaptionDraft(''); setIsCaptionEditing(true); }}
+                className="w-full text-left px-3 py-2.5 rounded-lg border border-dashed border-white/15 text-xs text-gray-400 hover:text-white hover:border-white/30 hover:bg-white/5 transition-colors"
+              >
+                Add a caption…
+              </button>
+            )}
+          </section>
+        )}
+
         <section className="space-y-2 pt-6 border-t border-white/5">
           <h3 className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">File Path</h3>
           <p className="text-[9px] text-gray-500 font-mono break-all leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{photo.path}</p>
@@ -305,7 +392,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
           </section>
         )}
 
-        {(photo.location || metadata?.location) && (
+        {(photo.location || metadata?.location || photo.latitude || metadata?.latitude || photo.longitude || metadata?.longitude) && (
           <section className="space-y-4 pt-6 border-t border-white/5">
             <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-500 flex items-center gap-2">
               <MapPin size={12} />
