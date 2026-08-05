@@ -1,150 +1,223 @@
 # Rust ML Migration — Retire Python, Restore All Features
 
-**Repo:** `prism-desktop` | **Goal:** single Rust backend on :8269, zero Python at runtime, full feature parity with the Python backend
+**Repo:** `prism-desktop` | **Branch:** `rust-ml-migration` | **Goal:** single Rust backend on :8269, zero Python at runtime, full feature parity with the Python backend
+
+---
 
 ## Why
 
-The Rust backend still depends on the Python ML microservice (`ml_service.py`, :8270) for 4 live endpoints, while 5 endpoints (`semantic-masks`, `background-mask`, `portrait-masks`, `auto-enhance`, `inpaint`) are **dead twice over**: they don't exist in `ml_service.py` (404) AND the frontend never calls them. The Python full backend (app.main, :8000) also contains ML services with no Rust implementation at all (agent LLM, stories, subtitles, summaries enrichment, XMP, explore themes). This migration ports everything to in-process Rust, restores the dead features with frontend wiring, and deletes Python entirely.
+The Rust backend still depends on the Python ML microservice (`ml_service.py`, :8270) for live endpoints, while several features were dead twice over — not implemented in `ml_service.py` AND never called by the frontend. This migration ports everything to in-process Rust, restores dead features, and ultimately deletes Python entirely.
 
-## Key findings (verified)
+---
 
-- **Rust agent uses no LLM** — `agent.rs` chat is rule-based (MODE 1 formats `ml_client.interrogate` results; MODE 2 is SQL LIKE search + template text). No llama/Ollama calls anywhere in `backend_rust/src`.
-- **Vision + OCR both go through llama-server** (llama.cpp binary), spawned/lifecycled by Python's `ai_orchestrator.py`. Vision = Gemma 3.2 E2B on :9091; OCR = PaddleOCR-VL GGUF on :9092. ("Ollama" in `image_summary/llm.py` is a misnomer — it's llama-server.)
-- **Agent mode uses Gemma 3.2 E4B on :9090** (llama-server), managed by `app/agent/llm.py` (LlamaManager).
-- The three llama-server modes are **mutually exclusive** in Python (starting one kills the previous) — Rust must replicate this.
-- **Object detection is stubbed today** — `object_detection.py` SAM/YOLO paths return `[]`; only an OpenCV blob fallback ever ran. Restoring = improvement (real YOLO ONNX).
-- **Rust fused search is LIKE-only** — `utilities.rs fused_search` has no embedding index ("Full semantic requires embedding index" comment). Semantic search needs the SigLIP **text tower** + embedding index built.
-- **SigLIP embeddings need both towers** — vision tower for photos, text tower for query embeddings (agent `EmbeddingClient` uses `get_text_features`).
-- All ONNX models already on disk: `semantic.onnx`, `u2netp.onnx` (models/segmentation), `face_parsing.onnx` (models/face), SAM safetensors (models/SAM/SAM.safetensors), Gemma/PaddleOCR GGUFs (models/llm, models/PaddleOCR).
-- Rust deps already present: `reqwest`, `image`, `kamadak-exif`. Missing: `ort`, `whisper-rs`.
+## Progress
 
-## Current ML surface
+### ✅ Done
 
-| Endpoint | Python impl | Status | Rust replacement |
-|---|---|---|---|
-| `/ml/siglip` | SigLIP2 via transformers (torch) | **LIVE** | `siglip.rs` (ort, image+text towers) |
-| `/ml/vision` | llama-server :9091 (Gemma E2B + mmproj), spawned by `ai_orchestrator.py` | **LIVE** | `llm_server.rs` + `llm_client.rs` direct HTTP |
-| `/ml/ocr` | llama-server :9092 (PaddleOCR-VL GGUF) | **LIVE** | `llm_server.rs` + direct HTTP |
-| `/ml/interrogate` | EXIF + OCR + vision + object-detection (stub) + SAM center-mask | **LIVE** | `interrogate.rs` (composition) |
-| `/ml/semantic-masks` | `semantic.onnx` (in app.main, never served) | **404/dead** | `semantic_mask.rs` + frontend wiring |
-| `/ml/background-mask` | `u2netp.onnx` | **404/dead** | `background_mask.rs` |
-| `/ml/portrait-masks` | `face_parsing.onnx` | **404/dead** | `portrait_mask.rs` |
-| `/ml/auto-enhance` | cv2 HSV heuristics (`metadata.py`) | **404/dead** | `auto_enhance.rs` (image crate, no ML) |
-| `/ml/inpaint` | diffusers/simple-lama | **404/dead** | `inpaint.rs` (ort + LaMa ONNX) |
-
-## Python-only ML services (no Rust implementation)
-
-| Service | Python | Rust gap |
+| Phase | Work | Status |
 |---|---|---|
-| **Agent LLM** | `app/agent/*` (~2,400 lines): ReAct planner/orchestrator/executor, 9 search tools, Gemma E4B :9090, NDJSON streaming | Rule-based only; `/preload` fake stub |
-| **Stories** | `story_service.py` — metadata-only LLM recaps (2–4 sentences, temp 0.3) | Explicit TODO stubs |
-| **Video subtitles** | `subtitle_gen.py` — faster-whisper small.en int8 CPU + wav2vec2 fallback | Explicit TODO stub |
-| **Summaries** | `image_summary/service.py` — metadata enrichment + vision LLM + `Prism_ENC` guard | Caption only |
-| **XMP sidecars** | export / import / upload-import / check | Only export/import skeleton |
-| **Explore themes** | `/explore/themes` | Missing endpoint |
+| **0** | `llm_server.rs` + `llm_client.rs` — llama-server lifecycle, vision/OCR/agent LLM clients | ✅ Complete |
+| **1** | `siglip.rs` — in-process SigLIP2 image+text towers via `ort`; ONNX models exported | ✅ Complete |
+| **2** | `segmentation.rs` — real ONNX inference: U²-Net-p (background), SegFormer ADE20K-150 (semantic), BiSeNet face-parsing (portrait) | ✅ Complete |
+| **2** | `auto_enhance.rs` — in-process HSV heuristic (image crate), replaces Python `metadata.py` | ✅ Complete |
+| **2** | Route method fix — `auto-enhance` was GET, fixed to POST | ✅ Complete |
+| **3** | `inpaint.rs` — LaMa inpainting via `simple_lama_inpainting` subprocess; ONNX-ready interface | ✅ Complete |
+| **Wiring** | All mask/enhance/inpaint route handlers now call in-process Rust services, no `ml_client` proxy | ✅ Complete |
 
-## Phases
+### ⏳ Remaining
 
-### Phase 0 — Foundation: llama-server ownership + LLM client
-- **New `services/llm_server.rs`**: port of `ai_orchestrator.py` spawn logic — 3 modes, mutual-exclusion (kill previous before starting):
-  - agent :9090 — `gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf` + `gemma-4-E4B-it-Q4_0-MTP.gguf` + `mmproj-BF16-E4B.gguf`
-  - vision :9091 — `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf` + `gemma-4-E2B-it-Q4_0-MTP.gguf` + `mmproj-BF16-E2B.gguf`
-  - ocr :9092 — `PaddleOCR-VL-1.6-GGUF.gguf` + mmproj
-  - Args: `-ngl 999/0` from GPU_MODE, `--mmproj --no-mmproj-offload`, `--flash-attn on -ctk q8_0 -ctv q8_0 -fit off` on GPU, `-c 8192 -np 1`; health-wait loop; kill-on-shutdown (`tokio::process`, Drop/cleanup hook); LD_LIBRARY_PATH for CUDA.
-- **New `services/llm_client.rs`**: `chat/completions` replicating Python payloads exactly (base64 `data:image/jpeg;base64,…`):
-  - Vision summary: `"Describe this image in a single concise sentence focusing on the main subjects and setting."`
-  - Tags: `"Extract 15 descriptive tags…"` + code-fence/JSON fallback parsing.
-  - OCR: `"Extract all visible text from this image. Return only the extracted text, preserving line breaks…"` (max_tokens 2000, temp 0.1)
-- **Rewire**: `trigger_ocr`, `generate_summary`, worker analyzers (`vision.rs`, `ocr.rs`) → local client. `MlClient` goes unused.
-- **Retire**: `/ml/ocr`, `/ml/vision`.
-- **Gate**: OCR + caption parity on `sample_images/`.
+| Phase | Work |
+|---|---|
+| **4** | YOLOv8n ONNX detection + SAM mask decoder; in-process `interrogate.rs` |
+| **5** | Agent LLM intelligence (real `/preload`, planner, 9 search tools, semantic vector search) |
+| **6** | Stories via llama-server (agent mode :9090) |
+| **7** | Subtitle generation via `whisper-cli` subprocess |
+| **8** | Summaries enrichment, XMP upload-import/check, `/explore/themes` |
+| **9** | Delete `backend/` Python folder, strip Python from launcher scripts |
 
-### Phase 1 — SigLIP in-process (image + text towers)
-- **New `services/siglip.rs`**: `ort` session in `OnceLock` (mirror `face_engine.rs`); SigLIP2 preprocessing (resize 224, normalize mean/std 0.5); L2-normalize → 768-dim; both `image_embedding()` and `text_embedding()` (needed by agent semantic search).
-- **Model**: one-time export of cached `google/siglip2-base-patch16-224` → ONNX (`scripts/export_siglip2_onnx.py`) or pull `deepghs/siglip_onnx`.
-- **Rewire**: semantic-search analyzer.
-- **Gate (non-negotiable)**: cosine similarity ≥ 0.999 vs current Python embeddings (vision AND text) on 3+ samples **before** cutover.
-- **Retire**: `/ml/siglip`.
+---
 
-### Phase 2 — Masks + auto-enhance (restore dead features)
-- **New engines** (all `ort`, lazy-loaded, PNG-base64 masks in the JSON shape Rust routes already expect):
-  - `semantic_mask.rs` — `models/segmentation/semantic.onnx` (ADE20K); pre/post from `semantic_service.py`
-  - `background_mask.rs` — `models/segmentation/u2netp.onnx`; pre/post from `background_service.py`
-  - `portrait_mask.rs` — `models/face/face_parsing.onnx`; pre/post from `portrait_service.py`
-  - `auto_enhance.rs` — `image` crate HSV histogram port of `metadata.py` (avg_v/std_v/avg_s → exposure/shadows/highlights/contrast/whites/blacks/saturation/vibrance)
-- **Rewire** `photos_ai.rs` routes → in-process.
-- **Frontend / Routes Alignment**: Align route methods. Frontend already calls `/api/v1/photos/auto-enhance/${photoId}` via `POST` in [EditingMode.tsx](file:///home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/components/Editor/ImageEditor/EditingMode/EditingMode.tsx#L442) and [AdjustPanel.tsx](file:///home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/components/Editor/ImageEditor/AdjustPanel.tsx#L96), but the backend maps it only to `GET` in [mod.rs](file:///home/chotaxdon/Work/Projects/Prism/prism-desktop/backend_rust/src/routes/mod.rs#L370). Update the route to support `POST`. Similarly, ensure mask endpoints mapped by [SelectivePanel.tsx](file:///home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/components/Editor/ImageEditor/SelectivePanel.tsx#L42-L47) and [PortraitPanel.tsx](file:///home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/components/Editor/ImageEditor/PortraitPanel.tsx#L33) match their expected response shapes.
-- **Gate**: auto-enhance params equal Python's on samples.
+## Architecture
 
-### Phase 3 — Inpaint (restore dead feature)
-- **New `services/inpaint.rs`**: `ort` + LaMa ONNX (`Carve/LaMa-ONNX` `lama_fp32.onnx`); 512×512 letterbox + mask resize + paste-back (simple-lama semantics; `expand_pixels` already in `InpaintRequest`).
-- **Rewire** `process_inpaint`; keep `/inpaint/unload` as no-op.
-- **Frontend**: wire inpaint tool (brush/SAM mask → remove) in Lightbox/editor.
+### ML Endpoint Status
+
+| Endpoint | Python impl | Rust replacement | Status |
+|---|---|---|---|
+| `/ml/siglip` | SigLIP2 via transformers (torch) | `siglip.rs` (ort, lazy OnceLock) | ✅ Replaced |
+| `/ml/vision` | llama-server :9091 (Gemma E2B) | `llm_client.rs` direct HTTP | ✅ Replaced |
+| `/ml/ocr` | llama-server :9092 (PaddleOCR-VL) | `llm_client.rs` direct HTTP | ✅ Replaced |
+| `/ml/interrogate` | EXIF + OCR + vision + detection stub | `ml_client.interrogate` (Python still) | 🔄 Phase 4 |
+| `/ml/semantic-masks` | `semantic.onnx` (ADE20K SegFormer) | `segmentation.rs` | ✅ Replaced |
+| `/ml/background-mask` | `u2netp.onnx` | `segmentation.rs` | ✅ Replaced |
+| `/ml/portrait-masks` | `face_parsing.onnx` (BiSeNet) | `segmentation.rs` | ✅ Replaced |
+| `/ml/auto-enhance` | cv2 HSV heuristics (`metadata.py`) | `auto_enhance.rs` (image crate) | ✅ Replaced |
+| `/ml/inpaint` | simple-lama / diffusers | `inpaint.rs` (LaMa subprocess) | ✅ Replaced |
+
+---
+
+## Key Technical Decisions
+
+### Phase 0 & 1 — LLM Server + SigLIP
+
+- **`llm_server.rs`**: Ports `ai_orchestrator.py` — 3 mutually exclusive modes (agent :9090, vision :9091, OCR :9092). Each spawns `llama-server` binary, waits for health, and kills the previous mode.
+- **`llm_client.rs`**: Replicates Python payloads exactly — base64 images, structured prompts for vision/OCR/tags.
+- **`siglip.rs`**: Lazy `OnceLock<Arc<SiglipEngine>>`. Sessions wrapped in `Mutex` (required by `ort` 2.x `Session::run(&mut self)`). Outputs correctly named with `output_names=["last_hidden_state", "image_features"]` in export script to avoid shape mismatch.
+- **ONNX export**: `export_siglip.py` uses `dynamo=True` (torch.export backend), `output_names` must explicitly list both outputs. Model saved at `backend_rust/models/llm/siglip2_image.onnx` and `siglip2_text.onnx`.
+- **Tokenizer**: `tokenizers = "0.20.0"` required — v0.19.x fails on `"ignore_merges"` key in newer HuggingFace tokenizer configs.
+
+### Phase 2 & 3 — Segmentation, Auto-Enhance, Inpaint
+
+#### Segmentation models
+
+| Model | File | Input | Output | Notes |
+|---|---|---|---|---|
+| U²-Net-p | `models/segmentation/u2netp.onnx` | `input.1` `[1,3,320,320]` float32 [0,1] | `1959` `[1,1,320,320]` float32 | First output is the highest-resolution sigmoid mask |
+| SegFormer | `models/segmentation/semantic.onnx` | `pixel_values` `[1,3,H,W]` float32 [0,1] | `logits` `[1,150,H',W']` float32 | ADE20K 150-class; argmax over label dim → class map |
+| BiSeNet | `models/face/face_parsing.onnx` | `input` `[1,3,512,512]` float32 [0,1] | `[0]` `[1,C,512,512]` float32 | CelebAMask-HQ 19 classes; class 0 = background |
+
+All three use:
+- NCHW channel-first layout, values normalized to `[0, 1]`
+- Image resized to model input size, mask resized back to original dimensions
+- Saved as grayscale PNG to `thumbnails/masks/mask_{id}_{type}.png`
+- Background mask: disk-cached (skips re-inference if file already exists)
+
+#### `ort` 2.x API patterns used
+
+```rust
+// Session building
+let session = Session::builder()?
+    .with_optimization_level(GraphOptimizationLevel::Level3)?
+    .commit_from_file("model.onnx")?;
+
+// Multi-threaded sharing — Session::run takes &mut self
+let session: Mutex<Session> = Mutex::new(session);
+
+// Running inference
+let tensor = Value::from_array(([1usize, 3, 320, 320], flat_data))?;
+let inputs = ort::inputs!["input_name" => tensor];
+let mut guard = session.lock().unwrap();   // named binding required for lifetime
+let outputs = guard.run(inputs)?;
+
+// Extracting output — returns (Shape, CowArray<f32, IxDyn>)
+let (shape, data) = outputs["output_name"].try_extract_tensor::<f32>()?;
+let shape: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+let flat: Vec<f32> = data.iter().copied().collect();
+```
+
+> **Note**: `outputs[key].try_extract_tensor()` borrows `outputs`, so the session guard (`guard`) must live as long as `outputs`. Never inline the lock on the same line as `.run()`.
+
+#### `auto_enhance.rs`
+
+Pure Rust port of `metadata.py` HSV analysis. No ML, no ONNX — just the `image` crate:
+
+1. Thumbnail to 256×256 for speed
+2. Per-pixel: compute HSV max/delta → V (value/brightness) and S (saturation) in [0,255]
+3. Compute `avg_v`, `std_v`, `avg_s`
+4. Map to `AutoEnhanceParams`: exposure/shadows (underexposed), highlights/exposure (overexposed), contrast/whites/blacks (flat), saturation/vibrance (dull/oversaturated)
+
+Returns `AutoEnhanceParams` struct, serialised as JSON by the route handler.
+
+#### `inpaint.rs`
+
+LaMa ONNX export from `big-lama.pt` (TorchScript JIT) is blocked by the new `torch.export`-based dynamo exporter — it cannot inspect TorchScript signatures. Current implementation calls `simple_lama_inpainting` Python package as a subprocess:
+
+1. Decode base64 mask → temp PNG file
+2. Spawn `backend/.venv/bin/python -c "..."` with inline script
+3. Script runs `SimpleLama(device="cpu")(image, mask)`, prints base64 PNG to stdout
+4. Return `{"success": true, "result": "data:image/png;base64,...", "model": "lama"}`
+
+**Future ONNX path**: When export is resolved (use `dynamo=False` with the legacy `torch.jit.trace` wrapper), swap the subprocess call with direct `ort::Session` inference — the public interface is identical.
+
+---
+
+## Dependencies
+
+```toml
+ort = { version = "2.0.0-rc.13", features = ["ndarray"] }
+tokenizers = "0.20.0"
+image = "0.25"
+base64 = "0.22"
+```
+
+### Models on disk
+
+| Model | Path | Size |
+|---|---|---|
+| SigLIP2 vision | `backend_rust/models/llm/siglip2_image.onnx` | ~385MB |
+| SigLIP2 text | `backend_rust/models/llm/siglip2_text.onnx` | ~70MB |
+| SigLIP2 tokenizer | `backend_rust/models/llm/tokenizer.json` | — |
+| U²-Net-p | `backend_rust/models/segmentation/u2netp.onnx` | ~4.5MB |
+| SegFormer ADE20K | `backend_rust/models/segmentation/semantic.onnx` | ~15MB |
+| BiSeNet face | `backend_rust/models/face/face_parsing.onnx` | ~50MB |
+| LaMa (TorchScript) | `~/.cache/torch/hub/checkpoints/big-lama.pt` | ~200MB |
+| Gemma E4B (agent) | `backend_rust/models/llm/*.gguf` | — |
+| Gemma E2B (vision) | `backend_rust/models/llm/*.gguf` | — |
+| PaddleOCR-VL | `backend_rust/models/PaddleOCR/` | — |
+
+---
+
+## Verification Gates
+
+- [x] `cargo check` clean after each phase
+- [x] All unit tests pass (`cargo test -- --nocapture`): 3/3
+- [x] SigLIP: cosine similarity > 0 (positive) between related image+text embeddings
+- [ ] Auto-enhance: output params verified equal to Python on sample photos
+- [ ] Masks: PNG files generated correctly from real photos
+- [ ] Inpaint: base64 result returned, visible fill applied
+- [ ] Phase 4+: object detection, semantic agent search
+- [ ] Python stays running until Phase 9 — instant rollback available
+
+---
+
+## Remaining Phases Detail
 
 ### Phase 4 — Interrogate parity: SAM + object detection
-- **One-time ONNX export** of `models/SAM/SAM.safetensors` (facebook/sam-vit-base) → `image_encoder.onnx` + `mask_decoder.onnx` (sam-rs format).
-- **New `services/sam.rs`**: `ort` point-prompted segmentation (1024 resize, point scaling — sam-rs preprocessing), binary mask out.
-- **New `services/object_detector.rs`**: YOLOv8n ONNX (~12MB) via `ort` — real detections (Python returns `[]`; improvement, not regression).
-- **New `services/interrogate.rs`**: EXIF (`kamadak-exif`, same 11 wanted tags as `_extract_exif`) + OCR + vision + objects + SAM center-mask → same JSON shape.
-- **Retire**: `/ml/interrogate`.
+- One-time ONNX export of `models/SAM/SAM.safetensors` → `image_encoder.onnx` + `mask_decoder.onnx`
+- `services/sam.rs`: point-prompted segmentation (1024 resize, point scaling)
+- `services/object_detector.rs`: YOLOv8n ONNX (~12MB) via `ort` — real detections
+- `services/interrogate.rs`: EXIF + OCR + vision + objects + SAM → same JSON shape as Python
+- Retire: `/ml/interrogate`
 
-### Phase 5 — Agent LLM intelligence (biggest gap) — pragmatic loop
-Chosen scope: **LLM plans → run SQL tools → LLM summarizes** (no full ReAct loop). ~600 lines.
-- `agent_llm.rs`: real `/preload` (start :9090 warm) replaces fake stub; mode mutual-exclusion via `llm_server.rs`.
-- `agent_planner.rs`: port LLM JSON prompts (`extract_search_parameters`, `verify_photos_match`, `reformulate_search`, `generate_chat_response`); keep existing rule-based ambiguity check as fallback.
-- `agent_search.rs`: port 9 `search_tools` queries to the existing SQLite schema:
-  - metadata / people / captions / albums / OCR / events → existing Rust query patterns
-  - **semantic_search** → new: text-tower embedding (Phase 1) + cosine over photo embeddings
-  - **similar_image** → new: cosine over stored embeddings
-  - upgrade `fused_search` from LIKE-only
-- Keep `agent.rs` NDJSON streaming shape; insert LLM plan/tool/summary chunks.
-- Ask-Image tools reuse Phases 0/4: OCR, EXIF, YOLO objects, SAM region.
-- Deferred (not ported): executor loop, specialized_agents, multi-step ReAct.
+### Phase 5 — Agent LLM intelligence
+Chosen scope: **LLM plans → run SQL tools → LLM summarizes** (~600 lines, no full ReAct loop).
+- `agent_llm.rs`: real `/preload` (start :9090 warm)
+- `agent_planner.rs`: port LLM JSON prompts (extract_search_parameters, verify_photos_match, generate_chat_response)
+- `agent_search.rs`: 9 search tools to SQLite — metadata/people/captions/albums/OCR/events + **semantic_search** (SigLIP text tower + cosine over stored embeddings) + **similar_image**
+- Upgrade `fused_search` from LIKE-only
 
 ### Phase 6 — Stories
-- `stories.rs`: replace both TODO stubs. Port `story_service.py`: `_build_event_context` (metadata-only: tags, names, locations, dates — never images) + `STORY_PROMPT_TEMPLATE` (2–4 sentence recap, temp 0.3); call via agent-mode llama-server; persist to `events.summary`.
+Port `story_service.py`: metadata-only LLM recaps (tags/names/locations/dates, never images), 2–4 sentences, temp 0.3 via agent-mode llama-server.
 
-### Phase 7 — Subtitles (whisper-rs / whisper-cli)
-- `video.rs` `generate_subtitles`: implement via **whisper-cli** (running precompiled `whisper.cpp` binary via subprocess, consistent with the `llama-server` pattern) to avoid toolchain compilation issues associated with `whisper-rs` (C++ dependency compilation errors in target packaging). Extract audio via ffmpeg subprocess. GGML `small.en` model. Drop wav2vec2 fallback.
-- Mirror Python gating: `ENABLE_AI_SUBTITLES` + rate limit + video-type check.
+### Phase 7 — Subtitles
+`video.rs generate_subtitles` via `whisper-cli` binary subprocess (avoids `whisper-rs` C++ toolchain issues). Extract audio via ffmpeg subprocess. `ggml-small.en` GGUF model.
 
-### Phase 8 — Summaries enrichment, XMP, Themes (small)
-- **Summaries**: `generate_summary` gains metadata enrichment + `Prism_ENC` locked-file guard (from `image_summary/service.py`); keep vision caption.
-- **XMP**: add `upload-import` + `check` endpoints to `xmp_operation` (port sidecar format from `photos/xmp.py`).
-- **Themes**: new `/explore/themes` in `explore.rs` (analytics; only Python explore endpoint without a Rust counterpart).
+### Phase 8 — Enrichment, XMP, Themes
+- Summaries: add metadata enrichment + `Prism_ENC` guard
+- XMP: `upload-import` + `check` endpoints
+- Themes: new `/explore/themes` in `explore.rs`
 
 ### Phase 9 — Delete Python
-- Remove `MlClient` + `python_ml_url` config.
-- Delete `backend/` (ml_service.py, app/, .venv, models/, uv files).
-- Strip ML-service launch + `PYTHON_ML_URL` from `run-web.sh` / `run-desktop.sh`.
-- Update stale docs: `PRISM_CONTEXT.md` (SD1.5 inpaint, "optional Python ML microservice", port table §13, MlClient service map), `README.md`.
+- Remove `MlClient`, `python_ml_url` config
+- Delete `backend/` (ml_service.py, app/, .venv, models/, uv files)
+- Strip ML-service launch from `run-web.sh` / `run-desktop.sh`
+- Update `PRISM_CONTEXT.md`, `README.md`
 
-## New dependencies & models
-
-| Item | Source | Notes |
-|---|---|---|
-| `ort` crate | crates.io `ort = "2.0.0-rc"` | +~30MB binary; same ONNX Runtime family as face_id |
-| `whisper-rs` | crates.io | needs cmake/clang build toolchain — **flagged risk** |
-| SigLIP2 ONNX (image+text) | local export from HF cache, or `deepghs/siglip_onnx` | ~400MB |
-| LaMa ONNX | HF `Carve/LaMa-ONNX` (`lama_fp32.onnx`) | ~200MB |
-| SAM ONNX | export from `models/SAM/SAM.safetensors` | ~380MB |
-| YOLOv8n ONNX | ultralytics export / HF | ~12MB |
-| `ggml-small.en` GGUF | HF | ~190MB |
-| semantic/u2netp/face_parsing ONNX | **already on disk** | — |
-
-## Verification gates
-- `cargo build` clean after each phase; backend restart; curl each endpoint on `sample_images/`.
-- SigLIP: cosine ≥ 0.999 vs Python (vision + text) before cutover.
-- Auto-enhance: output params equal Python's on sample photos.
-- Agent: chat against a known photo + a semantic query; verify NDJSON chunks + tool results.
-- Frontend: manual pass on restored masks/enhance/inpaint.
-- Python stays running until Phase 9 — instant rollback.
+---
 
 ## Risks
-- **SigLIP parity** — only real parity risk; mitigated by cosine gate and tokenizer integration (recommend Hugging Face `tokenizers` crate for text tower).
-- **whisper-rs build** — C++ toolchain requirement. Mitigated by using the `whisper-cli` binary subprocess strategy as the primary design choice.
-- **llama-server lifecycle** — must replicate Python's spawn/health/kill + mode mutual-exclusion exactly.
-- **Binary size** — `ort` +~30MB; two onnxruntime instances may coexist. Ensure that the `face_id` crate and the `ort` crate share the same library linking to prevent runtime clashes.
 
-## Order of execution
-Phase 0 → 1 (unblocks OCR/vision/search critical path, hardest gates first) → 2 → 3 → 4 → 5 (agent) → 6 → 7 → 8 → 9 (delete Python).
+| Risk | Mitigation |
+|---|---|
+| **LaMa ONNX export** — dynamo exporter can't inspect TorchScript JIT signatures | Subprocess bridge in place; use `dynamo=False` + `torch.jit.trace` wrapper when resolving |
+| **SigLIP parity** | Cosine similarity gate; use `tokenizers = "0.20.0"` (not 0.19.x) |
+| **whisper-rs build** | Use `whisper-cli` binary subprocess instead |
+| **llama-server lifecycle** | `llm_server.rs` replicates Python spawn/health/kill + mode mutual-exclusion |
+| **Binary size** | `ort` +~30MB; `face_id` crate and `ort` share same ONNX Runtime library |
+
+---
+
+## Order of Execution
+
+Phase 0 → 1 → 2 → 3 → **4** → **5** → **6** → **7** → **8** → **9**
+
+Phases 0–3 are **complete**. Next: Phase 4 (interrogate + YOLO + SAM).
