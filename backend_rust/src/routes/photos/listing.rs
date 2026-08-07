@@ -104,7 +104,7 @@ fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (St
     Ok(resolved)
 }
 
-fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
+pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     let path = PathBuf::from(raw_path);
     if path.exists() {
         return Some(path);

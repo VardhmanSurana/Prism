@@ -115,6 +115,9 @@ To start the Rust backend and launch the application:
 
 # Start Desktop environment (Tauri + Rust Backend)
 ./run-desktop.sh
+
+# Start Mobile Companion PWA (LAN dev server on port 3006)
+cd prism-mobile && ./run-mobile.sh
 ```
 
 ### Docker Companion Server Deployment

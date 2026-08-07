@@ -231,6 +231,21 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             paired_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             status TEXT DEFAULT 'paired'
         );
+
+        CREATE TABLE IF NOT EXISTS shares (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            share_token TEXT UNIQUE NOT NULL,
+            resource_type TEXT NOT NULL,
+            resource_id TEXT NOT NULL,
+            password_hash TEXT,
+            expires_at DATETIME,
+            max_downloads INTEGER,
+            download_count INTEGER DEFAULT 0,
+            hide_exif BOOLEAN DEFAULT 0,
+            hide_gps BOOLEAN DEFAULT 0,
+            download_original BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         "#
     )
     .execute(pool)

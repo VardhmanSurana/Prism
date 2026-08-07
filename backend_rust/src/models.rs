@@ -162,3 +162,21 @@ pub struct SyncPeer {
     pub paired_at: Option<DateTime<Utc>>,
     pub status: Option<String>,
 }
+
+// ponytail: Lean data model for resource sharing links with expiration, download limits, and EXIF/GPS privacy toggles.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct ResourceShare {
+    pub id: i64,
+    pub share_token: String,
+    pub resource_type: String,
+    pub resource_id: String,
+    pub password_hash: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub max_downloads: Option<i64>,
+    pub download_count: i64,
+    pub hide_exif: bool,
+    pub hide_gps: bool,
+    pub download_original: bool,
+    pub created_at: Option<DateTime<Utc>>,
+}
+

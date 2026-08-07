@@ -8,6 +8,7 @@ pub mod photos;
 pub mod photos_ai;
 pub mod privacy;
 pub mod settings;
+pub mod shares;
 pub mod stories;
 pub mod system;
 pub mod telemetry_api;
@@ -312,12 +313,17 @@ async fn rate_limit_layer(
         crate::models::Photo,
         crate::models::Album,
         crate::models::Person,
+        crate::models::ResourceShare,
+        crate::routes::shares::CreateShareRequest,
+        crate::routes::shares::CreateShareResponse,
+        crate::routes::shares::SharedResourceResponse,
     )),
     tags(
         (name = "system", description = "System & Health endpoints"),
         (name = "photos", description = "Photo management endpoints"),
         (name = "albums", description = "Album management endpoints"),
-        (name = "people", description = "People & Face recognition endpoints")
+        (name = "people", description = "People & Face recognition endpoints"),
+        (name = "shares", description = "Resource-based sharing endpoints")
     )
 )]
 pub struct ApiDoc;
@@ -491,6 +497,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/agent/preload", post(agent::preload_model))
         .route("/agent/chat", post(agent::chat))
         .route("/agent/uploads/:filename", get(agent::serve_agent_upload))
+        .route("/shares", post(shares::create_share))
+        .route("/shares/", post(shares::create_share))
+        .route("/shares/:token", get(shares::get_shared_resource).delete(shares::revoke_share))
+        .route("/shares/:token/download", get(shares::download_shared_file))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 
 
