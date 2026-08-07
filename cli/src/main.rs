@@ -59,6 +59,34 @@ enum Command {
     People,
     /// List albums
     Albums,
+    /// Import directory tree and scan for photos
+    Import {
+        /// Directory path to import
+        path: String,
+        /// Recursively scan subdirectories
+        #[arg(short, long, default_value_t = true)]
+        recursive: bool,
+    },
+    /// Export photos to an output directory
+    Export {
+        /// Optional album ID to export
+        #[arg(long)]
+        album_id: Option<i64>,
+        /// Output directory path
+        #[arg(short, long)]
+        output_dir: String,
+    },
+    /// Read or update backend settings
+    Config {
+        /// Setting key (omit to view all settings)
+        key: Option<String>,
+        /// Setting value (provide key and value to update)
+        value: Option<String>,
+    },
+    /// Permanently purge trashed photos
+    PurgeTrash,
+    /// Fetch system diagnostics and metrics
+    Diagnostics,
 }
 
 // ─── Response shapes (mirror the Rust backend models) ────────────────────────
@@ -186,6 +214,34 @@ impl PrismClient {
             .context("response was not valid JSON")?;
         serde_json::from_value(value).with_context(|| "response did not match expected shape")
     }
+
+    async fn post_json<B: Serialize, T: for<'de> Deserialize<'de>>(
+        &self,
+        path: &str,
+        body: &B,
+    ) -> Result<T> {
+        let url = format!("{}{}", self.base, path);
+        if self.verbose {
+            eprintln!("→ POST {url}");
+        }
+        let resp = self
+            .http
+            .post(&url)
+            .json(body)
+            .send()
+            .await
+            .with_context(|| format!("failed to reach backend at {url}"))?;
+        let status = resp.status();
+        if !status.is_success() {
+            let text = resp.text().await.unwrap_or_default();
+            bail!("backend returned {status}: {text}");
+        }
+        let value = resp
+            .json::<serde_json::Value>()
+            .await
+            .context("response was not valid JSON")?;
+        serde_json::from_value(value).with_context(|| "response did not match expected shape")
+    }
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -205,6 +261,17 @@ async fn main() -> Result<()> {
         }
         Command::People => cmd_people(&client, cli.json).await,
         Command::Albums => cmd_albums(&client, cli.json).await,
+        Command::Import { path, recursive } => {
+            cmd_import(&client, path, *recursive, cli.json).await
+        }
+        Command::Export { album_id, output_dir } => {
+            cmd_export(&client, *album_id, output_dir, cli.json).await
+        }
+        Command::Config { key, value } => {
+            cmd_config(&client, key.as_deref(), value.as_deref(), cli.json).await
+        }
+        Command::PurgeTrash => cmd_purge_trash(&client, cli.json).await,
+        Command::Diagnostics => cmd_diagnostics(&client, cli.json).await,
     }
 }
 
@@ -380,6 +447,159 @@ async fn cmd_albums(c: &PrismClient, json: bool) -> Result<()> {
         }
         println!("{t}");
         println!("\n{} album(s).", albums.len());
+    }
+    Ok(())
+}
+
+async fn cmd_import(c: &PrismClient, path: &str, recursive: bool, json: bool) -> Result<()> {
+    let payload = serde_json::json!({
+        "path": path,
+        "file_path": path,
+        "recursive": recursive,
+    });
+    let res: serde_json::Value = c.post_json("/api/v1/photos/expand-directory", &payload).await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    let files = res.get("files")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .collect::<Vec<&str>>()
+        })
+        .unwrap_or_default();
+
+    if files.is_empty() {
+        println!("No photos or media files found in '{path}'.");
+        return Ok(());
+    }
+
+    let mut t = Table::new();
+    t.set_header(vec!["#".to_string(), "File Path".to_string()]);
+    for (idx, f) in files.iter().enumerate() {
+        t.add_row(vec![(idx + 1).to_string(), f.to_string()]);
+    }
+    println!("{t}");
+    println!("\nExpanded {} file(s) from '{path}' (recursive: {recursive}).", files.len());
+    Ok(())
+}
+
+async fn cmd_export(c: &PrismClient, album_id: Option<i64>, output_dir: &str, json: bool) -> Result<()> {
+    let payload = serde_json::json!({
+        "album_id": album_id,
+        "output_dir": output_dir,
+    });
+    let res: serde_json::Value = c.post_json("/api/v1/photos/export", &payload).await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    let status = res.get("status").and_then(|v| v.as_str()).unwrap_or("success");
+    let count = res.get("photo_count").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    let mut t = Table::new();
+    t.set_header(vec!["Property".to_string(), "Value".to_string()]);
+    t.add_row(vec!["Status".to_string(), status.to_string()]);
+    t.add_row(vec!["Output Directory".to_string(), output_dir.to_string()]);
+    t.add_row(vec![
+        "Album ID".to_string(),
+        album_id.map(|id| id.to_string()).unwrap_or_else(|| "All".to_string()),
+    ]);
+    t.add_row(vec!["Photos Exported".to_string(), count.to_string()]);
+    println!("{t}");
+    Ok(())
+}
+
+async fn cmd_config(c: &PrismClient, key: Option<&str>, value: Option<&str>, json: bool) -> Result<()> {
+    match (key, value) {
+        (None, _) => {
+            let settings: serde_json::Value = c.get_json("/api/v1/settings").await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&settings)?);
+            } else if let Some(obj) = settings.as_object() {
+                let mut t = Table::new();
+                t.set_header(vec!["Setting Key".to_string(), "Value".to_string()]);
+                for (k, v) in obj {
+                    t.add_row(vec![k.clone(), v.to_string()]);
+                }
+                println!("{t}");
+            } else {
+                println!("{}", settings);
+            }
+        }
+        (Some(k), None) => {
+            let settings: serde_json::Value = c.get_json("/api/v1/settings").await?;
+            let val = settings.get(k);
+            if json {
+                let res = serde_json::json!({ k: val });
+                println!("{}", serde_json::to_string_pretty(&res)?);
+            } else {
+                match val {
+                    Some(v) => println!("{k} = {v}"),
+                    None => println!("Setting '{k}' not found."),
+                }
+            }
+        }
+        (Some(k), Some(v)) => {
+            let payload = serde_json::json!({ k: v });
+            let res: serde_json::Value = c.post_json("/api/v1/settings/general", &payload).await?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&res)?);
+            } else {
+                println!("Updated setting: {k} = {v}");
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn cmd_purge_trash(c: &PrismClient, json: bool) -> Result<()> {
+    let payload = serde_json::json!({ "older_than_days": 0 });
+    let res: serde_json::Value = c.post_json("/api/v1/utilities/purge-trash", &payload).await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    let status = res.get("status").and_then(|v| v.as_str()).unwrap_or("success");
+    let purged = res.get("purged").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    let mut t = Table::new();
+    t.set_header(vec!["Metric".to_string(), "Value".to_string()]);
+    t.add_row(vec!["Status".to_string(), status.to_string()]);
+    t.add_row(vec!["Purged Photos".to_string(), purged.to_string()]);
+    println!("{t}");
+    println!("\nPurged {} trashed item(s).", purged);
+    Ok(())
+}
+
+async fn cmd_diagnostics(c: &PrismClient, json: bool) -> Result<()> {
+    let diag: serde_json::Value = c.get_json("/api/v1/utilities/diagnostics").await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&diag)?);
+        return Ok(());
+    }
+
+    if let Some(obj) = diag.as_object() {
+        let mut t = Table::new();
+        t.set_header(vec!["Diagnostic Metric".to_string(), "Value".to_string()]);
+        for (k, v) in obj {
+            let val_str = match v {
+                serde_json::Value::Number(num) if k.ends_with("_bytes") => {
+                    fmt_bytes(num.as_i64().unwrap_or(0))
+                }
+                serde_json::Value::String(s) => s.clone(),
+                _ => v.to_string(),
+            };
+            t.add_row(vec![k.clone(), val_str]);
+        }
+        println!("{t}");
+    } else {
+        println!("{}", diag);
     }
     Ok(())
 }

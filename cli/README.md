@@ -36,5 +36,32 @@ cargo build --release
 | `prism search <query> [--limit N]` | `GET /api/v1/utilities/search/fused` | Fused metadata search |
 | `prism people` | `GET /api/v1/people` | List known people |
 | `prism albums` | `GET /api/v1/albums` | List albums |
+| `prism import <path> [--recursive]` | `POST /api/v1/photos/expand-directory` | Directory scanning and photo expansion |
+| `prism export -o <dir> [--album-id N]` | `POST /api/v1/photos/export` | Export photos to an output directory |
+| `prism config [key] [value]` | `GET /api/v1/settings` / `POST /api/v1/settings/general` | Read all settings or update key-value pair |
+| `prism purge-trash` | `POST /api/v1/utilities/purge-trash` | Permanently purge trashed photos |
+| `prism diagnostics` | `GET /api/v1/utilities/diagnostics` | Fetch system diagnostics & metrics |
 
 `<id>` accepts either the numeric id or the uuid.
+
+## Examples
+
+```bash
+# Expand and scan a directory for photo files
+prism import /home/user/Pictures/Vacation
+
+# Export photos from album 1 to output directory
+prism export --album-id 1 -o /tmp/export
+
+# Read all backend settings
+prism config
+
+# Update a setting key-value pair
+prism config ENABLE_AI_CLIP false
+
+# Purge trashed items permanently
+prism purge-trash
+
+# Fetch system diagnostics
+prism diagnostics
+```
