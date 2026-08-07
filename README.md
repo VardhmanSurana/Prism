@@ -107,32 +107,44 @@ graph TD
 
 ### One-Click Startup
 
-To start the Rust backend and launch the application:
+To start the Rust backend and launch the application using `pnpm` workspace scripts or helper shell scripts:
 
 ```bash
-# Start Web environment (Vite + Rust Backend)
-./run-web.sh
-
 # Start Desktop environment (Tauri + Rust Backend)
-./run-desktop.sh
+pnpm run desktop
+# or: ./run-desktop.sh
+
+# Start Web environment (Vite + Rust Backend)
+pnpm run web
+# or: ./run-web.sh
 
 # Start Mobile Companion PWA (LAN dev server on port 3006)
-cd prism-mobile && ./run-mobile.sh
+pnpm run mobile
+# or: cd ../prism-mobile && ./run-mobile.sh
+
+# Run Headless Rust CLI
+pnpm run cli
 ```
 
 ### Docker Companion Server Deployment
 
-Deploy the standalone Prism Companion Server using Docker or Docker Compose:
+Deploy the standalone Prism Companion Server using `pnpm` convenience scripts or Docker Compose:
 
 ```bash
-# Start server in background via helper script
-./run-server-docker.sh up
+# Start server in background via pnpm helper script
+pnpm run server
+# or: ./run-server-docker.sh up
 
 # View container status and health endpoint
-./run-server-docker.sh status
+pnpm run server:status
+# or: ./run-server-docker.sh status
+
+# View container logs
+pnpm run server:logs
 
 # Stop server container
-./run-server-docker.sh down
+pnpm run server:down
+# or: ./run-server-docker.sh down
 ```
 
 Or deploy directly from `prism-server/`:
