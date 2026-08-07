@@ -1,0 +1,2040 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery Visual Studio – Vault & Trash Animation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- anime.js for the flight paths, particle bursts, pulses & grid reflow -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <!-- Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d0e12;
+            color: #f1f5f9;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #121318;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2a2d3d;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3b3f54;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+            padding: 24px;
+        }
+
+        .image-card {
+            position: relative;
+            aspect-ratio: 16 / 10;
+            border-radius: 14px;
+            overflow: hidden;
+            cursor: pointer;
+            background-color: #1a1c24;
+            border: 2px solid transparent;
+            transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1), border-color 0.2s, box-shadow 0.25s;
+        }
+
+        .image-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+        }
+
+        .image-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }
+
+        .image-card:hover img {
+            transform: scale(1.06);
+        }
+
+        .image-card.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+        }
+
+        /* Selection Overlay */
+        .selection-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.1) 40%, rgba(0, 0, 0, 0.4) 100%);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            padding: 12px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .image-card:hover .selection-overlay,
+        .image-card.selected .selection-overlay {
+            opacity: 1;
+        }
+
+        .checkbox-ring {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            background: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .image-card.selected .checkbox-ring {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+            transform: scale(1.08);
+        }
+
+        .checkbox-ring svg {
+            width: 14px;
+            height: 14px;
+            stroke: white;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            opacity: 0;
+            transform: scale(0.6);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .image-card.selected .checkbox-ring svg {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .toolbar {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(120px);
+            background: rgba(22, 24, 33, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 40px;
+            padding: 8px 18px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.25);
+            z-index: 50;
+        }
+
+        .toolbar.visible {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .toolbar-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-weight: 500;
+        }
+
+        .toolbar-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .toolbar-btn span {
+            font-size: 11px;
+            letter-spacing: 0.02em;
+        }
+
+        /* Static Trash Icon Container */
+        #trash-container {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #trash-btn.animating .static-icon {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #lock-btn.animating .static-vault-icon,
+        #lock-btn.animating span {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* --- CSS TRASH CAN --- */
+        .css-trash {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 2px;
+            color: currentColor;
+            transform-origin: center center;
+        }
+
+        .css-trash-lid {
+            width: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform-origin: 2px 100%; /* Pivot on bottom left of lid */
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 2;
+        }
+
+        .css-trash-handle {
+            width: 6px;
+            height: 3px;
+            border: 2px solid currentColor;
+            border-bottom: none;
+            border-radius: 3px 3px 0 0;
+        }
+
+        .css-trash-bar {
+            width: 100%;
+            height: 2px;
+            background-color: currentColor;
+            border-radius: 2px;
+        }
+
+        .css-trash-body {
+            width: 16px;
+            height: 15px;
+            border: 2px solid currentColor;
+            border-radius: 3px 3px 4px 4px;
+            margin-top: 1px;
+            display: flex;
+            justify-content: space-evenly;
+            padding: 2px 0;
+        }
+
+        #animated-trash {
+            position: fixed;
+            z-index: 120;
+            pointer-events: none;
+            display: none; /* Controlled by CSS animation state classes */
+            color: #ef4444;
+            filter: drop-shadow(0 10px 15px rgba(239, 68, 68, 0.4));
+        }
+
+        /* Inner wrapper receives the "gulp" bounce independently of the
+           outer element's position/scale/return animations, so the two
+           transforms never fight each other. */
+        .trash-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 2px;
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        /* Fixed keyframe states to ensure animation visibility throughout cycle */
+        .trash-anim-popup {
+            display: flex !important;
+            animation: popupFromButton 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popupFromButton {
+            0% {
+                transform: translate(-50%, -50%) scale(1) translateY(0);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(2.2) translateY(-40px);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(2.8) translateY(-60px);
+                opacity: 1;
+            }
+        }
+
+        .trash-anim-open .css-trash-lid {
+            transform: translateY(-3px) rotate(-42deg);
+        }
+
+        /* Return state MUST maintain display: flex !important */
+        .trash-anim-return {
+            display: flex !important;
+            animation: returnToButton 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes returnToButton {
+            0% {
+                transform: translate(-50%, -50%) scale(2.8) translateY(-60px);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1) translateY(0);
+                opacity: 0;
+            }
+        }
+
+        .trash-anim-close .css-trash-lid {
+            transform: translateY(0) rotate(0deg);
+        }
+
+        .trash-anim-shake {
+            animation: shakeTrash 0.4s ease-in-out;
+        }
+
+        @keyframes shakeTrash {
+            0%, 100% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(0deg); }
+            20% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(-8deg); }
+            40% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(8deg); }
+            60% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(-5deg); }
+            80% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(5deg); }
+        }
+
+        /* Flying items - transform/opacity are now driven entirely by the
+           Web Animations API (arced flight path), so no CSS transition here. */
+        .image-moving {
+            position: fixed !important;
+            z-index: 10005 !important;
+            pointer-events: none;
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            will-change: transform, opacity;
+        }
+
+        .hidden-item {
+            opacity: 0 !important;
+            transform: scale(0.9) !important;
+            pointer-events: none;
+            transition: opacity 0.3s, transform 0.3s;
+        }
+
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 130;
+            will-change: transform, opacity;
+        }
+
+        #anim-overlay {
+            position: fixed;
+            inset: 0;
+            background: transparent;
+            backdrop-filter: none;
+            z-index: 90;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #anim-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Badge count floating above trash during animation */
+        #trash-counter-badge {
+            position: absolute;
+            top: -12px;
+            right: -12px;
+            background: #ffffff;
+            color: #ef4444;
+            font-size: 10px;
+            font-weight: 800;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.3s ease;
+        }
+
+        #trash-counter-badge.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        /* Favorite heart badge on cards - now actually wired up */
+        .favorite-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ef4444;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+            animation: badgePopIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes badgePopIn {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.25); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .favorite-badge:hover {
+            transform: scale(1.15);
+        }
+
+        .btn-fav-toggle:hover svg {
+            fill: #ef4444;
+            stroke: #ef4444;
+        }
+
+        .toolbar-btn.is-favorite {
+            color: #ef4444;
+        }
+
+        .toolbar-btn.is-favorite svg {
+            fill: #ef4444;
+        }
+
+        .toolbar-btn.pulse-beat svg {
+            animation: heartBeat 0.35s ease-in-out;
+        }
+
+        @keyframes heartBeat {
+            0%, 100% { transform: scale(1); }
+            40% { transform: scale(1.3); }
+        }
+
+        .shooting-heart {
+            position: fixed;
+            z-index: 150;
+            pointer-events: none;
+            width: 26px;
+            height: 26px;
+            color: #ef4444;
+            filter: drop-shadow(0 4px 12px rgba(239, 68, 68, 0.6));
+            will-change: transform, opacity;
+        }
+
+        .fav-burst-container {
+            position: fixed;
+            z-index: 160;
+            pointer-events: none;
+            width: 90px;
+            height: 90px;
+            transform: translate(-50%, -50%);
+        }
+
+        .fav-burst-svg {
+            width: 100%;
+            height: 100%;
+            animation: burstPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes burstPop {
+            0% {
+                transform: scale(0.2);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.25);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        #toast-undo {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        /* ── CSS 3D Vault Icon ─────────────────────────────────────── */
+        .vault-css {
+            position: relative;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            perspective: 500px;
+        }
+
+        .vault-css-frame {
+            position: absolute;
+            inset: 0;
+            border: 2.5px solid currentColor;
+            border-radius: 5px;
+            background: rgba(15,23,42,0.95);
+            box-shadow: inset 0 0 6px rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vault-css-interior {
+            position: absolute;
+            inset: 3px;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+            border-radius: 3px;
+            box-shadow: inset 0 0 10px rgba(226,232,240,0.35);
+        }
+
+        .vault-css-door {
+            position: absolute;
+            inset: 2px;
+            background: currentColor;
+            border-radius: 3px;
+            transform-origin: left center;
+            transition: transform var(--vault-dur, 0.35s) cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.5);
+            backface-visibility: hidden;
+        }
+
+        .vault-css-wheel {
+            width: 10px;
+            height: 10px;
+            border: 2px solid #0f172a;
+            border-radius: 50%;
+            position: relative;
+            transition: transform var(--vault-dur, 0.35s) cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vault-css-spoke {
+            position: absolute;
+            width: 12px;
+            height: 2px;
+            background: #0f172a;
+            border-radius: 1px;
+        }
+        .vault-css-spoke.spoke-2 { transform: rotate(90deg); }
+
+        .vault-css-bolt {
+            position: absolute;
+            right: 1px;
+            width: 2px;
+            height: 4px;
+            background: #94a3b8;
+            border-radius: 1px;
+            transition: transform 0.3s ease;
+        }
+
+        /* Vault open/snap states */
+        .vault-anim-open .vault-css-door  { transform: rotateY(-110deg); }
+        .vault-anim-open .vault-css-wheel { transform: rotate(-360deg); }
+        .vault-anim-snap .vault-css-door  { transform: rotateY(0deg); }
+        .vault-anim-snap .vault-css-wheel { transform: rotate(360deg); }
+
+        /* ── Animated vault popup (fixed in viewport) ─────────────── */
+        #animated-vault {
+            position: fixed;
+            z-index: 9999;
+            pointer-events: none;
+            display: none;
+            color: #e2e8f0;
+            filter: drop-shadow(0 14px 28px rgba(226,232,240,0.45));
+            transform-origin: center center;
+        }
+
+        .vault-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        /* Duration control panel */
+        #duration-panel {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 200;
+            background: rgba(22,24,33,0.9);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 16px 20px;
+            min-width: 220px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+        }
+        #duration-panel h3 {
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 14px;
+        }
+        .dur-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .dur-row label {
+            font-size: 12px;
+            color: #94a3b8;
+            white-space: nowrap;
+            flex-shrink: 0;
+            width: 90px;
+        }
+        .dur-row input[type=range] {
+            flex: 1;
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+        .dur-val {
+            font-size: 11px;
+            font-weight: 600;
+            color: #38bdf8;
+            width: 34px;
+            text-align: right;
+        }
+        .dur-row:last-child { margin-bottom: 0; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Duration Control Panel -->
+    <div id="duration-panel">
+        <h3>⚙️ Animation Duration</h3>
+        <div class="dur-row">
+            <label>Vault open</label>
+            <input type="range" id="dur-vault-open" min="100" max="900" value="450" step="50">
+            <span class="dur-val" id="dur-vault-open-val">450ms</span>
+        </div>
+        <div class="dur-row">
+            <label>Door close</label>
+            <input type="range" id="dur-vault-snap" min="100" max="1200" value="450" step="50">
+            <span class="dur-val" id="dur-vault-snap-val">450ms</span>
+        </div>
+        <div class="dur-row">
+            <label>Image flight</label>
+            <input type="range" id="dur-vault-fly" min="150" max="900" value="400" step="50">
+            <span class="dur-val" id="dur-vault-fly-val">400ms</span>
+        </div>
+        <div class="dur-row">
+            <label>Trash lid</label>
+            <input type="range" id="dur-trash" min="100" max="1000" value="500" step="50">
+            <span class="dur-val" id="dur-trash-val">500ms</span>
+        </div>
+        <div class="pt-3 mt-3 border-t border-zinc-700/60 flex flex-col gap-2">
+            <button id="btn-vault-pause-play" class="w-full py-2 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg">
+                <span id="vault-pause-play-icon">⏸️</span>
+                <span id="vault-pause-play-text">Pause / Play Vault</span>
+            </button>
+        </div>
+    </div>
+
+    <header class="h-16 px-6 border-b border-zinc-800/80 bg-zinc-950/60 backdrop-blur-md flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+            <div>
+                <h1 class="text-base font-semibold tracking-wide text-zinc-100">Gallery Visual Studio</h1>
+                <p class="text-xs text-zinc-400">Select photos · Vault, Trash &amp; Favorites animations</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <button id="btn-add-photos" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 border border-zinc-700/60 transition-all flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Add Sample Photos
+            </button>
+            <button id="btn-open-trash" class="px-3.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-medium text-zinc-200 border border-zinc-700/60 transition-all flex items-center gap-2 relative">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Recycle Bin
+                <span id="trash-bin-count" class="ml-1 px-1.5 py-0.5 text-[10px] bg-zinc-700 text-zinc-300 rounded-full font-bold">0</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto relative">
+        <div id="anim-overlay"></div>
+        <div class="gallery-grid" id="gallery">
+            <!-- Dynamic Images Render Here -->
+        </div>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-20 right-6 z-50 bg-zinc-800/90 text-zinc-100 px-4 py-2.5 rounded-xl border border-zinc-700/80 shadow-2xl opacity-0 pointer-events-none transition-all duration-300 flex items-center gap-2 text-xs font-medium translate-y-[-10px] backdrop-blur-md">
+        <span id="toast-icon">❤️</span>
+        <span id="toast-msg">Updated favorites</span>
+        <button id="toast-undo" class="ml-2 text-blue-400 hover:text-blue-300 font-semibold hidden">Undo</button>
+    </div>
+
+    <div id="action-toolbar" class="toolbar">
+        <div class="flex items-center gap-3 border-r border-zinc-700/80 pr-4 mr-1">
+            <button id="close-selection" class="p-1.5 hover:bg-zinc-800/80 text-zinc-400 hover:text-white rounded-full transition-colors">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <span id="selected-count" class="text-sm font-semibold text-zinc-200">0 selected</span>
+        </div>
+
+        <button id="btn-select-all" class="toolbar-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+            <span>Select All</span>
+        </button>
+
+        <button id="btn-favorite" class="toolbar-btn">
+            <svg id="fav-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+            <span id="fav-label">Favorite</span>
+        </button>
+
+        <!-- Lock / Vault button -->
+        <div id="lock-container">
+            <button id="lock-btn" class="toolbar-btn">
+                <!-- STATIC VAULT ICON -->
+                <div class="vault-css static-vault-icon" style="color: currentColor;">
+                    <div class="vault-css-frame">
+                        <div class="vault-css-interior"></div>
+                        <div class="vault-css-door">
+                            <div class="vault-css-wheel">
+                                <div class="vault-css-spoke"></div>
+                                <div class="vault-css-spoke spoke-2"></div>
+                            </div>
+                            <div class="vault-css-bolt"></div>
+                        </div>
+                    </div>
+                </div>
+                <span>Lock</span>
+            </button>
+        </div>
+
+        <div id="trash-container">
+            <button id="trash-btn" class="toolbar-btn text-red-400 hover:text-red-300">
+                <!-- STATIC BUTTON ICON -->
+                <div class="css-trash static-icon">
+                    <div class="css-trash-lid">
+                        <div class="css-trash-handle"></div>
+                        <div class="css-trash-bar"></div>
+                    </div>
+                    <div class="css-trash-body">
+                        <div class="css-trash-strip"></div>
+                        <div class="css-trash-strip"></div>
+                    </div>
+                </div>
+                <span>Delete</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- VIEWPORT ANIMATED POPUP TRASH ICON -->
+    <div id="animated-trash" class="css-trash">
+        <div id="trash-counter-badge">0</div>
+        <div class="trash-inner" id="trash-inner">
+            <div class="css-trash-lid">
+                <div class="css-trash-handle"></div>
+                <div class="css-trash-bar"></div>
+            </div>
+            <div class="css-trash-body">
+                <div class="css-trash-strip"></div>
+                <div class="css-trash-strip"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEWPORT ANIMATED VAULT POPUP -->
+    <div id="animated-vault">
+        <div class="vault-inner" id="vault-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="w-16 h-16" id="vault-popup-door" style="color: #e2e8f0;">
+                <rect x="3" y="3" width="18" height="17" rx="2.5"></rect>
+                <path d="M5 20v1.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V20M16 20v1.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V20"></path>
+                <rect x="5.5" y="5.5" width="13" height="12" rx="1.5"></rect>
+                <circle cx="12" cy="11.5" r="3.2"></circle>
+                <circle cx="12" cy="11.5" r="1.4"></circle>
+                <path d="M12 7.3v.9M12 14.8v.9M7.8 11.5h.9M15.3 11.5h.9M9.03 8.53l.64.64M14.33 13.83l.64.64M9.03 14.47l.64-.64M14.33 9.17l.64-.64"></path>
+                <rect x="16.8" y="7" width="1.4" height="2.8" rx="0.5" fill="currentColor" stroke="none"></rect>
+                <rect x="16.8" y="13.2" width="1.4" height="2.8" rx="0.5" fill="currentColor" stroke="none"></rect>
+            </svg>
+        </div>
+    </div>
+
+    <div id="trash-drawer" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-300 flex justify-end">
+        <div class="w-full max-w-md bg-zinc-900 border-l border-zinc-800 h-full p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-out" id="trash-drawer-content">
+            <div>
+                <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+                    <div class="flex items-center gap-2">
+                        <svg class="text-red-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <h2 class="text-lg font-semibold text-zinc-100">Recycle Bin</h2>
+                    </div>
+                    <button id="btn-close-trash-drawer" class="p-1 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+                <div id="trash-drawer-list" class="mt-4 grid grid-cols-2 gap-3 max-h-[calc(100vh-180px)] overflow-y-auto pr-1">
+                    <!-- Deleted items render here -->
+                </div>
+            </div>
+            <div class="pt-4 border-t border-zinc-800 flex gap-3">
+                <button id="btn-restore-all" class="flex-1 py-2.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 font-medium text-xs transition-colors">
+                    Restore All Items
+                </button>
+                <button id="btn-empty-trash" class="flex-1 py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-medium text-xs transition-colors">
+                    Empty Bin
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="lightbox-modal" class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center p-6">
+        <button id="btn-close-lightbox" class="absolute top-6 right-6 p-2 text-zinc-400 hover:text-white bg-zinc-800/60 rounded-full hover:bg-zinc-700/80 transition-colors">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <img id="lightbox-img" src="" alt="Enlarged preview" class="max-w-full max-h-[85vh] rounded-2xl object-contain shadow-2xl">
+    </div>
+
+    <script>
+        // Sample Image dataset
+        const sampleImages = [
+            'https://picsum.photos/id/1015/600/375',
+            'https://picsum.photos/id/1016/600/375',
+            'https://picsum.photos/id/1018/600/375',
+            'https://picsum.photos/id/1021/600/375',
+            'https://picsum.photos/id/1024/600/375',
+            'https://picsum.photos/id/1035/600/375',
+            'https://picsum.photos/id/1043/600/375',
+            'https://picsum.photos/id/1050/600/375'
+        ];
+
+        // Every gallery item gets a permanent uid so selection, FLIP layout
+        // animation, and rendering all stay correctly matched even as the
+        // array is spliced during delete/restore.
+        let uidCounter = 0;
+        function makeItem(src) { return { uid: uidCounter++, src }; }
+
+        let activeGallery = [];
+        let deletedGallery = [];
+        let favoriteUrls = new Set();
+        let selectedUids = new Set();
+        let isAnimating = false;
+        let audioInitialized = false;
+        let lastDeletedBatch = null;
+
+        // Sound Effects Synthesizer using Tone.js
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        synth.volume.value = -12;
+
+        function playSound(type) {
+            try {
+                if (!audioInitialized) {
+                    Tone.start();
+                    audioInitialized = true;
+                }
+                const now = Tone.now();
+                if (type === 'popup') {
+                    synth.triggerAttackRelease(["C4", "E4", "G4"], "16n", now);
+                } else if (type === 'suck') {
+                    synth.triggerAttackRelease("E5", "32n", now);
+                } else if (type === 'gulp') {
+                    synth.triggerAttackRelease("C3", "32n", now);
+                } else if (type === 'slam') {
+                    synth.triggerAttackRelease(["G2", "C3"], "16n", now);
+                } else if (type === 'return') {
+                    synth.triggerAttackRelease(["G4", "D4", "G3"], "16n", now);
+                } else if (type === 'click') {
+                    synth.triggerAttackRelease("A4", "32n", now);
+                } else if (type === 'favorite') {
+                    synth.triggerAttackRelease(["C5", "E5", "G5"], "16n", now);
+                }
+            } catch (e) {
+                // Ignore audio context errors gracefully
+            }
+        }
+
+        // DOM elements
+        const gallery = document.getElementById('gallery');
+        const toolbar = document.getElementById('action-toolbar');
+        const countDisplay = document.getElementById('selected-count');
+        const closeBtn = document.getElementById('close-selection');
+        const trashBtn = document.getElementById('trash-btn');
+        const animatedTrash = document.getElementById('animated-trash');
+        const trashInner = document.getElementById('trash-inner');
+        const animOverlay = document.getElementById('anim-overlay');
+        const trashBadge = document.getElementById('trash-counter-badge');
+        const btnFavorite = document.getElementById('btn-favorite');
+        const favIcon = document.getElementById('fav-icon');
+        const favLabel = document.getElementById('fav-label');
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-msg');
+        const toastUndo = document.getElementById('toast-undo');
+
+        const btnAddPhotos = document.getElementById('btn-add-photos');
+        const btnOpenTrash = document.getElementById('btn-open-trash');
+        const trashDrawer = document.getElementById('trash-drawer');
+        const trashDrawerContent = document.getElementById('trash-drawer-content');
+        const btnCloseTrashDrawer = document.getElementById('btn-close-trash-drawer');
+        const trashDrawerList = document.getElementById('trash-drawer-list');
+        const trashBinCount = document.getElementById('trash-bin-count');
+        const btnRestoreAll = document.getElementById('btn-restore-all');
+        const btnEmptyTrash = document.getElementById('btn-empty-trash');
+        const btnSelectAll = document.getElementById('btn-select-all');
+
+        const lightboxModal = document.getElementById('lightbox-modal');
+        const lightboxImg = document.getElementById('lightbox-img');
+        const btnCloseLightbox = document.getElementById('btn-close-lightbox');
+
+        function initGallery() {
+            activeGallery = sampleImages.map(makeItem);
+            renderGallery();
+        }
+
+        const heartOutlineSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+        const heartFilledSVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+
+        function renderGallery() {
+            gallery.innerHTML = '';
+            if (activeGallery.length === 0) {
+                gallery.innerHTML = `
+                    <div class="col-span-full py-20 text-center text-zinc-500">
+                        <svg class="mx-auto mb-3 opacity-40" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        <p class="text-sm font-medium">Gallery is empty</p>
+                        <p class="text-xs text-zinc-600 mt-1">Click "Add Sample Photos" to restore images</p>
+                    </div>
+                `;
+                return;
+            }
+
+            activeGallery.forEach((item) => {
+                const isFav = favoriteUrls.has(item.src);
+                const card = document.createElement('div');
+                card.className = `image-card ${selectedUids.has(item.uid) ? 'selected' : ''}`;
+                card.dataset.uid = item.uid;
+
+                card.innerHTML = `
+                    <img src="${item.src}" alt="Gallery item" loading="lazy">
+                    ${isFav ? `<button class="favorite-badge" title="Remove from favorites">${heartFilledSVG}</button>` : ''}
+                    <div class="selection-overlay">
+                        <div class="checkbox-ring">
+                            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            ${!isFav ? `<button class="btn-fav-toggle p-1.5 bg-black/40 hover:bg-black/70 backdrop-blur-md rounded-lg text-white/80 transition-colors" title="Add to favorites">${heartOutlineSVG}</button>` : ''}
+                            <button class="btn-preview p-1.5 bg-black/40 hover:bg-black/70 backdrop-blur-md rounded-lg text-white/80 hover:text-white transition-colors" title="Preview Photo">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Handle Card Click: selection vs preview vs favorite toggle
+                card.addEventListener('click', (e) => {
+                    const previewBtn = e.target.closest('.btn-preview');
+                    const favToggle = e.target.closest('.btn-fav-toggle');
+                    const favBadge = e.target.closest('.favorite-badge');
+
+                    if (previewBtn) {
+                        e.stopPropagation();
+                        openLightbox(item.src);
+                    } else if (favToggle || favBadge) {
+                        e.stopPropagation();
+                        toggleSingleFavorite(item.src, card);
+                    } else {
+                        toggleSelection(item.uid);
+                    }
+                });
+
+                gallery.appendChild(card);
+            });
+        }
+
+        // --- FLIP layout animation helper -----------------------------------
+        // Captures current card positions, applies a mutation + re-render,
+        // then animates any remaining cards from their old position to the
+        // new one so the grid never "jump cuts" when items are removed or
+        // restored.
+        function flipGallery(mutate) {
+            const before = new Map();
+            gallery.querySelectorAll('.image-card').forEach((c) => {
+                before.set(c.dataset.uid, c.getBoundingClientRect());
+            });
+
+            mutate();
+            renderGallery();
+
+            gallery.querySelectorAll('.image-card').forEach((c) => {
+                const prev = before.get(c.dataset.uid);
+                if (!prev) return;
+                const now = c.getBoundingClientRect();
+                const dx = prev.left - now.left;
+                const dy = prev.top - now.top;
+                if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+                const prevTransition = c.style.transition;
+                c.style.transition = 'none';
+                anime({
+                    targets: c,
+                    translateX: [dx, 0],
+                    translateY: [dy, 0],
+                    duration: 420,
+                    easing: 'cubicBezier(.2, 0, 0, 1)',
+                    complete: () => {
+                        c.style.transform = '';
+                        c.style.transition = prevTransition;
+                    },
+                });
+            });
+        }
+
+        function toggleSelection(uid) {
+            if (isAnimating) return;
+            playSound('click');
+
+            if (selectedUids.has(uid)) {
+                selectedUids.delete(uid);
+            } else {
+                selectedUids.add(uid);
+            }
+
+            const card = gallery.querySelector(`[data-uid="${uid}"]`);
+            if (card) {
+                card.classList.toggle('selected', selectedUids.has(uid));
+            }
+
+            updateToolbar();
+        }
+
+        function updateToolbar() {
+            const count = selectedUids.size;
+            countDisplay.textContent = `${count} selected`;
+
+            if (count > 0) {
+                toolbar.classList.add('visible');
+
+                const selectedItems = activeGallery.filter((i) => selectedUids.has(i.uid));
+                const allFavorited = selectedItems.length > 0 && selectedItems.every((i) => favoriteUrls.has(i.src));
+
+                if (allFavorited) {
+                    btnFavorite.classList.add('is-favorite');
+                    favIcon.setAttribute('fill', '#ef4444');
+                    favIcon.setAttribute('stroke', '#ef4444');
+                    favLabel.textContent = 'Unfavorite';
+                } else {
+                    btnFavorite.classList.remove('is-favorite');
+                    favIcon.setAttribute('fill', 'none');
+                    favIcon.setAttribute('stroke', 'currentColor');
+                    favLabel.textContent = 'Favorite';
+                }
+            } else if (!isAnimating) {
+                toolbar.classList.remove('visible');
+            }
+        }
+
+        // Quick scale "heartbeat" used to give landing feedback on a card
+        // or on the toolbar favorite icon. Driven by anime.js; resets the
+        // inline transform afterwards so it doesn't fight the card's own
+        // CSS hover transform.
+        function pulse(el, scale = 1.06, duration = 260) {
+            if (!el) return;
+            const prevTransition = el.style.transition;
+            el.style.transition = 'none';
+            anime({
+                targets: el,
+                scale: [1, scale, 1],
+                duration,
+                easing: 'easeOutQuad',
+                complete: () => {
+                    el.style.transform = '';
+                    el.style.transition = prevTransition;
+                },
+            });
+        }
+
+        function toggleSingleFavorite(src, card) {
+            const isFav = favoriteUrls.has(src);
+            if (isFav) {
+                unfavoriteWithFlight(src, [card], () => {
+                    showToast('Removed from Favorites', '🤍');
+                });
+            } else {
+                favoriteUrls.add(src);
+                playSound('favorite');
+                const rect = card.getBoundingClientRect();
+                pulse(card, 1.045, 300);
+                spawnRadialHeartBurst(rect.left + rect.width / 2, rect.top + rect.height / 2);
+                renderGallery();
+                updateToolbar();
+                showToast('Added to Favorites', '❤️');
+            }
+        }
+
+        // Creates the small flying heart element used for both the
+        // favorite (button -> image) and unfavorite (image -> button)
+        // flight animations.
+        function createFlightHeart(x, y) {
+            const heart = document.createElement('div');
+            heart.className = 'shooting-heart';
+            heart.innerHTML = `<svg viewBox="0 0 24 24" fill="#ef4444"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+            heart.style.left = `${x - 13}px`;
+            heart.style.top = `${y - 13}px`;
+            document.body.appendChild(heart);
+            return heart;
+        }
+
+        // Sends a heart flying from one or more cards back into the
+        // toolbar's Favorite button, then removes those photos from
+        // favorites once each heart lands. Mirrors the add-to-favorites
+        // flight in reverse.
+        function unfavoriteWithFlight(singleSrc, cards, onDone) {
+            isAnimating = true;
+
+            // The toolbar (and its Favorite button) is only slid into view
+            // when something is selected. A single-card unfavorite can
+            // happen with nothing selected, so briefly reveal the toolbar
+            // as the "box" the heart flies back into, then let
+            // updateToolbar() settle it back down afterwards.
+            const toolbarAlreadyVisible = toolbar.classList.contains('visible');
+            if (!toolbarAlreadyVisible) {
+                // Pop it in immediately (skip the slide transition) so the
+                // button is already at its final position before we read
+                // its coordinates below — otherwise the heart would aim at
+                // a target that's still mid-slide.
+                toolbar.style.transition = 'none';
+                toolbar.classList.add('visible');
+                void toolbar.offsetWidth;
+                requestAnimationFrame(() => {
+                    toolbar.style.transition = '';
+                });
+            }
+
+            const btnRect = btnFavorite.getBoundingClientRect();
+            const endX = btnRect.left + btnRect.width / 2;
+            const endY = btnRect.top + btnRect.height / 2;
+
+            cards.forEach((card, i) => {
+                setTimeout(() => {
+                    if (!card || !card.isConnected) return;
+                    const rect = card.getBoundingClientRect();
+                    const startX = rect.left + rect.width / 2;
+                    const startY = rect.top + rect.height / 2;
+
+                    const badge = card.querySelector('.favorite-badge');
+                    if (badge) badge.style.opacity = '0';
+
+                    const heart = createFlightHeart(startX, startY);
+                    playSound('click');
+
+                    const anim = animateArc(heart, endX, endY, {
+                        duration: 460,
+                        lift: -Math.min(120, Math.abs(endY - startY) * 0.5 + 40),
+                        rotate: (Math.random() - 0.5) * 40,
+                        midScale: 0.85,
+                        endScale: 0.25,
+                        endOpacity: 0,
+                        onComplete: () => {
+                            heart.remove();
+                            pulse(btnFavorite, 0.85, 220);
+                            playSound('gulp');
+                        },
+                    });
+                }, i * 100);
+            });
+
+            const totalTime = 460 + cards.length * 100 + 120;
+            setTimeout(() => {
+                if (singleSrc) {
+                    favoriteUrls.delete(singleSrc);
+                } else {
+                    cards.forEach((card) => {
+                        const uid = card?.dataset?.uid;
+                        const item = activeGallery.find((g) => String(g.uid) === uid);
+                        if (item) favoriteUrls.delete(item.src);
+                    });
+                }
+                isAnimating = false;
+                renderGallery();
+                updateToolbar();
+                if (onDone) onDone();
+            }, totalTime);
+        }
+
+        // --- Arc flight helper (anime.js) -------------------------------
+        // Animates `el` (already positioned at its start point) along a
+        // gentle parabolic arc to (endX, endY) using a two-keyframe
+        // ease-out/ease-in split so it reads as a toss rather than a
+        // straight linear slide. Calls opts.onComplete when it lands.
+        function animateArc(el, endX, endY, opts = {}) {
+            const startRect = el.getBoundingClientRect();
+            const startX = startRect.left + startRect.width / 2;
+            const startY = startRect.top + startRect.height / 2;
+            const dx = endX - startX;
+            const dy = endY - startY;
+            const lift = opts.lift ?? -Math.min(140, Math.abs(dy) * 0.4 + 40);
+            const rotate = opts.rotate ?? (Math.random() - 0.5) * 220;
+            const endScale = opts.endScale ?? 0.02;
+            const endOpacity = opts.endOpacity ?? 0;
+            const duration = opts.duration ?? 450;
+            const upPortion = Math.round(duration * 0.35);
+            const downPortion = duration - upPortion;
+            const vanishDelay = Math.round(duration * 0.6);
+            const vanishPortion = duration - vanishDelay;
+
+            return anime({
+                targets: el,
+                translateX: [
+                    { value: dx * 0.5, duration: upPortion, easing: 'easeOutQuad' },
+                    { value: dx, duration: downPortion, easing: 'easeOutCubic' },
+                ],
+                translateY: [
+                    { value: dy * 0.35 + lift, duration: upPortion, easing: 'easeOutQuad' },
+                    { value: dy, duration: downPortion, easing: 'easeOutCubic' },
+                ],
+                scale: [
+                    { value: 0.85, duration: vanishDelay, easing: 'easeOutQuad' },
+                    { value: endScale, duration: vanishPortion, easing: 'easeInCubic' },
+                ],
+                rotate: [
+                    { value: rotate * 0.5, duration: upPortion },
+                    { value: rotate, duration: downPortion },
+                ],
+                opacity: [
+                    { value: 1.0, duration: vanishDelay },
+                    { value: endOpacity, duration: vanishPortion, easing: 'easeInCubic' },
+                ],
+                complete: () => { if (opts.onComplete) opts.onComplete(); },
+            });
+        }
+
+        btnFavorite.addEventListener('click', () => {
+            if (selectedUids.size === 0 || isAnimating) return;
+
+            const selectedItems = activeGallery.filter((i) => selectedUids.has(i.uid));
+            const allFavorited = selectedItems.length > 0 && selectedItems.every((i) => favoriteUrls.has(i.src));
+
+            if (allFavorited) {
+                bulkUnfavorite(selectedItems);
+            } else {
+                bulkFavorite(selectedItems);
+            }
+        });
+
+        function bulkFavorite(selectedItems) {
+            const favBtnRect = btnFavorite.getBoundingClientRect();
+            const startX = favBtnRect.left + favBtnRect.width / 2;
+            const startY = favBtnRect.top + favBtnRect.height / 2;
+
+            isAnimating = true;
+
+            selectedItems.forEach((item, i) => {
+                setTimeout(() => {
+                    const card = gallery.querySelector(`[data-uid="${item.uid}"]`);
+                    if (!card) return;
+                    const cardRect = card.getBoundingClientRect();
+                    const endX = cardRect.left + cardRect.width / 2;
+                    const endY = cardRect.top + cardRect.height / 2;
+
+                    const heart = createFlightHeart(startX, startY);
+                    playSound('favorite');
+                    pulse(btnFavorite, 1.2, 260);
+
+                    const anim = animateArc(heart, endX, endY, {
+                        duration: 480,
+                        lift: -Math.min(120, Math.abs(endY - startY) * 0.5 + 40),
+                        rotate: (Math.random() - 0.5) * 50,
+                        midScale: 1.4,
+                        endScale: 0.95,
+                        endOpacity: 1,
+                        onComplete: () => {
+                            heart.remove();
+                            favoriteUrls.add(item.src);
+                            pulse(card, 1.05, 280);
+                            spawnRadialHeartBurst(endX, endY);
+                        },
+                    });
+                }, i * 110);
+            });
+
+            const totalAnimTime = 480 + selectedItems.length * 110 + 260;
+            setTimeout(() => {
+                isAnimating = false;
+                renderGallery();
+                updateToolbar();
+                showToast(`Added ${selectedItems.length} photo(s) to Favorites`, '❤️');
+            }, totalAnimTime);
+        }
+
+        function bulkUnfavorite(selectedItems) {
+            const cards = selectedItems
+                .map((item) => gallery.querySelector(`[data-uid="${item.uid}"]`))
+                .filter(Boolean);
+
+            unfavoriteWithFlight(null, cards, () => {
+                showToast(`Removed ${selectedItems.length} photo(s) from Favorites`, '🤍');
+            });
+        }
+
+        function spawnRadialHeartBurst(x, y) {
+            const burst = document.createElement('div');
+            burst.className = 'fav-burst-container';
+            burst.style.left = `${x}px`;
+            burst.style.top = `${y}px`;
+            burst.innerHTML = `
+                <svg class="fav-burst-svg" viewBox="0 0 100 100">
+                    <line x1="50" y1="22" x2="50" y2="10" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="50" y1="78" x2="50" y2="90" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="22" y1="50" x2="10" y2="50" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="78" y1="50" x2="90" y2="50" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="30" y1="30" x2="21" y2="21" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="70" y1="70" x2="79" y2="79" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="70" y1="30" x2="79" y2="21" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <line x1="30" y1="70" x2="21" y2="79" stroke="#ef4444" stroke-width="4.5" stroke-linecap="round" />
+                    <path d="M50 67 C 50 67, 32 52, 32 39 C 32 30, 39 24, 46 27 C 50 29, 50 29, 50 29 C 50 29, 50 29, 54 27 C 61 24, 68 30, 68 39 C 68 52, 50 67, 50 67 Z" fill="#ef4444" />
+                </svg>
+            `;
+            document.body.appendChild(burst);
+            setTimeout(() => burst.remove(), 600);
+        }
+
+        function showToast(msg, icon = '❤️', onUndo = null) {
+            document.getElementById('toast-icon').textContent = icon;
+            toastMsg.textContent = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            toastUndo.onclick = null;
+            if (onUndo) {
+                toastUndo.classList.remove('hidden');
+                toastUndo.onclick = () => {
+                    onUndo();
+                    hideToast();
+                };
+            } else {
+                toastUndo.classList.add('hidden');
+            }
+
+            clearTimeout(showToast._t);
+            showToast._t = setTimeout(hideToast, onUndo ? 4500 : 2500);
+        }
+
+        function hideToast() {
+            toast.classList.remove('opacity-100', 'translate-y-0');
+            toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-10px]');
+        }
+
+        closeBtn.addEventListener('click', clearSelection);
+
+        function clearSelection() {
+            if (isAnimating) return;
+            playSound('click');
+            selectedUids.clear();
+            document.querySelectorAll('.image-card.selected').forEach((el) => el.classList.remove('selected'));
+            updateToolbar();
+        }
+
+        btnSelectAll.addEventListener('click', () => {
+            if (isAnimating) return;
+            playSound('click');
+            if (selectedUids.size === activeGallery.length) {
+                selectedUids.clear();
+            } else {
+                activeGallery.forEach((item) => selectedUids.add(item.uid));
+            }
+            renderGallery();
+            updateToolbar();
+        });
+
+                function spawnParticles(x, y, count = 12) {
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+
+                const size = Math.random() * 6 + 4;
+                const colors = ['#ef4444', '#f87171', '#fca5a5', '#ffffff'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.backgroundColor = color;
+                particle.style.left = x + 'px';
+                particle.style.top = y + 'px';
+                particle.style.boxShadow = `0 0 ${size * 2}px ${color}`;
+
+                document.body.appendChild(particle);
+
+                const angle = Math.random() * Math.PI * 2;
+                const dist = Math.random() * 90 + 30;
+                const destX = Math.cos(angle) * dist;
+                const destY = Math.sin(angle) * dist - 20;
+
+                anime({
+                    targets: particle,
+                    translateX: destX,
+                    translateY: destY,
+                    scale: [1, 0],
+                    opacity: [1, 0],
+                    duration: 550 + Math.random() * 350,
+                    easing: 'easeOutExpo',
+                    complete: () => particle.remove()
+                });
+            }
+        }
+
+        // ── Duration slider wiring ─────────────────────────────────────────
+        const durSliders = [
+            { slider: 'dur-vault-open', val: 'dur-vault-open-val', key: 'vaultOpen', def: 450 },
+            { slider: 'dur-vault-snap', val: 'dur-vault-snap-val', key: 'vaultSnap', def: 450 },
+            { slider: 'dur-vault-fly',  val: 'dur-vault-fly-val',  key: 'vaultFly',  def: 400 },
+            { slider: 'dur-trash',      val: 'dur-trash-val',      key: 'trashAnim', def: 500 },
+        ];
+        const animDurations = {};
+        durSliders.forEach(({ slider, val, key, def }) => {
+            animDurations[key] = def;
+            const el  = document.getElementById(slider);
+            const out = document.getElementById(val);
+            el.addEventListener('input', () => {
+                animDurations[key] = +el.value;
+                out.textContent = el.value + 'ms';
+                // Update CSS variable for vault door / wheel transition duration
+                if (key === 'vaultOpen' || key === 'vaultSnap') {
+                    document.documentElement.style.setProperty(
+                        '--vault-dur', (Math.max(animDurations.vaultOpen, animDurations.vaultSnap) / 1000) + 's'
+                    );
+                }
+            });
+        });
+
+        // ── Vault (Lock) Animation Flow & Pause/Play Controller ────────────
+        const lockBtn         = document.getElementById('lock-btn');
+        const animatedVault   = document.getElementById('animated-vault');
+        const vaultInner      = document.getElementById('vault-inner');
+        const vaultPopupDoor  = document.getElementById('vault-popup-door');
+        const vaultPopupWheel = document.getElementById('vault-popup-wheel');
+        const btnVaultPausePlay = document.getElementById('btn-vault-pause-play');
+        const vaultPausePlayIcon = document.getElementById('vault-pause-play-icon');
+        const vaultPausePlayText = document.getElementById('vault-pause-play-text');
+
+        let vaultAnimating    = false;
+        let isVaultPaused     = false;
+        let activeVaultAnimes = [];
+        let activeVaultTimers = [];
+
+        function registerVaultAnime(anim) {
+            if (!anim) return;
+            activeVaultAnimes.push(anim);
+            if (isVaultPaused && anim.pause) {
+                anim.pause();
+            }
+        }
+
+        function scheduleVaultStep(fn, delayMs) {
+            const timerObj = {
+                fn,
+                delayMs,
+                remainingMs: delayMs,
+                startTime: Date.now(),
+                id: null,
+            };
+
+            if (isVaultPaused) {
+                activeVaultTimers.push(timerObj);
+                return timerObj;
+            }
+
+            timerObj.id = setTimeout(() => {
+                activeVaultTimers = activeVaultTimers.filter(t => t !== timerObj);
+                if (!isVaultPaused) fn();
+            }, delayMs);
+
+            activeVaultTimers.push(timerObj);
+            return timerObj;
+        }
+
+        function clearVaultAnimationState() {
+            activeVaultTimers.forEach(t => { if (t.id) clearTimeout(t.id); });
+            activeVaultTimers = [];
+            activeVaultAnimes = [];
+            isVaultPaused = false;
+            updatePausePlayUI();
+        }
+
+        function updatePausePlayUI() {
+            if (!btnVaultPausePlay) return;
+            if (isVaultPaused) {
+                vaultPausePlayIcon.textContent = '▶️';
+                vaultPausePlayText.textContent = 'Resume Vault Anim';
+                btnVaultPausePlay.className = 'w-full py-2 px-3 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg';
+            } else if (vaultAnimating) {
+                vaultPausePlayIcon.textContent = '⏸️';
+                vaultPausePlayText.textContent = 'Pause Vault Anim';
+                btnVaultPausePlay.className = 'w-full py-2 px-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg';
+            } else {
+                vaultPausePlayIcon.textContent = '▶️';
+                vaultPausePlayText.textContent = 'Play Vault Anim';
+                btnVaultPausePlay.className = 'w-full py-2 px-3 rounded-xl bg-sky-500/20 hover:bg-sky-500/30 border border-sky-500/40 text-sky-300 font-semibold text-xs transition-colors flex items-center justify-center gap-2 shadow-lg';
+            }
+        }
+
+        function toggleVaultPausePlay() {
+            if (!vaultAnimating) {
+                // If no animation is running, select sample photos if needed and start vault animation
+                if (selectedUids.size === 0 && activeGallery.length > 0) {
+                    activeGallery.slice(0, 3).forEach(item => selectedUids.add(item.uid));
+                    renderGallery();
+                    updateToolbar();
+                }
+                lockSelected();
+                return;
+            }
+
+            if (isVaultPaused) {
+                // Resume
+                isVaultPaused = false;
+                const now = Date.now();
+                const timersToResume = [...activeVaultTimers];
+                activeVaultTimers = [];
+
+                timersToResume.forEach(t => {
+                    t.startTime = now;
+                    t.id = setTimeout(() => {
+                        activeVaultTimers = activeVaultTimers.filter(x => x !== t);
+                        if (!isVaultPaused) t.fn();
+                    }, t.remainingMs);
+                    activeVaultTimers.push(t);
+                });
+
+                activeVaultAnimes.forEach(anim => {
+                    if (anim && anim.play && !anim.completed) anim.play();
+                });
+                updatePausePlayUI();
+            } else {
+                // Pause
+                isVaultPaused = true;
+                const now = Date.now();
+                activeVaultTimers.forEach(t => {
+                    if (t.id) clearTimeout(t.id);
+                    const elapsed = now - t.startTime;
+                    t.remainingMs = Math.max(0, t.remainingMs - elapsed);
+                });
+
+                activeVaultAnimes.forEach(anim => {
+                    if (anim && anim.pause && !anim.completed) anim.pause();
+                });
+                updatePausePlayUI();
+            }
+        }
+
+        if (btnVaultPausePlay) {
+            btnVaultPausePlay.addEventListener('click', toggleVaultPausePlay);
+        }
+
+        lockBtn.addEventListener('click', lockSelected);
+
+        function lockSelected() {
+            if (selectedUids.size === 0 || vaultAnimating) return;
+            vaultAnimating = true;
+            clearVaultAnimationState();
+            updatePausePlayUI();
+
+            const selectedItems = activeGallery.filter(i => selectedUids.has(i.uid));
+            const count = selectedItems.length;
+
+            // --- Position vault popup over Lock button ---
+            const btnRect = lockBtn.getBoundingClientRect();
+            const startX  = btnRect.left + btnRect.width  / 2;
+            const startY  = btnRect.top  + btnRect.height / 2;
+
+            animatedVault.style.left = (startX - 12) + 'px';
+            animatedVault.style.top  = (startY - 12) + 'px';
+
+            // Reset door & wheel state
+            vaultPopupDoor.style.transition  = 'none';
+            vaultPopupWheel.style.transition = 'none';
+            vaultPopupDoor.style.transform   = 'rotateY(0deg)';
+            vaultPopupWheel.style.transform  = 'rotate(0deg)';
+            animatedVault.style.display = 'flex';
+
+            lockBtn.classList.add('animating');
+            animOverlay.classList.add('active');
+            playSound('popup');
+
+            // 1. Popup: scale up from icon size 1.0 + rise
+            const popupAnim = anime({
+                targets: animatedVault,
+                scale:   [1, 2.8],
+                opacity: [0, 1],
+                translateY: [0, -110],
+                duration: 250,
+                easing: 'cubicBezier(.175,.885,.32,1.275)',
+            });
+            registerVaultAnime(popupAnim);
+
+            scheduleVaultStep(() => {
+                // 2. Open door + spin wheel
+                playSound('click');
+                const openDur = animDurations.vaultOpen;
+
+                const doorOpenAnim = anime({
+                    targets: vaultPopupDoor,
+                    rotateY: -110,
+                    duration: openDur,
+                    easing: 'cubicBezier(0.34,1.1,0.64,1)',
+                });
+                const wheelSpinAnim = anime({
+                    targets: vaultPopupWheel,
+                    rotate: -360,
+                    duration: openDur,
+                    easing: 'easeOutQuad',
+                });
+                registerVaultAnime(doorOpenAnim);
+                registerVaultAnime(wheelSpinAnim);
+
+                scheduleVaultStep(() => {
+                    // 3. Fly selected images into the open vault safe interior
+                    // Query real-time visual center of open vault safe popup on screen
+                    const vaultRect = animatedVault.getBoundingClientRect();
+                    const targetX = vaultRect.left + vaultRect.width / 2;
+                    const targetY = vaultRect.top + vaultRect.height / 2;
+
+                    let completedFlights = 0;
+
+                    selectedItems.forEach((item, index) => {
+                        scheduleVaultStep(() => {
+                            const card = gallery.querySelector(`[data-uid="${item.uid}"]`);
+                            if (!card) { completedFlights++; return; }
+
+                            const cardRect  = card.getBoundingClientRect();
+
+                            // Create flying clone with metallic silver border
+                            const clone = document.createElement('div');
+                            clone.className = 'image-moving';
+                            clone.style.width  = cardRect.width  + 'px';
+                            clone.style.height = cardRect.height + 'px';
+                            clone.style.left   = cardRect.left   + 'px';
+                            clone.style.top    = cardRect.top    + 'px';
+                            clone.style.border = '2px solid rgba(226,232,240,0.95)';
+                            clone.innerHTML = `<img src="${item.src}" class="w-full h-full object-cover rounded-xl">`;
+                            document.body.appendChild(clone);
+
+                            card.classList.add('hidden-item');
+
+                            const flightAnim = animateArc(clone, targetX, targetY, {
+                                duration: animDurations.vaultFly,
+                                lift: -Math.min(170, Math.abs(targetY - cardRect.top) * 0.5 + 50),
+                                rotate: (Math.random() - 0.5) * 300,
+                                midScale: 0.9,
+                                endScale: 0.02,
+                                endOpacity: 0,
+                                onComplete: () => {
+                                    clone.remove();
+                                    playSound('suck');
+                                    spawnParticles(targetX, targetY, 10);
+                                    pulse(vaultInner, 1.18, 140);
+
+                                    completedFlights++;
+                                    if (completedFlights === count) {
+                                        finishVaultAnimation(selectedItems);
+                                    }
+                                },
+                            });
+                            registerVaultAnime(flightAnim);
+                        }, index * 100);
+                    });
+
+                    // If nothing to fly, close immediately
+                    if (count === 0) finishVaultAnimation(selectedItems);
+
+                }, openDur + 80);
+            }, 300);
+        }
+
+        function finishVaultAnimation(selectedItems) {
+            const snapDur = animDurations.vaultSnap;
+
+            // 4. Slam door shut (clean 3D mechanical rotation back to 0deg)
+            playSound('slam');
+            const doorCloseAnim = anime({
+                targets: vaultPopupDoor,
+                rotateY: 0,
+                duration: snapDur,
+                easing: 'cubicBezier(0.4, 0, 0.2, 1)',
+            });
+            const wheelResetAnim = anime({
+                targets: vaultPopupWheel,
+                rotate: 0,
+                duration: snapDur,
+                easing: 'cubicBezier(0.4, 0, 0.2, 1)',
+            });
+            registerVaultAnime(doorCloseAnim);
+            registerVaultAnime(wheelResetAnim);
+
+            // Vault body bounce on slam
+            pulse(vaultInner, 1.25, 180);
+
+            // 5. Immediately return to button position
+            scheduleVaultStep(() => {
+                playSound('return');
+                const returnAnim = anime({
+                    targets: animatedVault,
+                    scale:   [2.8, 1],
+                    opacity: [1, 0],
+                    translateY: [-110, 0],
+                    duration: 250,
+                    easing: 'cubicBezier(.4,0,.2,1)',
+                    complete: () => {
+                        animatedVault.style.display = 'none';
+                        animatedVault.style.transform = '';
+                        lockBtn.classList.remove('animating');
+                        animOverlay.classList.remove('active');
+                        vaultAnimating = false;
+                        clearVaultAnimationState();
+
+                        // Mark selected as locked & restore visibility with locked styling
+                        const lockedCount = selectedUids.size;
+                        selectedUids.forEach(uid => {
+                            const card = gallery.querySelector(`[data-uid="${uid}"]`);
+                            if (card) {
+                                card.classList.remove('hidden-item');
+                                card.style.filter = 'brightness(0.55) saturate(0.4)';
+                                card.title = '🔒 Locked';
+                            }
+                        });
+
+                        selectedUids.clear();
+                        updateToolbar();
+                        showToast(`🔒 Locked ${lockedCount} photo${lockedCount !== 1 ? 's' : ''}`, '🔐');
+                    },
+                });
+                registerVaultAnime(returnAnim);
+            }, snapDur + 30);
+        }
+
+        // --- TRASH DELETE ANIMATION FLOW ---
+        trashBtn.addEventListener('click', deleteSelected);
+
+        function deleteSelected() {
+            if (selectedUids.size === 0 || isAnimating) return;
+            isAnimating = true;
+
+            const selectedItems = activeGallery.filter(i => selectedUids.has(i.uid));
+            const count = selectedItems.length;
+
+            // Position animated trash over static button
+            const btnRect = trashBtn.getBoundingClientRect();
+            const startX = btnRect.left + btnRect.width / 2;
+            const startY = btnRect.top + btnRect.height / 2;
+
+            animatedTrash.style.left = startX + 'px';
+            animatedTrash.style.top = startY + 'px';
+            animatedTrash.className = 'css-trash'; // reset classes
+
+            // Hide static button icon
+            trashBtn.classList.add('animating');
+            animOverlay.classList.add('active');
+
+            // 1. Popup Trash Can
+            playSound('popup');
+            animatedTrash.classList.add('trash-anim-popup');
+
+            // Counter Badge
+            trashBadge.textContent = count;
+            trashBadge.classList.add('show');
+
+            setTimeout(() => {
+                // 2. Open Lid
+                animatedTrash.classList.add('trash-anim-open');
+                
+                // Target coordinates for trash mouth
+                const trashRect = animatedTrash.getBoundingClientRect();
+                const trashMouthX = trashRect.left + trashRect.width / 2;
+                const trashMouthY = trashRect.top - 20;
+
+                let completedFlights = 0;
+
+                // 3. Fly items into trash
+                selectedItems.forEach((item, index) => {
+                    setTimeout(() => {
+                        const card = gallery.querySelector(`[data-uid="${item.uid}"]`);
+                        if (!card) return;
+
+                        const cardRect = card.getBoundingClientRect();
+                        const startCardX = cardRect.left + cardRect.width / 2;
+                        const startCardY = cardRect.top + cardRect.height / 2;
+
+                        // Create flying clone
+                        const clone = document.createElement('div');
+                        clone.className = 'image-moving';
+                        clone.style.width = cardRect.width + 'px';
+                        clone.style.height = cardRect.height + 'px';
+                        clone.style.left = cardRect.left + 'px';
+                        clone.style.top = cardRect.top + 'px';
+                        clone.innerHTML = `<img src="${item.src}" class="w-full h-full object-cover rounded-xl">`;
+                        document.body.appendChild(clone);
+
+                        // Fade original card
+                        card.classList.add('hidden-item');
+
+                        // Arc flight into trash can mouth
+                        animateArc(clone, trashMouthX, trashMouthY, {
+                            duration: 520,
+                            lift: -Math.min(160, Math.abs(trashMouthY - startCardY) * 0.55 + 50),
+                            rotate: (Math.random() - 0.5) * 360,
+                            midScale: 0.85,
+                            endScale: 0.05,
+                            endOpacity: 0,
+                            onComplete: () => {
+                                clone.remove();
+                                playSound('suck');
+                                playSound('gulp');
+                                pulse(trashInner, 1.15, 180);
+                                spawnParticles(trashMouthX, trashMouthY, 14);
+
+                                completedFlights++;
+                                trashBadge.textContent = count - completedFlights;
+
+                                if (completedFlights === count) {
+                                    finishTrashAnimation(selectedItems);
+                                }
+                            }
+                        });
+                    }, index * 130);
+                });
+            }, 450);
+        }
+
+        function finishTrashAnimation(selectedItems) {
+            // 4. Close lid & Shake
+            playSound('slam');
+            animatedTrash.classList.remove('trash-anim-open');
+            animatedTrash.classList.add('trash-anim-close', 'trash-anim-shake');
+            trashBadge.classList.remove('show');
+
+            setTimeout(() => {
+                // 5. Return to button position
+                playSound('return');
+                animatedTrash.classList.remove('trash-anim-popup', 'trash-anim-close', 'trash-anim-shake');
+                animatedTrash.classList.add('trash-anim-return');
+
+                setTimeout(() => {
+                    // Reset overlay and animation states
+                    animatedTrash.classList.remove('trash-anim-return');
+                    animatedTrash.style.display = 'none';
+                    trashBtn.classList.remove('animating');
+                    animOverlay.classList.remove('active');
+
+                    // Mutate state & reflow grid with FLIP animation
+                    lastDeletedBatch = [...selectedItems];
+                    const selectedUidSet = new Set(selectedItems.map(i => i.uid));
+                    
+                    deletedGallery.push(...selectedItems);
+                    
+                    flipGallery(() => {
+                        activeGallery = activeGallery.filter(item => !selectedUidSet.has(item.uid));
+                    });
+
+                    selectedUids.clear();
+                    updateToolbar();
+                    updateTrashBinCount();
+                    isAnimating = false;
+
+                    showToast(`Deleted ${selectedItems.length} photo(s)`, '🗑️', undoLastDelete);
+                }, 450);
+            }, 400);
+        }
+
+        function undoLastDelete() {
+            if (!lastDeletedBatch || lastDeletedBatch.length === 0) return;
+            const toRestore = [...lastDeletedBatch];
+            lastDeletedBatch = null;
+
+            const restoreUidSet = new Set(toRestore.map(i => i.uid));
+            deletedGallery = deletedGallery.filter(item => !restoreUidSet.has(item.uid));
+
+            flipGallery(() => {
+                activeGallery.push(...toRestore);
+            });
+
+            updateTrashBinCount();
+            showToast(`Restored ${toRestore.length} photo(s)`, '↺');
+        }
+
+        function updateTrashBinCount() {
+            trashBinCount.textContent = deletedGallery.length;
+        }
+
+        // --- RECYCLE BIN DRAWER ---
+        btnOpenTrash.addEventListener('click', openTrashDrawer);
+        btnCloseTrashDrawer.addEventListener('click', closeTrashDrawer);
+        trashDrawer.addEventListener('click', (e) => {
+            if (e.target === trashDrawer) closeTrashDrawer();
+        });
+
+        function openTrashDrawer() {
+            renderTrashDrawer();
+            trashDrawer.classList.remove('opacity-0', 'pointer-events-none');
+            trashDrawerContent.classList.remove('translate-x-full');
+        }
+
+        function closeTrashDrawer() {
+            trashDrawerContent.classList.add('translate-x-full');
+            trashDrawer.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        function renderTrashDrawer() {
+            trashDrawerList.innerHTML = '';
+            if (deletedGallery.length === 0) {
+                trashDrawerList.innerHTML = `
+                    <div class="col-span-full py-12 text-center text-zinc-500">
+                        <svg class="mx-auto mb-2 opacity-40" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                        <p class="text-xs font-medium">Recycle Bin is empty</p>
+                    </div>
+                `;
+                return;
+            }
+
+            deletedGallery.forEach((item) => {
+                const card = document.createElement('div');
+                card.className = 'relative group aspect-square rounded-xl overflow-hidden bg-zinc-800 border border-zinc-700/60';
+                card.innerHTML = `
+                    <img src="${item.src}" alt="Deleted item" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-2">
+                        <button class="btn-restore-single px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg transition-transform hover:scale-105">
+                            Restore
+                        </button>
+                    </div>
+                `;
+
+                card.querySelector('.btn-restore-single').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    restoreSingleItem(item);
+                });
+
+                trashDrawerList.appendChild(card);
+            });
+        }
+
+        function restoreSingleItem(item) {
+            deletedGallery = deletedGallery.filter(i => i.uid !== item.uid);
+            flipGallery(() => {
+                activeGallery.push(item);
+            });
+            updateTrashBinCount();
+            renderTrashDrawer();
+            showToast('Item restored', '↺');
+        }
+
+        btnRestoreAll.addEventListener('click', () => {
+            if (deletedGallery.length === 0) return;
+            const count = deletedGallery.length;
+            const toRestore = [...deletedGallery];
+            deletedGallery = [];
+
+            flipGallery(() => {
+                activeGallery.push(...toRestore);
+            });
+
+            updateTrashBinCount();
+            renderTrashDrawer();
+            closeTrashDrawer();
+            showToast(`Restored all ${count} photos`, '↺');
+        });
+
+        btnEmptyTrash.addEventListener('click', () => {
+            if (deletedGallery.length === 0) return;
+            deletedGallery = [];
+            updateTrashBinCount();
+            renderTrashDrawer();
+            showToast('Recycle Bin emptied', '🗑️');
+        });
+
+        // --- ADD SAMPLE PHOTOS ---
+        btnAddPhotos.addEventListener('click', () => {
+            playSound('click');
+            const newImages = [
+                'https://picsum.photos/id/1062/600/375',
+                'https://picsum.photos/id/1069/600/375',
+                'https://picsum.photos/id/1084/600/375',
+                'https://picsum.photos/id/1074/600/375'
+            ];
+
+            const newItems = newImages.map(makeItem);
+
+            flipGallery(() => {
+                activeGallery.push(...newItems);
+            });
+
+            showToast(`Added ${newItems.length} photos`, '🖼️');
+        });
+
+        // --- LIGHTBOX PREVIEW MODAL ---
+        function openLightbox(src) {
+            lightboxImg.src = src;
+            lightboxModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function closeLightbox() {
+            lightboxModal.classList.add('opacity-0', 'pointer-events-none');
+        }
+
+        btnCloseLightbox.addEventListener('click', closeLightbox);
+        lightboxModal.addEventListener('click', (e) => {
+            if (e.target === lightboxModal) closeLightbox();
+        });
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeLightbox();
+                closeTrashDrawer();
+            }
+        });
+
+        // Initialize App
+        initGallery();
+    </script>
+</body>
+</html>

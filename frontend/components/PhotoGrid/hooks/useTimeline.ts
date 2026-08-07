@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import { TimelineItem } from '@/components/ui/TimelineDial';
 import { RowItem } from '../types';

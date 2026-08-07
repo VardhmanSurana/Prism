@@ -491,7 +491,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/agent/preload", post(agent::preload_model))
         .route("/agent/chat", post(agent::chat))
         .route("/agent/uploads/:filename", get(agent::serve_agent_upload))
-        .route("/sample-images/:filename", get(photos::serve_sample_image))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 
 

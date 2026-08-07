@@ -25,7 +25,6 @@ interface UseBulkActionsProps {
   photos: Photo[];
   setPhotos: Dispatch<SetStateAction<Photo[]>>;
   currentView: ViewMode;
-  clearSelection: () => void;
   setSortMode: (mode: 'newest' | 'oldest' | 'added') => void;
   selectedIds: Set<string>;
   onAddToAlbumClick?: () => void;
@@ -35,7 +34,6 @@ export function useBulkActions({
   photos,
   setPhotos,
   currentView,
-  clearSelection,
   setSortMode,
   selectedIds,
   onAddToAlbumClick,
@@ -68,13 +66,16 @@ export function useBulkActions({
     }
   }, [onAddToAlbumClick, selectedIds.size]);
 
-  const handleBulkDelete = useCallback(async () => {
+  const handleBulkDelete = useCallback(async (skipConfirmArg?: boolean | Set<string>) => {
+    const skipConfirm = typeof skipConfirmArg === 'boolean' ? skipConfirmArg : false;
     const isPermanent = currentView === 'trash';
     const message = isPermanent
       ? `Permanently delete ${selectedIds.size} items from Trash?`
       : `Move ${selectedIds.size} items to Trash?`;
 
-    if (!await customConfirm(message, 'Confirm Deletion')) return;
+    if (!skipConfirm) {
+      if (!await customConfirm(message, 'Confirm Deletion')) return;
+    }
 
     const idsArray = Array.from(selectedIds);
 
@@ -86,7 +87,6 @@ export function useBulkActions({
         selectedIds.has(String(p.id)) ? { ...p, isTrash: true, is_trash: true } : p
       ));
     }
-    clearSelection();
 
     if (isPermanent) {
       return;
@@ -117,7 +117,7 @@ export function useBulkActions({
         return p;
       }));
     }
-  }, [currentView, selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
+  }, [currentView, selectedPhotoMap, setPhotos, selectedIds]);
 
   const handleBulkFavorite = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
@@ -140,7 +140,6 @@ export function useBulkActions({
     setPhotos(prev => prev.map(p =>
       selectedIds.has(String(p.id)) ? { ...p, isFavorite: targetFavorite, is_favorite: targetFavorite } : p
     ));
-    clearSelection();
 
     // Call API in chunks of 6
     const results = await fetchInBatches(
@@ -167,7 +166,7 @@ export function useBulkActions({
         return p;
       }));
     }
-  }, [selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
+  }, [selectedPhotoMap, setPhotos, selectedIds]);
 
   const handleBulkLockToggle = useCallback(async () => {
     const isLocking = currentView !== 'locked';
@@ -196,7 +195,6 @@ export function useBulkActions({
       }
       return p;
     }));
-    clearSelection();
 
     // Call API in chunks of 6
     const results = await fetchInBatches(
@@ -223,28 +221,20 @@ export function useBulkActions({
         return p;
       }));
     }
-  }, [currentView, selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
+  }, [currentView, selectedPhotoMap, setPhotos, selectedIds]);
 
   const handleBulkRestore = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
 
-    // Save original states
-    const originalStates = new Map<string, { isTrash?: boolean; is_trash?: boolean }>();
-    for (const [id, p] of selectedPhotoMap) {
-      originalStates.set(id, {
-        isTrash: p.isTrash,
-        is_trash: p.is_trash
-      });
-    }
-
-    // Optimistic update - remove from view
-    setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
-    clearSelection();
+    // Optimistic update: un-trash so photos leave trash view and reappear in the gallery
+    setPhotos(prev => prev.map(p =>
+      selectedIds.has(String(p.id)) ? { ...p, isTrash: false, is_trash: false } : p
+    ));
 
     // Call API in chunks of 6
     const results = await fetchInBatches(
       idsArray,
-      id => fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' })
+      id => fetch(`${API_BASE}/api/v1/photos/${id}/restore`, { method: 'POST' })
     );
 
     // Rollback failed ones
@@ -257,19 +247,15 @@ export function useBulkActions({
     });
 
     if (failedIds.size > 0) {
-      setPhotos(prev => {
-        const restored: Photo[] = [];
-        for (const id of failedIds) {
-          const original = originalStates.get(id);
-          const photo = selectedPhotoMap.get(id);
-          if (photo) {
-            restored.push({ ...photo, isTrash: original?.isTrash, is_trash: original?.is_trash });
-          }
+      setPhotos(prev => prev.map(p => {
+        const idStr = String(p.id);
+        if (failedIds.has(idStr)) {
+          return { ...p, isTrash: true, is_trash: true };
         }
-        return [...prev, ...restored];
-      });
+        return p;
+      }));
     }
-  }, [selectedPhotoMap, setPhotos, clearSelection, selectedIds]);
+  }, [setPhotos, selectedIds]);
 
   return {
     handleBulkDelete,

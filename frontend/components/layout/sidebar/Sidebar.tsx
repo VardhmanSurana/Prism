@@ -23,6 +23,7 @@ import {
   Eye,
   QrCode,
   PenTool,
+  Wrench,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { API_BASE } from '@/constants';
@@ -43,6 +44,7 @@ const MAIN_NAV: NavItemData[] = [
   { view: 'gallery', icon: ImageIcon, label: 'Gallery' },
   { view: 'explore', icon: Compass, label: 'Explore' },
   { view: 'map', icon: MapIcon, label: 'Map' },
+  { view: 'toolbox', icon: Wrench, label: 'Image Toolbox' },
   { view: 'agent', icon: Bot, label: 'Prism AI' },
 ];
 
@@ -52,6 +54,7 @@ const LIBRARY_NAV: NavItemData[] = [
 ];
 
 const UTILITY_NAV: NavItemData[] = [
+  { view: 'toolbox', icon: Wrench, label: 'Image Toolbox' },
   { view: 'appearance', icon: Palette, label: 'Appearance' },
   { view: 'utilities', icon: Settings, label: 'Utilities' },
   { view: 'locked', icon: Lock, label: 'Locked Folder' },

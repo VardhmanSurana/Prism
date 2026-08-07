@@ -223,6 +223,14 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             enabled BOOLEAN DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS sync_peers (
+            peer_id TEXT PRIMARY KEY,
+            hostname TEXT,
+            device_type TEXT,
+            paired_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'paired'
+        );
         "#
     )
     .execute(pool)

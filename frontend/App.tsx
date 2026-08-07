@@ -68,6 +68,7 @@ function App() {
     clearSelection,
     isFavorited,
     onAddToAlbum,
+    albumAddedSignal,
     handleBulkDelete,
     handleBulkFavorite,
     handleBulkLockToggle,
@@ -211,16 +212,15 @@ function App() {
         }),
       });
 
-      if (res.ok) {
-        clearSelection();
-      } else {
+      if (!res.ok) {
         console.error('Failed to paste adjustments bulk:', await res.text());
       }
+      // selection kept; only the toolbar close button deselects
     } catch (e) {
       logError('BulkActions', 'paste_adjustments_failed', e);
       console.error('Failed to paste adjustments:', e);
     }
-  }, [selectedIds, clearSelection, logAction, logError]);
+  }, [selectedIds, logAction, logError]);
 
   return (
     <ErrorBoundary>
@@ -273,25 +273,23 @@ function App() {
             onResetSuccess={handleResetSuccess}
           />
 
-          <AnimatePresence>
-            {selectedIds.size > 0 && (
-              <BulkActionsBar
-                selectedCount={selectedIds.size}
-                currentView={currentView}
-                onClear={clearSelection}
-                onAddToAlbum={onAddToAlbum}
-                onRemoveFromAlbum={handleRemovePhotosFromActiveAlbum}
-                onFavorite={handleBulkFavorite}
-                isFavorited={isFavorited}
-                onToggleLock={handleBulkLockToggle}
-                onDelete={handleBulkDelete}
-                onRestore={handleBulkRestore}
-                onCollage={handleCollage}
-                onPhotoBook={handlePhotoBook}
-                onPasteEdits={handleBulkPasteEdits}
-              />
-            )}
-          </AnimatePresence>
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            currentView={currentView}
+            onClear={clearSelection}
+            onAddToAlbum={onAddToAlbum}
+            albumAddedSignal={albumAddedSignal}
+            onRemoveFromAlbum={handleRemovePhotosFromActiveAlbum}
+            onFavorite={handleBulkFavorite}
+            isFavorited={isFavorited}
+            onToggleLock={handleBulkLockToggle}
+            onDelete={handleBulkDelete}
+            onRestore={handleBulkRestore}
+            onCollage={handleCollage}
+            onPhotoBook={handlePhotoBook}
+            onToolbox={() => handleViewChange('toolbox')}
+            onPasteEdits={handleBulkPasteEdits}
+          />
         </main>
 
         <Suspense fallback={null}>
@@ -350,14 +348,14 @@ function App() {
           <CollageMaker
             photos={selectedPhotos}
             isOpen={isCollageOpen}
-            onClose={() => { setIsCollageOpen(false); clearSelection(); }}
+            onClose={() => setIsCollageOpen(false)}
           />
         </Suspense>
         <Suspense fallback={null}>
           <PhotoBook
             photos={selectedPhotos}
             isOpen={isPhotoBookOpen}
-            onClose={() => { setIsPhotoBookOpen(false); clearSelection(); }}
+            onClose={() => setIsPhotoBookOpen(false)}
           />
         </Suspense>
       </div>

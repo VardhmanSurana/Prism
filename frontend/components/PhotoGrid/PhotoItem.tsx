@@ -15,7 +15,6 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
   rowPadding,
   onPhotoClick,
   onToggleSelection,
-  isRowHovered,
 }) => {
   const aspectRatio = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
   const [isHovering, setIsHovering] = useState(false);
@@ -60,11 +59,10 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       className={`relative group cursor-pointer ${roundedClass} bg-[#0c0c0c]
       transition-all duration-200 ease-out photo-item-hover
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
-      ${
-        isSelected
+      ${isSelected
           ? 'photo-item-selected shadow-xl'
           : 'active:scale-[0.97]'
-      }
+        }
   `}
       style={{
         flex: isFullRow ? `${aspectRatio} 1 0%` : `0 0 auto`,
@@ -83,55 +81,53 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
           alt={photo.caption || 'Photo'}
           className="w-full h-full object-cover"
         />
-      {/* Animated WebP hover preview for videos — zero GStreamer pipeline cost */}
-      {isHovering && isVideo && animSrc && (
-        <img
-          src={animSrc}
-          alt=""
-          onError={() => setAnimFailed(true)}
-          className="absolute inset-0 w-full h-full object-cover z-[1]"
+        {/* Animated WebP hover preview for videos — zero GStreamer pipeline cost */}
+        {isHovering && isVideo && animSrc && (
+          <img
+            src={animSrc}
+            alt=""
+            onError={() => setAnimFailed(true)}
+            className="absolute inset-0 w-full h-full object-cover z-[1]"
+          />
+        )}
+
+        {/* Video duration badge */}
+        {isVideo && photo.duration != null && (
+          <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
+            <span className="bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+              {formatDuration(photo.duration)}
+            </span>
+          </div>
+        )}
+
+        <div
+          className={`absolute inset-0 transition-colors duration-150 ${isSelected ? 'bg-primary/10' : 'bg-black/0'
+            }`}
         />
-      )}
-
-      {/* Video duration badge */}
-      {isVideo && photo.duration != null && (
-        <div className="absolute bottom-2 right-2 z-10 pointer-events-none">
-          <span className="bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-            {formatDuration(photo.duration)}
-          </span>
-        </div>
-      )}
-
-      <div
-        className={`absolute inset-0 transition-colors duration-150 ${
-          isSelected ? 'bg-primary/10' : 'bg-black/0'
-        }`}
-      />
-      <div
-        className={`absolute top-3 left-3 transition-opacity duration-150 z-10
+        <div
+          className={`absolute top-3 left-3 transition-opacity duration-150 z-10
         ${isSelected || isHovering ? 'opacity-100' : 'opacity-0'}
         `}
-        onClick={(e) => {
-          e.stopPropagation();
-          onToggleSelection(String(photo.id));
-        }}
-      >
-        <div
-          className={`w-7 h-7 rounded-full border flex items-center justify-center shadow-xl
-            ${
-              isSelected
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelection(String(photo.id));
+          }}
+        >
+          <div
+            className={`w-7 h-7 rounded-full border flex items-center justify-center shadow-xl
+            ${isSelected
                 ? 'bg-primary border-primary text-black'
                 : 'bg-black/60 border-white/20 hover:bg-white/10 text-white'
-            }
+              }
         `}
-        >
-          {isSelected ? (
-            <Check size={16} strokeWidth={3} />
-          ) : (
-            <div className="w-1 h-1 rounded-full bg-white" />
-          )}
+          >
+            {isSelected ? (
+              <Check size={16} strokeWidth={3} />
+            ) : (
+              <div className="w-1 h-1 rounded-full bg-white" />
+            )}
+          </div>
         </div>
-      </div>
       </div>
     </div>
   );

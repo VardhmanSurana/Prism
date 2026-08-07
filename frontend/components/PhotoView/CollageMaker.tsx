@@ -1,9 +1,8 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Download, LayoutGrid } from 'lucide-react';
 import { Photo } from '@/types';
 import { resolveUrl } from '@/constants';
-import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { springs } from '@/lib/motion-tokens';
 
 interface CollageLayout {
@@ -91,6 +90,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
   const [bgColor, setBgColor] = useState('#000000');
   const [roundCorners, setRoundCorners] = useState(false);
   const [exportFormat, setExportFormat] = useState<'jpeg' | 'png'>('jpeg');
+  const [jpegQuality, setJpegQuality] = useState(92);
+  const [estimatedSize, setEstimatedSize] = useState<string | null>(null);
+  const [comparisonUrl, setComparisonUrl] = useState<string | null>(null);
   const [photoSlots, setPhotoSlots] = useState<(Photo | null)[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -181,11 +183,40 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
         a.click();
         URL.revokeObjectURL(url);
         setIsExporting(false);
-      }, `image/${exportFormat}`, 0.95);
+      }, `image/${exportFormat}`, exportFormat === 'jpeg' ? jpegQuality / 100 : undefined);
     } catch {
       setIsExporting(false);
     }
-  }, [drawCanvas, exportFormat]);
+  }, [drawCanvas, exportFormat, jpegQuality]);
+
+  // Estimate file size + comparison when quality changes (JPEG only)
+  const estimateTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const [comparisonOriginal, setComparisonOriginal] = useState<string | null>(null);
+  useEffect(() => {
+    if (exportFormat !== 'jpeg') { setComparisonOriginal(null); setComparisonUrl(null); return; }
+    let cancelled = false;
+    estimateTimerRef.current = setTimeout(async () => {
+      try {
+        const offscreen = document.createElement('canvas');
+        await drawCanvas(offscreen, 0.5); // half-scale for fast estimate
+        // Generate original (100%) preview
+        offscreen.toBlob((origBlob) => {
+          if (cancelled || !origBlob) return;
+          const origUrl = URL.createObjectURL(origBlob);
+          setComparisonOriginal(prev => { if (prev) URL.revokeObjectURL(prev); return origUrl; });
+        }, 'image/jpeg', 1.0);
+        // Generate compressed preview + size estimate
+        offscreen.toBlob((blob) => {
+          if (cancelled || !blob) return;
+          const kb = blob.size / 1024;
+          setEstimatedSize(kb >= 1024 ? `~${(kb / 1024).toFixed(1)} MB` : `~${Math.round(kb)} KB`);
+          const url = URL.createObjectURL(blob);
+          setComparisonUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url; });
+        }, 'image/jpeg', jpegQuality / 100);
+      } catch { /* ignore */ }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(estimateTimerRef.current); };
+  }, [jpegQuality, exportFormat, drawCanvas]);
 
   const renderPreview = useCallback(() => {
     if (!previewRef.current) return;
@@ -271,6 +302,14 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     return () => clearTimeout(timer);
   }, [isOpen, renderPreview]);
 
+  // Cleanup comparison URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (comparisonUrl) URL.revokeObjectURL(comparisonUrl);
+      if (comparisonOriginal) URL.revokeObjectURL(comparisonOriginal);
+    };
+  }, [comparisonUrl, comparisonOriginal]);
+
   if (!isOpen) return null;
 
   return (
@@ -285,13 +324,13 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.95, opacity: 0 }}
         transition={springs.gentle}
-        className="relative w-full max-w-5xl h-[85vh] mx-4 flex flex-col bg-surface border border-border rounded-2xl overflow-hidden shadow-2xl"
+        className="relative w-full max-w-5xl h-[85vh] mx-4 flex flex-col bg-surface border border-border rounded-xl overflow-hidden"
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <LayoutGrid size={20} className="text-primary" />
             <h2 className="text-lg font-bold text-white">Collage Maker</h2>
-            <span className="text-sm text-gray-400">{photos.length} photos</span>
+            <span className="text-sm text-[#666666]">{photos.length} photos</span>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-surfaceHover rounded-full text-gray-400 hover:text-white transition-colors">
             <X size={20} />
@@ -299,9 +338,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
         </div>
 
         <div className="flex flex-1 min-h-0">
-          <div className="w-72 border-r border-border p-4 flex flex-col gap-5 overflow-y-auto custom-scrollbar">
+          <div className="w-72 border-r border-border p-4 flex flex-col gap-4 overflow-y-auto custom-scrollbar">
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 block">Layout</label>
+              <label className="text-xs font-semibold text-[#666666] mb-3 block">Layout</label>
               <div className="grid grid-cols-2 gap-2">
                 {LAYOUTS.map((layout) => {
                   const available = layout.minPhotos <= photos.length;
@@ -310,7 +349,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                       key={layout.id}
                       disabled={!available}
                       onClick={() => setSelectedLayout(layout)}
-                      className={`relative p-2 rounded-xl border transition-all ${
+                      className={`relative p-2 rounded-lg border transition-all ${
                         selectedLayout.id === layout.id
                           ? 'border-primary bg-primary/10'
                           : available
@@ -334,7 +373,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                           />
                         ))}
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-1 text-center font-medium">{layout.name}</p>
+                      <p className="text-[10px] text-[#666666] mt-1 text-center font-medium">{layout.name}</p>
                     </button>
                   );
                 })}
@@ -342,7 +381,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">
+              <label className="text-xs font-semibold text-[#666666] mb-2 block">
                 Gap: {gap}px
               </label>
               <input
@@ -356,7 +395,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Background</label>
+              <label className="text-xs font-semibold text-[#666666] mb-2 block">Background</label>
               <div className="flex gap-2">
                 {[{ color: '#000000', label: 'Black' }, { color: '#ffffff', label: 'White' }, { color: '#1a1a2e', label: 'Navy' }].map(({ color, label }) => (
                   <button
@@ -382,7 +421,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Round Corners</label>
+              <label className="text-xs font-semibold text-[#666666]">Round Corners</label>
               <button
                 onClick={() => setRoundCorners(!roundCorners)}
                 className={`w-10 h-6 rounded-full transition-all ${
@@ -398,7 +437,12 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Format</label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-[#666666]">Format</label>
+                <span className="text-[10px] text-[#999999] font-mono">
+                  {2000}×{Math.round(2000 * (selectedLayout.slots[0]?.h ?? 1) / (selectedLayout.slots[0]?.w ?? 1))}px
+                </span>
+              </div>
               <div className="flex gap-2">
                 {(['jpeg', 'png'] as const).map((fmt) => (
                   <button
@@ -406,34 +450,77 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                     onClick={() => setExportFormat(fmt)}
                     className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
                       exportFormat === fmt
-                        ? 'bg-primary text-white'
-                        : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                        ? 'bg-[#2563eb] text-white'
+                        : 'bg-white/5 text-[#666666] hover:bg-white/10'
                     }`}
                   >
                     {fmt.toUpperCase()}
                   </button>
                 ))}
               </div>
+              {exportFormat === 'jpeg' && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-[#666666]">
+                      Quality: {jpegQuality}%
+                    </label>
+                    {estimatedSize && (
+                      <span className="text-[10px] text-[#999999] font-mono">{estimatedSize}</span>
+                    )}
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={100}
+                    value={jpegQuality}
+                    onChange={(e) => setJpegQuality(Number(e.target.value))}
+                    className="w-full accent-[#2563eb]"
+                  />
+                  <div className="flex justify-between text-[10px] text-[#666666] mt-1">
+                    <span>Smaller file</span>
+                    <span>Higher quality</span>
+                  </div>
+
+                  {/* Side-by-side comparison */}
+                  {comparisonOriginal && comparisonUrl && (
+                    <div className="mt-3 border-t border-white/10 pt-3">
+                      <p className="text-[10px] font-semibold text-[#666666] mb-2">Quality Preview</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="relative">
+                          <div className="aspect-video bg-neutral-900 rounded-lg overflow-hidden border border-white/10">
+                            <img src={comparisonOriginal} alt="Original quality" className="w-full h-full object-cover" />
+                          </div>
+                          <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-white/80">100%</span>
+                        </div>
+                        <div className="relative">
+                          <div className="aspect-video bg-neutral-900 rounded-lg overflow-hidden border border-white/10">
+                            <img src={comparisonUrl} alt={`${jpegQuality}% quality`} className="w-full h-full object-cover" />
+                          </div>
+                          <span className="absolute top-1.5 left-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/70 text-[#2563eb]">{jpegQuality}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="mt-auto pt-4">
-              <GlassMaterial intensity="regular" interactive borderRadius="12px" className="w-full">
-                <button
-                  onClick={handleExport}
-                  disabled={isExporting || photos.length === 0}
-                  className="w-full py-3 flex items-center justify-center gap-2 text-sm font-bold text-white disabled:opacity-40"
-                >
-                  <Download size={16} />
-                  {isExporting ? 'Exporting...' : 'Export Collage'}
-                </button>
-              </GlassMaterial>
+              <button
+                onClick={handleExport}
+                disabled={isExporting || photos.length === 0}
+                className="w-full py-3 flex items-center justify-center gap-2 text-sm font-bold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Download size={16} />
+                {isExporting ? 'Exporting...' : 'Export Collage'}
+              </button>
             </div>
           </div>
 
           <div className="flex-1 flex items-center justify-center p-8 bg-black/20">
             <div
               ref={previewRef}
-              className="relative w-full max-w-2xl aspect-square bg-black rounded-xl overflow-hidden shadow-2xl"
+              className="relative w-full max-w-2xl aspect-square bg-black rounded-lg overflow-hidden"
             />
           </div>
         </div>

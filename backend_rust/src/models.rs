@@ -153,3 +153,12 @@ pub struct PhotoStatsResponse {
     pub locked_count: i64,
     pub storage_used_bytes: i64,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct SyncPeer {
+    pub peer_id: String,
+    pub hostname: Option<String>,
+    pub device_type: Option<String>,
+    pub paired_at: Option<DateTime<Utc>>,
+    pub status: Option<String>,
+}

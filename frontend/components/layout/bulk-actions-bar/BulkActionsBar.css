@@ -1,0 +1,540 @@
+/* ── Trash Can Animation ─────────────────────────────────────────────────
+ * CSS trash can (div-built) + popup / open / close / shake / return
+ * keyframes.  Actual card flight paths are driven by anime.js in TSX.
+ * ────────────────────────────────────────────────────────────────────── */
+
+/* ── CSS Trash Can ────────────────────────────────────────────────────── */
+.trash-css {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 2px;
+  color: currentColor;
+}
+
+.trash-css-lid {
+  width: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform-origin: 2px 100%;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 2;
+}
+
+.trash-css-handle {
+  width: 6px;
+  height: 3px;
+  border: 2px solid currentColor;
+  border-bottom: none;
+  border-radius: 3px 3px 0 0;
+}
+
+.trash-css-bar {
+  width: 100%;
+  height: 2px;
+  background-color: currentColor;
+  border-radius: 2px;
+}
+
+.trash-css-body {
+  width: 16px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-radius: 3px 3px 4px 4px;
+  margin-top: 1px;
+  display: flex;
+  justify-content: space-evenly;
+  padding: 2px 0;
+}
+
+.trash-css-strip {
+  width: 2px;
+  background-color: currentColor;
+  border-radius: 1px;
+}
+
+/* ── CSS 3D Folder Icon ─────────────────────────────────────────────────── */
+.folder-css {
+  position: relative;
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: currentColor;
+  perspective: 400px;
+}
+
+.folder-css-back {
+  position: absolute;
+  inset: 2px 0 0 0;
+  background: currentColor;
+  opacity: 0.35;
+  border-radius: 4px 4px 3px 3px;
+}
+
+.folder-css-tab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 9px;
+  height: 3px;
+  background: currentColor;
+  border-radius: 3px 3px 0 0;
+}
+
+.folder-css-paper {
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  background: #ffffff;
+  opacity: 0.95;
+  border-radius: 2px;
+  transform: translateY(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 1px;
+  padding: 1px;
+}
+
+.folder-css-slot {
+  background: rgba(59, 130, 246, 0.25);
+  border-radius: 1px;
+}
+
+.folder-css-front {
+  position: absolute;
+  inset: 5px 0 0 0;
+  background: currentColor;
+  border-radius: 2px 2px 4px 4px;
+  transform-origin: bottom center;
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ── 3D Open state for folder ─────────────────────────────────────────── */
+.folder-anim-open .folder-css-front {
+  transform: rotateX(-50deg) translateY(2px);
+}
+
+.folder-anim-open .folder-css-paper {
+  transform: translateY(-5px);
+}
+
+/* ── Animated folder popup (fixed in viewport) ───────────────────────── */
+.folder-animated {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  color: #3b82f6;
+  filter: drop-shadow(0 12px 24px rgba(59, 130, 246, 0.45));
+}
+
+/* ── CSS 3D Vault Icon ──────────────────────────────────────────────────── */
+.vault-css {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: currentColor;
+  perspective: 500px;
+}
+
+.vault-css-frame {
+  position: absolute;
+  inset: 0;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+  background: rgba(15, 23, 42, 0.95);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-css-interior {
+  position: absolute;
+  inset: 3px;
+  background: radial-gradient(circle at center, #1e293b 0%, #020617 100%);
+  border-radius: 3px;
+  box-shadow: inset 0 0 10px rgba(226, 232, 240, 0.35);
+}
+
+.vault-css-door {
+  position: absolute;
+  inset: 2px;
+  background: currentColor;
+  border-radius: 3px;
+  transform-origin: left center;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4);
+  backface-visibility: hidden;
+}
+
+.vault-css-wheel {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #0f172a;
+  border-radius: 50%;
+  position: relative;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.vault-css-spoke {
+  position: absolute;
+  width: 12px;
+  height: 2px;
+  background: #0f172a;
+  border-radius: 1px;
+}
+
+.vault-css-spoke.spoke-2 {
+  transform: rotate(90deg);
+}
+
+.vault-css-bolt {
+  position: absolute;
+  right: 1px;
+  width: 2px;
+  height: 4px;
+  background: #94a3b8;
+  border-radius: 1px;
+  transition: transform 0.3s ease;
+}
+
+/* ── 3D Open & Snap state for Vault ─────────────────────────────────────── */
+.vault-anim-open .vault-css-door {
+  transform: rotateY(-110deg);
+}
+
+.vault-anim-open .vault-css-wheel {
+  transform: rotate(-360deg);
+}
+
+.vault-anim-snap .vault-css-door {
+  transform: rotateY(0deg);
+}
+
+.vault-anim-snap .vault-css-wheel {
+  transform: rotate(0deg);
+}
+
+/* ── Animated vault popup (fixed in viewport) ─────────────────────────── */
+.vault-animated {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  color: #e2e8f0;
+  filter: drop-shadow(0 14px 28px rgba(226, 232, 240, 0.45));
+}
+
+/* ── Animated trash popup (fixed in viewport) ─────────────────────────── */
+.trash-animated {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  color: #ef4444;
+  filter: drop-shadow(0 10px 15px rgba(239, 68, 68, 0.4));
+}
+
+/* Inner wrapper receives the "gulp" bounce independently of outer position */
+.trash-animated-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 2px;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* ── Lid open/close ───────────────────────────────────────────────────── */
+.trash-anim-open .trash-css-lid {
+  transform: translateY(-3px) rotate(-42deg);
+}
+
+.trash-anim-close .trash-css-lid {
+  transform: translateY(0) rotate(0deg);
+}
+
+/* ── Popup from button ────────────────────────────────────────────────── */
+@keyframes trashPopup {
+  0% {
+    transform: translate(-50%, -50%) scale(1) translateY(0);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(2.2) translateY(-40px);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8) translateY(-60px);
+    opacity: 1;
+  }
+}
+
+.trash-anim-popup {
+  animation: trashPopup 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+/* ── Shake ────────────────────────────────────────────────────────────── */
+@keyframes trashShake {
+  0%, 100% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(0deg); }
+  20% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(-8deg); }
+  40% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(8deg); }
+  60% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(-5deg); }
+  80% { transform: translate(-50%, -50%) scale(2.8) translateY(-60px) rotate(5deg); }
+}
+
+.trash-anim-shake {
+  animation: trashShake 0.4s ease-in-out;
+}
+
+/* ── Return to button ─────────────────────────────────────────────────── */
+@keyframes trashReturn {
+  0% {
+    transform: translate(-50%, -50%) scale(2.8) translateY(-60px);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1) translateY(0);
+    opacity: 0;
+  }
+}
+
+.trash-anim-return {
+  animation: trashReturn 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* ── Flying card clone ────────────────────────────────────────────────── */
+.trash-fly-clone {
+  position: fixed !important;
+  z-index: 10005 !important;
+  pointer-events: none;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  will-change: transform, opacity;
+}
+
+/* Original card hidden during flight */
+.trash-fly-hidden {
+  opacity: 0 !important;
+  transform: scale(0.9) !important;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+/* ── Particles ────────────────────────────────────────────────────────── */
+.trash-particle {
+  position: fixed;
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 9998;
+  will-change: transform, opacity;
+}
+
+/* ── Counter badge on trash can ───────────────────────────────────────── */
+.trash-counter-badge {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  background: #ffffff;
+  color: #ef4444;
+  font-size: 10px;
+  font-weight: 800;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: scale(0);
+  transition: all 0.3s ease;
+}
+
+.trash-counter-badge.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Overlay blocks interaction during animation ──────────────────────── */
+.trash-anim-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.trash-anim-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Favorite Shooting Hearts & Burst Animations ──────────────────────── */
+.shooting-heart {
+  position: fixed;
+  z-index: 150;
+  pointer-events: none;
+  width: 26px;
+  height: 26px;
+  color: #ef4444;
+  filter: drop-shadow(0 4px 12px rgba(239, 68, 68, 0.6));
+  will-change: transform, opacity;
+}
+
+.fav-burst-container {
+  position: fixed;
+  z-index: 160;
+  pointer-events: none;
+  width: 52px;
+  height: 52px;
+  transform: translate(-50%, -50%);
+}
+
+.fav-burst-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* Central Heart Spring Pop */
+.fav-burst-heart {
+  transform-origin: 50px 50px;
+  animation: heartPopAnim 0.55s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes heartPopAnim {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  75% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+/* Radial Spikes Outward Energy Shooting */
+.fav-burst-spikes {
+  transform-origin: 50px 50px;
+  animation: spikeGroupExpand 0.55s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.fav-burst-spikes line {
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;
+  animation: spikeShoot 0.55s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes spikeGroupExpand {
+  0% {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes spikeShoot {
+  0% {
+    stroke-dashoffset: 16;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* ── Unfavorite Heart Crack Burst ─────────────────────────────────────── */
+.unfav-burst-container {
+  position: fixed;
+  z-index: 160;
+  pointer-events: none;
+  width: 48px;
+  height: 48px;
+  transform: translate(-50%, -50%);
+}
+
+.unfav-left {
+  transform-origin: 50px 83px;
+  animation: unfavCrackLeft 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.unfav-right {
+  transform-origin: 50px 83px;
+  animation: unfavCrackRight 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes unfavCrackLeft {
+  0% {
+    transform: scale(1) translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.1) translate(-3px, -2px) rotate(-8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.65) translate(-16px, 14px) rotate(-35deg);
+    opacity: 0;
+  }
+}
+
+@keyframes unfavCrackRight {
+  0% {
+    transform: scale(1) translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  30% {
+    transform: scale(1.1) translate(3px, -2px) rotate(8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.65) translate(16px, 14px) rotate(35deg);
+    opacity: 0;
+  }
+}
+
+@keyframes heartBeat {
+  0%, 100% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+}
+
+.pulse-beat svg {
+  animation: heartBeat 0.35s ease-in-out;
+}
+

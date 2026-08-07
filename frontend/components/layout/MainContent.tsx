@@ -14,6 +14,7 @@ const AgentView = React.lazy(() => import('../AgentView/AgentView').then(m => ({
 const ProjectsDashboard = React.lazy(() => import('../projects/ProjectsDashboard').then(m => ({ default: m.ProjectsDashboard })));
 const Appearance = React.lazy(() => import('../utilities/Appearance').then(m => ({ default: m.Appearance })));
 const TrashView = React.lazy(() => import('../TrashView/TrashView').then(m => ({ default: m.TrashView })));
+const ImageToolboxView = React.lazy(() => import('../ImageToolbox/ImageToolboxView').then(m => ({ default: m.ImageToolboxView })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -133,6 +134,13 @@ export const MainContent = React.memo(function MainContent({
             onToggleSelection={onToggleSelection}
             onToggleGroupSelection={onToggleGroupSelection}
             onUpdatePhotos={onUpdatePhotos}
+          />
+        );
+      case 'toolbox':
+        return (
+          <ImageToolboxView
+            photos={photos}
+            onPhotoClick={onPhotoClick}
           />
         );
       default:

@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { motion, AnimatePresence } from 'framer-motion';
 import { TimelineDial } from '@/components/ui/TimelineDial';
 import { PhotoGridProps, VirtualRowItem } from './types';
 import { usePhotoGrid } from './hooks/usePhotoGrid';
@@ -9,29 +8,23 @@ import { PhotoGridHeader } from './PhotoGridHeader';
 import { PhotoGridRow } from './PhotoGridRow';
 import { PhotoListItem } from './PhotoListItem';
 import { useRenderCounter } from '@/lib/perf';
-import { 
-  ROW_PADDING, 
-  EMPTY_ROW_HEIGHT, 
-  HEADER_ROW_HEIGHT, 
-  LIST_ITEM_HEIGHT 
+import {
+  ROW_PADDING,
+  EMPTY_ROW_HEIGHT,
+  HEADER_ROW_HEIGHT,
+  LIST_ITEM_HEIGHT
 } from './constants';
 import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
 import { API_BASE, photoSrc } from '../../constants';
-import { NotificationsButton } from '@/components/layout/header/NotificationsButton';
 import { useSyncStore } from '@/store/syncStore';
-
 import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
 import { useTelemetry } from '../../hooks/useTelemetry';
-import { 
-  Image as ImageIcon, 
-  Search, 
-  SlidersHorizontal, 
-  LayoutGrid, 
-  List, 
-  ChevronDown,
-  ChevronUp
+import {
+  Image as ImageIcon,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 
 const EmptyLibraryState: React.FC<{ isTrash: boolean }> = React.memo(({ isTrash }) => (
@@ -110,7 +103,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const isSelectionMode = selectedIds.size > 0;
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const logRender = useRenderCounter('PhotoGrid');
-  
+
   // Custom states for filtering and view layout
   const [activePill, setActivePill] = useState<'all' | 'favorites' | 'recent' | 'videos'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -190,7 +183,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       const isLocking = !current;
       if (isLocking && !await customConfirm('Encrypt and move this item to the Locked Folder?', 'Confirm Lock')) return;
       if (!isLocking && !await customConfirm('Decrypt and restore this item to your general photos?', 'Confirm Unlock')) return;
-      
+
       onUpdatePhotos?.(prev => prev.map(p =>
         String(p.id) === String(id) ? { ...p, isLocked: isLocking, is_locked: isLocking } : p
       ));
@@ -247,10 +240,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   };
 
-  // Build rows depending on view layout — keep original 'header'/'row' types intact.
-  // When the library is empty we still emit [ dashboard, empty ] so the header
-  // (and Import button) are always visible regardless of photo count.
-  // In trash views, hide the dashboard header.
   const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth, containerWidth, rowHeightPx);
   const isCompactView = compact || currentView === 'trash';
   const rowItems = useMemo(() => {
@@ -278,8 +267,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     estimateSize: (index) => {
       const item = rowItems[index];
       if (!item) return rowHeightPx;
-      if (item.type === 'empty')     return EMPTY_ROW_HEIGHT;
-      if (item.type === 'header')    return HEADER_ROW_HEIGHT;
+      if (item.type === 'empty') return EMPTY_ROW_HEIGHT;
+      if (item.type === 'header') return HEADER_ROW_HEIGHT;
       if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
       return rowHeightPx;
     },
@@ -297,8 +286,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     const firstPhotoDate = new Date(filteredPhotos[0].date);
     const today = new Date();
     const isToday = firstPhotoDate.getDate() === today.getDate() &&
-                    firstPhotoDate.getMonth() === today.getMonth() &&
-                    firstPhotoDate.getFullYear() === today.getFullYear();
+      firstPhotoDate.getMonth() === today.getMonth() &&
+      firstPhotoDate.getFullYear() === today.getFullYear();
     return `${isToday ? 'Today' : 'Gallery'} • ${filteredPhotos.length} photos`;
   }, [filteredPhotos, isCompactView]);
 
@@ -394,10 +383,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   key={pill.id}
                   onClick={() => { logAction('PhotoGrid', 'filter_change', { filter: pill.id }); setActivePill(pill.id); }}
                   className={`px-5 py-2 text-sm rounded-full transition-all duration-300
-                    ${
-                      activePill === pill.id
-                        ? 'bg-[#2a241c] text-[#e0cfb3] font-medium'
-                        : 'text-gray-400 hover:text-white font-normal'
+                    ${activePill === pill.id
+                      ? 'bg-[#2a241c] text-[#e0cfb3] font-medium'
+                      : 'text-gray-400 hover:text-white font-normal'
                     }
                   `}
                 >
@@ -416,18 +404,16 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               <div className="flex items-center bg-[#161616]/40 p-1 rounded-xl border border-white/[0.08]">
                 <button
                   onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'grid' }); setViewMode('grid'); }}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
-                  }`}
+                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
+                    }`}
                   title="Grid View"
                 >
                   <LayoutGrid size={15} />
                 </button>
                 <button
                   onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'list' }); setViewMode('list'); }}
-                  className={`p-2 rounded-lg transition-all duration-300 ${
-                    viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
-                  }`}
+                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
+                    }`}
                   title="List View"
                 >
                   <List size={15} />
@@ -439,8 +425,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       )}
 
       {/* The Virtualized Container */}
-      <div 
-        className="relative w-full" 
+      <div
+        className="relative w-full"
         style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -555,11 +541,10 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => setImageGrouping(item.id as any)}
-                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${
-                  isActive
-                    ? 'bg-white/25 text-white font-bold shadow-md scale-[1.03] border border-white/20'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                }`}
+                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${isActive
+                  ? 'bg-white/25 text-white font-bold shadow-md scale-[1.03] border border-white/20'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
+                  }`}
               >
                 {item.label}
               </button>

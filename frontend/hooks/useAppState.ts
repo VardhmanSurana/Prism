@@ -67,6 +67,7 @@ export function useAppState() {
   } = useSelection();
 
   const [isAddToAlbumOpen, setIsAddToAlbumOpen] = useState(false);
+  const [albumAddedSignal, setAlbumAddedSignal] = useState(0);
   const { albums, fetchAlbums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum, setAlbumCover } = useAlbums();
 
   const handleAddToAlbumClick = useCallback(() => {
@@ -78,20 +79,20 @@ export function useAppState() {
     const photoIds = Array.from(selectedIds).map(Number);
     if (photoIds.length > 0) {
       await addPhotosToAlbum(albumId, photoIds);
+      setAlbumAddedSignal((s) => s + 1);
     }
     setIsAddToAlbumOpen(false);
-    clearSelection();
-  }, [selectedIds, addPhotosToAlbum, clearSelection]);
+  }, [selectedIds, addPhotosToAlbum]);
 
   const handleCreateAlbumAndAdd = useCallback(async (name: string) => {
     const album = await createAlbum(name);
     if (album && selectedIds.size > 0) {
       const photoIds = Array.from(selectedIds).map(Number);
       await addPhotosToAlbum(Number(album.id), photoIds);
+      setAlbumAddedSignal((s) => s + 1);
     }
     setIsAddToAlbumOpen(false);
-    clearSelection();
-  }, [selectedIds, createAlbum, addPhotosToAlbum, clearSelection]);
+  }, [selectedIds, createAlbum, addPhotosToAlbum]);
 
   const handleRemovePhotosFromActiveAlbum = useCallback(async () => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
@@ -99,8 +100,7 @@ export function useAppState() {
     if (photoIds.length > 0) {
       await removePhotosFromAlbum(Number(selectedAlbum.id), photoIds);
     }
-    clearSelection();
-  }, [selectedAlbum, selectedIds, removePhotosFromAlbum, clearSelection]);
+  }, [selectedAlbum, selectedIds, removePhotosFromAlbum]);
 
 
   const {
@@ -114,7 +114,6 @@ export function useAppState() {
     photos,
     setPhotos,
     currentView,
-    clearSelection,
     setSortMode,
     selectedIds,
     onAddToAlbumClick: handleAddToAlbumClick,
@@ -207,5 +206,6 @@ export function useAppState() {
     selectedAlbum,
     handleRemoveSingleFromActiveAlbum,
     handleSetAlbumCover,
+    albumAddedSignal,
   };
 }

@@ -67,7 +67,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
         active:scale-[0.98]
         ${
           isSelected
-            ? 'bg-primary/5 border-primary/30 shadow-lg'
+            ? 'photo-item-selected bg-primary/5 border-primary/30 shadow-lg'
             : 'bg-surface/50 border-white/[0.03] hover:bg-surfaceHover/80 hover:border-white/10 hover:shadow-xl'
         }
       `}

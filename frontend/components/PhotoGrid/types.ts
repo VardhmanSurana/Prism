@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction, RefObject } from 'react';
 import { Photo } from '../../types';
-import { SearchFilters, SortMode, ViewMode } from '../../types';
+import { SearchFilters, ViewMode } from '../../types';
 
 export interface ImportProgressStatus {
   is_scanning: boolean;

@@ -93,7 +93,7 @@ interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent' | 'toolbox';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 
