@@ -1,0 +1,30 @@
+services:
+  prism-server:
+    build:
+      context: ..
+      dockerfile: prism-server/Dockerfile
+    container_name: prism-companion-server
+    ports:
+      - "8269:8269"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8269
+      - DATABASE_URL=sqlite:///data/prism.db
+      - UPLOAD_DIR=/data/uploads
+      - THUMBNAILS_DIR=/data/thumbnails
+      - MODELS_DIR=/data/models
+      - GPU_MODE=cpu
+      - RUST_LOG=info
+    volumes:
+      - prism_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8269/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  prism_data:
+    driver: local

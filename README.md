@@ -117,6 +117,31 @@ To start the Rust backend and launch the application:
 ./run-desktop.sh
 ```
 
+### Docker Companion Server Deployment
+
+Deploy the standalone Prism Companion Server using Docker or Docker Compose:
+
+```bash
+# Start server in background via helper script
+./run-server-docker.sh up
+
+# View container status and health endpoint
+./run-server-docker.sh status
+
+# Stop server container
+./run-server-docker.sh down
+```
+
+Or deploy directly from `prism-server/`:
+
+```bash
+cd prism-server
+docker compose up -d --build
+```
+
+---
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
