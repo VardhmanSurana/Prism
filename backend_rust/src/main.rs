@@ -3,6 +3,8 @@ mod db;
 mod models;
 mod routes;
 mod services;
+#[cfg(test)]
+mod tests;
 
 use std::net::SocketAddr;
 use std::sync::Arc;

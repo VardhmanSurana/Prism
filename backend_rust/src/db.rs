@@ -253,6 +253,15 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             download_original BOOLEAN DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS webhooks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT NOT NULL,
+            events TEXT NOT NULL DEFAULT '*',
+            secret TEXT,
+            enabled BOOLEAN DEFAULT 1,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
         "#
     )
     .execute(pool)

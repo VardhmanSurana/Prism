@@ -18,3 +18,4 @@ pub mod stories;
 pub mod agent_planner;
 pub mod agent_search;
 pub mod subtitle_gen;
+pub mod webhooks;

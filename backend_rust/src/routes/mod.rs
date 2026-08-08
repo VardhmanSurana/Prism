@@ -222,14 +222,45 @@ async fn telemetry_tracking_layer(
     response
 }
 
-/// Verify API key from `X-API-Key` header if `API_KEY` is configured.
-/// Mirrors Python's `verify_api_key`. Passes through when no key is set.
+/// Verify API key from `X-API-Key` header if configured in settings or environment.
+/// Passes through when API key protection is disabled or no key is set.
 async fn api_key_auth_layer(
     State(state): State<Arc<AppState>>,
     req: Request,
     next: Next,
 ) -> Response {
-    let Some(expected) = &state.config.api_key else {
+    let path = req.uri().path();
+    // Exclude security settings get/post and swagger/health from blocking
+    if path == "/health" || path.starts_with("/swagger") || path.starts_with("/api-docs") || path == "/api/v1/settings/security" {
+        return next.run(req).await;
+    }
+
+    // Check dynamic DB settings first
+    let db_enabled: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
+        .fetch_optional(&state.db)
+        .await
+        .unwrap_or(None);
+
+    let (is_enabled, expected_key) = match db_enabled.as_deref() {
+        Some("true") => {
+            let key: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_value'")
+                .fetch_optional(&state.db)
+                .await
+                .unwrap_or(None);
+            (true, key.or_else(|| state.config.api_key.clone()))
+        }
+        Some("false") => (false, None),
+        _ => {
+            let config_key = state.config.api_key.clone();
+            (config_key.is_some(), config_key)
+        }
+    };
+
+    if !is_enabled {
+        return next.run(req).await;
+    }
+
+    let Some(expected) = expected_key else {
         return next.run(req).await;
     };
 
@@ -448,6 +479,11 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/settings/sync", get(settings::get_sync_settings).post(settings::save_sync_settings))
         .route("/settings/trigger-face-sync", post(settings::trigger_face_sync))
         .route("/settings/telemetry", get(settings::get_telemetry_settings).post(settings::save_telemetry_settings))
+        .route("/settings/security", get(settings::get_security_settings).post(settings::save_security_settings))
+        .route("/settings/security/generate", post(settings::generate_api_key))
+        .route("/settings/webhooks", get(settings::list_webhooks).post(settings::create_webhook))
+        .route("/settings/webhooks/:id", delete(settings::delete_webhook))
+        .route("/settings/webhooks/test", post(settings::test_webhooks))
         .route("/utilities/duplicates", get(utilities::get_duplicates))
         .route("/utilities/blurry", get(utilities::get_blurry_photos))
         .route("/utilities/documents", get(utilities::get_document_photos))
@@ -472,7 +508,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/system-state", get(utilities::get_system_state))
         .route("/telemetry/summary", get(telemetry_api::get_telemetry_summary))
         .route("/telemetry/events", get(telemetry_api::get_telemetry_events).delete(telemetry_api::clear_telemetry_events))
-                .route("/telemetry/stream", get(telemetry_api::telemetry_sse_stream))
+        .route("/telemetry/stream", get(telemetry_api::telemetry_sse_stream))
         .route("/telemetry/log", post(telemetry_api::log_frontend_event))
         .route("/telemetry/log-batch", post(telemetry_api::log_frontend_event_batch))
         .route("/lan/discover", get(lan_sync::discover_peers))
@@ -503,16 +539,29 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/shares/:token/download", get(shares::download_shared_file))
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 
-
-    Router::new()
+    let mut router = Router::new()
         .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", ApiDoc::openapi()))
-        .route("/", get(system::root))
         .route("/health", get(system::health_check))
         .route("/local", get(photos::serve_local_file))
         .route("/transcode", get(nle::stream_video))
         .route("/hls/playlist", get(nle::stream_video))
         .nest_service("/thumbnails", tower_http::services::ServeDir::new(&state.config.thumbnails_dir))
-        .nest("/api/v1", api_routes)
+        .nest("/api/v1", api_routes);
+
+    let static_dir = std::env::var("WEB_STATIC_DIR")
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(|_| std::path::PathBuf::from("./frontend/dist"));
+
+    if static_dir.exists() && static_dir.is_dir() {
+        let index_file = static_dir.join("index.html");
+        let serve_dir = tower_http::services::ServeDir::new(&static_dir)
+            .not_found_service(tower_http::services::ServeFile::new(index_file));
+        router = router.fallback_service(serve_dir);
+    } else {
+        router = router.route("/", get(system::root));
+    }
+
+    router
         .layer(axum::extract::DefaultBodyLimit::max(1024 * 1024 * 1024))
         .layer(cors)
         .layer(TraceLayer::new_for_http())

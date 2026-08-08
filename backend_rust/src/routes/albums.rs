@@ -160,6 +160,18 @@ pub async fn create_album(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    crate::services::webhooks::WebhookService::dispatch_event(
+        &state.db,
+        "album.created",
+        serde_json::json!({
+            "id": album.id,
+            "uuid": album.uuid,
+            "name": album.name,
+            "type": album.r#type
+        }),
+    )
+    .await;
+
     Ok(Json(album))
 }
 

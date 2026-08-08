@@ -136,6 +136,18 @@ pub async fn upload_photo(
         photo.date = photo.date_taken;
     }
 
+    crate::services::webhooks::WebhookService::dispatch_event(
+        &state.db,
+        "photo.imported",
+        serde_json::json!({
+            "id": photo.id,
+            "uuid": photo.uuid,
+            "filename": photo.filename,
+            "path": photo.path
+        }),
+    )
+    .await;
+
     // Pre-generate thumbnail in background so grid loads instantly
     let src_path = target_path.clone();
     let thumb_dir = state.config.thumbnails_dir.clone();

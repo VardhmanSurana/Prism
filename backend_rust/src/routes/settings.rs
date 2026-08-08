@@ -563,4 +563,171 @@ pub async fn lock_session(
     }
 }
 
+// ── Security / API Key sub-endpoints ─────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct SecuritySettingsRequest {
+    pub enabled: bool,
+    pub api_key: Option<String>,
+}
+
+pub async fn get_security_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let enabled_setting: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
+        .fetch_optional(&state.db)
+        .await
+        .unwrap_or(None);
+    let key_setting: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_value'")
+        .fetch_optional(&state.db)
+        .await
+        .unwrap_or(None);
+
+    let is_enabled = enabled_setting.map(|v| v == "true").unwrap_or_else(|| state.config.api_key.is_some());
+    let current_key = key_setting.or_else(|| state.config.api_key.clone());
+
+    let masked = current_key.as_ref().map(|k| {
+        if k.len() > 6 {
+            format!("{}***{}", &k[..3], &k[k.len() - 3..])
+        } else {
+            "***".to_string()
+        }
+    });
+
+    Json(json!({
+        "enabled": is_enabled,
+        "api_key_masked": masked,
+        "has_key": current_key.is_some()
+    }))
+}
+
+pub async fn save_security_settings(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SecuritySettingsRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let enabled_str = if payload.enabled { "true" } else { "false" };
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_enabled', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind(enabled_str)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if let Some(key) = payload.api_key {
+        if !key.trim().is_empty() {
+            sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_value', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+                .bind(key.trim())
+                .execute(&state.db)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        }
+    }
+
+    Ok(Json(json!({ "status": "success", "enabled": payload.enabled })))
+}
+
+pub async fn generate_api_key(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
+    let new_key = format!("prism_key_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
+
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_value', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind(&new_key)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_enabled', 'true') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "api_key": new_key,
+        "enabled": true
+    })))
+}
+
+// ── Webhooks sub-endpoints ───────────────────────────────────────────────
+
+use crate::services::webhooks::{Webhook, WebhookService};
+
+#[derive(Deserialize)]
+pub struct CreateWebhookRequest {
+    pub url: String,
+    pub events: Option<String>,
+    pub secret: Option<String>,
+    pub enabled: Option<bool>,
+}
+
+pub async fn list_webhooks(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
+    let webhooks: Vec<Webhook> = sqlx::query_as::<_, Webhook>(
+        "SELECT id, url, events, secret, enabled, created_at FROM webhooks ORDER BY id DESC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({ "webhooks": webhooks })))
+}
+
+pub async fn create_webhook(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreateWebhookRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    if payload.url.trim().is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Webhook URL cannot be empty".to_string()));
+    }
+
+    let events = payload.events.unwrap_or_else(|| "*".to_string());
+    let enabled = payload.enabled.unwrap_or(true);
+
+    let res = sqlx::query(
+        "INSERT INTO webhooks (url, events, secret, enabled) VALUES (?, ?, ?, ?)"
+    )
+    .bind(payload.url.trim())
+    .bind(events.trim())
+    .bind(payload.secret)
+    .bind(enabled)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let id = res.last_insert_rowid();
+
+    Ok(Json(json!({
+        "status": "success",
+        "id": id,
+        "url": payload.url,
+        "events": events,
+        "enabled": enabled
+    })))
+}
+
+pub async fn delete_webhook(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(id): axum::extract::Path<i64>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    sqlx::query("DELETE FROM webhooks WHERE id = ?")
+        .bind(id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({ "status": "success", "id": id })))
+}
+
+pub async fn test_webhooks(State(state): State<Arc<AppState>>) -> Json<Value> {
+    WebhookService::dispatch_event(
+        &state.db,
+        "test.ping",
+        json!({
+            "message": "Prism webhook test ping event",
+            "server": "rust-axum"
+        }),
+    ).await;
+
+    Json(json!({
+        "status": "success",
+        "message": "Test event dispatched to all configured webhooks."
+    }))
+}
+
+
 
