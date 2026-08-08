@@ -151,7 +151,16 @@ mod tests {
         let norm: f32 = text_emb.iter().map(|&x| x * x).sum::<f32>().sqrt();
         assert!((norm - 1.0).abs() < 1e-5, "Text embedding is not L2-normalized: {}", norm);
 
-        let image_path = "../sample_images/pet.png";
+        let image_paths = [
+            "../frontend/public/sample_images/pet.png",
+            "../sample_images/pet.png",
+            "frontend/public/sample_images/pet.png",
+            "sample_images/pet.png",
+        ];
+        let image_path = image_paths
+            .iter()
+            .find(|p| std::path::Path::new(p).exists())
+            .expect("pet.png sample image not found in any standard path");
         let img_emb = engine.embed_image(image_path).expect("Failed to embed image");
         assert_eq!(img_emb.len(), 768);
         
