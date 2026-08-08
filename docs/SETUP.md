@@ -1,311 +1,388 @@
-# Prism Setup Guide
+# Setup Guide
 
-Comprehensive setup instructions for the Prism photo and video library desktop application, powered by a Rust (Axum) backend.
-
----
-
-## Table of Contents
-
-- [Prerequisites](#prerequisites)
-- [One-Click Startup](#one-click-startup)
-- [Manual Development Setup](#manual-development-setup)
-- [Per-OS Tauri Dependencies](#per-os-tauri-dependencies)
-- [Environment Variables](#environment-variables)
-- [GPU / CUDA Setup](#gpu--cuda-setup)
-- [Troubleshooting](#troubleshooting)
-
----
+This guide covers installation, configuration, and troubleshooting for Prism.
 
 ## Prerequisites
 
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| [pnpm](https://pnpm.io/) | 9+ | Frontend package manager |
-| [Rust](https://www.rust-lang.org/) | 1.75+ | Backend runtime and compiler |
-| [cargo](https://doc.rust-lang.org/cargo/) | latest | Rust package manager (included with Rust) |
-| [ffmpeg](https://ffmpeg.org/) | latest | Video thumbnail generation, metadata extraction, transcoding |
-| [Tauri system deps](#per-os-tauri-dependencies) | — | Native OS libraries for the Tauri v2 shell |
+### Required
+- **Rust** (latest stable) — [Install Rust](https://rustup.rs/)
+- **Node.js** (v18+) — [Install Node.js](https://nodejs.org/)
+- **pnpm** — [Install pnpm](https://pnpm.io/)
+- **SQLite** — Usually pre-installed on most systems
 
-### Optional Dependencies
+### Optional (for video features)
+- **ffmpeg** — Video metadata and thumbnails
+- **ffprobe** — Video analysis
 
-| Dependency | Purpose |
-|------------|---------|
-| NVIDIA CUDA Toolkit | GPU-accelerated AI features (face detection, embeddings, inpainting) |
-| `llama-server` | Local LLM inference for agent search, vision, and OCR |
-| `execstack` | Fix executable-stack issues for InspireFace shared library (Linux) |
+### Optional (for desktop mode)
+- **Tauri CLI** — Desktop application shell
+- **System dependencies** — See [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites)
 
----
-
-## One-Click Startup
-
-The fastest way to get Prism running:
-
-```bash
-# Install root dependencies
-pnpm install
-
-# Install frontend dependencies
-cd frontend && pnpm install
-
-# Start everything (backend + Tauri desktop shell)
-pnpm run desktop
-```
-
-### Startup Workflow
+## Installation
 
 ```mermaid
 flowchart TD
-    A["pnpm install"] --> B["cd frontend && pnpm install"]
-    B --> C["pnpm run desktop"]
-    C --> D{Port 8269 in use?}
-    D -->|Yes| E["Reconnect to existing backend"]
-    D -->|No| F["Spawn Rust backend<br/>(cargo run on 127.0.0.1:8269)"]
-    F --> G["Initialize database<br/>(WAL mode, tables, migrations)"]
-    G --> H["Start background services<br/>(SSE events, settings)"]
-    H --> I["Launch Tauri desktop shell<br/>(Vite frontend on port 3005)"]
-    E --> I
-    I --> J["React UI connects via REST API"]
+    A["Clone Repository"] --> B["Install Frontend
+Dependencies"]
+    B --> C["Build Backend"]
+    C --> D{"Need CLI?"}
+    D -->|Yes| E["Build CLI"]
+    D -->|No| F{"Need AI?"}
+    E --> F
+    F -->|Yes| G["Download AI Models"]
+    F -->|No| H["Ready to Run"]
+    G --> H
+
+    style A fill:#3b82f6,stroke:#2563eb,color:#fff
+    style H fill:#10b981,stroke:#059669,color:#fff
 ```
 
-`pnpm run desktop` does the following:
-1. Starts the Rust backend on `127.0.0.1:8269`
-2. Streams backend logs to the terminal
-3. Opens the Tauri desktop shell using the Vite frontend on port `3005`
-4. Detects if the backend is already running and reconnects to the existing log stream
-
----
-
-## Manual Development Setup
-
-For developers who want separate terminal windows for backend and frontend.
-
-### Terminal 1: Rust Backend
+### 1. Clone the Repository
 
 ```bash
-cd backend_rust
-cargo run
+git clone https://github.com/yourusername/prism.git
+cd prism
 ```
 
-The Rust backend starts on `127.0.0.1:8269` by default.
-
-### Terminal 2: Frontend Client
+### 2. Install Frontend Dependencies
 
 ```bash
 cd frontend
 pnpm install
-pnpm run dev
+cd ..
 ```
 
-The Vite dev server is pinned to port `3005` (configured in `frontend/vite.config.ts`).
-
-### Useful Scripts
-
-| Command | Description |
-|---------|-------------|
-| `./run-web.sh` | Start Rust backend + Vite frontend |
-| `./run-desktop.sh` | Start Rust backend + Tauri desktop shell |
-| `pnpm run frontend` | Start Vite frontend dev server |
-| `pnpm run frontend:build` | Build frontend assets |
-| `pnpm run frontend:typecheck` | Run frontend TypeScript checks |
-
----
-
-## Per-OS Tauri Dependencies
-
-### Linux (Debian/Ubuntu)
+### 3. Build Backend
 
 ```bash
-sudo apt update
-sudo apt install -y \
-  libwebkit2gtk-4.1-dev \
-  build-essential \
-  curl \
-  wget \
-  file \
-  libxdo-dev \
-  libssl-dev \
-  libayatana-appindicator3-dev \
-  librsvg2-dev \
-  libgtk-3-dev \
-  libsoup-3.0-dev \
-  libjavascriptcoregtk-4.1-dev
+cd backend_rust
+cargo build --release
+cd ..
 ```
 
-### macOS
-
-Xcode Command Line Tools are required:
+### 4. (Optional) Build CLI
 
 ```bash
-xcode-select --install
+cd cli
+cargo build --release
+cd ..
 ```
 
-### Windows
+### 5. (Optional) Download AI Models
 
-- Microsoft Visual Studio C++ Build Tools
-- WebView2 (included with Windows 10+)
+Download models to `backend_rust/models/`:
 
----
+```bash
+# Create model directories
+mkdir -p backend_rust/models/{llm,face,segmentation,inpainting}
 
-## Environment Variables
+# Download models (example URLs - replace with actual links)
+# SigLIP2
+wget -O backend_rust/models/llm/siglip2_image.onnx <url>
+wget -O backend_rust/models/llm/siglip2_text.onnx <url>
+wget -O backend_rust/models/llm/tokenizer.json <url>
 
-Configuration is managed through environment variables and `backend_rust/src/config.rs`. Below are all available settings:
+# Face-id
+wget -O backend_rust/models/face/det_10g.onnx <url>
+wget -O backend_rust/models/face/w600k_mbf.onnx <url>
 
-### Core Settings
+# Segmentation
+wget -O backend_rust/models/segmentation/segformer.onnx <url>
+wget -O backend_rust/models/segmentation/face_parsing.onnx <url>
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PROJECT_NAME` | `Prism Photos API` | Application name |
-| `API_V1_STR` | `/api/v1` | API version prefix |
-| `DATA_DIR` | Platform-specific | User data directory (see below) |
-| `DATABASE_URL` | `{DATA_DIR}/prism.db` | SQLite database file path |
-| `FFMPEG_PATH` | `""` (use system PATH) | Custom ffmpeg binary path |
-| `API_KEY` | `""` (disabled) | API key for production authentication |
+# Inpainting
+wget -O backend_rust/models/inpainting/lama.onnx <url>
+```
 
-### AI Feature Flags
+## Running Prism
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENABLE_AI_AGENT` | `False` | Local AI assistant (llama-server agent model) |
-| `ENABLE_AI_INPAINTING` | `False` | Stable Diffusion inpainting for object removal |
-| `ENABLE_AI_FACE` | `False` | Face detection and clustering (InspireFace) |
-| `ENABLE_AI_CLIP` | `False` | SigLIP2 embeddings for semantic search |
-| `ENABLE_AI_REMBG` | `False` | Background removal |
-| `ENABLE_AI_OCR` | `False` | PaddleOCR-VL text extraction |
-| `ENABLE_AI_SUBTITLES` | `False` | Whisper-based subtitle generation |
-| `ENABLE_AI_STORY` | `True` | AI-powered story generation |
-| `ENABLE_AI_CONTENT_CLASSIFY` | `True` | Content classification (photo/screenshot/document) |
-| `ENABLE_AI_CAPTION` | `True` | Gemma 4 image captioning |
-| `ENABLE_RAW_PROCESSING` | `True` | RAW image processing support |
-| `ENABLE_LAN_SYNC` | `False` | LAN sync between Prism instances |
+```mermaid
+graph TD
+    subgraph Modes["Running Modes"]
+        Web["Web Mode<br/>(Recommended)"]
+        Desktop["Desktop Mode<br/>(Tauri)"]
+        Docker["Docker Mode<br/>(Server)"]
+    end
 
-### Background Processing
+    Web --> |"./run-web.sh"| Backend["Backend
+(port 8269)"]
+    Web --> |"./run-web.sh"| Frontend["Frontend
+(port 3005)"]
+    
+    Desktop --> |"./run-desktop.sh"| Tauri["Tauri Shell"]
+    Tauri --> Backend
+    Tauri --> Frontend
+    
+    Docker --> |"docker compose up -d"| Container["Docker Container
+(port 8269)"]
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ENABLE_IMAGE_BG_PROCESS` | `True` | Master switch for image background analysis |
-| `ENABLE_VIDEO_BG_PROCESS` | `True` | Master switch for video background analysis |
-| `ENABLE_VIDEO_FACE` | `True` | Video face detection and tracking |
-| `ENABLE_VIDEO_EDITOR_AI` | `True` | Video editor AI features |
-| `GPU_MODE` | `cuda` | Hardware acceleration backend |
-| `GPU_ENCODING_MODE` | `auto` | Video encoding mode (`auto`, `nvenc`, `vaapi`, `cpu`) |
+    style Web fill:#3b82f6,stroke:#2563eb,color:#fff
+    style Desktop fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style Docker fill:#059669,stroke:#047857,color:#fff
+```
 
-### Face Detection Settings
+### Web Mode (Recommended for Development)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FACE_CONF_THRESHOLD` | `0.65` | Face detection confidence threshold |
-| `FACE_YAW_PITCH_LIMIT` | `28.0` | Maximum yaw/pitch angle for face detection |
-| `FACE_MATCH_THRESHOLD` | `0.41` | Face matching threshold for clustering |
-| `FACE_UNCERTAIN_MATCH_THRESHOLD` | `0.33` | Threshold for pending face assignments |
-| `FACE_EARLY_EXIT_SCORE` | `0.75` | Early exit score for face matching |
-| `FACE_DETECT_MAX_DIM` | `1280` | Maximum dimension for face detection |
+Start both backend and frontend:
 
-### Job Queue Settings
+```bash
+./run-web.sh
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `JOB_QUEUE_MAX_RETRIES` | `5` | Maximum retry attempts for failed jobs |
-| `JOB_QUEUE_THROTTLE_CPU_THRESHOLD` | `85.0` | CPU % threshold for throttling |
-| `JOB_QUEUE_THROTTLE_BATTERY_THRESHOLD` | `20` | Battery % threshold for throttling |
+This will:
+1. Start the Rust backend on port `8269`
+2. Start the Vite dev server on port `3005`
+3. Open the app in your browser at `http://localhost:3005`
 
-### Server Ports
+### Desktop Mode
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| Backend API | `127.0.0.1:8269` | Rust Axum server |
-| Agent server | `127.0.0.1:9090` | llama-server for agent search |
-| Vision server | `127.0.0.1:9091` | llama-server for vision/captioning |
-| OCR server | `127.0.0.1:9092` | llama-server for PaddleOCR-VL |
-| Tauri dev URL | `http://localhost:3005` | Vite dev server |
+Start with Tauri desktop shell:
 
-### Platform Data Directories
+```bash
+./run-desktop.sh
+```
 
-| OS | Default Data Directory |
-|----|----------------------|
-| Linux | `~/.local/share/prism` |
-| macOS | `~/Library/Application Support/prism` |
-| Windows | `%APPDATA%/prism` |
+**Note:** Requires Tauri CLI and system dependencies. See [Tauri prerequisites](https://tauri.app/v1/guides/getting-started/prerequisites).
 
-Stored files include:
-- `Prism.db` — SQLite database
-- `settings.json` — Dynamic settings
-- `uploads/` — Imported media files
-- `thumbnails/` — Generated thumbnails
+### Docker Mode
 
----
+Run the backend as a Docker container:
 
-## GPU / CUDA Setup
+```bash
+docker compose up -d
+```
 
-### NVIDIA CUDA
+This will:
+1. Build the backend Docker image
+2. Start the container on port `8269`
+3. Create persistent volumes for data
 
-1. Install NVIDIA CUDA Toolkit 12.x from [developer.nvidia.com](https://developer.nvidia.com/cuda-downloads)
-2. Ensure `LD_LIBRARY_PATH` includes `/usr/local/cuda/lib64`
-3. Set `GPU_MODE=cuda` in your environment or settings
+## Configuration
 
-The `run-desktop.sh` script automatically sets common CUDA `LD_LIBRARY_PATH` entries.
+### Environment Variables
 
-### AMD ROCm
+Create a `.env` file in the project root:
 
-1. Install ROCm from [rocm.docs.amd.com](https://rocm.docs.amd.com)
-2. Set `GPU_MODE=rocm` in your environment or settings
+```bash
+# Backend Configuration
+HOST=0.0.0.0
+PORT=8269
+DATABASE_URL=sqlite://backend_rust/prism.db
+UPLOAD_DIR=uploads
+THUMBNAILS_DIR=thumbnails
 
-### Intel Arc / SYCL
+# Security
+API_KEY=your-secret-api-key  # Optional
 
-1. Install Intel oneAPI Base Toolkit
-2. Set `GPU_MODE=sycl` in your environment or settings
+# AI Features
+GPU_MODE=cpu  # cpu, cuda, metal
+RUST_LOG=info  # debug, info, warn, error
 
-### Vulkan
+# LLM Services (Optional)
+LLM_AGENT_PORT=9090
+LLM_VISION_PORT=9091
+LLM_OCR_PORT=9092
+```
 
-1. Install Vulkan SDK
-2. Set `GPU_MODE=vulkan` in `backend_rust/.env`
+### Configuration Files
 
-### CPU Only
+| File | Purpose |
+|------|---------|
+| `frontend/vite.config.ts` | Vite dev server configuration |
+| `frontend/tailwind.config.js` | Tailwind CSS configuration |
+| `frontend/src-tauri/tauri.conf.json` | Tauri desktop configuration |
+| `backend_rust/Cargo.toml` | Rust backend dependencies |
 
-Set `GPU_MODE=cpu` in your environment or settings to disable GPU acceleration entirely.
+## Directory Structure
 
----
+```
+prism/
+├── backend_rust/
+│   ├── prism.db          # SQLite database
+│   ├── uploads/          # Imported media files
+│   ├── thumbnails/       # Generated thumbnails
+│   └── models/           # ML model files
+│       ├── llm/          # SigLIP2, LLM models
+│       ├── face/         # Face detection models
+│       ├── segmentation/ # Segmentation models
+│       └── inpainting/   # Inpainting models
+├── frontend/
+│   ├── dist/             # Built frontend
+│   └── public/           # Static assets
+└── cli/
+    └── target/           # Built CLI binary
+```
 
 ## Troubleshooting
 
-### Backend is already running
+### Backend Won't Start
 
-`pnpm run desktop` detects an active listener on port `8269` and reconnects to the existing backend log stream instead of starting a duplicate backend process.
-
-### CUDA or native library issues
-
-- `run-desktop.sh` sets common CUDA `LD_LIBRARY_PATH` entries
-- Handles the local `gcc-15` compiler override when available
-- Fixes executable-stack issues for the bundled InspireFace shared library when `execstack` is installed
-
-### AI features are disabled
-
-Most AI components are behind feature flags and are not required for basic import, browsing, search, albums, maps, or Locked Folder usage. Enable only the features you need in your environment settings.
-
-### Video thumbnails not generating
-
-Video thumbnail generation requires `ffmpeg` and `ffprobe` to be installed and available on your PATH. Install via your system package manager:
-
+**Port already in use:**
 ```bash
-# Debian/Ubuntu
+# Check what's using port 8269
+lsof -i :8269
+
+# Kill existing process
+pkill -f "prism-backend-rust"
+```
+
+**Database errors:**
+```bash
+# Check database file permissions
+ls -la backend_rust/prism.db
+
+# Reset database (WARNING: deletes all data)
+rm backend_rust/prism.db
+```
+
+### Frontend Won't Start
+
+**Node modules missing:**
+```bash
+cd frontend
+rm -rf node_modules
+pnpm install
+```
+
+**Port 3005 in use:**
+```bash
+# Check what's using port 3005
+lsof -i :3005
+
+# Kill existing process
+pkill -f "vite"
+```
+
+### Thumbnail Generation Fails
+
+**ffmpeg not found:**
+```bash
+# Install ffmpeg
+# Ubuntu/Debian
 sudo apt install ffmpeg
 
 # macOS
 brew install ffmpeg
 
 # Windows
-choco install ffmpeg
+winget install ffmpeg
 ```
 
-### Port conflicts
+**Permission errors:**
+```bash
+# Check upload directory permissions
+ls -la uploads/
+chmod -R 755 uploads/
+```
 
-If port `8269` is already in use, kill the existing process or change the port via the PORT environment variable.
+### AI Features Not Working
 
-### Database issues
+**Models not found:**
+```bash
+# Check model directory
+ls -la backend_rust/models/
 
-- **Vacuum**: Use the Utilities view in the app or run `prism serve` with maintenance mode
-- **Reset**: The Utilities view provides a "Reset Indexed Library" option that removes photo records and thumbnails without deleting original files
-- **Backup**: Use the backup export/restore endpoints in the Utilities API
+# Download models (see Installation section)
+```
 
-### Locked Folder lockout
+**GPU not available:**
+```bash
+# Check CUDA installation
+nvidia-smi
 
-After 3 failed password attempts, the Locked Folder enforces an exponentially increasing lockout period (starting at 30 seconds). Restarting the app resets the lockout counter.
+# Use CPU mode instead
+export GPU_MODE=cpu
+```
+
+**LLM services not running:**
+```bash
+# Check if llama-server is running
+ps aux | grep llama-server
+
+# Start LLM services (see AI Features documentation)
+```
+
+### Desktop Mode Issues
+
+**Tauri build fails:**
+```bash
+# Install Tauri CLI
+pnpm add -D @tauri-apps/cli
+
+# Check system dependencies
+# See https://tauri.app/v1/guides/getting-started/prerequisites
+```
+
+**WebKitGTK issues (Linux):**
+```bash
+# Install WebKitGTK
+sudo apt install libwebkit2gtk-4.0-dev
+
+# Set environment variables
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=0
+export WEBKIT_USE_GLDOM=1
+```
+
+## Performance Optimization
+
+### Database
+```bash
+# Vacuum database
+prism config vacuum true
+
+# Check database size
+ls -lh backend_rust/prism.db
+```
+
+### Thumbnails
+```bash
+# Regenerate thumbnails
+rm -rf thumbnails/*
+# Restart backend to regenerate
+```
+
+### Memory
+```bash
+# Monitor memory usage
+top -p $(pgrep -f "prism-backend-rust")
+
+# Reduce concurrent workers
+prism config max_workers 2
+```
+
+## Updating
+
+### Update Code
+```bash
+git pull origin main
+```
+
+### Update Dependencies
+```bash
+# Frontend
+cd frontend
+pnpm update
+
+# Backend
+cd backend_rust
+cargo update
+```
+
+### Rebuild
+```bash
+# Frontend
+cd frontend
+pnpm build
+
+# Backend
+cd backend_rust
+cargo build --release
+```
+
+## Getting Help
+
+- **Documentation**: See `docs/` directory
+- **Issues**: Open a GitHub issue
+- **Discussions**: Join GitHub Discussions
+- **Logs**: Check `backend_rust/backend.log` for error details

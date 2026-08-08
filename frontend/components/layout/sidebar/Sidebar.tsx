@@ -72,7 +72,10 @@ const AppleSidebarContent: React.FC<{
     <div className="px-3 py-4 space-y-4 text-xs font-sans text-zinc-300 select-none overflow-y-auto custom-scrollbar h-full">
       {/* Top Header / Brand (Apple HIG SF Symbols Header) */}
       <div className="px-2 py-1 flex items-center justify-between">
-        <span className="text-xl font-sans font-bold text-white tracking-tight">Photos</span>
+        <div className="flex items-center gap-2">
+          <img src="/prism-logo.png" alt="Prism Logo" className="w-6 h-6 rounded-lg object-cover shadow-sm" />
+          <span className="text-xl font-sans font-bold text-white tracking-tight">Photos</span>
+        </div>
         <span className="text-[10px] font-mono text-[#0a84ff] bg-[#0a84ff]/15 px-2 py-0.5 rounded-full font-semibold">iPadOS 18 HIG</span>
       </div>
 
@@ -315,8 +318,8 @@ export const Sidebar: React.FC<{
     <aside className="w-64 h-screen bg-transparent flex flex-col shrink-0 z-30 relative">
       <GlassMaterial intensity="prominent" borderRadius="0" className="h-full border-r border-white-[0.03] shadow-2xl">
         <div className="h-20 flex items-center px-8 gap-3 relative z-20">
-          <div className="w-9 h-9 bg-black border border-white/10 rounded-full flex items-center justify-center text-white shadow-2xl">
-            <Sparkles size={18} className="text-primary animate-pulse" />
+          <div className="w-9 h-9 bg-black/60 border border-white/10 rounded-xl overflow-hidden flex items-center justify-center shadow-2xl shrink-0">
+            <img src="/prism-logo.png" alt="Prism Logo" className="w-full h-full object-cover" />
           </div>
           <span className="text-2xl font-serif italic tracking-wide text-white">Prism</span>
         </div>

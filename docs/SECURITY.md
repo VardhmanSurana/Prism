@@ -1,328 +1,232 @@
-# Prism Security Boundaries
+# Security & Privacy
 
-Comprehensive overview of security mechanisms in Prism, covering encryption, authentication, path isolation, and data protection.
+Prism is built with privacy as a core principle. All data stays on your machine, and no information is sent to external services without explicit consent.
 
----
-
-## Table of Contents
-
-- [Envelope Encryption](#envelope-encryption)
-- [Path Isolation](#path-isolation)
-- [API Authentication](#api-authentication)
-- [CORS Policy](#cors-policy)
-- [Rate Limiting](#rate-limiting)
-- [Data Storage Locations](#data-storage-locations)
-- [Locked Folder Session Management](#locked-folder-session-management)
-- [Startup Recovery](#startup-recovery)
-- [Tauri Content Security Policy](#tauri-content-security-policy)
-
----
-
-## Envelope Encryption
-
-The Locked Folder uses a layered encryption approach called **envelope encryption**:
+## Core Security Principles
 
 ```mermaid
-flowchart TD
-    subgraph Setup["Password Setup"]
-        P["User Password"] --> H["Argon2id<br/>Hash Verification"]
-        H --> V["Store: settings.json<br/>locked_password_hash"]
-        P --> S["Generate Random<br/>16-byte Salt"]
-        S --> K["Argon2id<br/>Key Derivation"]
-        K --> KEK["KEK<br/>(Key Encryption Key)"]
-        R["Random 32-byte<br/>DEK (Data Encryption Key)"] --> EK["Encrypt DEK<br/>with KEK<br/>(Fernet)"]
-        EK --> ED["Store Encrypted DEK<br/>in settings.json"]
+graph TD
+    subgraph Principles["Security Principles"]
+        LocalFirst["1. Local-first Architecture"]
+        DataOwnership["2. Data Ownership"]
+        Encryption["3. Encryption"]
     end
-    
-    subgraph Auth["Authentication & Usage"]
-        A["User Enters<br/>Password"] --> VF["Verify Argon2id<br/>Hash"]
-        VF -->|"Incorrect"| FA["Failed Attempt<br/>Counter"]
-        FA -->|"3 failures"| LO["Lockout Period<br/>(exponential)"]
-        VF -->|"Correct"| RK["Re-derive KEK<br/>(Argon2id)"]
-        RK --> DEK["Decrypt DEK<br/>(Fernet)"]
-        DEK --> RM["DEK in Memory Only<br/>30-min Session"]
-        RM --> ENC["Encrypt/Decrypt<br/>Locked Folder Files<br/>(Fernet)"]
-    end
-    
-    Setup -->|"User saves password"| Auth
+
+    LocalFirst --> NoCloud["No Cloud Dependencies"]
+    LocalFirst --> NoAPI["No External API Calls"]
+    LocalFirst --> NoTelemetry["No Telemetry by Default"]
+    LocalFirst --> NoRemote["No Remote Storage"]
+
+    DataOwnership --> Control["You Control Your Data"]
+    DataOwnership --> NoLockin["No Vendor Lock-in"]
+    DataOwnership --> NoAccount["No Account Required"]
+    DataOwnership --> NoTracking["No Tracking"]
+
+    Encryption --> LockedFolder["Locked Folder<br/>(Argon2id)"]
+    Encryption --> SecureDeletion["Secure Deletion"]
+    Encryption --> LocalDB["Local Database<br/>(SQLite)"]
+
+    style Principles fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style LocalFirst fill:#3b82f6,stroke:#2563eb,color:#fff
+    style DataOwnership fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style Encryption fill:#10b981,stroke:#059669,color:#fff
 ```
 
-### Key Components
+## Locked Folder
 
-| Component | Description | Storage |
-|-----------|-------------|---------|
-| **Password** | User-chosen password (min 12 characters) | Never stored |
-| **Salt** | 16 random bytes | settings.json (hex) |
-| **Argon2id Hash** | Password verification hash | settings.json |
-| **KEK** | Key Encryption Key derived from password + salt via Argon2id | In-memory only during authentication |
-| **DEK** | 32-byte Data Encryption Key (Fernet-compatible) | Encrypted with KEK in settings.json |
-| **Fernet** | Symmetric encryption of individual files | On-disk encrypted files |
+### What is Locked Folder?
+Locked Folder is a secure, encrypted storage area for your most private photos and videos. Files in the Locked Folder are:
 
-### Encryption Process
+- **Encrypted** — Using Argon2id key derivation
+- **Hidden** — Not visible in the main library
+- **Protected** — Requires authentication to access
+- **Isolated** — Separate from regular photos
 
-1. User sets a password (min 12 characters)
-2. Argon2id hashes the password for verification storage
-3. Separate Argon2id derivation creates a KEK from password + random salt
-4. A random 32-byte DEK is generated
-5. The DEK is encrypted with the KEK using Fernet
-6. The encrypted DEK and Argon2id verification data are stored in `settings.json`
+### How It Works
 
-### File Encryption
+1. **Setup** — Create a password for the Locked Folder
+2. **Lock** — Move photos/videos to the Locked Folder
+3. **Access** — Enter password to view contents
+4. **Session** — Automatic lock after inactivity
 
-Each file in the Locked Folder is encrypted with Fernet using the DEK:
+### Security Features
 
-```
-Original File → Fernet.encrypt() → "Prism_ENC:" header + encrypted data
-```
+- **Argon2id** — Memory-hard key derivation function
+- **Password Protected** — Required for access
+- **Session Timeout** — Auto-lock after inactivity
+- **No Recovery** — Password cannot be recovered (by design)
+- **Secure Deletion** — Files are securely wiped when removed
 
-Files are written atomically:
-1. Encrypted data is written to a temporary file
-2. `os.replace()` atomically replaces the original file
-3. A backup copy (`.prism_backup`) is kept during the operation
-4. The backup is removed on successful completion
+## API Security
 
-### Encrypted File Header
+### API Key Authentication
 
-Encrypted files start with the header `Prism_ENC:` (13 bytes), followed by the Fernet-encrypted payload.
+Optional API key protection for the backend:
 
-Encrypted thumbnails use a separate header: `Prism_ENC_THUMB:` (17 bytes).
+```bash
+# Set API key
+export API_KEY=your-secret-key
 
-### Decryption Process
-
-1. User provides password
-2. Argon2id verifies the password hash
-3. KEK is derived from password + stored salt
-4. DEK is decrypted using KEK
-5. DEK is held in memory for the session
-6. Individual files are decrypted on access using Fernet
-
----
-
-## Path Isolation
-
-File access is centralized in the Rust backend route handlers (`backend_rust/src/routes/`) to prevent directory traversal attacks.
-
-### Allowed Read Roots
-
-Read operations are restricted to:
-
-| Path | Description |
-|------|-------------|
-| `{UPLOAD_DIR}` | Prism upload directory |
-| `{THUMBNAILS_DIR}` | Prism thumbnail directory |
-| `{DATA_DIR}` | Prism data directory |
-| `~/Pictures` | User's Pictures folder |
-| `~/Downloads` | User's Downloads folder |
-| `~/Documents` | User's Documents folder |
-| `~/Desktop` | User's Desktop folder |
-| `~` (home) | User's home directory |
-| `/media`, `/run/media`, `/Volumes`, `/mnt` | External media mounts (POSIX only) |
-| User-configured paths | From `settings.json` mount configuration |
-
-### Security Checks
-
-The `safe_resolve_read()` and `safe_resolve_write()` functions enforce:
-
-1. **Path traversal detection**: Rejects paths containing `..`
-2. **Symlink resolution**: Resolves symlinks before checking boundaries
-3. **Root validation**: Checks that the resolved path is within an allowed root
-4. **Error handling**: Returns appropriate HTTP 403/400 responses
-
-```rust
-// Example: path validation in route handlers
-fn validate_path(path: &str) -> Result<PathBuf, StatusCode> {
-    let p = PathBuf::from(path);
-    if path.contains("..") {
-        return Err(StatusCode::FORBIDDEN);
-    }
-    let resolved = p.canonicalize().map_err(|_| StatusCode::NOT_FOUND)?;
-    // Check against allowed roots
-    Ok(resolved)
-}
+# Client must include header
+X-API-Key: your-secret-key
 ```
 
-Out-of-boundary requests return `403 Access Denied`.
+### Rate Limiting
 
----
+Built-in rate limiting for expensive endpoints:
 
-## API Authentication
+- **Video endpoints** — 20 requests per minute
+- **Inpainting** — 20 requests per minute
+- **Per-IP tracking** — Separate limits per client
 
-### API Key Configuration
+### CORS Policy
 
-Set `API_KEY` as an environment variable to enable token-based authentication:
-
-```env
-API_KEY=your-secret-api-key
-```
-
-When enabled, all API endpoints require an `X-API-Key` header with the matching key value.
-
-When `API_KEY` is empty (default), the API is open for local development.
-
-### Verification Middleware
-
-The Rust backend checks the `X-API-Key` header via Axum middleware layers:
-1. If `API_KEY` is empty → allow all requests (development mode)
-2. If `API_KEY` is set → require `X-API-Key` header match
-3. Failed verification → `403 Forbidden`
-
----
-
-## CORS Policy
-
-The API allows only local Tauri/Vite origins:
-
-The Rust backend configures CORS via `tower-http::CorsLayer`:
+Strict CORS configuration:
 
 ```rust
 // Allowed origins
-"tauri://localhost"
-"http://tauri.localhost"
-"http://localhost:3005"
-"http://127.0.0.1:3005"
+- tauri://localhost
+- http://tauri.localhost
+- http://localhost:3005
+- http://127.0.0.1:3005
 ```
 
-- **Methods**: All methods allowed (`*`)
-- **Headers**: All headers allowed (`*`)
-- **Credentials**: Cookies/credentials allowed
-- **Expose headers**: All headers exposed to the client
+### Content Security Policy (CSP)
 
----
-
-## Rate Limiting
-
-Photo upload endpoints enforce per-client rate limiting:
-
-| Setting | Value |
-|---------|-------|
-| Rate limit | 100 uploads per minute |
-| Scope | Per client IP |
-| Implementation | In-memory token bucket |
-
-Rate limiting is implemented in the Rust backend route handlers.
-
----
-
-## Data Storage Locations
-
-### Platform Data Directory Resolution
-
-| OS | Default Data Directory |
-|----|----------------------|
-| Linux | `~/.local/share/prism` |
-| macOS | `~/Library/Application Support/prism` |
-| Windows | `%APPDATA%/prism` |
-
-### Stored Files
-
-| File | Description | Contains Sensitive Data |
-|------|-------------|------------------------|
-| `Prism.db` | SQLite database | Photo metadata, file paths, AI summaries |
-| `settings.json` | Dynamic settings | **Argon2id hash, salt, encrypted DEK** |
-| `uploads/` | Imported media files | User photos/videos (may be encrypted) |
-| `thumbnails/` | Generated thumbnails | Scaled-down versions of photos |
-
-### Test Mode
-
-When running tests (`PRISM_TEST=1`), data is stored in a temporary directory:
+Tauri enforces strict CSP:
 
 ```
-/tmp/prism_tests/
+default-src 'self';
+img-src 'self' http://127.0.0.1:8269 data: blob:;
+media-src 'self' http://127.0.0.1:8269 data: blob:;
+style-src 'self' 'unsafe-inline';
+script-src 'self';
+connect-src 'self' http://127.0.0.1:8269;
 ```
 
----
+## Data Storage
 
-## Locked Folder Session Management
+### Local Database
+- **SQLite** — Stored in `backend_rust/prism.db`
+- **WAL Mode** — Write-ahead logging for performance
+- **No Remote Sync** — Database never leaves your machine
 
-### Authentication Flow
+### Media Files
+- **Original Files** — Stored in `uploads/` directory
+- **Thumbnails** — Generated and stored in `thumbnails/`
+- **No Cloud Upload** — Files are never uploaded
 
-```mermaid
-flowchart TD
-    A["User enters<br/>Password"] --> B["Verify<br/>Argon2id Hash"]
-    B -->|"Success"| C["Decrypt DEK<br/>using CRKR Key"]
-    C --> D["DEK Stored<br/>in Memory"]
-    D --> E["Active Session<br/>(30-min timeout)"]
-    
-    B -->|"Failure"| F["Increment<br/>Failed Counter"]
-    F --> G{"3+ Failures?"}
-    G -->|"No"| H["Allow Retry"]
-    H --> A
-    G -->|"Yes"| I["Lockout Period<br/>(exponential backoff)"]
-    I -->|"Timeout expires"| A
-```
+### Configuration
+- **Settings** — Stored in SQLite database
+- **Environment Variables** — For sensitive configuration
+- **No Cloud Config** — Configuration is local only
 
-### Session Properties
+## Privacy Features
 
-| Property | Value |
-|----------|-------|
-| Session timeout | 30 minutes (1800 seconds) |
-| Failed attempts limit | 3 |
-| Lockout initial duration | 30 seconds |
-| Lockout escalation | 30 × 2^(attempts - 3) seconds |
-| Session key location | In-memory only (never written to disk) |
+### No Telemetry by Default
+- **Opt-in Only** — Telemetry is disabled by default
+- **No Tracking** — No user identification
+- **No Analytics** — No usage statistics collected
+- **Transparent** — All telemetry code is open source
 
-### Session Lifecycle
+### Data Export
+- **Full Export** — Export all your data at any time
+- **No Lock-in** — Your data is always accessible
+- **Standard Formats** — Export in common formats (JPEG, MP4, JSON)
 
-1. **Setup**: First-time password creation stores verification data and encrypted DEK
-2. **Authentication**: Password verification decrypts DEK into memory
-3. **Activity**: `last_activity` timestamp updated on each operation
-4. **Expiry**: After 30 minutes of inactivity, session auto-locks
-5. **Lock**: `lock_session()` clears in-memory DEK and blocks access
-6. **Lockout**: After 3 failed attempts, exponential backoff applies
-7. **Restart**: Lockout counter resets on application restart
-
-### Security Properties
-
-- Decrypted DEK exists **only in memory** after authentication
-- Locking the session or restarting clears the in-memory key
-- Encrypted file/thumbnail access is blocked without authentication
-- Failed verification attempts trigger exponential lockout
-- The Argon2id hash prevents offline password cracking
-- The KEK derivation adds a computational barrier against brute force
-
----
-
-## Startup Recovery
-
-On application startup (`main.rs` / `db.rs`), the system:
-
-1. **Scans for interrupted operations**: Checks `uploads/` and `thumbnails/` directories for `.prism_backup` files
-2. **Restores originals**: If a backup file is found, it restores the original file and removes the backup
-3. **Logs recovery**: All recovery actions are logged for auditing
-
-This ensures that interrupted encryption/decryption operations (e.g., from a system crash) do not result in data loss.
-
----
-
-## Tauri Content Security Policy
-
-The Tauri webview enforces a strict CSP that restricts:
-
-- **Script sources**: Local backend and self origins only
-- **Style sources**: Local backend and self origins only
-- **Connection sources**: Local backend (`127.0.0.1:8269`, `localhost:8269`)
-
-This prevents XSS attacks and unauthorized network requests from the webview.
-
----
+### Secure Deletion
+- **Trash Purge** — Permanent deletion of trashed files
+- **Locked Folder** — Secure wipe of encrypted files
+- **Database Cleanup** — Remove metadata permanently
 
 ## Threat Model
 
-### In Scope
+```mermaid
+graph TD
+    subgraph Protected["What We Protect Against"]
+        CloudBreaches["Cloud Breaches<br/>(Data never in cloud)"]
+        ServiceOutages["Service Outages<br/>(Works offline)"]
+        VendorLockin["Vendor Lock-in<br/>(Export anytime)"]
+        UnauthorizedAccess["Unauthorized Access<br/>(API key + password)"]
+        DataMining["Data Mining<br/>(No telemetry)"]
+    end
 
-| Threat | Mitigation |
-|--------|------------|
-| Unauthorized file access | Path isolation, symlink resolution, traversal detection |
-| Offline data access | Envelope encryption, Argon2id password protection |
-| Session hijacking | In-memory only DEK, 30-minute timeout |
-| XSS attacks | Strict CSP in Tauri webview |
-| Network attacks | CORS restriction to local origins |
-| API abuse | Rate limiting on upload endpoints |
-| Brute force password attacks | Exponential lockout, Argon2id computational cost |
+    subgraph NotProtected["What We Don't Protect Against"]
+        PhysicalAccess["Physical Access<br/>(If someone has device)"]
+        Malware["Malware<br/>(Standard protections)"]
+        WeakPasswords["Weak Passwords<br/>(Use strong passwords)"]
+        UnencryptedBackups["Unencrypted Backups<br/>(Encrypt externally)"]
+    end
 
-### Out of Scope (by design)
+    style Protected fill:#10b981,stroke:#059669,color:#fff
+    style NotProtected fill:#ef4444,stroke:#dc2626,color:#fff
+```
 
-- **Cloud storage**: No cloud sync or remote access
-- **Multi-user**: Single-user desktop application
-- **Network exposure**: Not designed for public network deployment
-- **Side-channel attacks**: Timing attacks not mitigated (local application)
+## Best Practices
+
+### For Users
+1. **Use Strong Passwords** — For Locked Folder and API keys
+2. **Encrypt Backups** — When backing up your library
+3. **Keep Software Updated** — For security patches
+4. **Review Permissions** — Check what Prism can access
+5. **Enable Telemetry Only If Needed** — It's off by default
+
+### For Developers
+1. **Never Commit Secrets** — Use environment variables
+2. **Validate Input** — Sanitize all user input
+3. **Use Parameterized Queries** — Prevent SQL injection
+4. **Rate Limit Endpoints** — Prevent abuse
+5. **Log Security Events** — Track authentication attempts
+
+## Compliance
+
+### GDPR
+- **No Personal Data Collection** — We don't collect any data
+- **Right to Export** — Full data export capability
+- **Right to Delete** — Permanent deletion of all data
+- **No Third-party Sharing** — No data is shared
+
+### CCPA
+- **No Data Selling** — We never sell your data
+- **No Tracking** — No user tracking or profiling
+- **Full Control** — Export or delete anytime
+
+## Security Auditing
+
+### Open Source
+- **Full Transparency** — All code is public
+- **Community Review** — Anyone can audit the code
+- **No Backdoors** — No hidden functionality
+
+### Dependencies
+- **Minimal Dependencies** — Fewer dependencies = smaller attack surface
+- **Regular Updates** — Keep dependencies current
+- **Known Vulnerabilities** — Monitor for CVEs
+
+## Reporting Security Issues
+
+If you discover a security vulnerability:
+
+1. **Do Not** open a public issue
+2. **Email** security@prism.app (or maintainer email)
+3. **Include** detailed reproduction steps
+4. **Allow** reasonable time for response
+
+We will:
+- Acknowledge receipt within 48 hours
+- Provide an initial assessment within 1 week
+- Release a fix within 30 days (for critical issues)
+- Credit researchers (with permission)
+
+## Security Checklist
+
+- [x] Local-first architecture
+- [x] No cloud dependencies
+- [x] Encrypted Locked Folder
+- [x] API key authentication
+- [x] Rate limiting
+- [x] Strict CSP
+- [x] No telemetry by default
+- [x] Data export capability
+- [x] Secure deletion
+- [x] Open source

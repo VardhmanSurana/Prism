@@ -92,7 +92,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
             <div key={idx} className={`flex gap-4 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
                 <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
-                  <img src="/agent-logo.jpeg" className="w-full h-full object-cover" alt="Agent Logo" />
+                  <img src="/prism-logo.png" className="w-full h-full object-cover" alt="Prism Logo" />
                 </div>
               )}
               <div className={`flex flex-col gap-2 max-w-[80%] ${m.role === 'user' ? 'items-end' : 'items-start'} w-full`}>
@@ -157,7 +157,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
           {isLoading && (
             <div className="flex gap-4 justify-start">
               <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
-                <img src="/agent-logo.jpeg" className="w-full h-full object-cover" alt="Agent Logo" />
+                <img src="/prism-logo.png" className="w-full h-full object-cover" alt="Prism Logo" />
               </div>
               <div className="bg-[#121216]/95 px-3 py-3 rounded-2xl rounded-tl-none border border-white/[0.06] flex flex-col gap-2 max-w-[80%] items-start w-full">
                 <ThinkingIndicator
@@ -186,7 +186,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
             className="px-8 py-10 flex flex-col items-center text-center space-y-6 max-w-lg mx-auto"
           >
             <div className="w-14 h-14 rounded-2xl overflow-hidden border border-white/10 relative shadow-lg">
-              <img src="/agent-logo.jpeg" className="w-full h-full object-cover" alt="Agent Logo" />
+              <img src="/prism-logo.png" className="w-full h-full object-cover" alt="Prism Logo" />
               <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full animate-ping opacity-60" />
               <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-green-500 rounded-full" />
             </div>

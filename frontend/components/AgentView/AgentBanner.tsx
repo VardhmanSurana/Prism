@@ -10,8 +10,8 @@ export const AgentBanner: React.FC<AgentBannerProps> = ({ title, subtitle }) => 
   return (
     <div className="p-6 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">
       <motion.img
-        src="/agent-logo.jpeg"
-        alt="Agent Logo"
+        src="/prism-logo.png"
+        alt="Prism Logo"
         className="w-10 h-10 rounded-xl object-cover shrink-0 shadow-md"
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}

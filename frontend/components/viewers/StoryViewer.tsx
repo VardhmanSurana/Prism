@@ -148,7 +148,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <img src="/agent-logo.jpeg" className="scale-50 -ml-2" alt="Agent Logo" />
+            <img src="/prism-logo.png" className="w-8 h-8 rounded-lg object-cover shadow-md" alt="Prism Logo" />
             <div>
               <h3 className="text-white font-serif italic text-2xl tracking-tight drop-shadow-lg">{highlight.title}</h3>
               <p className="text-primary/70 text-[10px] font-bold uppercase tracking-[0.3em] mt-0.5">{highlight.subtitle}</p>

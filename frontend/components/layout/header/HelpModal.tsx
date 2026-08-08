@@ -46,8 +46,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
           {/* Header */}
           <div className="flex items-center justify-between border-b border-white/10 pb-4">
             <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-[#5e6ad2]/20 text-[#828fff] border border-[#5e6ad2]/30">
-                <HelpCircle size={20} />
+              <div className="w-9 h-9 rounded-xl overflow-hidden border border-white/10 shrink-0 shadow-md">
+                <img src="/prism-logo.png" alt="Prism Logo" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-white tracking-tight">Prism Help & Guide</h3>

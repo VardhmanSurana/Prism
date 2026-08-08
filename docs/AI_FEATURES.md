@@ -1,519 +1,293 @@
-# Prism AI Features
+# AI Features
 
-Prism includes several optional local AI features that run entirely on your machine. All AI features are disabled by default and must be explicitly enabled via feature flags via environment variables or settings.
+Prism includes optional AI-powered features for intelligent photo organization, search, and editing. All AI features run locally — no data is sent to external services.
 
----
+## Overview
 
-## Table of Contents
-
-- [Feature Flag Overview](#feature-flag-overview)
-- [Hardware Acceleration](#hardware-acceleration)
-- [Dynamic Configuration & Engine Settings](#dynamic-configuration--engine-settings)
-- [Agent Search (AI Assistant)](#agent-search-ai-assistant)
-- [Face Detection & Clustering](#face-detection--clustering)
-- [Vision Summaries & Embeddings](#vision-summaries--embeddings)
-- [Inpainting (Object Removal)](#inpainting-object-removal)
-- [Background Removal](#background-removal)
-- [OCR Text Extraction](#ocr-text-extraction)
-- [Caption Generation](#caption-generation)
-- [Video Features](#video-features)
-- [Model Files & Server Ports](#model-files--server-ports)
-- [Troubleshooting](#troubleshooting)
-
----
-
-## Feature Flag Overview
-
-All AI features are controlled by environment variables or the dynamic settings panel. The Rust backend handles all ML inference directly via in-process ONNX models (`ort`), native algorithms, or managed local helper processes (`llama-server`, `whisper-cli`).
-
-| Flag | Default | Description | Hardware Required |
-|------|---------|-------------|-------------------|
-| `ENABLE_AI_AGENT` | `False` | Local AI assistant with natural-language photo search | GPU recommended |
-| `ENABLE_AI_FACE` | `False` | Face detection and clustering (InspireFace) | GPU optional |
-| `ENABLE_AI_CLIP` | `False` | SigLIP2 embeddings for semantic search | GPU recommended |
-| `ENABLE_AI_INPAINTING` | `False` | Stable Diffusion inpainting for object removal | GPU required |
-| `ENABLE_AI_REMBG` | `False` | Background removal | GPU optional |
-| `ENABLE_AI_OCR` | `False` | PaddleOCR-VL text extraction | GPU optional |
-| `ENABLE_AI_SUBTITLES` | `False` | Whisper-based subtitle generation | GPU optional |
-| `ENABLE_AI_CAPTION` | `True` | Gemma 4 image captioning | GPU recommended |
-| `ENABLE_AI_STORY` | `True` | AI-powered story generation | CPU only |
-| `ENABLE_AI_CONTENT_CLASSIFY` | `True` | Content classification (photo/screenshot/document) | CPU only |
-
-### Background Processing Master Switches
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `ENABLE_IMAGE_BG_PROCESS` | `True` | Master switch for all image background analysis |
-| `ENABLE_VIDEO_BG_PROCESS` | `True` | Master switch for all video background analysis |
-| `ENABLE_VIDEO_FACE` | `True` | Face detection and tracking inside videos |
-| `ENABLE_VIDEO_EDITOR_AI` | `True` | Video editor AI features |
-
----
-
-## Hardware Acceleration
-
-Prism supports dynamic GPU backend configuration via the `GPU_MODE` setting.
-
-### GPU Modes
-
-| Mode | Value | Backend |
-|------|-------|---------|
-| NVIDIA CUDA | `cuda` | CUDA Toolkit required |
-| AMD ROCm | `rocm` | ROCm stack required |
-| Intel Arc/SYCL | `sycl` | Intel oneAPI required |
-| Vulkan | `vulkan` | Vulkan SDK required |
-| CPU Only | `cpu` | No GPU acceleration |
-
-### Video Encoding Modes
-
-| Mode | Value | Description |
-|------|-------|-------------|
-| Auto | `auto` | Automatic selection |
-| NVENC | `nvenc` | NVIDIA hardware encoding |
-| VAAPI | `vaapi` | Intel/AMD hardware encoding |
-| CPU | `cpu` | Software encoding |
-
-### Mutual Exclusion
-
-When loading GPU resources, the system automatically unloads competing models to free VRAM:
-
-Loading SigLIP2 → Unloads: llama-server (agent/vision/OCR), Face SDK, Vision LLM
-Loading Face SDK → Unloads: SigLIP2, llama-server, Vision LLM
-Loading llama-server → Unloads: SigLIP2, Face SDK
-
-This ensures only one GPU-intensive model is resident in VRAM at a time.
-
----
-
-## Dynamic Configuration & Engine Settings
-
-Prism features a unified **Engine Settings** control panel accessible from the System Utilities page in the UI.
-
-### Hardware Acceleration Select
-
-Dynamically configure the target GPU execution backend without restarting:
-
-- NVIDIA CUDA
-- AMD ROCm
-- Intel Arc/SYCL
-- Vulkan
-- CPU Only
-
-Models adaptively route inference paths based on the selected backend.
-
-### Background Worker Gating
-
-Toggle individual background worker pipelines in real-time:
-
-- SigLIP embeddings
-- Face scanning/clustering
-- Gemma captions
-- OCR text extraction
-- Video face tracking
-- Subtitle generation
-
-### Worker Process Controls
-
-- **Stop**: Gracefully stops the background queue worker after current batch
-- **Start/Restart**: Resumes processing; automatically scans for and resumes unfinished import assets
-
-### Log Console
-
-Monitor real-time execution logs (`backend.log`) inside a scrollable CLI-like console window directly within the UI, with auto-refresh and manual refresh controls.
-
-### Configuration Persistence
-
-All dynamic settings are saved to `settings.json` in the platform data directory, overriding default `.env` properties and persisting across backend restarts.
-
----
-
-## Agent Search (AI Assistant)
-
-The AI agent provides natural-language photo search capabilities.
-
-### Architecture
+AI features are organized into three tiers:
 
 ```mermaid
-flowchart LR
-    A["User Query"] --> B["Planner"]
-    B --> C["Search Tools"]
-    C --> D["Verification"]
-    D --> E["Result Rendering"]
-    
-    subgraph Tools["Search Tools"]
-        T1["Metadata Search<br/>(date, location, camera)"]
-        T2["People Search<br/>(by person name)"]
-        T3["Caption / FTS Search<br/>(full-text)"]
-        T4["Semantic Search<br/>(SigLIP2 embeddings)"]
-        T5["Album Search"]
-        T6["OCR Text Search"]
-        T7["Similar-Image Search"]
+graph TD
+    subgraph Tiers["AI Feature Tiers"]
+        InProcess["1. In-process ML<br/>(ONNX Runtime)"]
+        LLM["2. Local LLM Services<br/>(llama-server instances)"]
+        Pipeline["3. Background Pipeline<br/>(Automated processing)"]
     end
-    
-    C --> Tools
+
+    InProcess --> |"SigLIP2, Face-id, BiSeNet,
+SegFormer, LaMa"| Models["ML Models"]
+    LLM --> |"Gemma 4 E4B, E2B,
+PaddleOCR-VL"| Services["LLM Services"]
+    Pipeline --> |"4-stage processing
+queue"| Worker["Background Worker"]
+
+    style InProcess fill:#3b82f6,stroke:#2563eb,color:#fff
+    style LLM fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style Pipeline fill:#10b981,stroke:#059669,color:#fff
 ```
 
-1. **Planner**: Analyzes the user's query and decomposes it into search steps
-2. **Search Tools**: Executes specialized search operations:
-   - Metadata search (date, location, camera, file type)
-   - People search (by person name)
-   - Caption/FTS search (full-text across filenames, captions, summaries)
-   - Semantic search (SigLIP2 embedding similarity)
-   - Album search (by album name)
-   - OCR text search (extracted text from images)
-   - Similar-image search (visual similarity)
-3. **Verification**: Validates search results against the query
-4. **Result Rendering**: Formats and presents results to the user
+## In-process ML Models
 
-### Model Requirements
-
-- **Agent model**: `gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf` in `models/llm/`
-- **Draft model**: `gemma-4-E4B-it-Q4_0-MTP.gguf` (optional, for speculative decoding)
-- **MMProj**: `mmproj-BF16-E4B.gguf` (vision encoder)
-- **Server**: `llama-server` running on port `9090`
-
-### Startup
-
-The agent server is started on-demand by `AIOrchestrator.start_server(mode='agent')` and is managed through the agent API endpoints.
-
----
-
-## Face Detection & Clustering
-
-### Architecture
-
-```mermaid
-flowchart TD
-    subgraph Images["Image Processing"]
-        I1["Photo Image"] --> I2["InspireFace SDK"]
-        I2 --> I3["Face Detection<br/>CONF_THRESHOLD: 0.65"]
-        I3 --> I4["Angle Filtering<br/>YAW/PITCH_LIMIT: 28°"]
-        I4 --> I5["Face Embedding<br/>Extraction"]
-        I5 --> I6{"Match Score"}
-        I6 -->|"> 0.41"| I7["Assign to Known Person"]
-        I6 -->|"0.33 - 0.41"| I8["Pending Face<br/>Assignment"]
-        I6 -->|"< 0.33"| I9["Create New Person"]
-    end
-    
-    subgraph Videos["Video Processing"]
-        V1["Video File"] --> V2["Scene-Change<br/>Detection"]
-        V2 --> V3["Uniform Frame<br/>Sampling"]
-        V3 --> V4["Cross-Frame Face<br/>Deduplication"]
-        V4 --> V5["Face Tracking<br/>Across Frames"]
-        V5 --> I5
-    end
-```
-
-### Image Face Detection
-
-Uses the InspireFace SDK to detect faces in photos:
-
-1. Face detection with configurable confidence threshold (`FACE_CONF_THRESHOLD`, default: 0.65)
-2. Yaw/pitch angle filtering (`FACE_YAW_PITCH_LIMIT`, default: 28°)
-3. Face embedding extraction
-4. Clustering against known people using embedding similarity
-   - Match threshold: `FACE_MATCH_THRESHOLD` (default: 0.41)
-   - Uncertain match threshold: `FACE_UNCERTAIN_MATCH_THRESHOLD` (default: 0.33)
-   - Early exit score: `FACE_EARLY_EXIT_SCORE` (default: 0.75)
-5. Borderline matches stored as `PendingFaceAssignment` for user verification
-6. Face region metadata stored as JSON bounding boxes
-
-### Video Face Detection
-
-Hybrid approach combining scene-change detection with uniform frame sampling:
-
-1. **Scene-change detection**: Identifies transition points in the video
-2. **Uniform frame sampling**: Samples frames at regular intervals between scene changes
-3. **Cross-frame face deduplication**: Ensures each person is counted once
-4. Configuration:
-   - `VIDEO_FACE_SCENE_THRESHOLD`: Scene change sensitivity (default: 0.3)
-   - `VIDEO_FACE_MAX_FRAMES`: Maximum frames to analyze (default: 50)
-   - `VIDEO_FACE_MIN_GAP_SECONDS`: Minimum gap between frame samples (default: 5.0)
-   - `VIDEO_FACE_DEDUP_THRESHOLD`: Face deduplication threshold (default: 0.7)
-
-### Video Face Tracking
-
-Tracks detected faces across video frames:
-
-- `VIDEO_FACE_TRACKER_IOU_THRESHOLD`: IoU threshold for tracking (default: 0.3)
-- `VIDEO_FACE_TRACKER_CENTROID_DIST`: Maximum centroid distance (default: 150.0)
-- `VIDEO_FACE_TRACKER_EMB_SIM_THRESHOLD`: Embedding similarity threshold (default: 0.4)
-- `VIDEO_FACE_TRACKER_MAX_MISSED`: Max frames a track can be lost (default: 5)
-
-### People Management
-
-- **Person rename**: Rename detected people in the UI
-- **Pending faces**: Review and confirm borderline face assignments
-- **Cover photo**: Each person has a cover face thumbnail
-
-### Services
-
-AI face detection and recognition are handled natively in the Rust backend (`backend_rust/src/services/face_engine.rs`) using the InspireFace SDK and ONNX Runtime.
-
----
-
-## Vision Summaries & Embeddings
-
-### SigLIP2 Embeddings (Semantic Search)
-
-Uses Google's SigLIP2 model to generate visual embeddings for semantic similarity search.
-
+### SigLIP2 (Semantic Embeddings)
 - **Model**: `google/siglip2-base-patch16-224`
-- **Cache location**: `backend_rust/models/.cache/huggingface/`
-- **Output**: 768-dimensional L2-normalized embedding vector
-- **Storage**: JSON-serialized in the `embedding` column of the `photos` table
-- **Usage**: Semantic search, similar-image lookup
+- **Purpose**: Generate semantic embeddings for similarity search
+- **Dimensions**: 768-dim L2-normalized vectors
+- **Usage**: Text-to-image search, similar photo discovery
+- **Port**: None (runs in-process)
 
-### Florence-2 / Gemma Captions (Image Summaries)
+**Capabilities:**
+- Find photos by natural language description
+- Discover visually similar images
+- Group photos by visual content
+- Power the "Explore" view recommendations
 
-Generates natural-language descriptions of images.
+### face-id (Face Detection & Recognition)
+- **Models**: SCRFD (detection) + ArcFace w600k (embeddings)
+- **Purpose**: Detect faces and generate recognition embeddings
+- **Embeddings**: 512-d L2-normalized vectors
+- **Usage**: People tagging, face clustering
 
-- **Model**: Gemma 4 E2B via `llama-server` on port 9091
-- **Output**: Caption (truncated to 120 chars) and structured tags
-- **Storage**: `ai_summary` (full description), `caption` (short), `auto_tags` (JSON array)
+**Capabilities:**
+- Automatic face detection in photos
+- Generate face embeddings for recognition
+- Cluster similar faces together
+- Power the "People" view
 
-### FTS5 Full-Text Search
+### BiSeNet (Face Parsing)
+- **Model**: CelebAMask-HQ (19 classes)
+- **Purpose**: Precise face region segmentation
+- **Usage**: Portrait editing, face-aware adjustments
 
-Searchable text is indexed in SQLite FTS5 across:
-- Filename
-- Caption
-- Location (city, state, country)
-- AI summary
-- Auto tags
-- OCR text
+**Capabilities:**
+- Skin/hair/eye separation
+- Portrait mask generation
+- Face-aware color grading
 
----
+### SegFormer (Semantic Segmentation)
+- **Model**: ADE20K-150 classes
+- **Purpose**: Pixel-level scene understanding
+- **Usage**: Background removal, object selection
 
-## Inpainting (Object Removal)
+**Capabilities:**
+- Automatic background detection
+- Subject segmentation
+- Object selection for editing
 
-Uses Stable Diffusion 1.5 for AI-powered object removal and image inpainting.
+### LaMa (Inpainting)
+- **Model**: LaMa ONNX
+- **Purpose**: Content-aware object removal
+- **Usage**: Healing tool, object erasure
 
-### Architecture
+**Capabilities:**
+- Remove unwanted objects
+- Fill in removed areas naturally
+- Preserve image context
+
+## Local LLM Services
+
+### Agent Search (Port 9090)
+- **Model**: Gemma 4 E4B (gguf)
+- **Purpose**: Natural language photo search
+- **Usage**: AI assistant chat, semantic queries
+
+**Capabilities:**
+- Understand natural language queries
+- Search photos by description
+- Answer questions about photo content
+- Generate search explanations
+
+### Vision/Captioning (Port 9091)
+- **Model**: Gemma 4 E2B
+- **Purpose**: Image understanding and captioning
+- **Usage**: Auto-captioning, content analysis
+
+**Capabilities:**
+- Generate image descriptions
+- Extract text from images (OCR)
+- Analyze image content
+- Provide visual question answering
+
+### OCR (Port 9092)
+- **Model**: PaddleOCR-VL
+- **Purpose**: Text extraction from images
+- **Usage**: Document scanning, screenshot text
+
+**Capabilities:**
+- Extract printed text
+- Recognize handwritten text
+- Process multi-language text
+- Power document smart albums
+
+## Background Processing Pipeline
+
+### 4-Stage Pipeline
+
+The background worker processes newly imported photos through 4 stages:
 
 ```mermaid
 flowchart LR
-    A["Original Image"] --> B["User Draws Mask<br/>on Object to Remove"]
-    B --> C["Send Mask + Image<br/>to Backend API"]
-    C --> D{"GPU Available?"}
-    D -->|Yes| E["SD 1.5 Inpainting<br/>(CUDA)"]
-    D -->|No| F["SD 1.5 Inpainting<br/>(CPU Fallback)"]
-    E --> G["Return Inpainted Image"]
-    F --> G
-    G --> H["Display Result<br/>in Editor"]
+    Import["Photo Imported"] --> Face["1. Face Detection<br/>SCRFD + ArcFace"]
+    Face --> OCR["2. OCR Extraction<br/>PaddleOCR-VL"]
+    OCR --> SigLIP["3. SigLIP Embedding<br/>Semantic Search"]
+    SigLIP --> AutoEnhance["4. Auto-Enhance<br/>(Optional)"]
+    AutoEnhance --> Complete["Processing Complete"]
+
+    Face --> |"Detect faces"| FaceDB[("Face DB")]
+    OCR --> |"Extract text"| FTS[("FTS5 Index")]
+    SigLIP --> |"Generate embeddings"| VectorDB[("Vector DB")]
+    AutoEnhance --> |"Store adjustments"| PhotoDB[("Photo DB")]
+
+    style Import fill:#6b7280,stroke:#4b5563,color:#fff
+    style Face fill:#f59e0b,stroke:#d97706,color:#fff
+    style OCR fill:#10b981,stroke:#059669,color:#fff
+    style SigLIP fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style AutoEnhance fill:#ec4899,stroke:#db2777,color:#fff
+    style Complete fill:#06b6d4,stroke:#0891b2,color:#fff
 ```
 
-### How It Works
+**Stage 1: Face Detection**
+- Detect faces using SCRFD
+- Generate face embeddings with ArcFace
+- Store face data in database
 
-1. User draws a mask over the object to remove (via `InpaintCanvas`)
-2. The mask and original image are sent to the backend
-3. Stable Diffusion 1.5 inpaints the masked region
-4. The result is returned and displayed in the editor
+**Stage 2: OCR**
+- Extract text from images
+- Store text for full-text search
+- Enable document detection
 
-### Configuration
+**Stage 3: SigLIP Embedding**
+- Generate semantic embedding
+- Enable similarity search
+- Power explore recommendations
 
-- **Feature flag**: `ENABLE_AI_INPAINTING`
-- **Hardware**: GPU required (CUDA recommended)
-- **Fallback**: CPU inference supported but significantly slower
-- **Service**: Native Rust inpainting engine (`backend_rust/src/services/inpaint.rs`) using LaMa.
-- **API endpoint**: Inpaint API route in `backend_rust/src/routes/photos_ai.rs`
+**Stage 4: Auto-Enhance** (Optional)
+- Analyze image histogram
+- Apply automatic adjustments
+- Store enhancement parameters
 
----
+### Priority System
 
-## Background Removal
+Each analyzer has a priority level:
+- **OCR**: Priority 0 (highest)
+- **Face**: Priority 200
+- **SigLIP**: Priority 300
+- **Auto-Enhance**: Priority 400 (lowest)
 
-Uses `rembg` library for automatic background removal from photos.
+The system processes higher-priority analyzers first.
 
-### Configuration
+## Feature Flags
 
-- **Feature flag**: `ENABLE_AI_REMBG`
-- **Service**: Background segmentation engine (`backend_rust/src/services/segmentation.rs`) using U²-Net-p ONNX model.
+AI features can be enabled/disabled via settings:
 
----
-
-## OCR Text Extraction
-
-Uses PaddleOCR-VL for extracting visible text from images.
-
-### Architecture
-
-```mermaid
-flowchart LR
-    A["Image from<br/>Background Queue"] --> B{"ENABLE_AI_OCR<br/>&& Image?"}
-    B -->|No| C["Skip OCR Stage"]
-    B -->|Yes| D["PaddleOCR-VL<br/>llama-server:9092"]
-    D --> E["Extract Visible Text"]
-    E --> F["Store in<br/>photo.ocr_text"]
-    F --> G["Index in FTS5<br/>Full-Text Search"]
+```bash
+# Enable/disable specific features
+prism config ai_agent_enabled true
+prism config ai_ocr_enabled true
+prism config ai_face_enabled true
+prism config ai_siglip_enabled true
 ```
 
-### How It Works
+## Model Setup
 
-1. Images are analyzed during the background processing pipeline (Stage 4)
-2. Text is extracted using the PaddleOCR-VL model running in llama-server
-3. Extracted text is stored in the `ocr_text` column
-4. Text is indexed in FTS5 for full-text search
+### Required Models (In-process)
 
-### Configuration
-
-- **Feature flag**: `ENABLE_AI_OCR`
-- **Server port**: 9092
-- **Model**: `PaddleOCR-VL-1.6-GGUF.gguf` in `models/PaddleOCR/`
-- **MMProj**: `PaddleOCR-VL-1.6-GGUF-mmproj.gguf`
-- **Service**: Native Rust LLM client (`llm_client.rs`) calling local `llama-server` instance.
-
----
-
-## Caption Generation
-
-Uses Gemma 4 models for automatic image captioning and tag generation.
-
-### Models
-
-Two Gemma 4 variants are supported:
-
-| Model | Size | Use Case | Server Port |
-|-------|------|----------|-------------|
-| Gemma 4 E4B | 4B parameters | Agent search (reasoning-focused) | 9090 |
-| Gemma 4 E2B | 2B parameters | Vision/captioning (faster) | 9091 |
-
-### Caption Generation Pipeline
-
-```mermaid
-flowchart TD
-    A["Image from<br/>Background Queue"] --> B{"ENABLE_AI_CAPTION<br/>&& Not Video?"}
-    B -->|No| C["Skip Caption Stage"]
-    B -->|Yes| D["Load Image<br/>& Convert to RGB"]
-    D --> E["Start Vision Server<br/>llama-server:9091<br/>(Gemma 4 E2B)"]
-    E --> F["Generate Detailed<br/>Image Summary"]
-    F --> G["Extract Structured Tags<br/>via GBNF Grammar"]
-    G --> H["Clean & Deduplicate<br/>Tags"]
-    H --> I["Store Results"]
-    
-    subgraph Storage["Database Columns"]
-        J["photo.caption<br/>(Truncated to 120 chars)"]
-        K["photo.ai_summary<br/>(Full description)"]
-        L["photo.auto_tags<br/>(JSON array)"]
-    end
-    
-    I --> J
-    I --> K
-    I --> L
-```
-
-1. Image is loaded and converted to RGB
-2. Vision server (port 9091) generates a detailed summary
-3. Structured tags are extracted using a GBNF grammar (`tags.gbnf`)
-4. Tags are cleaned, deduplicated, and enriched with caption keywords
-5. Results are stored in the database
-
-### GBNF Grammar
-
-Tag generation follows a structured JSON schema defined in `backend_rust/src/services/llm_client.rs` and enforced via a GBNF grammar file `tags.gbnf`.
-
----
-
-## Video Features
-
-### Video Face Tracking
-
-When `ENABLE_VIDEO_FACE` is enabled, the system:
-
-1. Analyzes video frames using hybrid scene-change + uniform sampling
-2. Detects faces across frames with cross-frame deduplication
-3. Clusters faces and assigns to known people
-4. Tracks faces across frame sequences
-
-### Subtitle Generation
-
-When `ENABLE_AI_SUBTITLES` is enabled:
-
-- Uses Whisper-based automatic speech recognition
-- Generates subtitle tracks for video assets
-- Subtitles are stored and accessible via the NLE APIs
-
-### Video Editor AI
-
-When `ENABLE_VIDEO_EDITOR_AI` is enabled:
-
-- Multi-track non-linear editing timeline
-- AI-powered effects and transitions
-- Local composition export tools
-
----
-
-## Model Files & Server Ports
-
-### Required Model Locations
+Download models to `backend_rust/models/`:
 
 ```
-backend_rust/models/
+models/
 ├── llm/
-    │   ├── gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf  (agent model)
-    │   └── ...
-    ├── PaddleOCR/
-    │   └── ...
-    └── .cache/
-        └── huggingface/
+│   ├── siglip2_image.onnx
+│   ├── siglip2_text.onnx
+│   └── tokenizer.json
+├── face/
+│   ├── det_10g.onnx          # SCRFD detection
+│   └── w600k_mbf.onnx        # ArcFace embeddings
+├── segmentation/
+│   ├── segformer.onnx         # Semantic segmentation
+│   └── face_parsing.onnx      # Face parsing
+└── inpainting/
+    └── lama.onnx              # LaMa inpainting
 ```
 
-### Server Port Map
+### Optional LLM Services
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| Agent server | 9090 | LLM agent search |
-| Vision server | 9091 | Image captioning and tagging |
-| OCR server | 9092 | PaddleOCR-VL text extraction |
-| Backend API | 8269 | Rust Axum backend |
-| Frontend (dev) | 3005 | Vite dev server |
+For advanced AI features, run llama-server instances:
 
-### llama-server Configuration
+```bash
+# Agent search (port 9090)
+llama-server -m models/llm/gemma-4-e4b.gguf --port 9090
 
-The Rust backend (`llm_server.rs`) manages the `llama-server` lifecycle:
+# Vision/captioning (port 9091)
+llama-server -m models/llm/gemma-4-e2b.gguf --port 9091
 
-- **Start**: Launches the server with appropriate model, port, and GPU flags
-- **Stop**: Terminates the server process when switching modes or stopping
-- **Health check**: Polls `/health` endpoint every second (up to 60 retries)
-- **Flags**: `--flash-attn on`, `-ctk q8_0`, `-ctv q8_0`, `-ngl 999`
+# OCR (port 9092)
+llama-server -m models/ocr/paddleocr.onnx --port 9092
+```
 
----
+## GPU Acceleration
+
+### CUDA (NVIDIA)
+```bash
+export GPU_MODE=cuda
+```
+
+### Metal (Apple Silicon)
+```bash
+export GPU_MODE=metal
+```
+
+### CPU (Default)
+```bash
+export GPU_MODE=cpu
+```
+
+## Performance Considerations
+
+### Memory Usage
+- SigLIP2: ~500MB RAM
+- Face-id: ~200MB RAM
+- Segmentation: ~300MB RAM
+- LaMa: ~100MB RAM
+
+### Processing Speed
+- **CPU**: ~2-5 seconds per photo (full pipeline)
+- **GPU**: ~0.5-1 second per photo (full pipeline)
+
+### Batch Processing
+The background queue processes photos in parallel:
+- Default: 4 concurrent workers
+- Configurable via settings
+- Automatic retry on failure
 
 ## Troubleshooting
 
-### AI features are disabled
+### Models Not Found
+```
+Error: SigLIP models or tokenizer not found
+```
 
-Most AI components are behind feature flags. Basic features (import, browse, search, albums, maps, Locked Folder) work without any AI enabled.
+**Solution:** Download models to `backend_rust/models/llm/`
 
-### CUDA Out of Memory
+### GPU Not Available
+```
+Warning: CUDA not available, falling back to CPU
+```
 
-If you see `OutOfDeviceMemory` errors:
-1. Reduce the number of concurrent AI features enabled
-2. Set a specific Vulkan device: `GGML_VK_VISIBLE_DEVICES=0`
-3. Switch to CPU mode: `GPU_MODE=cpu`
+**Solution:** Install CUDA toolkit or use CPU mode
 
-### llama-server fails to start
+### Memory Issues
+```
+Error: Out of memory during inference
+```
 
-1. Check that the model files exist in the expected paths
-2. Ensure `llama-server` is installed and on your PATH
-3. Check GPU compatibility
-4. Look at the stderr log file (written to a temp file during startup)
+**Solution:** 
+- Reduce concurrent workers
+- Use smaller models
+- Increase system memory
 
-### Face detection not working
+### LLM Services Not Running
+```
+Warning: Agent search unavailable
+```
 
-1. Verify `ENABLE_AI_FACE=True`
-2. Check that InspireFace SDK shared libraries are accessible
-3. On Linux, `execstack` may be needed to fix executable-stack issues
-4. Adjust `FACE_CONF_THRESHOLD` if detection is too aggressive or too conservative
-
-### OCR not extracting text
-
-1. Verify `ENABLE_AI_OCR=True`
-2. Check that PaddleOCR model files exist
-3. OCR is only run on images (not videos)
-4. Text must be visible in the image; handwriting may not be recognized
-
-### Background processing appears stuck
-
-1. Check the Engine Settings panel to see worker status
-2. Verify the background queue is not paused by the throttler
-3. Check `backend.log` for error messages
-4. Restart the worker process from the Engine Settings panel
+**Solution:** Start llama-server instances on configured ports

@@ -1,343 +1,279 @@
-# Prism Architecture
+# Architecture
 
-Architectural overview of the Prism photo and video library desktop application, powered by a Rust (Axum) backend.
+Prism is a privacy-first, local-only desktop photo and video library application. This document describes the system architecture, design decisions, and data flow.
 
----
-
-## Table of Contents
-
-- [High-Level Architecture](#high-level-architecture)
-- [Runtime Flow](#runtime-flow)
-- [Frontend Architecture](#frontend-architecture)
-- [Backend Architecture](#backend-architecture)
-- [Database Schema](#database-schema)
-- [Background Processing Pipeline](#background-processing-pipeline)
-- [Sync Service](#sync-service)
-- [Locked Folder Encryption Flow](#locked-folder-encryption-flow)
-- [API Route Structure](#api-route-structure)
-
----
-
-## High-Level Architecture
-
-Prism follows a three-tier desktop application architecture:
-
-```
-┌─────────────────────────────────────────────────┐
-│                  Tauri v2 Shell                   │
-│  ┌───────────────────────────────────────────┐   │
-│  │         Vite React UI (port 3005)          │   │
-│  │  ┌─────────┐  ┌──────────┐  ┌─────────┐   │   │
-│  │  │ Zustand  │  │  React   │  │  TanStack│   │   │
-│  │  │  Stores  │  │  Router  │  │  Virtual │   │   │
-│  │  └────┬────┘  └──────────┘  └─────────┘   │   │
-│  │       │                                     │   │
-│  │       └────────── REST ──────────────────┐  │   │
-│  └──────────────────────────────────────────┘  │   │
-└──────────────────────┬─────────────────────────┘   │
-                       │ HTTP (127.0.0.1:8269)        │
-┌──────────────────────┴──────────────────────────────┘
-│                  Rust (Axum) Backend                  │
-│  ┌─────────┐  ┌──────────┐  ┌──────────────────┐    │
-│  │ CORS /  │  │  Routes  │  │    Services       │    │
-│  │  Auth   │  │  / API   │  │  (Business Logic) │    │
-│  └────┬────┘  └────┬─────┘  └────────┬─────────┘    │
-│       │            │                  │              │
-│       └────────────┴──────────────────┘              │
-│                              │                        │
-│                    ┌─────────┴──────────┐             │
-│                    │    SQLite (WAL)    │             │
-│                    │   + FTS5 Index     │             │
-│                    └────────────────────┘             │
-│                              │                        │
-│                    ┌─────────┴──────────┐             │
-│                    │  File System       │             │
-│                    │  (uploads/         │             │
-│                    │   thumbnails/)     │             │
-│                    └────────────────────┘             │
-└───────────────────────────────────────────────────────┘
-```
-
-### Key Design Decisions
-
-1. **Local-first**: All data stays on the user's machine. No cloud dependencies.
-2. **Desktop-native**: Tauri v2 provides a lightweight, secure native shell.
-3. **High-performance backend**: Single Rust (Axum) backend handling API routes and in-process ONNX/ML inference.
-4. **SQLite WAL mode**: Write-Ahead Logging for concurrent read/write performance.
-5. **REST API**: Frontend communicates with backend via HTTP REST (no IPC bridge).
-6. **Opt-in AI**: All AI features are behind feature flags, disabled by default.
-
----
-
-## Runtime Flow
+## Overview
 
 ```mermaid
-graph TD
-    Tauri[Tauri v2] --> React[Vite React UI]
-    React --> Zustand[Zustand Stores]
-    React -->|REST / SSE| Axum[Rust Axum on 127.0.0.1:8269]
-    Axum --> SQLx[(SQLite WAL + FTS5)]
-    Axum --> Storage[Thumbnails / Uploads / Sample Images]
-    Axum -. Local Processes .-> LlamaServer[llama-server :9090-:9092 / whisper-cli]
+graph TB
+    subgraph Desktop["Tauri v2 Desktop Shell"]
+        subgraph Frontend["Vite React UI (port 3005)"]
+            Zustand["Zustand Stores"]
+            ReactRouter["React Router"]
+            TanStack["TanStack Virtual"]
+        end
+    end
+
+    subgraph Backend["Rust (Axum) Backend"]
+        CORS["CORS / Auth"]
+        Routes["Routes / API"]
+        Services["Services / Business Logic"]
+    end
+
+    Database["SQLite (WAL + FTS5)"]
+    FileSystem["File System<br/>uploads/ thumbnails/"]
+
+    Frontend --> |"HTTP (127.0.0.1:8269)"| Backend
+    Services --> Database
+    Services --> FileSystem
+
+    style Desktop fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style Backend fill:#059669,stroke:#047857,color:#fff
+    style Database fill:#d97706,stroke:#b45309,color:#fff
+    style FileSystem fill:#7c3aed,stroke:#6d28d9,color:#fff
 ```
 
-### Startup Sequence
+## Core Design Principles
 
-1. `pnpm run desktop` launches the Tauri shell
-2. Tauri spawns the Rust backend (`cargo run`) as a subprocess
-3. Rust backend startup (`main.rs`):
-   - Initializes the database (WAL mode, create tables, apply schema migrations)
-   - Auto-purges trashed photos older than 30 days
-   - Starts the LAN sync service
-   - Initializes the sync (watchdog) service
-   - Starts the background processing queue
-   - Recovers interrupted Locked Folder files
-4. Vite dev server (or built frontend) loads the React UI
-5. React UI connects to the Rust backend via REST API at `http://127.0.0.1:8269`
+### 1. Local-first
+All data stays on the user's machine. No cloud dependencies, no external API calls for core features. The application works completely offline.
 
----
+### 2. Desktop-native
+Tauri v2 provides a lightweight, secure native shell. The frontend runs in a WebView, while the backend is a native Rust process.
+
+### 3. High-performance Backend
+Rust (Axum) runs as the core backend with in-process ONNX/ML inference. The backend handles all media processing, database operations, and AI tasks.
+
+### 4. SQLite WAL + FTS5
+Write-Ahead Logging for concurrent read/write performance, with full-text search for fast photo discovery.
+
+### 5. REST API
+Frontend communicates with backend via HTTP REST API. This enables web mode (browser) and desktop mode (Tauri) with the same backend.
+
+### 6. Opt-in AI
+All AI features are behind feature flags, disabled by default. AI models run in-process or via local llama-server instances.
 
 ## Frontend Architecture
 
-### Technology Stack
+### Component Hierarchy
 
-- **React 18.3** with TypeScript
-- **Vite 6** build tool and dev server
-- **Tailwind CSS** for styling
-- **Zustand** state management stores
-- **React Router** for navigation
-- **Framer Motion** for animations
-- **TanStack Virtual** for virtualized grid rendering
-- **Leaflet + React Leaflet** for map view
-- **Lucide** icons
+```mermaid
+graph TD
+    App["App.tsx"] --> MainContent["MainContent.tsx<br/>(View Router)"]
+    App --> Sidebar["Sidebar.tsx<br/>(Navigation)"]
+    App --> Header["Header.tsx<br/>(Search & Actions)"]
+    App --> FloatingActions["FloatingActions.tsx<br/>(Quick Actions)"]
 
-### State Management (Zustand Stores)
+    MainContent --> PhotoGrid["PhotoGrid/<br/>(Gallery View)"]
+    MainContent --> ExploreView["ExploreView/<br/>(AI Discovery)"]
+    MainContent --> AgentView["AgentView/<br/>(AI Assistant Chat)"]
+    MainContent --> AlbumsView["AlbumsView/<br/>(Album Management)"]
+    MainContent --> PeopleView["PeopleView/<br/>(Face Recognition)"]
+    MainContent --> MapView["MapView/<br/>(Leaflet Map)"]
+    MainContent --> Editor["Editor/<br/>(Image & Video Editors)"]
+    MainContent --> UtilitiesView["UtilitiesView/<br/>(System Tools)"]
+    MainContent --> LockedViewAuth["LockedViewAuth/<br/>(Private Folder)"]
+    MainContent --> TrashView["TrashView/<br/>(Deleted Photos)"]
 
-| Store | Purpose | File |
-|-------|---------|------|
-| `uiStore` | UI state (sidebar, modals, theme) | `frontend/store/uiStore.ts` |
-| `editStore` | Image editor state | `frontend/store/editStore.ts` |
-| `nleStore` | Video editor (NLE) state | `frontend/store/nleStore.ts` |
-| `settingsStore` | App settings | `frontend/store/settingsStore.ts` |
-| `syncStore` | Sync status | `frontend/store/syncStore.ts` |
-| `videoPlayerStore` | Video player state | `frontend/store/videoPlayerStore.ts` |
-
-### Component Structure
-
-```
-frontend/components/
-├── AgentView/        # AI agent chat interface
-├── albums/           # Album views (places, memories, people)
-├── Editor/           # Image and Video editors
-│   ├── ImageEditor/  # 19-tool image editor (see IMAGE_EDITOR.md)
-│   └── VideoEditor/  # NLE video editor (see VIDEO_EDITOR.md)
-├── explore/          # AI-powered discovery view
-├── FileFolderBrowser/ # File system browser
-├── import/           # Import UI
-├── layout/           # App shell layout
-├── LockedViewAuth/   # Locked Folder auth
-├── MapView/          # Leaflet map
-├── PeopleView/       # People management
-├── PhotoGrid/        # Virtualized photo grid
-├── PhotoView/        # Lightbox viewer
-├── projects/         # Video projects
-├── ui/               # Reusable UI components
-├── utilities/        # System utilities view
-├── viewers/          # Media viewers
-└── wrappers/         # HOC wrappers
+    style App fill:#3b82f6,stroke:#2563eb,color:#fff
+    style MainContent fill:#8b5cf6,stroke:#7c3aed,color:#fff
 ```
 
-### Custom Hooks
+### State Management
 
-Key hooks found in `frontend/hooks/`:
+| Store | File | Purpose |
+|-------|------|---------|
+| `uiStore` | `store/uiStore.ts` | UI state (sidebar, modals, theme) |
+| `editStore` | `store/editStore.ts` | Image editor state |
+| `nleStore` | `store/nleStore.ts` | Video editor (NLE) state |
+| `settingsStore` | `store/settingsStore.ts` | App settings |
+| `syncStore` | `store/syncStore.ts` | Sync status |
+| `galleryLayoutStore` | `store/galleryLayoutStore.ts` | Gallery layout |
 
-| Hook | Purpose |
-|------|---------|
-| `useAppState.ts` | Application state management |
-| `useAudioContext.ts` | Audio context for video editing |
-| `useAudioMixer.ts` | Audio mixer for multi-track audio |
-| `useBulkActions.ts` | Bulk selection and actions |
-| `useGalleryLayout.ts` | Gallery grid layout calculation |
-| `useImageHighRes.ts` | High-resolution image loading |
-| `useLightboxGestures.ts` | Touch/gesture support for lightbox |
-| `usePhotos.ts` | Photo data fetching |
-| `useSelection.ts` | Selection state management |
-| `useSlideshow.ts` | Slideshow functionality |
-| `useStats.ts` | Library statistics |
-| `useVideoProjects.ts` | Video project management |
-| `useZoomShortcuts.ts` | Keyboard shortcuts for zoom |
+### View Modes
 
----
+| ViewMode | Component | Description |
+|----------|-----------|-------------|
+| `gallery` | `PhotoGrid` | Default photo grid with virtualized rows |
+| `explore` | `ExploreView` | AI-powered discovery |
+| `agent` | `AgentView` | AI assistant chat |
+| `albums` | `AlbumsView` | Album management |
+| `people` | `PeopleView` | People management |
+| `projects` | `ProjectsDashboard` | Video projects |
+| `map` | `MapView` | Leaflet map view |
+| `utilities` | `UtilitiesView` | System utilities |
+| `locked` | `LockedViewAuth` | Locked Folder |
+| `trash` | `TrashView` | Trash view |
+| `favorites` | `PhotoGrid` (filtered) | Favorites |
+| `toolbox` | `ImageToolbox` | Image editing tools |
 
 ## Backend Architecture
 
-### Technology Stack
+### Application Startup
 
-- **Rust** with **Axum** web framework and **Tokio** async runtime
-- **SQLx** async SQLite driver with compile-time query checking
-- **SQLite** WAL mode with FTS5 full-text search
-- **uuid** crate for universal UUID generation
-- **serde / serde_json** for serialization
-- **tower-http** for CORS middleware
-- **ffmpeg/ffprobe** (via CLI) for video metadata extraction and thumbnails
-- **In-process ONNX Runtime & Local Process Managers** for face engine, SigLIP embeddings, segmentation, object detection, local LLM, and whisper-cli integrations.
+```mermaid
+flowchart TD
+    A["Load Config from env vars"] --> B["Initialize SQLite pool
+(WAL mode, create tables)"]
+    B --> C["Auto-purge trashed photos
+(older than 30 days)"]
+    C --> D["Start LAN sync service"]
+    D --> E["Initialize sync watchdog"]
+    E --> F["Start background
+processing queue"]
+    F --> G["Recover interrupted
+Locked Folder files"]
+    G --> H["Spawn background
+AI worker loop"]
+    H --> I["Build Axum router
+with middleware layers"]
+    I --> J["Start TCP listener
+on host:port"]
+    J --> K["Server Ready"]
 
-### Application Structure
-
-```
-backend_rust/src/
-├── main.rs              # Axum app factory, router registration, server startup
-├── config.rs            # Configuration (ports, paths, env vars)
-├── db.rs                # SQLite connection pool, table creation, migrations, UUID population
-├── models/              # Data models and structs
-│   └── mod.rs           # Photo, Person, Album, etc. structs
-├── routes/              # API route handlers
-│   ├── mod.rs           # Router composition and shared helpers
-│   ├── photos/          # Photo CRUD, upload, metadata, masks
-│   │   ├── mod.rs       # Photo sub-router
-│   │   ├── listing.rs   # Photo listing, stats, search
-│   │   ├── upload.rs    # File upload and directory import
-│   │   ├── metadata.rs  # Photo metadata, tags, faces, favorites
-│   │   └── masks.rs     # Portrait and background masks
-│   ├── albums.rs        # Album CRUD, smart albums
-│   ├── people.rs        # People listing, rename, person photos
-│   ├── nle.rs           # Video project CRUD, clip analysis
-│   ├── agent.rs         # AI agent sessions and chat
-│   ├── explore.rs       # Explore view collections
-│   ├── settings.rs      # Settings management, SSE events
-│   ├── system.rs        # Health check, sample images
-│   ├── utilities.rs     # Diagnostics, backup, storage cleanup
-│   └── privacy.rs       # Locked folder endpoints
-└── services/            # Business logic
-    ├── siglip.rs        # In-process SigLIP2 vision & text embeddings (ort)
-    ├── segmentation.rs  # U2-Net, SegFormer, & BiSeNet segmentation (ort)
-    ├── auto_enhance.rs  # Native HSV image enhancement
-    ├── inpaint.rs       # LaMa inpainting engine
-    ├── object_detector.rs # YOLOv8n object detection (ort)
-    ├── sam.rs           # SAM point-prompted segmentation (ort)
-    ├── interrogate.rs  # Unified photo interrogation service
-    ├── llm_server.rs    # Managed local llama-server lifecycle (ports 9090-9092)
-    └── llm_client.rs    # LLM completion & vision client
+    style A fill:#3b82f6,stroke:#2563eb,color:#fff
+    style K fill:#10b981,stroke:#059669,color:#fff
 ```
 
-### Route Modules
+### Middleware Stack
 
-The route layer contains all API endpoint handlers, organized by domain:
+1. **CORS Layer** — Allows `tauri://localhost`, `http://localhost:3005`, `http://127.0.0.1:3005`
+2. **TraceLayer** — HTTP request tracing
+3. **DefaultBodyLimit** — 1GB max body
+4. **Rate Limit Layer** — 20 req/min per IP+path for expensive endpoints
+5. **Telemetry Layer** — Samples API requests, logs errors always
+6. **API Key Auth Layer** — Checks `X-API-Key` header if configured
 
-| Module | File | Purpose |
-|--------|------|---------|
-| Photos | `routes/photos/` | Photo CRUD, upload, search, stats, metadata, masks |
-| Albums | `routes/albums.rs` | Album listing, creation, smart albums |
-| People | `routes/people.rs` | People listing, rename, person photos |
-| NLE | `routes/nle.rs` | Video project CRUD, clip analysis |
-| Agent | `routes/agent.rs` | AI chat sessions and messaging |
-| Explore | `routes/explore.rs` | Explore view with themed collections |
-| Settings | `routes/settings.rs` | App settings, SSE event stream |
-| Utilities | `routes/utilities.rs` | Diagnostics, backup, cleanup |
-| Privacy | `routes/privacy.rs` | Locked folder management |
-| System | `routes/system.rs` | Health check, sample image serving |
+### Service Architecture
 
----
+```mermaid
+graph TD
+    AppState["AppState"] --> Config["Config<br/>Runtime configuration"]
+    AppState --> DbPool["DbPool<br/>SQLite connection pool"]
+    AppState --> MlClient["MlClient<br/>ML inference client"]
+    AppState --> Telemetry["Telemetry<br/>Usage analytics"]
+    AppState --> WorkerState["WorkerState<br/>Background job management"]
+    AppState --> JobScheduler["JobScheduler<br/>Job scheduling and queuing"]
+    AppState --> AnalyzerRegistry["AnalyzerRegistry<br/>Pluggable analyzer system"]
+
+    style AppState fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style Config fill:#6b7280,stroke:#4b5563,color:#fff
+    style DbPool fill:#059669,stroke:#047857,color:#fff
+    style MlClient fill:#8b5cf6,stroke:#7c3aed,color:#fff
+```
+
+### Background Worker Pipeline
+
+The background worker processes photos through a 4-stage pipeline:
+
+```mermaid
+flowchart LR
+    Import["Photo Imported"] --> Face["1. Face Detection<br/>(SCRFD + ArcFace)"]
+    Face --> OCR["2. OCR<br/>(PaddleOCR-VL)"]
+    OCR --> SigLIP["3. SigLIP Embedding<br/>(Semantic Search)"]
+    SigLIP --> AutoEnhance["4. Auto-Enhancement<br/>(Optional)"]
+    AutoEnhance --> Complete["Processing Complete"]
+
+    style Import fill:#3b82f6,stroke:#2563eb,color:#fff
+    style Face fill:#f59e0b,stroke:#d97706,color:#fff
+    style OCR fill:#10b981,stroke:#059669,color:#fff
+    style SigLIP fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style AutoEnhance fill:#ec4899,stroke:#db2777,color:#fff
+    style Complete fill:#06b6d4,stroke:#0891b2,color:#fff
+```
+
+Each stage is pluggable via the `AnalyzerRegistry`.
 
 ## Database Schema
 
-### Entity Relationship
-
-```
-Photo ──1:N──→ PhotoPerson ──N:1──→ Person
-  │                                      │
-  │                                      │
-  ├──N:1──→ Event                        │
-  │                                      │
-  ├──N:M──→ Album (via PhotoAlbum)       │
-  │                                      │
-  ├──1:N──→ BackgroundJob                │
-  │                                      │
-  └──1:N──→ PendingFaceAssignment ──N:1──┘
-
-VideoProject ──1:N──→ VideoClip (via photo_id → Photo)
-AgentSession  ──1:N──→ AgentMessage
-SyncPeer (standalone)
-```
-
 ### Core Tables
 
-#### `photos`
+- **photos** — Main photo/video metadata
+- **albums** — Album definitions
+- **photo_albums** — Many-to-many photo-album relationships
+- **people** — Identified people
+- **photo_people** — Many-to-many photo-person relationships
+- **faces** — Detected face data
+- **background_jobs** — Background processing jobs
+- **events** — Event groupings (trips, etc.)
+- **video_projects** — Video editor project state
+- **agent_sessions** — AI agent chat sessions
+- **agent_messages** — AI agent chat messages
+- **settings** — Key-value settings store
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer (PK) | Primary key |
-| `uuid` | Text | Unique UUID identifier |
-| `filename` | String(255) | Original filename |
-| `path` | String(512) | Full file path |
-| `url` | String(512) | Thumbnail URL |
-| `width`, `height` | Integer | Image dimensions |
-| `aspect_ratio` | Float | Width/height ratio |
-| `hash` | String(64) | Content hash (SHA256) |
-| `phash` | String(64) | Perceptual hash |
-| `caption` | String(512) | User caption |
-| `city`, `state`, `country` | String(255) | Reverse-geocoded location |
-| `latitude`, `longitude` | Float | GPS coordinates |
-| `date` | DateTime | Import date |
-| `date_taken` | DateTime | EXIF capture date |
-| `is_favorite` | Boolean | Favorites flag |
-| `is_locked` | Boolean | Locked Folder flag |
-| `is_trash` | Boolean | Trash flag |
-| `mime_type` | String(50) | MIME type |
-| `file_type` | String(20) | `image` or `video` |
-| `duration` | Float (video) | Duration in seconds |
-| `fps` | Float (video) | Frames per second |
-| `codec`, `audio_codec` | String(50) | Video/audio codec |
-| `ai_summary` | Text | AI-generated description |
-| `auto_tags` | Text | JSON array of tags |
-| `embedding` | Text | JSON float array (SigLIP2) |
-| `ocr_text` | Text | Extracted text (OCR) |
-| `blur_score` | Float | Blur/sharpness estimate |
-| `content_type` | String(20) | `photo`, `screenshot`, `document` |
-| `exif_make`, `exif_model` | String(255) | Camera info |
-| `rotation` | Integer | Video rotation |
-| `device_id` | String(255) | Storage device identifier |
-| `is_external` | Boolean | External storage flag |
+### Entity Relationships
 
-#### `people`
+```mermaid
+erDiagram
+    PHOTO ||--o{ PHOTO_PERSON : has
+    PHOTO ||--o{ PHOTO_ALBUM : belongs_to
+    PHOTO ||--o{ FACE : has
+    PHOTO ||--o{ BACKGROUND_JOB : triggers
+    PHOTO }o--|| EVENT : part_of
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer (PK) | Primary key |
-| `uuid` | Text | Unique UUID identifier |
-| `name` | String(255) | Person name |
-| `cover_face_thumbnail` | String(512) | Cover photo thumbnail |
-| `face_embedding` | Text | JSON float array |
+    PERSON ||--o{ PHOTO_PERSON : has
+    ALBUM ||--o{ PHOTO_ALBUM : contains
+    EVENT ||--o{ PHOTO : contains
 
-#### `photo_people` (Many-to-Many)
+    VIDEO_PROJECT ||--o{ VIDEO_CLIP : has
+    AGENT_SESSION ||--o{ AGENT_MESSAGE : contains
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `photo_id` | Integer (FK) | References photo |
-| `person_id` | Integer (FK) | References person |
-| `confidence` | Float | Detection confidence |
-| `face_box_json` | Text | JSON bounding box |
+    PHOTO {
+        int id PK
+        string uuid UK
+        string filename
+        string path
+        string file_type
+        datetime date_taken
+        boolean is_favorite
+        boolean is_locked
+    }
 
-#### `albums`
+    ALBUM {
+        int id PK
+        string uuid UK
+        string name
+        string type
+        int photo_count
+    }
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer (PK) | Primary key |
-| `uuid` | Text | Unique UUID identifier |
-| `name` | String(255) | Album name |
-| `type` | String(20) | `places`, `memories`, `people`, `custom` |
-| `is_smart` | Boolean | Auto-generated |
-| `cover_url` | String(512) | Cover thumbnail |
-| `photo_count` | Integer | Number of photos |
+    PERSON {
+        int id PK
+        string uuid UK
+        string name
+        string face_embedding
+    }
+```
 
-#### `background_jobs`
+## ML/AI Pipeline
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer (PK) | Primary key |
-| `photo_id` | Integer (FK) | References photo |
-| `job_type` | String(50) | Job type |
-| `status` | String(20) | `pending`, `processing`, `completed`, `failed` |
-| `attempt_count` | Integer | Retry counter |
-| `last_error` | Text | Error message |
-| `current_stage` | String(50) | Current
+### In-process Models
+
+- **SigLIP2** — Semantic image embeddings (768-dim)
+- **face-id** — Face detection (SCRFD) + embeddings (ArcFace)
+- **BiSeNet** — Face parsing/portrait segmentation
+- **SegFormer** — Semantic segmentation (ADE20K-150)
+- **LaMa** — Inpainting/object removal
+
+### External Services (Optional)
+
+- **llama-server** — LLM for agent search (port 9090)
+- **llama-server** — Vision/captioning (port 9091)
+- **PaddleOCR-VL** — OCR text extraction (port 9092)
+
+## Security Model
+
+- **Local-first** — No data leaves the machine
+- **Locked Folder** — Argon2id encryption for private media
+- **API Key Auth** — Optional backend authentication
+- **CSP** — Strict Content Security Policy in Tauri
+- **No telemetry by default** — Opt-in only
+
+## Performance Optimizations
+
+- **Virtualized Grid** — TanStack Virtual for rendering 100k+ photos
+- **WebP Thumbnails** — Fast, small thumbnails with quality preservation
+- **SQLite WAL** — Concurrent read/write without locking
+- **FTS5** — Full-text search with ranking
+- **Background Processing** — Non-blocking AI pipeline
+- **Proxy Videos** — Automatic proxy generation for smooth NLE editing

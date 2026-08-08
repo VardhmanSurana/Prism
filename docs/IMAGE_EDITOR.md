@@ -1,220 +1,227 @@
-# Prism Image Editor
+# Image Editor
 
-Comprehensive documentation for the Prism image editor, covering all 19 editing tools, the export pipeline, and technical implementation details.
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Editor Layout](#editor-layout)
-- [Tool Reference](#tool-reference)
-  - [AI Tools (Inpaint)](#ai-tools-inpaint)
-  - [Clone & Heal](#clone--heal)
-  - [Lasso Studio](#lasso-studio)
-  - [Layer Stack](#layer-stack)
-  - [Camera RAW](#camera-raw)
-  - [Liquify & Reshape](#liquify--reshape)
-  - [Shot Matcher](#shot-matcher)
-  - [Presets](#presets)
-  - [Light (Adjust)](#light-adjust)
-  - [Color (HSL)](#color-hsl)
-  - [Detail](#detail)
-  - [Portrait](#portrait)
-  - [Regions (Selective)](#regions-selective)
-  - [Grain & Leak](#grain--leak)
-  - [LUT Grade](#lut-grade)
-  - [Frames & Atmosphere](#frames--atmosphere)
-  - [Palette](#palette)
-  - [Markup & Vector (Annotations)](#markup--vector-annotations)
-  - [Crop (Transform)](#crop-transform)
-- [Export Pipeline](#export-pipeline)
-- [Technical Architecture](#technical-architecture)
-- [Keyboard Shortcuts](#keyboard-shortcuts)
-
----
+Prism includes a professional-grade, non-destructive image editor with 19 tools. All adjustments are stored as metadata and applied non-destructively — the original image is never modified.
 
 ## Overview
 
-The Prism image editor is a full-featured non-destructive photo editing workspace built into the desktop application. It provides 19 specialized tools organized in a vertical sidebar, with each tool offering a dedicated panel for fine-grained control.
+The image editor is accessible from the photo lightbox by clicking the "Edit" button. It features a sidebar-based interface with tool panels, a central canvas area, and a top bar with actions.
 
-### Key Features
+### Interface Layout
 
-- **Non-destructive editing**: Adjustments are stored as JSON (in `adjustments_json` column) and applied during export
-- **19 editing tools**: From basic crop/rotate to AI-powered inpainting
-- **Layer-based compositing**: Non-destructive layer stack with 27 blend modes
-- **Multiple export formats**: PNG, JPEG, WebP, TIFF
-- **History tracking**: Undo/redo through editing history stack
-- **GPU acceleration**: Canvas-based rendering with WebGL support
+```mermaid
+graph TB
+    subgraph Editor["Image Editor"]
+        TopBar["TopBar<br/>Undo/Redo | Compare | Copy/Paste | Export"]
+        
+        subgraph Content["Content Area"]
+            ToolList["Tool List<br/>(Left Sidebar)"]
+            Canvas["Canvas Area<br/>(Image Preview)"]
+            DetailPanel["Detail Panel<br/>(Right Sidebar)"]
+        end
+        
+        AdjustmentsPanel["Presets / Adjustments Panel<br/>(Bottom)"]
+    end
 
-### File Locations
+    TopBar --> Content
+    Content --> AdjustmentsPanel
+    ToolList --> Canvas
+    Canvas --> DetailPanel
 
-| Component | Path |
-|-----------|------|
-| Main editor components | `frontend/components/Editor/ImageEditor/` |
-| Export pipeline | `frontend/components/Editor/ImageEditor/exportPipeline/` |
-| Filter engine | `frontend/components/Editor/ImageEditor/filterEngine.ts` |
-| History system | `frontend/components/Editor/ImageEditor/history.ts` |
-| Annotations | `frontend/components/Editor/ImageEditor/AnnotationCanvas/` |
-| Annotations panel | `frontend/components/Editor/ImageEditor/AnnotationsPanel/` |
-| Editing mode | `frontend/components/Editor/ImageEditor/EditingMode/` |
-
----
-
-## Editor Layout
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  Top Bar (filename, zoom controls, export button)       │
-├────┬────────────────────────────────────────────────────┤
-│    │                                                    │
-│ S  │  Canvas Area                                       │
-│ i  │  (zoomable, pannable, gesture-aware)               │
-│ d  │                                                    │
-│ e  │                                                    │
-│ b  │                                                    │
-│ a  │                                                    │
-│ r  │                                                    │
-│    │                                                    │
-│ 19 │                                                    │
-│ t  │                                                    │
-│ o  │                                                    │
-│ o  │                                                    │
-│ l  │                                                    │
-│ s  │                                                    │
-├────┴────────────────────────────────────────────────────┤
-│  Status Bar (zoom level, dimensions, unsaved indicator)  │
-└─────────────────────────────────────────────────────────┘
+    style Editor fill:#1e40af,stroke:#1e3a8a,color:#fff
+    style TopBar fill:#374151,stroke:#1f2937,color:#fff
+    style Canvas fill:#059669,stroke:#047857,color:#fff
 ```
 
-### Sidebar Tools (left to right)
+## Tools
 
-The sidebar contains 19 tool icons. Selecting a tool opens its configuration panel to the right of the sidebar.
+### 1. Presets
+Curated cinematic, vintage, and creative look presets organized by category:
+- **Film Looks** — Kodachrome, Portra, Ektar, Fujifilm simulations
+- **Vintage** — Retro color grading, faded blacks, warm tones
+- **Creative** — Dramatic, moody, high-contrast looks
+- **My Presets** — User-saved custom presets
 
----
+**Features:**
+- Preview thumbnails for each preset
+- Adjustable intensity slider (0-100%)
+- Save custom presets from current adjustments
 
-## Tool Reference
+### 2. Light Adjustments
+Exposure and tone controls:
+- **Exposure** — Overall brightness (-100 to +100)
+- **Brightness** — Midtone brightness (-100 to +100)
+- **Contrast** — Tone separation (-100 to +100)
+- **Highlights** — Recover blown highlights (-100 to +100)
+- **Shadows** — Lift shadow detail (-100 to +100)
+- **Whites** — White point clipping (-100 to +100)
+- **Blacks** — Black point clipping (-100 to +100)
 
-### AI Tools (Inpaint)
+### 3. Color (HSL)
+Per-band hue, saturation, and luminance control:
+- **8 Color Bands** — Red, Orange, Yellow, Green, Aqua, Blue, Purple, Magenta
+- **Per-band Controls** — Hue shift, saturation, luminance
+- **Global Controls** — Temperature, tint, vibrance, saturation
 
-**File**: `InpaintPanel.tsx`, `InpaintCanvas.tsx`
+**Color Grading Presets:**
+- Warm highlights / Cool shadows
+- Cool highlights / Warm shadows
+- Cross-process look
+- Teal and orange
 
-AI-powered object removal using Stable Diffusion 1.5 inpainting.
+### 4. Tone Curves
+Per-channel RGB curves with bezier spline interpolation:
+- **Channels** — RGB (combined), Red, Green, Blue
+- **Interactive Editor** — Click to add points, drag to adjust
+- **Histogram Overlay** — Real-time histogram behind the curve
+- **Black/White Point** — Set from histogram
 
-#### How It Works
+### 5. Color Wheels
+Three-way color grading:
+- **Shadows** — Color tint for dark areas
+- **Midtones** — Color tint for mid-range
+- **Highlights** — Color tint for bright areas
+- **Global** — Overall color shift
 
-1. Draw a mask over the object to remove using a brush
-2. The mask + original image is sent to the backend
-3. Stable Diffusion 1.5 inpaints the masked region
-4. The result is returned and displayed
+### 6. Portrait
+Face-aware enhancements:
+- **Face Detection** — Automatic face region detection
+- **Skin Smoothing** — Reduce skin texture
+- **Face Brightening** — Illuminate faces
+- **Eye Enhancement** — Sharpen and brighten eyes
 
-#### Controls
+### 7. Selective Adjustments (Regions)
+Local adjustment layers using custom drawn masks:
+- **Lasso Tool** — Freehand selection
+- **AI Segmentation** — Automatic subject/background separation
+- **Per-region Adjustments** — Brightness, contrast, saturation, blur
 
-- **Brush size**: Adjustable brush for mask painting
-- **Inpaint button**: Triggers the AI inpainting process
-- **Result**: Preview the inpainted result
+### 8. Healing
+AI-powered object removal:
+- **Brush Tool** — Paint over unwanted objects
+- **LaMa Inpainting** — AI-powered content-aware fill
+- **Adjustable Brush Size** — Fine to broad strokes
 
-#### Backend API
+### 9. Inpainting
+Advanced object removal with SAM integration:
+- **Point-based Selection** — Click to select objects
+- **AI Segmentation** — Automatic object boundary detection
+- **Batch Processing** — Remove multiple objects
 
-- **Endpoint**: `POST /api/v1/photos/inpaint/process` (`backend_rust/src/routes/photos_ai.rs`)
-- **Service**: `backend_rust/src/services/inpaint.rs` (LaMa)
-- **Feature flag**: `ENABLE_AI_INPAINTING`
+### 10. Annotations
+Overlay text, shapes, and drawings:
+- **Text** — Custom text with font, size, color options
+- **Shapes** — Rectangles, circles, arrows, lines
+- **Doodle** — Freehand drawing with adjustable brush
+- **Emoji** — Emoji picker for fun overlays
+- **Layers** — Manage annotation layers
 
----
+### 11. Frames
+Add borders and frames:
+- **Frame Styles** — Solid, gradient, double, shadow
+- **Frame Color** — Custom color picker
+- **Frame Thickness** — Adjustable width
+- **Aspect Ratio** — Maintain or crop to fit
 
-### Clone & Heal
+### 12. Texture
+Film-like effects:
+- **Grain** — Adjustable film grain (amount, size, colored)
+- **Light Leaks** — Simulated light leak overlays
+- **Vignette** — Corner darkening effect
+- **Blend Modes** — Multiple blend options
 
-**File**: `HealingPanel.tsx`, `HealingCanvas.tsx`
+### 13. Detail
+Sharpening and noise reduction:
+- **Clarity** — Midtone contrast enhancement
+- **Sharpness** — Edge sharpening
+- **Noise Reduction** — Luminance noise reduction
+- **Tilt-Shift** — Simulated depth of field
 
-Clone Stamp and Healing Brush tools for manual retouching.
+### 14. LUT (Color Grading)
+Apply Look-Up Tables:
+- **Built-in LUTs** — Curated color grading presets
+- **Custom LUTs** — Import .cube LUT files
+- **Opacity Control** — Blend LUT intensity
 
-#### Clone Stamp
+### 15. Transform
+Crop, rotate, and flip:
+- **Crop** — Free or aspect-ratio constrained
+- **Rotate** — 90° increments or free rotation
+- **Flip** — Horizontal and vertical
+- **Straighten** — Level horizon
 
-- **Alt+Click**: Set source point
-- **Paint**: Clone pixels from source to target area
-- **Brush size**: Adjustable via `[` / `]` keys
+### 16. Auto-Enhance
+One-click AI-powered adjustment:
+- **Analysis** — Analyze image histogram and content
+- **Adjustment** — Automatically apply optimal exposure, contrast, and color
+- **Intensity** — Adjustable strength
 
-#### Healing Brush
+### 17. History
+Visual undo/redo panel:
+- **Timeline** — Visual history of all edits
+- **Snapshots** — Save named states
+- **Undo/Redo** — Step through changes
 
-- Automatically blends cloned pixels with target area texture
-- Preserves lighting and texture of the target area
-- Ideal for skin retouching, spot removal, and blemish correction
+### 18. Palette
+Extract dominant colors:
+- **Median-cut Quantization** — Extract 6 prominent colors
+- **Copy Colors** — Copy hex values for use elsewhere
+- **Save Palette** — Export color palette
 
----
+### 19. Color Match
+Match colors between images:
+- **Reference Image** — Select source for color matching
+- **Strength Control** — Blend color characteristics
+- **Channel Selection** — Match specific channels
 
-### Lasso Studio
+## Export Pipeline
 
-**File**: `LassoPanel.tsx`, `LassoCanvas.tsx`, `lassoEngine.ts`
+### Export Options
+- **Format** — JPEG, PNG, WebP
+- **Quality** — Adjustable quality slider (1-100)
+- **Resize** — Scale or custom dimensions
+- **Metadata** — Preserve or strip EXIF data
 
-Freehand, Polygonal, and Magnetic Edge-Snapping Lasso Selection.
+### Export Process
 
-#### Selection Modes
+```mermaid
+flowchart TD
+    A["Apply All Adjustments"] --> B["Apply Color Profile
+Transformations"]
+    B --> C["Encode to Selected Format
+(JPEG/PNG/WebP)"]
+    C --> D{"Write Metadata?"}
+    D -->|Yes| E["Preserve EXIF Data"]
+    D -->|No| F["Strip EXIF Data"]
+    E --> G["Save to File"]
+    F --> G
+    G --> H["Export Complete"]
 
-| Mode | Description |
-|------|-------------|
-| **Freehand** | Draw a freeform selection path |
-| **Polygonal** | Click to create straight-edged selection segments |
-| **Magnetic** | Edge-snapping: automatically snaps to object edges as you draw |
+    style A fill:#3b82f6,stroke:#2563eb,color:#fff
+    style H fill:#10b981,stroke:#059669,color:#fff
+```
 
-#### Operations
+## Keyboard Shortcuts
 
-- Create new selections
-- Add to existing selection (Shift+click)
-- Subtract from selection (Alt+click)
-- Intersect with selection
-- Invert selection
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl+Z` | Undo |
+| `Ctrl+Shift+Z` | Redo |
+| `Ctrl+C` | Copy adjustments |
+| `Ctrl+V` | Paste adjustments |
+| `Space` | Compare (hold) |
+| `Ctrl+S` | Save/Export |
+| `Ctrl+Shift+S` | Save as new preset |
 
-#### Output
+## Non-destructive Editing
 
-Selections can be used as input for:
-- Regional adjustments (selective editing)
-- Inpainting masks
-- Layer masks
+All adjustments are stored as JSON metadata alongside the original image:
+- **Original** — Never modified
+- **Adjustments JSON** — All edit parameters stored in database
+- **Preview** — Real-time preview using CSS filters and canvas operations
+- **Export** — Full-resolution rendering on demand
 
----
-
-### Layer Stack
-
-**File**: `LayersPanel.tsx`, `layersEngine.ts`
-
-Non-destructive Layer Stack with Fill Layers and 27 Blend Modes.
-
-#### Layer Types
-
-| Type | Description |
-|------|-------------|
-| **Image layer** | Original photo or imported image |
-| **Adjustment layer** | Applies adjustments non-destructively |
-| **Fill layer** | Solid color, gradient, or pattern fill |
-| **Text layer** | Text overlay |
-| **Shape layer** | Vector shapes |
-
-#### Blend Modes (27 total)
-
-| Category | Modes |
-|----------|-------|
-| **Normal** | Normal, Dissolve |
-| **Darken** | Darken, Multiply, Color Burn, Linear Burn, Darker Color |
-| **Lighten** | Lighten, Screen, Color Dodge, Linear Dodge, Lighter Color |
-| **Contrast** | Overlay, Soft Light, Hard Light, Vivid Light, Linear Light, Pin Light, Hard Mix |
-| **Inversion** | Difference, Exclusion, Subtract, Divide |
-| **Color** | Hue, Saturation, Color, Luminosity |
-
-#### Layer Controls
-
-- Add/remove/reorder layers
-- Toggle visibility
-- Adjust opacity
-- Set blend mode
-- Create clipping masks
-- Rasterize layers
-
----
-
-### Camera RAW
-
-**File**: `RawEnginePanel.tsx`, `rawEngine.ts`
-
-Sensor Demosaicing, Kelvin White Balance (2000K–50000K), and Highlight Recovery.
-
-#### Demosaicing Algorithms
+This approach ensures:
+- Original quality is always preserved
+- Edits can be modified or removed at any time
+- Multiple edit versions can be maintained
+- Storage overhead is minimal (only metadata)
