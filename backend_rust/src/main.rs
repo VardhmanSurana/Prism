@@ -45,6 +45,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&config.upload_dir).ok();
     std::fs::create_dir_all(&config.thumbnails_dir).ok();
 
+    recover_interrupted_operations(&config);
+
     let db_pool = init_db(&config.database_url).await?;
     let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
     let ml_client = MlClient::new(LlmClient::new(llm_server.clone()));
@@ -113,3 +115,59 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+fn scan_and_recover(dir: &std::path::Path) {
+    if !dir.exists() || !dir.is_dir() {
+        return;
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                scan_and_recover(&path);
+            } else if path.is_file() {
+                let file_name_str = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                if file_name_str.ends_with(".prism_backup") {
+                    let path_str = path.to_string_lossy();
+                    if let Some(restored_str) = path_str.strip_suffix(".prism_backup") {
+                        let restored_path = std::path::PathBuf::from(restored_str);
+                        if let Err(e) = std::fs::rename(&path, &restored_path) {
+                            tracing::warn!("Failed to restore backup file {:?} to {:?}: {}", path, restored_path, e);
+                        } else {
+                            info!("Restored interrupted operation backup: {:?} -> {:?}", path, restored_path);
+                        }
+
+                        // Remove associated backup lock files if present
+                        let lock_candidates = [
+                            path.with_extension("lock"),
+                            std::path::PathBuf::from(format!("{}.lock", path.display())),
+                            std::path::PathBuf::from(format!("{}.lock", restored_str)),
+                        ];
+                        for lock_path in &lock_candidates {
+                            if lock_path.exists() {
+                                if let Err(e) = std::fs::remove_file(lock_path) {
+                                    tracing::warn!("Failed to remove backup lock file {:?}: {}", lock_path, e);
+                                } else {
+                                    info!("Removed backup lock file: {:?}", lock_path);
+                                }
+                            }
+                        }
+                    }
+                } else if file_name_str.ends_with(".prism_backup.lock") {
+                    if let Err(e) = std::fs::remove_file(&path) {
+                        tracing::warn!("Failed to remove leftover lock file {:?}: {}", path, e);
+                    } else {
+                        info!("Removed leftover backup lock file: {:?}", path);
+                    }
+                }
+            }
+        }
+    }
+}
+
+pub fn recover_interrupted_operations(config: &Config) {
+    info!("Scanning for interrupted operations and backup files...");
+    scan_and_recover(std::path::Path::new(&config.upload_dir));
+    scan_and_recover(std::path::Path::new(&config.thumbnails_dir));
+}
+

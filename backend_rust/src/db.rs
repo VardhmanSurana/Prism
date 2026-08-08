@@ -28,6 +28,13 @@ pub async fn init_db(database_url: &str) -> Result<DbPool, Error> {
         .connect_with(options)
         .await?;
 
+    sqlx::query("PRAGMA journal_mode = WAL;").execute(&pool).await?;
+    sqlx::query("PRAGMA synchronous = NORMAL;").execute(&pool).await?;
+    sqlx::query("PRAGMA foreign_keys = ON;").execute(&pool).await?;
+
+    let health_status: String = sqlx::query_scalar("PRAGMA quick_check;").fetch_one(&pool).await?;
+    info!("Database health status (PRAGMA quick_check): {}", health_status);
+
     // Execute schema migrations / setup tables if not already existing
     create_tables(&pool).await?;
 
