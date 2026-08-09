@@ -18,7 +18,15 @@ export const setApiBase = (url: string): void => {
   }
 };
 
-export const API_BASE = getApiBase();
+export const API_BASE = {
+  toString: () => getApiBase(),
+  valueOf: () => getApiBase(),
+  concat: (str: string) => getApiBase() + str,
+  startsWith: (str: string) => getApiBase().startsWith(str),
+  replace: (pattern: string | RegExp, replacement: string) => (getApiBase() as any).replace(pattern, replacement),
+  includes: (str: string) => getApiBase().includes(str),
+  length: 0,
+} as unknown as string;
 
 export const resolveUrl = (url: string) => {
   if (!url) return '';

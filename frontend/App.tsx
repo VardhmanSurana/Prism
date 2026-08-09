@@ -1,5 +1,7 @@
 import React, { useCallback, useMemo, Suspense, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { CommandPalette, buildDefaultCommands } from './components/ui/CommandPalette';
+import { usePrismShortcuts } from './hooks/useKeyboardShortcuts';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
 import { MainContent } from './components/layout/MainContent';
@@ -187,6 +189,7 @@ function App() {
 
   const [isCollageOpen, setIsCollageOpen] = useState(false);
   const [isPhotoBookOpen, setIsPhotoBookOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
   const selectedPhotos = useMemo(() =>
     displayedPhotos.filter(p => selectedIds.has(String(p.id))),
@@ -195,6 +198,36 @@ function App() {
 
   const handleCollage = useCallback(() => setIsCollageOpen(true), []);
   const handlePhotoBook = useCallback(() => setIsPhotoBookOpen(true), []);
+
+  // ─── Command Palette ──────────────────────────────────────────────────────
+
+  const commandItems = useMemo(
+    () =>
+      buildDefaultCommands({
+        onNavigate: handleViewChange,
+        onUpload: handleUpload,
+        onSearch: (q: string) => setActiveFilters({ query: q, startDate: undefined, endDate: undefined, location: undefined }),
+        onToggleLock: handleLockSession,
+      }),
+    [handleViewChange, handleUpload, setActiveFilters, handleLockSession]
+  );
+
+  // ─── Global Keyboard Shortcuts ─────────────────────────────────────────────
+
+  usePrismShortcuts({
+    onCommandPalette: () => setIsCommandPaletteOpen(true),
+    onNavigate: handleViewChange,
+    onUpload: handleUpload,
+    onToggleLock: handleLockSession,
+    onEscape: () => {
+      if (selectedPhoto) {
+        setSelectedPhoto(null);
+      } else if (isCommandPaletteOpen) {
+        setIsCommandPaletteOpen(false);
+      }
+    },
+    enabled: !isLoading,
+  });
 
   const handleBulkPasteEdits = useCallback(async () => {
     const copied = useEditStore.getState().copiedAdjustments;
@@ -224,7 +257,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex h-screen w-screen overflow-hidden bg-background text-gray-100`}>
+      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex flex-1 h-full w-full overflow-hidden bg-background text-gray-100`}>
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 
@@ -343,6 +376,13 @@ function App() {
           <ConfirmDialog />
           <FileFolderBrowserDialog />
         </Suspense>
+
+        {/* Command Palette */}
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
+          commands={commandItems}
+        />
 
         <Suspense fallback={null}>
           <CollageMaker

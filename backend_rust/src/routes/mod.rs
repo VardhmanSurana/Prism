@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod albums;
 pub mod explore;
+pub mod google_import;
 pub mod lan_sync;
 pub mod nle;
 pub mod people;
@@ -496,6 +497,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/visual-duplicates", get(utilities::get_visual_duplicates))
         .route("/utilities/backup/export", post(utilities::export_backup))
         .route("/utilities/backup/restore", post(utilities::restore_backup))
+        .route("/utilities/google-import", post(google_import::google_takeout_import))
         .route("/utilities/batch-rename", post(utilities::batch_rename_files))
         .route("/utilities/open-in-os-explorer", post(utilities::open_in_os_explorer))
         .route("/utilities/search/fused", get(utilities::fused_search))

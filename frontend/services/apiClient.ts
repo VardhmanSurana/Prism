@@ -1,4 +1,4 @@
-import { API_BASE } from '@/constants';
+import { getApiBase } from '@/constants';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public data?: unknown) {
@@ -26,7 +26,8 @@ export async function fetchWithRetry(url: string, options: RequestInit, retries 
 }
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
+  const base = getApiBase();
+  const fullUrl = url.startsWith('http') ? url : `${base}${url}`;
 
   const headers = new Headers(options?.headers);
   if (!headers.has('Content-Type') && !(options?.body instanceof FormData)) {
