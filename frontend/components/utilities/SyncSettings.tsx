@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Switch } from '../ui';
+import { getApiBase, setApiBase } from '../../constants';
 
 interface SyncSettingsProps {
   syncEnabled: boolean;
@@ -112,8 +113,101 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   const addE = onAddExcludedFolder || onAddFolder || (() => {});
   const removeE = onRemoveExcludedFolder || onRemoveFolder || (() => {});
 
+  const [serverUrl, setServerUrl] = useState<string>(getApiBase());
+  const [status, setStatus] = useState<'idle' | 'testing' | 'connected' | 'error'>('idle');
+  const [statusMsg, setStatusMsg] = useState<string>('');
+
+  useEffect(() => {
+    // Perform initial quick check
+    testServerConnection(getApiBase());
+  }, []);
+
+  const testServerConnection = async (url: string) => {
+    setStatus('testing');
+    setStatusMsg('Checking server health...');
+    try {
+      const cleanUrl = url.trim().replace(/\/+$/, '');
+      const res = await fetch(`${cleanUrl}/health`, { method: 'GET', headers: { Accept: 'application/json' } });
+      if (res.ok) {
+        const data = await res.json();
+        setStatus('connected');
+        setStatusMsg(`Online (${data.service || 'prism-server'} v${data.version || '0.1.0'})`);
+      } else {
+        setStatus('error');
+        setStatusMsg(`Server returned HTTP ${res.status}`);
+      }
+    } catch (err: any) {
+      setStatus('error');
+      setStatusMsg(`Unable to connect (${err.message || 'Network error'})`);
+    }
+  };
+
+  const handleSaveServerUrl = () => {
+    const clean = serverUrl.trim().replace(/\/+$/, '');
+    setApiBase(clean);
+    testServerConnection(clean);
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-4">
+      {/* Prism Companion Server Connection Card */}
+      <div className="cr-card">
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div>
+            <div className="cr-card-title">Prism Companion Server Connection</div>
+            <p className="text-xs text-[var(--cr-text-muted)]">
+              Specify the IP or hostname of your Dockerized Prism Companion Server or local backend.
+            </p>
+          </div>
+          {status === 'testing' && (
+            <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-[var(--cr-surface-sunken)] text-[var(--cr-text-secondary)]">
+              ⏳ Testing...
+            </span>
+          )}
+          {status === 'connected' && (
+            <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              {statusMsg}
+            </span>
+          )}
+          {status === 'error' && (
+            <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-red-500/10 text-red-400 border border-red-500/30">
+              ⚠️ {statusMsg}
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-2 mt-3">
+          <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
+            <span className="px-3 py-2 text-xs font-mono text-[var(--cr-text-muted)] select-none border-r border-[var(--cr-border)] bg-[var(--cr-surface-card)]">
+              Server URL
+            </span>
+            <input
+              type="text"
+              value={serverUrl}
+              onChange={(e) => setServerUrl(e.target.value)}
+              placeholder="http://127.0.0.1:8269 or http://192.168.1.100:8269"
+              className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
+            />
+          </div>
+          <button
+            onClick={() => testServerConnection(serverUrl)}
+            className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border border-[var(--cr-border)] rounded hover:bg-[var(--cr-surface-card-hover)] transition-all"
+          >
+            Test Status
+          </button>
+          <button
+            onClick={handleSaveServerUrl}
+            className="cr-inline-btn primary"
+          >
+            Save & Connect
+          </button>
+        </div>
+        <p className="text-[11px] font-mono text-[var(--cr-text-muted)] mt-2">
+          Saved configuration persists across application launches. Zero environment variables required.
+        </p>
+      </div>
       {/* Auto sync toggle card */}
       <div className="cr-card">
         <div className="flex items-center justify-between gap-4">

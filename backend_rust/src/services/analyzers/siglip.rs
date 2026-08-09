@@ -50,8 +50,7 @@ impl Analyzer for SiglipAnalyzer {
         match result {
             Ok(Ok(embedding)) if !embedding.is_empty() => {
                 let json = serde_json::to_string(&embedding).unwrap_or_default();
-                let _ = sqlx::query("UPDATE photos SET embedding = ?, clip_embedding = ? WHERE id = ?")
-                    .bind(&json)
+                let _ = sqlx::query("UPDATE photos SET embedding = ? WHERE id = ?")
                     .bind(&json)
                     .bind(photo_id)
                     .execute(db)

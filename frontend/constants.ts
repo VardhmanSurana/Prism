@@ -1,32 +1,51 @@
 /// <reference types="vite/client" />
 const DEFAULT_API_BASE = 'http://127.0.0.1:8269';
-export const API_BASE = import.meta.env.VITE_API_BASE || DEFAULT_API_BASE;
+
+export const getApiBase = (): string => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const saved = localStorage.getItem('prism_server_url');
+    if (saved && saved.trim().length > 0) {
+      return saved.trim().replace(/\/+$/, '');
+    }
+  }
+  return (import.meta.env.VITE_API_BASE as string) || DEFAULT_API_BASE;
+};
+
+export const setApiBase = (url: string): void => {
+  if (typeof window !== 'undefined' && window.localStorage) {
+    const cleaned = url.trim().replace(/\/+$/, '');
+    localStorage.setItem('prism_server_url', cleaned);
+  }
+};
+
+export const API_BASE = getApiBase();
 
 export const resolveUrl = (url: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
     return url;
   }
+  const currentBase = getApiBase();
   const [base, query] = url.split('?');
   let resolvedBase = base;
 
   if (base.startsWith('/thumbnails/') || base.startsWith('/uploads/') || base.startsWith('/crop_face/') || base.startsWith('/api/v1/')) {
-    resolvedBase = `${API_BASE}${base}`;
+    resolvedBase = `${currentBase}${base}`;
   } else if (base.startsWith('thumbnails/') || base.startsWith('uploads/') || base.startsWith('crop_face/') || base.startsWith('api/v1/')) {
-    resolvedBase = `${API_BASE}/${base}`;
+    resolvedBase = `${currentBase}/${base}`;
   } else if (base.startsWith('upload_')) {
-    resolvedBase = `${API_BASE}/uploads/${base}`;
+    resolvedBase = `${currentBase}/uploads/${base}`;
   } else if (base.startsWith('local://')) {
     const path = base.replace('local://', '');
-    resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(path)}`;
+    resolvedBase = `${currentBase}/local?path=${encodeURIComponent(path)}`;
   } else if (base.startsWith('transcode://')) {
     const path = base.replace('transcode://', '');
-    resolvedBase = `${API_BASE}/transcode?path=${encodeURIComponent(path)}`;
+    resolvedBase = `${currentBase}/transcode?path=${encodeURIComponent(path)}`;
   } else if (base.startsWith('hls://')) {
     const path = base.replace('hls://', '');
-    resolvedBase = `${API_BASE}/hls/playlist?path=${encodeURIComponent(path)}`;
+    resolvedBase = `${currentBase}/hls/playlist?path=${encodeURIComponent(path)}`;
   } else if (base.startsWith('/') || base.match(/^[a-zA-Z]:\\/)) {
-    resolvedBase = `${API_BASE}/local?path=${encodeURIComponent(base)}`;
+    resolvedBase = `${currentBase}/local?path=${encodeURIComponent(base)}`;
   }
 
   if (query) {
@@ -54,5 +73,5 @@ export const photoSrc = (photo: { url?: string | null; uuid?: string; id?: strin
   const key = photo.uuid || photo.id;
   if (!key) return '';
   const sizeParam = size && size > 400 ? `?size=${size}` : '';
-  return `${API_BASE}/api/v1/photos/${key}/thumbnail${sizeParam}`;
+  return `${getApiBase()}/api/v1/photos/${key}/thumbnail${sizeParam}`;
 };

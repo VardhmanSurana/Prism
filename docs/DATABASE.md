@@ -60,7 +60,6 @@ CREATE TABLE photos (
     video_faces_scanned BOOLEAN DEFAULT FALSE,
     animated_url TEXT,
     event_id INTEGER,
-    clip_embedding TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (event_id) REFERENCES events(id)
