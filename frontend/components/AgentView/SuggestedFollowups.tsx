@@ -27,7 +27,7 @@ export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
           {onCreateAlbum && (
             <button
               onClick={onCreateAlbum}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all shadow-sm"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 transition-colors 150ms ease shadow-sm"
             >
               <FolderPlus size={10} />
               <span>Create album ({photos.length})</span>
@@ -36,7 +36,7 @@ export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
 
           <button
             onClick={() => onSelectFollowup("Filter these results to only my favorites")}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-colors 150ms ease shadow-sm"
           >
             <Heart size={10} className="text-rose-400" />
             <span>Favorites only</span>
@@ -44,7 +44,7 @@ export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
 
           <button
             onClick={() => onSelectFollowup("Show only videos matching this search")}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-colors 150ms ease shadow-sm"
           >
             <Video size={10} className="text-blue-400" />
             <span>Videos only</span>
@@ -54,7 +54,7 @@ export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
         <>
           <button
             onClick={() => onSelectFollowup("Show my favorite photos")}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-colors 150ms ease shadow-sm"
           >
             <Heart size={10} className="text-rose-400" />
             <span>Show favorites</span>
@@ -62,7 +62,7 @@ export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
 
           <button
             onClick={() => onSelectFollowup("Find photos from 2024")}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-all shadow-sm"
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium bg-white/[0.04] text-gray-300 border border-white/[0.08] hover:bg-white/10 hover:text-white transition-colors 150ms ease shadow-sm"
           >
             <Calendar size={10} className="text-amber-400" />
             <span>Photos from 2024</span>

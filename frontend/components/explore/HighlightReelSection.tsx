@@ -93,11 +93,11 @@ export const HighlightReelSection: React.FC = () => {
             <GlassMaterial
               key={reel.id}
               intensity="subtle"
-              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-5 hover:border-primary/40 transition-all duration-300"
+              className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-5 hover:border-primary/40 transition-colors 300ms ease, border-color 300ms ease"
             >
               <div>
                 {/* Reel Cover Collapsed Preview */}
-                <div className="relative aspect-video w-full rounded-xl overflow-hidden mb-4 bg-black/40 border border-white/10 group-hover:scale-[1.01] transition-transform duration-300">
+                <div className="relative aspect-video w-full rounded-xl overflow-hidden mb-4 bg-black/40 border border-white/10 group-hover:scale-[1.01] transition-transform 300ms cubic-bezier(0.23, 1, 0.32, 1)">
                   {mainCover ? (
                     <img
                       src={mainCover.url || `${API_BASE}/api/v1/photos/${mainCover.id}/file`}
@@ -119,7 +119,7 @@ export const HighlightReelSection: React.FC = () => {
                   {/* Play Hover Trigger */}
                   <button
                     onClick={() => setActivePreview(reel)}
-                    className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-primary/90 text-black flex items-center justify-center shadow-lg opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="absolute inset-0 m-auto w-12 h-12 rounded-full bg-primary/90 text-black flex items-center justify-center shadow-lg opacity-80 group-hover:opacity-100 group-hover:scale-110 transition-opacity 300ms ease, transition-transform 300ms cubic-bezier(0.23, 1, 0.32, 1)"
                     aria-label={`Preview ${reel.title}`}
                   >
                     <Play size={20} className="fill-black ml-0.5" />

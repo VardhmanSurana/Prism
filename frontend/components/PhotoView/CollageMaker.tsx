@@ -349,7 +349,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                       key={layout.id}
                       disabled={!available}
                       onClick={() => setSelectedLayout(layout)}
-                      className={`relative p-2 rounded-lg border transition-all ${
+                      className={`relative p-2 rounded-lg border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
                         selectedLayout.id === layout.id
                           ? 'border-primary bg-primary/10'
                           : available
@@ -401,7 +401,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                   <button
                     key={color}
                     onClick={() => setBgColor(color)}
-                    className={`w-8 h-8 rounded-lg border-2 transition-all ${
+                    className={`w-8 h-8 rounded-lg border-2 transition-colors 150ms ease, border-color 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) ${
                       bgColor === color ? 'border-primary scale-110' : 'border-border hover:border-white/30'
                     }`}
                     style={{ backgroundColor: color }}
@@ -424,7 +424,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
               <label className="text-xs font-semibold text-[#666666]">Round Corners</label>
               <button
                 onClick={() => setRoundCorners(!roundCorners)}
-                className={`w-10 h-6 rounded-full transition-all ${
+                className={`w-10 h-6 rounded-full transition-colors 150ms ease, background-color 150ms ease ${
                   roundCorners ? 'bg-primary' : 'bg-white/10'
                 }`}
               >
@@ -448,7 +448,7 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
                   <button
                     key={fmt}
                     onClick={() => setExportFormat(fmt)}
-                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors 150ms ease, background-color 150ms ease ${
                       exportFormat === fmt
                         ? 'bg-[#2563eb] text-white'
                         : 'bg-white/5 text-[#666666] hover:bg-white/10'

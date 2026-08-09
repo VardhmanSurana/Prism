@@ -116,7 +116,7 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
       {renderGrid()}
       <button
         onClick={onShowMore}
-        className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/20 transition-all text-gray-300 hover:text-white mt-2 shadow-sm"
+        className="w-full py-2.5 px-4 text-xs font-semibold rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] hover:border-white/20 transition-colors 150ms ease, border-color 150ms ease text-gray-300 hover:text-white mt-2 shadow-sm"
       >
         Show all results ({photos.length})
       </button>

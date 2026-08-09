@@ -127,7 +127,7 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
               type="button"
               onClick={() => setProvider(p.id as ExternalProviderId)}
               title={p.description}
-              className={`px-2.5 py-1 text-[10px] rounded-lg border uppercase tracking-wider font-semibold transition-all cursor-pointer
+              className={`px-2.5 py-1 text-[10px] rounded-lg border uppercase tracking-wider font-semibold transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease cursor-pointer
                 ${
                   provider === p.id
                     ? 'bg-primary/15 border-primary/40 text-primary'

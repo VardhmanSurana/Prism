@@ -57,7 +57,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         }
       }}
       className={`relative group cursor-pointer ${roundedClass} bg-[#0c0c0c]
-      transition-all duration-200 ease-out photo-item-hover
+      transition-transform 200ms cubic-bezier(0.23, 1, 0.32, 1), transition-shadow 200ms ease-out photo-item-hover
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
       ${isSelected
           ? 'photo-item-selected shadow-xl'
@@ -72,7 +72,7 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
       }}
     >
       <div
-        className={`absolute inset-0 overflow-hidden ${roundedClass} transition-all duration-200 ${isSelected ? 'border-4 border-primary' : ''}`}
+        className={`absolute inset-0 overflow-hidden ${roundedClass} transition-border-color 200ms ease ${isSelected ? 'border-4 border-primary' : ''}`}
         style={{ borderRadius: cornerRadius > 0 ? `${cornerRadius}px` : undefined }}
       >
         <LazyImage

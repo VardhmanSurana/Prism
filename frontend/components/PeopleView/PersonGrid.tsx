@@ -75,7 +75,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
           <button
             type="button"
             onClick={onRefresh}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#0a84ff] hover:bg-[#0077e6] transition-all shadow-md"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#0a84ff] hover:bg-[#0077e6] transition-colors 150ms ease shadow-md"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             <span>Scan Library for Faces</span>
@@ -117,7 +117,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
                 placeholder="Search people..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-white/[0.04] text-white text-xs font-sans rounded-xl pl-9 pr-3 py-2 border border-white/[0.08] focus:border-white/30 focus:bg-white/[0.06] outline-none transition-all placeholder:text-white/30"
+                className="w-full bg-white/[0.04] text-white text-xs font-sans rounded-xl pl-9 pr-3 py-2 border border-white/[0.08] focus:border-white/30 focus:bg-white/[0.06] outline-none transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease placeholder:text-white/30"
               />
             </div>
 
@@ -126,7 +126,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterMode('all')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2.5 py-1 rounded-lg transition-colors 150ms ease, background-color 150ms ease ${
                   filterMode === 'all'
                     ? 'bg-white/10 text-white font-medium shadow-sm'
                     : 'text-white/40 hover:text-white/70'
@@ -137,7 +137,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
               <button
                 type="button"
                 onClick={() => setFilterMode('named')}
-                className={`px-2.5 py-1 rounded-lg transition-all ${
+                className={`px-2.5 py-1 rounded-lg transition-colors 150ms ease, background-color 150ms ease ${
                   filterMode === 'named'
                     ? 'bg-white/10 text-white font-medium shadow-sm'
                     : 'text-white/40 hover:text-white/70'
@@ -151,7 +151,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
             <button
               type="button"
               onClick={onRefresh}
-              className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/[0.08] transition-all"
+              className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/[0.08] transition-colors 150ms ease, background-color 150ms ease"
               title="Rescan & Refresh People"
             >
               <RefreshCw size={15} className={isLoading ? 'animate-spin text-blue-400' : ''} />

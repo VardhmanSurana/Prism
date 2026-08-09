@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useRef, useEffect } from 'react';
+import { gsap } from 'gsap';
 
 interface SwitchProps {
   label: string;
@@ -11,7 +11,7 @@ interface SwitchProps {
 
 export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabled = false, ariaLabel }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const [isPressed, setIsPressed] = useState(false);
+  const thumbRef = useRef<HTMLSpanElement>(null);
 
   const trackWidth = 34;
   const trackHeight = 20;
@@ -25,6 +25,20 @@ export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabl
   const thumbY = 0;
   const thumbX = checked ? travel : 0;
 
+  // GSAP tween for smooth thumb slide
+  useEffect(() => {
+    if (thumbRef.current) {
+      gsap.to(thumbRef.current, {
+        x: thumbX,
+        y: thumbY,
+        width: currentThumbWidth,
+        height: currentThumbHeight,
+        duration: 0.15,
+        ease: 'power3.out',
+      });
+    }
+  }, [checked, thumbX, thumbY, currentThumbWidth, currentThumbHeight]);
+
   return (
     <button
       type="button"
@@ -36,10 +50,7 @@ export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabl
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
-        setIsPressed(false);
       }}
-      onMouseDown={() => setIsPressed(true)}
-      onMouseUp={() => setIsPressed(false)}
       className={`flex w-full items-center justify-between rounded-md px-1 py-2 text-left outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#5e6ad2] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0c0c0c] ${
         disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer'
       }`}
@@ -56,11 +67,14 @@ export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabl
           backgroundColor: checked ? (isHovered ? 'var(--switch-on-hover)' : 'var(--switch-on)') : isHovered ? 'var(--switch-off-hover)' : 'var(--switch-off)',
         }}
       >
-        <motion.span
+        <span
+          ref={thumbRef}
           className="pointer-events-none absolute rounded-[1px] bg-white shadow-sm"
-          initial={false}
-          animate={{ x: thumbX, y: thumbY, width: currentThumbWidth, height: currentThumbHeight }}
-          transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          style={{
+            width: currentThumbWidth,
+            height: currentThumbHeight,
+            willChange: 'transform',
+          }}
         />
       </span>
     </button>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
+import React, { useState, useRef, useCallback } from 'react';
+import { gsap } from 'gsap';
 
 interface GlassMaterialProps {
   children?: React.ReactNode;
@@ -15,7 +15,10 @@ interface GlassMaterialProps {
  * Liquid Glass Material (iOS 26 Style for Web)
  * 
  * Performance note: When interactive=false (default), this uses plain CSS
- * instead of Framer Motion springs to avoid Main Thread overhead.
+ * instead of GSAP to avoid Main Thread overhead.
+ * 
+ * When interactive=true, uses GSAP quickTo for 60fps mouse tracking
+ * without React re-renders.
  */
 export const GlassMaterial: React.FC<GlassMaterialProps> = ({
   children,
@@ -39,7 +42,7 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     prominent: 0.08,
   }[intensity];
 
-  // Non-interactive path: plain div, no motion values, no springs
+  // Non-interactive path: plain div, no GSAP, no springs
   if (!interactive) {
     return (
       <div
@@ -65,7 +68,7 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     );
   }
 
-  // Interactive path: motion values for pointer-following specular highlight
+  // Interactive path: GSAP quickTo for pointer-following specular highlight
   return (
     <InteractiveGlass
       children={children}
@@ -88,10 +91,8 @@ const InteractiveGlass: React.FC<{
   onClick?: () => void;
   opacityValue: number;
 }> = ({ children, className, intensity, tint, borderRadius, onClick, opacityValue }) => {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const smoothX = useSpring(mouseX, { stiffness: 150, damping: 20 });
-  const smoothY = useSpring(mouseY, { stiffness: 150, damping: 20 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
   const blurValue = {
@@ -100,27 +101,84 @@ const InteractiveGlass: React.FC<{
     prominent: 'blur(16px)',
   }[intensity];
 
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseX.set(e.clientX - rect.left);
-    mouseY.set(e.clientY - rect.top);
-  };
+  // GSAP quickTo for high-frequency mouse tracking — no React re-renders
+  const quickHighlightX = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
+  const quickHighlightY = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
 
-  const background = useTransform(
-    [smoothX, smoothY],
-    ([x, y]) => {
-      if (!isHovered) return `radial-gradient(circle at 50% 50%, transparent 0%, transparent 100%)`;
-      return `radial-gradient(600px circle at ${x}px ${y}px, rgba(255,255,255,0.06), transparent 40%)`;
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Lazy-init quickTo on first pointer move
+    if (!quickHighlightX.current && highlightRef.current) {
+      quickHighlightX.current = gsap.quickTo(highlightRef.current, 'x', {
+        duration: 0.3,
+        ease: 'power2.out',
+      });
+      quickHighlightY.current = gsap.quickTo(highlightRef.current, 'y', {
+        duration: 0.3,
+        ease: 'power2.out',
+      });
     }
-  );
+
+    if (quickHighlightX.current && quickHighlightY.current) {
+      quickHighlightX.current(x);
+      quickHighlightY.current(y);
+    }
+  }, []);
+
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+    if (highlightRef.current) {
+      gsap.to(highlightRef.current, {
+        opacity: 1,
+        duration: 0.3,
+        ease: 'power2.out',
+      });
+    }
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+    if (highlightRef.current) {
+      gsap.to(highlightRef.current, {
+        opacity: 0,
+        duration: 0.3,
+        ease: 'power2.out',
+      });
+    }
+  }, []);
+
+  const handlePointerDown = useCallback(() => {
+    if (containerRef.current) {
+      gsap.to(containerRef.current, {
+        scale: 0.98,
+        duration: 0.1,
+        ease: 'power2.inOut',
+      });
+    }
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (containerRef.current) {
+      gsap.to(containerRef.current, {
+        scale: 1,
+        duration: 0.15,
+        ease: 'power2.out',
+      });
+    }
+  }, []);
 
   return (
-    <motion.div
+    <div
+      ref={containerRef}
       onClick={onClick}
       onPointerMove={handlePointerMove}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      whileTap={{ scale: 0.98 }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       className={`relative overflow-hidden ${className}`}
       style={{
         borderRadius,
@@ -128,11 +186,18 @@ const InteractiveGlass: React.FC<{
         WebkitBackdropFilter: blurValue,
         backgroundColor: tint || `rgba(255, 255, 255, ${opacityValue})`,
         border: '1px solid rgba(255, 255, 255, 0.05)',
+        willChange: 'transform',
       }}
     >
-      <motion.div
+      {/* Specular highlight — follows pointer via GSAP quickTo */}
+      <div
+        ref={highlightRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ background }}
+        style={{
+          background: 'radial-gradient(600px circle at 0px 0px, rgba(255,255,255,0.06), transparent 40%)',
+          opacity: 0,
+          willChange: 'transform, opacity',
+        }}
       />
       <div
         className="absolute inset-0 pointer-events-none opacity-20"
@@ -144,7 +209,7 @@ const InteractiveGlass: React.FC<{
       <div className="relative z-10 h-full">
         {children}
       </div>
-    </motion.div>
+    </div>
   );
 };
 

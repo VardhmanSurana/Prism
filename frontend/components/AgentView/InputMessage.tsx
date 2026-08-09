@@ -366,7 +366,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
         onDrop={handleDrop}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`flex flex-col gap-1 p-2 transition-all duration-150 rounded-xl ${
+        className={`flex flex-col gap-1 p-2 transition-opacity 150ms ease, transition-colors 150ms ease rounded-xl ${
           clickToFocus && !disabled ? "cursor-text" : ""
         } ${disabled ? "opacity-50 pointer-events-none" : ""} ${className ?? ""}`}
         style={{
@@ -499,7 +499,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
               onClick={buttonMode === "stop" ? handleStop : handleSend}
               disabled={buttonMode === "stop" ? disabled : !canSend}
               aria-label={buttonLabel}
-              className="relative group inline-flex items-center justify-center w-8 h-8 rounded-lg outline-none cursor-pointer transition-all duration-100 disabled:opacity-30 disabled:pointer-events-none"
+              className="relative group inline-flex items-center justify-center w-8 h-8 rounded-lg outline-none cursor-pointer transition-colors 100ms ease, background-color 100ms ease disabled:opacity-30 disabled:pointer-events-none"
               style={{
                 background: canSend || buttonMode === "stop"
                   ? "rgba(255,255,255,1)"
@@ -507,7 +507,7 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
                 color: canSend || buttonMode === "stop" ? "#000" : "rgba(255,255,255,0.4)",
               }}
             >
-              <span className="absolute inset-0 rounded-[inherit] transition-all duration-100 group-hover:opacity-90 group-active:scale-95 group-active:opacity-80" />
+              <span className="absolute inset-0 rounded-[inherit] transition-transform 100ms cubic-bezier(0.23, 1, 0.32, 1), opacity 100ms ease group-hover:opacity-90 group-active:scale-95 group-active:opacity-80" />
               <span className="relative flex items-center justify-center">
                 <AnimatePresence mode="wait" initial={false}>
                   <motion.span

@@ -94,7 +94,7 @@ export const RediscoverPrompts: React.FC = () => {
           <GlassMaterial
             key={card.id}
             intensity="subtle"
-            className="flex flex-col justify-between p-5 border border-white/5 hover:border-white/20 transition-all duration-200"
+            className="flex flex-col justify-between p-5 border border-white/5 hover:border-white/20 transition-colors 200ms ease, border-color 200ms ease"
           >
             <div>
               <div className="flex items-center justify-between mb-3">

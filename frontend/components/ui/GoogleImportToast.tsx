@@ -56,7 +56,7 @@ export const GoogleImportToast: React.FC<GoogleImportToastProps> = ({
                   onStop?.();
                   setIsDismissed(true);
                 }}
-                className="px-5 py-2 rounded-full bg-[#A8C7FA] text-[#001D35] font-sans font-medium text-xs hover:bg-[#C2E7FF] active:scale-95 transition-all shadow-sm cursor-pointer"
+                className="px-5 py-2 rounded-full bg-[#A8C7FA] text-[#001D35] font-sans font-medium text-xs hover:bg-[#C2E7FF] active:scale-95 transition-transform 100ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease shadow-sm cursor-pointer"
               >
                 Stop
               </button>
@@ -92,7 +92,7 @@ export const GoogleImportToast: React.FC<GoogleImportToastProps> = ({
         {/* Bottom Blue Progress Line */}
         <div className="w-full bg-white/10 h-1 overflow-hidden">
           <div
-            className="bg-[#A8C7FA] h-full transition-all duration-300"
+            className="bg-[#A8C7FA] h-full transition-transform 300ms cubic-bezier(0.23, 1, 0.32, 1)"
             style={{ width: `${Math.min(100, Math.max(5, progress))}%` }}
           />
         </div>

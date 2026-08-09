@@ -65,3 +65,29 @@ export const springs = {
     damping: 100,
   }
 };
+
+// ── GSAP Configuration ───────────────────────────────────────────────────────
+// GSAP-native easing names that map to our motion tokens.
+export const gsapEase = {
+  smooth: 'power3.out',        // maps to motionTokens.easing.smooth
+  snappy: 'back.out(1.7)',     // maps to motionTokens.easing.snappy
+  press: 'power2.inOut',       // for button press feedback
+  entry: 'power3.out',         // elements entering viewport
+  exit: 'power2.in',           // elements leaving (faster)
+  spring: 'elastic.out(1, 0.3)', // playful bounce
+} as const;
+
+/**
+ * Initialize GSAP defaults for the entire app.
+ * Call once at app startup.
+ */
+export function initGSAPDefaults() {
+  // Lazy import to avoid circular deps — called once at startup
+  return import('gsap').then(({ gsap }) => {
+    gsap.defaults({
+      duration: motionTokens.duration.normal,
+      ease: gsapEase.smooth,
+      overwrite: 'auto',
+    });
+  });
+}

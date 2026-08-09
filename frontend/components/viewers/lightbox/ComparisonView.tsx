@@ -103,7 +103,7 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
         {comparisonItems.map((photo, i) => (
           <div
             key={`${photo.id}-${i}`}
-            className="relative flex flex-col rounded-xl overflow-hidden bg-black/40 border border-white/10 hover:border-primary/50 transition-all group"
+            className="relative flex flex-col rounded-xl overflow-hidden bg-black/40 border border-white/10 hover:border-primary/50 transition-colors 150ms ease, border-color 150ms ease group"
             onClick={() => onSelectPhoto(photo)}
           >
             {/* Synchronized Image Container */}

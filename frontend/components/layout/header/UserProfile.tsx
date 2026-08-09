@@ -33,7 +33,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onChangeView }) => {
     <div className="relative" ref={popoverRef}>
       <button 
         onClick={() => setIsOpen(!isOpen)}
-        className="w-9 h-9 rounded-full overflow-hidden border border-white/20 hover:border-[#828fff] transition-all flex items-center justify-center bg-gray-800 shadow-md active:scale-95 cursor-pointer"
+        className="w-9 h-9 rounded-full overflow-hidden border border-white/20 hover:border-[#828fff] transition-colors 150ms ease, border-color 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) flex items-center justify-center bg-gray-800 shadow-md active:scale-95 cursor-pointer"
         title="User Profile & Local Account"
       >
         <img src="/images.jpeg" alt="User Profile" className="w-full h-full object-cover" />

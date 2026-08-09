@@ -143,7 +143,7 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
           ) : (
             <button
               onClick={() => setShowNewAlbumInput(true)}
-              className="w-full flex items-center gap-3 p-3 mb-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-left transition-all"
+              className="w-full flex items-center gap-3 p-3 mb-2 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-left transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease"
             >
               <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center">
                 <Plus size={20} className="text-white" />
@@ -162,7 +162,7 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
               <button
                 key={album.id}
                 onClick={() => onSelectAlbum(Number(album.id))}
-                className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl text-left transition-all"
+                className="w-full flex items-center gap-3 p-3 hover:bg-white/5 rounded-xl text-left transition-colors 150ms ease, background-color 150ms ease"
               >
                 <div className="w-12 h-12 bg-white/5 rounded-lg overflow-hidden flex items-center justify-center text-gray-400 shrink-0">
                   {album.cover_url ? (

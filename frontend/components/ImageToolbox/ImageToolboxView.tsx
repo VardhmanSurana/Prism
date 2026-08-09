@@ -83,7 +83,7 @@ const ToolImageUpload: React.FC<{
         onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-10 cursor-pointer transition-all gap-3 ${
+        className={`border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-10 cursor-pointer transition-colors 200ms ease, border-color 200ms ease, background-color 200ms ease gap-3 ${
           isDragOver
             ? 'border-blue-500 bg-blue-500/10'
             : 'border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5'
@@ -113,14 +113,14 @@ const ToolImageUpload: React.FC<{
         <div className="flex gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 bg-blue-600/15 border border-blue-500/30 text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3 py-1.5 bg-blue-600/15 border border-blue-500/30 text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, background-color 150ms ease"
           >
             <Upload size={12} />
             Add More
           </button>
           <button
             onClick={onClear}
-            className="px-3 py-1.5 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-all"
+            className="px-3 py-1.5 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease"
           >
             <Trash2 size={12} />
             Clear
@@ -710,7 +710,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
               <button
                 key={tool.id}
                 onClick={() => setActiveTab(tool.id)}
-                className={`w-full p-4 rounded-xl border text-left transition-all relative overflow-hidden flex items-start gap-3.5 group ${
+                className={`w-full p-4 rounded-xl border text-left transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease relative overflow-hidden flex items-start gap-3.5 group ${
                   isActive
                     ? 'border-blue-500/80 bg-blue-500/10 shadow-[0_0_20px_rgba(37,99,235,0.15)] ring-1 ring-blue-500/30'
                     : 'border-white/10 bg-surface/50 hover:bg-surface/80 hover:border-white/20'
@@ -753,7 +753,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsPdfOpen(true)}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-all active:scale-[0.98]"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <Sparkles size={16} />
                   Launch PDF Studio
@@ -775,7 +775,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsCollageOpen(true)}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition-all active:scale-[0.98]"
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <LayoutGrid size={16} />
                   Launch Collage Studio
@@ -836,9 +836,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         </div>
                         <button
                           onClick={() => setResizeEnabled(prev => !prev)}
-                          className={`relative w-9 h-5 rounded-full transition-all ${resizeEnabled ? 'bg-blue-600' : 'bg-white/10'}`}
+                          className={`relative w-9 h-5 rounded-full transition-colors 150ms ease, background-color 150ms ease ${resizeEnabled ? 'bg-blue-600' : 'bg-white/10'}`}
                         >
-                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${resizeEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) ${resizeEnabled ? 'left-[18px]' : 'left-0.5'}`} />
                         </button>
                       </div>
 
@@ -863,7 +863,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
                             <button
                               onClick={() => setLockAspect(prev => !prev)}
-                              className={`mt-4 p-1.5 rounded-lg border transition-all ${
+                              className={`mt-4 p-1.5 rounded-lg border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
                                 lockAspect
                                   ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
                                   : 'bg-white/5 border-white/10 text-neutral-500 hover:text-white'

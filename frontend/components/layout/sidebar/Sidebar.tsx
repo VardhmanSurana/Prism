@@ -83,7 +83,7 @@ const AppleSidebarContent: React.FC<{
       <button
         type="button"
         onClick={() => onChangeView('gallery')}
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all font-medium ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors 150ms ease, background-color 150ms ease font-medium ${
           currentView === 'gallery'
             ? 'bg-[#0a84ff]/20 text-[#0a84ff] font-semibold'
             : 'text-zinc-300 hover:bg-white/10 hover:text-white'
@@ -97,7 +97,7 @@ const AppleSidebarContent: React.FC<{
       <button
         type="button"
         onClick={() => onChangeView('explore')}
-        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all font-medium ${
+        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors 150ms ease, background-color 150ms ease font-medium ${
           currentView === 'explore'
             ? 'bg-[#0a84ff]/20 text-[#0a84ff] font-semibold'
             : 'text-zinc-300 hover:bg-white/10 hover:text-white'

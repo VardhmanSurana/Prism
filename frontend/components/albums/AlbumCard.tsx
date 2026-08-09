@@ -29,9 +29,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
   return (
     <div 
       onClick={() => onClick(album)}
-      className="group cursor-pointer space-y-3 transition-all duration-300"
+      className="group cursor-pointer space-y-3 transition-transform 300ms cubic-bezier(0.23, 1, 0.32, 1)"
     >
-      <div className={`relative aspect-square overflow-hidden border transition-all duration-300 rounded-3xl
+      <div className={`relative aspect-square overflow-hidden border transition-colors 300ms ease, border-color 300ms ease, box-shadow 300ms ease rounded-3xl
         border-white/5 bg-surfaceHover shadow-xl group-hover:shadow-2xl group-hover:-translate-y-1
       `}
       >
@@ -52,7 +52,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
             {onRename && (
               <button 
                 onClick={handleRename}
-                className="p-2 bg-black/70 text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-all shadow-lg"
+                className="p-2 bg-black/70 text-white rounded-full border border-white/10 hover:bg-primary hover:text-black transition-colors 150ms ease shadow-lg"
                 title="Rename"
               >
                 <Edit2 size={12} />
@@ -61,7 +61,7 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
             {onDelete && (
               <button 
                 onClick={handleDelete}
-                className="p-2 bg-black/70 text-white/80 hover:text-red-400 rounded-full border border-white/10 hover:bg-white/10 transition-all shadow-lg"
+                className="p-2 bg-black/70 text-white/80 hover:text-red-400 rounded-full border border-white/10 hover:bg-white/10 transition-colors 150ms ease shadow-lg"
                 title="Delete Album"
               >
                 <Trash2 size={12} />

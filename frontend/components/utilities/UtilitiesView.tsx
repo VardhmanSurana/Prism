@@ -136,7 +136,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                     setActiveTab(tab.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded text-xs font-mono transition-all min-h-[44px] ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded text-xs font-mono transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease min-h-[44px] ${
                     isActive
                       ? 'bg-[var(--cr-accent)]/10 text-[var(--cr-accent)] border border-[var(--cr-accent)]/30 font-bold'
                       : 'text-[var(--cr-text-muted)] hover:text-[var(--cr-text-primary)] border border-transparent'

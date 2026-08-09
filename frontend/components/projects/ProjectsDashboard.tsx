@@ -484,7 +484,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
                 <button
                   key={opt.label}
                   onClick={() => setSelectedRatio(opt)}
-                  className={`border rounded-lg p-4 flex flex-col items-center gap-2.5 text-center transition-all ${
+                  className={`border rounded-lg p-4 flex flex-col items-center gap-2.5 text-center transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease ${
                     isActive
                       ? 'border-[#585cf3] bg-[#585cf3]/[0.06] shadow-[0_0_0_1px_#585cf3_inset]'
                       : 'border-[#20212b] bg-white/[0.01] hover:border-[#2e2f3d] hover:bg-white/[0.03]'
@@ -513,7 +513,7 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
               <button
                 key={f}
                 onClick={() => setFps(f as 24 | 30 | 60)}
-                className={`flex-1 py-2 rounded-lg text-[13px] font-medium border transition-all ${
+                className={`flex-1 py-2 rounded-lg text-[13px] font-medium border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
                   fps === f
                     ? 'border-[#585cf3] bg-[#585cf3]/[0.06] text-[#f1f1f4]'
                     : 'border-[#20212b] bg-white/[0.01] text-[#c4c5cc] hover:border-[#2e2f3d] hover:text-[#f1f1f4]'
@@ -992,7 +992,7 @@ export const ProjectsDashboard: React.FC = () => {
           <button
             onClick={() => setShowCreateModal(true)}
             title="New Project (N)"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[14px] font-semibold text-white bg-[#585cf3] hover:bg-[#3b3fe9] border border-white/[0.05] shadow-[0_2px_6px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)] active:translate-y-px transition-all focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-[14px] font-semibold text-white bg-[#585cf3] hover:bg-[#3b3fe9] border border-white/[0.05] shadow-[0_2px_6px_rgba(0,0,0,0.2)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.3)] active:translate-y-px transition-colors 150ms ease, box-shadow 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
           >
             <Plus size={15} strokeWidth={2.5} />
             New Project

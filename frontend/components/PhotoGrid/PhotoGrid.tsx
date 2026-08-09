@@ -382,7 +382,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 <button
                   key={pill.id}
                   onClick={() => { logAction('PhotoGrid', 'filter_change', { filter: pill.id }); setActivePill(pill.id); }}
-                  className={`px-5 py-2 text-sm rounded-full transition-all duration-300
+                  className={`px-5 py-2 text-sm rounded-full transition-colors 200ms ease, background-color 200ms ease
                     ${activePill === pill.id
                       ? 'bg-[#2a241c] text-[#e0cfb3] font-medium'
                       : 'text-gray-400 hover:text-white font-normal'
@@ -404,7 +404,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
               <div className="flex items-center bg-[#161616]/40 p-1 rounded-xl border border-white/[0.08]">
                 <button
                   onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'grid' }); setViewMode('grid'); }}
-                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
+                  className={`p-2 rounded-lg transition-colors 200ms ease, background-color 200ms ease ${viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                     }`}
                   title="Grid View"
                 >
@@ -412,7 +412,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 </button>
                 <button
                   onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'list' }); setViewMode('list'); }}
-                  className={`p-2 rounded-lg transition-all duration-300 ${viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
+                  className={`p-2 rounded-lg transition-colors 200ms ease, background-color 200ms ease ${viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
                     }`}
                   title="List View"
                 >
@@ -529,7 +529,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
       {/* Apple Photos Floating Bottom Segmented Control Bar (Photo 3) */}
       {galleryStyle === 'apple' && (
-        <div className="fixed bottom-8 left-1/2 md:left-[calc(50%+128px)] -translate-x-1/2 z-50 flex items-center backdrop-blur-3xl bg-[#1c1c1e]/95 border border-white/20 rounded-full p-1.5 md:p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] space-x-1.5 select-none transition-all">
+        <div className="fixed bottom-8 left-1/2 md:left-[calc(50%+128px)] -translate-x-1/2 z-50 flex items-center backdrop-blur-3xl bg-[#1c1c1e]/95 border border-white/20 rounded-full p-1.5 md:p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] space-x-1.5 select-none">
           {[
             { id: 'years', label: 'Years' },
             { id: 'months', label: 'Months' },
@@ -541,7 +541,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 key={item.id}
                 type="button"
                 onClick={() => setImageGrouping(item.id as any)}
-                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${isActive
+                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-colors 200ms ease, background-color 200ms ease, transition-transform 200ms cubic-bezier(0.23, 1, 0.32, 1) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${isActive
                   ? 'bg-white/25 text-white font-bold shadow-md scale-[1.03] border border-white/20'
                   : 'text-zinc-400 hover:text-white hover:bg-white/10'
                   }`}

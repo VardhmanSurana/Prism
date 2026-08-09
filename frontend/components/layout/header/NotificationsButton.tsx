@@ -129,7 +129,7 @@ export const NotificationsButton: React.FC = () => {
     <div className="relative" ref={containerRef}>
       <button
         onClick={toggleOpen}
-        className={`p-2 rounded-xl transition-all relative ${
+        className={`p-2 rounded-xl transition-colors 150ms ease, background-color 150ms ease relative ${
           isOpen ? 'text-white bg-white/5' : 'text-gray-400 hover:text-white'
         }`}
         aria-label="Notifications"

@@ -276,7 +276,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
                   type="button"
                   onClick={() => setShowSaveSmart((v) => !v)}
                   title="Save current filters as a smart folder"
-                  className={`shrink-0 p-2 rounded-lg border transition-all cursor-pointer ${
+                  className={`shrink-0 p-2 rounded-lg border transition-colors 150ms ease, border-color 150ms ease cursor-pointer ${
                     showSaveSmart
                       ? 'bg-primary/15 border-primary/40 text-primary'
                       : 'bg-white/5 border-white/10 text-white/50 hover:text-white hover:bg-white/10'
@@ -292,7 +292,7 @@ export const FileFolderBrowserDialog: React.FC = () => {
                       setShowSaveSmart(false);
                     }}
                     title="Clear active filters"
-                    className="shrink-0 p-2 rounded-lg border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all cursor-pointer"
+                    className="shrink-0 p-2 rounded-lg border border-white/10 bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-colors 150ms ease, background-color 150ms ease cursor-pointer"
                   >
                     <FilterX size={14} />
                   </button>
@@ -436,14 +436,14 @@ export const FileFolderBrowserDialog: React.FC = () => {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={browser.cancel}
-                className="px-4 py-1.5 border border-white/10 hover:border-white/20 hover:bg-white/5 text-white/70 hover:text-white rounded-xl text-xs uppercase tracking-wider font-semibold transition-all cursor-pointer"
+                className="px-4 py-1.5 border border-white/10 hover:border-white/20 hover:bg-white/5 text-white/70 hover:text-white rounded-xl text-xs uppercase tracking-wider font-semibold transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={browser.confirm}
                 disabled={browser.isLoading}
-                className="px-4 py-1.5 bg-primary text-black hover:bg-primary/95 rounded-xl text-xs uppercase tracking-wider font-bold transition-all shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="px-4 py-1.5 bg-primary text-black hover:bg-primary/95 rounded-xl text-xs uppercase tracking-wider font-bold transition-colors 150ms ease shadow-lg shadow-primary/10 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 {directoryOnly
                   ? browser.selectedPaths.size > 0

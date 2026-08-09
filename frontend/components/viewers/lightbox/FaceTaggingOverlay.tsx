@@ -116,7 +116,7 @@ export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, o
             <div
               key={idx}
               style={{ left: leftPct, top: topPct, width: widthPct, height: heightPct }}
-              className="absolute border-2 border-primary/90 rounded-lg hover:border-white transition-all cursor-pointer shadow-lg group"
+              className="absolute border-2 border-primary/90 rounded-lg hover:border-white transition-colors 150ms ease, border-color 150ms ease cursor-pointer shadow-lg group"
               onClick={(e) => {
                 e.stopPropagation();
                 setActiveFaceIndex(idx);

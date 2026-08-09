@@ -77,7 +77,7 @@ export const RecentActivityFeed: React.FC = () => {
           <GlassMaterial
             key={item.id}
             intensity="subtle"
-            className="p-4 border border-white/5 hover:border-white/15 transition-all duration-200"
+            className="p-4 border border-white/5 hover:border-white/15 transition-colors 200ms ease, border-color 200ms ease"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-3">

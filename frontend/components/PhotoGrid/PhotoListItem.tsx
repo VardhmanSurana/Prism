@@ -62,7 +62,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
           }
         }
       }}
-      className={`flex items-center gap-6 p-4 rounded-3xl border transition-all duration-300 group cursor-pointer
+      className={`flex items-center gap-6 p-4 rounded-3xl border transition-colors 200ms ease, background-color 200ms ease, border-color 200ms ease, box-shadow 300ms ease, transition-transform 200ms cubic-bezier(0.23, 1, 0.32, 1) group cursor-pointer
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background
         active:scale-[0.98]
         ${
@@ -78,7 +78,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
           e.stopPropagation();
           onToggleSelection(String(photo.id));
         }}
-        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all select-none shrink-0
+        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease select-none shrink-0
           ${
             isSelected
               ? 'bg-primary border-primary text-black'
@@ -132,13 +132,13 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
             e.stopPropagation();
             onFavoriteToggle(photo.id, isFavorite || false);
           }}
-          className={`p-2.5 rounded-xl border transition-all hover:scale-105 active:scale-95
+          className={`p-2.5 rounded-xl border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) hover:scale-105 active:scale-95
             ${
               isFavorite
                 ? 'bg-rose-500/10 border-rose-500/20 text-rose-500 hover:bg-rose-500/20'
                 : 'bg-white/5 border-white/5 text-gray-400 hover:text-rose-500 hover:bg-rose-500/5'
             }
-          `}
+          }`}
           title="Favorite"
         >
           <Heart size={16} fill={isFavorite ? 'currentColor' : 'none'} />
@@ -149,13 +149,13 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
             e.stopPropagation();
             onLockToggle(photo.id, isLocked || false);
           }}
-          className={`p-2.5 rounded-xl border transition-all hover:scale-105 active:scale-95
+          className={`p-2.5 rounded-xl border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) hover:scale-105 active:scale-95
             ${
               isLocked
                 ? 'bg-purple-500/10 border-purple-500/20 text-purple-500 hover:bg-purple-500/20'
                 : 'bg-white/5 border-white/5 text-gray-400 hover:text-purple-500 hover:bg-purple-500/5'
             }
-          `}
+          }`}
           title="Move to Locked Folder"
         >
           <Lock size={16} />
@@ -166,7 +166,7 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
             e.stopPropagation();
             onDeleteToggle(photo.id);
           }}
-          className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-all hover:scale-105 active:scale-95"
+          className="p-2.5 rounded-xl bg-white/5 border border-white/5 text-gray-400 hover:text-red-500 hover:bg-red-500/10 hover:border-red-500/20 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) hover:scale-105 active:scale-95"
           title="Trash"
         >
           <Trash2 size={16} />

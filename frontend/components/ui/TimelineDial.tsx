@@ -45,7 +45,7 @@ const TimelineDialItem: React.FC<{
         {item.label}
       </span>
       <div
-        className={`rounded-l-full transition-all duration-200
+        className={`rounded-l-full transition-colors duration-200, box-shadow 200ms ease-out
           ${isActive ? 'text-primary shadow-[0_0_10px_currentColor]' : 'text-white'}
         `}
         style={{

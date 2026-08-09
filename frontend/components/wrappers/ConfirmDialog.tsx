@@ -111,13 +111,13 @@ export const ConfirmDialog: React.FC = () => {
           className="relative max-w-sm w-full bg-[#0a0a0a]/90 border border-white/10 rounded-2xl p-6 shadow-2xl overflow-hidden flex flex-col items-center text-center"
         >
           <div
-            className="absolute -top-16 w-32 h-32 rounded-full blur-[40px] pointer-events-none opacity-40 transition-all duration-300"
+            className="absolute -top-16 w-32 h-32 rounded-full blur-[40px] pointer-events-none opacity-40 transition-opacity 300ms ease-out"
             style={{ backgroundColor: iconGlowClass }}
           />
 
           <button
             onClick={handleCancel}
-            className="absolute top-4 right-4 p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-all cursor-pointer"
+            className="absolute top-4 right-4 p-1.5 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors 150ms ease cursor-pointer"
           >
             <X size={15} />
           </button>
@@ -137,14 +137,14 @@ export const ConfirmDialog: React.FC = () => {
           <div className="flex w-full gap-3 mt-1">
             <button
               onClick={handleCancel}
-              className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/75 hover:text-white transition-all text-xs font-semibold uppercase tracking-wider flex-1 cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/75 hover:text-white transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease text-xs font-semibold uppercase tracking-wider flex-1 cursor-pointer"
             >
               Cancel
             </button>
             <button
               ref={confirmButtonRef}
               onClick={handleConfirm}
-              className={`px-4 py-2.5 rounded-xl transition-all text-xs font-bold uppercase tracking-wider flex-1 cursor-pointer ${confirmBtnClass}`}
+              className={`px-4 py-2.5 rounded-xl transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease text-xs font-bold uppercase tracking-wider flex-1 cursor-pointer ${confirmBtnClass}`}
             >
               Confirm
             </button>

@@ -54,8 +54,8 @@ export function Dropdown<T extends string | number>({
       {/* Popover Content */}
       {isOpen && (
         <div 
-          className="absolute left-0 mt-1 w-full min-w-[120px] bg-[#161616] border border-[#2a2a2a] rounded-lg shadow-xl py-1 z-50 transition-all duration-100 ease-out origin-top transform scale-y-100 opacity-100"
-          style={{ animation: 'dropdownFadeIn 0.12s ease-out' }}
+          className="absolute left-0 mt-1 w-full min-w-[120px] bg-[#161616] border border-[#2a2a2a] rounded-lg shadow-xl py-1 z-50 origin-top"
+          style={{ animation: 'dropdownFadeIn 0.15s cubic-bezier(0.23, 1, 0.32, 1) forwards' }}
         >
           <style>{`
             @keyframes dropdownFadeIn {

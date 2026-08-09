@@ -102,7 +102,7 @@ export const ExploreWidgetCustomizer: React.FC<ExploreWidgetCustomizerProps> = (
               {localWidgets.map((w, idx) => (
                 <div
                   key={w.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-all"
+                  className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 transition-colors 150ms ease, border-color 150ms ease"
                 >
                   <div className="flex items-center gap-3">
                     <button

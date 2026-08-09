@@ -111,7 +111,7 @@ export function AuthForm({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password..."
-                className="w-full bg-white/5 border border-white/10 focus:border-primary/50 outline-none rounded-xl py-3 pl-11 pr-10 text-sm text-white placeholder-gray-600 transition-all focus:bg-white/[0.08]"
+                className="w-full bg-white/5 border border-white/10 focus:border-primary/50 outline-none rounded-xl py-3 pl-11 pr-10 text-sm text-white placeholder-gray-600 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease focus:bg-white/[0.08]"
               />
               <KeyRound size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               <button
@@ -138,7 +138,7 @@ export function AuthForm({
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Re-enter password..."
-                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 outline-none rounded-xl py-3 pl-11 pr-10 text-sm text-white placeholder-gray-600 transition-all focus:bg-white/[0.08]"
+                  className="w-full bg-white/5 border border-white/10 focus:border-primary/50 outline-none rounded-xl py-3 pl-11 pr-10 text-sm text-white placeholder-gray-600 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease focus:bg-white/[0.08]"
                 />
                 <Check size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
               </div>
@@ -155,7 +155,7 @@ export function AuthForm({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3.5 bg-primary text-black font-bold text-xs uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 shadow-lg shadow-primary/10 mt-6"
+            className="w-full py-3.5 bg-primary text-black font-bold text-xs uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1), opacity 150ms ease disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2 shadow-lg shadow-primary/10 mt-6"
           >
             {submitting ? (
               <div className="w-4 h-4 border-2 border-t-black border-black/10 rounded-full animate-spin" />

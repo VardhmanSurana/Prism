@@ -67,7 +67,7 @@ export const BrowserSortControls: React.FC<BrowserSortControlsProps> = ({
               key={field}
               type="button"
               onClick={() => onSortFieldChange(field)}
-              className={`px-2 py-1 rounded-md uppercase tracking-wider font-semibold transition-all cursor-pointer
+              className={`px-2 py-1 rounded-md uppercase tracking-wider font-semibold transition-colors 150ms ease, background-color 150ms ease cursor-pointer
                 ${
                   sortField === field
                     ? 'bg-primary/15 text-primary'
@@ -81,7 +81,7 @@ export const BrowserSortControls: React.FC<BrowserSortControlsProps> = ({
             type="button"
             onClick={onSortDirectionToggle}
             title={directionTitle}
-            className="px-1.5 py-1 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+            className="px-1.5 py-1 rounded-md text-white/50 hover:text-white hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease cursor-pointer"
           >
             <DirectionIcon size={12} />
           </button>
@@ -99,7 +99,7 @@ export const BrowserSortControls: React.FC<BrowserSortControlsProps> = ({
               key={g}
               type="button"
               onClick={() => onGroupByChange(g)}
-              className={`px-2 py-1 rounded-md uppercase tracking-wider font-semibold transition-all cursor-pointer inline-flex items-center gap-1
+              className={`px-2 py-1 rounded-md uppercase tracking-wider font-semibold transition-colors 150ms ease, background-color 150ms ease cursor-pointer inline-flex items-center gap-1
                 ${
                   groupBy === g
                     ? 'bg-primary/15 text-primary'

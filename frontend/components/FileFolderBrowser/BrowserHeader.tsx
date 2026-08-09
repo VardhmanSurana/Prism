@@ -38,7 +38,7 @@ export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
         <button
           onClick={onClose}
           aria-label="Close file browser"
-          className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+          className="p-1.5 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease cursor-pointer"
         >
           <X size={18} />
         </button>

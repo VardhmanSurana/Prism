@@ -238,7 +238,7 @@ const SliderThumb = React.forwardRef<HTMLDivElement, SliderThumbProps>(
           if (typeof ref === 'function') ref(node);
           else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }}
-        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[10px] h-[10px] rounded-full border border-white/20 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-1 focus:ring-offset-[#0e0e10] ${
+        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[10px] h-[10px] rounded-full border border-white/20 transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1), transition-colors 150ms ease, box-shadow 150ms ease focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-1 focus:ring-offset-[#0e0e10] ${
           isDragging
             ? 'bg-white scale-125 shadow-[0_0_8px_rgba(255,255,255,0.3)]'
             : isHovered

@@ -92,7 +92,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                 <div
                   key={sessionKey}
                   onClick={() => !isEditing && onSelectSession(sessionKey)}
-                  className={`group relative flex items-center justify-between p-2.5 rounded-xl text-xs transition-all cursor-pointer ${
+                  className={`group relative flex items-center justify-between p-2.5 rounded-xl text-xs transition-colors 150ms ease, background-color 150ms ease cursor-pointer ${
                     isActive
                       ? 'bg-white/10 text-white font-semibold shadow-md border border-white/10'
                       : 'text-gray-400 hover:text-gray-200 hover:bg-white/[0.04]'

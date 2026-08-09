@@ -22,7 +22,7 @@ export const BrowserResizer: React.FC<BrowserResizerProps> = ({ resizeWidth, onR
           <button
             key={opt.label}
             onClick={() => onResize(opt.value)}
-            className={`px-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-all cursor-pointer text-center
+            className={`px-2 py-2 text-[10px] font-bold uppercase tracking-wider rounded-xl border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease cursor-pointer text-center
               ${resizeWidth === opt.value
                 ? 'bg-primary border-primary text-black shadow-lg shadow-primary/20'
                 : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/80'}`}

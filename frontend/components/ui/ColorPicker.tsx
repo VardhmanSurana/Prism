@@ -304,7 +304,7 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
                     setHexInput(preset);
                     onChange(preset);
                   }}
-                  className="w-5 h-5 rounded-sm border border-transparent hover:border-white/30 cursor-pointer transition-all"
+                  className="w-5 h-5 rounded-sm border border-transparent hover:border-white/30 cursor-pointer transition-colors 150ms ease, border-color 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-95"
                   style={{ backgroundColor: preset }}
                   title={preset}
                 />

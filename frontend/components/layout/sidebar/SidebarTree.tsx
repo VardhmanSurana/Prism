@@ -129,7 +129,7 @@ export const SidebarTree: React.FC<SidebarTreeProps> = ({ type, onViewAll, onSel
 
   return (
     <div className="py-1">
-      <div className={`w-full flex items-center gap-4 px-6 py-3 text-sm transition-all duration-300 relative group text-gray-500 hover:text-white`}>
+      <div className={`w-full flex items-center gap-4 px-6 py-3 text-sm transition-colors duration-300 relative group text-gray-500 hover:text-white`}>
         <button
           onClick={() => onViewAll()}
           className="flex items-center gap-4 flex-1 text-left cursor-pointer"

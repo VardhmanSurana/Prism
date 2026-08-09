@@ -148,12 +148,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* Kill motion-based animations but preserve opacity/color transitions for comprehension */
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Only kill transform-based transitions, keep opacity and color */
+  [style*="transform"],
+  [style*="translate"],
+  [style*="scale"] {
     transition-duration: 0.01ms !important;
   }
 }
@@ -282,7 +289,7 @@
 
 .slider-thumb-premium::-webkit-slider-thumb {
   @apply w-3 h-3 bg-white rounded-full border-2 border-primary shadow-[0_0_8px_rgba(var(--color-primary),0.5)];
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .slider-thumb-premium:hover::-webkit-slider-thumb {

@@ -327,7 +327,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
                       <button
                         key={id}
                         onClick={() => handleLayoutChange(id)}
-                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all text-center ${
+                        className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease text-center ${
                           isSelected
                             ? 'border-blue-500/80 bg-blue-500/10 text-white shadow-[0_0_14px_rgba(37,99,235,0.2)] ring-1 ring-blue-500/40'
                             : 'border-white/10 bg-white/[0.03] text-neutral-400 hover:border-white/20 hover:bg-white/5 hover:text-neutral-200'
@@ -356,7 +356,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
                       <button
                         key={key}
                         onClick={() => setPageSize(key as PageSize)}
-                        className={`flex-1 py-2 px-2 rounded-lg text-xs transition-all text-center ${
+                        className={`flex-1 py-2 px-2 rounded-lg text-xs transition-colors 150ms ease, background-color 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) text-center ${
                           isSelected
                             ? 'bg-white text-neutral-950 font-bold shadow-md border border-white/20 scale-[1.02]'
                             : 'text-neutral-400 hover:text-white hover:bg-white/5 font-medium'
@@ -377,7 +377,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
                 </div>
                 <button
                   onClick={() => setIncludeCaptions(!includeCaptions)}
-                  className={`w-11 h-6 rounded-full transition-all relative p-0.5 ${
+                  className={`w-11 h-6 rounded-full transition-colors 150ms ease, background-color 150ms ease, box-shadow 150ms ease relative p-0.5 ${
                     includeCaptions ? 'bg-blue-600 shadow-[0_0_12px_rgba(37,99,235,0.4)]' : 'bg-white/15 hover:bg-white/20'
                   }`}
                 >
@@ -393,14 +393,14 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
               <div className="mt-auto pt-4 space-y-2.5">
                 <button
                   onClick={triggerUpload}
-                  className="w-full py-2.5 px-4 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  className="w-full py-2.5 px-4 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:text-blue-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <ImagePlus size={15} />
                   Upload Images
                 </button>
                 <button
                   onClick={addPage}
-                  className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                  className="w-full py-2.5 px-4 bg-white/5 hover:bg-white/10 border border-white/10 text-neutral-200 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <Plus size={15} />
                   Add Blank Page
@@ -408,7 +408,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
                 <button
                   onClick={handleExport}
                   disabled={isExporting || pages.length === 0}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1), opacity 150ms ease active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Download size={15} />
                   {isExporting ? 'Preparing Print...' : 'Export PDF'}
@@ -449,7 +449,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
 
                     {/* Page Canvas Frame */}
                     <div
-                      className="w-full bg-neutral-950 rounded-xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-all duration-300"
+                      className="w-full bg-neutral-950 rounded-xl overflow-hidden border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform 300ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 300ms ease"
                       style={{ aspectRatio: `${previewAspectRatio}` }}
                     >
                       {renderPagePreview(page, pageIdx)}
@@ -469,7 +469,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
       return (
         <div
           onClick={triggerUpload}
-          className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-neutral-500 border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5 cursor-pointer transition-all rounded-xl m-2 group/empty"
+          className="w-full h-full flex flex-col items-center justify-center gap-3 p-6 text-neutral-500 border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5 cursor-pointer transition-colors 200ms ease, border-color 200ms ease, background-color 200ms ease rounded-xl m-2 group/empty"
         >
           <Upload className="w-8 h-8 opacity-40 text-blue-400 group-hover/empty:scale-110 transition-transform" />
           <p className="text-xs font-medium text-neutral-300">Click to Upload Images</p>

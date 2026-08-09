@@ -68,12 +68,12 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
 
       {/* Background Decorative Aura (only visible when drawer is closed) */}
       {!isDrawerOpen && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-white/[0.02] rounded-full blur-[140px] pointer-events-none transition-all duration-700" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-white/[0.02] rounded-full blur-[140px] pointer-events-none transition-opacity 500ms ease-out" />
       )}
 
       {/* Left/Main Column: Chat Feed Container */}
       <div
-        className={`flex flex-col h-full bg-[#0a0a0c]/40 transition-all duration-500 relative z-10 ${
+        className={`flex flex-col h-full bg-[#0a0a0c]/40 transition-[width] 500ms cubic-bezier(0.23, 1, 0.32, 1) relative z-10 ${
           isDrawerOpen ? 'w-[42%] border-r border-white/[0.02]' : 'flex-1'
         }`}
       >

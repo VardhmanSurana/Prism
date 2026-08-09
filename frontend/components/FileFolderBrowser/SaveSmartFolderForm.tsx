@@ -91,7 +91,7 @@ export const SaveSmartFolderForm: React.FC<SaveSmartFolderFormProps> = ({
               key={t}
               type="button"
               onClick={() => setMediaType(t)}
-              className={`px-2.5 py-1 text-[10px] rounded-lg border uppercase tracking-wider font-semibold transition-all cursor-pointer
+              className={`px-2.5 py-1 text-[10px] rounded-lg border uppercase tracking-wider font-semibold transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease cursor-pointer
                 ${
                   mediaType === t
                     ? 'bg-primary/15 border-primary/40 text-primary'
@@ -112,7 +112,7 @@ export const SaveSmartFolderForm: React.FC<SaveSmartFolderFormProps> = ({
               key={p.label}
               type="button"
               onClick={() => setMinSizeBytes(p.value)}
-              className={`px-2.5 py-1 text-[10px] rounded-lg border transition-all cursor-pointer
+              className={`px-2.5 py-1 text-[10px] rounded-lg border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease cursor-pointer
                 ${
                   minSizeBytes === p.value
                     ? 'bg-primary/15 border-primary/40 text-primary'

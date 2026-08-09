@@ -203,7 +203,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
               <button
                 type="button"
                 onClick={handleToggleSelectAll}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all duration-150"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-colors 150ms ease, background-color 150ms ease"
               >
                 {allSelected ? (
                   <CheckSquare size={14} className="text-[#0a84ff]" />
@@ -217,7 +217,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                 type="button"
                 onClick={handleRestoreAll}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] transition-all duration-150 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-white/80 hover:text-white bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] transition-colors 150ms ease, background-color 150ms ease disabled:opacity-50"
               >
                 <RotateCcw size={14} className="text-emerald-400" />
                 <span>Restore All</span>
@@ -227,7 +227,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                 type="button"
                 onClick={handleEmptyTrash}
                 disabled={isProcessing}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/30 transition-all duration-150 disabled:opacity-50"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-medium text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/15 border border-red-500/20 hover:border-red-500/30 transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease disabled:opacity-50"
               >
                 <Trash2 size={14} />
                 <span>Empty Trash</span>
@@ -274,7 +274,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                     exit={{ opacity: 0, scale: 0.9 }}
                     transition={{ duration: 0.15 }}
                     onClick={() => onPhotoClick(photo)}
-                    className={`group relative aspect-square rounded-xl overflow-hidden bg-surface border transition-all duration-150 cursor-pointer ${
+                    className={`group relative aspect-square rounded-xl overflow-hidden bg-surface border transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease cursor-pointer ${
                       isSelected
                         ? 'border-[#0a84ff] ring-2 ring-[#0a84ff]/30 shadow-lg'
                         : 'border-white/[0.08] hover:border-white/20 hover:shadow-md'
@@ -298,7 +298,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                         e.stopPropagation();
                         onToggleSelection(idStr);
                       }}
-                      className={`absolute top-2.5 left-2.5 w-6 h-6 rounded-md flex items-center justify-center transition-all duration-150 ${
+                      className={`absolute top-2.5 left-2.5 w-6 h-6 rounded-md flex items-center justify-center transition-colors 150ms ease, background-color 150ms ease ${
                         isSelected
                           ? 'bg-[#0a84ff] text-white shadow-md'
                           : 'bg-black/40 backdrop-blur-md border border-white/20 text-transparent group-hover:text-white/60 hover:bg-black/60'
@@ -313,7 +313,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                         type="button"
                         title="Restore photo"
                         onClick={(e) => handleRestoreSingle(e, photo.id)}
-                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-emerald-500/80 backdrop-blur-md border border-white/20 hover:border-emerald-400 text-white flex items-center justify-center transition-all duration-150 shadow-md"
+                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-emerald-500/80 backdrop-blur-md border border-white/20 hover:border-emerald-400 text-white flex items-center justify-center transition-colors 150ms ease, border-color 150ms ease shadow-md"
                       >
                         <RotateCcw size={13} />
                       </button>
@@ -322,7 +322,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
                         type="button"
                         title="Delete permanently"
                         onClick={(e) => handleDeleteSingle(e, photo.id)}
-                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-red-500/80 backdrop-blur-md border border-white/20 hover:border-red-400 text-white flex items-center justify-center transition-all duration-150 shadow-md"
+                        className="w-7 h-7 rounded-lg bg-black/60 hover:bg-red-500/80 backdrop-blur-md border border-white/20 hover:border-red-400 text-white flex items-center justify-center transition-colors 150ms ease, border-color 150ms ease shadow-md"
                       >
                         <Trash2 size={13} />
                       </button>

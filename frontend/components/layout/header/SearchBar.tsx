@@ -63,7 +63,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
           type="text"
           className={isGoogle ? 
             "w-full bg-[#28292C] border-none rounded-full py-2.5 pl-11 pr-12 text-sm text-[#E3E2E6] placeholder:text-gray-400 font-sans focus:outline-none focus:ring-1 focus:ring-[#A8C7FA]" :
-            "w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-all font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
+            "w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-colors 150ms ease, border-color 150ms ease font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
           }
           placeholder={isGoogle ? 'Search "photos, places, people"' : 'Query deep library...'}
           value={query}

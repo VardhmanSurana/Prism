@@ -49,7 +49,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
           <button
             type="button"
             onClick={onBack}
-            className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/[0.08] transition-all"
+            className="p-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/[0.08] transition-colors 150ms ease, background-color 150ms ease"
             title="Back to all people"
           >
             <ArrowLeft size={16} />
@@ -74,7 +74,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
 
       {/* Face Reconciliation Prompt Banner */}
       {pendingFaces.length > 0 && currentPending && (
-        <div className="mx-6 mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-white/[0.02] to-white/[0.04] border border-blue-500/20 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5 transition-all shrink-0">
+        <div className="mx-6 mt-4 p-4 rounded-2xl bg-gradient-to-r from-blue-500/10 via-white/[0.02] to-white/[0.04] border border-blue-500/20 shadow-xl flex flex-col md:flex-row items-center justify-between gap-5 shrink-0">
           <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
             <div className="flex items-center -space-x-3">
               {/* Existing Cover Portrait */}
@@ -118,7 +118,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
               type="button"
               onClick={() => handleDecision(currentPending.id, 'different')}
               disabled={resolvingId !== null}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-white/70 hover:text-white bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] transition-colors 150ms ease, background-color 150ms ease flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <X size={14} />
               <span>Different Person</span>
@@ -127,7 +127,7 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
               type="button"
               onClick={() => handleDecision(currentPending.id, 'same')}
               disabled={resolvingId !== null}
-              className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#0a84ff] hover:bg-[#0077e6] transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 rounded-xl text-xs font-medium text-white bg-[#0a84ff] hover:bg-[#0077e6] transition-colors 150ms ease shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
               <Check size={14} />
               <span>Yes, Same Person</span>
