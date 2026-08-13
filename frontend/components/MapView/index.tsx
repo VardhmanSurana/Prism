@@ -347,7 +347,7 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   }, []);
 
   return (
-    <div className="w-full h-full relative bg-[#0a0a0a]" style={{ contain: 'layout style' }}>
+    <div className="w-full h-full relative bg-[#0a0a0a]">
       <MapContainer
         center={center} 
         zoom={2}

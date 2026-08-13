@@ -5,6 +5,7 @@ use quick_xml::events::Event;
 use quick_xml::XmlVersion;
 use quick_xml::Reader;
 use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_shell::ShellExt;
 
 const MAX_MLT_XML_BYTES: usize = 5 * 1024 * 1024;
 const ALLOWED_EXPORT_EXTENSIONS: &[&str] = &["mp4", "mov", "mkv", "webm"];
@@ -242,6 +243,7 @@ pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
+    .plugin(tauri_plugin_shell::init())
     .invoke_handler(tauri::generate_handler![nle_export_local])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -251,6 +253,11 @@ pub fn run() {
             .build(),
         )?;
       }
+
+      // Launch the Rust backend as a sidecar
+      let sidecar_command = app.shell().sidecar("prism-backend-rust").unwrap();
+      let (mut _rx, _child) = sidecar_command.spawn().expect("Failed to spawn sidecar");
+
       Ok(())
     })
     .run(tauri::generate_context!())

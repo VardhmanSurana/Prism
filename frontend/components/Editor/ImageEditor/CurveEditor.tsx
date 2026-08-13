@@ -216,7 +216,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
         strokeWidth={strokeWidth}
         opacity={opacity}
         vectorEffect="non-scaling-stroke"
-        className="transition-all duration-75 ease-out"
+        className="transition-opacity 75ms ease-out, transition-d 75ms ease-out"
         style={{ pointerEvents: 'none' }}
       />
     );
@@ -228,7 +228,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
       <div className="flex rounded-lg bg-black/40 p-1 border border-white/5">
         <button
           onClick={() => setCategory('rgb')}
-          className={`flex-1 py-1 text-[11px] font-medium rounded transition-all ${
+          className={`flex-1 py-1 text-[11px] font-medium rounded transition-colors 150ms ease, background-color 150ms ease ${
             category === 'rgb' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
           }`}
         >
@@ -236,7 +236,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
         </button>
         <button
           onClick={() => setCategory('specialized')}
-          className={`flex-1 py-1 text-[11px] font-medium rounded transition-all ${
+          className={`flex-1 py-1 text-[11px] font-medium rounded transition-colors 150ms ease, background-color 150ms ease ${
             category === 'specialized' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
           }`}
         >
@@ -285,7 +285,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
               <button
                 key={ch}
                 onClick={() => setActiveChannel(ch)}
-                className={`w-9 h-7 flex items-center justify-center rounded border border-white/5 transition-all duration-150 cursor-pointer ${activeStyle} ${textStyle}`}
+                className={`w-9 h-7 flex items-center justify-center rounded border border-white/5 transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease cursor-pointer ${activeStyle} ${textStyle}`}
               >
                 {labelElement}
               </button>
@@ -307,7 +307,7 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
               <button
                 key={k}
                 onClick={() => setActiveSpecializedKind(k)}
-                className={`px-2 py-1 text-[10px] rounded border transition-all ${
+                className={`px-2 py-1 text-[10px] rounded border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
                   isActive ? 'bg-primary/25 border-primary text-primary font-semibold' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
                 }`}
               >

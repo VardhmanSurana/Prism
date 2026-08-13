@@ -18,13 +18,11 @@
     "web": "bash run-web.sh",
     "app": "bash run-desktop.sh",
     "tauri": "cd frontend && pnpm exec tauri",
-    "server": "cd ../prism-server && bash run-server-docker.sh up",
-    "server:up": "cd ../prism-server && bash run-server-docker.sh up",
-    "server:down": "cd ../prism-server && bash run-server-docker.sh down",
-    "server:status": "cd ../prism-server && bash run-server-docker.sh status",
-    "server:logs": "cd ../prism-server && bash run-server-docker.sh logs",
-    "mobile": "cd ../prism-mobile && bash run-mobile.sh",
-    "mobile:build": "cd ../prism-mobile && pnpm run build"
+    "server": "cd prism-server && docker compose up -d --build",
+    "server:up": "cd prism-server && docker compose up -d --build",
+    "server:down": "cd prism-server && docker compose down",
+    "server:status": "cd prism-server && docker compose ps",
+    "server:logs": "cd prism-server && docker compose logs -f"
   },
   "packageManager": "pnpm@11.20.0+sha512.9a6f330a95b66446ea088faf1521405a8a01f07fde7124cc9958dfed52d4bb436737e65b08f85f37b46fcba375092558ac51262b816844b22f63406ed166bfee",
   "dependencies": {

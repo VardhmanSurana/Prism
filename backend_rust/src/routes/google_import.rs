@@ -2,7 +2,6 @@
 use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 use std::collections::HashMap;
-use std::io::Read;
 use std::sync::Arc;
 
 use crate::AppState;
@@ -14,7 +13,7 @@ use crate::AppState;
 /// the library database. Returns a manifest of imported files.
 pub async fn google_takeout_import(
     State(state): State<Arc<AppState>>,
-    axum::extract::Multipart(multipart): axum::extract::Multipart,
+    multipart: axum::extract::Multipart,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let mut photos: Vec<Value> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
@@ -57,7 +56,7 @@ pub async fn google_takeout_import(
     }
 
     // Phase 3: Process media files
-    let uploads_dir = std::path::Path::new(&state.config.uploads_dir);
+    let uploads_dir = std::path::Path::new(&state.config.upload_dir);
     let _ = std::fs::create_dir_all(uploads_dir);
 
     for (filename, data) in &parts {

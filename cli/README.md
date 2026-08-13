@@ -10,7 +10,7 @@ REST API (`http://127.0.0.1:8269` by default) — so the backend must be up
 ## Build & run
 
 ```bash
-# from the prism-desktop root
+# from the project root
 cd cli
 cargo run -- --help
 

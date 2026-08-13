@@ -262,6 +262,20 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             enabled BOOLEAN DEFAULT 1,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
+
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            uuid TEXT UNIQUE NOT NULL,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'user',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
         "#
     )
     .execute(pool)
@@ -280,6 +294,38 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
 
     ensure_uuids(pool).await?;
+
+    // Create default admin user if no users exist
+    let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
+        .fetch_one(pool)
+        .await?;
+
+    if user_count == 0 {
+        use argon2::password_hash::{rand_core::OsRng, PasswordHasher, SaltString};
+        use argon2::Argon2;
+        use uuid::Uuid;
+
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(b"admin123", &salt)
+            .map_err(|e| Error::Configuration(e.to_string().into()))?
+            .to_string();
+
+        let uuid = Uuid::new_v4().to_string();
+        sqlx::query(
+            "INSERT INTO users (uuid, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?)"
+        )
+        .bind(&uuid)
+        .bind("admin")
+        .bind("admin@prism.local")
+        .bind(&password_hash)
+        .bind("admin")
+        .execute(pool)
+        .await?;
+
+        info!("Created default admin user (username: admin, password: admin123)");
+    }
 
     Ok(())
 }

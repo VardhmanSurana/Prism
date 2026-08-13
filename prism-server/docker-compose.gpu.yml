@@ -1,0 +1,22 @@
+# Prism Server — NVIDIA GPU override
+#
+# Use together with the base compose file to enable CUDA inference:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# Prerequisites on the host machine:
+#   1. NVIDIA drivers installed
+#   2. nvidia-container-toolkit installed and configured
+#      https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html
+#   3. Verify with: docker run --rm --gpus all nvidia/cuda:12.0-base nvidia-smi
+
+services:
+  prism-server:
+    environment:
+      GPU_MODE: "cuda"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

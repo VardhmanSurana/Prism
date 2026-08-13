@@ -59,7 +59,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
             {hasCropSelection && (
               <button
                 onClick={handleApplyCrop}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-[#050505] hover:brightness-110 transition-all text-xs font-bold shadow-xl shadow-primary/20 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-[#050505] hover:brightness-110 transition-colors 150ms ease text-xs font-bold shadow-xl shadow-primary/20 cursor-pointer"
               >
                 <Check size={14} strokeWidth={3} /> Apply Changes
               </button>
@@ -67,7 +67,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
             {isImageCropped && (
               <button
                 onClick={handleResetCrop}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/5 text-white/40 hover:text-white hover:bg-white/5 transition-all text-xs font-bold cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/5 text-white/40 hover:text-white hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease text-xs font-bold cursor-pointer"
               >
                 Reset Canvas
               </button>
@@ -88,7 +88,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
               <button
                 key={ratio.label}
                 onClick={() => handleSetAspectRatio(ratio.value)}
-                className={`px-3 py-2.5 rounded-xl text-xs font-bold text-center transition-all border ${
+                className={`px-3 py-2.5 rounded-xl text-xs font-bold text-center transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease border ${
                   active
                     ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
                     : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
@@ -108,21 +108,21 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
           <div className="flex gap-2">
             <button
               onClick={() => handleRotate(-90)}
-              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease"
               title="Rotate Left"
             >
               <RotateCcw size={16} />
             </button>
             <button
               onClick={() => handleRotate(90)}
-              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-all"
+              className="flex-1 h-12 flex items-center justify-center rounded-xl bg-white/[0.02] border border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease"
               title="Rotate Right"
             >
               <RotateCw size={16} />
             </button>
             <button
               onClick={handleFlipH}
-              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-all ${
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease ${
                 flipH
                   ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
                   : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
@@ -133,7 +133,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
             </button>
             <button
               onClick={handleFlipV}
-              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-all ${
+              className={`flex-1 h-12 flex items-center justify-center rounded-xl border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease ${
                 flipV
                   ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
                   : 'bg-white/[0.02] border-white/5 text-white/30 hover:text-white/60 hover:bg-white/5'
@@ -149,7 +149,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
         <div>
           <div className="flex justify-between items-baseline mb-4">
              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Straighten</p>
-             <span className={`text-[11px] font-mono tabular-nums font-bold transition-all duration-300 ${
+             <span className={`text-[11px] font-mono tabular-nums font-bold transition-colors 300ms ease, transform 300ms cubic-bezier(0.23, 1, 0.32, 1) ${
                straightenAngle !== 0 ? 'text-primary scale-110' : 'text-white/20'
              }`}>
                {straightenAngle > 0 ? `+${straightenAngle.toFixed(1)}°` : `${straightenAngle.toFixed(1)}°`}
@@ -211,7 +211,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
                     <label className="text-[11px] font-medium text-white/40 leading-none select-none">
                       {label}
                     </label>
-                    <span className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-all duration-200 ${
+                    <span className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-colors 200ms ease, transform 200ms cubic-bezier(0.23, 1, 0.32, 1) ${
                       isChanged ? 'text-primary scale-110' : 'text-white/20'
                     }`}>
                       {val > 0 ? `+${val}` : val}
@@ -221,7 +221,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
                     <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
                     <div
                       aria-hidden
-                      className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
+                      className="absolute h-[1px] rounded-full pointer-events-none transition-opacity 300ms ease, box-shadow 300ms ease"
                       style={{
                         left: fillLeft,
                         width: fillWidth,

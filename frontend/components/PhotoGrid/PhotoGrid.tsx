@@ -366,11 +366,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
       {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
       {!isCompactView && galleryStyle !== 'google' && galleryStyle !== 'apple' && (
-        <div className="w-full pl-10 pr-10 pt-8 pb-4 z-20">
-
-
+        <div className="w-full pl-10 pr-10 pt-4 pb-2 z-20">
           {/* Sub Navigation and View Filters */}
-          <div className="flex items-center justify-between py-2 mb-4 select-none">
+          <div className="flex items-center justify-between py-2 mb-2 select-none">
             {/* Category Pills on Left */}
             <div className="flex items-center gap-2">
               {([

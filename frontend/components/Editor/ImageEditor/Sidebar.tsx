@@ -113,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
             <button
               key={id}
               onClick={() => setActiveTool(id)}
-              className={`group w-[38px] h-[38px] shrink-0 flex flex-col items-center justify-center transition-all duration-150 rounded border relative ${
+              className={`group w-[38px] h-[38px] shrink-0 flex flex-col items-center justify-center transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease active:scale-95 rounded border relative ${
                 isActive
                   ? 'bg-white/10 border-white/10 text-white'
                   : 'bg-[#12141a]/40 border-transparent text-white/30 hover:text-white/60 hover:bg-white/5 hover:border-white/5'
@@ -129,7 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
                 <div className="absolute right-1 top-1 w-1.5 h-1.5 bg-pink-500 rounded-full" />
               )}
               
-              <div className={`transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-105'}`}>
+              <div className={`transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) ${isActive ? '' : 'group-hover:scale-105'}`}>
                 {tab.icon}
               </div>
               

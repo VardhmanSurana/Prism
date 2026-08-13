@@ -47,7 +47,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
       <div className="flex items-center gap-1.5">
         <button
           onClick={onReset}
-          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors 150ms ease, background-color 150ms ease, box-shadow 150ms ease cursor-pointer ${
             localZoom !== 50 && localZoom !== 100 && localZoom !== 200
               ? 'bg-white text-[#050505] font-bold shadow-md'
               : 'bg-[var(--bg-secondary)] text-white/50 border border-white/5 hover:text-white hover:bg-white/5'
@@ -65,7 +65,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
                 setLocalZoom(pct);
                 onZoomTo(pct);
               }}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-150 cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-colors 150ms ease, background-color 150ms ease, box-shadow 150ms ease cursor-pointer ${
                 isActive
                   ? 'bg-white text-[#050505] font-bold shadow-md'
                   : 'bg-[var(--bg-secondary)] text-white/50 border border-white/5 hover:text-white hover:bg-white/5'
@@ -85,7 +85,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
           onClick={onZoomOut}
           disabled={isMin}
           title="Zoom Out (Ctrl+-)"
-          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-all disabled:opacity-20 cursor-pointer"
+          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease disabled:opacity-20 cursor-pointer"
         >
           <ZoomOut size={13} strokeWidth={2.5} />
         </button>
@@ -115,7 +115,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
           onClick={onZoomIn}
           disabled={isMax}
           title="Zoom In (Ctrl+=)"
-          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-all disabled:opacity-20 cursor-pointer"
+          className="p-1 rounded-lg text-white/45 hover:text-white hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease disabled:opacity-20 cursor-pointer"
         >
           <ZoomIn size={13} strokeWidth={2.5} />
         </button>

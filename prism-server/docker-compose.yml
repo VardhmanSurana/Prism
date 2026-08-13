@@ -1,0 +1,66 @@
+# Prism Server — Full-Stack Docker Compose
+# Runs the complete photo library app (React UI + Rust API) in one container.
+#
+# Access the web UI at: http://localhost:8269  (or http://<server-ip>:8269)
+#
+# Quick start:
+#   cp .env.example .env   # set JWT_SECRET at minimum
+#   docker compose up -d --build
+
+services:
+  prism-server:
+    build:
+      context: ..
+      dockerfile: prism-server/Dockerfile
+    image: prism-server:latest
+    container_name: prism-server
+    ports:
+      - "${PRISM_PORT:-8269}:8269"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "8269"
+      DATABASE_URL: "sqlite:///data/db/prism.db"
+      UPLOAD_DIR: "/data/uploads"
+      THUMBNAILS_DIR: "/data/thumbnails"
+      MODELS_DIR: "/data/models"
+      # Axum serves the bundled React build as static files
+      WEB_STATIC_DIR: "/app/frontend/dist"
+      GPU_MODE: "${GPU_MODE:-cpu}"
+      RUST_LOG: "${RUST_LOG:-info}"
+      # Change JWT_SECRET before exposing to any network
+      JWT_SECRET: "${JWT_SECRET:-change-me-in-production}"
+      # Leave blank to disable API key protection
+      API_KEY: "${API_KEY:-}"
+    volumes:
+      # Separate named volumes so each concern can be backed up independently.
+      # To use an existing media folder on your host, replace prism_uploads with:
+      #   - /path/to/your/photos:/data/uploads
+      - prism_db:/data/db
+      - prism_uploads:/data/uploads
+      - prism_thumbnails:/data/thumbnails
+      # ML models are large — mount a host path to avoid re-downloading:
+      #   - /path/to/models:/data/models
+      - prism_models:/data/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8269/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          memory: "4g"
+        reservations:
+          memory: "512m"
+
+volumes:
+  prism_db:
+    driver: local
+  prism_uploads:
+    driver: local
+  prism_thumbnails:
+    driver: local
+  prism_models:
+    driver: local

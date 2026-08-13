@@ -15,6 +15,8 @@ pub mod system;
 pub mod telemetry_api;
 pub mod utilities;
 pub mod video;
+pub mod auth;
+pub mod admin;
 
 use axum::{
     extract::{Request, State},
@@ -361,15 +363,30 @@ async fn rate_limit_layer(
 pub struct ApiDoc;
 
 pub fn create_router(state: Arc<AppState>) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin([
-            "tauri://localhost".parse::<header::HeaderValue>().unwrap(),
-            "http://tauri.localhost".parse::<header::HeaderValue>().unwrap(),
-            "http://localhost:3005".parse::<header::HeaderValue>().unwrap(),
-            "http://127.0.0.1:3005".parse::<header::HeaderValue>().unwrap(),
-        ])
-        .allow_methods(Any)
-        .allow_headers(Any);
+    // CORS: use ALLOWED_ORIGINS env var (comma-separated) for production,
+    // or fall back to the default dev origins.
+    let cors = match std::env::var("ALLOWED_ORIGINS") {
+        Ok(val) if val == "*" => CorsLayer::very_permissive(),
+        Ok(val) => {
+            let origins: Vec<header::HeaderValue> = val
+                .split(',')
+                .filter_map(|s| s.trim().parse().ok())
+                .collect();
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+        Err(_) => CorsLayer::new()
+            .allow_origin([
+                "tauri://localhost".parse::<header::HeaderValue>().unwrap(),
+                "http://tauri.localhost".parse::<header::HeaderValue>().unwrap(),
+                "http://localhost:3005".parse::<header::HeaderValue>().unwrap(),
+                "http://127.0.0.1:3005".parse::<header::HeaderValue>().unwrap(),
+            ])
+            .allow_methods(Any)
+            .allow_headers(Any),
+    };
 
     let api_routes = Router::new()
         .route("/photos/stats", get(system::get_photo_stats))
@@ -539,6 +556,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/shares/", post(shares::create_share))
         .route("/shares/:token", get(shares::get_shared_resource).delete(shares::revoke_share))
         .route("/shares/:token/download", get(shares::download_shared_file))
+        .merge(auth::create_auth_routes())
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 
     let mut router = Router::new()
@@ -548,7 +566,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/transcode", get(nle::stream_video))
         .route("/hls/playlist", get(nle::stream_video))
         .nest_service("/thumbnails", tower_http::services::ServeDir::new(&state.config.thumbnails_dir))
-        .nest("/api/v1", api_routes);
+        .nest("/api/v1", api_routes)
+        .nest("/admin", admin::create_admin_routes());
 
     let static_dir = std::env::var("WEB_STATIC_DIR")
         .map(std::path::PathBuf::from)

@@ -210,8 +210,8 @@ function App() {
   const commandItems = useMemo(
     () =>
       buildDefaultCommands({
-        onNavigate: handleViewChange,
-        onUpload: handleUpload,
+        onNavigate: (v: string) => handleViewChange(v as ViewMode),
+        onUpload: () => handleUpload([]),
         onSearch: (q: string) => setActiveFilters({ query: q, startDate: undefined, endDate: undefined, location: undefined }),
         onToggleLock: handleLockSession,
       }),
@@ -222,8 +222,8 @@ function App() {
 
   usePrismShortcuts({
     onCommandPalette: () => setIsCommandPaletteOpen(true),
-    onNavigate: handleViewChange,
-    onUpload: handleUpload,
+    onNavigate: (v: string) => handleViewChange(v as ViewMode),
+    onUpload: () => handleUpload([]),
     onToggleLock: handleLockSession,
     onEscape: () => {
       if (selectedPhoto) {
@@ -263,7 +263,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex flex-1 h-full w-full overflow-hidden bg-background text-gray-100`}>
+      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex flex-1 h-dvh w-full overflow-hidden bg-background text-gray-100`}>
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 

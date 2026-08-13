@@ -91,7 +91,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={onClose}
           disabled={isSaving}
-          className="group flex items-center gap-2 text-white/45 hover:text-white text-xs font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+          className="group flex items-center gap-2 text-white/45 hover:text-white text-xs font-bold uppercase tracking-widest transition-colors 150ms ease disabled:opacity-50"
         >
           <div className="p-2 rounded-full border border-white/5 group-hover:border-white/20 transition-colors bg-[var(--bg-secondary)]">
             <X size={14} /> 
@@ -107,7 +107,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={handleUndo}
           disabled={!canUndo || isSaving}
           title="Undo (Ctrl+Z)"
-          className="p-2 rounded-xl border border-white/5 bg-[var(--bg-secondary)] text-white/40 hover:text-white/80 hover:bg-white/5 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+          className="p-2 rounded-xl border border-white/5 bg-[var(--bg-secondary)] text-white/40 hover:text-white/80 hover:bg-white/5 disabled:opacity-20 disabled:pointer-events-none transition-colors 150ms ease, background-color 150ms ease cursor-pointer"
         >
           <Undo2 size={13} strokeWidth={2.5} />
         </button>
@@ -117,7 +117,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={handleRedo}
           disabled={!canRedo || isSaving}
           title="Redo (Ctrl+Y)"
-          className="p-2 rounded-xl border border-white/5 bg-[var(--bg-secondary)] text-white/40 hover:text-white/80 hover:bg-white/5 disabled:opacity-20 disabled:pointer-events-none transition-all cursor-pointer"
+          className="p-2 rounded-xl border border-white/5 bg-[var(--bg-secondary)] text-white/40 hover:text-white/80 hover:bg-white/5 disabled:opacity-20 disabled:pointer-events-none transition-colors 150ms ease, background-color 150ms ease cursor-pointer"
         >
           <Redo2 size={13} strokeWidth={2.5} />
         </button>
@@ -128,7 +128,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={() => setShowHistory?.(!showHistory)}
           title="Toggle Edit History"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
             showHistory
               ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(255,255,255,0.1)]'
               : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
@@ -149,7 +149,7 @@ export const TopBar: React.FC<TopBarProps> = ({
         <button
           onClick={onCompareToggle}
           title="Toggle before/after split view (\\)"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
             isComparing
               ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
               : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
@@ -166,7 +166,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onCopyEdits}
           disabled={isSaving}
           title="Copy current edits to clipboard"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
             hasCopiedEdits
               ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(var(--color-primary),0.15)]'
               : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
@@ -181,7 +181,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onPasteEdits}
           disabled={isSaving || !hasCopiedEdits}
           title="Paste copied edits onto this photo (Batch Sync)"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all duration-150 select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease select-none cursor-pointer ${
             hasCopiedEdits
               ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 shadow-[0_0_8px_rgba(52,211,153,0.1)]'
               : 'bg-[var(--bg-secondary)] border-white/5 text-white/15 cursor-default'
@@ -195,11 +195,11 @@ export const TopBar: React.FC<TopBarProps> = ({
       <div className="flex items-center gap-4">
         <div className="relative" ref={containerRef}>
           {/* Refined split button */}
-          <div className="flex items-stretch rounded-xl overflow-hidden shadow-2xl shadow-primary/20 border border-primary/20 bg-primary">
+          <div className="flex items-stretch rounded-xl overflow-hidden border border-primary/20 bg-primary hover:shadow-lg hover:shadow-primary/10 transition-shadow 200ms ease">
             <button
               onClick={onSaveAs}
               disabled={isSaving}
-              className="pl-5 pr-4 py-2 bg-primary text-[#050505] hover:brightness-110 flex items-center gap-2 text-xs font-bold transition-all disabled:opacity-50"
+              className="pl-5 pr-4 py-2 bg-primary text-[#050505] hover:brightness-110 flex items-center gap-2 text-xs font-bold transition-colors 150ms ease disabled:opacity-50"
             >
               {isSaving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
               Export Copy
@@ -207,7 +207,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             <button
               onClick={() => setDropdownOpen(o => !o)}
               disabled={isSaving}
-              className="pr-4 pl-3 py-2 bg-primary text-[#050505] hover:brightness-110 border-l border-black/10 transition-all disabled:opacity-50"
+              className="pr-4 pl-3 py-2 bg-primary text-[#050505] hover:brightness-110 border-l border-black/10 transition-colors 150ms ease disabled:opacity-50"
             >
               <ChevronDown
                 size={14}
@@ -230,7 +230,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                     <button
                       key={fmt}
                       onClick={() => setExportFormat(fmt)}
-                      className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-all ${
+                      className={`flex-1 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors 150ms ease, background-color 150ms ease ${
                         exportFormat === fmt
                           ? 'bg-white/10 text-white border border-white/5'
                           : 'text-white/30 hover:text-white/50 border border-transparent'
@@ -266,7 +266,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                   </div>
                   <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      className="h-full bg-primary rounded-full transition-width 300ms ease-out"
                       style={{ width: `${(exportProgress.current / exportProgress.total) * 100}%` }}
                     />
                   </div>
@@ -276,7 +276,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 role="menuitem"
                 onClick={onCopy}
-                className="w-full px-4 py-4 text-left hover:bg-white/5 transition-all flex items-start gap-3 group border-b border-white/5"
+                className="w-full px-4 py-4 text-left hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease flex items-start gap-3 group border-b border-white/5"
               >
                 <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                   <Copy size={14} />
@@ -292,7 +292,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <button
                 role="menuitem"
                 onClick={onOverwrite}
-                className="w-full px-4 py-4 text-left hover:bg-white/5 transition-all flex items-start gap-3 group"
+                className="w-full px-4 py-4 text-left hover:bg-white/5 transition-colors 150ms ease, background-color 150ms ease flex items-start gap-3 group"
               >
                 <div className="p-2 rounded-lg bg-white/5 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                   <Check size={14} />

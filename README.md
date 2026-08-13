@@ -1,23 +1,23 @@
 <div align="center">
 <img src="./frontend/public/prism-logo.png" alt="Prism Logo" width="128" />
 
-# Prism Desktop
+# Prism
 
 [![Rust](https://img.shields.io/badge/Rust-2021-orange.svg?style=flat-square)](https://www.rust-lang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61DAFB.svg?style=flat-square)](https://react.dev/)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131.svg?style=flat-square)](https://tauri.app/)
 [![SQLite](https://img.shields.io/badge/SQLite-WAL%2BFTS5-003B57.svg?style=flat-square)](https://www.sqlite.org/)
 
-Privacy-first native desktop photo and video library application powered by Tauri v2, React, and a high-performance Rust backend.
+Privacy-first adaptive photo and video library application powered by Tauri v2, React, and a high-performance Rust backend.
 
-[Quick Start](#quick-start) | [Desktop Features](#desktop-features) | [Image Editor](#image-editor-19-tools) | [Video Editor](#video-editor-nle) | [Documentation](#documentation)
+[Quick Start](#quick-start) | [Features](#desktop-features) | [Image Editor](#image-editor-19-tools) | [Video Editor](#video-editor-nle) | [Documentation](#documentation)
 
 </div>
 
 ---
 
 > [!NOTE]
-> This repository contains **Prism Desktop**. For details on the overall ecosystem (Server, Mobile companion, CLI), see the [Ecosystem Root README](../README.md).
+> **Prism** is a unified, adaptive photo & video library application. It runs natively as a desktop app (Tauri v2), as a web app, or via Docker container deployment (`prism-server`).
 
 ---
 

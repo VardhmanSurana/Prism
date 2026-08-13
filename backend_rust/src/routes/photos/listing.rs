@@ -217,7 +217,7 @@ pub async fn serve_sample_image(
         cwd.join("frontend/public/sample_images"),
         cwd.join("../frontend/public/sample_images"),
         cwd.join("sample_images"),
-        PathBuf::from("/home/chotaxdon/Work/Projects/Prism/prism-desktop/frontend/public/sample_images"),
+        PathBuf::from("/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images"),
     ];
 
     for sample_dir in &candidates {

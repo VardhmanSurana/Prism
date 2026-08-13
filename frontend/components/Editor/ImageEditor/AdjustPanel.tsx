@@ -183,64 +183,12 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#090a0d] text-white">
-      {/* Premium custom range sliders style tag */}
-      <style>{`
-        .premium-editor-slider {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 100%;
-          height: 2px;
-          border-radius: 99px;
-          outline: none;
-          cursor: pointer;
-          position: relative;
-          background: rgba(255, 255, 255, 0.08);
-        }
-        .premium-editor-slider::-webkit-slider-thumb {
-          -webkit-appearance: none;
-          appearance: none;
-          width: 11px;
-          height: 11px;
-          border-radius: 50%;
-          background: #cccccc;
-          cursor: grab;
-          border: 1px solid rgba(0, 0, 0, 0.3);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-          transition: transform 0.1s ease, background-color 0.1s ease;
-          position: relative;
-          z-index: 10;
-        }
-        .premium-editor-slider::-webkit-slider-thumb:hover {
-          transform: scale(1.2);
-          background: #ffffff;
-        }
-        .premium-editor-slider:active::-webkit-slider-thumb {
-          cursor: grabbing;
-          transform: scale(1.1);
-          background: #ffffff;
-        }
-        .premium-editor-slider::-moz-range-thumb {
-          width: 11px;
-          height: 11px;
-          border-radius: 50%;
-          background: #cccccc;
-          cursor: grab;
-          border: 1px solid rgba(0, 0, 0, 0.3);
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-          transition: transform 0.1s ease, background-color 0.1s ease;
-        }
-        .premium-editor-slider::-moz-range-track {
-          height: 2px;
-          border-radius: 99px;
-        }
-      `}</style>
-
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-2 flex gap-2">
         <button
           onClick={handleAutoEnhance}
           disabled={!photoId || isAutoEnhancing}
-          className="flex-[2] flex items-center justify-center gap-1.5 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-medium text-white/95 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          className="flex-[2] flex items-center justify-center gap-1.5 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-medium text-white/95 transition-colors 150ms ease, background-color 150ms ease cursor-pointer disabled:opacity-50 disabled:cursor-default"
         >
           {isAutoEnhancing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} className="text-white/60" />}
           Auto Enhance
@@ -249,7 +197,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
         <button
           onClick={handleReset}
           disabled={isDefault}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] font-medium transition-all border ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] font-medium transition-colors 150ms ease, background-color 150ms ease border ${
             !isDefault
               ? 'border-white/5 text-white/70 hover:text-white hover:bg-white/5 cursor-pointer bg-white/5'
               : 'border-transparent text-white/20 cursor-default'

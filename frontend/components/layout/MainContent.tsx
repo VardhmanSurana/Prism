@@ -169,7 +169,7 @@ export const MainContent = React.memo(function MainContent({
       ref={scrollRef as React.LegacyRef<HTMLDivElement>}
       onScroll={onScroll}
       className={`flex-1 scroll-smooth custom-scrollbar relative ${
-        currentView === 'agent' ? 'overflow-hidden h-full' : 'overflow-y-auto'
+        (currentView === 'agent' || currentView === 'map') ? 'overflow-hidden h-full' : 'overflow-y-auto'
       }`}
     >
       <React.Suspense fallback={null}>

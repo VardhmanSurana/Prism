@@ -21,6 +21,10 @@ import {
   Link2,
   Copy,
   Check,
+  Film,
+  Scissors,
+  Image as ImageIcon,
+  Type,
 } from 'lucide-react';
 import exifr from 'exifr';
 import { Photo } from '@/types';
@@ -35,7 +39,7 @@ interface ImageToolboxViewProps {
   onPhotoClick?: (photo: Photo | null) => void;
 }
 
-type ToolTab = 'pdf' | 'collage' | 'converter' | 'watermark' | 'metadata' | 'base64' | 'svg-trace' | 'palette' | 'web-load';
+type ToolTab = 'pdf' | 'collage' | 'converter' | 'watermark' | 'metadata' | 'base64' | 'svg-trace' | 'palette' | 'web-load' | 'video-trimmer' | 'video-gif' | 'video-compress' | 'subtitles';
 
 interface UploadedFile {
   id: string;
@@ -83,10 +87,10 @@ const ToolImageUpload: React.FC<{
         onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-2xl flex flex-col items-center justify-center p-10 cursor-pointer transition-colors 200ms ease, border-color 200ms ease, background-color 200ms ease gap-3 ${
+        className={`border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center p-10 cursor-pointer transition-colors 200ms ease, border-color 200ms ease, background-color 200ms ease gap-3 ${
           isDragOver
-            ? 'border-blue-500 bg-blue-500/10'
-            : 'border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5'
+            ? 'border-white/20 bg-white/5'
+            : 'border-white/10 hover:border-white/20/40 hover:bg-white/20/5'
         }`}
       >
         <Upload className="w-10 h-10 text-neutral-500" />
@@ -113,7 +117,7 @@ const ToolImageUpload: React.FC<{
         <div className="flex gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 bg-blue-600/15 border border-blue-500/30 text-blue-400 hover:text-white hover:bg-blue-600 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, background-color 150ms ease"
+            className="px-3 py-1.5 bg-white/10 border border-white/20 text-neutral-300 hover:text-white hover:bg-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, background-color 150ms ease"
           >
             <Upload size={12} />
             Add More
@@ -137,7 +141,7 @@ const ToolImageUpload: React.FC<{
       </div>
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
         {files.map(file => (
-          <div key={file.id} className="relative aspect-square bg-neutral-900 rounded-xl border border-white/10 overflow-hidden group">
+          <div key={file.id} className="relative aspect-square bg-neutral-900 rounded-md border border-white/10 overflow-hidden group">
             <img src={file.url} alt="" className="w-full h-full object-cover" />
             <button
               onClick={() => onRemove(file.id)}
@@ -224,6 +228,7 @@ function hexToRgb(hex: string): string {
 
 export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] }) => {
   const [activeTab, setActiveTab] = useState<ToolTab>('pdf');
+  const [toolCategory, setToolCategory] = useState<'image' | 'video'>('image');
   const [isPdfOpen, setIsPdfOpen] = useState(false);
   const [isCollageOpen, setIsCollageOpen] = useState(false);
 
@@ -663,19 +668,18 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background text-gray-100 overflow-y-auto custom-scrollbar p-6 lg:p-10">
+    <div className="bg-background text-gray-100 p-6 lg:p-10">
       {/* Header Banner */}
       <div className="max-w-6xl mx-auto w-full mb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-surface/80 border border-white/10 rounded-2xl backdrop-blur-xl shadow-2xl relative overflow-hidden">
-          <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-surface/80 border border-white/10 rounded-[10px] relative overflow-hidden">
           <div className="flex items-center gap-4 z-10">
-            <div className="p-3 rounded-2xl bg-blue-600/15 border border-blue-500/30 shadow-inner flex items-center justify-center">
+            <div className="p-3 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center">
               <img src="/toolbox.svg" alt="Toolbox" className="w-10 h-10 object-contain filter invert brightness-125 drop-shadow-[0_0_10px_rgba(37,99,235,0.6)]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-white tracking-tight">Image Toolbox</h1>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                <h1 className="text-xl font-bold text-white tracking-tight">Toolbox</h1>
+                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/10 text-neutral-300 border border-white/20">
                   PRO SUITE
                 </span>
               </div>
@@ -688,12 +692,47 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
       </div>
 
       {/* Main Grid Section */}
-      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-8 overflow-visible">
         {/* Navigation Sidebar / Tool Cards */}
         <div className="lg:col-span-4 space-y-3">
-          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wider px-1">Studio Tools</p>
+          {/* Category Toggle */}
+          <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
+            <button
+              onClick={() => {
+                setToolCategory('image');
+                setActiveTab('pdf');
+              }}
+              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-[4px] transition-colors ${
+                toolCategory === 'image'
+                  ? 'bg-white text-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <ImageIcon size={12} />
+                Images
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setToolCategory('video');
+                setActiveTab('video-trimmer');
+              }}
+              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-[4px] transition-colors ${
+                toolCategory === 'video'
+                  ? 'bg-white text-black'
+                  : 'text-neutral-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <Film size={12} />
+                Video
+              </div>
+            </button>
+          </div>
 
-          {[
+          {/* Tool Cards */}
+          {(toolCategory === 'image' ? [
             { id: 'pdf' as ToolTab, title: 'PDF Document Creator', desc: 'Generate print-ready A4, Letter & Square PDF books', icon: FileText, badge: 'Export' },
             { id: 'collage' as ToolTab, title: 'Collage Builder', desc: 'Multi-photo grid composer with custom margins', icon: LayoutGrid, badge: 'Layout' },
             { id: 'converter' as ToolTab, title: 'Format Converter', desc: 'Batch convert, resize & compress WebP, PNG, JPEG', icon: RefreshCw, badge: 'Batch' },
@@ -703,20 +742,25 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
             { id: 'svg-trace' as ToolTab, title: 'Images to SVG', desc: 'Trace raster images into scalable SVG vector graphics', icon: Paintbrush, badge: 'Vector' },
             { id: 'palette' as ToolTab, title: 'Palette Tools', desc: 'Extract dominant color palettes from any image', icon: Palette, badge: 'Color' },
             { id: 'web-load' as ToolTab, title: 'Web Image Loader', desc: 'Load, preview, edit & save images from any URL', icon: Globe, badge: 'Web' },
-          ].map(tool => {
+          ] : [
+            { id: 'video-trimmer' as ToolTab, title: 'Video Trimmer', desc: 'Cut and trim video clips with precision', icon: Scissors, badge: 'Edit' },
+            { id: 'video-gif' as ToolTab, title: 'Video to GIF', desc: 'Convert video clips to animated GIFs', icon: ImageIcon, badge: 'Convert' },
+            { id: 'video-compress' as ToolTab, title: 'Video Compressor', desc: 'Reduce video file size while preserving quality', icon: RefreshCw, badge: 'Optimize' },
+            { id: 'subtitles' as ToolTab, title: 'Subtitle Editor', desc: 'Add and edit subtitles for your videos', icon: Type, badge: 'Text' },
+          ]).map(tool => {
             const isActive = activeTab === tool.id;
             const Icon = tool.icon;
             return (
               <button
                 key={tool.id}
                 onClick={() => setActiveTab(tool.id)}
-                className={`w-full p-4 rounded-xl border text-left transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease relative overflow-hidden flex items-start gap-3.5 group ${
+                className={`w-full p-4 rounded-md border text-left transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease relative overflow-hidden flex items-start gap-3.5 group ${
                   isActive
-                    ? 'border-blue-500/80 bg-blue-500/10 shadow-[0_0_20px_rgba(37,99,235,0.15)] ring-1 ring-blue-500/30'
+                    ? 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)] ring-1 ring-white/20'
                     : 'border-white/10 bg-surface/50 hover:bg-surface/80 hover:border-white/20'
                 }`}
               >
-                <div className={`p-2.5 rounded-xl ${isActive ? 'bg-blue-600 text-white' : 'bg-white/5 text-neutral-400 group-hover:text-white'}`}>
+                <div className={`p-2.5 rounded-md ${isActive ? 'bg-white text-black' : 'bg-white/5 text-neutral-400 group-hover:text-white'}`}>
                   <Icon size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -737,12 +781,12 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
         {/* Dynamic Tool Playground */}
         <div className="lg:col-span-8">
-          <div className="bg-surface/80 border border-white/10 rounded-2xl p-6 lg:p-8 backdrop-blur-xl shadow-2xl min-h-[540px] flex flex-col">
+          <div className="bg-surface/80 border border-white/10 rounded-[10px] p-6 lg:p-8 flex flex-col">
 
             {/* ── PDF ──────────────────────────────────────────────── */}
             {activeTab === 'pdf' && (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shadow-xl">
+                <div className="w-16 h-16 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center text-neutral-300">
                   <FileText size={32} />
                 </div>
                 <div className="max-w-md">
@@ -753,7 +797,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsPdfOpen(true)}
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-blue-600/25 flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
+                  className="px-6 py-3 bg-white hover:bg-white/20 text-white font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <Sparkles size={16} />
                   Launch PDF Studio
@@ -764,7 +808,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
             {/* ── Collage ─────────────────────────────────────────── */}
             {activeTab === 'collage' && (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-600/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-xl">
+                <div className="w-16 h-16 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center text-neutral-300">
                   <LayoutGrid size={32} />
                 </div>
                 <div className="max-w-md">
@@ -775,7 +819,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsCollageOpen(true)}
-                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-xl text-xs shadow-lg shadow-indigo-600/25 flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
+                  className="px-6 py-3 bg-white hover:bg-white/20 text-white font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
                 >
                   <LayoutGrid size={16} />
                   Launch Collage Studio
@@ -799,7 +843,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 />
 
                 {converterFiles.length > 0 && (
-                  <div className="p-4 bg-neutral-950/60 rounded-xl border border-white/10 space-y-4">
+                  <div className="p-4 bg-neutral-950/60 rounded-md border border-white/10 space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Target Format</label>
@@ -822,7 +866,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         <input
                           type="range" min={20} max={100} value={quality}
                           onChange={e => setQuality(Number(e.target.value))}
-                          className="w-full accent-blue-500"
+                          className="w-full accent-neutral-400"
                         />
                       </div>
                     </div>
@@ -836,7 +880,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         </div>
                         <button
                           onClick={() => setResizeEnabled(prev => !prev)}
-                          className={`relative w-9 h-5 rounded-full transition-colors 150ms ease, background-color 150ms ease ${resizeEnabled ? 'bg-blue-600' : 'bg-white/10'}`}
+                          className={`relative w-9 h-5 rounded-full transition-colors 150ms ease, background-color 150ms ease ${resizeEnabled ? 'bg-white' : 'bg-white/10'}`}
                         >
                           <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) ${resizeEnabled ? 'left-[18px]' : 'left-0.5'}`} />
                         </button>
@@ -857,7 +901,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                                   setResizeWidth(w);
                                   if (lockAspect) setResizeHeight(Math.round(w / resizeAspectRef.current));
                                 }}
-                                className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/20 transition-colors"
                               />
                             </div>
 
@@ -865,7 +909,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                               onClick={() => setLockAspect(prev => !prev)}
                               className={`mt-4 p-1.5 rounded-lg border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
                                 lockAspect
-                                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-400'
+                                  ? 'bg-white/20 border-white/20/40 text-neutral-300'
                                   : 'bg-white/5 border-white/10 text-neutral-500 hover:text-white'
                               }`}
                               title={lockAspect ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
@@ -897,7 +941,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                                   setResizeHeight(h);
                                   if (lockAspect) setResizeWidth(Math.round(h * resizeAspectRef.current));
                                 }}
-                                className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500 transition-colors"
+                                className="w-full bg-neutral-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/20 transition-colors"
                               />
                             </div>
                           </div>
@@ -944,7 +988,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     <button
                       onClick={handleConvertAndDownload}
                       disabled={isConverting}
-                      className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
+                      className="w-full py-3 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-none active:scale-[0.98] disabled:opacity-50 transition-all"
                     >
                       <Download size={15} />
                       {isConverting ? `Converting (${convertedCount}/${converterFiles.length})…` : `Convert & Download ${converterFiles.length} Images`}
@@ -978,7 +1022,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         <input
                           type="text" value={watermarkText}
                           onChange={e => setWatermarkText(e.target.value)}
-                          className="w-full bg-neutral-900 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors"
+                          className="w-full bg-neutral-900 border border-white/10 rounded-md px-3.5 py-2 text-xs text-white focus:outline-none focus:border-white/20 transition-colors"
                         />
                       </div>
 
@@ -1002,11 +1046,11 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs font-semibold text-neutral-300 block mb-1">Opacity: {watermarkOpacity}%</label>
-                          <input type="range" min={10} max={100} value={watermarkOpacity} onChange={e => setWatermarkOpacity(Number(e.target.value))} className="w-full accent-blue-500" />
+                          <input type="range" min={10} max={100} value={watermarkOpacity} onChange={e => setWatermarkOpacity(Number(e.target.value))} className="w-full accent-neutral-400" />
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-neutral-300 block mb-1">Font Size: {watermarkFontSize}px</label>
-                          <input type="range" min={10} max={80} value={watermarkFontSize} onChange={e => setWatermarkFontSize(Number(e.target.value))} className="w-full accent-blue-500" />
+                          <input type="range" min={10} max={80} value={watermarkFontSize} onChange={e => setWatermarkFontSize(Number(e.target.value))} className="w-full accent-neutral-400" />
                         </div>
                       </div>
 
@@ -1020,15 +1064,15 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         </div>
                         <div>
                           <label className="text-xs font-semibold text-neutral-300 block mb-1">Rotation: {watermarkRotation}°</label>
-                          <input type="range" min={-45} max={45} value={watermarkRotation} onChange={e => setWatermarkRotation(Number(e.target.value))} className="w-full accent-blue-500" />
+                          <input type="range" min={-45} max={45} value={watermarkRotation} onChange={e => setWatermarkRotation(Number(e.target.value))} className="w-full accent-neutral-400" />
                         </div>
                       </div>
                     </div>
 
                     {/* Live Preview */}
-                    <div className="bg-neutral-950 border border-white/10 rounded-2xl p-3 flex flex-col gap-3">
+                    <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-3 flex flex-col gap-3">
                       <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider">Live Preview</p>
-                      <div className="relative w-full aspect-video bg-neutral-900 rounded-xl overflow-hidden border border-white/5">
+                      <div className="relative w-full aspect-video bg-neutral-900 rounded-md overflow-hidden border border-white/5">
                         <img src={watermarkFiles[0]?.url} alt="" className="w-full h-full object-cover" style={{ filter: 'brightness(0.6)' }} />
                         <div
                           className={`absolute text-sm font-bold bg-black/50 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-white/10 ${
@@ -1046,7 +1090,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       <button
                         onClick={handleWatermarkExport}
                         disabled={isExportingWatermark}
-                        className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
+                        className="w-full py-2.5 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-none active:scale-[0.98] disabled:opacity-50 transition-all"
                       >
                         <Download size={14} />
                         {isExportingWatermark ? 'Exporting…' : `Export ${watermarkFiles.length} Watermarked Images`}
@@ -1087,8 +1131,8 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 />
 
                 {isParsing && (
-                  <div className="flex items-center gap-2 text-xs text-blue-400">
-                    <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="flex items-center gap-2 text-xs text-neutral-300">
+                    <div className="w-3 h-3 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
                     Parsing EXIF data…
                   </div>
                 )}
@@ -1099,7 +1143,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       const exif = metadataResults.get(file.id);
                       const hasData = exif && Object.keys(exif).length > 0;
                       return (
-                        <div key={file.id} className="bg-neutral-950 border border-white/10 rounded-2xl overflow-hidden">
+                        <div key={file.id} className="bg-neutral-950 border border-white/10 rounded-[10px] overflow-hidden">
                           <div className="flex items-center gap-3 p-4 border-b border-white/5">
                             <img src={file.url} alt="" className="w-14 h-14 rounded-lg object-cover" />
                             <div className="flex-1 min-w-0">
@@ -1148,7 +1192,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
                 {metadataFiles.length === 0 && !isParsing && (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4">
-                    <div className="w-16 h-16 rounded-2xl bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xl">
+                    <div className="w-16 h-16 rounded-[10px] bg-emerald-600/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
                       <ShieldCheck size={32} />
                     </div>
                     <div className="max-w-sm">
@@ -1177,7 +1221,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     <button
                       key={m.id}
                       onClick={() => setBase64Mode(m.id)}
-                      className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      className={`flex-1 py-2 rounded-md text-xs font-semibold transition-all ${
                         base64Mode === m.id ? 'bg-white text-black font-bold' : 'bg-white/5 text-neutral-400 hover:bg-white/10'
                       }`}
                     >
@@ -1197,7 +1241,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     {base64Files.length > 0 && !base64Output && (
                       <button
                         onClick={handleBase64Encode}
-                        className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20 active:scale-[0.98] transition-all"
+                        className="w-full py-3 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-none active:scale-[0.98] transition-all"
                       >
                         <Code2 size={15} />
                         Encode to Base64
@@ -1205,7 +1249,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     )}
                     {base64Output && (
                       <div className="space-y-3">
-                        <div className="bg-neutral-950 border border-white/10 rounded-xl p-3">
+                        <div className="bg-neutral-950 border border-white/10 rounded-md p-3">
                           <p className="text-[10px] text-neutral-500 mb-1.5 font-mono">Output ({Math.round(base64Output.length / 1024)}KB)</p>
                           <textarea
                             readOnly
@@ -1216,14 +1260,14 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         <div className="flex gap-2">
                           <button
                             onClick={handleCopyBase64}
-                            className="flex-1 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                            className="flex-1 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                           >
                             {base64Copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                             {base64Copied ? 'Copied!' : 'Copy Full String'}
                           </button>
                           <button
                             onClick={() => { const a = document.createElement('a'); a.href = base64Output; a.download = 'image-base64.txt'; a.click(); }}
-                            className="flex-1 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                            className="flex-1 py-2.5 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
                           >
                             <Download size={14} />
                             Save as .txt
@@ -1238,24 +1282,24 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       placeholder="Paste Base64 string here (with or without data:image prefix)…"
                       value={base64DecodeInput}
                       onChange={e => { setBase64DecodeInput(e.target.value); setBase64DecodePreview(null); }}
-                      className="w-full h-28 bg-neutral-900 border border-white/10 rounded-xl p-3 text-xs text-neutral-300 font-mono resize-none focus:outline-none focus:border-blue-500 transition-colors placeholder-neutral-600"
+                      className="w-full h-28 bg-neutral-900 border border-white/10 rounded-md p-3 text-xs text-neutral-300 font-mono resize-none focus:outline-none focus:border-white/20 transition-colors placeholder-neutral-600"
                     />
                     <button
                       onClick={handleBase64Decode}
                       disabled={!base64DecodeInput.trim()}
-                      className="w-full py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-violet-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
+                      className="w-full py-3 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-none active:scale-[0.98] disabled:opacity-50 transition-all"
                     >
                       <Code2 size={15} />
                       Decode to Image
                     </button>
                     {base64DecodePreview && (
                       <div className="space-y-3">
-                        <div className="bg-neutral-950 border border-white/10 rounded-2xl p-3">
-                          <img src={base64DecodePreview} alt="Decoded" className="w-full rounded-xl object-contain max-h-64" />
+                        <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-3">
+                          <img src={base64DecodePreview} alt="Decoded" className="w-full rounded-md object-contain max-h-64" />
                         </div>
                         <button
                           onClick={handleDownloadBase64}
-                          className="w-full py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                          className="w-full py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                         >
                           <Download size={14} />
                           Save Decoded Image
@@ -1309,7 +1353,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     <button
                       onClick={traceToSvg}
                       disabled={isTracing}
-                      className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
+                      className="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-emerald-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
                     >
                       {isTracing ? (
                         <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Tracing…</>
@@ -1320,10 +1364,10 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
                     {svgOutput && (
                       <div className="space-y-3">
-                        <div className="bg-neutral-950 border border-white/10 rounded-2xl p-3 flex items-center justify-center min-h-[200px]">
+                        <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-3 flex items-center justify-center min-h-[200px]">
                           <div dangerouslySetInnerHTML={{ __html: svgOutput }} className="w-full h-full [&>svg]:w-full [&>svg]:h-auto [&>svg]:max-h-64" />
                         </div>
-                        <div className="bg-neutral-950 border border-white/10 rounded-xl p-3">
+                        <div className="bg-neutral-950 border border-white/10 rounded-md p-3">
                           <p className="text-[10px] text-neutral-500 mb-1.5 font-mono">SVG Output ({Math.round(svgOutput.length / 1024)}KB)</p>
                           <textarea
                             readOnly
@@ -1333,7 +1377,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         </div>
                         <button
                           onClick={handleDownloadSvg}
-                          className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                          className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-emerald-600/20 active:scale-[0.98] transition-all"
                         >
                           <Download size={14} />
                           Download SVG
@@ -1364,7 +1408,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                   <button
                     onClick={() => extractPalette(paletteFiles[0])}
                     disabled={isExtracting}
-                    className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
+                    className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 shadow-amber-600/20 active:scale-[0.98] disabled:opacity-50 transition-all"
                   >
                     {isExtracting ? (
                       <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Analyzing…</>
@@ -1377,9 +1421,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 {paletteFiles.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     {/* Source preview */}
-                    <div className="bg-neutral-950 border border-white/10 rounded-2xl p-3">
+                    <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-3">
                       <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-wider mb-2">Source Image</p>
-                      <img src={paletteFiles[0]?.url} alt="" className="w-full rounded-xl object-cover aspect-video" />
+                      <img src={paletteFiles[0]?.url} alt="" className="w-full rounded-md object-cover aspect-video" />
                     </div>
 
                     {/* Palette output */}
@@ -1393,7 +1437,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                               <button
                                 key={i}
                                 onClick={() => handleCopyColor(color)}
-                                className="w-full flex items-center gap-3 p-2.5 bg-neutral-950 border border-white/10 rounded-xl hover:border-white/20 transition-all group"
+                                className="w-full flex items-center gap-3 p-2.5 bg-neutral-950 border border-white/10 rounded-md hover:border-white/20 transition-all group"
                               >
                                 <div className="w-10 h-10 rounded-lg shrink-0 border border-white/10" style={{ backgroundColor: color }} />
                                 <div className="flex-1 text-left">
@@ -1431,7 +1475,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                               ))}
                             </div>
 
-                            <div className="bg-neutral-950 border border-white/10 rounded-xl p-3">
+                            <div className="bg-neutral-950 border border-white/10 rounded-md p-3">
                               <pre className="text-[10px] text-neutral-300 font-mono whitespace-pre-wrap overflow-x-auto max-h-40 custom-scrollbar leading-relaxed">
                                 {generatePaletteExport()}
                               </pre>
@@ -1440,14 +1484,14 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                             <div className="flex gap-2">
                               <button
                                 onClick={handleCopyPaletteExport}
-                                className="flex-1 py-2 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                                className="flex-1 py-2 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
                               >
                                 {paletteExportCopied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                                 {paletteExportCopied ? 'Copied!' : 'Copy Code'}
                               </button>
                               <button
                                 onClick={handleDownloadPaletteExport}
-                                className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                                className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
                               >
                                 <Download size={14} />
                                 Save as File
@@ -1456,7 +1500,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                           </div>
                         </div>
                       ) : (
-                        <div className="bg-neutral-950 border border-white/10 rounded-2xl p-6 flex items-center justify-center">
+                        <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-6 flex items-center justify-center">
                           <p className="text-xs text-neutral-600">Click Extract Palette to analyze</p>
                         </div>
                       )}
@@ -1483,13 +1527,13 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       value={webUrl}
                       onChange={e => setWebUrl(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleWebLoad()}
-                      className="w-full bg-neutral-900 border border-white/10 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500 transition-colors placeholder-neutral-600"
+                      className="w-full bg-neutral-900 border border-white/10 rounded-md pl-9 pr-3 py-2.5 text-xs text-white focus:outline-none focus:border-white/20 transition-colors placeholder-neutral-600"
                     />
                   </div>
                   <button
                     onClick={handleWebLoad}
                     disabled={!webUrl.trim() || webLoading}
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                    className="px-4 py-2.5 bg-white hover:bg-white/20 text-white rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
                   >
                     {webLoading ? (
                       <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1501,7 +1545,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
 
                 {webError && (
-                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-xl text-xs text-red-400">
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
                     {webError}
                   </div>
                 )}
@@ -1509,11 +1553,11 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 {webPreview ? (
                   <div className="space-y-4">
                     {/* Preview */}
-                    <div className="bg-neutral-950 border border-white/10 rounded-2xl p-3 flex items-center justify-center overflow-hidden">
+                    <div className="bg-neutral-950 border border-white/10 rounded-[10px] p-3 flex items-center justify-center overflow-hidden">
                       <img
                         src={webPreview}
                         alt="Web loaded"
-                        className="w-full rounded-xl object-contain max-h-80"
+                        className="w-full rounded-md object-contain max-h-80"
                         crossOrigin="anonymous"
                       />
                     </div>
@@ -1545,7 +1589,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4">
-                    <div className="w-16 h-16 rounded-2xl bg-cyan-600/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shadow-xl">
+                    <div className="w-16 h-16 rounded-[10px] bg-cyan-600/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                       <Globe size={32} />
                     </div>
                     <div className="max-w-sm">
@@ -1556,6 +1600,94 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── Video Trimmer ──────────────────────────────────── */}
+            {activeTab === 'video-trimmer' && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                <div className="w-16 h-16 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center text-neutral-300">
+                  <Scissors size={32} />
+                </div>
+                <div className="max-w-md">
+                  <h2 className="text-lg font-bold text-white">Video Trimmer</h2>
+                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                    Cut and trim video clips with frame-accurate precision. Set start and end points, then export your trimmed clip.
+                  </p>
+                </div>
+                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
+                  <div className="border-2 border-dashed border-white/20 rounded-md p-8 flex flex-col items-center gap-3 hover:border-white/20/50 transition-colors cursor-pointer">
+                    <Film size={24} className="text-neutral-300" />
+                    <p className="text-xs text-neutral-300">Drop a video file here</p>
+                    <p className="text-[10px] text-neutral-500">Supports MP4, MOV, WebM</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Video to GIF ───────────────────────────────────── */}
+            {activeTab === 'video-gif' && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                <div className="w-16 h-16 rounded-[10px] bg-pink-600/15 border border-pink-500/30 flex items-center justify-center text-pink-400">
+                  <ImageIcon size={32} />
+                </div>
+                <div className="max-w-md">
+                  <h2 className="text-lg font-bold text-white">Video to GIF Converter</h2>
+                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                    Convert video clips to high-quality animated GIFs. Adjust frame rate, resolution, and loop settings.
+                  </p>
+                </div>
+                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
+                  <div className="border-2 border-dashed border-pink-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-pink-500/50 transition-colors cursor-pointer">
+                    <Film size={24} className="text-pink-400" />
+                    <p className="text-xs text-neutral-300">Drop a video file here</p>
+                    <p className="text-[10px] text-neutral-500">Converts to animated GIF</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Video Compressor ────────────────────────────────── */}
+            {activeTab === 'video-compress' && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                <div className="w-16 h-16 rounded-[10px] bg-green-600/15 border border-green-500/30 flex items-center justify-center text-green-400">
+                  <RefreshCw size={32} />
+                </div>
+                <div className="max-w-md">
+                  <h2 className="text-lg font-bold text-white">Video Compressor</h2>
+                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                    Reduce video file size while preserving quality. Choose target size or compression level.
+                  </p>
+                </div>
+                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
+                  <div className="border-2 border-dashed border-green-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-green-500/50 transition-colors cursor-pointer">
+                    <Film size={24} className="text-green-400" />
+                    <p className="text-xs text-neutral-300">Drop a video file here</p>
+                    <p className="text-[10px] text-neutral-500">Compress with quality control</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Subtitle Editor ─────────────────────────────────── */}
+            {activeTab === 'subtitles' && (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                <div className="w-16 h-16 rounded-[10px] bg-orange-600/15 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                  <Type size={32} />
+                </div>
+                <div className="max-w-md">
+                  <h2 className="text-lg font-bold text-white">Subtitle Editor</h2>
+                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                    Add, edit, and sync subtitles for your videos. Support for SRT and VTT formats.
+                  </p>
+                </div>
+                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
+                  <div className="border-2 border-dashed border-orange-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-orange-500/50 transition-colors cursor-pointer">
+                    <Film size={24} className="text-orange-400" />
+                    <p className="text-xs text-neutral-300">Drop a video file here</p>
+                    <p className="text-[10px] text-neutral-500">Add subtitles with timing</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
