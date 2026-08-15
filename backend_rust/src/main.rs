@@ -17,6 +17,7 @@ use crate::services::llm_client::LlmClient;
 use crate::services::llm_server::LlmServer;
 use crate::services::ml_client::MlClient;
 use crate::services::telemetry::TelemetryService;
+use crate::services::model_manager::ModelManager;
 use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn_worker_loop};
 
 pub struct AppState {
@@ -27,6 +28,7 @@ pub struct AppState {
     pub worker: Arc<WorkerState>,
     pub scheduler: Arc<JobScheduler>,
     pub registry: Arc<AnalyzerRegistry>,
+    pub model_manager: Arc<ModelManager>,
 }
 
 #[tokio::main]
@@ -91,6 +93,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&registry),
     );
 
+    let model_manager = Arc::new(ModelManager::new(config.models_dir.clone()));
+
     let state = Arc::new(AppState {
         config: config.clone(),
         db: db_pool,
@@ -99,6 +103,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         worker,
         scheduler,
         registry,
+        model_manager,
     });
 
     let app = routes::create_router(state);

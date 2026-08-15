@@ -1,0 +1,39 @@
+/* ── Leaflet/Map Performance (WebKitGTK) ─────────────────────────────────── */
+/* Force GPU compositing for map tiles — critical for WebKitGTK performance */
+.leaflet-container {
+  will-change: transform;
+  contain: layout style;
+}
+
+/* Tile layer GPU acceleration */
+.leaflet-tile-pane {
+  will-change: transform;
+}
+
+/* Marker cluster GPU hints */
+.leaflet-marker-cluster,
+.leaflet-marker-cluster div {
+  will-change: transform, opacity;
+}
+
+/* Canvas renderer performance (preferCanvas=true) */
+.leaflet-pane canvas {
+  will-change: transform;
+}
+
+/* Popup GPU compositing */
+.leaflet-popup-content-wrapper {
+  will-change: transform;
+}
+
+/* Custom photo marker GPU acceleration */
+.custom-photo-marker {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* Custom cluster icon GPU acceleration */
+.custom-cluster-icon {
+  will-change: transform, opacity;
+  transform: translateZ(0);
+}

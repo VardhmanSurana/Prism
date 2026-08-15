@@ -25,7 +25,9 @@ import { ComparisonView } from './lightbox/ComparisonView';
 import { AskAIPanel } from './lightbox/AskAIPanel';
 import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
 import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
+import { MobileEditor } from '@/components/Editor/mobile/MobileEditor';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
+import { usePlatform } from '@/hooks/usePlatform';
 
 interface LightboxProps {
   photo: Photo;
@@ -104,6 +106,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const isVideo = photo.type === 'video' || photo.file_type === 'video';
 
   const highRes = useImageHighRes({ photo });
+  const { isMobile } = usePlatform();
   useZoomShortcuts();
 
   const currentIndex = useMemo(
@@ -638,7 +641,16 @@ export const Lightbox: React.FC<LightboxProps> = ({
       )}
 
       {/* Editing overlay */}
-      {isEditing && (
+      {isEditing && isMobile && (
+        <MobileEditor
+          photo={photo}
+          onClose={() => {
+            setIsEditing(false);
+          }}
+        />
+      )}
+
+      {isEditing && !isMobile && (
         <EditingMode
           src={editingSrc}
           photoId={photo.id}

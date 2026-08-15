@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, Edit2, Save, X, Calendar, Camera, Type } from 'lucide-react';
+import { MapPin, Edit2, Save, X, Calendar, Camera, Type, FileText, Check, Copy, Loader2, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Photo } from '@/types';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -35,6 +35,9 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
   const [isSaving, setIsSaving] = useState(false);
   const [isCaptionEditing, setIsCaptionEditing] = useState(false);
   const [captionDraft, setCaptionDraft] = useState('');
+  const [ocrText, setOcrText] = useState<string>('');
+  const [isExtractingOcr, setIsExtractingOcr] = useState(false);
+  const [ocrCopied, setOcrCopied] = useState(false);
 
   // Form states
   const [dateTaken, setDateTaken] = useState('');
@@ -53,6 +56,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
       setDateTaken(p.date_taken ? new Date(p.date_taken).toISOString().slice(0, 16) : '');
       setCaption(p.caption || '');
       setCaptionDraft(p.caption || '');
+      setOcrText(p.ocr_text || '');
       setIsCaptionEditing(false);
       setCity(p.city || '');
       setStateName(p.state || '');
@@ -63,6 +67,34 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
       setExifIso(p.exif_iso ? String(p.exif_iso) : '');
     }
   }, [metadata, photo]);
+
+  const handleExtractOcr = async () => {
+    logAction('InfoPanel', 'extract_ocr', { photoId: photo.id });
+    setIsExtractingOcr(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/ocr`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.ocr_text) {
+          setOcrText(data.ocr_text);
+          onMetadataUpdated?.();
+        }
+      }
+    } catch (e) {
+      console.error('Failed to extract OCR:', e);
+    } finally {
+      setIsExtractingOcr(false);
+    }
+  };
+
+  const handleCopyOcr = () => {
+    if (!ocrText) return;
+    navigator.clipboard.writeText(ocrText);
+    setOcrCopied(true);
+    setTimeout(() => setOcrCopied(false), 2000);
+  };
 
   const handleSaveCaption = async () => {
     logAction('InfoPanel', 'save_caption', { photoId: photo.id });
@@ -369,6 +401,59 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
             <p className="text-xs text-gray-400 leading-relaxed bg-white/5 p-3 rounded-lg border border-white/5">{metadata.summary}</p>
           </section>
         )}
+
+        {/* ── Extracted Text (OCR) ── */}
+        <section className="space-y-2.5 pt-6 border-t border-white/5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+              <FileText size={12} className="text-blue-400" />
+              Extracted Text (OCR)
+            </h3>
+            {ocrText && (
+              <button
+                onClick={handleCopyOcr}
+                className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white transition-colors"
+                title="Copy text to clipboard"
+              >
+                {ocrCopied ? (
+                  <>
+                    <Check size={11} className="text-green-400" />
+                    <span className="text-green-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={11} />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+
+          {ocrText ? (
+            <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs text-gray-300 font-mono leading-relaxed whitespace-pre-wrap break-words max-h-48 overflow-y-auto custom-scrollbar">
+              {ocrText}
+            </div>
+          ) : (
+            <button
+              onClick={handleExtractOcr}
+              disabled={isExtractingOcr}
+              className="w-full py-2.5 px-3 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 hover:text-blue-300 text-xs font-medium flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50"
+            >
+              {isExtractingOcr ? (
+                <>
+                  <Loader2 size={13} className="animate-spin text-blue-400" />
+                  <span>Scanning text in photo...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} />
+                  <span>Extract Text (OCR)</span>
+                </>
+              )}
+            </button>
+          )}
+        </section>
 
         {metadata?.people && metadata.people.length > 0 && (
           <section className="space-y-3 pt-6 border-t border-white/5">

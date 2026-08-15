@@ -12,7 +12,8 @@ import {
   Trash2,
   ShieldAlert,
   Menu,
-  X
+  X,
+  Sparkles
 } from 'lucide-react';
 
 import { SyncSettings } from './SyncSettings';
@@ -24,12 +25,14 @@ import { ConfirmationDialog } from './ConfirmationDialog';
 import { StorageCleanup } from './storageCleanup';
 import { DiagnosticsLogs } from './DiagnosticsLogs';
 import { PrivacyDashboard } from './PrivacyDashboard';
+import { ModelManager } from './ModelManager';
 
 interface UtilitiesViewProps {
   onResetSuccess?: () => void;
 }
 
 const TABS = [
+  { id: 'models' as const, label: 'AI Models', displayLabel: 'AI Model Management', icon: Sparkles },
   { id: 'engine' as const, label: 'Engine Configuration', displayLabel: 'Engine Configuration', icon: Cpu },
   { id: 'storage' as const, label: 'Storage Cleanup', displayLabel: 'Storage Cleanup', icon: HardDrive },
   { id: 'diagnostics' as const, label: 'Diagnostics', displayLabel: 'System Diagnostics', icon: Activity },
@@ -37,7 +40,7 @@ const TABS = [
 ];
 
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'engine' | 'storage' | 'privacy' | 'diagnostics'>('engine');
+  const [activeTab, setActiveTab] = useState<'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('models');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hostCacheSize, setHostCacheSize] = useState<string | null>(null);
 
@@ -265,6 +268,12 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
           </div>
 
           {/* Active Tab Views */}
+          {activeTab === 'models' && (
+            <div>
+              <ModelManager />
+            </div>
+          )}
+
           {activeTab === 'storage' && (
             <div className="space-y-8">
               <StorageCleanup />

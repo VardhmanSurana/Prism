@@ -1,0 +1,64 @@
+:root {
+  /* RGB channels intentionally support Tailwind's alpha-value syntax. */
+  --color-primary: 255 255 255;
+  --color-ink: 255 255 255;
+  --color-canvas: 5 5 5;
+  --color-surface-popover: 12 12 12;
+  --bg-primary: #0F1115;
+  --bg-secondary: #161A20;
+  --bg-tertiary: #1E232B;
+  --accent: #2563eb;
+  /* Switch track tokens */
+  --switch-on: #4b5563;
+  --switch-on-hover: #6b7280;
+  --switch-off: #0c0c0c;
+  --switch-off-hover: #1a1c1e;
+  /* Status tokens */
+  --status-processing: #5e6ad2;
+  --status-processing-text: #828fff;
+}
+
+/* ── Google Photos Theme Variables & Overrides ─────────────────────────── */
+[data-theme="google"], .theme-google {
+  --color-primary: 168 199 250; /* Google Material Blue #A8C7FA */
+  --color-ink: 227 226 230;
+  --bg-primary: #131314;
+  --bg-secondary: #1E1F22;
+  --bg-tertiary: #28292C;
+
+  background-color: #131314 !important;
+  color: #E3E2E6 !important;
+}
+
+[data-theme="google"] .grain-overlay,
+[data-theme="google"] .mesh-atmos,
+.theme-google .grain-overlay,
+.theme-google .mesh-atmos {
+  display: none !important;
+}
+
+.theme-google font-serif,
+.theme-google .font-serif {
+  font-family: 'Google Sans', 'Product Sans', Roboto, Inter, system-ui, sans-serif !important;
+  font-style: normal !important;
+}
+
+.theme-google .google-search-input {
+  background-color: #28292C !important;
+  border-radius: 9999px !important;
+  border: none !important;
+  color: #E3E2E6 !important;
+}
+
+.theme-google .google-pill-active {
+  background-color: #004A77 !important;
+  color: #C2E7FF !important;
+  border-radius: 9999px !important;
+}
+
+.preset-card-selected {
+  border-color: rgb(var(--color-primary));
+  border-width: 2px;
+  box-shadow: 0 0 12px rgb(var(--color-primary) / 0.25);
+  transform: scale(1.02);
+}

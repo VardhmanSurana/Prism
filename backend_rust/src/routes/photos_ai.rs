@@ -17,7 +17,16 @@ pub async fn trigger_ocr(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id).await?;
     match state.ml_client.get_ocr_text(&photo.path).await {
-        Ok(resp) => Ok(Json(json!({ "photo_id": photo.id, "ocr_text": resp.text, "status": resp.status }))),
+        Ok(resp) => {
+            if let Some(ref text) = resp.text {
+                let _ = sqlx::query("UPDATE photos SET ocr_text = ? WHERE id = ?")
+                    .bind(text)
+                    .bind(photo.id)
+                    .execute(&state.db)
+                    .await;
+            }
+            Ok(Json(json!({ "photo_id": photo.id, "ocr_text": resp.text, "status": resp.status })))
+        }
         Err(e) => {
             warn!("OCR ML call failed: {}", e);
             Ok(Json(json!({ "photo_id": photo.id, "ocr_text": null, "error": e })))

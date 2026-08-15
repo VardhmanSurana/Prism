@@ -5,6 +5,9 @@ import { initGSAPDefaults } from '@/lib/motion-tokens';
 import { usePrismShortcuts } from './hooks/useKeyboardShortcuts';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
+import { MobileHeader } from './components/layout/header/MobileHeader';
+import { MobileBottomNav } from './components/layout/bottom-nav/MobileBottomNav';
+import { usePlatform } from './hooks/usePlatform';
 import { MainContent } from './components/layout/MainContent';
 import { BulkActionsBar } from './components/layout/bulk-actions-bar/BulkActionsBar';
 import { useEditStore } from '@/store/editStore';
@@ -49,7 +52,6 @@ function App() {
     isStatusLoading,
     selectedPhoto,
     setSelectedPhoto,
-    activeFilters,
     setActiveFilters,
     isLockedAuthenticated,
     setIsLockedAuthenticated,
@@ -89,6 +91,7 @@ function App() {
   } = useAppState();
 
   const { galleryStyle } = useGalleryLayout();
+  const { isMobile } = usePlatform();
   const { logAction, logNavigation, logError } = useTelemetry();
 
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
@@ -267,13 +270,15 @@ function App() {
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 
-        <Sidebar
-          currentView={currentView}
-          onChangeView={handleViewChange}
-        />
+        {!isMobile && (
+          <Sidebar
+            currentView={currentView}
+            onChangeView={handleViewChange}
+          />
+        )}
 
-        <main className="flex-1 flex flex-col min-w-0 relative z-10">
-          {currentView === 'gallery' && (
+        <main className="flex-1 flex flex-col min-w-0 relative z-10 pb-safe">
+          {!isMobile && currentView === 'gallery' && (
             <Header
               onSearch={setActiveFilters}
               sortMode={sortMode}
@@ -281,6 +286,16 @@ function App() {
               onChangeView={handleViewChange}
               onUpload={handleUpload}
               onImportProgress={setImportStatus}
+            />
+          )}
+
+          {isMobile && currentView === 'gallery' && (
+            <MobileHeader
+              currentView={currentView}
+              onSearch={setActiveFilters}
+              sortMode={sortMode}
+              onSortChange={setSortMode}
+              onChangeView={handleViewChange}
             />
           )}
 
@@ -366,7 +381,7 @@ function App() {
         <GoogleImportToast
           previewImg={displayedPhotos.length > 0 ? photoSrc(displayedPhotos[0]) : undefined}
           onStop={() => {
-            fetch(`${API_BASE}/api/v1/utilities/background-jobs/stop`, { method: 'POST' }).catch(() => {});
+            fetch(`${API_BASE}/api/v1/utilities/background-jobs/stop`, { method: 'POST' }).catch(() => { });
           }}
         />
 
@@ -404,6 +419,13 @@ function App() {
             onClose={() => setIsPhotoBookOpen(false)}
           />
         </Suspense>
+
+        {isMobile && (
+          <MobileBottomNav
+            currentView={currentView}
+            onChangeView={handleViewChange}
+          />
+        )}
       </div>
     </ErrorBoundary>
   );

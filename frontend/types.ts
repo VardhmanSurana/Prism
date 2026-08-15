@@ -35,6 +35,7 @@ export interface Photo {
 
   animated_url?: string;
   ai_summary?: string;
+  ocr_text?: string;
   latitude?: number;
   longitude?: number;
   summary?: string;
