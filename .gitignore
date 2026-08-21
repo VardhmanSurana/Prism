@@ -32,6 +32,8 @@ dist-ssr
 backend_rust/models/*
 backend_rust/thumbnails/*
 backend_rust/face_crops/*
+backend_rust/luts/*
+luts/
 
 # Ignore media and generated files
 models/
