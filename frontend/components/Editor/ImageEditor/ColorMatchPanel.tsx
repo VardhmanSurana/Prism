@@ -5,15 +5,17 @@
  */
 
 import React, { useState } from 'react';
-import { Pipette, Sparkles, Upload, RotateCcw, ChevronDown } from 'lucide-react';
+import { Pipette, Sparkles, Upload, RotateCcw, ChevronDown, Loader2 } from 'lucide-react';
 import { EditorSlider } from './ui/EditorSlider';
 
 interface ColorMatchPanelProps {
-  onApplyColorMatch: (refImageSrc: string, strength: number) => void;
+  onApplyColorMatch: (refImageSrc: string, strength: number) => Promise<void> | void;
+  isProcessing?: boolean;
 }
 
 export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({
   onApplyColorMatch,
+  isProcessing = false,
 }) => {
   const [refImageSrc, setRefImageSrc] = useState<string | null>(null);
   const [strength, setStrength] = useState<number>(80);
@@ -38,7 +40,7 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({
   };
 
   const handleMatch = () => {
-    if (!refImageSrc) return;
+    if (!refImageSrc || isProcessing) return;
     onApplyColorMatch(refImageSrc, strength);
   };
 
@@ -149,11 +151,20 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({
       <div className="space-y-2">
         <button
           onClick={handleMatch}
-          disabled={!refImageSrc}
+          disabled={!refImageSrc || isProcessing}
           className="w-full py-2.5 px-4 rounded-xl bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-30 flex items-center justify-center gap-2"
         >
-          <Sparkles size={13} />
-          <span>Apply 3D Histogram Match</span>
+          {isProcessing ? (
+            <>
+              <Loader2 size={13} className="animate-spin" />
+              <span>Matching Palette...</span>
+            </>
+          ) : (
+            <>
+              <Sparkles size={13} />
+              <span>Apply 3D Histogram Match</span>
+            </>
+          )}
         </button>
       </div>
     </div>

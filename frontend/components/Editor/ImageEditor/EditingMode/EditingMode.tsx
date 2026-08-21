@@ -39,7 +39,7 @@ import { LassoPanel } from '../LassoPanel';
 import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
 import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
-import { applyColorMatch } from '../colorMatchEngine';
+import { matchColorBetweenImages } from '../colorMatchEngine';
 
 import { HistoryActionType } from '../history';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -193,43 +193,40 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }, 2800);
   }, []);
 
+  const [isColorMatching, setIsColorMatching] = useState(false);
+
   const handleApplyColorMatch = useCallback(async (refSrc: string, strength: number) => {
+    if (isColorMatching || !refSrc) return;
+    setIsColorMatching(true);
+
     try {
-      const refImg = new Image();
-      refImg.crossOrigin = 'anonymous';
-      refImg.onload = () => {
-        const refCanvas = document.createElement('canvas');
-        refCanvas.width = refImg.naturalWidth;
-        refCanvas.height = refImg.naturalHeight;
-        const rCtx = refCanvas.getContext('2d', { willReadFrequently: true });
-        if (!rCtx) return;
-        rCtx.drawImage(refImg, 0, 0);
-        const refData = rCtx.getImageData(0, 0, refCanvas.width, refCanvas.height);
+      const blobUrl = await matchColorBetweenImages(currentImageSrc, refSrc, strength);
+      revokeLocalUrl();
+      historyState.createdUrlRef.current = blobUrl;
 
-        const targetImg = new Image();
-        targetImg.crossOrigin = 'anonymous';
-        targetImg.onload = () => {
-          const targetCanvas = document.createElement('canvas');
-          targetCanvas.width = targetImg.naturalWidth;
-          targetCanvas.height = targetImg.naturalHeight;
-          const tCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
-          if (!tCtx) return;
-          tCtx.drawImage(targetImg, 0, 0);
-          const targetData = tCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
-
-          applyColorMatch(targetData, refData, strength);
-          tCtx.putImageData(targetData, 0, 0);
-
-          const matchedUrl = targetCanvas.toDataURL('image/png');
-          setCurrentImageSrc(matchedUrl);
-        };
-        targetImg.src = currentImageSrc;
-      };
-      refImg.src = refSrc;
+      setCurrentImageSrc(blobUrl);
+      addHistoryEntry(
+        'filter' as HistoryActionType,
+        `Applied Shot Matcher (${strength}%)`,
+        undefined,
+        blobUrl
+      );
+      showToast('Color palette matched successfully');
     } catch (e) {
       console.error('Color match failed:', e);
+      showToast('Failed to apply color match', true);
+    } finally {
+      setIsColorMatching(false);
     }
-  }, [currentImageSrc, setCurrentImageSrc]);
+  }, [
+    currentImageSrc,
+    isColorMatching,
+    revokeLocalUrl,
+    setCurrentImageSrc,
+    addHistoryEntry,
+    showToast,
+    historyState.createdUrlRef,
+  ]);
 
   const handleRawSettingsChange = useCallback((raw: RawSettings) => {
     setRawSettings(raw);
@@ -884,6 +881,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             ['colormatch', <ColorMatchPanel
               key="colormatch"
               onApplyColorMatch={handleApplyColorMatch}
+              isProcessing={isColorMatching}
             />],
             ['lasso', <LassoPanel
               key="lasso"
