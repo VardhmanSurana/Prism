@@ -3,7 +3,32 @@
  * Common TypeScript definitions for annotation elements, drawn markers, shapes, and properties.
  */
 
-type AnnotationToolType = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'highlighter' | 'text' | 'textPath';
+export type VectorShapeType =
+  | 'rect'
+  | 'roundedRect'
+  | 'circle'
+  | 'triangle'
+  | 'rightTriangle'
+  | 'diamond'
+  | 'pentagon'
+  | 'hexagon'
+  | 'star'
+  | 'fourPointStar'
+  | 'heart'
+  | 'lightning'
+  | 'speechBubble'
+  | 'cloud'
+  | 'arrow'
+  | 'doubleArrow'
+  | 'line';
+
+export type AnnotationToolType =
+  | VectorShapeType
+  | 'freehand'
+  | 'eraser'
+  | 'highlighter'
+  | 'text'
+  | 'textPath';
 
 export interface Annotation {
   id: string;
@@ -42,4 +67,8 @@ export interface Annotation {
   fillOpacity?: number;
 }
 
-export type DrawToolId = 'arrow' | 'circle' | 'rect' | 'freehand' | 'eraser' | 'select' | 'highlighter' | 'text' | 'textPath' | 'emoji';
+export type DrawToolId =
+  | AnnotationToolType
+  | 'select'
+  | 'emoji';
+

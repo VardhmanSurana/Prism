@@ -4,5 +4,5 @@
  */
 
 export { AnnotationsPanel } from './AnnotationsPanel';
-export type { Annotation, DrawToolId } from './types';
+export type { Annotation, DrawToolId, VectorShapeType } from './types';
 export type { AnnotationsPanelProps } from './AnnotationsPanel';

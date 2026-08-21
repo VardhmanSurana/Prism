@@ -9,6 +9,7 @@ import {
   RectRenderer,
   CircleRenderer,
   TextPathRenderer,
+  VectorShapeRenderer,
 } from './Renderers';
 
 const hexToRgba = (hex: string, opacity: number): string => {
@@ -125,13 +126,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
       return null;
     }
     switch (ann.type) {
-      case 'arrow': return <ArrowRenderer key={ann.id} ann={ann} />;
       case 'freehand': return <FreehandRenderer key={ann.id} ann={ann} />;
       case 'highlighter': return <HighlighterRenderer key={ann.id} ann={ann} />;
-      case 'rect': return <RectRenderer key={ann.id} ann={ann} />;
-      case 'circle': return <CircleRenderer key={ann.id} ann={ann} />;
       case 'textPath': return <TextPathRenderer key={ann.id} ann={ann} />;
-      default: return null;
+      default: return <VectorShapeRenderer key={ann.id} ann={ann} />;
     }
   };
 

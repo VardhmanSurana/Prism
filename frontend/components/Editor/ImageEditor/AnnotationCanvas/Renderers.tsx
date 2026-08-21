@@ -1,6 +1,12 @@
 import React from 'react';
 import { Annotation } from '../AnnotationsPanel';
 import { smoothPath } from './utils';
+import {
+  VectorShapeType,
+  getPolygonPoints,
+  getShapePathString,
+  normalizeBounds,
+} from './shapeUtils';
 
 interface RendererProps {
   ann: Annotation;
@@ -94,51 +100,205 @@ export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
-export const RectRenderer = React.memo(({ ann }: RendererProps) => {
-  if (!ann.bounds) return null;
-  const b = ann.bounds;
-  const x = b.w < 0 ? b.x + b.w : b.x;
-  const y = b.h < 0 ? b.y + b.h : b.y;
-  const w = Math.abs(b.w);
-  const h = Math.abs(b.h);
+export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
+  const fill = ann.fillShape ? ann.color : 'none';
+  const fillOpacity = ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined;
+  const stroke = ann.color;
+  const strokeWidth = ann.strokeWidth * 1.5;
+  const opacity = ann.opacity ?? 1;
 
-  return (
-    <rect
-      x={x}
-      y={y}
-      width={w}
-      height={h}
-      fill={ann.fillShape ? ann.color : 'none'}
-      fillOpacity={ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined}
-      stroke={ann.color}
-      strokeWidth={ann.strokeWidth * 1.5}
-      opacity={ann.opacity ?? 1}
-    />
-  );
+  if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
+    const start = ann.points[0];
+    const end = ann.points[ann.points.length - 1];
+    return (
+      <line
+        x1={start.x}
+        y1={start.y}
+        x2={end.x}
+        y2={end.y}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinecap="round"
+        opacity={opacity}
+      />
+    );
+  }
+
+  if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
+    const start = ann.points[0];
+    const end = ann.points[ann.points.length - 1];
+    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const headLength = Math.max(20, ann.strokeWidth * 4);
+
+    const xTip = end.x;
+    const yTip = end.y;
+    const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
+    const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
+    const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
+    const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
+    const xBase = end.x - headLength * Math.cos(angle) * 0.8;
+    const yBase = end.y - headLength * Math.sin(angle) * 0.8;
+
+    return (
+      <g opacity={opacity}>
+        <line
+          x1={start.x}
+          y1={start.y}
+          x2={xBase}
+          y2={yBase}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <polygon
+          points={`${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}`}
+          fill={stroke}
+        />
+      </g>
+    );
+  }
+
+  if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
+    const start = ann.points[0];
+    const end = ann.points[ann.points.length - 1];
+    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const headLength = Math.max(20, ann.strokeWidth * 4);
+
+    // End arrowhead
+    const xTip1 = end.x;
+    const yTip1 = end.y;
+    const xLeft1 = end.x - headLength * Math.cos(angle - Math.PI / 6);
+    const yLeft1 = end.y - headLength * Math.sin(angle - Math.PI / 6);
+    const xRight1 = end.x - headLength * Math.cos(angle + Math.PI / 6);
+    const yRight1 = end.y - headLength * Math.sin(angle + Math.PI / 6);
+    const xBase1 = end.x - headLength * Math.cos(angle) * 0.8;
+    const yBase1 = end.y - headLength * Math.sin(angle) * 0.8;
+
+    // Start arrowhead
+    const xTip0 = start.x;
+    const yTip0 = start.y;
+    const xLeft0 = start.x + headLength * Math.cos(angle - Math.PI / 6);
+    const yLeft0 = start.y + headLength * Math.sin(angle - Math.PI / 6);
+    const xRight0 = start.x + headLength * Math.cos(angle + Math.PI / 6);
+    const yRight0 = start.y + headLength * Math.sin(angle + Math.PI / 6);
+    const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
+    const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
+
+    return (
+      <g opacity={opacity}>
+        <line
+          x1={xBase0}
+          y1={yBase0}
+          x2={xBase1}
+          y2={yBase1}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+        <polygon
+          points={`${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}`}
+          fill={stroke}
+        />
+        <polygon
+          points={`${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}`}
+          fill={stroke}
+        />
+      </g>
+    );
+  }
+
+  if (!ann.bounds) return null;
+  const { x, y, w, h } = normalizeBounds(ann.bounds);
+
+  if (ann.type === 'rect') {
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+  }
+
+  if (ann.type === 'roundedRect') {
+    const r = Math.min(w, h) * 0.15;
+    return (
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={r}
+        ry={r}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+  }
+
+  if (ann.type === 'circle') {
+    return (
+      <ellipse
+        cx={x + w / 2}
+        cy={y + h / 2}
+        rx={w / 2}
+        ry={h / 2}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        opacity={opacity}
+      />
+    );
+  }
+
+  // Geometric regular polygon shapes
+  const polyPoints = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
+  if (polyPoints) {
+    return (
+      <polygon
+        points={polyPoints}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        opacity={opacity}
+      />
+    );
+  }
+
+  // Path-based shapes (heart, speechBubble, cloud)
+  const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
+  if (pathD) {
+    return (
+      <path
+        d={pathD}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        opacity={opacity}
+      />
+    );
+  }
+
+  return null;
 }, arePropsEqual);
 
-export const CircleRenderer = React.memo(({ ann }: RendererProps) => {
-  if (!ann.bounds) return null;
-  const b = ann.bounds;
-  const cx = b.x + b.w / 2;
-  const cy = b.y + b.h / 2;
-  const rx = Math.abs(b.w) / 2;
-  const ry = Math.abs(b.h) / 2;
-
-  return (
-    <ellipse
-      cx={cx}
-      cy={cy}
-      rx={rx}
-      ry={ry}
-      fill={ann.fillShape ? ann.color : 'none'}
-      fillOpacity={ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined}
-      stroke={ann.color}
-      strokeWidth={ann.strokeWidth * 1.5}
-      opacity={ann.opacity ?? 1}
-    />
-  );
-}, arePropsEqual);
+export const RectRenderer = VectorShapeRenderer;
+export const CircleRenderer = VectorShapeRenderer;
 
 const calculatePathLength = (points: { x: number; y: number }[]) => {
   let length = 0;

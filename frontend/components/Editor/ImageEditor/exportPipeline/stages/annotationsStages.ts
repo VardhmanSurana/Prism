@@ -5,6 +5,12 @@
 
 import { Annotation } from '../../AnnotationsPanel';
 import { smoothPath } from '../../AnnotationCanvas/utils';
+import {
+  getPolygonPoints,
+  getShapePathString,
+  normalizeBounds,
+  VectorShapeType,
+} from '../../AnnotationCanvas/shapeUtils';
 
 export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[]): Promise<HTMLCanvasElement> => {
   if (!annotations || annotations.length === 0) return Promise.resolve(canvas);
@@ -27,6 +33,10 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         const hOpacity = ann.opacity ?? 0.4;
         svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${hOpacity}" style="mix-blend-mode: multiply" />`;
+      } else if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
+        const start = ann.points[0];
+        const end = ann.points[ann.points.length - 1];
+        svgContent += `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round"${opacityAttr} />`;
       } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
         const start = ann.points[0];
         const end = ann.points[ann.points.length - 1];
@@ -38,24 +48,62 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
         const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
         const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
+        const xBase = end.x - headLength * Math.cos(angle) * 0.8;
+        const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
-        svgContent += `<g${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
-      } else if (ann.type === 'rect' && ann.bounds) {
-        const b = ann.bounds;
-        const x = b.w < 0 ? b.x + b.w : b.x;
-        const y = b.h < 0 ? b.y + b.h : b.y;
-        const wVal = Math.abs(b.w);
-        const hVal = Math.abs(b.h);
+        svgContent += `<g${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${xBase}" y2="${yBase}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
+      } else if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
+        const start = ann.points[0];
+        const end = ann.points[ann.points.length - 1];
+        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const headLength = Math.max(20, ann.strokeWidth * 3.5);
+
+        const xTip1 = end.x;
+        const yTip1 = end.y;
+        const xLeft1 = end.x - headLength * Math.cos(angle - Math.PI / 6);
+        const yLeft1 = end.y - headLength * Math.sin(angle - Math.PI / 6);
+        const xRight1 = end.x - headLength * Math.cos(angle + Math.PI / 6);
+        const yRight1 = end.y - headLength * Math.sin(angle + Math.PI / 6);
+        const xBase1 = end.x - headLength * Math.cos(angle) * 0.8;
+        const yBase1 = end.y - headLength * Math.sin(angle) * 0.8;
+
+        const xTip0 = start.x;
+        const yTip0 = start.y;
+        const xLeft0 = start.x + headLength * Math.cos(angle - Math.PI / 6);
+        const yLeft0 = start.y + headLength * Math.sin(angle - Math.PI / 6);
+        const xRight0 = start.x + headLength * Math.cos(angle + Math.PI / 6);
+        const yRight0 = start.y + headLength * Math.sin(angle + Math.PI / 6);
+        const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
+        const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
+
+        svgContent += `<g${opacityAttr}><line x1="${xBase0}" y1="${yBase0}" x2="${xBase1}" y2="${yBase1}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}" fill="${ann.color}" /><polygon points="${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}" fill="${ann.color}" /></g>`;
+      } else if (ann.bounds && ann.type !== 'text') {
+        const { x, y, w, h } = normalizeBounds(ann.bounds);
         const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
-        svgContent += `<rect x="${x}" y="${y}" width="${wVal}" height="${hVal}"${fillAttr} stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
-      } else if (ann.type === 'circle' && ann.bounds) {
-        const b = ann.bounds;
-        const cx = b.x + b.w / 2;
-        const cy = b.y + b.h / 2;
-        const rx = Math.abs(b.w) / 2;
-        const ry = Math.abs(b.h) / 2;
-        const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
-        svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${fillAttr} stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"${opacityAttr} />`;
+        const strokeAttr = ` stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"`;
+
+        if (ann.type === 'rect') {
+          svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+        } else if (ann.type === 'roundedRect') {
+          const r = Math.min(w, h) * 0.15;
+          svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+        } else if (ann.type === 'circle') {
+          const cx = x + w / 2;
+          const cy = y + h / 2;
+          const rx = w / 2;
+          const ry = h / 2;
+          svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+        } else {
+          const polyPts = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
+          if (polyPts) {
+            svgContent += `<polygon points="${polyPts}"${fillAttr}${strokeAttr} stroke-linejoin="round"${opacityAttr} />`;
+          } else {
+            const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
+            if (pathD) {
+              svgContent += `<path d="${pathD}"${fillAttr}${strokeAttr} stroke-linejoin="round" stroke-linecap="round"${opacityAttr} />`;
+            }
+          }
+        }
       } else if (ann.type === 'textPath' && ann.points && ann.points.length >= 2) {
         const pathId = `path-${ann.id}`;
         const smoothed = smoothPath(ann.points);

@@ -13,6 +13,7 @@ import { DoodleSettingsSection } from './DoodleSettingsSection';
 import { LayersListSection } from './LayersListSection';
 import { EmojiPicker } from '../EmojiPicker';
 import { EditorSlider } from '../ui/EditorSlider';
+import { isBoundedShape } from '../AnnotationCanvas/shapeUtils';
 
 export interface AnnotationsPanelProps {
   annotations: Annotation[];
@@ -228,7 +229,7 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
         )}
 
         {/* Selected Shape Fill Properties Panel */}
-        {selectedAnn && (selectedAnn.type === 'rect' || selectedAnn.type === 'circle') && (
+        {selectedAnn && isBoundedShape(selectedAnn.type) && (
           <div className="p-3.5 bg-white/[0.02] border border-white/5 rounded-2xl space-y-4 shadow-md mt-4">
             <div className="flex items-center gap-1.5 pb-1.5 border-b border-white/5">
               <span className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />

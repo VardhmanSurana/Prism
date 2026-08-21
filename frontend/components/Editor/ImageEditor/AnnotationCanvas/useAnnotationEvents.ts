@@ -234,8 +234,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       return;
     }
 
-    isDrawing.current = true;
-    startPos.current = { x, y };
+    const isPointShape = activeDrawTool === 'freehand' ||
+      activeDrawTool === 'arrow' ||
+      activeDrawTool === 'doubleArrow' ||
+      activeDrawTool === 'line' ||
+      activeDrawTool === 'highlighter' ||
+      activeDrawTool === 'textPath';
 
     const newAnn: Annotation = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -243,7 +247,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       color: activeColor,
       opacity: activeDrawTool === 'highlighter' ? 0.4 : activeOpacity,
       strokeWidth: activeDrawTool === 'highlighter' ? strokeWidth * 2.5 : strokeWidth,
-      ...(activeDrawTool === 'freehand' || activeDrawTool === 'arrow' || activeDrawTool === 'highlighter' || activeDrawTool === 'textPath'
+      ...(isPointShape
         ? { points: [{ x, y }] }
         : { bounds: { x, y, w: 0, h: 0 } }),
       ...(activeDrawTool === 'textPath' ? {
@@ -452,12 +456,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
             ...currentCurrentAnn,
             points: [...currentCurrentAnn.points, { x, y }],
           });
-        } else if (currentCurrentAnn.type === 'arrow' && currentCurrentAnn.points) {
+        } else if ((currentCurrentAnn.type === 'arrow' || currentCurrentAnn.type === 'doubleArrow' || currentCurrentAnn.type === 'line') && currentCurrentAnn.points) {
           setCurrentAnn({
             ...currentCurrentAnn,
             points: [currentCurrentAnn.points[0], { x, y }],
           });
-        } else if (currentCurrentAnn.type === 'rect' || currentCurrentAnn.type === 'circle') {
+        } else if (currentCurrentAnn.bounds) {
           setCurrentAnn({
             ...currentCurrentAnn,
             bounds: {
@@ -493,8 +497,25 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
     if (currentAnn) {
       let valid = true;
-      if ((currentAnn.type === 'freehand' || currentAnn.type === 'highlighter' || currentAnn.type === 'arrow' || currentAnn.type === 'textPath') && currentAnn.points && currentAnn.points.length < 2) valid = false;
-      if ((currentAnn.type === 'rect' || currentAnn.type === 'circle') && currentAnn.bounds && Math.abs(currentAnn.bounds.w) < 3 && Math.abs(currentAnn.bounds.h) < 3) valid = false;
+      if (
+        (currentAnn.type === 'freehand' ||
+          currentAnn.type === 'highlighter' ||
+          currentAnn.type === 'arrow' ||
+          currentAnn.type === 'doubleArrow' ||
+          currentAnn.type === 'line' ||
+          currentAnn.type === 'textPath') &&
+        currentAnn.points &&
+        currentAnn.points.length < 2
+      ) {
+        valid = false;
+      }
+      if (
+        currentAnn.bounds &&
+        Math.abs(currentAnn.bounds.w) < 3 &&
+        Math.abs(currentAnn.bounds.h) < 3
+      ) {
+        valid = false;
+      }
 
       if (valid) onChange([...annotations, currentAnn]);
     }

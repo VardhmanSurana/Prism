@@ -47,10 +47,11 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
     return minDist;
   }
 
-  if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
+  if ((ann.type === 'arrow' || ann.type === 'doubleArrow' || ann.type === 'line') && ann.points && ann.points.length >= 2) {
     return distToSegment(p, ann.points[0], ann.points[ann.points.length - 1]);
   }
-  if ((ann.type === 'rect' || ann.type === 'text') && ann.bounds) {
+
+  if (ann.bounds) {
     const b = ann.bounds;
     const x0 = b.w < 0 ? b.x + b.w : b.x;
     const y0 = b.h < 0 ? b.y + b.h : b.y;
@@ -66,25 +67,6 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
 
     return Math.min(dLeft, dRight, dTop, dBottom);
   }
-  if (ann.type === 'circle' && ann.bounds) {
-    const b = ann.bounds;
-    const cx = b.x + b.w / 2;
-    const cy = b.y + b.h / 2;
-    const rx = Math.abs(b.w) / 2;
-    const ry = Math.abs(b.h) / 2;
-
-    if (rx > 0 && ry > 0) {
-      const normalizedDist = ((p.x - cx) ** 2) / (rx ** 2) + ((p.y - cy) ** 2) / (ry ** 2);
-      if (normalizedDist <= 1) return 0;
-    }
-
-    const angle = Math.atan2(p.y - cy, p.x - cx);
-    const borderPoint = {
-      x: cx + rx * Math.cos(angle),
-      y: cy + ry * Math.sin(angle),
-    };
-    return pointDistance(p, borderPoint);
-  }
   return Infinity;
 };
 
@@ -92,7 +74,7 @@ const HANDLE_THRESHOLD = 30;
 
 export const detectHandleClick = (x: number, y: number, ann: Annotation): HandleId | null => {
   if (ann.type === 'text') return null;
-  if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
+  if ((ann.type === 'arrow' || ann.type === 'doubleArrow' || ann.type === 'line') && ann.points && ann.points.length >= 2) {
     if (pointDistance({ x, y }, ann.points[0]) < HANDLE_THRESHOLD) return 'ep0';
     if (pointDistance({ x, y }, ann.points[ann.points.length - 1]) < HANDLE_THRESHOLD) return 'ep1';
     return null;
