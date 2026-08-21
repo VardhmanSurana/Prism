@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { ColorWheelsAdjustments, ColorWheelVal, DEFAULT_COLOR_WHEEL_VAL } from './filterEngine';
 import { RotateCcw } from 'lucide-react';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface ColorWheelsPanelProps {
   value: ColorWheelsAdjustments;
@@ -108,18 +109,15 @@ const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }
       </div>
 
       {/* Master Luminance Slider */}
-      <div className="w-full flex flex-col gap-1">
-        <div className="flex justify-between text-[9px] text-white/40 uppercase font-mono">
-          <span>Y (Luma)</span>
-          <span>{val.yuma > 0 ? `+${val.yuma}` : val.yuma}</span>
-        </div>
-        <input
-          type="range"
+      <div className="w-full pt-1">
+        <EditorSlider
+          label="Y (Luma)"
+          value={val.yuma}
+          onChange={(yuma) => onChange({ ...val, yuma })}
           min={-100}
           max={100}
-          value={val.yuma}
-          onChange={(e) => onChange({ ...val, yuma: parseInt(e.target.value, 10) })}
-          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-white"
+          defaultValue={0}
+          bipolar
         />
       </div>
     </div>
@@ -139,17 +137,17 @@ export const ColorWheelsPanel: React.FC<ColorWheelsPanelProps> = ({ value, onCha
       <div className="flex rounded-lg bg-black/40 p-1 border border-white/5">
         <button
           onClick={() => setMode('primary')}
-          className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all ${
-            mode === 'primary' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
-          }`}
+          className={`editor-btn editor-chip-btn ${
+            mode === 'primary' ? 'active' : ''
+          } flex-1 py-1.5 text-[11px] font-medium`}
         >
           Primary (3-Way)
         </button>
         <button
           onClick={() => setMode('log')}
-          className={`flex-1 py-1.5 text-[11px] font-medium rounded-md transition-all ${
-            mode === 'log' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
-          }`}
+          className={`editor-btn editor-chip-btn ${
+            mode === 'log' ? 'active' : ''
+          } flex-1 py-1.5 text-[11px] font-medium`}
         >
           Log Wheels
         </button>
@@ -206,36 +204,26 @@ export const ColorWheelsPanel: React.FC<ColorWheelsPanelProps> = ({ value, onCha
           </div>
 
           {/* Log Pivot Sliders */}
-          <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-[10px] text-white/60">
-                <span>Low Pivot (Shadow Limit)</span>
-                <span className="font-mono text-white/80">{value.lowPivot}%</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={50}
-                value={value.lowPivot}
-                onChange={(e) => onChange({ ...value, lowPivot: parseInt(e.target.value, 10) })}
-                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-400"
-              />
-            </div>
+          <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 flex flex-col gap-3.5">
+            <EditorSlider
+              label="Low Pivot (Shadow Limit)"
+              value={value.lowPivot}
+              onChange={(lowPivot) => onChange({ ...value, lowPivot })}
+              min={0}
+              max={50}
+              defaultValue={20}
+              unit="%"
+            />
 
-            <div className="flex flex-col gap-1">
-              <div className="flex justify-between text-[10px] text-white/60">
-                <span>High Pivot (Highlight Limit)</span>
-                <span className="font-mono text-white/80">{value.highPivot}%</span>
-              </div>
-              <input
-                type="range"
-                min={50}
-                max={100}
-                value={value.highPivot}
-                onChange={(e) => onChange({ ...value, highPivot: parseInt(e.target.value, 10) })}
-                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-red-400"
-              />
-            </div>
+            <EditorSlider
+              label="High Pivot (Highlight Limit)"
+              value={value.highPivot}
+              onChange={(highPivot) => onChange({ ...value, highPivot })}
+              min={50}
+              max={100}
+              defaultValue={80}
+              unit="%"
+            />
           </div>
         </div>
       )}

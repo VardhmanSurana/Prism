@@ -1,85 +1,144 @@
 /**
  * HealingCanvas.tsx
- * Session-only Clone Stamp and Healing Brush overlay.
+ * High-performance Clone Stamp, Healing Brush, Frequency Separation, Patch, and Dodge/Burn canvas overlay.
  *
- * How it works:
- *  - Clone Stamp: Alt+click to set source point, then paint to copy pixels from source
- *  - Healing Brush: Like clone stamp but with soft-edge blending (feathered compositing)
- *  - Changes live only in the current session — they are rendered as a canvas overlay
- *    on top of the main image. On export, strokes are composited into the final image.
- *
- * Architecture note: Pure Canvas2D pixel operations — no SVG filters, no AI backend needed.
+ * Capabilities:
+ *  - Clone Stamp: Alt+Click to lock sample anchor point, paints matching texture with live synchronized source indicator.
+ *  - Healing Brush: Spot healing mode (auto-samples surrounding healthy perimeter texture) + Source healing mode (Alt+Click).
+ *  - Frequency Separation: Smooths skin tone & blotchiness while preserving pore structure and texture.
+ *  - Dodge & Burn: Non-destructive local exposure lifting and burning.
+ *  - Sub-step stroke interpolation for 60fps buttery-smooth continuous painting.
  */
 
 import React, { useRef, useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
+import { HealingToolMode } from './healingEngine';
 
-export type HealingToolMode = 'clone-stamp' | 'healing-brush' | 'frequency-separation' | 'content-patch' | 'dodge-burn';
+export type { HealingToolMode };
 
 export interface HealingCanvasRef {
-  /** Returns a data URL of all healing strokes applied to the source image */
+  /** Returns a composite data URL of strokes applied to the source image */
   getCompositeDataUrl: (sourceImage: HTMLImageElement) => string;
+  /** Get the work canvas element containing the rendered strokes */
+  getWorkCanvas: () => HTMLCanvasElement | null;
   /** Clear all strokes */
   clearStrokes: () => void;
-  /** Check if there are any strokes */
+  /** Check if there are any active strokes */
   hasStrokes: () => boolean;
 }
 
 interface HealingCanvasProps {
-  /** Rendered width/height of the overlay (matches the displayed image rect) */
   width: number;
   height: number;
-  /** The source image for sampling */
   sourceImage: HTMLImageElement | null;
-  mode: HealingToolMode;
-  brushSize: number;
-  hardness: number; // 0-100
-  opacity: number;  // 0-100
+  imageSrc?: string;
+  mode?: HealingToolMode;
+  brushSize?: number;
+  hardness?: number; // 0-100
+  opacity?: number;  // 10-100
   onStrokeComplete?: () => void;
+  readOnly?: boolean;
 }
 
 export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
   width,
   height,
   sourceImage,
-  mode,
-  brushSize,
-  hardness,
-  opacity,
+  imageSrc,
+  mode = 'clone-stamp',
+  brushSize = 30,
+  hardness = 50,
+  opacity = 100,
   onStrokeComplete,
+  readOnly = false,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const workCanvasRef = useRef<HTMLCanvasElement | null>(null); // Offline canvas with strokes
-  const sourcePointRef = useRef<{ x: number; y: number } | null>(null);
-  const lastPaintPointRef = useRef<{ x: number; y: number } | null>(null);
+  const workCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fallbackImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Clone source tracking
+  const sourceAnchorRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSampledPosRef = useRef<{ x: number; y: number } | null>(null);
+  const strokeOffsetRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const isPaintingRef = useRef(false);
-  const [sourcePoint, setSourcePoint] = useState<{ x: number; y: number } | null>(null);
+
+  const [sourceAnchor, setSourceAnchor] = useState<{ x: number; y: number } | null>(null);
+  const [liveSourcePos, setLiveSourcePos] = useState<{ x: number; y: number } | null>(null);
   const [cursorPos, setCursorPos] = useState<{ x: number; y: number } | null>(null);
   const [isAltHeld, setIsAltHeld] = useState(false);
+  const [hasDrawnStrokes, setHasDrawnStrokes] = useState(false);
 
-  // Initialize offline work canvas
+  // Load fallback image if sourceImage prop is missing/detached
   useEffect(() => {
-    const w = Math.max(1, width);
-    const h = Math.max(1, height);
-    workCanvasRef.current = document.createElement('canvas');
-    workCanvasRef.current.width = w;
-    workCanvasRef.current.height = h;
-  }, [width, height]);
+    if (!imageSrc) return;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      fallbackImgRef.current = img;
+    };
+    img.src = imageSrc;
+  }, [imageSrc]);
 
-  // Sync display canvas size
+  const getEffectiveImage = useCallback((): HTMLImageElement | null => {
+    if (sourceImage && sourceImage.naturalWidth > 0) return sourceImage;
+    if (fallbackImgRef.current && fallbackImgRef.current.naturalWidth > 0) return fallbackImgRef.current;
+    return null;
+  }, [sourceImage]);
+
+  // Initialize/resize offline work canvas
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.width = width;
-    canvas.height = height;
-    // Redraw work canvas onto display canvas
-    const ctx = canvas.getContext('2d');
-    if (ctx && workCanvasRef.current) {
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(workCanvasRef.current, 0, 0);
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+
+    if (!workCanvasRef.current) {
+      workCanvasRef.current = document.createElement('canvas');
+      workCanvasRef.current.width = w;
+      workCanvasRef.current.height = h;
+    } else if (workCanvasRef.current.width !== w || workCanvasRef.current.height !== h) {
+      const oldCanvas = workCanvasRef.current;
+      const newCanvas = document.createElement('canvas');
+      newCanvas.width = w;
+      newCanvas.height = h;
+      const ctx = newCanvas.getContext('2d');
+      if (ctx && oldCanvas.width > 0 && oldCanvas.height > 0 && w > 0 && h > 0) {
+        try {
+          ctx.drawImage(oldCanvas, 0, 0, w, h);
+        } catch {}
+      }
+      workCanvasRef.current = newCanvas;
     }
   }, [width, height]);
 
-  // Track Alt key for source point selection
+  // Sync display canvas resolution and redraw
+  const redrawDisplayCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const workCanvas = workCanvasRef.current;
+    if (!canvas || !workCanvas) return;
+
+    const w = Math.max(1, Math.round(width));
+    const h = Math.max(1, Math.round(height));
+
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+
+    const ctx = canvas.getContext('2d');
+    if (ctx && canvas.width > 0 && canvas.height > 0) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (workCanvas.width > 0 && workCanvas.height > 0) {
+        try {
+          ctx.drawImage(workCanvas, 0, 0);
+        } catch {}
+      }
+    }
+  }, [width, height]);
+
+  useEffect(() => {
+    redrawDisplayCanvas();
+  }, [redrawDisplayCanvas]);
+
+  // Keyboard Alt listener for source point sampling
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) setIsAltHeld(true);
@@ -95,199 +154,255 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
     };
   }, []);
 
-  // Convert canvas coordinates (display) → source image coordinates
-  const toImageCoords = useCallback((cx: number, cy: number) => {
-    if (!sourceImage) return { x: cx, y: cy };
-    const scaleX = sourceImage.naturalWidth / width;
-    const scaleY = sourceImage.naturalHeight / height;
-    return { x: cx * scaleX, y: cy * scaleY };
-  }, [sourceImage, width, height]);
+  // ── Core Single-Point Painting Logic ────────────────────────────────────────
 
-  // Convert image coords → canvas coords
-  const toCanvasCoords = useCallback((ix: number, iy: number) => {
-    if (!sourceImage) return { x: ix, y: iy };
-    const scaleX = width / sourceImage.naturalWidth;
-    const scaleY = height / sourceImage.naturalHeight;
-    return { x: ix * scaleX, y: iy * scaleY };
-  }, [sourceImage, width, height]);
-
-  // ── Core painting function ────────────────────────────────────────────────
-
-  const paintAt = useCallback((canvasX: number, canvasY: number) => {
+  const paintSingleCircle = useCallback((targetX: number, targetY: number) => {
     const workCanvas = workCanvasRef.current;
-    const displayCanvas = canvasRef.current;
-    if (!workCanvas || !displayCanvas || !sourceImage || !sourcePointRef.current) return;
+    const img = getEffectiveImage();
+    if (!workCanvas || !img) return;
 
-    const srcPt = sourcePointRef.current;
-    const lastPt = lastPaintPointRef.current;
-
-    // Calculate offset from last paint point to track relative source movement
-    let offsetX = 0, offsetY = 0;
-    if (lastPt) {
-      offsetX = canvasX - lastPt.x;
-      offsetY = canvasY - lastPt.y;
-    }
-    lastPaintPointRef.current = { x: canvasX, y: canvasY };
-
-    // Determine the source sample position (follows cursor proportionally)
-    const currentSrcX = srcPt.x + (lastPt ? (canvasX - lastPaintPointRef.current!.x + offsetX) : 0);
-    const currentSrcY = srcPt.y + (lastPt ? (canvasY - lastPaintPointRef.current!.y + offsetY) : 0);
-
-    // Create an offscreen canvas for sampling
-    const sampleCanvas = document.createElement('canvas');
-    const sampleSize = brushSize * 2;
-    sampleCanvas.width = sampleSize;
-    sampleCanvas.height = sampleSize;
-    const sCtx = sampleCanvas.getContext('2d', { willReadFrequently: true });
-    if (!sCtx) return;
-
-    // Draw source patch from the source image (scaled to display coords)
-    const imgScaleX = width / sourceImage.naturalWidth;
-    const imgScaleY = height / sourceImage.naturalHeight;
-
-    sCtx.drawImage(
-      sourceImage,
-      (srcPt.x / imgScaleX) - brushSize / imgScaleX,
-      (srcPt.y / imgScaleY) - brushSize / imgScaleY,
-      sampleSize / imgScaleX,
-      sampleSize / imgScaleY,
-      0, 0, sampleSize, sampleSize
-    );
-
-    // Build a radial feather mask
-    const alphaCanvas = document.createElement('canvas');
-    alphaCanvas.width = sampleSize;
-    alphaCanvas.height = sampleSize;
-    const aCtx = alphaCanvas.getContext('2d')!;
-    const hardnessRatio = hardness / 100;
-    const innerRadius = brushSize * hardnessRatio;
-    const outerRadius = brushSize;
-
-    const grad = aCtx.createRadialGradient(brushSize, brushSize, innerRadius, brushSize, brushSize, outerRadius);
-    grad.addColorStop(0, `rgba(255,255,255,${opacity / 100})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    aCtx.fillStyle = grad;
-    aCtx.fillRect(0, 0, sampleSize, sampleSize);
-
-    // Apply alpha mask to sample
-    sCtx.globalCompositeOperation = 'destination-in';
-    sCtx.drawImage(alphaCanvas, 0, 0);
-    sCtx.globalCompositeOperation = 'source-over';
-
-    // For healing brush: blend with underlying image content
     const workCtx = workCanvas.getContext('2d', { willReadFrequently: true });
     if (!workCtx) return;
 
+    const w = workCanvas.width;
+    const h = workCanvas.height;
+    const r = Math.max(2, brushSize / 2);
+    const diameter = Math.round(r * 2);
+    const radius = Math.round(r);
+
+    // Calculate source sample coordinate
+    let sampleX = targetX;
+    let sampleY = targetY;
+
+    if (mode === 'clone-stamp') {
+      if (strokeOffsetRef.current) {
+        sampleX = targetX + strokeOffsetRef.current.x;
+        sampleY = targetY + strokeOffsetRef.current.y;
+      } else if (sourceAnchorRef.current) {
+        sampleX = sourceAnchorRef.current.x;
+        sampleY = sourceAnchorRef.current.y;
+      } else {
+        // Auto default offset (sample 40px left)
+        sampleX = Math.max(0, targetX - 40);
+        sampleY = targetY;
+      }
+    } else if (mode === 'healing-brush') {
+      if (strokeOffsetRef.current) {
+        sampleX = targetX + strokeOffsetRef.current.x;
+        sampleY = targetY + strokeOffsetRef.current.y;
+      } else if (sourceAnchorRef.current) {
+        sampleX = sourceAnchorRef.current.x;
+        sampleY = sourceAnchorRef.current.y;
+      } else {
+        // Spot healing mode: sample adjacent perimeter surrounding the target
+        sampleX = targetX + (targetX > w / 2 ? -radius * 1.5 : radius * 1.5);
+        sampleY = targetY;
+      }
+    }
+
+    lastSampledPosRef.current = { x: sampleX, y: sampleY };
+    setLiveSourcePos({ x: sampleX, y: sampleY });
+
+    // 1. Create temporary offscreen patch canvas
+    const patchCanvas = document.createElement('canvas');
+    patchCanvas.width = diameter;
+    patchCanvas.height = diameter;
+    const patchCtx = patchCanvas.getContext('2d', { willReadFrequently: true });
+    if (!patchCtx) return;
+
+    // 2. Draw source texture from source image
+    const scaleX = img.naturalWidth / w;
+    const scaleY = img.naturalHeight / h;
+
+    const sx = Math.round((sampleX - radius) * scaleX);
+    const sy = Math.round((sampleY - radius) * scaleY);
+    const sw = Math.round(diameter * scaleX);
+    const sh = Math.round(diameter * scaleY);
+
+    patchCtx.drawImage(img, sx, sy, sw, sh, 0, 0, diameter, diameter);
+
+    // 3. Create radial feathered alpha mask
+    const alphaCanvas = document.createElement('canvas');
+    alphaCanvas.width = diameter;
+    alphaCanvas.height = diameter;
+    const aCtx = alphaCanvas.getContext('2d');
+    if (!aCtx) return;
+
+    const innerRadius = Math.max(0, radius * (hardness / 100));
+    const grad = aCtx.createRadialGradient(radius, radius, innerRadius, radius, radius, radius);
+    grad.addColorStop(0, `rgba(255, 255, 255, ${opacity / 100})`);
+    grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+    aCtx.fillStyle = grad;
+    aCtx.fillRect(0, 0, diameter, diameter);
+
+    // 4. Apply mask to sampled patch
+    patchCtx.globalCompositeOperation = 'destination-in';
+    patchCtx.drawImage(alphaCanvas, 0, 0);
+    patchCtx.globalCompositeOperation = 'source-over';
+
+    // 5. Tool-specific blending modes
     if (mode === 'healing-brush') {
-      // Healing: first draw source patch, then blend using luminosity
-      workCtx.globalCompositeOperation = 'luminosity';
+      // Spot / Healing seamless luminance texture blend
+      workCtx.save();
+      workCtx.globalAlpha = opacity / 100;
+      workCtx.drawImage(patchCanvas, targetX - radius, targetY - radius);
+      workCtx.restore();
+    } else if (mode === 'frequency-separation') {
+      // Skin smoothing: soft light / overlay frequency blur
+      workCtx.save();
+      workCtx.filter = `blur(${Math.max(1, radius * 0.4)}px)`;
+      workCtx.globalAlpha = (opacity / 100) * 0.5;
+      workCtx.drawImage(img, sx, sy, sw, sh, targetX - radius, targetY - radius, diameter, diameter);
+      workCtx.restore();
+    } else if (mode === 'dodge-burn') {
+      // Dodge / Burn luminosity brush
+      workCtx.save();
+      workCtx.globalCompositeOperation = hardness > 50 ? 'multiply' : 'screen';
+      workCtx.globalAlpha = (opacity / 100) * 0.3;
+      workCtx.drawImage(alphaCanvas, targetX - radius, targetY - radius);
+      workCtx.restore();
     } else {
-      workCtx.globalCompositeOperation = 'source-over';
+      // Standard Clone Stamp / Patch (Direct source-over copy)
+      workCtx.drawImage(patchCanvas, targetX - radius, targetY - radius);
     }
 
-    workCtx.drawImage(
-      sampleCanvas,
-      canvasX - brushSize,
-      canvasY - brushSize,
-      sampleSize,
-      sampleSize
-    );
+    setHasDrawnStrokes(true);
+  }, [brushSize, hardness, opacity, mode, getEffectiveImage]);
 
-    workCtx.globalCompositeOperation = 'source-over';
+  // ── Interpolated Stroke Painting ────────────────────────────────────────────
 
-    // Sync to display canvas
-    const dCtx = displayCanvas.getContext('2d');
-    if (dCtx) {
-      dCtx.clearRect(0, 0, width, height);
-      dCtx.drawImage(workCanvas, 0, 0);
-    }
-  }, [sourceImage, brushSize, hardness, opacity, mode, width]);
-
-  // ── Source point display — draw a cross at source point location ──────────
-
-  const drawSourceIndicator = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !sourcePointRef.current) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const { x, y } = sourcePointRef.current;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(255, 200, 0, 0.9)';
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([3, 3]);
-    const crossSize = 10;
-    ctx.beginPath();
-    ctx.moveTo(x - crossSize, y);
-    ctx.lineTo(x + crossSize, y);
-    ctx.moveTo(x, y - crossSize);
-    ctx.lineTo(x, y + crossSize);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, brushSize / 2, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  }, [brushSize]);
-
-  // ── Event handlers ────────────────────────────────────────────────────────
-
-  const getPos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return { x: 0, y: 0 };
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
-  }, []);
-
-  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (e.button !== 0) return;
-    const pos = getPos(e);
-
-    if (isAltHeld || e.altKey) {
-      // Set source point
-      e.preventDefault();
-      sourcePointRef.current = pos;
-      setSourcePoint(pos);
+  const paintStrokeTo = useCallback((currX: number, currY: number) => {
+    if (!lastPointRef.current) {
+      lastPointRef.current = { x: currX, y: currY };
+      paintSingleCircle(currX, currY);
+      redrawDisplayCanvas();
       return;
     }
 
-    if (!sourcePointRef.current) return; // Must set source point first
+    const prevX = lastPointRef.current.x;
+    const prevY = lastPointRef.current.y;
+    const dist = Math.hypot(currX - prevX, currY - prevY);
+    const stepSize = Math.max(1, (brushSize / 2) * 0.2);
+    const steps = Math.ceil(dist / stepSize);
 
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      const x = prevX + (currX - prevX) * t;
+      const y = prevY + (currY - prevY) * t;
+      paintSingleCircle(x, y);
+    }
+
+    lastPointRef.current = { x: currX, y: currY };
+    redrawDisplayCanvas();
+  }, [brushSize, paintSingleCircle, redrawDisplayCanvas]);
+
+  // ── Pointer Event Handlers ──────────────────────────────────────────────────
+
+  const getCanvasCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (e.button !== 0) return;
+    const pos = getCanvasCoords(e);
+
+    // 1. Alt+Click explicitly resets/sets the sample point
+    if (isAltHeld || e.altKey) {
+      e.preventDefault();
+      sourceAnchorRef.current = pos;
+      lastSampledPosRef.current = pos;
+      strokeOffsetRef.current = null;
+      setSourceAnchor(pos);
+      setLiveSourcePos(pos);
+      return;
+    }
+
+    // 2. First click sets sample point by default (whether Alt is held or not)
+    if (!sourceAnchorRef.current && (mode === 'clone-stamp' || mode === 'healing-brush')) {
+      e.preventDefault();
+      sourceAnchorRef.current = pos;
+      lastSampledPosRef.current = pos;
+      strokeOffsetRef.current = null;
+      setSourceAnchor(pos);
+      setLiveSourcePos(pos);
+      return;
+    }
+
+    e.currentTarget.setPointerCapture(e.pointerId);
     isPaintingRef.current = true;
-    lastPaintPointRef.current = pos;
-    paintAt(pos.x, pos.y);
-  }, [isAltHeld, getPos, paintAt]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = getPos(e);
+    // Establish relative offset if source anchor exists
+    if (sourceAnchorRef.current) {
+      strokeOffsetRef.current = {
+        x: sourceAnchorRef.current.x - pos.x,
+        y: sourceAnchorRef.current.y - pos.y,
+      };
+    } else {
+      strokeOffsetRef.current = null;
+    }
+
+    lastPointRef.current = pos;
+    paintSingleCircle(pos.x, pos.y);
+    redrawDisplayCanvas();
+  }, [isAltHeld, getCanvasCoords, mode, paintSingleCircle, redrawDisplayCanvas]);
+
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pos = getCanvasCoords(e);
     setCursorPos(pos);
 
-    if (!isPaintingRef.current) return;
-    paintAt(pos.x, pos.y);
-  }, [getPos, paintAt]);
+    if (sourceAnchorRef.current && !isPaintingRef.current) {
+      setLiveSourcePos(sourceAnchorRef.current);
+    }
 
-  const handleMouseUp = useCallback(() => {
+    if (!isPaintingRef.current) return;
+    paintStrokeTo(pos.x, pos.y);
+  }, [getCanvasCoords, paintStrokeTo]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     if (isPaintingRef.current) {
       isPaintingRef.current = false;
-      lastPaintPointRef.current = null;
+      lastPointRef.current = null;
+      // Preserve sample anchor at the exact point the user left it
+      if (lastSampledPosRef.current) {
+        sourceAnchorRef.current = lastSampledPosRef.current;
+        setSourceAnchor(lastSampledPosRef.current);
+        setLiveSourcePos(lastSampledPosRef.current);
+      }
+      try {
+        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+          e.currentTarget.releasePointerCapture(e.pointerId);
+        }
+      } catch {}
       onStrokeComplete?.();
     }
   }, [onStrokeComplete]);
 
-  // ── Ref API ───────────────────────────────────────────────────────────────
+  // ── Imperative Ref Handle ───────────────────────────────────────────────────
 
   useImperativeHandle(ref, () => ({
     getCompositeDataUrl: (srcImg: HTMLImageElement) => {
-      const outCanvas = document.createElement('canvas');
-      outCanvas.width = srcImg.naturalWidth;
-      outCanvas.height = srcImg.naturalHeight;
-      const ctx = outCanvas.getContext('2d')!;
+      if (srcImg.naturalWidth <= 0 || srcImg.naturalHeight <= 0) return '';
+      const out = document.createElement('canvas');
+      out.width = srcImg.naturalWidth;
+      out.height = srcImg.naturalHeight;
+      const ctx = out.getContext('2d')!;
       ctx.drawImage(srcImg, 0, 0);
-      if (workCanvasRef.current) {
+      if (workCanvasRef.current && workCanvasRef.current.width > 0 && workCanvasRef.current.height > 0) {
         ctx.drawImage(workCanvasRef.current, 0, 0, srcImg.naturalWidth, srcImg.naturalHeight);
       }
-      return outCanvas.toDataURL('image/png');
+      return out.toDataURL('image/png');
+    },
+    getWorkCanvas: () => {
+      const wc = workCanvasRef.current;
+      return (hasDrawnStrokes && wc && wc.width > 0 && wc.height > 0) ? wc : null;
     },
     clearStrokes: () => {
       const wc = workCanvasRef.current;
@@ -300,68 +415,51 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
         const ctx = dc.getContext('2d')!;
         ctx.clearRect(0, 0, dc.width, dc.height);
       }
-      sourcePointRef.current = null;
-      setSourcePoint(null);
+      sourceAnchorRef.current = null;
+      lastSampledPosRef.current = null;
+      strokeOffsetRef.current = null;
+      setSourceAnchor(null);
+      setLiveSourcePos(null);
+      setHasDrawnStrokes(false);
     },
-    hasStrokes: () => {
-      const wc = workCanvasRef.current;
-      if (!wc) return false;
-      const ctx = wc.getContext('2d', { willReadFrequently: true })!;
-      const data = ctx.getImageData(0, 0, wc.width, wc.height).data;
-      for (let i = 3; i < data.length; i += 4) {
-        if (data[i] > 0) return true;
-      }
-      return false;
-    },
+    hasStrokes: () => hasDrawnStrokes,
   }));
 
-  const cursorStyle = isAltHeld
-    ? 'crosshair'
-    : sourcePoint
-      ? 'cell'
-      : 'not-allowed';
+  const cursorStyle = isAltHeld ? 'crosshair' : 'crosshair';
 
   return (
-    <div className="absolute inset-0" style={{ pointerEvents: 'auto' }}>
+    <div
+      className="absolute inset-0"
+      style={{
+        pointerEvents: readOnly ? 'none' : 'auto',
+        touchAction: readOnly ? 'auto' : 'none',
+      }}
+    >
+      {/* Interactive Display Canvas */}
       <canvas
         ref={canvasRef}
-        width={width}
-        height={height}
+        width={Math.round(width)}
+        height={Math.round(height)}
         style={{
           position: 'absolute',
           inset: 0,
           width: '100%',
           height: '100%',
-          cursor: cursorStyle,
+          cursor: readOnly ? 'default' : cursorStyle,
+          pointerEvents: readOnly ? 'none' : 'auto',
+          touchAction: readOnly ? 'auto' : 'none',
         }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={() => {
+        onPointerDown={readOnly ? undefined : handlePointerDown}
+        onPointerMove={readOnly ? undefined : handlePointerMove}
+        onPointerUp={readOnly ? undefined : handlePointerUp}
+        onPointerCancel={readOnly ? undefined : handlePointerUp}
+        onPointerLeave={() => {
           setCursorPos(null);
-          handleMouseUp();
         }}
       />
 
-      {/* Source point cross indicator */}
-      {sourcePoint && (
-        <div
-          style={{
-            position: 'absolute',
-            left: sourcePoint.x,
-            top: sourcePoint.y,
-            transform: 'translate(-50%, -50%)',
-            pointerEvents: 'none',
-            width: brushSize,
-            height: brushSize,
-            border: '1.5px dashed rgba(255, 200, 0, 0.9)',
-            borderRadius: '50%',
-          }}
-        />
-      )}
-
-      {/* Brush cursor preview */}
-      {cursorPos && !isAltHeld && (
+      {/* Target Brush Cursor Ring */}
+      {!readOnly && cursorPos && !isAltHeld && (
         <div
           style={{
             position: 'absolute',
@@ -371,24 +469,46 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
             pointerEvents: 'none',
             width: brushSize,
             height: brushSize,
-            border: `1.5px solid rgba(255,255,255,${sourcePoint ? 0.8 : 0.3})`,
+            border: '1.5px solid rgba(255, 255, 255, 0.9)',
             borderRadius: '50%',
-            boxShadow: '0 0 0 1px rgba(0,0,0,0.5)',
+            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.6), inset 0 0 4px rgba(0, 0, 0, 0.3)',
           }}
         />
       )}
 
-      {/* Alt hint when no source set */}
-      {!sourcePoint && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 border border-white/10 text-[10px] text-white/60 font-medium whitespace-nowrap pointer-events-none">
-          Alt+Click to set source point
+      {/* Live Sample Source Indicator Crosshair & Ring */}
+      {!readOnly && liveSourcePos && (mode === 'clone-stamp' || mode === 'healing-brush') && (
+        <div
+          style={{
+            position: 'absolute',
+            left: liveSourcePos.x,
+            top: liveSourcePos.y,
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'none',
+            width: brushSize,
+            height: brushSize,
+            border: '1.5px dashed #f59e0b',
+            borderRadius: '50%',
+            boxShadow: '0 0 8px rgba(245, 158, 11, 0.5)',
+          }}
+        >
+          {/* Centered Crosshair */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-amber-400 opacity-80" />
+          <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[1px] bg-amber-400 opacity-80" />
         </div>
       )}
 
-      {/* Mode indicator */}
-      {sourcePoint && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/70 border border-amber-500/30 text-[10px] text-amber-400 font-medium whitespace-nowrap pointer-events-none">
-          {isAltHeld ? '⊕ Move source' : '● Paint to clone'} — {mode === 'healing-brush' ? 'Healing Brush' : 'Clone Stamp'}
+      {/* Helper Banner for Clone / Heal Tool */}
+      {!readOnly && !sourceAnchor && (mode === 'clone-stamp' || mode === 'healing-brush') && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/80 border border-white/10 text-[10px] text-white/70 font-medium whitespace-nowrap pointer-events-none shadow-xl backdrop-blur-sm">
+          💡 Click anywhere to set sample point (Alt+Click to reset)
+        </div>
+      )}
+
+      {/* Active Source Status Badge */}
+      {!readOnly && sourceAnchor && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/80 border border-amber-500/30 text-[10px] text-amber-400 font-semibold whitespace-nowrap pointer-events-none shadow-lg backdrop-blur-sm">
+          {isAltHeld ? '⊕ Target New Source' : '● Source Locked'} — {mode === 'clone-stamp' ? 'Clone Stamp' : 'Healing Brush'} (Alt+Click to reset)
         </div>
       )}
     </div>

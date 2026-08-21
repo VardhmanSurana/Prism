@@ -1,19 +1,39 @@
+/**
+ * ColorMatchPanel.tsx
+ * Sidebar control panel for Shot Matcher (3D Color Histogram Matching).
+ * Styled to match the unified Image Editor Studio design system.
+ */
+
 import React, { useState } from 'react';
-import { Pipette, Image as ImageIcon, Sparkles, Upload } from 'lucide-react';
+import { Pipette, Sparkles, Upload, RotateCcw, ChevronDown } from 'lucide-react';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface ColorMatchPanelProps {
   onApplyColorMatch: (refImageSrc: string, strength: number) => void;
 }
 
-export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMatch }) => {
+export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({
+  onApplyColorMatch,
+}) => {
   const [refImageSrc, setRefImageSrc] = useState<string | null>(null);
   const [strength, setStrength] = useState<number>(80);
+  const [openSections, setOpenSections] = useState({
+    ref: true,
+    strength: true,
+  });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setRefImageSrc(url);
+      const reader = new FileReader();
+      reader.onload = ev => {
+        if (ev.target?.result) setRefImageSrc(ev.target.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -23,63 +43,119 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMa
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#090a0d] text-white p-4 space-y-5">
-      <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-        <Pipette size={14} className="text-primary" />
-        <h3 className="text-xs font-bold uppercase tracking-wider text-white/80">Shot Matcher & Gallery</h3>
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white p-4 space-y-4 select-none">
+      {/* ── Sub-header ── */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+          Cinema & Look Matcher
+        </span>
+
+        {refImageSrc && (
+          <button
+            onClick={() => setRefImageSrc(null)}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-semibold transition-all cursor-pointer"
+            title="Clear Reference Photo"
+          >
+            <RotateCcw size={10} />
+            Clear
+          </button>
+        )}
       </div>
 
-      {/* Reference Image Picker */}
+      {/* ── 1. Reference Photo Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('ref')}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Pipette size={11} className="text-primary" />
+            <span>Reference Photo / Still</span>
+          </div>
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.ref ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </div>
+
+        {openSections.ref && (
+          <div className="space-y-2 pt-1">
+            {refImageSrc ? (
+              <div className="relative w-full h-36 rounded-lg overflow-hidden border border-white/10 group/img">
+                <img src={refImageSrc} alt="Reference" className="w-full h-full object-cover" />
+                <label
+                  htmlFor="ref-image-input"
+                  className="absolute inset-0 bg-black/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-xs font-semibold cursor-pointer text-white"
+                >
+                  <Upload size={13} /> Change Image
+                </label>
+              </div>
+            ) : (
+              <label
+                htmlFor="ref-image-input"
+                className="w-full h-28 border border-dashed border-white/15 hover:border-white/30 rounded-lg flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors bg-white/[0.02] hover:bg-white/[0.04]"
+              >
+                <Upload size={18} className="text-white/40" />
+                <span className="text-[10px] font-medium text-white/50">Upload reference photo</span>
+              </label>
+            )}
+            <input
+              id="ref-image-input"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── 2. Match Strength Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('strength')}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Sparkles size={11} className="text-primary" />
+            <span>Match Dynamics</span>
+          </div>
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.strength ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </div>
+
+        {openSections.strength && (
+          <div className="pt-1">
+            <EditorSlider
+              label="Match Strength"
+              value={strength}
+              onChange={setStrength}
+              min={10}
+              max={100}
+              defaultValue={80}
+              unit="%"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. Apply Action Button ── */}
       <div className="space-y-2">
-        <label htmlFor="ref-image-input" className="text-[10px] font-semibold text-white/60 uppercase">Reference Photo / Cinema Still</label>
-        <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 flex flex-col items-center justify-center gap-3">
-          {refImageSrc ? (
-            <div className="relative w-full h-32 rounded overflow-hidden border border-white/10">
-              <img src={refImageSrc} alt="Reference" className="w-full h-full object-cover" />
-            </div>
-          ) : (
-            <div className="flex flex-col items-center py-4 text-white/30 gap-1.5">
-              <ImageIcon size={28} />
-              <span className="text-[10px]">No reference image selected</span>
-            </div>
-          )}
-
-          <label htmlFor="ref-image-input" className="w-full py-1.5 flex items-center justify-center gap-2 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-medium text-white/80 cursor-pointer transition-all">
-            <Upload size={12} />
-            {refImageSrc ? 'Change Reference Image' : 'Upload Reference Photo'}
-            <input id="ref-image-input" name="refImageInput" aria-label="Upload reference image" type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-          </label>
-        </div>
+        <button
+          onClick={handleMatch}
+          disabled={!refImageSrc}
+          className="w-full py-2.5 px-4 rounded-xl bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-30 flex items-center justify-center gap-2"
+        >
+          <Sparkles size={13} />
+          <span>Apply 3D Histogram Match</span>
+        </button>
       </div>
-
-      {/* Match Strength Slider */}
-      <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 space-y-2">
-        <div className="flex justify-between items-center text-[10px]">
-          <label htmlFor="color-match-strength" className="font-semibold text-white/60 uppercase">Match Transfer Strength</label>
-          <span className="font-mono text-primary font-bold">{strength}%</span>
-        </div>
-        <input
-          id="color-match-strength"
-          name="colorMatchStrength"
-          aria-label="Match Transfer Strength"
-          type="range"
-          min={10}
-          max={100}
-          value={strength}
-          onChange={e => setStrength(Number(e.target.value))}
-          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-        />
-      </div>
-
-      {/* Apply Match Button */}
-      <button
-        onClick={handleMatch}
-        disabled={!refImageSrc}
-        className="w-full py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-[#050505] font-bold text-[11px] uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg shadow-primary/20 cursor-pointer disabled:opacity-30 disabled:cursor-default"
-      >
-        <Sparkles size={13} />
-        Match Color & Look
-      </button>
     </div>
   );
 };

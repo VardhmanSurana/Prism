@@ -124,14 +124,27 @@ function App() {
   }, [setPhotos, setSelectedPhoto, selectedPhoto]);
 
   React.useEffect(() => {
-    const unsubUpdate = eventService.subscribe('update_photo', (data) => {
-      const rawPhoto = data.photo as any;
+    const handleUpdate = (rawPhoto: any) => {
       if (rawPhoto) {
-        handlePhotoLocationUpdate(rawPhoto.id, normalizePhoto(rawPhoto));
+        const normalized = normalizePhoto(rawPhoto);
+        handlePhotoLocationUpdate(normalized.id, {
+          ...normalized,
+          hash: normalized.hash || String(Date.now()),
+          url: `${normalized.url || `/api/v1/photos/${normalized.id}/thumbnail`}?h=${Date.now()}`
+        });
       }
+    };
+
+    const unsubUpdate = eventService.subscribe('update_photo', (data) => {
+      handleUpdate(data.photo);
     });
+    const unsubPhotoUpdated = eventService.subscribe('photo_updated', (data) => {
+      handleUpdate(data.photo);
+    });
+
     return () => {
       unsubUpdate();
+      unsubPhotoUpdated();
     };
   }, [handlePhotoLocationUpdate]);
 

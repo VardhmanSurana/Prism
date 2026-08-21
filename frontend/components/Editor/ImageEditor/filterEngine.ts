@@ -2,6 +2,8 @@
  * filterEngine.ts
  * Central state shape + cross-panel filter logic for the image editor.
  *
+ * Sub-types are defined in adjustmentTypes.ts and re-exported here.
+ *
  * Per-panel data (UI group defs, defaults, item types) lives in each panel's
  * own file:
  *   - AdjustPanel.tsx   → ADJUSTMENT_GROUPS, AdjItem, AdjGroup
@@ -18,86 +20,35 @@ import {
   DEFAULT_SPECIALIZED_CURVES,
   isIdentitySpecializedCurves,
 } from './curves';
-import type { LutData } from './lutEngine';
+import { RawSettings, DEFAULT_RAW_SETTINGS } from './rawEngine';
 
-// ── HSL Per-Band Types ───────────────────────────────────────────────────────
+// Re-export all sub-types from the dedicated types module
+export type {
+  HslBand,
+  HslChannelAdjustment,
+  HslAdjustments,
+  ColorWheelVal,
+  ColorWheelsAdjustments,
+  DefringeAdjustments,
+  SingleFaceAdjustments,
+  PortraitAdjustments,
+  SplitToningAdjustments,
+  GrainAdjustments,
+  LightLeakAdjustments,
+  FrameAdjustments,
+  BlendAdjustments,
+  TiltShiftAdjustments,
+  LutAdjustments,
+} from './adjustmentTypes';
 
-export type HslBand =
-  | 'reds' | 'oranges' | 'yellows' | 'greens'
-  | 'aquas' | 'blues'  | 'purples' | 'pinks';
-
-interface HslChannelAdjustment {
-  hue:        number; // -180 → +180
-  saturation: number; // -100 → +100
-  luminance:  number; // -100 → +100
-}
-
-export type HslAdjustments = Record<HslBand, HslChannelAdjustment>;
-
-export const HSL_BAND_DEFAULTS: HslAdjustments = {
-  reds:    { hue: 0, saturation: 0, luminance: 0 },
-  oranges: { hue: 0, saturation: 0, luminance: 0 },
-  yellows: { hue: 0, saturation: 0, luminance: 0 },
-  greens:  { hue: 0, saturation: 0, luminance: 0 },
-  aquas:   { hue: 0, saturation: 0, luminance: 0 },
-  blues:   { hue: 0, saturation: 0, luminance: 0 },
-  purples: { hue: 0, saturation: 0, luminance: 0 },
-  pinks:   { hue: 0, saturation: 0, luminance: 0 },
-};
-
-export interface RangeMaskSettings {
-  mode: 'none' | 'luminance' | 'color';
-  lumRange: [number, number]; // [min, max] 0-100
-  lumFeather: number; // 0-100
-  colorSample: string | null; // hex color or null
-  colorTolerance: number; // 0-100
-  refineEdge: boolean;
-  refineRadius: number; // 0-100
-}
-
-export interface RegionalAdjustment {
-  id: string;
-  type: 'face' | 'background' | 'subject' | 'custom' | 'linear' | 'radial';
-  maskUrl: string;
-  adjustments: {
-    brightness?: number;
-    contrast?:   number;
-    saturation?: number;
-    warmth?:     number;
-    blur?:       number;
-    sharpness?:  number;
-    eyeWhitening?: number;
-    teethWhitening?: number;
-    faceReshape?: number;
-  };
-  rangeMask?: RangeMaskSettings;
-}
-
-export interface ColorWheelVal {
-  x: number; // -100 to 100
-  y: number; // -100 to 100
-  yuma: number; // -100 to 100
-}
-
-export interface ColorWheelsAdjustments {
-  mode: 'primary' | 'log';
-  lift: ColorWheelVal;
-  gamma: ColorWheelVal;
-  gain: ColorWheelVal;
-  offset: ColorWheelVal;
-  shadows: ColorWheelVal;
-  midtones: ColorWheelVal;
-  highlights: ColorWheelVal;
-  lowPivot: number;  // 0 -> 100
-  highPivot: number; // 0 -> 100
-}
-
-export interface DefringeAdjustments {
-  amount: number; // 0 -> 100
-  hueStart: number; // 0 -> 360
-  hueEnd: number; // 0 -> 360
-  vignetteCos4: number; // 0 -> 100
-}
+export {
+  HSL_BAND_DEFAULTS,
+  DEFAULT_SINGLE_FACE_ADJUSTMENTS,
+  DEFAULT_PORTRAIT_ADJUSTMENTS,
+  DEFAULT_COLOR_WHEEL_VAL,
+  DEFAULT_COLOR_WHEELS,
+  DEFAULT_DEFRINGE,
+} from './adjustmentTypes';
 
 // ── Combined State Type ──────────────────────────────────────────────────────
 
@@ -135,101 +86,37 @@ export interface Adjustments {
   specializedCurves: SpecializedCurvesState;
   vignette:    number; // -100 → 100
 
-  // AI Regions
-  regions:     RegionalAdjustment[];
-
   // HSL per-band
-  hsl:         HslAdjustments;
+  hsl:         import('./adjustmentTypes').HslAdjustments;
 
   // Professional Color Wheels
-  colorWheels: ColorWheelsAdjustments;
+  colorWheels: import('./adjustmentTypes').ColorWheelsAdjustments;
 
   // Lens Defringe & Optical Vignetting
-  defringe:    DefringeAdjustments;
+  defringe:    import('./adjustmentTypes').DefringeAdjustments;
+
+  // Portrait Studio (AI Face & Skin Retouching)
+  portrait?:   import('./adjustmentTypes').PortraitAdjustments;
 
   // New adjustments
-  splitToning: SplitToningAdjustments;
-  grain:       GrainAdjustments;
-  lightLeak:   LightLeakAdjustments;
-  frame:       FrameAdjustments;
-  blend:       BlendAdjustments;
-  tiltShift:   TiltShiftAdjustments;
-  lut:         LutAdjustments;
-}
-
-interface SplitToningAdjustments {
-  shadows:    { hue: number; saturation: number };
-  highlights: { hue: number; saturation: number };
-  balance:    number;
-}
-
-interface GrainAdjustments {
-  amount:  number;
-  size:    'fine' | 'medium' | 'coarse';
-  colored: boolean;
-}
-
-interface LightLeakAdjustments {
-  preset:  string | null;
-  opacity: number;
-  color?:  string;
-  position?: 'left' | 'right' | 'top' | 'bottom' | 'top-right' | 'bottom-left' | 'center';
-}
-
-interface FrameAdjustments {
-  style:     'none' | 'polaroid' | 'filmstrip' | 'matte' | 'rounded' | 'thinline' | 'shadowbox';
-  color:     string;
-  thickness: number;
-}
-
-interface BlendAdjustments {
-  photoId:       number | null;
-  blendImageSrc: string | null;
-  mode:          GlobalCompositeOperation;
-  opacity:       number;
-  fit:           'cover' | 'contain' | 'center';
-}
-
-interface TiltShiftAdjustments {
-  enabled:       boolean;
-  mode:          'linear' | 'radial';
-  blurStrength:  number;
-  focusPosition: number;
-  focusWidth:    number;
-}
-
-export interface LutAdjustments {
-  /** ID of a built-in LUT, or null if using a custom import */
-  builtinId:   string | null;
-  /** Custom imported LUT data (from parsed .cube file) */
-  customData:  LutData | null;
-  /** Blend opacity 0-100 */
-  opacity:     number;
+  splitToning: import('./adjustmentTypes').SplitToningAdjustments;
+  grain:       import('./adjustmentTypes').GrainAdjustments;
+  lightLeak:   import('./adjustmentTypes').LightLeakAdjustments;
+  frame:       import('./adjustmentTypes').FrameAdjustments;
+  blend:       import('./adjustmentTypes').BlendAdjustments;
+  tiltShift:   import('./adjustmentTypes').TiltShiftAdjustments;
+  lut:         import('./adjustmentTypes').LutAdjustments;
+  raw?:        RawSettings;
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────
 
-export const DEFAULT_COLOR_WHEEL_VAL: ColorWheelVal = { x: 0, y: 0, yuma: 0 };
-
-export const DEFAULT_COLOR_WHEELS: ColorWheelsAdjustments = {
-  mode: 'primary',
-  lift: { ...DEFAULT_COLOR_WHEEL_VAL },
-  gamma: { ...DEFAULT_COLOR_WHEEL_VAL },
-  gain: { ...DEFAULT_COLOR_WHEEL_VAL },
-  offset: { ...DEFAULT_COLOR_WHEEL_VAL },
-  shadows: { ...DEFAULT_COLOR_WHEEL_VAL },
-  midtones: { ...DEFAULT_COLOR_WHEEL_VAL },
-  highlights: { ...DEFAULT_COLOR_WHEEL_VAL },
-  lowPivot: 20,
-  highPivot: 80,
-};
-
-export const DEFAULT_DEFRINGE: DefringeAdjustments = {
-  amount: 0,
-  hueStart: 270,
-  hueEnd: 330,
-  vignetteCos4: 0,
-};
+import {
+  HSL_BAND_DEFAULTS,
+  DEFAULT_PORTRAIT_ADJUSTMENTS,
+  DEFAULT_COLOR_WHEELS,
+  DEFAULT_DEFRINGE,
+} from './adjustmentTypes';
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
   brightness:  0,
@@ -255,10 +142,10 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   curves:      DEFAULT_CURVE,
   specializedCurves: DEFAULT_SPECIALIZED_CURVES,
   vignette:    0,
-  regions:     [],
   hsl:         { ...HSL_BAND_DEFAULTS },
-  colorWheels: DEFAULT_COLOR_WHEELS,
-  defringe:    DEFAULT_DEFRINGE,
+  colorWheels: { ...DEFAULT_COLOR_WHEELS },
+  defringe:    { ...DEFAULT_DEFRINGE },
+  portrait:    { ...DEFAULT_PORTRAIT_ADJUSTMENTS },
   splitToning: {
     shadows:    { hue: 0, saturation: 0 },
     highlights: { hue: 0, saturation: 0 },
@@ -297,7 +184,9 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
     customData: null,
     opacity:    100,
   },
+  raw: { ...DEFAULT_RAW_SETTINGS },
 };
+
 // ── CSS Filter Conversion ────────────────────────────────────────────────────
 
 /**
@@ -351,8 +240,8 @@ export function toFilterString(adj: Adjustments): string {
     + adj.ambiance   / 100 * 0.24,
   );
 
-  // Temperature & Tint: shift hue color cast
-  const hueRot = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
+  // Hue shift (Temperature & Tint are handled accurately via RGB chromatic balance)
+  const hueRot = adj.hue || 0;
 
   const filters = [
     `brightness(${br.toFixed(4)})`,
@@ -391,13 +280,6 @@ export function toFilterString(adj: Adjustments): string {
     filters.push(`url(#curves-filter-${curvesHash})`);
   }
 
-  if (adj.regions && adj.regions.length > 0) {
-    adj.regions.forEach(region => {
-      const regHash = getStringHash(JSON.stringify(region.adjustments));
-      filters.push(`url(#region-filter-${region.id}-${regHash})`);
-    });
-  }
-
   return filters.join(' ');
 }
 
@@ -413,7 +295,24 @@ export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   if (!isBaseDefault) return false;
 
   if (!isIdentityCurve(adj.curves)) return false;
-  if (adj.regions && adj.regions.length > 0) return false;
+
+  // Portrait check
+  if (adj.portrait) {
+    const p = adj.portrait;
+    if (
+      p.skinSmoothing !== 0 ||
+      p.skinBrightness !== 0 ||
+      p.skinWarmth !== 0 ||
+      p.skinTone !== 0 ||
+      p.eyeWhitening !== 0 ||
+      p.eyeEnhance !== 0 ||
+      p.teethWhitening !== 0 ||
+      p.lipVibrance !== 0 ||
+      p.eyebrowEnhance !== 0
+    ) {
+      return false;
+    }
+  }
 
   // HSL check
   const hasHsl = Object.values(adj.hsl).some(

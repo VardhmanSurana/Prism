@@ -1,6 +1,7 @@
 /**
  * useEditingHistory.ts
- * Custom React hook encapsulating adjustments state, cropper values, full edit history list, entry deletion, hiding/unhiding, and restoration mechanisms.
+ * Custom React hook encapsulating adjustments state, crop, rotation, and linear undo/redo.
+ * ponytail: removed history panel management functions (hide/unhide, arbitrary entry deletion).
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
@@ -18,60 +19,6 @@ interface UseEditingHistoryProps {
   setAnnotationsHistoryFuture: React.Dispatch<React.SetStateAction<Annotation[][]>>;
   photoId?: number | string;
 }
-
-/**
- * Chronologically recomposes the active image adjustments, rotation, flip, and crop source
- * starting from the original state by applying only active (non-hidden) history entries.
- */
-const recomposeHistoryState = (history: HistoryEntry[], currentIndex: number) => {
-  const initialEntry = history[0];
-  const state = {
-    imageSrc: initialEntry ? initialEntry.imageSrc : '',
-    adjustments: { ...DEFAULT_ADJUSTMENTS },
-    rotation: 0,
-    flipH: false,
-    flipV: false,
-    straightenAngle: 0,
-    annotations: [] as Annotation[],
-  };
-
-  // Process chronological entries up to the current index
-  for (let i = 1; i <= currentIndex; i++) {
-    const entry = history[i];
-    if (!entry || entry.hidden) continue;
-
-    if (entry.type === 'crop') {
-      state.imageSrc = entry.imageSrc;
-    } else if (entry.type === 'rotate') {
-      state.rotation = (state.rotation + (entry.value || 0)) % 360;
-    } else if (entry.type === 'flip') {
-      if (entry.description.toLowerCase().includes('horizontally')) {
-        state.flipH = !state.flipH;
-      } else if (entry.description.toLowerCase().includes('vertically')) {
-        state.flipV = !state.flipV;
-      }
-    } else if (entry.type === 'straighten') {
-      state.straightenAngle = entry.value || 0;
-    } else if (entry.type === 'curves') {
-      state.adjustments.curves = entry.adjustments.curves;
-    } else if (entry.type === 'regions' || (typeof entry.type === 'string' && entry.type.startsWith('regions'))) {
-      state.adjustments.regions = entry.adjustments.regions;
-    } else if (entry.type === 'annotations') {
-      state.annotations = entry.annotations ? [...entry.annotations] : [];
-    } else {
-      const key = entry.type as keyof Adjustments;
-      if (key in state.adjustments) {
-        if (key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift' || key === 'hsl') {
-          state.adjustments[key] = { ...entry.adjustments[key] } as any;
-        } else {
-          (state.adjustments as unknown as Record<string, any>)[key] = entry.value !== undefined ? entry.value : 0;
-        }
-      }
-    }
-  }
-
-  return state;
-};
 
 function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boolean; rotation: number }) {
   cropper.scaleX(state.flipH ? -1 : 1);
@@ -101,7 +48,7 @@ export const useEditingHistory = ({
 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(-1);
-  
+
   const isRestoringHistory = useRef(false);
   const createdUrlRef = useRef<string | null>(null);
   const lastPhotoIdRef = useRef<string | null>(null);
@@ -136,47 +83,56 @@ export const useEditingHistory = ({
     }
   }, []);
 
-  const addHistoryEntry = useCallback((
-    type: HistoryActionType,
-    description: string,
-    value?: number,
-    overrideImageSrc?: string,
-    overrideAnnotations?: Annotation[]
-  ) => {
-    if (isRestoringHistory.current) return;
+  const addHistoryEntry = useCallback(
+    (
+      type: HistoryActionType,
+      description: string,
+      value?: number,
+      overrideImageSrc?: string,
+      overrideAnnotations?: Annotation[]
+    ) => {
+      if (isRestoringHistory.current) return;
 
-    const s = stateRef.current;
-    const entry = createHistoryEntry(
-      type,
-      description,
-      overrideImageSrc || s.currentImageSrc,
-      s.adjustments,
-      s.totalRotation,
-      s.flipH,
-      s.flipV,
-      s.straightenAngle,
-      value,
-      overrideAnnotations || s.annotations
-    );
+      const s = stateRef.current;
+      const entry = createHistoryEntry(
+        type,
+        description,
+        overrideImageSrc || s.currentImageSrc,
+        s.adjustments,
+        s.totalRotation,
+        s.flipH,
+        s.flipV,
+        s.straightenAngle,
+        value,
+        overrideAnnotations || s.annotations
+      );
 
-    const isCollapsible = type !== 'initial' && type !== 'crop' && type !== 'inpaint' && type !== 'rotate' && type !== 'flip' && type !== 'annotations';
+      const isCollapsible =
+        type !== 'initial' &&
+        type !== 'crop' &&
+        type !== 'inpaint' &&
+        type !== 'rotate' &&
+        type !== 'flip' &&
+        type !== 'annotations';
 
-    setHistory(prev => {
-      let newHistory = prev.slice(0, s.currentHistoryIndex + 1);
-      if (isCollapsible) {
-        newHistory = newHistory.filter(h => h.type !== type);
-      }
-      return [...newHistory, entry];
-    });
+      setHistory(prev => {
+        let newHistory = prev.slice(0, s.currentHistoryIndex + 1);
+        if (isCollapsible) {
+          newHistory = newHistory.filter(h => h.type !== type);
+        }
+        return [...newHistory, entry];
+      });
 
-    setCurrentHistoryIndex(() => {
-      let newHistory = s.history.slice(0, s.currentHistoryIndex + 1);
-      if (isCollapsible) {
-        newHistory = newHistory.filter(h => h.type !== type);
-      }
-      return newHistory.length;
-    });
-  }, []);
+      setCurrentHistoryIndex(() => {
+        let newHistory = s.history.slice(0, s.currentHistoryIndex + 1);
+        if (isCollapsible) {
+          newHistory = newHistory.filter(h => h.type !== type);
+        }
+        return newHistory.length;
+      });
+    },
+    []
+  );
 
   // Initialize history on mount or if photo changes
   useEffect(() => {
@@ -217,7 +173,7 @@ export const useEditingHistory = ({
         setCurrentHistoryIndex(0);
         setCurrentImageSrc(src);
         setAdjustments(initialAdjustments);
-        
+
         previousAdjustmentsRef.current = { ...initialAdjustments };
         previousRotationRef.current = 0;
         previousStraightenRef.current = 0;
@@ -226,7 +182,7 @@ export const useEditingHistory = ({
         setAnnotations([]);
         setAnnotationsHistoryPast([]);
         setAnnotationsHistoryFuture([]);
-        
+
         lastPhotoIdRef.current = parsedId;
         isRestoringHistory.current = false;
       };
@@ -257,13 +213,22 @@ export const useEditingHistory = ({
 
   useEffect(() => {
     if (isRestoringHistory.current) return;
-    
+
     const prev = previousAdjustmentsRef.current;
     const curr = adjustments;
     const changes: Array<{ key: keyof Adjustments; value: number | string }> = [];
-    
+
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
-      if (key === 'curves' || key === 'regions' || key === 'hsl' || key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift') {
+      if (
+        key === 'curves' ||
+        key === 'hsl' ||
+        key === 'splitToning' ||
+        key === 'grain' ||
+        key === 'lightLeak' ||
+        key === 'frame' ||
+        key === 'blend' ||
+        key === 'tiltShift'
+      ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
           changes.push({ key, value: 'modified' });
         }
@@ -274,7 +239,7 @@ export const useEditingHistory = ({
         }
       }
     });
-    
+
     if (changes.length > 0) {
       previousAdjustmentsRef.current = { ...curr };
 
@@ -282,66 +247,33 @@ export const useEditingHistory = ({
         changes.forEach(({ key, value }) => {
           const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
           const numValue = typeof value === 'number' ? value : undefined;
-          
+
           if (key === 'curves') {
             addHistoryEntry(key as HistoryActionType, `Adjusted ${label}`);
-          } else if (key === 'regions') {
-            const regionChanges = curr.regions.filter((r, i) => {
-              const p = prev.regions[i];
-              return !p || JSON.stringify(p.adjustments) !== JSON.stringify(r.adjustments);
-            });
-            
-            regionChanges.forEach(region => {
-              const prevRegion = prev.regions?.find(pr => pr.id === region.id);
-              const regionName = region.type === 'face' ? 'Face Skin' : 
-                                region.type === 'background' ? 'Background' : 
-                                'Region';
-              
-              if (prevRegion) {
-                const adjKeys = Object.keys(region.adjustments) as Array<keyof typeof region.adjustments>;
-                const changedKey = adjKeys.find(k => region.adjustments[k] !== prevRegion.adjustments[k]);
-                
-                if (changedKey) {
-                  const keyStr = changedKey as string;
-                  const val = region.adjustments[changedKey] || 0;
-                  const label = keyStr.charAt(0).toUpperCase() + keyStr.slice(1);
-                  const formattedValue = val > 0 ? `+${val}` : val;
-                  
-                  addHistoryEntry(
-                    `regions_${region.id}_${keyStr}` as HistoryActionType,
-                    `${regionName} ${label} ${formattedValue}`,
-                    val
-                  );
-                  return;
-                }
-              }
-              addHistoryEntry('regions', `Adjusted ${regionName}`);
-            });
           } else if (key === 'hsl') {
             addHistoryEntry('hsl' as HistoryActionType, 'Adjusted Color Mixer');
           } else if (key === 'splitToning') {
             addHistoryEntry('splitToning' as HistoryActionType, 'Adjusted Split Toning');
           } else if (key === 'grain') {
-            addHistoryEntry('grain' as HistoryActionType, `Film Grain: ${curr.grain.amount}% (${curr.grain.size})`);
+            addHistoryEntry('grain' as HistoryActionType, `Film Grain: ${curr.grain.amount}%`);
           } else if (key === 'lightLeak') {
-            const presetName = curr.lightLeak.preset ? curr.lightLeak.preset.replace('-', ' ') : '';
-            addHistoryEntry('lightLeak' as HistoryActionType, curr.lightLeak.preset ? `Light Leak: ${presetName}` : 'Removed Light Leak');
+            addHistoryEntry('lightLeak' as HistoryActionType, 'Adjusted Light Leak');
           } else if (key === 'frame') {
-            addHistoryEntry('frame' as HistoryActionType, curr.frame.style !== 'none' ? `Frame: ${curr.frame.style}` : 'Removed Frame');
+            addHistoryEntry('frame' as HistoryActionType, 'Adjusted Frame');
           } else if (key === 'blend') {
-            addHistoryEntry('blend' as HistoryActionType, curr.blend.blendImageSrc ? 'Double Exposure Blended' : 'Removed Double Exposure');
+            addHistoryEntry('blend' as HistoryActionType, 'Adjusted Blend');
           } else if (key === 'tiltShift') {
-            addHistoryEntry('tiltShift' as HistoryActionType, curr.tiltShift.enabled ? `Tilt-Shift: ${curr.tiltShift.mode}` : 'Disabled Tilt-Shift');
+            addHistoryEntry('tiltShift' as HistoryActionType, 'Adjusted Tilt-Shift');
           } else {
             addHistoryEntry(
-              key as HistoryActionType, 
+              key as HistoryActionType,
               `${label} ${numValue !== undefined ? (numValue > 0 ? '+' : '') + numValue : 'adjusted'}`,
               numValue
             );
           }
         });
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [adjustments, addHistoryEntry]);
@@ -379,7 +311,7 @@ export const useEditingHistory = ({
       previousFlipHRef.current = flipH;
     }
   }, [flipH, addHistoryEntry]);
-  
+
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (flipV !== previousFlipVRef.current) {
@@ -388,146 +320,56 @@ export const useEditingHistory = ({
     }
   }, [flipV, addHistoryEntry]);
 
-  const handleJumpToHistory = useCallback((index: number) => {
-    if (index < 0 || index >= history.length || index === currentHistoryIndex) return;
-
-    const recomposed = recomposeHistoryState(history, index);
-    const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
-
-    isRestoringHistory.current = true;
-
-    revokeLocalUrl();
-    setCurrentImageSrc(recomposed.imageSrc);
-    setAdjustments(recomposed.adjustments);
-    
-    previousAdjustmentsRef.current = { ...recomposed.adjustments };
-    previousRotationRef.current = recomposed.rotation;
-    previousStraightenRef.current = recomposed.straightenAngle;
-    previousFlipHRef.current = recomposed.flipH;
-    previousFlipVRef.current = recomposed.flipV;
-    
-    setTotalRotation(recomposed.rotation);
-    setFlipH(recomposed.flipH);
-    setFlipV(recomposed.flipV);
-    setStraightenAngle(recomposed.straightenAngle);
-    setCurrentHistoryIndex(index);
-
-    if (!imageSrcChanged) {
-      setTimeout(() => {
-        const cropper = cropperRef.current;
-        if (cropper) {
-          restoreCropperState(cropper, recomposed);
-        } else {
-          isRestoringHistory.current = false;
-        }
-      }, 50);
-    }
-  }, [history, currentHistoryIndex, cropperRef, revokeLocalUrl]);
-
-  const handleToggleHideHistoryEntry = useCallback((index: number) => {
-    setHistory(prev => {
-      const newHistory = prev.map((entry, idx) => {
-        if (idx === index) {
-          return { ...entry, hidden: !entry.hidden };
-        }
-        return entry;
-      });
-
-      const recomposed = recomposeHistoryState(newHistory, currentHistoryIndex);
-      const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
-      
+  const applyEntry = useCallback(
+    (entry: HistoryEntry, index: number) => {
       isRestoringHistory.current = true;
-      setCurrentImageSrc(recomposed.imageSrc);
-      setAdjustments(recomposed.adjustments);
-      previousAdjustmentsRef.current = { ...recomposed.adjustments };
-      previousRotationRef.current = recomposed.rotation;
-      previousStraightenRef.current = recomposed.straightenAngle;
-      previousFlipHRef.current = recomposed.flipH;
-      previousFlipVRef.current = recomposed.flipV;
-      setTotalRotation(recomposed.rotation);
-      setFlipH(recomposed.flipH);
-      setFlipV(recomposed.flipV);
-      setStraightenAngle(recomposed.straightenAngle);
+      revokeLocalUrl();
 
-      if (!imageSrcChanged) {
-        setTimeout(() => {
-          const cropper = cropperRef.current;
-          if (cropper) {
-            restoreCropperState(cropper, recomposed);
-          } else {
-            isRestoringHistory.current = false;
-          }
-        }, 50);
+      setCurrentImageSrc(entry.imageSrc);
+      setAdjustments({ ...entry.adjustments });
+      setTotalRotation(entry.rotation);
+      setStraightenAngle(entry.straightenAngle);
+      setFlipH(entry.flipH);
+      setFlipV(entry.flipV);
+      if (entry.annotations) {
+        setAnnotations([...entry.annotations]);
       }
 
-      return newHistory;
-    });
-  }, [currentHistoryIndex, cropperRef]);
+      previousAdjustmentsRef.current = { ...entry.adjustments };
+      previousRotationRef.current = entry.rotation;
+      previousStraightenRef.current = entry.straightenAngle;
+      previousFlipHRef.current = entry.flipH;
+      previousFlipVRef.current = entry.flipV;
+      setCurrentHistoryIndex(index);
 
-  const handleDeleteHistoryEntry = useCallback((index: number) => {
-    setHistory(prev => {
-      if (index <= 0 || index >= prev.length) return prev;
-
-      const newHistory = prev.filter((_, idx) => idx !== index);
-      
-      let newIndex = currentHistoryIndex;
-      if (index === currentHistoryIndex) {
-        newIndex = index - 1;
-      } else if (index < currentHistoryIndex) {
-        newIndex = currentHistoryIndex - 1;
+      const cropper = cropperRef.current;
+      if (cropper) {
+        restoreCropperState(cropper, entry);
       }
-
-      const recomposed = recomposeHistoryState(newHistory, newIndex);
-      const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
-      
-      isRestoringHistory.current = true;
-      setCurrentImageSrc(recomposed.imageSrc);
-      setAdjustments(recomposed.adjustments);
-      previousAdjustmentsRef.current = { ...recomposed.adjustments };
-      previousRotationRef.current = recomposed.rotation;
-      previousStraightenRef.current = recomposed.straightenAngle;
-      previousFlipHRef.current = recomposed.flipH;
-      previousFlipVRef.current = recomposed.flipV;
-      setTotalRotation(recomposed.rotation);
-      setFlipH(recomposed.flipH);
-      setFlipV(recomposed.flipV);
-      setStraightenAngle(recomposed.straightenAngle);
-      setCurrentHistoryIndex(newIndex);
-
-      if (!imageSrcChanged) {
-        setTimeout(() => {
-          const cropper = cropperRef.current;
-          if (cropper) {
-            restoreCropperState(cropper, recomposed);
-          } else {
-            isRestoringHistory.current = false;
-          }
-        }, 50);
-      }
-
-      return newHistory;
-    });
-  }, [currentHistoryIndex, cropperRef]);
-
-  const handleClearHistory = useCallback(() => {
-    const currentEntry = history[currentHistoryIndex];
-    if (currentEntry) {
-      setHistory([currentEntry]);
-      setCurrentHistoryIndex(0);
-    }
-  }, [history, currentHistoryIndex]);
+      isRestoringHistory.current = false;
+    },
+    [cropperRef, revokeLocalUrl, setAnnotations]
+  );
 
   const handleUndo = useCallback(() => {
     if (currentHistoryIndex > 0) {
-      handleJumpToHistory(currentHistoryIndex - 1);
+      const targetIndex = currentHistoryIndex - 1;
+      const targetEntry = history[targetIndex];
+      if (targetEntry) {
+        applyEntry(targetEntry, targetIndex);
+      }
     }
-  }, [currentHistoryIndex, handleJumpToHistory]);
+  }, [currentHistoryIndex, history, applyEntry]);
 
   const handleRedo = useCallback(() => {
     if (currentHistoryIndex < history.length - 1) {
-      handleJumpToHistory(currentHistoryIndex + 1);
+      const targetIndex = currentHistoryIndex + 1;
+      const targetEntry = history[targetIndex];
+      if (targetEntry) {
+        applyEntry(targetEntry, targetIndex);
+      }
     }
-  }, [currentHistoryIndex, history.length, handleJumpToHistory]);
+  }, [currentHistoryIndex, history, applyEntry]);
 
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
@@ -560,10 +402,6 @@ export const useEditingHistory = ({
     createdUrlRef,
     revokeLocalUrl,
     addHistoryEntry,
-    handleJumpToHistory,
-    handleToggleHideHistoryEntry,
-    handleDeleteHistoryEntry,
-    handleClearHistory,
     handleUndo,
     handleRedo,
     canUndo,

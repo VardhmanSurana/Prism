@@ -210,9 +210,12 @@ function sCurve(x: number, strength: number = 0.3): number {
     : 1 - 0.5 * Math.pow(2 * (1 - x), 1 + a);
 }
 
-// ── 10 Cinematic Built-in LUTs ───────────────────────────────────────────────
+import { VIVID_DUSK_LUTS } from './vividDuskLuts';
+
+// ── 15 Cinematic & Studio Built-in LUTs ───────────────────────────────────────
 
 export const BUILTIN_LUTS: BuiltinLut[] = [
+  ...VIVID_DUSK_LUTS,
   {
     id: 'golden-hour',
     name: 'Golden Hour',

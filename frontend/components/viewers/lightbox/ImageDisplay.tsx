@@ -12,6 +12,9 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   kenBurns = false,
 }) => {
   const useKenBurns = kenBurns && zoomScale === 1;
+  const isHighResReady = Boolean(
+    highResStatus === 'loaded' || (currentHighResUrl && currentHighResUrl.startsWith('blob:'))
+  );
 
   const imageStyles = useMemo<React.CSSProperties>(() => {
     const resMultiplier = Math.min(3.0, Math.max(1, zoomScale));
@@ -37,17 +40,23 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
     };
   }, [zoomScale, offset.x, offset.y, isDragging, useKenBurns]);
 
+  const thumbSrc = resolveUrl(
+    (currentHighResUrl && currentHighResUrl.startsWith('blob:'))
+      ? currentHighResUrl
+      : (photo.url || `local://${photo.path}`)
+  );
+
   if (useKenBurns) {
     return (
       <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
         <div className="relative w-full h-full animate-ken-burns origin-center">
           <img
-            src={resolveUrl(photo.url || `local://${photo.path}`)}
+            src={thumbSrc}
             alt="Thumbnail"
             draggable={false}
             onDragStart={(e) => e.preventDefault()}
-            className={`absolute inset-0 w-full h-full object-contain shadow-2xl select-none
-              ${highResStatus === 'loaded' ? 'opacity-0' : 'opacity-100'}
+            className={`absolute inset-0 w-full h-full object-contain shadow-2xl select-none transition-opacity duration-200
+              ${isHighResReady ? 'opacity-0 pointer-events-none' : 'opacity-100'}
             `}
           />
           {currentHighResUrl && (
@@ -56,8 +65,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
               alt="High Resolution"
               draggable={false}
               onDragStart={(e) => e.preventDefault()}
-              className={`absolute inset-0 w-full h-full object-contain shadow-2xl select-none
-                ${highResStatus === 'loaded' ? 'opacity-100' : 'opacity-0'}
+              className={`absolute inset-0 w-full h-full object-contain shadow-2xl select-none transition-opacity duration-200
+                ${isHighResReady ? 'opacity-100' : 'opacity-0'}
               `}
             />
           )}
@@ -69,13 +78,13 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   return (
     <>
       <img
-        src={resolveUrl(photo.url || `local://${photo.path}`)}
+        src={thumbSrc}
         alt="Thumbnail"
         style={imageStyles}
         draggable={false}
         onDragStart={(e) => e.preventDefault()}
-        className={`absolute object-contain shadow-2xl select-none
-          ${highResStatus === 'loaded' ? 'opacity-0' : 'opacity-100'}
+        className={`absolute object-contain shadow-2xl select-none transition-opacity duration-200
+          ${isHighResReady ? 'opacity-0 pointer-events-none' : 'opacity-100'}
         `}
       />
 
@@ -86,8 +95,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({
           style={imageStyles}
           draggable={false}
           onDragStart={(e) => e.preventDefault()}
-          className={`absolute object-contain shadow-2xl select-none
-            ${highResStatus === 'loaded' ? 'opacity-100' : 'opacity-0'}
+          className={`absolute object-contain shadow-2xl select-none transition-opacity duration-200
+            ${isHighResReady ? 'opacity-100' : 'opacity-0'}
           `}
         />
       )}

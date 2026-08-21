@@ -3,7 +3,7 @@ import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 import { Loader2 } from 'lucide-react';
 import { ToolId } from './Sidebar';
-import { Adjustments, getStringHash, HslBand, toFilterString } from './filterEngine';
+import { Adjustments, getStringHash, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
 import { InpaintCanvas } from './InpaintCanvas';
 import { InpaintMode } from './InpaintPanel';
@@ -12,7 +12,18 @@ import { AnnotationCanvas } from './AnnotationCanvas';
 import { Annotation, DrawToolId } from './AnnotationsPanel';
 import { drawFilteredImageToCanvas } from './canvasDrawing';
 import { HealingCanvas } from './HealingCanvas';
+import { LassoCanvas } from './LassoCanvas';
+import { PaletteEyedropperOverlay } from './PaletteEyedropperOverlay';
+import { FaceBoundingBoxOverlay } from './FaceBoundingBoxOverlay';
+import { LiquifyCanvas } from './LiquifyCanvas';
 import type { CanvasAreaProps } from './CanvasArea.types';
+
+// Extracted custom hooks
+import { useCanvasZoom } from './useCanvasZoom';
+import { useCtrlPan } from './useCtrlPan';
+import { useCompareSlider } from './useCompareSlider';
+import { useImageLoader } from './useImageLoader';
+import { useCropperSetup } from './useCropperSetup';
 
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
   currentImageSrc,
@@ -72,6 +83,17 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   healingSettings,
   healingCanvasRef,
   onHealingStrokeComplete,
+  lassoState,
+  onLassoStateChange,
+  onLassoSelectionComplete,
+  palettePickingIndex,
+  onPaletteColorPicked,
+  onCancelPalettePicking,
+  faces,
+  selectedFaceIndex,
+  onSelectFace,
+  liquifySettings,
+  liquifyCanvasRef,
 }) => {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const imgRef = React.useRef<HTMLImageElement>(null);
@@ -81,49 +103,12 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     latestImageRectRef.current = imageRect;
   }, [imageRect]);
 
-  const [zoomPercent, setZoomPercent] = React.useState(100);
-
-  const [sourceImg, setSourceImg] = React.useState<HTMLImageElement | null>(null);
-  const [blendImg, setBlendImg] = React.useState<HTMLImageElement | null>(null);
-  // canvasDrawKey bumps whenever imageRect changes so the draw effect re-runs
-  // even when no other dep changed (e.g. first mount after imageRect is set).
-  const [canvasDrawKey, setCanvasDrawKey] = React.useState(0);
-  const liveCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
-  const annotationsContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const inpaintContainerRef = React.useRef<HTMLDivElement | null>(null);
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const zoomDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const [comparePercent, setComparePercent] = React.useState<number>(50);
-  const [isDraggingCompare, setIsDraggingCompare] = React.useState<boolean>(false);
-
-  const handleComparePointerDown = React.useCallback((e: React.PointerEvent) => {
-    setIsDraggingCompare(true);
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, []);
-
-  const handleComparePointerMove = React.useCallback((e: React.PointerEvent) => {
-    const pointerId = e.pointerId;
-    if (!e.currentTarget.hasPointerCapture(pointerId) || !latestImageRectRef.current) return;
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left - latestImageRectRef.current.left;
-    const percent = Math.max(0, Math.min(100, (x / latestImageRectRef.current.width) * 100));
-    setComparePercent(percent);
-  }, []);
-
-  const handleComparePointerUp = React.useCallback((e: React.PointerEvent) => {
-    setIsDraggingCompare(false);
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  }, []);
 
   // Cleanup debouncing timers on unmount
   React.useEffect(() => {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      if (zoomDebounceRef.current) clearTimeout(zoomDebounceRef.current);
     };
   }, []);
 
@@ -158,102 +143,64 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     };
   }, []);
 
-  React.useEffect(() => {
-    if (!currentImageSrc) {
-      setSourceImg(null);
-      return;
-    }
-    let active = true;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      if (active) setSourceImg(img);
-    };
-    img.onerror = () => {
-      if (active) setSourceImg(null);
-    };
-    img.src = currentImageSrc;
-    return () => {
-      active = false;
-    };
-  }, [currentImageSrc]);
+  // Overlay container refs
+  const liveCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const beforeImageRef = React.useRef<HTMLImageElement | null>(null);
+  const annotationsContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const inpaintContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const healingContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const lassoContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const paletteContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const faceBBoxContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const liquifyContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const beforeLabelRef = React.useRef<HTMLDivElement | null>(null);
+  const afterLabelRef = React.useRef<HTMLDivElement | null>(null);
+  const compareDividerRef = React.useRef<HTMLDivElement | null>(null);
+  const latestComparePercentRef = React.useRef<number>(50);
 
-  React.useEffect(() => {
-    const src = adjustments.blend?.blendImageSrc;
-    if (!src) {
-      setBlendImg(null);
-      return;
-    }
-    let active = true;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      if (active) setBlendImg(img);
-    };
-    img.onerror = () => {
-      if (active) setBlendImg(null);
-    };
-    const separator = src.includes('?') ? '&' : '?';
-    img.src = `${src}${separator}timestamp=${Date.now()}`;
-    return () => {
-      active = false;
-    };
-  }, [adjustments.blend?.blendImageSrc]);
-
-
-
-  React.useEffect(() => {
-    const canvas = liveCanvasRef.current;
-    if (!canvas || !sourceImg || activeTool === 'transform') return;
-
-    drawFilteredImageToCanvas(
-      canvas,
-      sourceImg,
-      blendImg,
-      adjustments,
-      false,
-      curvesTable,
-      isDraggingSliderRef.current
-    );
-  }, [
-    sourceImg,
-    blendImg,
-    adjustments,
-    filterString,
-    activeTool,
-    isComparing,
-    curvesTable,
-    canvasDrawKey,
-  ]);
+  // ── Extracted hooks ────────────────────────────────────────────────────────
 
   const updateImageRect = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (cropper) {
       const canvasData = cropper.getCanvasData();
 
-      // Update DOM styles directly for sub-millisecond, butter-smooth visual scaling
-      const canvas = liveCanvasRef.current;
-      if (canvas) {
-        canvas.style.left = `${canvasData.left}px`;
-        canvas.style.top = `${canvasData.top}px`;
-        canvas.style.width = `${canvasData.width}px`;
-        canvas.style.height = `${canvasData.height}px`;
+      // Update DOM styles directly for sub-millisecond, zero-lag synchronized visual movement
+      const elementsToSync = [
+        liveCanvasRef.current,
+        beforeImageRef.current,
+        annotationsContainerRef.current,
+        inpaintContainerRef.current,
+        healingContainerRef.current,
+        lassoContainerRef.current,
+        paletteContainerRef.current,
+        faceBBoxContainerRef.current,
+        liquifyContainerRef.current,
+      ];
+
+      for (const el of elementsToSync) {
+        if (el) {
+          el.style.left = `${canvasData.left}px`;
+          el.style.top = `${canvasData.top}px`;
+          el.style.width = `${canvasData.width}px`;
+          el.style.height = `${canvasData.height}px`;
+        }
       }
 
-      const annContainer = annotationsContainerRef.current;
-      if (annContainer) {
-        annContainer.style.left = `${canvasData.left}px`;
-        annContainer.style.top = `${canvasData.top}px`;
-        annContainer.style.width = `${canvasData.width}px`;
-        annContainer.style.height = `${canvasData.height}px`;
+      // Synchronize Before/After labels and compare divider line in zero-lag lockstep
+      if (beforeLabelRef.current) {
+        beforeLabelRef.current.style.left = `${canvasData.left + 16}px`;
+        beforeLabelRef.current.style.top = `${canvasData.top + 16}px`;
       }
-
-      const inpContainer = inpaintContainerRef.current;
-      if (inpContainer) {
-        inpContainer.style.left = `${canvasData.left}px`;
-        inpContainer.style.top = `${canvasData.top}px`;
-        inpContainer.style.width = `${canvasData.width}px`;
-        inpContainer.style.height = `${canvasData.height}px`;
+      if (afterLabelRef.current) {
+        afterLabelRef.current.style.left = `${canvasData.left + canvasData.width - 64}px`;
+        afterLabelRef.current.style.top = `${canvasData.top + 16}px`;
+      }
+      if (compareDividerRef.current) {
+        const pct = latestComparePercentRef.current ?? 50;
+        compareDividerRef.current.style.left = `${canvasData.left + (pct / 100) * canvasData.width}px`;
+        compareDividerRef.current.style.top = `${canvasData.top}px`;
+        compareDividerRef.current.style.height = `${canvasData.height}px`;
       }
 
       const prev = latestImageRectRef.current;
@@ -288,303 +235,78 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     }
   }, [cropperRef]);
 
-  // ── Ctrl key panning state & logic ───────────────────────────────────────
-  const [isCtrlPressed, setIsCtrlPressed] = React.useState(false);
-  const [isDragging, setIsDragging] = React.useState(false);
-  const dragStartRef = React.useRef<{ x: number; y: number } | null>(null);
+  const { sourceImg, blendImg, portraitMasksRef, canvasDrawKey, setCanvasDrawKey } = useImageLoader({
+    currentImageSrc,
+    adjustments,
+  });
 
-  // Monitor Ctrl key globally
+  const { zoomPercent, handleZoomIn, handleZoomOut, handleZoomReset, handleZoomToPercent, syncZoom } = useCanvasZoom({
+    cropperRef,
+    updateImageRect,
+  });
+
+  const { isCtrlPressed, isDragging } = useCtrlPan({
+    cropperRef,
+    containerRef,
+    updateImageRect,
+  });
+
+  const { comparePercent, handleComparePointerDown, handleComparePointerMove, handleComparePointerUp } = useCompareSlider({
+    containerRef,
+    latestImageRectRef,
+  });
+
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(true);
-      }
-    };
+    latestComparePercentRef.current = comparePercent;
+  }, [comparePercent]);
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'Control') {
-        setIsCtrlPressed(false);
-        setIsDragging(false);
-      }
-    };
+  useCropperSetup({
+    imgRef,
+    containerRef,
+    cropperRef,
+    currentImageSrc,
+    activeTool,
+    handleCropEvent,
+    handleReady,
+    updateImageRect,
+    syncZoom,
+  });
 
-    const handleBlur = () => {
-      setIsCtrlPressed(false);
-      setIsDragging(false);
-    };
+  // ── Canvas draw effect ─────────────────────────────────────────────────────
 
-    window.addEventListener('keydown', handleKeyDown, { passive: true });
-    window.addEventListener('keyup', handleKeyUp, { passive: true });
-    window.addEventListener('blur', handleBlur, { passive: true });
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('blur', handleBlur);
-    };
-  }, []);
-
-  // Prevent context menu when Ctrl is held
   React.useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      if (isCtrlPressed) {
-        e.preventDefault();
-      }
-    };
-    window.addEventListener('contextmenu', handleContextMenu, true);
-    return () => {
-      window.removeEventListener('contextmenu', handleContextMenu, true);
-    };
-  }, [isCtrlPressed]);
+    const canvas = liveCanvasRef.current;
+    if (!canvas || !sourceImg || activeTool === 'transform') return;
 
-  // Capture mousedown on the container for panning when Ctrl is held
-  React.useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const handleMouseDownCapture = (e: MouseEvent) => {
-      if (e.ctrlKey && (e.button === 0 || e.button === 2)) {
-        e.preventDefault();
-        e.stopPropagation();
-
-        setIsDragging(true);
-        dragStartRef.current = { x: e.clientX, y: e.clientY };
-      }
-    };
-
-    container.addEventListener('mousedown', handleMouseDownCapture, true);
-    return () => {
-      container.removeEventListener('mousedown', handleMouseDownCapture, true);
-    };
-  }, [containerRef]);
-
-  // Window-level mousemove and mouseup for fluid offsite dragging
-  React.useEffect(() => {
-    if (!isDragging) return;
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!dragStartRef.current || !cropperRef.current) return;
-
-      const dx = e.clientX - dragStartRef.current.x;
-      const dy = e.clientY - dragStartRef.current.y;
-      dragStartRef.current = { x: e.clientX, y: e.clientY };
-
-      const cropper = cropperRef.current;
-      if (cropper) {
-        cropper.move(dx, dy);
-        updateImageRect();
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    window.addEventListener('mousemove', handleMouseMove, { passive: true });
-    window.addEventListener('mouseup', handleMouseUp, { passive: true });
-    window.addEventListener('blur', handleMouseUp, { passive: true });
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-      window.removeEventListener('blur', handleMouseUp);
-    };
-  }, [isDragging, cropperRef, updateImageRect]);
+    drawFilteredImageToCanvas(
+      canvas,
+      sourceImg,
+      blendImg,
+      adjustments,
+      false,
+      curvesTable,
+      isDraggingSliderRef.current,
+      portraitMasksRef.current ?? undefined
+    );
+  }, [
+    sourceImg,
+    blendImg,
+    adjustments,
+    filterString,
+    activeTool,
+    isComparing,
+    curvesTable,
+    canvasDrawKey,
+  ]);
 
   const handleMaskChange = React.useCallback((maskDataUrl: string) => {
     onInpaintMaskChange(maskDataUrl);
   }, [onInpaintMaskChange]);
 
-  // ── Zoom helpers ────────────────────────────────────────────────────────
-  const syncZoom = React.useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    try {
-      const imageData  = cropper.getImageData();
-      const canvasData = cropper.getCanvasData();
-      if (imageData.naturalWidth > 0) {
-        const pct = (canvasData.width / imageData.naturalWidth) * 100;
-        // Debounce setZoomPercent to avoid heavy CanvasArea re-renders
-        if (zoomDebounceRef.current) {
-          clearTimeout(zoomDebounceRef.current);
-        }
-        zoomDebounceRef.current = setTimeout(() => {
-          setZoomPercent(Math.round(pct));
-        }, 100);
-      }
-    } catch { /* cropper not ready */ }
-  }, [cropperRef]);
-
-  const handleZoomIn = React.useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    const imageData = cropper.getImageData();
-    const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
-    const maxZoom = 500; // max 500%
-    if (currentZoom < maxZoom) {
-      // Smooth zoom using smaller increments
-      const targetZoom = Math.min(maxZoom, currentZoom + 15);
-      const scale = targetZoom / currentZoom;
-      cropper.zoom(scale - 1);
-      syncZoom();
-      updateImageRect();
-    }
-  }, [cropperRef, syncZoom, updateImageRect]);
-
-  const handleZoomOut = React.useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    const imageData = cropper.getImageData();
-    const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
-    const minZoom = 10; // min 10%
-    if (currentZoom > minZoom) {
-      // Smooth zoom using smaller increments
-      const targetZoom = Math.max(minZoom, currentZoom - 15);
-      const scale = targetZoom / currentZoom;
-      cropper.zoom(scale - 1);
-      syncZoom();
-      updateImageRect();
-    }
-  }, [cropperRef, syncZoom, updateImageRect]);
-
-  const handleZoomReset = React.useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    const containerData = cropper.getContainerData();
-    const imageData     = cropper.getImageData();
-    const scale = Math.min(
-      (containerData.width  * 0.95) / imageData.naturalWidth,
-      (containerData.height * 0.95) / imageData.naturalHeight,
-    );
-    cropper.zoomTo(scale);
-    syncZoom();
-    updateImageRect();
-  }, [cropperRef, syncZoom, updateImageRect]);
-
-  const handleZoomToPercent = React.useCallback((pct: number) => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    const scale = pct / 100;
-    cropper.zoomTo(scale);
-    syncZoom();
-    updateImageRect();
-  }, [cropperRef, syncZoom, updateImageRect]);
-  // ──────────────────────────────────────────────────────────────────────
-
-  const onCropperReady = React.useCallback(() => {
-    handleReady();
-    updateImageRect();
-    syncZoom();
-  }, [handleReady, updateImageRect, syncZoom]);
-
-  // Initialize cropperjs on the <img> element
-  const onCropCbRef = React.useRef(handleCropEvent);
-  React.useEffect(() => { onCropCbRef.current = handleCropEvent; }, [handleCropEvent]);
-  const onReadyCbRef = React.useRef(onCropperReady);
-  React.useEffect(() => { onReadyCbRef.current = onCropperReady; }, [onCropperReady]);
-
-  React.useEffect(() => {
-    const img = imgRef.current;
-    if (!img || !currentImageSrc) return;
-
-    const cropper = new Cropper(img, {
-      viewMode: 1,
-      dragMode: 'crop',
-      background: false,
-      responsive: true,
-      autoCrop: true,
-      autoCropArea: 1,
-      checkOrientation: false,
-      rotatable: true,
-      zoomable: true,
-      zoomOnWheel: false,
-      zoomOnTouch: false,
-      toggleDragModeOnDblclick: false,
-      crop() {
-        onCropCbRef.current();
-      },
-      ready() {
-        onReadyCbRef.current();
-      },
-    });
-
-    if (cropperRef && typeof cropperRef !== 'function') {
-      (cropperRef as React.MutableRefObject<any>).current = cropper;
-    }
-
-    return () => {
-      cropper.destroy();
-      if (cropperRef && typeof cropperRef !== 'function') {
-        (cropperRef as React.MutableRefObject<any>).current = null;
-      }
-    };
-  }, [currentImageSrc, cropperRef]);
-
-  // Sync rect on container resize
-  React.useEffect(() => {
-    if (!containerRef.current) return;
-    
-    let timeoutId: ReturnType<typeof setTimeout> | null = null;
-    const observer = new ResizeObserver(() => {
-      // Small delay to allow cropperjs to finish its internal update
-      if (timeoutId) clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        const cropper = cropperRef.current;
-        if (cropper) {
-          // Guard: cropper internals may not be mounted yet, causing "container.offsetWidth" crash
-          const innerContainer = (cropper as any).$container;
-          if (innerContainer && innerContainer.offsetWidth > 0) {
-            (cropper as any).resize();
-          }
-        }
-        updateImageRect();
-      }, 50);
-    });
-    
-    observer.observe(containerRef.current);
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      observer.disconnect();
-    };
-  }, [updateImageRect, cropperRef]);
-
-  // Handle tool changes and cropper state
-  React.useEffect(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        (cropper as any).resize();
-      } catch {}
-
-      if (activeTool === 'transform') {
-        cropper.enable();
-        cropper.setDragMode('crop');
-        cropper.crop();
-        syncZoom();
-      } else {
-        // For inpaint and other tools, keep it enabled so it handles resize
-        // but disable interaction and clearing crop box
-        cropper.enable();
-        cropper.setDragMode('none');
-        cropper.clear();
-        // Defer updateImageRect to allow cropper to update internal state after clear()
-        setTimeout(() => {
-          updateImageRect();
-          syncZoom();
-        }, 50);
-      }
-    });
-
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeTool, cropperRef, updateImageRect, syncZoom]);
-
-  // Scroll-to-zoom disabled to prevent scroll/touchpad zooming
-  // Zoom is now only via buttons or keyboard shortcuts
-
   // The effective filter: blank when comparing so user sees original
   const effectiveFilter = isComparing ? 'none' : filterString;
+
+  // ── JSX ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)] overflow-hidden">
@@ -593,7 +315,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         className={`flex-1 min-w-0 relative bg-[var(--bg-primary)] overflow-hidden ${
           activeTool !== 'transform' ? 'hide-crop-ui' : ''
         } ${
-          (activeTool !== 'transform' && sourceImg !== null) ? 'hide-cropper-image' : ''
+          (activeTool !== 'transform' && sourceImg !== null && !isComparing) ? 'hide-cropper-image' : ''
         } ${
           isCtrlPressed ? (isDragging ? 'ctrl-grabbing-active' : 'ctrl-grab-active') : ''
         }`}
@@ -613,6 +335,26 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         crossOrigin="anonymous"
         className={adjustments.vignette !== 0 && !isComparing ? 'with-vignette' : ''}
       />
+
+      {/* ── Base Before Original Image Layer (Visible during Split Compare) ── */}
+      {isComparing && imageRect && (
+        <img
+          ref={beforeImageRef}
+          src={currentImageSrc}
+          alt="Original"
+          className="absolute pointer-events-none z-0 object-contain select-none"
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
+              ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
+              : undefined,
+          }}
+          crossOrigin="anonymous"
+        />
+      )}
 
       {/* ── Live Preview Canvas Overlay ── */}
       {activeTool !== 'transform' && imageRect && sourceImg !== null && (
@@ -720,34 +462,139 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         </>
       )}
 
-      {/* ── Healing Brush / Clone Stamp overlay ── */}
-      {activeTool === 'healing' && imageRect && healingSettings && (
+      {/* ── Healing Brush / Clone Stamp overlay (Preserved across tool switches to prevent disappearing strokes/unmounting) ── */}
+      {imageRect && !isComparing && activeTool !== 'transform' && (
         <div
-          className="absolute z-20"
+          ref={healingContainerRef}
+          className={`absolute z-20 ${activeTool === 'healing' && !isCtrlPressed ? '' : 'pointer-events-none'}`}
           style={{
             left: imageRect.left,
             top: imageRect.top,
             width: imageRect.width,
             height: imageRect.height,
-            pointerEvents: 'auto',
+            pointerEvents: activeTool === 'healing' && !isCtrlPressed ? 'auto' : 'none',
           }}
         >
           <HealingCanvas
             ref={healingCanvasRef}
             width={Math.round(imageRect.width)}
             height={Math.round(imageRect.height)}
-            sourceImage={imgRef.current}
-            mode={healingSettings.mode}
-            brushSize={healingSettings.brushSize}
-            hardness={healingSettings.hardness}
-            opacity={healingSettings.opacity}
+            sourceImage={sourceImg || imgRef.current}
+            imageSrc={currentImageSrc}
+            mode={healingSettings?.mode || 'clone-stamp'}
+            brushSize={healingSettings?.brushSize || 30}
+            hardness={healingSettings?.hardness || 50}
+            opacity={healingSettings?.opacity || 100}
             onStrokeComplete={onHealingStrokeComplete}
+            readOnly={activeTool !== 'healing'}
           />
         </div>
       )}
 
+      {/* ── Lasso & Intelligent Scissors Selection Overlay ── */}
+      {activeTool === 'lasso' && imageRect && lassoState && onLassoStateChange && (
+        <div
+          ref={lassoContainerRef}
+          className="absolute z-20"
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            pointerEvents: isCtrlPressed ? 'none' : 'auto',
+          }}
+        >
+          <LassoCanvas
+            width={Math.round(imageRect.width)}
+            height={Math.round(imageRect.height)}
+            imageSrc={currentImageSrc}
+            state={lassoState}
+            onChange={onLassoStateChange}
+            onSelectionComplete={onLassoSelectionComplete}
+          />
+        </div>
+      )}
 
+      {/* ── In-Canvas Loupe Eyedropper Overlay for Palette Sampling ── */}
+      {typeof palettePickingIndex === 'number' && imageRect && onPaletteColorPicked && (
+        <div
+          ref={paletteContainerRef}
+          className="absolute z-30"
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            pointerEvents: isCtrlPressed ? 'none' : 'auto',
+          }}
+        >
+          <PaletteEyedropperOverlay
+            width={Math.round(imageRect.width)}
+            height={Math.round(imageRect.height)}
+            sourceImage={sourceImg || imgRef.current}
+            imageSrc={currentImageSrc}
+            targetSwatchIndex={palettePickingIndex}
+            onColorPicked={onPaletteColorPicked}
+            onCancel={onCancelPalettePicking || (() => {})}
+          />
+        </div>
+      )}
 
+      {/* ── Face Bounding Box & Landmark Overlay (Portrait / Liquify / Face Tools) ── */}
+      {faces && faces.length > 0 && imageRect && !isComparing && (activeTool === 'portrait' || activeTool === 'liquify' || activeTool === 'adjust') && (
+        <div
+          ref={faceBBoxContainerRef}
+          className="absolute z-20 pointer-events-none"
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            pointerEvents: 'none',
+          }}
+        >
+          <FaceBoundingBoxOverlay
+            faces={faces}
+            naturalWidth={sourceImg?.naturalWidth || imgRef.current?.naturalWidth || imageRect.width}
+            naturalHeight={sourceImg?.naturalHeight || imgRef.current?.naturalHeight || imageRect.height}
+            containerWidth={Math.round(imageRect.width)}
+            containerHeight={Math.round(imageRect.height)}
+            selectedFaceIndex={selectedFaceIndex}
+            onSelectFace={onSelectFace}
+            showLandmarks={activeTool === 'liquify' || activeTool === 'portrait'}
+            active={!isCtrlPressed && activeTool !== 'liquify'}
+          />
+        </div>
+      )}
+
+      {/* ── Liquify & Reshape Mesh Canvas Overlay (Preserved across tool switches) ── */}
+      {imageRect && !isComparing && activeTool !== 'transform' && (
+        <div
+          ref={liquifyContainerRef}
+          className={`absolute z-30 ${activeTool === 'liquify' && !isCtrlPressed ? '' : 'pointer-events-none hidden'}`}
+          style={{
+            left: imageRect.left,
+            top: imageRect.top,
+            width: imageRect.width,
+            height: imageRect.height,
+            pointerEvents: activeTool === 'liquify' && !isCtrlPressed ? 'auto' : 'none',
+            display: activeTool === 'liquify' ? 'block' : 'none',
+            zIndex: 30,
+          }}
+        >
+          <LiquifyCanvas
+            ref={liquifyCanvasRef}
+            width={Math.round(imageRect.width)}
+            height={Math.round(imageRect.height)}
+            sourceImage={sourceImg || imgRef.current}
+            imageSrc={currentImageSrc}
+            settings={liquifySettings}
+            faces={faces}
+            selectedFaceIndex={selectedFaceIndex}
+            readOnly={activeTool !== 'liquify'}
+          />
+        </div>
+      )}
 
       {isSaving && (
         <div className="absolute inset-0 z-50 bg-black/70 flex flex-col items-center justify-center text-white">
@@ -760,6 +607,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       {isComparing && imageRect && (
         <>
           <div 
+            ref={beforeLabelRef}
             className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-[#0D0F14]/75 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-white/50"
             style={{
               left: imageRect.left + 16,
@@ -769,6 +617,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             Before
           </div>
           <div 
+            ref={afterLabelRef}
             className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-primary/25 border border-primary/35 text-[9px] font-bold uppercase tracking-wider text-primary shadow-[0_2px_12px_rgba(var(--color-primary),0.15)]"
             style={{
               left: imageRect.left + imageRect.width - 64,
@@ -779,6 +628,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
           </div>
 
           <div
+            ref={compareDividerRef}
             className="absolute z-30 select-none cursor-ew-resize flex flex-col items-center justify-center touch-none"
             style={{
               left: imageRect.left + (comparePercent / 100) * imageRect.width,
@@ -824,7 +674,6 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
                 operator="arithmetic" 
                 k2={((): number => {
                   // USM Formula: Original + Amount * (Original - Blur)
-                  // We boost the multiplier to 2.5 for a "pro" aggressive look
                   const amount = (adjustments.sharpness / 100) * 2.5;
                   return 1 + amount;
                 })()}
@@ -836,90 +685,14 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             </filter>
           )}
 
-          {adjustments.regions && adjustments.regions.map(region => {
-            const regHash = getStringHash(JSON.stringify(region.adjustments));
-            return (
-              <filter key={region.id} id={`region-filter-${region.id}-${regHash}`} colorInterpolationFilters="sRGB" x="0%" y="0%" width="100%" height="100%">
-                {/* 1. Extract Mask and convert Red channel to Alpha */}
-                <feImage
-                  href={region.maskUrl}
-                  result="rawMask"
-                  crossOrigin="anonymous"
-                  preserveAspectRatio="none"
-                  x="0" y="0" width="100%" height="100%"
-                />
-                <feColorMatrix in="rawMask" result="alphaMask" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1 0 0 0 0" />
-
-                {/* 2. Soften the mask edges */}
-                <feGaussianBlur in="alphaMask" stdDeviation="3" result="featheredMask" />
-
-                {/* 3. Adjustments (Applied to SourceGraphic). 
-                    Luminance-preserving saturation is applied first, followed by
-                    midpoint-centered contrast, brightness, and warmth/temperature offsets. */}
-                <feColorMatrix
-                  in="SourceGraphic"
-                  result="saturated"
-                  type="saturate"
-                  values={((): string => {
-                    const sat = 1 + (region.adjustments.saturation || 0) / 100;
-                    return sat.toFixed(4);
-                  })()}
-                />
-
-                <feColorMatrix
-                  in="saturated"
-                  result="adjusted"
-                  type="matrix"
-                  values={((): string => {
-                    const br = (region.adjustments.brightness || 0) / 100 * 0.5;
-                    const ct = 1 + (region.adjustments.contrast   || 0) / 100;
-
-                    // Warmth (Temperature): warm → add to R, subtract from B.
-                    const warmth = (region.adjustments.warmth || 0) / 100 * 0.15;
-
-                    // Contrast is scaled around the 0.5 gray midpoint, while brightness and warmth are offset additions
-                    return `
-                      ${ct} 0 0 0 ${0.5 * (1 - ct) + br + warmth}
-                      0 ${ct} 0 0 ${0.5 * (1 - ct) + br}
-                      0 0 ${ct} 0 ${0.5 * (1 - ct) + br - warmth}
-                      0 0 0 1 0
-                    `;
-                  })()}
-                />
-
-                {/* Blur (Optional) - Capped at stdDeviation 20 to keep the SVG
-                    filter pipeline cheap on large images. */}
-                {region.adjustments.blur && region.adjustments.blur > 0 && (
-                  <feGaussianBlur in="adjusted" result="adjustedBlur" stdDeviation={Math.min(20, region.adjustments.blur / 2.5)} />
-                )}
-
-                {/* 4. Mask the adjusted version using the feathered mask so the
-                    transition is soft instead of hard-edged. */}
-                <feComposite
-                  in={region.adjustments.blur && region.adjustments.blur > 0 ? "adjustedBlur" : "adjusted"}
-                  in2="featheredMask"
-                  operator="in"
-                  result="maskedEffect"
-                />
-
-                {/* 5. Place adjusted region OVER the original */}
-                <feMerge>
-                  <feMergeNode in="SourceGraphic" />
-                  <feMergeNode in="maskedEffect" />
-                </feMerge>
-              </filter>
-            );
-          })}
-
           <radialGradient id="vignette-mask" r="65%" cx="50%" cy="50%">
             <stop offset="0%" stopColor="white" stopOpacity="1" />
             <stop offset="100%" stopColor="white" stopOpacity={Math.min(0.9, Math.abs((adjustments.vignette || 0) / 100))} />
           </radialGradient>
         </defs>
       </svg>
-      </div>
 
-      {/* Dedicated Bottom Zoom/Ratio Status Toolbar */}
+      {/* Floating In-Canvas Zoom Controls HUD */}
       {!isSaving && (
         <ZoomControls
           zoomPercent={zoomPercent}
@@ -931,6 +704,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
           maxZoom={500}
         />
       )}
+      </div>
     </div>
   );
 };

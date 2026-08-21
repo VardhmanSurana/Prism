@@ -1,6 +1,26 @@
-import React from 'react';
+/**
+ * LayersPanel.tsx
+ * Sidebar control panel for Non-destructive Layer Stack, Fill Layers, and 27 Blend Modes.
+ * Styled to match the unified Image Editor Studio design system.
+ */
+
+import React, { useState } from 'react';
 import { Layer, LayerType, createDefaultBaseLayer } from './layersEngine';
-import { Layers, Eye, EyeOff, Plus, Trash2, Copy, Sliders, PaintBucket, ArrowUp, ArrowDown } from 'lucide-react';
+import {
+  Layers,
+  Eye,
+  EyeOff,
+  Plus,
+  Trash2,
+  Copy,
+  Sliders,
+  PaintBucket,
+  ArrowUp,
+  ArrowDown,
+  ChevronDown,
+  Sparkles,
+} from 'lucide-react';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface LayersPanelProps {
   layers: Layer[];
@@ -34,6 +54,15 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   activeLayerId,
   setActiveLayerId,
 }) => {
+  const [openSections, setOpenSections] = useState({
+    controls: true,
+    stack: true,
+  });
+
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const activeLayer = layers.find(l => l.id === activeLayerId) || layers[0];
 
   const handleAddLayer = (type: LayerType) => {
@@ -80,148 +109,193 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#090a0d] text-white p-4 space-y-4">
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2">
-          <Layers size={14} className="text-primary" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-white/80">Layers & Blend Modes</h3>
-        </div>
-        <div className="flex gap-1">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white p-4 space-y-4 select-none">
+      {/* ── Sub-header ── */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+          Non-Destructive Stack
+        </span>
+
+        <div className="flex items-center gap-1">
           <button
             onClick={() => handleAddLayer('adjustment')}
-            className="p-1 rounded bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-semibold transition-all cursor-pointer"
             title="Add Adjustment Layer"
           >
-            <Sliders size={12} />
+            <Plus size={10} />
+            Adjustment
           </button>
           <button
             onClick={() => handleAddLayer('fill')}
-            className="p-1 rounded bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-[10px] font-semibold transition-all cursor-pointer"
             title="Add Fill Layer"
           >
-            <PaintBucket size={12} />
+            <Plus size={10} />
+            Fill
           </button>
         </div>
       </div>
 
-      {/* Active Layer Controls */}
+      {/* ── 1. Active Layer Settings Card ── */}
       {activeLayer && (
-        <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 space-y-3">
-          <div className="flex justify-between items-center text-[10px] font-semibold uppercase text-white/50">
-            <span>{activeLayer.name} Settings</span>
-            <span className="font-mono text-primary">{activeLayer.blendMode}</span>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] text-white/60">Blend Mode</label>
-            <select
-              value={activeLayer.blendMode}
-              onChange={e => updateActiveLayer({ blendMode: e.target.value as GlobalCompositeOperation })}
-              className="w-full bg-black/40 border border-white/10 text-[11px] text-white rounded p-1.5 outline-none cursor-pointer"
-            >
-              {BLEND_MODES.map(b => (
-                <option key={b.value} value={b.value}>
-                  {b.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-1">
-            <div className="flex justify-between text-[10px] text-white/60">
-              <span>Layer Opacity</span>
-              <span className="font-mono">{activeLayer.opacity}%</span>
+        <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+          <div
+            onClick={() => toggleSection('controls')}
+            className="flex items-center justify-between cursor-pointer group"
+          >
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+              <Sliders size={11} className="text-primary" />
+              <span>{activeLayer.name}</span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              value={activeLayer.opacity}
-              onChange={e => updateActiveLayer({ opacity: Number(e.target.value) })}
-              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+            <ChevronDown
+              size={12}
+              className={`text-white/30 transition-transform duration-150 ${
+                openSections.controls ? 'rotate-0' : '-rotate-90'
+              }`}
             />
           </div>
 
-          {activeLayer.type === 'fill' && (
-            <div className="flex items-center justify-between pt-1">
-              <span className="text-[10px] text-white/60">Fill Color</span>
-              <input
-                type="color"
-                value={activeLayer.fillColor || '#ef4444'}
-                onChange={e => updateActiveLayer({ fillColor: e.target.value })}
-                className="w-5 h-5 rounded border-none cursor-pointer bg-transparent"
+          {openSections.controls && (
+            <div className="space-y-3 pt-1">
+              {/* Blend Mode Selector */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-white/60">Blend Mode</label>
+                <select
+                  value={activeLayer.blendMode}
+                  onChange={e => updateActiveLayer({ blendMode: e.target.value as GlobalCompositeOperation })}
+                  className="w-full bg-[#181a22] border border-white/10 text-xs text-white rounded-lg p-2 outline-none cursor-pointer focus:border-primary/50"
+                >
+                  {BLEND_MODES.map(b => (
+                    <option key={b.value} value={b.value} className="bg-[#181a22]">
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Layer Opacity */}
+              <EditorSlider
+                label="Layer Opacity"
+                value={activeLayer.opacity}
+                onChange={val => updateActiveLayer({ opacity: val })}
+                min={0}
+                max={100}
+                defaultValue={100}
+                unit="%"
               />
+
+              {/* Fill Color */}
+              {activeLayer.type === 'fill' && (
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] font-medium text-white/60">Fill Color</span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      value={activeLayer.fillColor || '#ef4444'}
+                      onChange={e => updateActiveLayer({ fillColor: e.target.value })}
+                      className="w-6 h-6 rounded-md border border-white/20 cursor-pointer bg-transparent"
+                    />
+                    <span className="font-mono text-[10px] text-white/70">
+                      {activeLayer.fillColor || '#ef4444'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* Layer Stack List */}
-      <div className="space-y-1.5">
-        <p className="text-[9px] font-bold uppercase tracking-wider text-white/30">Layer Hierarchy</p>
-        {layers.map((l, idx) => {
-          const isActive = l.id === (activeLayerId || layers[0]?.id);
-          return (
-            <div
-              key={l.id}
-              onClick={() => setActiveLayerId(l.id)}
-              className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-white/10 border-primary/40 shadow-sm'
-                  : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
-              }`}
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleToggleVisible(l.id);
-                  }}
-                  className="text-white/40 hover:text-white transition-colors"
-                >
-                  {l.visible ? <Eye size={13} className="text-primary" /> : <EyeOff size={13} />}
-                </button>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-[11px] font-medium text-white/90 truncate">{l.name}</span>
-                  <span className="text-[9px] text-white/40 uppercase tracking-wider">{l.type} layer</span>
-                </div>
-              </div>
+      {/* ── 2. Layer Hierarchy List Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('stack')}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Layers size={11} className="text-primary" />
+            <span>Layer Hierarchy</span>
+          </div>
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.stack ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </div>
 
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleMoveLayer(l.id, 'up');
-                  }}
-                  disabled={idx === 0}
-                  className="p-1 text-white/30 hover:text-white disabled:opacity-20 cursor-pointer"
+        {openSections.stack && (
+          <div className="space-y-1.5 pt-1">
+            {layers.map((l, idx) => {
+              const isActive = l.id === (activeLayerId || layers[0]?.id);
+              return (
+                <div
+                  key={l.id}
+                  onClick={() => setActiveLayerId(l.id)}
+                  className={`flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer ${
+                    isActive
+                      ? 'bg-white text-black font-semibold border-white shadow-sm'
+                      : 'bg-white/[0.02] border-white/5 hover:bg-white/5 text-white'
+                  }`}
                 >
-                  <ArrowUp size={11} />
-                </button>
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleMoveLayer(l.id, 'down');
-                  }}
-                  disabled={idx === layers.length - 1}
-                  className="p-1 text-white/30 hover:text-white disabled:opacity-20 cursor-pointer"
-                >
-                  <ArrowDown size={11} />
-                </button>
-                <button
-                  onClick={e => {
-                    e.stopPropagation();
-                    handleDeleteLayer(l.id);
-                  }}
-                  disabled={layers.length <= 1}
-                  className="p-1 text-white/30 hover:text-red-400 disabled:opacity-20 cursor-pointer"
-                >
-                  <Trash2 size={11} />
-                </button>
-              </div>
-            </div>
-          );
-        })}
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleToggleVisible(l.id);
+                      }}
+                      className={`${isActive ? 'text-black/60 hover:text-black' : 'text-white/40 hover:text-white'} transition-colors`}
+                      title={l.visible ? 'Hide Layer' : 'Show Layer'}
+                    >
+                      {l.visible ? <Eye size={13} className={isActive ? 'text-black' : 'text-primary'} /> : <EyeOff size={13} />}
+                    </button>
+                    <div className="flex flex-col min-w-0">
+                      <span className={`text-[11px] font-medium truncate ${isActive ? 'text-black font-bold' : 'text-white/90'}`}>{l.name}</span>
+                      <span className={`text-[9px] uppercase tracking-wider ${isActive ? 'text-black/60 font-semibold' : 'text-white/40'}`}>{l.type} layer</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleMoveLayer(l.id, 'up');
+                      }}
+                      disabled={idx === 0}
+                      className={`p-1 ${isActive ? 'text-black/50 hover:text-black' : 'text-white/30 hover:text-white'} disabled:opacity-20 cursor-pointer`}
+                      title="Move Up"
+                    >
+                      <ArrowUp size={11} />
+                    </button>
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        handleMoveLayer(l.id, 'down');
+                      }}
+                      disabled={idx === layers.length - 1}
+                      className={`p-1 ${isActive ? 'text-black/50 hover:text-black' : 'text-white/30 hover:text-white'} disabled:opacity-20 cursor-pointer`}
+                      title="Move Down"
+                    >
+                      <ArrowDown size={11} />
+                    </button>
+                    {layers.length > 1 && (
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDeleteLayer(l.id);
+                        }}
+                        className="p-1 text-red-400/60 hover:text-red-400 cursor-pointer"
+                        title="Delete Layer"
+                      >
+                        <Trash2 size={11} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

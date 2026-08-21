@@ -18,6 +18,7 @@ import {
   Expand,
   HelpCircle,
 } from 'lucide-react';
+import { EditorSlider } from './ui/EditorSlider';
 
 export type InpaintMode = 'brush' | 'erase' | 'interactive' | 'auto';
 export type InpaintOperation = 'remove' | 'replace' | 'outpaint';
@@ -122,7 +123,7 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
   const isDiffusionModel = selectedModel.type === 'diffusion';
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
       {infoMessage && (
         <div className="mx-4 mt-2 mb-1 px-3 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[10px] font-medium leading-relaxed flex items-start gap-2">
           <Sparkles size={12} className="shrink-0 mt-0.5" />
@@ -141,33 +142,27 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
         <div className="grid grid-cols-3 gap-2">
           <button
             onClick={() => handleOperationChange('remove')}
-            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-              operation === 'remove'
-                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
-                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
-            }`}
+            className={`editor-btn editor-card-btn ${
+              operation === 'remove' ? 'active' : ''
+            } py-3 px-2 text-[10px] font-bold uppercase tracking-wider`}
           >
             <Eraser size={16} className="mx-auto mb-2" />
             Remove
           </button>
           <button
             onClick={() => handleOperationChange('replace')}
-            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-              operation === 'replace'
-                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
-                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
-            }`}
+            className={`editor-btn editor-card-btn ${
+              operation === 'replace' ? 'active' : ''
+            } py-3 px-2 text-[10px] font-bold uppercase tracking-wider`}
           >
             <Wand2 size={16} className="mx-auto mb-2" />
             Replace
           </button>
           <button
             onClick={() => handleOperationChange('outpaint')}
-            className={`py-3 px-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all border ${
-              operation === 'outpaint'
-                ? 'bg-primary border-primary text-[#050505] shadow-lg shadow-primary/20'
-                : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
-            }`}
+            className={`editor-btn editor-card-btn ${
+              operation === 'outpaint' ? 'active' : ''
+            } py-3 px-2 text-[10px] font-bold uppercase tracking-wider`}
           >
             <Expand size={16} className="mx-auto mb-2" />
             Expand
@@ -190,11 +185,9 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
             <button
               key={tool.id}
               onClick={() => onModeChange(tool.id as InpaintMode)}
-              className={`h-11 rounded-xl flex items-center justify-center transition-all border ${
-                mode === tool.id
-                  ? 'bg-primary text-[#050505] border-primary shadow-lg shadow-primary/20'
-                  : 'bg-white/[0.02] text-white/30 border-white/5 hover:text-white/60 hover:bg-white/5'
-              }`}
+              className={`editor-btn editor-card-btn ${
+                mode === tool.id ? 'active' : ''
+              } h-11 flex items-center justify-center`}
               title={tool.title}
             >
               {tool.icon}
@@ -203,91 +196,44 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
         </div>
 
         {/* Brush Size */}
-        <div className="mb-6 group/item">
-          <div className="flex justify-between items-baseline mb-3">
-            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Brush Size</label>
-            <span className="text-[10px] text-primary font-mono font-bold">{settings.brushSize}px</span>
-          </div>
-          <div className="relative h-4 flex items-center group/slider">
-            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-            <div
-              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
-              style={{
-                left:  '0%',
-                width: `${(settings.brushSize / 200) * 100}%`,
-                background: `rgb(var(--color-primary) / 0.8)`,
-                boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
-              }}
-            />
-            <input
-              type="range"
-              min={5}
-              max={200}
-              step={1}
-              value={settings.brushSize}
-              onChange={e => handleBrushSizeChange(Number(e.target.value))}
-              className="adjustment-slider slider-thumb-premium"
-            />
-          </div>
+        <div className="mb-4">
+          <EditorSlider
+            label="Brush Size"
+            value={settings.brushSize}
+            onChange={handleBrushSizeChange}
+            min={5}
+            max={200}
+            defaultValue={30}
+            unit=" px"
+          />
         </div>
 
         {/* Brush Hardness */}
-        <div className="mb-6 group/item">
-          <div className="flex justify-between items-baseline mb-3">
-            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Hardness</label>
-            <span className="text-[10px] text-primary font-mono font-bold">{settings.brushHardness}%</span>
-          </div>
-          <div className="relative h-4 flex items-center group/slider">
-            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-            <div
-              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
-              style={{
-                left:  '0%',
-                width: `${settings.brushHardness}%`,
-                background: `rgb(var(--color-primary) / 0.8)`,
-                boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
-              }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={100}
-              step={1}
-              value={settings.brushHardness}
-              onChange={e => handleBrushHardnessChange(Number(e.target.value))}
-              className="adjustment-slider slider-thumb-premium"
-            />
-          </div>
+        <div className="mb-4">
+          <EditorSlider
+            label="Brush Hardness"
+            value={settings.brushHardness}
+            onChange={handleBrushHardnessChange}
+            min={0}
+            max={100}
+            defaultValue={50}
+            unit="%"
+          />
         </div>
 
         {/* Mask Opacity */}
         {settings.showMask && (
-          <div className="mb-6 group/item">
-            <div className="flex justify-between items-baseline mb-3">
-              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 transition-colors">Mask Opacity</label>
-              <span className="text-[10px] text-primary font-mono font-bold">{settings.maskOpacity}%</span>
-            </div>
-            <div className="relative h-4 flex items-center group/slider">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
-                style={{
-                  left:  '0%',
-                  width: `${settings.maskOpacity}%`,
-                  background: `rgb(var(--color-primary) / 0.8)`,
-                  boxShadow: `0 0 8px rgb(var(--color-primary) / 0.3)`,
-                }}
-              />
-              <input
-                type="range"
-                min={0}
-                max={100}
-                step={5}
-                value={settings.maskOpacity}
-                onChange={e => onSettingsChange({ ...settings, maskOpacity: Number(e.target.value) })}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
+          <div className="mb-4">
+            <EditorSlider
+              label="Mask Opacity"
+              value={settings.maskOpacity}
+              onChange={val => onSettingsChange({ ...settings, maskOpacity: val })}
+              min={0}
+              max={100}
+              step={5}
+              defaultValue={50}
+              unit="%"
+            />
           </div>
         )}
 
@@ -380,40 +326,28 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4">
+            <div className="space-y-3.5 pt-1">
               {/* Guidance Scale */}
-              <div>
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-[11px] text-white/55">Guidance Scale</label>
-                  <span className="text-[10px] text-primary tabular-nums">{settings.guidance}</span>
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={20}
-                  step={0.5}
-                  value={settings.guidance}
-                  onChange={e => handleGuidanceChange(Number(e.target.value))}
-                  className="adjustment-slider"
-                />
-              </div>
+              <EditorSlider
+                label="Guidance Scale"
+                value={settings.guidance}
+                onChange={handleGuidanceChange}
+                min={1}
+                max={20}
+                step={0.5}
+                defaultValue={7.5}
+              />
 
               {/* Steps */}
-              <div>
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-[11px] text-white/55">Steps</label>
-                  <span className="text-[10px] text-primary tabular-nums">{settings.steps}</span>
-                </div>
-                <input
-                  type="range"
-                  min={10}
-                  max={100}
-                  step={5}
-                  value={settings.steps}
-                  onChange={e => handleStepsChange(Number(e.target.value))}
-                  className="adjustment-slider"
-                />
-              </div>
+              <EditorSlider
+                label="Inference Steps"
+                value={settings.steps}
+                onChange={handleStepsChange}
+                min={10}
+                max={100}
+                step={5}
+                defaultValue={30}
+              />
             </div>
           )}
         </div>

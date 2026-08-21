@@ -12,6 +12,7 @@ import { TextPropertiesSection } from './TextPropertiesSection';
 import { DoodleSettingsSection } from './DoodleSettingsSection';
 import { LayersListSection } from './LayersListSection';
 import { EmojiPicker } from '../EmojiPicker';
+import { EditorSlider } from '../ui/EditorSlider';
 
 export interface AnnotationsPanelProps {
   annotations: Annotation[];
@@ -183,104 +184,46 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
 
         {/* Stroke Width Slider — hidden when Brush (eraser) is active */}
         {activeDrawTool !== 'eraser' && (
-        <div className="group/item">
-          <div className="flex justify-between items-baseline mb-2">
-            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-              Stroke Width
-            </label>
-            <span className="text-[10px] font-mono text-primary scale-110 font-bold tabular-nums">
-              {strokeWidth}px
-            </span>
-          </div>
-          <div className="relative h-4 flex items-center">
-            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-            <div
-              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-              style={{
-                left: '0%',
-                width: `${((strokeWidth - 1) / 19) * 100}%`,
-                boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-              }}
-            />
-            <input
-              type="range"
-              min={1}
-              max={20}
-              value={strokeWidth}
-              onChange={e => { setStrokeWidth(Number(e.target.value)); markStyleChanged?.(); }}
-              className="adjustment-slider slider-thumb-premium"
-            />
-          </div>
-        </div>
+          <EditorSlider
+            label="Stroke Width"
+            value={strokeWidth}
+            onChange={val => { setStrokeWidth(val); markStyleChanged?.(); }}
+            min={1}
+            max={20}
+            defaultValue={4}
+            unit=" px"
+          />
         )}
 
         {/* Brush Size Slider — only shown when Brush (eraser) tool is active */}
         {activeDrawTool === 'eraser' && (
-        <div className="group/item">
-          <div className="flex justify-between items-baseline mb-2">
-            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-              Brush Size
-            </label>
-            <span className="text-[10px] font-mono text-primary scale-110 font-bold tabular-nums">
-              {brushSize}
-            </span>
-          </div>
-          <div className="relative h-4 flex items-center">
-            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-            <div
-              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-              style={{
-                left: '0%',
-                width: `${((brushSize - 10) / 90) * 100}%`,
-                boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-              }}
-            />
-            <input
-              type="range"
-              min={10}
-              max={100}
-              value={brushSize}
-              onChange={e => setBrushSize?.(Number(e.target.value))}
-              className="adjustment-slider slider-thumb-premium"
-            />
-          </div>
-        </div>
+          <EditorSlider
+            label="Brush Size"
+            value={brushSize || 30}
+            onChange={val => setBrushSize?.(val)}
+            min={10}
+            max={100}
+            defaultValue={30}
+            unit=" px"
+          />
         )}
 
         {/* Layer Opacity Slider */}
         {selectedAnn && (
-          <div className="group/item mt-4">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Layer Opacity
-              </label>
-              <span className="text-[10px] font-mono text-primary scale-110 font-bold tabular-nums">
-                {Math.round((selectedAnn.opacity ?? 1) * 100)}%
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: '0%',
-                  width: `${(selectedAnn.opacity ?? 1) * 100}%`,
-                  boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                }}
-              />
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round((selectedAnn.opacity ?? 1) * 100)}
-                onChange={e => {
-                  const nextOpacity = Number(e.target.value) / 100;
-                  setActiveOpacity?.(nextOpacity);
-                  onUpdateTextProps?.({ opacity: nextOpacity });
-                }}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
+          <div className="mt-4">
+            <EditorSlider
+              label="Layer Opacity"
+              value={Math.round((selectedAnn.opacity ?? 1) * 100)}
+              onChange={val => {
+                const nextOpacity = val / 100;
+                setActiveOpacity?.(nextOpacity);
+                onUpdateTextProps?.({ opacity: nextOpacity });
+              }}
+              min={0}
+              max={100}
+              defaultValue={100}
+              unit="%"
+            />
           </div>
         )}
 
@@ -312,38 +255,17 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
 
             {/* Fill Opacity Slider */}
             {selectedAnn.fillShape && (
-              <div className="group/item">
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                    Fill Opacity
-                  </label>
-                  <span className="text-[10px] font-mono text-primary scale-110 font-bold tabular-nums">
-                    {Math.round((selectedAnn.fillOpacity ?? 0.5) * 100)}%
-                  </span>
-                </div>
-                <div className="relative h-4 flex items-center">
-                  <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-                  <div
-                    className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                    style={{
-                      left: '0%',
-                      width: `${(selectedAnn.fillOpacity ?? 0.5) * 100}%`,
-                      boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                    }}
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={Math.round((selectedAnn.fillOpacity ?? 0.5) * 100)}
-                    onChange={(e) => {
-                      const val = Number(e.target.value) / 100;
-                      onUpdateTextProps?.({ fillOpacity: val });
-                    }}
-                    className="adjustment-slider slider-thumb-premium"
-                  />
-                </div>
-              </div>
+              <EditorSlider
+                label="Fill Opacity"
+                value={Math.round((selectedAnn.fillOpacity ?? 0.5) * 100)}
+                onChange={val => {
+                  onUpdateTextProps?.({ fillOpacity: val / 100 });
+                }}
+                min={0}
+                max={100}
+                defaultValue={50}
+                unit="%"
+              />
             )}
           </div>
         )}

@@ -6,6 +6,7 @@ import type { InpaintMode } from './InpaintPanel';
 import type { Annotation, DrawToolId } from './AnnotationsPanel';
 import type { HealingSettings } from './HealingPanel';
 import type { HealingCanvasRef } from './HealingCanvas';
+import type { LassoState } from './lassoEngine';
 
 export interface CanvasAreaProps {
   currentImageSrc: string;
@@ -65,4 +66,19 @@ export interface CanvasAreaProps {
   healingSettings?: HealingSettings;
   healingCanvasRef?: React.Ref<HealingCanvasRef>;
   onHealingStrokeComplete?: () => void;
+  // Lasso & Intelligent Scissors Selection
+  lassoState?: LassoState;
+  onLassoStateChange?: (state: LassoState) => void;
+  onLassoSelectionComplete?: (maskCanvas: HTMLCanvasElement) => void;
+  // Palette Eyedropper
+  palettePickingIndex?: number | null;
+  onPaletteColorPicked?: (hex: string, targetIdx: number) => void;
+  onCancelPalettePicking?: () => void;
+  // Face Bounding Boxes
+  faces?: import('./FaceBoundingBoxOverlay').FaceBBox[];
+  selectedFaceIndex?: number | null;
+  onSelectFace?: (index: number) => void;
+  // Liquify & Reshape Mesh
+  liquifySettings?: import('./liquifyEngine').LiquifySettings;
+  liquifyCanvasRef?: React.Ref<import('./LiquifyCanvas').LiquifyCanvasRef>;
 }

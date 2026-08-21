@@ -8,13 +8,14 @@ import { RotateCcw, Trash2, FolderOpen } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { openFileFolderBrowser } from '@/services/FileFolderBrowserService';
 import { resolveUrl } from '@/constants';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface TexturePanelProps {
   adjustments: Adjustments;
   onChange: (adj: Adjustments) => void;
 }
 
-export const LEAKS = [
+const LEAKS = [
   {
     id: 'warm-left',
     name: 'Warm Left',
@@ -241,7 +242,7 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   const vignetteFillWidth = `${Math.abs(vignette) / 2}%`;
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
       <input
         ref={fileInputRef}
         type="file"
@@ -272,39 +273,15 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
 
         <div className="space-y-4">
           {/* Amount slider */}
-          <div className="group/item">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Amount
-              </label>
-              <span
-                className={`text-[10px] font-mono tabular-nums leading-none transition-all duration-200 ${
-                  grain.amount > 0 ? 'text-primary scale-110' : 'text-white/20'
-                }`}
-              >
-                {grain.amount}%
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: '0%',
-                  width: `${grainPct}%`,
-                  boxShadow: grain.amount > 0 ? '0 0 8px rgba(var(--color-primary), 0.3)' : 'none',
-                }}
-              />
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={grain.amount}
-                onChange={e => handleGrainAmountChange(Number(e.target.value))}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
-          </div>
+          <EditorSlider
+            label="Amount"
+            value={grain.amount}
+            onChange={handleGrainAmountChange}
+            min={0}
+            max={100}
+            defaultValue={0}
+            unit="%"
+          />
 
           {/* Size buttons */}
           <div className="flex justify-between items-center py-1">
@@ -316,11 +293,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
                   <button
                     key={size}
                     onClick={() => handleGrainSizeChange(size)}
-                    className={`px-2.5 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                      isActive
-                        ? 'bg-white/10 text-white border border-white/5'
-                        : 'text-white/30 hover:text-white/50 border border-transparent'
-                    }`}
+                    className={`editor-btn editor-chip-btn ${
+                      isActive ? 'active' : ''
+                    } px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider`}
                   >
                     {size}
                   </button>
@@ -391,34 +366,16 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
 
         {/* Leak Opacity slider - only visible when a leak is selected */}
         {lightLeak.preset && (
-          <div className="group/item transition-all duration-300">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Leak Intensity
-              </label>
-              <span className="text-[10px] font-mono text-primary scale-110 tabular-nums font-bold">
-                {lightLeak.opacity}%
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: '0%',
-                  width: `${leakPct}%`,
-                  boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                }}
-              />
-              <input
-                type="range"
-                min={1}
-                max={100}
-                value={lightLeak.opacity}
-                onChange={e => handleLeakOpacityChange(Number(e.target.value))}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
+          <div className="pt-2 animate-in fade-in duration-200">
+            <EditorSlider
+              label="Leak Intensity"
+              value={lightLeak.opacity}
+              onChange={handleLeakOpacityChange}
+              min={1}
+              max={100}
+              defaultValue={80}
+              unit="%"
+            />
           </div>
         )}
       </div>
@@ -429,42 +386,15 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
           Vignette
         </p>
 
-        <div className="group/item">
-          <div className="flex justify-between items-baseline mb-2">
-            <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-              Vignette
-            </label>
-            <span
-              className={`text-[10px] font-mono tabular-nums w-10 text-right leading-none transition-all duration-200 ${
-                vignette !== 0 ? 'text-primary scale-110' : 'text-white/20'
-              }`}
-            >
-              {vignette > 0 ? `+${vignette}` : vignette}
-            </span>
-          </div>
-
-          <div className="relative h-4 flex items-center">
-            <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-            <div
-              aria-hidden
-              className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300"
-              style={{
-                left: vignetteFillLeft,
-                width: vignetteFillWidth,
-                background: `rgb(var(--color-primary) / ${vignette !== 0 ? 0.8 : 0.2})`,
-                boxShadow: vignette !== 0 ? `0 0 8px rgb(var(--color-primary) / 0.3)` : 'none',
-              }}
-            />
-            <input
-              type="range"
-              min={-100}
-              max={100}
-              value={vignette}
-              onChange={e => handleVignetteChange(Number(e.target.value))}
-              className="adjustment-slider slider-thumb-premium"
-            />
-          </div>
-        </div>
+        <EditorSlider
+          label="Vignette"
+          value={vignette}
+          onChange={handleVignetteChange}
+          min={-100}
+          max={100}
+          defaultValue={0}
+          bipolar
+        />
       </div>
 
       {/* ── Double Exposure / Blend Section ── */}
@@ -543,35 +473,15 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
               </div>
 
               {/* Opacity Slider */}
-              <div className="group/item">
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-[11px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                    Overlay Opacity
-                  </label>
-                  <span className="text-[10px] font-mono text-primary scale-110 font-bold tabular-nums">
-                    {blend.opacity}%
-                  </span>
-                </div>
-                <div className="relative h-4 flex items-center">
-                  <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-                  <div
-                    className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                    style={{
-                      left: '0%',
-                      width: `${blend.opacity}%`,
-                      boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                    }}
-                  />
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={blend.opacity}
-                    onChange={e => handleBlendOpacityChange(Number(e.target.value))}
-                    className="adjustment-slider slider-thumb-premium"
-                  />
-                </div>
-              </div>
+              <EditorSlider
+                label="Overlay Opacity"
+                value={blend.opacity}
+                onChange={handleBlendOpacityChange}
+                min={0}
+                max={100}
+                defaultValue={100}
+                unit="%"
+              />
 
               {/* Fit Mode Toggle */}
               <div className="space-y-2">

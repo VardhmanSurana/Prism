@@ -49,59 +49,105 @@ export function computeHistogram(
   filterString: string,
 ): Promise<HistogramData> {
   return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const aspect = img.naturalWidth / img.naturalHeight;
-      const offW = SAMPLE_SIZE;
-      const offH = Math.round(SAMPLE_SIZE / aspect);
+    if (!imageSrc) {
+      resolve(buildEmptyData());
+      return;
+    }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = offW;
-      canvas.height = offH;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
+    const processImage = (img: HTMLImageElement) => {
+      try {
+        const aspect = (img.naturalWidth && img.naturalHeight) ? (img.naturalWidth / img.naturalHeight) : 1;
+        const offW = SAMPLE_SIZE;
+        const offH = Math.max(1, Math.round(SAMPLE_SIZE / aspect));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = offW;
+        canvas.height = offH;
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) {
+          resolve(buildEmptyData());
+          return;
+        }
+
+        // Apply the same CSS filter the editor uses for preview
+        ctx.filter = filterString || 'none';
+        ctx.drawImage(img, 0, 0, offW, offH);
+        ctx.filter = 'none';
+
+        const { data } = ctx.getImageData(0, 0, offW, offH);
+        const r = new Array(BINS).fill(0);
+        const g = new Array(BINS).fill(0);
+        const b = new Array(BINS).fill(0);
+        const lum = new Array(BINS).fill(0);
+
+        for (let i = 0; i < data.length; i += 4) {
+          const rv = data[i];
+          const gv = data[i + 1];
+          const bv = data[i + 2];
+          r[rv]++;
+          g[gv]++;
+          b[bv]++;
+          // Rec.709 luminance
+          const l = Math.round(0.2126 * rv + 0.7152 * gv + 0.0722 * bv);
+          lum[l]++;
+        }
+
+        // Find peak (excluding the extreme bins which often spike on solid BG)
+        let peak = 1;
+        for (let i = 1; i < BINS - 1; i++) {
+          if (r[i] > peak) peak = r[i];
+          if (g[i] > peak) peak = g[i];
+          if (b[i] > peak) peak = b[i];
+        }
+
+        resolve({ r, g, b, lum, peak });
+      } catch (err) {
+        // Fallback gracefully on cross-origin SecurityError or canvas failure
         resolve(buildEmptyData());
-        return;
       }
-
-      // Apply the same CSS filter the editor uses for preview
-      ctx.filter = filterString || 'none';
-      ctx.drawImage(img, 0, 0, offW, offH);
-      ctx.filter = 'none';
-
-      const { data } = ctx.getImageData(0, 0, offW, offH);
-      const r = new Array(BINS).fill(0);
-      const g = new Array(BINS).fill(0);
-      const b = new Array(BINS).fill(0);
-      const lum = new Array(BINS).fill(0);
-
-      for (let i = 0; i < data.length; i += 4) {
-        const rv = data[i];
-        const gv = data[i + 1];
-        const bv = data[i + 2];
-        r[rv]++;
-        g[gv]++;
-        b[bv]++;
-        // Rec.709 luminance
-        const l = Math.round(0.2126 * rv + 0.7152 * gv + 0.0722 * bv);
-        lum[l]++;
-      }
-
-      // Find peak (excluding the extreme bins which often spike on solid BG)
-      let peak = 1;
-      for (let i = 1; i < BINS - 1; i++) {
-        if (r[i] > peak) peak = r[i];
-        if (g[i] > peak) peak = g[i];
-        if (b[i] > peak) peak = b[i];
-      }
-
-      resolve({ r, g, b, lum, peak });
     };
-    img.onerror = () => resolve(buildEmptyData());
 
-    // Add cache-busting only for blob: URLs (they're already unique)
-    img.src = imageSrc;
+    // If it's already a blob: or data: URL, load directly
+    if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => processImage(img);
+      img.onerror = () => resolve(buildEmptyData());
+      img.src = imageSrc;
+      return;
+    }
+
+    // For HTTP/HTTPS URLs, fetch as blob first to guarantee local same-origin canvas data
+    fetch(imageSrc, { mode: 'cors' })
+      .then(res => (res.ok ? res.blob() : null))
+      .then(blob => {
+        if (!blob) {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => processImage(img);
+          img.onerror = () => resolve(buildEmptyData());
+          img.src = imageSrc;
+          return;
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+          processImage(img);
+          URL.revokeObjectURL(blobUrl);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          resolve(buildEmptyData());
+        };
+        img.src = blobUrl;
+      })
+      .catch(() => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => processImage(img);
+        img.onerror = () => resolve(buildEmptyData());
+        img.src = imageSrc;
+      });
   });
 }
 

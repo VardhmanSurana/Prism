@@ -210,8 +210,8 @@ export function applyPreset(
     ...DEFAULT_ADJUSTMENTS,
     // Preserve non-color state
     curves: current.curves,
-    regions: current.regions,
     hsl: current.hsl,
+    portrait: current.portrait,
     // Apply preset
     ...preset,
   };

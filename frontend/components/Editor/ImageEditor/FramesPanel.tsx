@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { Adjustments } from './filterEngine';
 import { resolveUrl } from '@/constants';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface FramesPanelProps {
   adjustments: Adjustments;
@@ -263,7 +264,7 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     frame.style !== 'rounded';
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">
@@ -303,11 +304,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
           </button>
           <button
             onClick={handleFlipH}
-            className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-              flipH
-                ? 'border-primary bg-primary/10 text-white'
-                : 'bg-white/[0.02] border-white/5 hover:bg-white/5 text-white/80 hover:text-white'
-            }`}
+            className={`editor-btn editor-card-btn ${
+              flipH ? 'active' : ''
+            } py-2 px-1 flex flex-col items-center justify-center gap-1`}
             title="Mirror Horizontally"
           >
             <FlipHorizontal size={14} />
@@ -315,11 +314,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
           </button>
           <button
             onClick={handleFlipV}
-            className={`py-2 px-1 rounded-xl border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
-              flipV
-                ? 'border-primary bg-primary/10 text-white'
-                : 'bg-white/[0.02] border-white/5 hover:bg-white/5 text-white/80 hover:text-white'
-            }`}
+            className={`editor-btn editor-card-btn ${
+              flipV ? 'active' : ''
+            } py-2 px-1 flex flex-col items-center justify-center gap-1`}
             title="Mirror Vertically"
           >
             <FlipVertical size={14} />
@@ -340,14 +337,12 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
               <button
                 key={style.id}
                 onClick={() => handleStyleChange(style.id)}
-                className={`py-2.5 px-3 rounded-xl text-left flex flex-col justify-between h-[56px] border transition-all duration-200 cursor-pointer ${
-                  isActive
-                    ? 'border-primary bg-primary/5 text-white'
-                    : 'bg-white/[0.02] border-white/5 text-white/40 hover:text-white/60 hover:bg-white/[0.04]'
-                }`}
+                className={`editor-btn editor-card-btn ${
+                  isActive ? 'active' : ''
+                } py-2.5 px-3 text-left flex flex-col justify-between h-[56px]`}
               >
                 <span className="text-[10px] font-bold tracking-wide leading-none">{style.name}</span>
-                <span className="text-[8px] text-white/20 font-medium leading-tight">{style.desc}</span>
+                <span className="text-[8px] opacity-60 font-medium leading-tight">{style.desc}</span>
               </button>
             );
           })}
@@ -357,36 +352,19 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
           <div className="mt-4 space-y-4">
             {/* Thickness Slider */}
             {showThicknessSlider && (
-              <div className="group/item">
-                <div className="flex justify-between items-baseline mb-2">
-                  <label className="text-[10px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                    Border Thickness
-                  </label>
-                  <span className="text-[9px] font-mono text-primary font-bold tabular-nums">
-                    {frame.thickness}%
-                  </span>
-                </div>
-              <div className="relative h-4 flex items-center">
-                  <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-                  <div
-                    className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                    style={{
-                      left: '0%',
-                      width: `${frame.thickness * 5}%`,
-                      boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                    }}
-                  />
-                  <input
-                    type="range"
-                    min={1}
-                    max={20}
-                    value={thicknessUI}
-                    onChange={e => setThicknessUI(Number(e.target.value))}
-                    onPointerUp={() => commitThickness(thicknessUI)}
-                    onMouseUp={() => commitThickness(thicknessUI)}
-                    className="adjustment-slider slider-thumb-premium"
-                  />
-                </div>
+              <div className="pt-1">
+                <EditorSlider
+                  label="Border Thickness"
+                  value={thicknessUI}
+                  onChange={val => {
+                    setThicknessUI(val);
+                    commitThickness(val);
+                  }}
+                  min={1}
+                  max={20}
+                  defaultValue={5}
+                  unit="%"
+                />
               </div>
             )}
 
@@ -439,99 +417,40 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
         <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-4 flex items-center gap-1.5">
           <Sun size={10} /> Atmospheric Adjustments
         </p>
-        <div className="space-y-4">
+        <div className="space-y-3.5">
           {/* Warmth (Temperature) */}
-          <div className="group/item">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[10px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Warmth (Color Temp)
-              </label>
-              <span className="text-[9px] font-mono text-primary font-bold tabular-nums">
-                {temperature > 0 ? `+${temperature}` : temperature}
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: temperature >= 0 ? '50%' : `${50 + (temperature / 2)}%`,
-                  width: `${Math.abs(temperature) / 2}%`,
-                  boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                }}
-              />
-              <input
-                type="range"
-                min={-100}
-                max={100}
-                value={temperature}
-                onChange={e => handleTemperatureChange(Number(e.target.value))}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
-          </div>
+          <EditorSlider
+            label="Warmth (Color Temp)"
+            value={temperature}
+            onChange={handleTemperatureChange}
+            min={-100}
+            max={100}
+            defaultValue={0}
+            trackBackground="linear-gradient(to right, #4075c0 0%, #4b5563 50%, #d4b545 100%)"
+            bipolar
+          />
 
           {/* Vignette */}
-          <div className="group/item">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[10px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Edge Vignette
-              </label>
-              <span className="text-[9px] font-mono text-primary font-bold tabular-nums">
-                {vignette > 0 ? `+${vignette}` : vignette}
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: vignette >= 0 ? '50%' : `${50 + (vignette / 2)}%`,
-                  width: `${Math.abs(vignette) / 2}%`,
-                  boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                }}
-              />
-              <input
-                type="range"
-                min={-100}
-                max={100}
-                value={vignette}
-                onChange={e => handleVignetteChange(Number(e.target.value))}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
-          </div>
+          <EditorSlider
+            label="Edge Vignette"
+            value={vignette}
+            onChange={handleVignetteChange}
+            min={-100}
+            max={100}
+            defaultValue={0}
+            bipolar
+          />
 
           {/* Analog Grain Amount */}
-          <div className="group/item">
-            <div className="flex justify-between items-baseline mb-2">
-              <label className="text-[10px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                Analog Film Grain
-              </label>
-              <span className="text-[9px] font-mono text-primary font-bold tabular-nums">
-                {grain.amount}%
-              </span>
-            </div>
-            <div className="relative h-4 flex items-center">
-              <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-              <div
-                className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                style={{
-                  left: '0%',
-                  width: `${grain.amount}%`,
-                  boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                }}
-              />
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={grain.amount}
-                onChange={e => handleGrainChange({ amount: Number(e.target.value) })}
-                className="adjustment-slider slider-thumb-premium"
-              />
-            </div>
-          </div>
+          <EditorSlider
+            label="Analog Film Grain"
+            value={grain.amount}
+            onChange={val => handleGrainChange({ amount: val })}
+            min={0}
+            max={100}
+            defaultValue={0}
+            unit="%"
+          />
 
           {grain.amount > 0 && (
             <div className="space-y-3 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -545,11 +464,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
                       <button
                         key={size}
                         onClick={() => handleGrainChange({ size })}
-                        className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                          isActive
-                            ? 'bg-white/10 text-white'
-                            : 'text-white/30 hover:text-white/50'
-                        }`}
+                        className={`editor-btn editor-chip-btn ${
+                          isActive ? 'active' : ''
+                        } px-2 py-0.5 text-[8px] font-bold uppercase tracking-wider`}
                       >
                         {size}
                       </button>
@@ -646,35 +563,15 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
         {lightLeak.preset && (
           <div className="space-y-4 pt-1 animate-in fade-in slide-in-from-top-1 duration-200">
             {/* Leak Intensity Slider */}
-            <div className="group/item">
-              <div className="flex justify-between items-baseline mb-2">
-                <label className="text-[10px] font-medium text-white/40 group-hover/item:text-white/70 leading-none select-none cursor-pointer transition-colors">
-                  Leak Intensity
-                </label>
-                <span className="text-[9px] font-mono text-primary font-bold tabular-nums">
-                  {lightLeak.opacity}%
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <div className="absolute w-full h-[1px] bg-white/5 rounded-full" />
-                <div
-                  className="absolute h-[1px] rounded-full pointer-events-none transition-all duration-300 bg-primary/80"
-                  style={{
-                    left: '0%',
-                    width: `${lightLeak.opacity}%`,
-                    boxShadow: '0 0 8px rgba(var(--color-primary), 0.3)',
-                  }}
-                />
-                <input
-                  type="range"
-                  min={1}
-                  max={100}
-                  value={lightLeak.opacity}
-                  onChange={e => handleLeakChange({ opacity: Number(e.target.value) })}
-                  className="adjustment-slider slider-thumb-premium"
-                />
-              </div>
-            </div>
+            <EditorSlider
+              label="Leak Intensity"
+              value={lightLeak.opacity}
+              onChange={val => handleLeakChange({ opacity: val })}
+              min={1}
+              max={100}
+              defaultValue={80}
+              unit="%"
+            />
 
             {/* Custom Color Selector */}
             <div className="space-y-2">

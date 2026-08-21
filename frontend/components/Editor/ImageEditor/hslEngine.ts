@@ -123,10 +123,9 @@ export function applyHslToImageData(
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Skip near-greys — they have negligible saturation so HSL barely helps
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    if (max - min < 8) continue;
+    if (max === min) continue; // Skip true monochrome/neutral greys
 
     const [h, s, l] = rgbToHsl(r, g, b);
 
@@ -144,8 +143,8 @@ export function applyHslToImageData(
     if (dh === 0 && ds === 0 && dl === 0) continue;
 
     const newH = ((h + dh) % 360 + 360) % 360;
-    const newS = Math.max(0, Math.min(1, s + ds));
-    const newL = Math.max(0, Math.min(1, l + dl * 0.5)); // scale dl to avoid clipping
+    const newS = Math.max(0, Math.min(1, ds >= 0 ? s + ds * (1 - s) : s * (1 + ds)));
+    const newL = Math.max(0, Math.min(1, dl >= 0 ? l + dl * 0.7 * (1 - l) : l * (1 + dl * 0.7)));
 
     const [nr, ng, nb] = hslToRgb(newH, newS, newL);
     data[i]     = nr;

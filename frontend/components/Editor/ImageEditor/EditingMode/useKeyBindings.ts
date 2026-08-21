@@ -1,20 +1,20 @@
 /**
  * useKeyBindings.ts
- * Custom React hook establishing global keydown/keyup event listeners for image editor shortcuts (Undo/Redo, Hold-to-Compare, Zooming, and Brush resizing).
+ * Custom React hook establishing global keydown/keyup event listeners for image editor shortcuts
+ * (Undo/Redo, Hold-to-Compare, Zooming, and Brush resizing).
+ * ponytail: simplified by routing directly to handleUndo / handleRedo.
  */
 
 import { useEffect } from 'react';
 import { ToolId } from '../Sidebar';
-import { HistoryEntry } from '../history';
 import { InpaintMode, InpaintSettings } from '../InpaintPanel';
 
 interface UseKeyBindingsProps {
   activeTool: ToolId | null;
   undoAnnotations: () => void;
   redoAnnotations: () => void;
-  currentHistoryIndex: number;
-  history: HistoryEntry[];
-  handleJumpToHistory: (index: number) => void;
+  handleUndo: () => void;
+  handleRedo: () => void;
   setIsComparing: (compare: boolean | ((prev: boolean) => boolean)) => void;
   cropperRef: React.RefObject<any>;
   inpaintMode: InpaintMode;
@@ -26,9 +26,8 @@ export const useKeyBindings = ({
   activeTool,
   undoAnnotations,
   redoAnnotations,
-  currentHistoryIndex,
-  history,
-  handleJumpToHistory,
+  handleUndo,
+  handleRedo,
   setIsComparing,
   cropperRef,
   inpaintMode,
@@ -43,28 +42,16 @@ export const useKeyBindings = ({
         if (activeTool === 'annotations') {
           undoAnnotations();
         } else {
-          const prevIndex = currentHistoryIndex - 1;
-          if (prevIndex >= 0) handleJumpToHistory(prevIndex);
+          handleUndo();
         }
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault();
         if (activeTool === 'annotations') {
           redoAnnotations();
         } else {
-          const nextIndex = currentHistoryIndex + 1;
-          if (nextIndex < history.length) handleJumpToHistory(nextIndex);
-        }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-        e.preventDefault();
-        if (activeTool === 'annotations') {
-          redoAnnotations();
-        } else {
-          const nextIndex = currentHistoryIndex + 1;
-          if (nextIndex < history.length) handleJumpToHistory(nextIndex);
+          handleRedo();
         }
         return;
       }
@@ -98,10 +85,10 @@ export const useKeyBindings = ({
         const cropper = cropperRef.current;
         if (cropper) {
           const containerData = cropper.getContainerData();
-          const imageData     = cropper.getImageData();
+          const imageData = cropper.getImageData();
           const scale = Math.min(
-            (containerData.width  * 0.95) / imageData.naturalWidth,
-            (containerData.height * 0.95) / imageData.naturalHeight,
+            (containerData.width * 0.95) / imageData.naturalWidth,
+            (containerData.height * 0.95) / imageData.naturalHeight
           );
           cropper.zoomTo(scale);
         }
@@ -113,33 +100,26 @@ export const useKeyBindings = ({
         if (e.key === '[') {
           setInpaintSettings(prev => ({
             ...prev,
-            brushSize: Math.max(5, prev.brushSize - 5)
+            brushSize: Math.max(5, prev.brushSize - 5),
           }));
         } else if (e.key === ']') {
           setInpaintSettings(prev => ({
             ...prev,
-            brushSize: Math.min(200, prev.brushSize + 5)
+            brushSize: Math.min(200, prev.brushSize + 5),
           }));
         }
       }
     };
 
-    const handleGlobalKeyUp = (_e: KeyboardEvent) => {
-      // Backslash is now a toggle — no keyup action needed
-    };
-
     window.addEventListener('keydown', handleGlobalKeyDown);
-    window.addEventListener('keyup', handleGlobalKeyUp);
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
-      window.removeEventListener('keyup', handleGlobalKeyUp);
     };
   }, [
     activeTool,
     inpaintMode,
-    currentHistoryIndex,
-    history,
-    handleJumpToHistory,
+    handleUndo,
+    handleRedo,
     undoAnnotations,
     redoAnnotations,
     setIsComparing,

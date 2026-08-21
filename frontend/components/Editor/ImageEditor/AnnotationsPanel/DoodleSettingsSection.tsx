@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Sparkles } from 'lucide-react';
+import { EditorSlider } from '../ui/EditorSlider';
 
 interface DoodleSettingsSectionProps {
   doodleText?: string;
@@ -55,23 +56,15 @@ export const DoodleSettingsSection: React.FC<DoodleSettingsSectionProps> = ({
       </div>
 
       {/* Font Size slider */}
-      <div className="space-y-1">
-        <div className="flex items-center justify-between">
-          <label htmlFor="doodle-font-size-slider" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">
-            Font Size
-          </label>
-          <span className="font-mono text-[10px] text-primary">{doodleFontSize}px</span>
-        </div>
-        <input
-          id="doodle-font-size-slider"
-          type="range"
-          min="8"
-          max="48"
-          value={doodleFontSize || 18}
-          onChange={(e) => setDoodleFontSize?.(Number(e.target.value))}
-          className="w-full h-1 bg-white/5 rounded appearance-none cursor-pointer accent-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <EditorSlider
+        label="Font Size"
+        value={doodleFontSize || 18}
+        onChange={(val) => setDoodleFontSize?.(val)}
+        min={8}
+        max={48}
+        defaultValue={18}
+        unit=" px"
+      />
 
       {/* Font Family select */}
       <div className="space-y-1">

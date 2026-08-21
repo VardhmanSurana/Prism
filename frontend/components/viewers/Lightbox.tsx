@@ -692,9 +692,18 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
               if (res.ok) {
                 const updatedPhotoData = await res.json();
-                setEditedPhotoUrl(URL.createObjectURL(blob));
+                const blobUrl = URL.createObjectURL(blob);
+                setEditedPhotoUrl(blobUrl);
                 setIsEditing(false);
                 unloadInpaintModels();
+                if (onPhotoSelect) {
+                  onPhotoSelect({
+                    ...photo,
+                    ...updatedPhotoData,
+                    hash: updatedPhotoData.hash || String(Date.now()),
+                    url: `${updatedPhotoData.url || `/api/v1/photos/${updatedPhotoData.id}/thumbnail`}?h=${Date.now()}`
+                  });
+                }
                 eventService.emit('photo_updated', { type: 'photo_updated', photo: updatedPhotoData });
               } else {
                 console.error("Failed to save photo", await res.text());

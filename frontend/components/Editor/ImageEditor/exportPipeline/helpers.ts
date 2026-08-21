@@ -30,7 +30,7 @@ export const getPreviewBaseFilter = (adj: Adjustments) => {
       + adj.ambiance / 100 * 0.24,
   );
 
-  const hueRotation = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
+  const hueRotation = adj.hue || 0;
 
   return [
     `brightness(${brightnessFactor.toFixed(4)})`,
@@ -56,11 +56,6 @@ export const hasGlobalPreviewAdjustments = (adj: Adjustments) =>
   adj.clarity !== 0 ||
   adj.ambiance !== 0;
 
-export const hasRegionAdjustments = (adjustments: Adjustments) =>
-  adjustments.regions.some((region) =>
-    Object.values(region.adjustments).some((value) => (value || 0) !== 0),
-  );
-
 export const cloneCanvas = (sourceCanvas: HTMLCanvasElement) => {
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width;
@@ -73,42 +68,6 @@ export const cloneCanvas = (sourceCanvas: HTMLCanvasElement) => {
 
   ctx.drawImage(sourceCanvas, 0, 0);
   return { canvas: out, ctx };
-};
-
-export const loadMaskBitmap = async (maskUrl: string) => {
-  const response = await fetch(maskUrl);
-  if (!response.ok) {
-    throw new Error(`Failed to load mask: ${maskUrl}`);
-  }
-
-  const blob = await response.blob();
-  return createImageBitmap(blob);
-};
-
-export const createFeatheredMaskCanvas = async (maskUrl: string, width: number, height: number) => {
-  const bitmap = await loadMaskBitmap(maskUrl);
-
-  const maskCanvas = document.createElement('canvas');
-  maskCanvas.width = width;
-  maskCanvas.height = height;
-
-  const maskCtx = maskCanvas.getContext('2d');
-  if (!maskCtx) {
-    bitmap.close();
-    throw new Error('Failed to get a 2D context for mask compositing.');
-  }
-
-  if (!isCtxFilterSupported()) {
-    maskCtx.drawImage(bitmap, 0, 0, width, height);
-    applyBlurFallback(maskCanvas, 3);
-  } else {
-    maskCtx.filter = 'blur(3px)';
-    maskCtx.drawImage(bitmap, 0, 0, width, height);
-    maskCtx.filter = 'none';
-  }
-  bitmap.close();
-
-  return maskCanvas;
 };
 
 export const loadImage = (src: string): Promise<HTMLImageElement> => {

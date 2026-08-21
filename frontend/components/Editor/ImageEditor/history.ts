@@ -1,12 +1,13 @@
 /**
  * history.ts
- * Types and utilities for tracking edit history
+ * Types and utilities for tracking edit history undo/redo stack.
+ * ponytail: removed history panel toggle properties.
  */
 
 import { Adjustments } from './filterEngine';
 import { Annotation } from './AnnotationsPanel';
 
-export type HistoryActionType = 
+export type HistoryActionType =
   | 'crop'
   | 'rotate'
   | 'flip'
@@ -23,15 +24,12 @@ export type HistoryActionType =
   | 'hue'
   | 'temperature'
   | 'tint'
-
   | 'clarity'
   | 'sharpness'
   | 'noiseReduction'
   | 'ambiance'
   | 'curves'
   | 'vignette'
-  | 'regions'
-  | `regions_${string}`
   | 'splitToning'
   | 'grain'
   | 'lightLeak'
@@ -47,9 +45,7 @@ export interface HistoryEntry {
   timestamp: number;
   type: HistoryActionType;
   description: string;
-  value?: number; // The new value that was set
-  hidden?: boolean; // Toggles whether this history entry is active/applied
-  // Snapshot of the state at this point
+  value?: number;
   imageSrc: string;
   adjustments: Adjustments;
   rotation: number;
@@ -86,5 +82,3 @@ export function createHistoryEntry(
     annotations: annotations ? [...annotations] : [],
   };
 }
-
-

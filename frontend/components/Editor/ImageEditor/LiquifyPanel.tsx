@@ -1,35 +1,20 @@
-import React from 'react';
-import { Smile, Sparkles, Move, RotateCcw } from 'lucide-react';
+/**
+ * LiquifyPanel.tsx
+ * Sidebar control panel for Mesh Displacement, Warp, Pucker, Bloat, and Face Reshaping.
+ * Styled to match the unified Image Editor Studio design system.
+ */
 
-export type LiquifyToolMode = 'warp' | 'pucker' | 'bloat' | 'smooth' | 'reconstruct';
+import React, { useState } from 'react';
+import { Smile, RotateCcw, Move, ChevronDown, Sparkles, Wand2 } from 'lucide-react';
+import {
+  LiquifyToolMode,
+  FaceLiquifySettings,
+  LiquifySettings,
+  DEFAULT_LIQUIFY_SETTINGS,
+} from './liquifyEngine';
+import { EditorSlider } from './ui/EditorSlider';
 
-export interface FaceLiquifySettings {
-  eyeSize: number; // -100 -> 100
-  eyeDistance: number; // -100 -> 100
-  noseWidth: number; // -100 -> 100
-  lipHeight: number; // -100 -> 100
-  chinShape: number; // -100 -> 100
-}
-
-export interface LiquifySettings {
-  mode: LiquifyToolMode;
-  brushSize: number;
-  pressure: number;
-  face: FaceLiquifySettings;
-}
-
-export const DEFAULT_LIQUIFY_SETTINGS: LiquifySettings = {
-  mode: 'warp',
-  brushSize: 80,
-  pressure: 50,
-  face: {
-    eyeSize: 0,
-    eyeDistance: 0,
-    noseWidth: 0,
-    lipHeight: 0,
-    chinShape: 0,
-  },
-};
+export type { LiquifyToolMode, FaceLiquifySettings, LiquifySettings };
 
 interface LiquifyPanelProps {
   settings: LiquifySettings;
@@ -42,114 +27,193 @@ export const LiquifyPanel: React.FC<LiquifyPanelProps> = ({
   onChange,
   onResetMesh,
 }) => {
+  const [openSections, setOpenSections] = useState({
+    mesh: true,
+    brush: true,
+    face: true,
+  });
+
+  const toggleSection = (key: keyof typeof openSections) => {
+    setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const update = (patch: Partial<LiquifySettings>) => onChange({ ...settings, ...patch });
   const updateFace = (patch: Partial<FaceLiquifySettings>) =>
     onChange({ ...settings, face: { ...settings.face, ...patch } });
 
+  const hasChanges =
+    settings.brushSize !== DEFAULT_LIQUIFY_SETTINGS.brushSize ||
+    settings.pressure !== DEFAULT_LIQUIFY_SETTINGS.pressure ||
+    settings.face.eyeSize !== 0 ||
+    settings.face.eyeDistance !== 0 ||
+    settings.face.noseWidth !== 0 ||
+    settings.face.lipHeight !== 0 ||
+    settings.face.chinShape !== 0;
+
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#090a0d] text-white p-4 space-y-5">
-      <div className="flex items-center justify-between border-b border-white/5 pb-3">
-        <div className="flex items-center gap-2">
-          <Smile size={14} className="text-primary" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-white/80">Liquify & Face Reshape</h3>
-        </div>
-        <button
-          onClick={onResetMesh}
-          className="text-white/40 hover:text-white transition-colors cursor-pointer"
-          title="Reset Mesh"
+    <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar text-white p-4 space-y-4 select-none">
+      {/* ── Sub-header ── */}
+      <div className="flex items-center justify-between pb-1">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">
+          Mesh Warp & Face Studio
+        </span>
+
+        {hasChanges && (
+          <button
+            onClick={onResetMesh}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 hover:bg-white/10 text-white/60 hover:text-white text-[10px] font-semibold transition-all cursor-pointer"
+            title="Reset All Mesh Warps"
+          >
+            <RotateCcw size={10} />
+            Reset
+          </button>
+        )}
+      </div>
+
+      {/* ── 1. Mesh Tool Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('mesh')}
+          className="flex items-center justify-between cursor-pointer group"
         >
-          <RotateCcw size={12} />
-        </button>
-      </div>
-
-      {/* Mesh Tool Modes */}
-      <div className="space-y-2">
-        <label className="text-[10px] font-semibold text-white/60 uppercase">Mesh Tool</label>
-        <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded-lg border border-white/5">
-          {(
-            [
-              { id: 'warp', label: 'Warp' },
-              { id: 'pucker', label: 'Pucker' },
-              { id: 'bloat', label: 'Bloat' },
-              { id: 'smooth', label: 'Smooth' },
-              { id: 'reconstruct', label: 'Restore' },
-            ] as const
-          ).map(tool => (
-            <button
-              key={tool.id}
-              onClick={() => update({ mode: tool.id as LiquifyToolMode })}
-              className={`py-1.5 text-[10px] font-bold uppercase rounded transition-all ${
-                settings.mode === tool.id ? 'bg-primary/25 text-primary border border-primary/40' : 'text-white/40 hover:text-white'
-              }`}
-            >
-              {tool.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Brush Size & Pressure */}
-      <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 space-y-3">
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-white/60">
-            <span>Brush Size</span>
-            <span className="font-mono">{settings.brushSize}px</span>
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Move size={11} className="text-primary" />
+            <span>Mesh Tool Mode</span>
           </div>
-          <input
-            type="range"
-            min={10}
-            max={300}
-            value={settings.brushSize}
-            onChange={e => update({ brushSize: Number(e.target.value) })}
-            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.mesh ? 'rotate-0' : '-rotate-90'
+            }`}
           />
         </div>
 
-        <div className="space-y-1">
-          <div className="flex justify-between text-[10px] text-white/60">
-            <span>Pressure</span>
-            <span className="font-mono">{settings.pressure}%</span>
-          </div>
-          <input
-            type="range"
-            min={1}
-            max={100}
-            value={settings.pressure}
-            onChange={e => update({ pressure: Number(e.target.value) })}
-            className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
-          />
-        </div>
-      </div>
-
-      {/* Face-Aware Reshape Sliders */}
-      <div className="bg-[#14151a] p-3 rounded-lg border border-white/5 space-y-3">
-        <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-white/70 border-b border-white/5 pb-2">
-          <Sparkles size={11} className="text-primary" />
-          Face-Aware Reshape
-        </div>
-
-        {[
-          { key: 'eyeSize' as const, label: 'Eye Size' },
-          { key: 'eyeDistance' as const, label: 'Eye Distance' },
-          { key: 'noseWidth' as const, label: 'Nose Width' },
-          { key: 'lipHeight' as const, label: 'Lip Height' },
-          { key: 'chinShape' as const, label: 'Chin Shape' },
-        ].map(item => (
-          <div key={item.key} className="space-y-1">
-            <div className="flex justify-between text-[10px] text-white/60">
-              <span>{item.label}</span>
-              <span className="font-mono">{settings.face[item.key] > 0 ? `+${settings.face[item.key]}` : settings.face[item.key]}</span>
+        {openSections.mesh && (
+          <div className="space-y-2 pt-1">
+            <div className="grid grid-cols-3 gap-1.5">
+              {(
+                [
+                  { id: 'warp', label: 'Warp' },
+                  { id: 'pucker', label: 'Pucker' },
+                  { id: 'bloat', label: 'Bloat' },
+                  { id: 'smooth', label: 'Smooth' },
+                  { id: 'reconstruct', label: 'Restore' },
+                ] as const
+              ).map(tool => {
+                const isSelected = settings.mode === tool.id;
+                return (
+                  <button
+                    key={tool.id}
+                    onClick={() => update({ mode: tool.id as LiquifyToolMode })}
+                    className={`editor-btn editor-chip-btn ${
+                      isSelected ? 'active' : ''
+                    } py-2 px-1 text-[10px] font-bold uppercase flex items-center justify-center`}
+                  >
+                    {tool.label}
+                  </button>
+                );
+              })}
             </div>
-            <input
-              type="range"
-              min={-100}
+          </div>
+        )}
+      </div>
+
+      {/* ── 2. Brush Dynamics Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('brush')}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Sparkles size={11} className="text-primary" />
+            <span>Brush Dynamics</span>
+          </div>
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.brush ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </div>
+
+        {openSections.brush && (
+          <div className="space-y-3 pt-1">
+            <EditorSlider
+              label="Brush Size"
+              value={settings.brushSize}
+              onChange={val => update({ brushSize: val })}
+              min={10}
+              max={250}
+              defaultValue={50}
+              unit=" px"
+            />
+
+            <EditorSlider
+              label="Warp Pressure"
+              value={settings.pressure}
+              onChange={val => update({ pressure: val })}
+              min={1}
               max={100}
-              value={settings.face[item.key]}
-              onChange={e => updateFace({ [item.key]: Number(e.target.value) })}
-              className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              defaultValue={50}
+              unit="%"
             />
           </div>
-        ))}
+        )}
+      </div>
+
+      {/* ── 3. Face Retouch Sliders Card ── */}
+      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
+        <div
+          onClick={() => toggleSection('face')}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 group-hover:text-white">
+            <Smile size={11} className="text-primary" />
+            <span>Face-Aware Reshape</span>
+          </div>
+          <ChevronDown
+            size={12}
+            className={`text-white/30 transition-transform duration-150 ${
+              openSections.face ? 'rotate-0' : '-rotate-90'
+            }`}
+          />
+        </div>
+
+        {openSections.face && (
+          <div className="space-y-3 pt-1">
+            {(
+              [
+                { key: 'eyeSize' as const, label: 'Eye Size' },
+                { key: 'eyeDistance' as const, label: 'Eye Distance' },
+                { key: 'noseWidth' as const, label: 'Nose Width' },
+                { key: 'lipHeight' as const, label: 'Lip Height' },
+                { key: 'chinShape' as const, label: 'Chin Shape' },
+              ] as const
+            ).map(f => (
+              <EditorSlider
+                key={f.key}
+                label={f.label}
+                value={settings.face[f.key]}
+                onChange={val => updateFace({ [f.key]: val })}
+                min={-100}
+                max={100}
+                defaultValue={0}
+                bipolar
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── 4. Reset Action CTA ── */}
+      <div className="space-y-2">
+        <button
+          onClick={onResetMesh}
+          className="w-full py-2.5 px-4 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-white/80 font-bold text-xs uppercase tracking-wide transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2"
+        >
+          <RotateCcw size={12} />
+          <span>Reset Liquify Mesh</span>
+        </button>
       </div>
     </div>
   );

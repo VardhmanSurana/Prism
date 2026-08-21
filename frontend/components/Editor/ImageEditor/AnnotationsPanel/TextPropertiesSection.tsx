@@ -13,6 +13,7 @@ import {
   AlignRight
 } from 'lucide-react';
 import { Annotation } from './types';
+import { EditorSlider } from '../ui/EditorSlider';
 
 interface TextPropertiesSectionProps {
   fontFamily?: string;
@@ -91,81 +92,64 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
       </div>
 
       {/* Font Size slider */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <label htmlFor="text-font-size-slider" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Font Size</label>
-          <span className="font-mono text-primary text-[10px] font-semibold">{fontSize}px</span>
-        </div>
-        <input
-          id="text-font-size-slider"
-          type="range"
-          min="12"
-          max="120"
-          value={fontSize || 36}
-          onChange={(e) => {
-            setFontSize?.(Number(e.target.value));
-            onUpdateTextProps?.({ fontSize: Number(e.target.value) });
-          }}
-          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <EditorSlider
+        label="Font Size"
+        value={fontSize || 36}
+        onChange={(val) => {
+          setFontSize?.(val);
+          onUpdateTextProps?.({ fontSize: val });
+        }}
+        min={12}
+        max={120}
+        defaultValue={36}
+        unit=" px"
+      />
 
       {/* Line Height slider */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <label htmlFor="text-line-height-slider" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Line Height</label>
-          <span className="font-mono text-primary text-[10px] font-semibold">{(lineHeight || 1.2).toFixed(1)}</span>
-        </div>
-        <input
-          id="text-line-height-slider"
-          type="range"
-          min="0.8"
-          max="2.5"
-          step="0.1"
-          value={lineHeight || 1.2}
-          onChange={(e) => {
-            setLineHeight?.(Number(e.target.value));
-            onUpdateTextProps?.({ lineHeight: Number(e.target.value) });
-          }}
-          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <EditorSlider
+        label="Line Height"
+        value={lineHeight || 1.2}
+        onChange={(val) => {
+          setLineHeight?.(val);
+          onUpdateTextProps?.({ lineHeight: val });
+        }}
+        min={0.8}
+        max={2.5}
+        step={0.1}
+        defaultValue={1.2}
+        formatValue={val => val.toFixed(1)}
+      />
 
       {/* Letter Spacing slider */}
-      <div className="space-y-1">
-        <div className="flex justify-between items-center">
-          <label htmlFor="text-letter-spacing-slider" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider">Letter Spacing</label>
-          <span className="font-mono text-primary text-[10px] font-semibold">{letterSpacing || 0}px</span>
-        </div>
-        <input
-          id="text-letter-spacing-slider"
-          type="range"
-          min="-4"
-          max="24"
-          step="1"
-          value={letterSpacing || 0}
-          onChange={(e) => {
-            setLetterSpacing?.(Number(e.target.value));
-            onUpdateTextProps?.({ letterSpacing: Number(e.target.value) });
-          }}
-          className="w-full h-1 bg-white/5 rounded-lg appearance-none cursor-pointer accent-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        />
-      </div>
+      <EditorSlider
+        label="Letter Spacing"
+        value={letterSpacing || 0}
+        onChange={(val) => {
+          setLetterSpacing?.(val);
+          onUpdateTextProps?.({ letterSpacing: val });
+        }}
+        min={-4}
+        max={24}
+        step={1}
+        defaultValue={0}
+        unit=" px"
+        bipolar
+      />
 
       {/* Style & Align selection grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1">
           <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">STYLE</span>
-          <div className="flex bg-black/40 rounded-xl p-0.5 border border-white/5">
+          <div className="flex bg-black/40 rounded-xl p-0.5 border border-white/5 gap-1">
             <button
               onClick={() => {
                 const next = fontWeight === 'bold' ? 'normal' : 'bold';
                 setWeight?.(next);
                 onUpdateTextProps?.({ fontWeight: next });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg text-[10px] transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                fontWeight === 'bold' ? 'bg-white/10 text-white font-bold' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                fontWeight === 'bold' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5 text-[10px]`}
               title="Bold"
             >
               <Bold className="w-3.5 h-3.5" />
@@ -176,9 +160,9 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
                 setStyle?.(next);
                 onUpdateTextProps?.({ fontStyle: next });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg text-[10px] transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                fontStyle === 'italic' ? 'bg-white/10 text-white italic' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                fontStyle === 'italic' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5 text-[10px]`}
               title="Italic"
             >
               <Italic className="w-3.5 h-3.5" />
@@ -189,9 +173,9 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
                 setDecoration?.(next);
                 onUpdateTextProps?.({ textDecoration: next });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg text-[10px] transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                textDecoration === 'underline' ? 'bg-white/10 text-white underline' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                textDecoration === 'underline' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5 text-[10px]`}
               title="Underline"
             >
               <Underline className="w-3.5 h-3.5" />
@@ -201,15 +185,15 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
 
         <div className="space-y-1">
           <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">ALIGN</span>
-          <div className="flex bg-black/40 rounded-xl p-0.5 border border-white/5">
+          <div className="flex bg-black/40 rounded-xl p-0.5 border border-white/5 gap-1">
             <button
               onClick={() => {
                 setTextAlign?.('left');
                 onUpdateTextProps?.({ textAlign: 'left' });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                textAlign === 'left' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                textAlign === 'left' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5`}
               title="Align Left"
             >
               <AlignLeft className="w-3.5 h-3.5" />
@@ -219,9 +203,9 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
                 setTextAlign?.('center');
                 onUpdateTextProps?.({ textAlign: 'center' });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                textAlign === 'center' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                textAlign === 'center' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5`}
               title="Align Center"
             >
               <AlignCenter className="w-3.5 h-3.5" />
@@ -231,9 +215,9 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
                 setTextAlign?.('right');
                 onUpdateTextProps?.({ textAlign: 'right' });
               }}
-              className={`flex-1 flex justify-center py-1.5 rounded-lg transition cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                textAlign === 'right' ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white'
-              }`}
+              className={`editor-btn editor-chip-btn ${
+                textAlign === 'right' ? 'active' : ''
+              } flex-1 flex justify-center py-1.5`}
               title="Align Right"
             >
               <AlignRight className="w-3.5 h-3.5" />

@@ -2,19 +2,27 @@
 const DEFAULT_API_BASE = 'http://127.0.0.1:8269';
 
 export const getApiBase = (): string => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const saved = localStorage.getItem('prism_server_url');
-    if (saved && saved.trim().length > 0) {
-      return saved.trim().replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined' && typeof window.localStorage.getItem === 'function') {
+    try {
+      const saved = localStorage.getItem('prism_server_url');
+      if (saved && saved.trim().length > 0) {
+        return saved.trim().replace(/\/+$/, '');
+      }
+    } catch {
+      // Ignore localStorage access issues in tests/sandboxes
     }
   }
   return (import.meta.env.VITE_API_BASE as string) || DEFAULT_API_BASE;
 };
 
 export const setApiBase = (url: string): void => {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    const cleaned = url.trim().replace(/\/+$/, '');
-    localStorage.setItem('prism_server_url', cleaned);
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined' && typeof window.localStorage.setItem === 'function') {
+    try {
+      const cleaned = url.trim().replace(/\/+$/, '');
+      localStorage.setItem('prism_server_url', cleaned);
+    } catch {
+      // Ignore localStorage write issues in tests/sandboxes
+    }
   }
 };
 

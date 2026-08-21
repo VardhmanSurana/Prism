@@ -50,11 +50,9 @@ export const ToolsGrid: React.FC<ToolsGridProps> = ({ activeDrawTool, setActiveD
             <button
               key={tool.id}
               onClick={() => setActiveDrawTool(tool.id)}
-              className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                isActive
-                  ? 'bg-primary text-black border border-primary shadow-lg shadow-primary/10'
-                  : 'bg-white/[0.02] border border-white/5 text-white/50 hover:text-white/80 hover:bg-white/[0.04]'
-              }`}
+              className={`editor-btn editor-card-btn ${
+                isActive ? 'active' : ''
+              } flex flex-col items-center justify-center p-2`}
               role="radio"
               aria-checked={isActive}
               aria-label={tool.name}

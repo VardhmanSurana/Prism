@@ -4,6 +4,8 @@
  */
 
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, AlertCircle } from 'lucide-react';
 // @ts-ignore -- react-color-palette css side-effect import lacks types
 import 'react-color-palette/css';
 import Cropper from 'cropperjs';
@@ -14,12 +16,11 @@ import { TransformPanel } from '../TransformPanel';
 import { TopBar } from '../TopBar';
 import { Sidebar, ToolId } from '../Sidebar';
 import { CanvasArea } from '../CanvasArea';
-import { HistoryPanel } from '../HistoryPanel';
 import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from '../filterEngine';
 import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
 import { PortraitPanel } from '../PortraitPanel';
-import { SelectivePanel } from '../SelectivePanel';
 import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '../InpaintPanel';
+import { inpaintImageLocally } from '../inpaintEngine';
 import { HslPanel } from '../HslPanel';
 import { PresetsPanel } from '../PresetsPanel';
 import { TexturePanel } from '../TexturePanel';
@@ -27,13 +28,14 @@ import { FramesPanel } from '../FramesPanel';
 import { PalettePanel } from '../PalettePanel';
 import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
 import { LutPanel } from '../LutPanel';
-import { HealingPanel, HealingSettings, DEFAULT_HEALING_SETTINGS } from '../HealingPanel';
+import { HealingPanel } from '../HealingPanel';
+import { HealingSettings, DEFAULT_HEALING_SETTINGS } from '../healingEngine';
 import { LayersPanel } from '../LayersPanel';
 import { RawEnginePanel } from '../RawEnginePanel';
-import { LiquifyPanel, DEFAULT_LIQUIFY_SETTINGS } from '../LiquifyPanel';
+import { LiquifyPanel } from '../LiquifyPanel';
+import { DEFAULT_LIQUIFY_SETTINGS } from '../liquifyEngine';
 import { ColorMatchPanel } from '../ColorMatchPanel';
 import { LassoPanel } from '../LassoPanel';
-import { LassoCanvas } from '../LassoCanvas';
 import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
 import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
@@ -111,26 +113,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     isRestoringHistory,
     revokeLocalUrl,
     addHistoryEntry,
-    handleJumpToHistory,
-    handleToggleHideHistoryEntry,
-    handleDeleteHistoryEntry,
-    handleClearHistory,
     handleUndo,
     handleRedo,
     canUndo,
     canRedo,
   } = historyState;
-
-  // Collapsible History Panel State
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const autoOpenedHistoryRef = useRef<boolean>(false);
-
-  useEffect(() => {
-    if (history.length >= 4 && !autoOpenedHistoryRef.current) {
-      setShowHistory(true);
-      autoOpenedHistoryRef.current = true;
-    }
-  }, [history.length]);
 
   // Inpaint state
   const [inpaintMode, setInpaintMode] = useState<InpaintMode>('brush');
@@ -162,6 +149,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [healingSettings, setHealingSettings] = useState<HealingSettings>(DEFAULT_HEALING_SETTINGS);
   const [healingHasStrokes, setHealingHasStrokes] = useState<boolean>(false);
   const healingCanvasRef = useRef<import('../HealingCanvas').HealingCanvasRef | null>(null);
+  const liquifyCanvasRef = useRef<import('../LiquifyCanvas').LiquifyCanvasRef | null>(null);
 
   // New Professional Tools State
   const [layers, setLayers] = useState<Layer[]>([createDefaultBaseLayer()]);
@@ -169,6 +157,41 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
   const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
   const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
+
+  // Face Detection Bounding Boxes State
+  const [faces, setFaces] = useState<import('../FaceBoundingBoxOverlay').FaceBBox[]>([]);
+  const [selectedFaceIndex, setSelectedFaceIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!photoId) return;
+    let isMounted = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/photos/${photoId}/faces`);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && Array.isArray(data.faces)) {
+            setFaces(data.faces);
+          }
+        }
+      } catch (err) {
+        console.debug('Failed to fetch photo faces:', err);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [photoId]);
+
+  // Toast Notification State
+  const [toastMessage, setToastMessage] = useState<{ text: string; isError?: boolean } | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = useCallback((text: string, isError = false) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToastMessage({ text, isError });
+    toastTimerRef.current = setTimeout(() => {
+      setToastMessage(null);
+    }, 2800);
+  }, []);
 
   const handleApplyColorMatch = useCallback(async (refSrc: string, strength: number) => {
     try {
@@ -207,6 +230,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       console.error('Color match failed:', e);
     }
   }, [currentImageSrc, setCurrentImageSrc]);
+
+  const handleRawSettingsChange = useCallback((raw: RawSettings) => {
+    setRawSettings(raw);
+    setAdjustments({ ...adjustments, raw });
+  }, [adjustments, setAdjustments]);
 
   // Export progress state
   const [exportProgress, setExportProgress] = useState<{ step: string; current: number; total: number } | null>(null);
@@ -303,8 +331,30 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, [src, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV]);
 
   const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
-  const deferredAdjustments = React.useDeferredValue(adjustments);
-  const deferredFilterString = useMemo(() => toFilterString(deferredAdjustments), [deferredAdjustments]);
+  // ponytail: deferred values removed — isDraggingSliderRef already handles perf at 450px during drag
+
+  // Palette swatches & in-canvas loupe eyedropper state
+  const [paletteSwatches, setPaletteSwatches] = useState<string[]>([
+    '#808080', '#808080', '#808080', '#808080', '#808080', '#808080'
+  ]);
+  const [paletteLocked, setPaletteLocked] = useState<boolean[]>([
+    false, false, false, false, false, false
+  ]);
+  const [palettePickingIndex, setPalettePickingIndex] = useState<number | null>(null);
+
+  const handlePaletteColorPicked = useCallback((hex: string, targetIdx: number) => {
+    setPaletteSwatches(prev => {
+      const next = [...prev];
+      next[targetIdx] = hex;
+      return next;
+    });
+    setPaletteLocked(prev => {
+      const next = [...prev];
+      next[targetIdx] = true;
+      return next;
+    });
+    setPalettePickingIndex(null);
+  }, []);
 
   useEffect(() => {
     const cropper = cropperRef.current;
@@ -425,13 +475,15 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const handleCopyEdits = useCallback(() => {
     const { copyAdjustments } = useEditStore.getState();
     copyAdjustments(adjustments);
-  }, [adjustments]);
+    showToast('Edits copied to clipboard');
+  }, [adjustments, showToast]);
 
   const handlePasteEdits = useCallback(() => {
     const { copiedAdjustments } = useEditStore.getState();
     if (!copiedAdjustments) return;
     setAdjustments(prev => ({ ...prev, ...copiedAdjustments }));
-  }, [setAdjustments]);
+    showToast('Edits applied to photo');
+  }, [setAdjustments, showToast]);
 
   const [isAutoEnhancing, setIsAutoEnhancing] = useState<boolean>(false);
   const handleAutoEnhance = useCallback(async () => {
@@ -471,53 +523,80 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         ? currentImageSrc 
         : await getBase64FromUrl(resolveUrl(currentImageSrc));
 
-      const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_data: imageData,
-          mask_data: inpaintMask,
-          operation: inpaintOperation,
-          model: inpaintSettings.model,
-          prompt: inpaintSettings.prompt,
-          guidance_scale: inpaintSettings.guidance,
-          num_inference_steps: inpaintSettings.steps,
-        }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Create blob URL for the result
+      let resultUrl: string | null = null;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image_data: imageData,
+            mask_data: inpaintMask,
+            operation: inpaintOperation,
+            model: inpaintSettings.model,
+            prompt: inpaintSettings.prompt,
+            guidance_scale: inpaintSettings.guidance,
+            num_inference_steps: inpaintSettings.steps,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          resultUrl = result.result;
+        }
+      } catch (e) {
+        console.warn('Backend inpaint request failed, using local engine:', e);
+      }
+
+      // If backend is missing model or returns error, execute local client-side inpaint
+      if (!resultUrl) {
+        resultUrl = await inpaintImageLocally(imageData, inpaintMask);
+      }
+
+      if (resultUrl) {
+        // Create blob URL for consistency
         revokeLocalUrl();
-        const newUrl = result.result; // This is already a data URL
-        
-        // Convert data URL to blob URL for consistency
-        const res = await fetch(newUrl);
+        const res = await fetch(resultUrl);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         historyState.createdUrlRef.current = blobUrl;
-        
+
         setCurrentImageSrc(blobUrl);
         setInpaintMask(null);
-        
+
         // Add to history
-        addHistoryEntry('inpaint' as HistoryActionType, `Applied ${result.model} ${result.operation}`, undefined, blobUrl);
-        
+        addHistoryEntry(
+          'inpaint' as HistoryActionType,
+          `Applied ${inpaintOperation === 'remove' ? 'Object Removal' : 'Inpaint'}`,
+          undefined,
+          blobUrl
+        );
+
         // Clear the canvas mask
         if (window.__clearInpaintMask) {
           window.__clearInpaintMask();
         }
-      } else {
-        const errorText = await response.text();
-        console.error('Inpainting failed:', errorText);
+
+        showToast(inpaintOperation === 'remove' ? 'Object removed successfully' : 'Inpainting applied');
       }
     } catch (error) {
       console.error('Inpainting error:', error);
+      showToast('Failed to apply inpainting');
     } finally {
       setIsInpainting(false);
     }
-  }, [inpaintMask, isInpainting, currentImageSrc, inpaintOperation, inpaintSettings, addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef]);
+  }, [
+    inpaintMask,
+    isInpainting,
+    currentImageSrc,
+    inpaintOperation,
+    inpaintSettings,
+    addHistoryEntry,
+    revokeLocalUrl,
+    setCurrentImageSrc,
+    historyState.createdUrlRef,
+    showToast,
+  ]);
 
   const handleInpaintStrokeComplete = useCallback((maskDataUrl: string) => {
     const idx = inpaintHistoryIndexRef.current;
@@ -590,6 +669,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             mimeType: format || 'image/jpeg',
             quality: quality ?? 0.95,
             annotations: annState.annotations,
+            healingCanvas: healingCanvasRef.current?.getWorkCanvas() || null,
+            liquifyCanvas: liquifyCanvasRef.current?.getWorkCanvas() || null,
             onProgress: (step, current, total) => setExportProgress({ step, current, total }),
           }))
           .then(async (blob) => {
@@ -624,59 +705,73 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const handleCopy = useCallback(() => {
     if (isSaving) return;
     const cropper = cropperRef.current;
-    if (!cropper) return;
+
+    let sourceCanvas: HTMLCanvasElement | null = null;
+    if (cropper) {
+      try {
+        sourceCanvas = cropper.getCroppedCanvas({
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high',
+        });
+      } catch (err) {
+        console.warn('Failed to get cropped canvas from cropper:', err);
+      }
+    }
+
+    if (!sourceCanvas) {
+      showToast('Image not ready to copy', true);
+      return;
+    }
 
     setIsSaving(true);
 
     setTimeout(() => {
-      try {
-        const cropped = cropper.getCroppedCanvas({
-          imageSmoothingEnabled: true,
-          imageSmoothingQuality: 'high',
-        });
-
-        void import('../exportPipeline')
-          .then(({ exportEditedCanvas }) => exportEditedCanvas({
-            sourceCanvas: cropped,
-            adjustments,
-            mimeType: 'image/png', // Must be PNG for Clipboard API
-            quality: 1.0,
-            annotations: annState.annotations,
-          }))
-          .then(async (blob) => {
-            try {
-              const data = [new ClipboardItem({ [blob.type]: blob })];
-              await navigator.clipboard.write(data);
-            } catch (err) {
-              console.error('Clipboard write failed, using fallback download:', err);
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'clipboard-fallback.png';
-              a.click();
-              URL.revokeObjectURL(url);
+      void import('../exportPipeline')
+        .then(({ exportEditedCanvas }) => exportEditedCanvas({
+          sourceCanvas,
+          adjustments,
+          mimeType: 'image/png', // Must be PNG for Clipboard API
+          quality: 1.0,
+          annotations: annState.annotations,
+          healingCanvas: healingCanvasRef.current?.getWorkCanvas() || null,
+          liquifyCanvas: liquifyCanvasRef.current?.getWorkCanvas() || null,
+        }))
+        .then(async (blob) => {
+          try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && typeof ClipboardItem !== 'undefined') {
+              const item = new ClipboardItem({ 'image/png': blob });
+              await navigator.clipboard.write([item]);
+              showToast('Image copied to clipboard!');
+            } else {
+              throw new Error('Async Clipboard API not supported');
             }
-            setIsSaving(false);
-          })
-          .catch((error) => {
-            console.error('Copy failed:', error);
-            setIsSaving(false);
-          });
-      } catch (err) {
-        console.error('Copy failed:', err);
-        setIsSaving(false);
-      }
+          } catch (err) {
+            console.warn('Clipboard write failed, using fallback download:', err);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'edited-image.png';
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Downloaded as PNG (clipboard unavailable)');
+          }
+          setIsSaving(false);
+        })
+        .catch((error) => {
+          console.error('Copy failed:', error);
+          showToast('Failed to copy image', true);
+          setIsSaving(false);
+        });
     }, 50);
-  }, [adjustments, isSaving, annState.annotations]);
+  }, [adjustments, isSaving, annState.annotations, showToast]);
 
   // Keyboard bindings hook integration
   useKeyBindings({
     activeTool,
     undoAnnotations: annState.undoAnnotations,
     redoAnnotations: annState.redoAnnotations,
-    currentHistoryIndex,
-    history,
-    handleJumpToHistory,
+    handleUndo,
+    handleRedo,
     setIsComparing,
     cropperRef,
     inpaintMode,
@@ -684,10 +779,11 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     onAutoEnhance: handleAutoEnhance,
   });
 
-  const deferredCurvesTable = useMemo(
-    () => getCurvesTableValues(deferredAdjustments.curves || DEFAULT_CURVE),
-    [deferredAdjustments.curves],
+  const curvesTable = useMemo(
+    () => getCurvesTableValues(adjustments.curves || DEFAULT_CURVE),
+    [adjustments.curves],
   );
+
 
   return (
     <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden bg-[var(--bg-primary)]">
@@ -702,9 +798,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         handleRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
-        showHistory={showHistory}
-        setShowHistory={setShowHistory}
-        historyCount={history.length}
         exportProgress={exportProgress}
         onCopyEdits={handleCopyEdits}
         onPasteEdits={handlePasteEdits}
@@ -742,13 +835,19 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               onAutoEnhance={handleAutoEnhance}
               isAutoEnhancing={isAutoEnhancing}
             />],
-            ['detail', <DetailPanel key="detail" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['portrait', <PortraitPanel key="portrait" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
-            ['selective', <SelectivePanel key="selective" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
+            ['portrait', <PortraitPanel
+              key="portrait"
+              adjustments={adjustments}
+              onChange={handleAdjChange}
+              photoId={photoId}
+              selectedFaceIndex={selectedFaceIndex}
+              onSelectFace={setSelectedFaceIndex}
+            />],
             ['hsl', <HslPanel key="hsl" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['detail', <DetailPanel key="detail" adjustments={adjustments} onChange={handleAdjChange} />],
             ['presets', <PresetsPanel key="presets" adjustments={adjustments} onChange={handleAdjChange} imageSrc={currentImageSrc} />],
             ['texture', <TexturePanel key="texture" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['lut', <LutPanel key="lut" adjustments={adjustments} onChange={handleAdjChange} />],
+            ['lut', <LutPanel key="lut" adjustments={adjustments} onChange={handleAdjChange} imageSrc={currentImageSrc} />],
             ['healing', <HealingPanel
               key="healing"
               settings={healingSettings}
@@ -768,14 +867,19 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             />],
             ['raw', <RawEnginePanel
               key="raw"
-              settings={rawSettings}
-              onChange={setRawSettings}
+              settings={adjustments.raw || rawSettings}
+              onChange={handleRawSettingsChange}
+              photoId={photoId}
+              imageSrc={currentImageSrc}
             />],
             ['liquify', <LiquifyPanel
               key="liquify"
               settings={liquifySettings}
               onChange={setLiquifySettings}
-              onResetMesh={() => setLiquifySettings(DEFAULT_LIQUIFY_SETTINGS)}
+              onResetMesh={() => {
+                setLiquifySettings(DEFAULT_LIQUIFY_SETTINGS);
+                liquifyCanvasRef.current?.resetMesh();
+              }}
             />],
             ['colormatch', <ColorMatchPanel
               key="colormatch"
@@ -793,7 +897,16 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               }}
             />],
             ['frame', <FramesPanel key="frame" adjustments={adjustments} onChange={handleAdjChange} handleRotate={handleRotate} handleFlipH={handleFlipH} handleFlipV={handleFlipV} flipH={flipH} flipV={flipV} imageSrc={currentImageSrc} />],
-            ['palette', <PalettePanel key="palette" imageSrc={currentImageSrc} />],
+            ['palette', <PalettePanel
+              key="palette"
+              imageSrc={currentImageSrc}
+              swatches={paletteSwatches}
+              locked={paletteLocked}
+              onSwatchesChange={setPaletteSwatches}
+              onLockedChange={setPaletteLocked}
+              onStartEyedropper={(targetIdx) => setPalettePickingIndex(targetIdx)}
+              activeEyedropperIndex={palettePickingIndex}
+            />],
             ['annotations', <AnnotationsPanel key="annotations"
               annotations={annState.annotations}
               onChange={annState.updateAnnotations}
@@ -865,7 +978,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             <div
               key={toolId}
               style={activeTool === toolId ? undefined : { visibility: 'hidden', position: 'absolute', pointerEvents: 'none' }}
-              className="flex-1 min-h-0 flex flex-col"
+              className="flex-1 min-h-0 w-full flex flex-col"
             >
               {panel}
             </div>
@@ -874,14 +987,14 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
         <CanvasArea
           currentImageSrc={currentImageSrc}
-          filterString={deferredFilterString}
+          filterString={filterString}
           cropperRef={cropperRef}
           handleCropEvent={handleCropEvent}
           handleReady={handleReady}
           activeTool={activeTool}
-          adjustments={deferredAdjustments}
+          adjustments={adjustments}
           isSaving={isSaving}
-          curvesTable={deferredCurvesTable}
+          curvesTable={curvesTable}
           isComparing={isComparing}
           inpaintMode={inpaintMode}
           brushSize={inpaintSettings.brushSize}
@@ -931,30 +1044,42 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           healingSettings={healingSettings}
           healingCanvasRef={healingCanvasRef}
           onHealingStrokeComplete={() => setHealingHasStrokes(true)}
+          lassoState={lassoState}
+          onLassoStateChange={setLassoState}
+          palettePickingIndex={palettePickingIndex}
+          onPaletteColorPicked={handlePaletteColorPicked}
+          onCancelPalettePicking={() => setPalettePickingIndex(null)}
+          faces={faces}
+          selectedFaceIndex={selectedFaceIndex}
+          onSelectFace={setSelectedFaceIndex}
+          liquifySettings={liquifySettings}
+          liquifyCanvasRef={liquifyCanvasRef}
         />
-
-        {activeTool === 'lasso' && (
-          <LassoCanvas
-            width={1920}
-            height={1080}
-            imageSrc={currentImageSrc}
-            state={lassoState}
-            onChange={setLassoState}
-          />
-        )}
-
-        {showHistory && (
-          <HistoryPanel
-            history={history}
-            currentIndex={currentHistoryIndex}
-            onJumpTo={handleJumpToHistory}
-            onClear={handleClearHistory}
-            onToggleHide={handleToggleHideHistoryEntry}
-            onDeleteEntry={handleDeleteHistoryEntry}
-            onClose={() => setShowHistory(false)}
-          />
-        )}
       </div>
+
+      {/* Floating Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2.5 px-4 py-2.5 rounded-xl border backdrop-blur-xl shadow-[0_10px_35px_rgba(0,0,0,0.7)] text-xs font-semibold select-none pointer-events-none ${
+              toastMessage.isError
+                ? 'bg-rose-950/90 border-rose-500/30 text-rose-200'
+                : 'bg-[#181a20]/95 border-white/15 text-white'
+            }`}
+          >
+            {toastMessage.isError ? (
+              <AlertCircle size={15} className="text-rose-400 shrink-0" />
+            ) : (
+              <Check size={15} className="text-emerald-400 shrink-0" />
+            )}
+            <span>{toastMessage.text}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

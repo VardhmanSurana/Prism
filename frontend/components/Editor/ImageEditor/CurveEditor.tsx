@@ -227,18 +227,20 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
       {/* Category selector */}
       <div className="flex rounded-lg bg-black/40 p-1 border border-white/5">
         <button
+          type="button"
           onClick={() => setCategory('rgb')}
-          className={`flex-1 py-1 text-[11px] font-medium rounded transition-colors 150ms ease, background-color 150ms ease ${
-            category === 'rgb' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
-          }`}
+          className={`editor-btn editor-chip-btn ${
+            category === 'rgb' ? 'active' : ''
+          } flex-1 py-1 text-xs`}
         >
-          RGB Curves
+          RGB
         </button>
         <button
+          type="button"
           onClick={() => setCategory('specialized')}
-          className={`flex-1 py-1 text-[11px] font-medium rounded transition-colors 150ms ease, background-color 150ms ease ${
-            category === 'specialized' ? 'bg-white/15 text-white font-semibold shadow-sm' : 'text-white/50 hover:text-white'
-          }`}
+          className={`editor-btn editor-chip-btn ${
+            category === 'specialized' ? 'active' : ''
+          } flex-1 py-1 text-xs`}
         >
           Color vs Color
         </button>
@@ -307,9 +309,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
               <button
                 key={k}
                 onClick={() => setActiveSpecializedKind(k)}
-                className={`px-2 py-1 text-[10px] rounded border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
-                  isActive ? 'bg-primary/25 border-primary text-primary font-semibold' : 'bg-white/5 border-white/10 text-white/60 hover:text-white'
-                }`}
+                className={`editor-btn editor-chip-btn ${
+                  isActive ? 'active' : ''
+                } px-2 py-1 text-[10px]`}
               >
                 {labels[k]}
               </button>
