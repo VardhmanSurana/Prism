@@ -338,14 +338,18 @@ pub async fn get_auto_enhance(
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&_state.db, &photo_id).await?;
-    match image::open(&photo.path) {
+    let img_res = match std::fs::read(&photo.path) {
+        Ok(bytes) => image::load_from_memory(&bytes).map_err(|e| e.to_string()),
+        Err(e) => Err(e.to_string()),
+    };
+    match img_res {
         Ok(img) => {
             let params = auto_enhance::calculate_auto_enhance(&img);
             Ok(Json(serde_json::to_value(params).unwrap_or_default()))
         }
         Err(e) => {
             warn!("Auto-enhance image load failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "error": e.to_string() })))
+            Ok(Json(json!({ "photo_id": photo.id, "error": e })))
         }
     }
 }

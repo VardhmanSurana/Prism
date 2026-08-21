@@ -80,6 +80,11 @@ pub struct SegmentationEngine {
 
 pub static SEGMENTATION_ENGINE: OnceLock<SegmentationEngine> = OnceLock::new();
 
+fn load_image_sniffed(path: &str) -> Result<DynamicImage, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    image::load_from_memory(&bytes).map_err(|e| format!("Failed to decode {}: {}", path, e))
+}
+
 impl SegmentationEngine {
     pub fn get() -> &'static Self {
         SEGMENTATION_ENGINE.get_or_init(|| {
@@ -120,7 +125,7 @@ impl SegmentationEngine {
         photo_id:   i64,
         masks_dir:  &std::path::Path,
     ) -> Result<BackgroundMaskResponse, String> {
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
         let (orig_w, orig_h) = (img.width(), img.height());
         let (h, w) = (320usize, 320usize);
 
@@ -174,7 +179,7 @@ impl SegmentationEngine {
         photo_id:   i64,
         masks_dir:  &std::path::Path,
     ) -> Result<SemanticMasksResponse, String> {
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
         let (orig_w, orig_h) = (img.width(), img.height());
         let (h, w) = (512usize, 512usize);
 
@@ -260,7 +265,7 @@ impl SegmentationEngine {
             None    => return Ok(PortraitMasksResponse { faces: vec![] }),
         };
 
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
         let (orig_w, orig_h) = (img.width(), img.height());
         let (h, w) = (512usize, 512usize);
 
