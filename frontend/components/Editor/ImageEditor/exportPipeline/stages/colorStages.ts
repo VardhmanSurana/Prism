@@ -7,6 +7,91 @@ import { Adjustments } from '../../filterEngine';
 import { clamp } from '../helpers';
 import { hexToRgbString } from '../helpers';
 
+/**
+ * Helper to convert pure Hue (0-360) to a luminance-neutral chromatic tint direction vector.
+ */
+function hueToChrominanceVector(hueDegrees: number): [number, number, number] {
+  const h = ((hueDegrees % 360) + 360) % 360;
+  const c = 1.0;
+  const x = c * (1.0 - Math.abs(((h / 60) % 2) - 1.0));
+  let r = 0, g = 0, b = 0;
+
+  if (h < 60) { r = c; g = x; b = 0; }
+  else if (h < 120) { r = x; g = c; b = 0; }
+  else if (h < 180) { r = 0; g = c; b = x; }
+  else if (h < 240) { r = 0; g = x; b = c; }
+  else if (h < 300) { r = x; g = 0; b = c; }
+  else { r = c; g = 0; b = x; }
+
+  // Relative luminance of this pure hue (ITU-R BT.709)
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+  // Subtract luminance so the vector represents pure chrominance shift without altering exposure
+  return [r - lum, g - lum, b - lum];
+}
+
+export const applySplitToningToImageData = (
+  imageData: ImageData,
+  st: Adjustments['splitToning']
+): void => {
+  if (!st || (st.shadows.saturation === 0 && st.highlights.saturation === 0)) {
+    return;
+  }
+
+  const data = imageData.data;
+  const count = data.length;
+
+  const shS = clamp(st.shadows.saturation / 100, 0, 1);
+  const hlS = clamp(st.highlights.saturation / 100, 0, 1);
+  const balance = clamp((st.balance || 0) / 100, -1, 1);
+
+  // Dynamic midpoint threshold influenced by balance slider (-1 to 1)
+  const midpoint = 0.5 + balance * 0.35;
+
+  const [shVecR, shVecG, shVecB] = hueToChrominanceVector(st.shadows.hue || 0);
+  const [hlVecR, hlVecG, hlVecB] = hueToChrominanceVector(st.highlights.hue || 0);
+
+  // Scaled tint directions
+  const shScaleR = shVecR * shS * 0.9;
+  const shScaleG = shVecG * shS * 0.9;
+  const shScaleB = shVecB * shS * 0.9;
+
+  const hlScaleR = hlVecR * hlS * 0.9;
+  const hlScaleG = hlVecG * hlS * 0.9;
+  const hlScaleB = hlVecB * hlS * 0.9;
+
+  for (let i = 0; i < count; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+
+    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+    // Smooth power-falloff weight curves
+    // Shadows weight falls off smoothly from 0 to midpoint
+    let wShadows = 0;
+    if (lum < midpoint && midpoint > 0) {
+      const t = (midpoint - lum) / midpoint;
+      wShadows = Math.pow(t, 1.25) * (1 - lum * 0.4);
+    }
+
+    // Highlights weight falls off smoothly from 1 to midpoint
+    let wHighlights = 0;
+    if (lum > midpoint && midpoint < 1) {
+      const t = (lum - midpoint) / (1 - midpoint);
+      wHighlights = Math.pow(t, 1.25) * (0.6 + lum * 0.4);
+    }
+
+    const deltaR = (wShadows * shScaleR + wHighlights * hlScaleR) * 255;
+    const deltaG = (wShadows * shScaleG + wHighlights * hlScaleG) * 255;
+    const deltaB = (wShadows * shScaleB + wHighlights * hlScaleB) * 255;
+
+    data[i] = clamp(Math.round(data[i] + deltaR), 0, 255);
+    data[i + 1] = clamp(Math.round(data[i + 1] + deltaG), 0, 255);
+    data[i + 2] = clamp(Math.round(data[i + 2] + deltaB), 0, 255);
+  }
+};
+
 export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const st = adjustments.splitToning;
   if (!st || (st.shadows.saturation === 0 && st.highlights.saturation === 0)) {
@@ -15,59 +100,7 @@ export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustm
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return canvas;
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imageData.data;
-
-  const shH = st.shadows.hue;
-  const shS = st.shadows.saturation / 100;
-  const hlH = st.highlights.hue;
-  const hlS = st.highlights.saturation / 100;
-  const balance = st.balance / 100; // -1 to 1
-
-  const pivot = 0.5 + balance * 0.2;
-
-  const hslToRgb = (h: number, s: number, l: number) => {
-    const c = (1 - Math.abs(2 * l - 1)) * s;
-    const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    const m = l - c / 2;
-    let r = 0, g = 0, b = 0;
-    if (h >= 0 && h < 60) { r = c; g = x; b = 0; }
-    else if (h >= 60 && h < 120) { r = x; g = c; b = 0; }
-    else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
-    else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
-    else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
-    else if (h >= 300 && h <= 360) { r = c; g = 0; b = x; }
-    return [r + m, g + m, b + m];
-  };
-
-  const [shR, shG, shB] = hslToRgb(shH, shS, 0.5);
-  const [hlR, hlG, hlB] = hslToRgb(hlH, hlS, 0.5);
-
-  for (let i = 0; i < data.length; i += 4) {
-    const r = data[i] / 255;
-    const g = data[i + 1] / 255;
-    const b = data[i + 2] / 255;
-
-    const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    let t = 0;
-
-    if (lum < pivot) {
-      t = (pivot - lum) / pivot;
-      const newR = r + (shR - 0.5) * t * shS;
-      const newG = g + (shG - 0.5) * t * shS;
-      const newB = b + (shB - 0.5) * t * shS;
-      data[i] = clamp(Math.round(newR * 255), 0, 255);
-      data[i + 1] = clamp(Math.round(newG * 255), 0, 255);
-      data[i + 2] = clamp(Math.round(newB * 255), 0, 255);
-    } else {
-      t = (lum - pivot) / (1 - pivot);
-      const newR = r + (hlR - 0.5) * t * hlS;
-      const newG = g + (hlG - 0.5) * t * hlS;
-      const newB = b + (hlB - 0.5) * t * hlS;
-      data[i] = clamp(Math.round(newR * 255), 0, 255);
-      data[i + 1] = clamp(Math.round(newG * 255), 0, 255);
-      data[i + 2] = clamp(Math.round(newB * 255), 0, 255);
-    }
-  }
+  applySplitToningToImageData(imageData, st);
   ctx.putImageData(imageData, 0, 0);
   return canvas;
 };

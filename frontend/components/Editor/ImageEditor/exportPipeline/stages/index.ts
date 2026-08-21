@@ -13,6 +13,7 @@ export {
 
 export {
   applySplitToning,
+  applySplitToningToImageData,
   applyGrain,
   applyLightLeak,
 } from './colorStages';

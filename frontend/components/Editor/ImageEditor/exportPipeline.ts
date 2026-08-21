@@ -20,6 +20,7 @@ import {
   applyVignette,
   applyCurveLutsToCanvas,
   applySplitToning,
+  applySplitToningToImageData,
   applyGrain,
   applyLightLeak,
   applyBlendOverlay,
@@ -48,6 +49,7 @@ interface ExportEditedCanvasOptions {
 
 export {
   applySplitToning,
+  applySplitToningToImageData,
   applyGrain,
   applyLightLeak,
   applyTiltShift,
