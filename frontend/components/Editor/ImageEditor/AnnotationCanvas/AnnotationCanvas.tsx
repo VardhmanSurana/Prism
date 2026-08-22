@@ -11,7 +11,7 @@ import {
   TextPathRenderer,
   VectorShapeRenderer,
 } from './Renderers';
-import { getAnnotationBBox } from './utils';
+import { getAnnotationBBox, getSvgRotationTransform } from './utils';
 
 const hexToRgba = (hex: string, opacity: number): string => {
   if (!hex) return 'transparent';
@@ -39,10 +39,10 @@ const makeBrushCursor = (size: number): string => {
     `<circle cx='${px / 2}' cy='${px / 2}' r='${r}' fill='none' stroke='white' stroke-width='1'/>`,
     `</svg>`,
   ].join('');
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${px / 2} ${px / 2}, crosshair`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${px / 2} ${px / 2}, auto`;
 };
 
-const PEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ffffff' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>") 2 22, auto`;
+const PEN_CURSOR = 'crosshair';
 
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
   const {
@@ -60,14 +60,18 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
   } = props;
 
   const [scale, setScale] = useState(1);
+  const [aspectRatio, setAspectRatio] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current) return;
     const obs = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const { height } = entry.contentRect;
+        const { width, height } = entry.contentRect;
         setScale(height / 1000);
+        if (width > 0 && height > 0) {
+          setAspectRatio(width / height);
+        }
       }
     });
     obs.observe(containerRef.current);
@@ -127,10 +131,10 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
       return null;
     }
     switch (ann.type) {
-      case 'freehand': return <FreehandRenderer key={ann.id} ann={ann} />;
-      case 'highlighter': return <HighlighterRenderer key={ann.id} ann={ann} />;
-      case 'textPath': return <TextPathRenderer key={ann.id} ann={ann} />;
-      default: return <VectorShapeRenderer key={ann.id} ann={ann} />;
+      case 'freehand': return <FreehandRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
+      case 'highlighter': return <HighlighterRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
+      case 'textPath': return <TextPathRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
+      default: return <VectorShapeRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
     }
   };
 
@@ -189,7 +193,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             const rotVal = selAnn.rotation || 0;
             const cx = (p0.x + p1.x) / 2;
             const cy = (p0.y + p1.y) / 2;
-            const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+            const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
             return (
               <g className="selection-handles" transform={transform} pointerEvents="none">

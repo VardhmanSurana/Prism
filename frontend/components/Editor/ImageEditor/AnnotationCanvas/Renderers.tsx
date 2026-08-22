@@ -1,6 +1,6 @@
 import React from 'react';
 import { Annotation } from '../AnnotationsPanel';
-import { smoothPath, getAnnotationBBox } from './utils';
+import { smoothPath, getAnnotationBBox, getSvgRotationTransform } from './utils';
 import {
   VectorShapeType,
   getPolygonPoints,
@@ -22,7 +22,7 @@ const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
   );
 };
 
-export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
+export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const start = ann.points[0];
   const end = ann.points[ann.points.length - 1];
@@ -43,7 +43,7 @@ export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   const rotVal = ann.rotation || 0;
   const cx = (start.x + end.x) / 2;
   const cy = (start.y + end.y) / 2;
-  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   return (
     <g transform={transform} opacity={ann.opacity ?? 1}>
@@ -64,7 +64,7 @@ export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
-export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
+export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
   const pathData = smoothed
@@ -75,7 +75,7 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   const bbox = getAnnotationBBox(ann);
   const cx = bbox.x + bbox.w / 2;
   const cy = bbox.y + bbox.h / 2;
-  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   return (
     <g transform={transform}>
@@ -92,7 +92,7 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
-export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
+export const HighlighterRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
   const pathData = smoothed
@@ -103,7 +103,7 @@ export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   const bbox = getAnnotationBBox(ann);
   const cx = bbox.x + bbox.w / 2;
   const cy = bbox.y + bbox.h / 2;
-  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   return (
     <g transform={transform}>
@@ -121,7 +121,7 @@ export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
-export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
+export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   const fill = ann.fillShape ? ann.color : 'none';
   const fillOpacity = ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined;
   const stroke = ann.color;
@@ -134,7 +134,7 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
     const end = ann.points[ann.points.length - 1];
     const cx = (start.x + end.x) / 2;
     const cy = (start.y + end.y) / 2;
-    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -168,7 +168,7 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
 
     const cx = (start.x + end.x) / 2;
     const cy = (start.y + end.y) / 2;
-    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -217,7 +217,7 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
 
     const cx = (start.x + end.x) / 2;
     const cy = (start.y + end.y) / 2;
-    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -246,7 +246,7 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
   const { x, y, w, h } = normalizeBounds(ann.bounds);
   const cx = x + w / 2;
   const cy = y + h / 2;
-  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   if (ann.type === 'rect') {
     return (
@@ -358,7 +358,7 @@ const calculatePathLength = (points: { x: number; y: number }[]) => {
   return length;
 };
 
-export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
+export const TextPathRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const pathId = `path-${ann.id}`;
   const smoothed = smoothPath(ann.points);
@@ -381,7 +381,7 @@ export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   const bbox = getAnnotationBBox(ann);
   const cx = bbox.x + bbox.w / 2;
   const cy = bbox.y + bbox.h / 2;
-  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   return (
     <g transform={transform} opacity={ann.opacity ?? 1}>
@@ -410,7 +410,7 @@ export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
-export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => {
+export const TextRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
   const x = b.x;
@@ -429,6 +429,7 @@ export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => 
   const rotVal = ann.rotation || 0;
   const cx = x + b.w / 2;
   const cy = y + b.h / 2;
+  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
 
   const baseBgColor = ann.bgColor || '';
   const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
@@ -436,7 +437,7 @@ export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => 
 
   return (
     <g
-      transform={rotVal ? `rotate(${rotVal} ${cx} ${cy})` : undefined}
+      transform={transform}
       opacity={ann.opacity !== undefined ? ann.opacity : 1}
     >
       {/* Background card if specified */}

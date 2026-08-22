@@ -149,4 +149,32 @@ export const smoothPath = (points: { x: number; y: number }[]): { x: number; y: 
   return smoothChaikin(simplified, 2);
 };
 
+/**
+ * Computes an aspect-ratio-corrected affine transform matrix for SVG rotations.
+ * Because the SVG coordinate space is normalized (0..1000, 0..1000) with preserveAspectRatio="none",
+ * a standard rotate(deg) on non-1:1 images introduces shear/skew distortion.
+ * This matrix rotates in isotropic screen pixel space without any distortion or loss of edges.
+ */
+export const getSvgRotationTransform = (
+  deg?: number,
+  cx: number = 0,
+  cy: number = 0,
+  aspectRatio: number = 1
+): string | undefined => {
+  if (!deg || deg % 360 === 0) return undefined;
+  const A = aspectRatio > 0 ? aspectRatio : 1;
+  const rad = (deg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const a = cos;
+  const b = A * sin;
+  const c = -sin / A;
+  const d = cos;
+  const e = cx * (1 - cos) + (cy * sin) / A;
+  const f = cy * (1 - cos) - cx * (A * sin);
+
+  return `matrix(${a.toFixed(6)} ${b.toFixed(6)} ${c.toFixed(6)} ${d.toFixed(6)} ${e.toFixed(6)} ${f.toFixed(6)})`;
+};
+
 
