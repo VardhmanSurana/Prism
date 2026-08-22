@@ -234,6 +234,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       return;
     }
 
+    isDrawing.current = true;
+    startPos.current = { x, y };
+
     const isPointShape = activeDrawTool === 'freehand' ||
       activeDrawTool === 'arrow' ||
       activeDrawTool === 'doubleArrow' ||
@@ -257,6 +260,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
         showGuidePath: showDoodleGuide !== false,
       } : {}),
     };
+    currentAnnRef.current = newAnn;
     setCurrentAnn(newAnn);
   };
 
@@ -451,18 +455,19 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
         if (!currentCurrentAnn) return;
 
+        let updatedAnn: Annotation | null = null;
         if ((currentCurrentAnn.type === 'freehand' || currentCurrentAnn.type === 'highlighter' || currentCurrentAnn.type === 'textPath') && currentCurrentAnn.points) {
-          setCurrentAnn({
+          updatedAnn = {
             ...currentCurrentAnn,
             points: [...currentCurrentAnn.points, { x, y }],
-          });
+          };
         } else if ((currentCurrentAnn.type === 'arrow' || currentCurrentAnn.type === 'doubleArrow' || currentCurrentAnn.type === 'line') && currentCurrentAnn.points) {
-          setCurrentAnn({
+          updatedAnn = {
             ...currentCurrentAnn,
             points: [currentCurrentAnn.points[0], { x, y }],
-          });
+          };
         } else if (currentCurrentAnn.bounds) {
-          setCurrentAnn({
+          updatedAnn = {
             ...currentCurrentAnn,
             bounds: {
               x: startPos.current.x,
@@ -470,7 +475,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
               w: x - startPos.current.x,
               h: y - startPos.current.y,
             },
-          });
+          };
+        }
+
+        if (updatedAnn) {
+          currentAnnRef.current = updatedAnn;
+          setCurrentAnn(updatedAnn);
         }
       });
     }
@@ -495,30 +505,32 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
     if (activeDrawTool === 'eraser' || activeDrawTool === 'select') return;
 
-    if (currentAnn) {
+    const finalAnn = currentAnnRef.current || currentAnn;
+    if (finalAnn) {
       let valid = true;
       if (
-        (currentAnn.type === 'freehand' ||
-          currentAnn.type === 'highlighter' ||
-          currentAnn.type === 'arrow' ||
-          currentAnn.type === 'doubleArrow' ||
-          currentAnn.type === 'line' ||
-          currentAnn.type === 'textPath') &&
-        currentAnn.points &&
-        currentAnn.points.length < 2
+        (finalAnn.type === 'freehand' ||
+          finalAnn.type === 'highlighter' ||
+          finalAnn.type === 'arrow' ||
+          finalAnn.type === 'doubleArrow' ||
+          finalAnn.type === 'line' ||
+          finalAnn.type === 'textPath') &&
+        finalAnn.points &&
+        finalAnn.points.length < 2
       ) {
         valid = false;
       }
       if (
-        currentAnn.bounds &&
-        Math.abs(currentAnn.bounds.w) < 3 &&
-        Math.abs(currentAnn.bounds.h) < 3
+        finalAnn.bounds &&
+        Math.abs(finalAnn.bounds.w) < 3 &&
+        Math.abs(finalAnn.bounds.h) < 3
       ) {
         valid = false;
       }
 
-      if (valid) onChange([...annotations, currentAnn]);
+      if (valid) onChange([...annotations, finalAnn]);
     }
+    currentAnnRef.current = null;
     setCurrentAnn(null);
   };
 

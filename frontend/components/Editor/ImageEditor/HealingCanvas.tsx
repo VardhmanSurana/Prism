@@ -438,8 +438,8 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
       {/* Interactive Display Canvas */}
       <canvas
         ref={canvasRef}
-        width={Math.round(width)}
-        height={Math.round(height)}
+        width={Number.isFinite(width) && width > 0 ? Math.round(width) : 1}
+        height={Number.isFinite(height) && height > 0 ? Math.round(height) : 1}
         style={{
           position: 'absolute',
           inset: 0,

@@ -377,7 +377,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Annotations Overlay (Preserved across tab switches to prevent unmounting issues) ── */}
-      {imageRect && !isComparing && (activeTool === 'annotations' || (annotations && annotations.length > 0 && activeTool !== 'transform')) && (
+      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && (activeTool === 'annotations' || (annotations && annotations.length > 0 && activeTool !== 'transform')) && (
         <div
           ref={annotationsContainerRef}
           className={`absolute ${activeTool === 'annotations' ? '' : 'pointer-events-none'}`}
@@ -463,7 +463,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Healing Brush / Clone Stamp overlay (Preserved across tool switches to prevent disappearing strokes/unmounting) ── */}
-      {imageRect && !isComparing && activeTool !== 'transform' && (
+      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
         <div
           ref={healingContainerRef}
           className={`absolute z-20 ${activeTool === 'healing' && !isCtrlPressed ? '' : 'pointer-events-none'}`}

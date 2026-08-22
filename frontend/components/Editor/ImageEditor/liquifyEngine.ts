@@ -526,6 +526,14 @@ export class WebGLLiquifyRenderer {
   public setSourceImage(image: HTMLImageElement | HTMLCanvasElement): void {
     const gl = this.gl;
     if (!gl || !this.texture) return;
+    if (!image) return;
+
+    if (image instanceof HTMLImageElement && (!image.complete || image.naturalWidth === 0 || image.naturalHeight === 0)) {
+      return;
+    }
+    if (image instanceof HTMLCanvasElement && (image.width === 0 || image.height === 0)) {
+      return;
+    }
 
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
