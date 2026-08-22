@@ -75,7 +75,12 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, children }) => {
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
-  const [hoveredTool, setHoveredTool] = useState<{ id: ToolId; top: number } | null>(null);
+  const [hoveredTool, setHoveredTool] = useState<{
+    id: ToolId;
+    top?: number;
+    bottom?: number;
+    align: 'center' | 'bottom';
+  } | null>(null);
 
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     inpaint: { icon: <Paintbrush size={20} strokeWidth={1.5} />, label: 'AI Tools', description: 'AI-powered object removal and mask-based image inpainting' },
@@ -111,17 +116,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
     const rect = el.getBoundingClientRect();
     const sidebarRect = sidebarContainerRef.current?.getBoundingClientRect();
     if (!sidebarRect) {
-      setHoveredTool({ id, top: rect.top + rect.height / 2 });
+      setHoveredTool({ id, top: rect.top + rect.height / 2, align: 'center' });
       return;
     }
-    const rawTop = rect.top - sidebarRect.top + rect.height / 2;
-    // Estimated tooltip height is ~80px (half-height ~44px). Clamp with comfortable viewport margins.
-    const tooltipHalfHeight = 44;
-    const margin = 14;
-    const minTop = tooltipHalfHeight + margin;
-    const maxTop = Math.max(minTop, sidebarRect.height - tooltipHalfHeight - margin);
-    const clampedTop = Math.max(minTop, Math.min(maxTop, rawTop));
-    setHoveredTool({ id, top: clampedTop });
+    const buttonCenterY = rect.top - sidebarRect.top + rect.height / 2;
+    const distFromBottom = sidebarRect.height - buttonCenterY;
+
+    // If button is in the lower region of the sidebar (bottom 150px), anchor to bottom with 28px clearance
+    if (distFromBottom < 150) {
+      setHoveredTool({
+        id,
+        bottom: 28,
+        align: 'bottom',
+      });
+    } else {
+      const safeTop = Math.max(64, buttonCenterY);
+      setHoveredTool({
+        id,
+        top: safeTop,
+        align: 'center',
+      });
+    }
   };
 
   return (
@@ -196,8 +211,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: -6, scale: 0.96 }}
             transition={{ duration: 0.12, ease: 'easeOut' }}
-            style={{ top: hoveredTool.top }}
-            className="absolute left-[62px] -translate-y-1/2 bg-[#14171d]/95 text-white p-3 rounded-xl pointer-events-none shadow-2xl z-[60] border border-white/10 w-52 flex flex-col gap-0.5 text-left backdrop-blur-xl"
+            style={
+              hoveredTool.align === 'bottom'
+                ? { bottom: hoveredTool.bottom }
+                : { top: hoveredTool.top }
+            }
+            className={`absolute left-[62px] ${
+              hoveredTool.align === 'bottom' ? '' : '-translate-y-1/2'
+            } bg-[#14171d]/95 text-white p-3 rounded-xl pointer-events-none shadow-2xl z-[60] border border-white/10 w-52 flex flex-col gap-0.5 text-left backdrop-blur-xl`}
           >
             <span className="text-[11px] font-bold text-white tracking-wide">
               {tabDefinitions[hoveredTool.id]?.label}
