@@ -109,6 +109,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   const activeHandleRef = useRef(activeHandle);
   activeHandleRef.current = activeHandle;
 
+  const selectedAnnIdRef = useRef(selectedAnnId);
+  selectedAnnIdRef.current = selectedAnnId;
+
   const animationFrameRef = useRef<number | null>(null);
   const latestPointerEventRef = useRef<{ clientX: number; clientY: number } | null>(null);
 
@@ -140,17 +143,22 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const { x, y } = getCoordinates(e);
 
     if (activeDrawTool === 'select') {
-      // 1. Check if clicking a handle on the selected annotation
-      if (selectedAnnId) {
-        const selAnn = annotations.find(a => a.id === selectedAnnId);
+      const currentSelectedId = selectedAnnIdRef.current || selectedAnnId;
+      // 1. Check if clicking a handle on the currently selected annotation
+      if (currentSelectedId) {
+        const selAnn = annotations.find(a => a.id === currentSelectedId);
         if (selAnn) {
           const handleId = detectHandleClick(x, y, selAnn);
           if (handleId) {
             const isEndpoint = handleId === 'ep0' || handleId === 'ep1';
-            setDragMode(isEndpoint ? 'resize-endpoint' : 'resize-edge');
+            const nextDragMode = isEndpoint ? 'resize-endpoint' : 'resize-edge';
+            setDragMode(nextDragMode);
+            dragModeRef.current = nextDragMode;
             setActiveHandle(handleId);
+            activeHandleRef.current = handleId;
             isDrawing.current = true;
             setLastPos({ x, y });
+            lastPosRef.current = { x, y };
             e.currentTarget.setPointerCapture(e.pointerId);
             return;
           }
@@ -163,14 +171,19 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       );
 
       if (clickedAnn) {
+        selectedAnnIdRef.current = clickedAnn.id;
         setSelectedAnnId?.(clickedAnn.id);
         isDrawing.current = true;
         setLastPos({ x, y });
+        lastPosRef.current = { x, y };
         setDragMode('move');
+        dragModeRef.current = 'move';
         setActiveHandle(null);
+        activeHandleRef.current = null;
         e.currentTarget.setPointerCapture(e.pointerId);
         return;
       } else {
+        selectedAnnIdRef.current = null;
         setSelectedAnnId?.(null);
       }
       return;
@@ -309,13 +322,15 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
         const { x, y } = getCoordinatesFromClient(clientX, clientY);
 
-        if (currentActiveDrawTool === 'select' && currentSelectedAnnId) {
+        const currentTargetAnnId = selectedAnnIdRef.current || currentSelectedAnnId;
+        if (currentActiveDrawTool === 'select' && currentTargetAnnId) {
           const dx = x - currentLastPos.x;
           const dy = y - currentLastPos.y;
           setLastPos({ x, y });
+          lastPosRef.current = { x, y };
 
           currentOnChange(currentAnnotations.map(ann => {
-            if (ann.id !== currentSelectedAnnId) return ann;
+            if (ann.id !== currentTargetAnnId) return ann;
 
             if (currentDragMode === 'move') {
               if (ann.bounds) {
@@ -491,8 +506,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
     isDrawing.current = false;
     setDragMode('none');
+    dragModeRef.current = 'none';
     setActiveHandle(null);
+    activeHandleRef.current = null;
     setRotatingAnnId(null);
+    rotatingAnnIdRef.current = null;
     rotateStartRef.current = null;
 
     if (animationFrameRef.current !== null) {

@@ -283,8 +283,8 @@ export const LiquifyCanvas = forwardRef<LiquifyCanvasRef, LiquifyCanvasProps>(({
       {/* WebGL Displacement Display Canvas */}
       <canvas
         ref={canvasRef}
-        width={Math.max(1, Math.round(width))}
-        height={Math.max(1, Math.round(height))}
+        width={Number.isFinite(width) && width > 0 ? Math.round(width) : 1}
+        height={Number.isFinite(height) && height > 0 ? Math.round(height) : 1}
         style={{
           position: 'absolute',
           inset: 0,

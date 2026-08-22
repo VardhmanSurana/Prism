@@ -11,6 +11,7 @@ import {
   TextPathRenderer,
   VectorShapeRenderer,
 } from './Renderers';
+import { getAnnotationBBox } from './utils';
 
 const hexToRgba = (hex: string, opacity: number): string => {
   if (!hex) return 'transparent';
@@ -175,6 +176,77 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
       >
         {annotations.map((ann) => renderAnnotation(ann))}
         {currentAnn && renderAnnotation(currentAnn)}
+
+        {/* ── Selection Bounding Box & Transform Handles for Shapes, Lines & Strokes ── */}
+        {!readOnly && activeDrawTool === 'select' && selectedAnnId && (() => {
+          const selAnn = annotations.find(a => a.id === selectedAnnId);
+          if (!selAnn || selAnn.visible === false || selAnn.type === 'text') return null;
+
+          // Point-based annotations (lines, arrows)
+          if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
+            const p0 = selAnn.points[0];
+            const p1 = selAnn.points[selAnn.points.length - 1];
+            return (
+              <g className="selection-handles" pointerEvents="none">
+                <circle
+                  cx={p0.x}
+                  cy={p0.y}
+                  r={8}
+                  fill="#ffffff"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                />
+                <circle
+                  cx={p1.x}
+                  cy={p1.y}
+                  r={8}
+                  fill="#ffffff"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                />
+              </g>
+            );
+          }
+
+          // Bounded annotations and pen/highlighter/doodle strokes
+          const bbox = getAnnotationBBox(selAnn);
+          if (bbox.w === 0 && bbox.h === 0) return null;
+
+          const edgeHandles: [string, { x: number; y: number }][] = [
+            ['tl', { x: bbox.x, y: bbox.y }],
+            ['tr', { x: bbox.x + bbox.w, y: bbox.y }],
+            ['bl', { x: bbox.x, y: bbox.y + bbox.h }],
+            ['br', { x: bbox.x + bbox.w, y: bbox.y + bbox.h }],
+            ['lm', { x: bbox.x, y: bbox.y + bbox.h / 2 }],
+            ['rm', { x: bbox.x + bbox.w, y: bbox.y + bbox.h / 2 }],
+          ];
+
+          return (
+            <g className="selection-handles" pointerEvents="none">
+              <rect
+                x={bbox.x}
+                y={bbox.y}
+                width={bbox.w}
+                height={bbox.h}
+                fill="none"
+                stroke="#22c55e"
+                strokeWidth={2}
+                strokeDasharray="6 4"
+              />
+              {edgeHandles.map(([id, pos]) => (
+                <circle
+                  key={id}
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={6.5}
+                  fill="#ffffff"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                />
+              ))}
+            </g>
+          );
+        })()}
       </svg>
 
       {/* HTML overlay for text annotations */}

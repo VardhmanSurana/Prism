@@ -568,7 +568,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Liquify & Reshape Mesh Canvas Overlay (Preserved across tool switches) ── */}
-      {imageRect && !isComparing && activeTool !== 'transform' && (
+      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
         <div
           ref={liquifyContainerRef}
           className={`absolute z-30 ${activeTool === 'liquify' && !isCtrlPressed ? '' : 'pointer-events-none hidden'}`}
