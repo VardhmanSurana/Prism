@@ -144,7 +144,7 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
             onSave?.(adjustments);
             onClose();
           }}
-          className="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-medium text-xs rounded-full flex items-center gap-1 shadow-lg shadow-blue-500/20 transition-all"
+          className="px-3 py-1.5 bg-[#FCBC00] hover:bg-[#FCBC00]/90 active:scale-95 text-black font-semibold text-xs rounded-full flex items-center gap-1 shadow-lg shadow-[#FCBC00]/20 transition-all"
         >
           <Check size={14} strokeWidth={2.5} />
           <span>Save</span>
@@ -191,7 +191,7 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
               value={currentValue}
               onChange={(e) => handleSliderChange(Number(e.target.value))}
               onPointerUp={(e) => handleSliderCommit(Number((e.target as HTMLInputElement).value))}
-              className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+              className="flex-1 h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-[#FCBC00]"
             />
             <span className="text-[10px] text-gray-500 font-mono w-6">
               +{activeTool.max}
@@ -212,14 +212,14 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
                 onClick={() => setActiveToolId(tool.id)}
                 className={`flex flex-col items-center gap-1.5 px-3.5 py-2 rounded-xl shrink-0 transition-all duration-200 active:scale-95 ${
                   isSelected
-                    ? 'bg-blue-500/20 border border-blue-500/40 text-blue-400'
+                    ? 'bg-[#FCBC00]/15 border border-[#FCBC00]/40 text-[#FCBC00]'
                     : 'bg-white/[0.03] border border-white/5 text-gray-400 hover:text-white'
                 }`}
               >
                 <div className="relative">
                   <Icon size={18} strokeWidth={isSelected ? 2.2 : 1.8} />
                   {isEdited && (
-                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-blue-400 shadow-sm shadow-blue-400" />
+                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-[#FCBC00] shadow-sm shadow-[#FCBC00]/60" />
                   )}
                 </div>
                 <span className="text-[10px] font-medium whitespace-nowrap">{tool.label}</span>

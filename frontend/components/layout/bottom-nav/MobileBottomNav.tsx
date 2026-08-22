@@ -25,13 +25,13 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentView, o
             key={tab.id}
             onClick={() => onChangeView(tab.id)}
             className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl transition-all duration-200 active:scale-90 ${
-              isActive ? 'text-blue-400 font-semibold' : 'text-gray-400 hover:text-white'
+              isActive ? 'text-[#FCBC00] font-semibold' : 'text-gray-400 hover:text-white'
             }`}
           >
             <div className="relative">
               <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
               {isActive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-blue-400 shadow-sm shadow-blue-400" />
+                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#FCBC00] shadow-sm shadow-[#FCBC00]/60" />
               )}
             </div>
             <span className="text-[10px] font-sans tracking-tight">{tab.label}</span>
