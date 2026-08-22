@@ -177,4 +177,16 @@ export const getSvgRotationTransform = (
   return `matrix(${a.toFixed(6)} ${b.toFixed(6)} ${c.toFixed(6)} ${d.toFixed(6)} ${e.toFixed(6)} ${f.toFixed(6)})`;
 };
 
+export const getAnnRotationTransform = (ann: Annotation, aspectRatio: number = 1): string | undefined => {
+  const deg = ann.rotation || 0;
+  if (!deg || deg % 360 === 0) return undefined;
+  const bb = getAnnotationBBox(ann);
+  return getSvgRotationTransform(deg, bb.x + bb.w / 2, bb.y + bb.h / 2, aspectRatio);
+};
+
+export const getRotationAttr = (ann: Annotation, aspectRatio: number = 1): string => {
+  const t = getAnnRotationTransform(ann, aspectRatio);
+  return t ? ` transform="${t}"` : '';
+};
+
 

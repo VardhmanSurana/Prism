@@ -1,6 +1,6 @@
 import React from 'react';
 import { Annotation } from '../AnnotationsPanel';
-import { smoothPath, getAnnotationBBox, getSvgRotationTransform } from './utils';
+import { smoothPath, getAnnRotationTransform } from './utils';
 import {
   VectorShapeType,
   getPolygonPoints,
@@ -40,10 +40,7 @@ export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps
   const xBase = end.x - headLength * Math.cos(angle) * 0.8;
   const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
-  const rotVal = ann.rotation || 0;
-  const cx = (start.x + end.x) / 2;
-  const cy = (start.y + end.y) / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   return (
     <g transform={transform} opacity={ann.opacity ?? 1}>
@@ -71,11 +68,7 @@ export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
-  const rotVal = ann.rotation || 0;
-  const bbox = getAnnotationBBox(ann);
-  const cx = bbox.x + bbox.w / 2;
-  const cy = bbox.y + bbox.h / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   return (
     <g transform={transform}>
@@ -99,11 +92,7 @@ export const HighlighterRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
-  const rotVal = ann.rotation || 0;
-  const bbox = getAnnotationBBox(ann);
-  const cx = bbox.x + bbox.w / 2;
-  const cy = bbox.y + bbox.h / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   return (
     <g transform={transform}>
@@ -127,14 +116,11 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   const stroke = ann.color;
   const strokeWidth = ann.strokeWidth * 1.5;
   const opacity = ann.opacity ?? 1;
-  const rotVal = ann.rotation || 0;
 
   if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
     const start = ann.points[0];
     const end = ann.points[ann.points.length - 1];
-    const cx = (start.x + end.x) / 2;
-    const cy = (start.y + end.y) / 2;
-    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+    const transform = getAnnRotationTransform(ann, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -166,9 +152,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     const xBase = end.x - headLength * Math.cos(angle) * 0.8;
     const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
-    const cx = (start.x + end.x) / 2;
-    const cy = (start.y + end.y) / 2;
-    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+    const transform = getAnnRotationTransform(ann, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -215,9 +199,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
     const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
 
-    const cx = (start.x + end.x) / 2;
-    const cy = (start.y + end.y) / 2;
-    const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+    const transform = getAnnRotationTransform(ann, aspectRatio);
 
     return (
       <g transform={transform} opacity={opacity}>
@@ -244,9 +226,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
 
   if (!ann.bounds) return null;
   const { x, y, w, h } = normalizeBounds(ann.bounds);
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   if (ann.type === 'rect') {
     return (
@@ -377,11 +357,7 @@ export const TextPathRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
   const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
   const repeatedText = Array(repeats).fill(text).join('   ');
 
-  const rotVal = ann.rotation || 0;
-  const bbox = getAnnotationBBox(ann);
-  const cx = bbox.x + bbox.w / 2;
-  const cy = bbox.y + bbox.h / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   return (
     <g transform={transform} opacity={ann.opacity ?? 1}>
@@ -426,10 +402,7 @@ export const TextRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps)
   const textX = alignment === 'center' ? x + b.w / 2 : alignment === 'right' ? x + b.w : x;
   const textY = y + fontSize * 0.8;
 
-  const rotVal = ann.rotation || 0;
-  const cx = x + b.w / 2;
-  const cy = y + b.h / 2;
-  const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   const baseBgColor = ann.bgColor || '';
   const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;

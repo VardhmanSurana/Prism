@@ -11,7 +11,7 @@ import {
   TextPathRenderer,
   VectorShapeRenderer,
 } from './Renderers';
-import { getAnnotationBBox, getSvgRotationTransform } from './utils';
+import { getAnnotationBBox, getAnnRotationTransform } from './utils';
 
 const hexToRgba = (hex: string, opacity: number): string => {
   if (!hex) return 'transparent';
@@ -142,6 +142,79 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     handleDoubleClick(e);
   }, [handleDoubleClick]);
 
+  const renderTransformHandles = (ann: Annotation) => {
+    const rotVal = ann.rotation || 0;
+    return (
+      <>
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
+          className="pointer-events-auto absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          title="Resize"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
+          className="pointer-events-auto absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          title="Resize"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
+          className="pointer-events-auto absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          title="Resize"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
+          className="pointer-events-auto absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          title="Resize"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
+          className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -left-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+          title="Resize Width"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
+          className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -right-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+          title="Resize Width"
+        />
+
+        {/* Bottom Actions Bar (Rotate & Move) */}
+        <div
+          className="pointer-events-auto absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div
+            onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
+            className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+            title="Drag to Rotate"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
+            </svg>
+          </div>
+          <div
+            onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
+            className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+            title="Drag to Move"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 12 19"></polyline>
+              <polyline points="15 3 12 5 9 3"></polyline>
+              <polyline points="3 15 5 12 3 9"></polyline>
+              <polyline points="15 21 12 19 9 21"></polyline>
+              <polyline points="21 15 19 12 21 9"></polyline>
+            </svg>
+          </div>
+          {rotVal !== 0 && (
+            <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
+              {rotVal}°
+            </span>
+          )}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div ref={containerRef} className="relative w-full h-full">
       <svg
@@ -190,10 +263,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
             const p0 = selAnn.points[0];
             const p1 = selAnn.points[selAnn.points.length - 1];
-            const rotVal = selAnn.rotation || 0;
-            const cx = (p0.x + p1.x) / 2;
-            const cy = (p0.y + p1.y) / 2;
-            const transform = getSvgRotationTransform(rotVal, cx, cy, aspectRatio);
+            const transform = getAnnRotationTransform(selAnn, aspectRatio);
 
             return (
               <g className="selection-handles" transform={transform} pointerEvents="none">
@@ -310,81 +380,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               />
 
               {/* Corner Resize Handles & Actions */}
-              {isSelected && (
-                <>
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
-                    className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                    title="Resize"
-                  />
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
-                    className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                    title="Resize"
-                  />
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
-                    className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                    title="Resize"
-                  />
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
-                    className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                    title="Resize"
-                  />
-
-                  {/* Side Pills */}
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
-                    className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                    title="Resize Width"
-                  />
-                  <div
-                    onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
-                    className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                    title="Resize Width"
-                  />
-
-                  {/* Bottom Actions Bar (Rotate & Move) */}
-                  <div
-                    className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    {/* Rotate Handle */}
-                    <div
-                      onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                      title="Drag to Rotate"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
-                      </svg>
-                    </div>
-
-                    {/* Move Handle */}
-                    <div
-                      onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
-                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                      title="Drag to Move"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12 5 12 19"></polyline>
-                        <polyline points="15 3 12 5 9 3"></polyline>
-                        <polyline points="3 15 5 12 3 9"></polyline>
-                        <polyline points="15 21 12 19 9 21"></polyline>
-                        <polyline points="21 15 19 12 21 9"></polyline>
-                      </svg>
-                    </div>
-
-                    {rotVal !== 0 && (
-                      <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
-                        {rotVal}°
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
+              {isSelected && renderTransformHandles(ann)}
             </div>
           );
         }
@@ -411,92 +407,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               }}
               className="select-none rounded border-2 border-dashed border-[#22c55e] shadow-lg shadow-black/40"
             >
-              {/* Corner Resize Handles */}
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
-                className="pointer-events-auto absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                title="Resize"
-              />
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
-                className="pointer-events-auto absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                title="Resize"
-              />
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
-                className="pointer-events-auto absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                title="Resize"
-              />
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
-                className="pointer-events-auto absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                title="Resize"
-              />
-
-              {/* Side Resize Handles */}
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
-                className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -left-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                title="Resize Width"
-              />
-              <div
-                onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
-                className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -right-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                title="Resize Width"
-              />
-
-              {/* Top Center Stem Rotate Handle */}
-              <div
-                className="pointer-events-auto absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center z-50"
-                onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-                title="Drag to Rotate"
-              >
-                <div className="w-5 h-5 rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing transition active:scale-110 shadow-lg bg-zinc-900 hover:bg-zinc-800 border-2 border-[#22c55e] text-[#22c55e]">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
-                  </svg>
-                </div>
-                <div className="w-0.5 h-3 bg-[#22c55e]" />
-              </div>
-
-              {/* Bottom Actions Bar (Rotate & Move) */}
-              <div
-                className="pointer-events-auto absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {/* Rotate Handle */}
-                <div
-                  onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                  title="Drag to Rotate"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
-                  </svg>
-                </div>
-
-                {/* Move Handle */}
-                <div
-                  onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                  title="Drag to Move"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                    <polyline points="12 5 12 19"></polyline>
-                    <polyline points="15 3 12 5 9 3"></polyline>
-                    <polyline points="3 15 5 12 3 9"></polyline>
-                    <polyline points="15 21 12 19 9 21"></polyline>
-                    <polyline points="21 15 19 12 21 9"></polyline>
-                  </svg>
-                </div>
-
-                {rotVal !== 0 && (
-                  <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
-                    {rotVal}°
-                  </span>
-                )}
-              </div>
+              {renderTransformHandles(ann)}
             </div>
           );
         }
