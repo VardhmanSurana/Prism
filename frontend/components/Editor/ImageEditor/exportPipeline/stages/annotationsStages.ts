@@ -4,7 +4,7 @@
  */
 
 import { Annotation } from '../../AnnotationsPanel';
-import { smoothPath } from '../../AnnotationCanvas/utils';
+import { smoothPath, getAnnotationBBox } from '../../AnnotationCanvas/utils';
 import {
   getPolygonPoints,
   getShapePathString,
@@ -24,19 +24,32 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
     annotations.forEach(ann => {
       if (ann.visible === false) return;
       const opacityAttr = ann.opacity != null && ann.opacity < 1 ? ` opacity="${ann.opacity}"` : '';
+      const rotVal = ann.rotation || 0;
+
       if (ann.type === 'freehand' && ann.points) {
         const smoothed = smoothPath(ann.points);
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round"${opacityAttr} />`;
+        const bbox = getAnnotationBBox(ann);
+        const cx = bbox.x + bbox.w / 2;
+        const cy = bbox.y + bbox.h / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+        svgContent += `<g${rotAttr}${opacityAttr}><path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round" /></g>`;
       } else if (ann.type === 'highlighter' && ann.points) {
         const smoothed = smoothPath(ann.points);
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         const hOpacity = ann.opacity ?? 0.4;
-        svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${hOpacity}" style="mix-blend-mode: multiply" />`;
+        const bbox = getAnnotationBBox(ann);
+        const cx = bbox.x + bbox.w / 2;
+        const cy = bbox.y + bbox.h / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+        svgContent += `<g${rotAttr} opacity="${hOpacity}"><path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" style="mix-blend-mode: multiply" /></g>`;
       } else if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
         const start = ann.points[0];
         const end = ann.points[ann.points.length - 1];
-        svgContent += `<line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round"${opacityAttr} />`;
+        const cx = (start.x + end.x) / 2;
+        const cy = (start.y + end.y) / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /></g>`;
       } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
         const start = ann.points[0];
         const end = ann.points[ann.points.length - 1];
@@ -51,7 +64,11 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const xBase = end.x - headLength * Math.cos(angle) * 0.8;
         const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
-        svgContent += `<g${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${xBase}" y2="${yBase}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
+        const cx = (start.x + end.x) / 2;
+        const cy = (start.y + end.y) / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+
+        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${xBase}" y2="${yBase}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
       } else if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
         const start = ann.points[0];
         const end = ann.points[ann.points.length - 1];
@@ -76,34 +93,42 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
         const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
 
-        svgContent += `<g${opacityAttr}><line x1="${xBase0}" y1="${yBase0}" x2="${xBase1}" y2="${yBase1}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}" fill="${ann.color}" /><polygon points="${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}" fill="${ann.color}" /></g>`;
+        const cx = (start.x + end.x) / 2;
+        const cy = (start.y + end.y) / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+
+        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${xBase0}" y1="${yBase0}" x2="${xBase1}" y2="${yBase1}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}" fill="${ann.color}" /><polygon points="${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}" fill="${ann.color}" /></g>`;
       } else if (ann.bounds && ann.type !== 'text') {
         const { x, y, w, h } = normalizeBounds(ann.bounds);
         const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
         const strokeAttr = ` stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"`;
 
+        const cx = x + w / 2;
+        const cy = y + h / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+
+        let shapeSvg = '';
         if (ann.type === 'rect') {
-          svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+          shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}"${fillAttr}${strokeAttr} />`;
         } else if (ann.type === 'roundedRect') {
           const r = Math.min(w, h) * 0.15;
-          svgContent += `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+          shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}"${fillAttr}${strokeAttr} />`;
         } else if (ann.type === 'circle') {
-          const cx = x + w / 2;
-          const cy = y + h / 2;
           const rx = w / 2;
           const ry = h / 2;
-          svgContent += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${fillAttr}${strokeAttr}${opacityAttr} />`;
+          shapeSvg = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}"${fillAttr}${strokeAttr} />`;
         } else {
           const polyPts = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
           if (polyPts) {
-            svgContent += `<polygon points="${polyPts}"${fillAttr}${strokeAttr} stroke-linejoin="round"${opacityAttr} />`;
+            shapeSvg = `<polygon points="${polyPts}"${fillAttr}${strokeAttr} stroke-linejoin="round" />`;
           } else {
             const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
             if (pathD) {
-              svgContent += `<path d="${pathD}"${fillAttr}${strokeAttr} stroke-linejoin="round" stroke-linecap="round"${opacityAttr} />`;
+              shapeSvg = `<path d="${pathD}"${fillAttr}${strokeAttr} stroke-linejoin="round" stroke-linecap="round" />`;
             }
           }
         }
+        svgContent += `<g${rotAttr}${opacityAttr}>${shapeSvg}</g>`;
       } else if (ann.type === 'textPath' && ann.points && ann.points.length >= 2) {
         const pathId = `path-${ann.id}`;
         const smoothed = smoothPath(ann.points);
@@ -123,12 +148,17 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
         const repeatedText = Array(repeats).fill(text).join('   ');
 
+        const bbox = getAnnotationBBox(ann);
+        const cx = bbox.x + bbox.w / 2;
+        const cy = bbox.y + bbox.h / 2;
+        const rotAttr = rotVal !== 0 ? ` transform="rotate(${rotVal} ${cx} ${cy})"` : '';
+
         let subSvg = `<defs><path id="${pathId}" d="${d}" /></defs>`;
         if (showGuide) {
           subSvg += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="1.2" opacity="0.25" />`;
         }
         subSvg += `<text fill="${ann.color}" font-size="${fontSize}" font-family="${ann.fontFamily || 'Space Grotesk'}"><textPath href="#${pathId}" startOffset="4">${repeatedText}</textPath></text>`;
-        svgContent += `<g${opacityAttr}>${subSvg}</g>`;
+        svgContent += `<g${rotAttr}${opacityAttr}>${subSvg}</g>`;
       } else if (ann.type === 'text' && ann.bounds) {
         const b = ann.bounds;
         const x = b.x;
@@ -144,7 +174,6 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const textX = alignment === 'center' ? x + b.w / 2 : alignment === 'right' ? x + b.w : x;
         const textY = y + fontSize * 0.8;
 
-        const rotVal = ann.rotation || 0;
         const cx = x + b.w / 2;
         const cy = y + b.h / 2;
         const aspect = w / h;

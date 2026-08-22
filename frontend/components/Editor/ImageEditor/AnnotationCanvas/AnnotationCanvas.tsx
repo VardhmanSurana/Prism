@@ -177,7 +177,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
         {annotations.map((ann) => renderAnnotation(ann))}
         {currentAnn && renderAnnotation(currentAnn)}
 
-        {/* ── Selection Bounding Box & Transform Handles for Shapes, Lines & Strokes ── */}
+        {/* ── SVG Selection Highlights for Lines/Arrows ── */}
         {!readOnly && activeDrawTool === 'select' && selectedAnnId && (() => {
           const selAnn = annotations.find(a => a.id === selectedAnnId);
           if (!selAnn || selAnn.visible === false || selAnn.type === 'text') return null;
@@ -186,8 +186,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
             const p0 = selAnn.points[0];
             const p1 = selAnn.points[selAnn.points.length - 1];
+            const rotVal = selAnn.rotation || 0;
+            const cx = (p0.x + p1.x) / 2;
+            const cy = (p0.y + p1.y) / 2;
+            const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
             return (
-              <g className="selection-handles" pointerEvents="none">
+              <g className="selection-handles" transform={transform} pointerEvents="none">
                 <circle
                   cx={p0.x}
                   cy={p0.y}
@@ -208,206 +213,291 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             );
           }
 
-          // Bounded annotations and pen/highlighter/doodle strokes
-          const bbox = getAnnotationBBox(selAnn);
-          if (bbox.w === 0 && bbox.h === 0) return null;
-
-          const edgeHandles: [string, { x: number; y: number }][] = [
-            ['tl', { x: bbox.x, y: bbox.y }],
-            ['tr', { x: bbox.x + bbox.w, y: bbox.y }],
-            ['bl', { x: bbox.x, y: bbox.y + bbox.h }],
-            ['br', { x: bbox.x + bbox.w, y: bbox.y + bbox.h }],
-            ['lm', { x: bbox.x, y: bbox.y + bbox.h / 2 }],
-            ['rm', { x: bbox.x + bbox.w, y: bbox.y + bbox.h / 2 }],
-          ];
-
-          return (
-            <g className="selection-handles" pointerEvents="none">
-              <rect
-                x={bbox.x}
-                y={bbox.y}
-                width={bbox.w}
-                height={bbox.h}
-                fill="none"
-                stroke="#22c55e"
-                strokeWidth={2}
-                strokeDasharray="6 4"
-              />
-              {edgeHandles.map(([id, pos]) => (
-                <circle
-                  key={id}
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={6.5}
-                  fill="#ffffff"
-                  stroke="#22c55e"
-                  strokeWidth={2}
-                />
-              ))}
-            </g>
-          );
+          return null;
         })()}
       </svg>
 
-      {/* HTML overlay for text annotations */}
+      {/* ── HTML Overlay for Text Annotations & Selected Shape Transform Controls ── */}
       {annotations.map((ann) => {
-        if (ann.type !== 'text') return null;
         if (ann.visible === false) return null;
-        
         const isSelected = !readOnly && selectedAnnId === ann.id && activeDrawTool === 'select';
-        const bounds = ann.bounds || { x: 300, y: 300, w: 400, h: 150 };
-        const rotVal = ann.rotation || 0;
-
-        const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
-        const baseBgColor = ann.bgColor || '';
-        const finalBgColor = baseBgColor
-          ? hexToRgba(baseBgColor, bgOpacity)
-          : ann.bgGlass
-            ? `rgba(255, 255, 255, ${0.08 * bgOpacity})`
-            : 'transparent';
-
-        const glassStyle: React.CSSProperties = ann.bgGlass ? {
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        } : {};
         
-        return (
-          <div
-            id={`text-layer-${ann.id}`}
-            key={ann.id}
-            style={{
-              position: 'absolute',
-              left: `${bounds.x / 10}%`,
-              top: `${bounds.y / 10}%`,
-              width: `${bounds.w / 10}%`,
-              height: `${bounds.h / 10}%`,
-              transform: `rotate(${rotVal}deg)`,
-              minWidth: '60px',
-              minHeight: '28px',
-              backgroundColor: finalBgColor,
-              zIndex: isSelected ? 50 : 20,
-              pointerEvents: isSelected ? 'auto' : 'none',
-              ...glassStyle,
-            }}
-            className={`select-none rounded flex flex-col items-stretch ${
-              isSelected 
-                ? 'pointer-events-auto border-2 border-[#22c55e] shadow-lg shadow-black/60' 
-                : ann.bgGlass
-                  ? 'pointer-events-none border-2 border-white/10'
-                  : 'pointer-events-none border-2 border-transparent'
-            }`}
-          >
-            <textarea
-              value={ann.text || ''}
-              onChange={isSelected ? (e) => {
-                const nextText = e.target.value;
-                onUpdateTextProps?.({ text: nextText });
-              } : undefined}
-              onPointerDown={isSelected ? (e) => e.stopPropagation() : undefined}
-              onKeyDown={isSelected ? (e) => e.stopPropagation() : undefined}
-              readOnly={!isSelected}
-              tabIndex={isSelected ? 0 : -1}
-              autoFocus={isSelected}
+        // 1. Text Annotation Overlay
+        if (ann.type === 'text') {
+          const bounds = ann.bounds || { x: 300, y: 300, w: 400, h: 150 };
+          const rotVal = ann.rotation || 0;
+
+          const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
+          const baseBgColor = ann.bgColor || '';
+          const finalBgColor = baseBgColor
+            ? hexToRgba(baseBgColor, bgOpacity)
+            : ann.bgGlass
+              ? `rgba(255, 255, 255, ${0.08 * bgOpacity})`
+              : 'transparent';
+
+          const glassStyle: React.CSSProperties = ann.bgGlass ? {
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          } : {};
+          
+          return (
+            <div
+              id={`text-layer-${ann.id}`}
+              key={ann.id}
               style={{
-                fontFamily: ann.fontFamily || 'Space Grotesk',
-                fontSize: `${(ann.fontSize || 36) * scale}px`,
-                color: ann.color || '#ef4444',
-                fontWeight: ann.fontWeight || 'normal',
-                fontStyle: ann.fontStyle || 'normal',
-                textDecoration: ann.textDecoration || 'none',
-                textAlign: ann.textAlign || 'center',
-                lineHeight: ann.lineHeight !== undefined ? ann.lineHeight : 1.2,
-                letterSpacing: ann.letterSpacing !== undefined ? `${ann.letterSpacing}px` : '0px',
-                WebkitTextStroke: ann.textStroke || 'none',
-                textShadow: ann.textShadow || 'none',
-                textTransform: ann.textTransform || 'none',
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                resize: 'none',
-                width: '100%',
-                height: '100%',
-                opacity: ann.opacity !== undefined ? ann.opacity : 1,
+                position: 'absolute',
+                left: `${bounds.x / 10}%`,
+                top: `${bounds.y / 10}%`,
+                width: `${bounds.w / 10}%`,
+                height: `${bounds.h / 10}%`,
+                transform: `rotate(${rotVal}deg)`,
+                minWidth: '60px',
+                minHeight: '28px',
+                backgroundColor: finalBgColor,
+                zIndex: isSelected ? 50 : 20,
                 pointerEvents: isSelected ? 'auto' : 'none',
+                ...glassStyle,
               }}
-              className={`${
-                isSelected ? 'cursor-text' : 'cursor-default'
-              } bg-transparent text-white outline-none ring-0 border-0 p-1 m-0 block focus:ring-0 focus:outline-none placeholder-zinc-500 overflow-hidden`}
-              placeholder="Type text..."
-            />
+              className={`select-none rounded flex flex-col items-stretch ${
+                isSelected 
+                  ? 'pointer-events-auto border-2 border-[#22c55e] shadow-lg shadow-black/60' 
+                  : ann.bgGlass
+                    ? 'pointer-events-none border-2 border-white/10'
+                    : 'pointer-events-none border-2 border-transparent'
+              }`}
+            >
+              <textarea
+                value={ann.text || ''}
+                onChange={isSelected ? (e) => {
+                  const nextText = e.target.value;
+                  onUpdateTextProps?.({ text: nextText });
+                } : undefined}
+                onPointerDown={isSelected ? (e) => e.stopPropagation() : undefined}
+                onKeyDown={isSelected ? (e) => e.stopPropagation() : undefined}
+                readOnly={!isSelected}
+                tabIndex={isSelected ? 0 : -1}
+                autoFocus={isSelected}
+                style={{
+                  fontFamily: ann.fontFamily || 'Space Grotesk',
+                  fontSize: `${(ann.fontSize || 36) * scale}px`,
+                  color: ann.color || '#ef4444',
+                  fontWeight: ann.fontWeight || 'normal',
+                  fontStyle: ann.fontStyle || 'normal',
+                  textDecoration: ann.textDecoration || 'none',
+                  textAlign: ann.textAlign || 'center',
+                  lineHeight: ann.lineHeight !== undefined ? ann.lineHeight : 1.2,
+                  letterSpacing: ann.letterSpacing !== undefined ? `${ann.letterSpacing}px` : '0px',
+                  WebkitTextStroke: ann.textStroke || 'none',
+                  textShadow: ann.textShadow || 'none',
+                  textTransform: ann.textTransform || 'none',
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  resize: 'none',
+                  width: '100%',
+                  height: '100%',
+                  opacity: ann.opacity !== undefined ? ann.opacity : 1,
+                  pointerEvents: isSelected ? 'auto' : 'none',
+                }}
+                className={`${
+                  isSelected ? 'cursor-text' : 'cursor-default'
+                } bg-transparent text-white outline-none ring-0 border-0 p-1 m-0 block focus:ring-0 focus:outline-none placeholder-zinc-500 overflow-hidden`}
+                placeholder="Type text..."
+              />
 
-            {/* Corner Resize Handles & Actions */}
-            {isSelected && (
-              <>
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
-                  className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                  title="Resize"
-                />
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
-                  className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                  title="Resize"
-                />
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
-                  className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                  title="Resize"
-                />
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
-                  className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
-                  title="Resize"
-                />
-
-                {/* Side Pills */}
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
-                  className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                  title="Resize Width"
-                />
-                <div
-                  onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
-                  className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
-                  title="Resize Width"
-                />
-
-                {/* Bottom Actions Bar (Rotate & Move) */}
-                <div
-                  className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
-                  onPointerDown={(e) => e.stopPropagation()}
-                >
-                  {/* Rotate Handle */}
+              {/* Corner Resize Handles & Actions */}
+              {isSelected && (
+                <>
                   <div
-                    onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                    title="Drag to Rotate"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
-                    </svg>
-                  </div>
-
-                  {/* Move Handle */}
+                    onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
+                    className="absolute -top-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                    title="Resize"
+                  />
                   <div
-                    onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
-                    className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
-                    title="Drag to Move"
+                    onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
+                    className="absolute -top-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                    title="Resize"
+                  />
+                  <div
+                    onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
+                    className="absolute -bottom-1.5 -left-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                    title="Resize"
+                  />
+                  <div
+                    onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
+                    className="absolute -bottom-1.5 -right-1.5 w-3 h-3 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                    title="Resize"
+                  />
+
+                  {/* Side Pills */}
+                  <div
+                    onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
+                    className="absolute top-1/2 -translate-y-1/2 -left-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+                    title="Resize Width"
+                  />
+                  <div
+                    onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
+                    className="absolute top-1/2 -translate-y-1/2 -right-1.5 w-1.5 h-3 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+                    title="Resize Width"
+                  />
+
+                  {/* Bottom Actions Bar (Rotate & Move) */}
+                  <div
+                    className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
+                    onPointerDown={(e) => e.stopPropagation()}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                      <polyline points="12 5 12 19"></polyline>
-                      <polyline points="15 3 12 5 9 3"></polyline>
-                      <polyline points="3 15 5 12 3 9"></polyline>
-                      <polyline points="15 21 12 19 9 21"></polyline>
-                      <polyline points="21 15 19 12 21 9"></polyline>
-                    </svg>
+                    {/* Rotate Handle */}
+                    <div
+                      onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
+                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+                      title="Drag to Rotate"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
+                      </svg>
+                    </div>
+
+                    {/* Move Handle */}
+                    <div
+                      onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
+                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+                      title="Drag to Move"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 12 19"></polyline>
+                        <polyline points="15 3 12 5 9 3"></polyline>
+                        <polyline points="3 15 5 12 3 9"></polyline>
+                        <polyline points="15 21 12 19 9 21"></polyline>
+                        <polyline points="21 15 19 12 21 9"></polyline>
+                      </svg>
+                    </div>
+
+                    {rotVal !== 0 && (
+                      <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
+                        {rotVal}°
+                      </span>
+                    )}
                   </div>
+                </>
+              )}
+            </div>
+          );
+        }
+
+        // 2. Selected Vector Shape / Stroke Overlay (with Rotate & Resize handles)
+        if (isSelected) {
+          const bbox = getAnnotationBBox(ann);
+          if (bbox.w === 0 && bbox.h === 0) return null;
+          const rotVal = ann.rotation || 0;
+
+          return (
+            <div
+              id={`ann-layer-${ann.id}`}
+              key={`selected-shape-overlay-${ann.id}`}
+              style={{
+                position: 'absolute',
+                left: `${bbox.x / 10}%`,
+                top: `${bbox.y / 10}%`,
+                width: `${Math.max(1, bbox.w) / 10}%`,
+                height: `${Math.max(1, bbox.h) / 10}%`,
+                transform: `rotate(${rotVal}deg)`,
+                zIndex: 50,
+                pointerEvents: 'none',
+              }}
+              className="select-none rounded border-2 border-dashed border-[#22c55e] shadow-lg shadow-black/40"
+            >
+              {/* Corner Resize Handles */}
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
+                className="pointer-events-auto absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                title="Resize"
+              />
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
+                className="pointer-events-auto absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                title="Resize"
+              />
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
+                className="pointer-events-auto absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                title="Resize"
+              />
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
+                className="pointer-events-auto absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+                title="Resize"
+              />
+
+              {/* Side Resize Handles */}
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
+                className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -left-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+                title="Resize Width"
+              />
+              <div
+                onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
+                className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -right-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+                title="Resize Width"
+              />
+
+              {/* Top Center Stem Rotate Handle */}
+              <div
+                className="pointer-events-auto absolute -top-8 left-1/2 -translate-x-1/2 flex flex-col items-center z-50"
+                onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
+                title="Drag to Rotate"
+              >
+                <div className="w-5 h-5 rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing transition active:scale-110 shadow-lg bg-zinc-900 hover:bg-zinc-800 border-2 border-[#22c55e] text-[#22c55e]">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
+                  </svg>
                 </div>
-              </>
-            )}
-          </div>
-        );
+                <div className="w-0.5 h-3 bg-[#22c55e]" />
+              </div>
+
+              {/* Bottom Actions Bar (Rotate & Move) */}
+              <div
+                className="pointer-events-auto absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {/* Rotate Handle */}
+                <div
+                  onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+                  title="Drag to Rotate"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
+                  </svg>
+                </div>
+
+                {/* Move Handle */}
+                <div
+                  onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+                  title="Drag to Move"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 12 19"></polyline>
+                    <polyline points="15 3 12 5 9 3"></polyline>
+                    <polyline points="3 15 5 12 3 9"></polyline>
+                    <polyline points="15 21 12 19 9 21"></polyline>
+                    <polyline points="21 15 19 12 21 9"></polyline>
+                  </svg>
+                </div>
+
+                {rotVal !== 0 && (
+                  <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
+                    {rotVal}°
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        }
+
+        return null;
       })}
     </div>
   );

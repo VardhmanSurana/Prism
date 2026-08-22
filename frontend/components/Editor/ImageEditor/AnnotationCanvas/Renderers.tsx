@@ -1,6 +1,6 @@
 import React from 'react';
 import { Annotation } from '../AnnotationsPanel';
-import { smoothPath } from './utils';
+import { smoothPath, getAnnotationBBox } from './utils';
 import {
   VectorShapeType,
   getPolygonPoints,
@@ -40,8 +40,13 @@ export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   const xBase = end.x - headLength * Math.cos(angle) * 0.8;
   const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
+  const rotVal = ann.rotation || 0;
+  const cx = (start.x + end.x) / 2;
+  const cy = (start.y + end.y) / 2;
+  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
   return (
-    <g opacity={ann.opacity ?? 1}>
+    <g transform={transform} opacity={ann.opacity ?? 1}>
       <line
         x1={start.x}
         y1={start.y}
@@ -66,16 +71,24 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
+  const rotVal = ann.rotation || 0;
+  const bbox = getAnnotationBBox(ann);
+  const cx = bbox.x + bbox.w / 2;
+  const cy = bbox.y + bbox.h / 2;
+  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
   return (
-    <path
-      d={pathData}
-      fill="none"
-      stroke={ann.color}
-      strokeWidth={ann.strokeWidth * 1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      opacity={ann.opacity ?? 1}
-    />
+    <g transform={transform}>
+      <path
+        d={pathData}
+        fill="none"
+        stroke={ann.color}
+        strokeWidth={ann.strokeWidth * 1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={ann.opacity ?? 1}
+      />
+    </g>
   );
 }, arePropsEqual);
 
@@ -86,17 +99,25 @@ export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
+  const rotVal = ann.rotation || 0;
+  const bbox = getAnnotationBBox(ann);
+  const cx = bbox.x + bbox.w / 2;
+  const cy = bbox.y + bbox.h / 2;
+  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
   return (
-    <path
-      d={pathData}
-      fill="none"
-      stroke={ann.color}
-      strokeWidth={ann.strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      opacity={ann.opacity ?? 0.4}
-      style={{ mixBlendMode: 'multiply' } as any}
-    />
+    <g transform={transform}>
+      <path
+        d={pathData}
+        fill="none"
+        stroke={ann.color}
+        strokeWidth={ann.strokeWidth}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        opacity={ann.opacity ?? 0.4}
+        style={{ mixBlendMode: 'multiply' } as any}
+      />
+    </g>
   );
 }, arePropsEqual);
 
@@ -106,21 +127,27 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
   const stroke = ann.color;
   const strokeWidth = ann.strokeWidth * 1.5;
   const opacity = ann.opacity ?? 1;
+  const rotVal = ann.rotation || 0;
 
   if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
     const start = ann.points[0];
     const end = ann.points[ann.points.length - 1];
+    const cx = (start.x + end.x) / 2;
+    const cy = (start.y + end.y) / 2;
+    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
     return (
-      <line
-        x1={start.x}
-        y1={start.y}
-        x2={end.x}
-        y2={end.y}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        opacity={opacity}
-      />
+      <g transform={transform} opacity={opacity}>
+        <line
+          x1={start.x}
+          y1={start.y}
+          x2={end.x}
+          y2={end.y}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+        />
+      </g>
     );
   }
 
@@ -139,8 +166,12 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
     const xBase = end.x - headLength * Math.cos(angle) * 0.8;
     const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
+    const cx = (start.x + end.x) / 2;
+    const cy = (start.y + end.y) / 2;
+    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
     return (
-      <g opacity={opacity}>
+      <g transform={transform} opacity={opacity}>
         <line
           x1={start.x}
           y1={start.y}
@@ -184,8 +215,12 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
     const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
     const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
 
+    const cx = (start.x + end.x) / 2;
+    const cy = (start.y + end.y) / 2;
+    const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
     return (
-      <g opacity={opacity}>
+      <g transform={transform} opacity={opacity}>
         <line
           x1={xBase0}
           y1={yBase0}
@@ -209,55 +244,64 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
 
   if (!ann.bounds) return null;
   const { x, y, w, h } = normalizeBounds(ann.bounds);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
 
   if (ann.type === 'rect') {
     return (
-      <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        fill={fill}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        opacity={opacity}
-      />
+      <g transform={transform}>
+        <rect
+          x={x}
+          y={y}
+          width={w}
+          height={h}
+          fill={fill}
+          fillOpacity={fillOpacity}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+        />
+      </g>
     );
   }
 
   if (ann.type === 'roundedRect') {
     const r = Math.min(w, h) * 0.15;
     return (
-      <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        rx={r}
-        ry={r}
-        fill={fill}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        opacity={opacity}
-      />
+      <g transform={transform}>
+        <rect
+          x={x}
+          y={y}
+          width={w}
+          height={h}
+          rx={r}
+          ry={r}
+          fill={fill}
+          fillOpacity={fillOpacity}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+        />
+      </g>
     );
   }
 
   if (ann.type === 'circle') {
     return (
-      <ellipse
-        cx={x + w / 2}
-        cy={y + h / 2}
-        rx={w / 2}
-        ry={h / 2}
-        fill={fill}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        opacity={opacity}
-      />
+      <g transform={transform}>
+        <ellipse
+          cx={x + w / 2}
+          cy={y + h / 2}
+          rx={w / 2}
+          ry={h / 2}
+          fill={fill}
+          fillOpacity={fillOpacity}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          opacity={opacity}
+        />
+      </g>
     );
   }
 
@@ -265,32 +309,36 @@ export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
   const polyPoints = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
   if (polyPoints) {
     return (
-      <polygon
-        points={polyPoints}
-        fill={fill}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeLinejoin="round"
-        opacity={opacity}
-      />
+      <g transform={transform}>
+        <polygon
+          points={polyPoints}
+          fill={fill}
+          fillOpacity={fillOpacity}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          opacity={opacity}
+        />
+      </g>
     );
   }
 
-  // Path-based shapes (heart, speechBubble, cloud)
+  // Path-based shapes (heart, speechBubble, cloud, lightning, stars, etc.)
   const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
   if (pathD) {
     return (
-      <path
-        d={pathD}
-        fill={fill}
-        fillOpacity={fillOpacity}
-        stroke={stroke}
-        strokeWidth={strokeWidth}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        opacity={opacity}
-      />
+      <g transform={transform}>
+        <path
+          d={pathD}
+          fill={fill}
+          fillOpacity={fillOpacity}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          opacity={opacity}
+        />
+      </g>
     );
   }
 
@@ -329,8 +377,14 @@ export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
   const repeatedText = Array(repeats).fill(text).join('   ');
 
+  const rotVal = ann.rotation || 0;
+  const bbox = getAnnotationBBox(ann);
+  const cx = bbox.x + bbox.w / 2;
+  const cy = bbox.y + bbox.h / 2;
+  const transform = rotVal !== 0 ? `rotate(${rotVal} ${cx} ${cy})` : undefined;
+
   return (
-    <g opacity={ann.opacity ?? 1}>
+    <g transform={transform} opacity={ann.opacity ?? 1}>
       <defs>
         <path id={pathId} d={d} />
       </defs>
@@ -378,58 +432,50 @@ export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => 
 
   const baseBgColor = ann.bgColor || '';
   const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
-  const fillOpacity = baseBgColor ? bgOpacity : (ann.bgGlass ? 0.08 * bgOpacity : 0);
-  const fillColor = baseBgColor || (ann.bgGlass ? '#ffffff' : 'transparent');
-
-  const bgRect = (baseBgColor || ann.bgGlass) ? (
-    <rect
-      x={x}
-      y={y}
-      width={b.w}
-      height={b.h}
-      fill={fillColor}
-      fillOpacity={fillOpacity}
-      transform={rotVal ? `rotate(${rotVal}, ${cx}, ${cy})` : undefined}
-      opacity={ann.opacity ?? 1}
-    />
-  ) : null;
-
-  const textStyle: React.CSSProperties = {
-    fontFamily,
-    fontWeight: ann.fontWeight || 'normal',
-    fontStyle: ann.fontStyle || 'normal',
-    textDecoration: ann.textDecoration || 'none',
-    WebkitTextStroke: ann.textStroke || 'none',
-    textShadow: ann.textShadow || 'none',
-    textTransform: ann.textTransform || 'none',
-    pointerEvents: 'none',
-  };
-
-  const aspect = aspectRatio || 1;
-  const textTransform = `rotate(${rotVal}, ${cx}, ${cy}) translate(${textX}, ${textY}) scale(${1 / aspect}, 1)`;
+  const finalBgColor = baseBgColor ? `rgba(0,0,0,${bgOpacity})` : 'transparent';
 
   return (
-    <g opacity={ann.opacity ?? 1}>
-      {bgRect}
-      <text
-        x={0}
-        y={0}
-        textAnchor={textAnchor}
-        fontSize={fontSize}
-        fill={ann.color}
-        transform={textTransform}
-        style={textStyle}
-      >
-        {lines.map((line, idx) => (
-          <tspan
-            key={idx}
-            x={0}
-            dy={idx === 0 ? 0 : `${ann.lineHeight || 1.2}em`}
-          >
-            {line}
-          </tspan>
-        ))}
-      </text>
+    <g
+      transform={rotVal ? `rotate(${rotVal} ${cx} ${cy})` : undefined}
+      opacity={ann.opacity !== undefined ? ann.opacity : 1}
+    >
+      {/* Background card if specified */}
+      {baseBgColor && (
+        <rect
+          x={x}
+          y={y}
+          width={b.w}
+          height={b.h}
+          rx={8}
+          ry={8}
+          fill={finalBgColor}
+          stroke={ann.color}
+          strokeWidth={1}
+        />
+      )}
+
+      {/* Multiline Text */}
+      {lines.map((line, idx) => (
+        <text
+          key={idx}
+          x={textX}
+          y={textY + idx * (fontSize * (ann.lineHeight || 1.2))}
+          fill={ann.color || '#ffffff'}
+          fontSize={fontSize}
+          fontFamily={fontFamily}
+          fontWeight={ann.fontWeight || 'normal'}
+          fontStyle={ann.fontStyle || 'normal'}
+          textDecoration={ann.textDecoration || 'none'}
+          textAnchor={textAnchor}
+          dominantBaseline="hanging"
+          style={{
+            letterSpacing: ann.letterSpacing ? `${ann.letterSpacing}px` : undefined,
+            textTransform: (ann.textTransform as any) || 'none',
+          }}
+        >
+          {line}
+        </text>
+      ))}
     </g>
   );
 }, arePropsEqual);

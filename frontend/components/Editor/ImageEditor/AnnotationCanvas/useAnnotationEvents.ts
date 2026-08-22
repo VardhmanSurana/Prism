@@ -575,24 +575,33 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const ann = annotations.find(a => a.id === annId);
     if (!ann) return;
 
-    const el = document.getElementById(`text-layer-${annId}`);
+    const el = document.getElementById(`text-layer-${annId}`) || document.getElementById(`ann-layer-${annId}`);
+    let cX = 0;
+    let cY = 0;
     if (el) {
       const rect = el.getBoundingClientRect();
-      const cX = rect.left + rect.width / 2;
-      const cY = rect.top + rect.height / 2;
-      const startAngleRad = Math.atan2(e.clientY - cY, e.clientX - cX);
-      rotateStartRef.current = {
-        centerX: cX,
-        centerY: cY,
-        startRotation: ann.rotation || 0,
-        startAngleRad,
-      };
-      setRotatingAnnId(annId);
-      isDrawing.current = true;
-      
-      if (svgRef.current) {
-        svgRef.current.setPointerCapture(e.pointerId);
-      }
+      cX = rect.left + rect.width / 2;
+      cY = rect.top + rect.height / 2;
+    } else if (svgRef.current) {
+      const svgRect = svgRef.current.getBoundingClientRect();
+      const bbox = getAnnotationBBox(ann);
+      cX = svgRect.left + (bbox.x + bbox.w / 2) * (svgRect.width / 1000);
+      cY = svgRect.top + (bbox.y + bbox.h / 2) * (svgRect.height / 1000);
+    }
+
+    const startAngleRad = Math.atan2(e.clientY - cY, e.clientX - cX);
+    rotateStartRef.current = {
+      centerX: cX,
+      centerY: cY,
+      startRotation: ann.rotation || 0,
+      startAngleRad,
+    };
+    setRotatingAnnId(annId);
+    rotatingAnnIdRef.current = annId;
+    isDrawing.current = true;
+    
+    if (svgRef.current) {
+      svgRef.current.setPointerCapture(e.pointerId);
     }
   };
 
