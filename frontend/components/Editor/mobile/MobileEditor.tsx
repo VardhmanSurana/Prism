@@ -210,19 +210,24 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
               <button
                 key={tool.id}
                 onClick={() => setActiveToolId(tool.id)}
-                className={`flex flex-col items-center gap-1.5 px-3.5 py-2 rounded-xl shrink-0 transition-all duration-200 active:scale-95 ${
+                className={`relative flex flex-col items-center gap-1.5 px-3.5 py-2 rounded-xl shrink-0 transition-all duration-200 active:scale-95 ${
                   isSelected
-                    ? 'bg-[#FCBC00]/15 border border-[#FCBC00]/40 text-[#FCBC00]'
+                    ? 'bg-[#FCBC00] text-black shadow-[0_0_14px_rgba(252,188,0,0.45)] font-semibold'
                     : 'bg-white/[0.03] border border-white/5 text-gray-400 hover:text-white'
                 }`}
               >
                 <div className="relative">
-                  <Icon size={18} strokeWidth={isSelected ? 2.2 : 1.8} />
-                  {isEdited && (
+                  <Icon size={18} strokeWidth={isSelected ? 2.4 : 1.8} className={isSelected ? 'text-black' : ''} />
+                  {isEdited && !isSelected && (
                     <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-[#FCBC00] shadow-sm shadow-[#FCBC00]/60" />
                   )}
+                  {isEdited && isSelected && (
+                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-black/80" />
+                  )}
                 </div>
-                <span className="text-[10px] font-medium whitespace-nowrap">{tool.label}</span>
+                <span className={`text-[10px] font-medium whitespace-nowrap ${isSelected ? 'text-black font-bold' : ''}`}>
+                  {tool.label}
+                </span>
               </button>
             );
           })}

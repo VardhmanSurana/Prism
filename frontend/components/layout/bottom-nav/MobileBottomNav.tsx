@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Image as ImageIcon, Compass, MapPin, Settings } from 'lucide-react';
 import type { ViewMode } from '@/types';
 
@@ -16,7 +17,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentView, o
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#12151e]/90 backdrop-blur-2xl pb-safe pt-2 px-6 border-t border-white/10 flex items-center justify-around select-none">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#12151e]/90 backdrop-blur-2xl pb-safe pt-2 px-4 border-t border-white/10 flex items-center justify-around select-none">
       {tabs.map((tab) => {
         const Icon = tab.icon;
         const isActive = currentView === tab.id;
@@ -24,17 +25,27 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentView, o
           <button
             key={tab.id}
             onClick={() => onChangeView(tab.id)}
-            className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-2xl transition-all duration-200 active:scale-90 ${
-              isActive ? 'text-[#FCBC00] font-semibold' : 'text-gray-400 hover:text-white'
+            className={`relative flex flex-col items-center gap-1 py-1.5 px-3.5 rounded-2xl transition-all duration-200 active:scale-90 ${
+              isActive ? 'text-black font-semibold' : 'text-gray-400 hover:text-white'
             }`}
           >
-            <div className="relative">
-              <Icon size={22} strokeWidth={isActive ? 2.5 : 1.8} />
-              {isActive && (
-                <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#FCBC00] shadow-sm shadow-[#FCBC00]/60" />
-              )}
+            {isActive && (
+              <motion.div
+                layoutId="activeMobileNavTab"
+                className="absolute inset-0 rounded-2xl bg-[#FCBC00] shadow-[0_0_16px_rgba(252,188,0,0.45)] z-0"
+                transition={{
+                  type: 'spring',
+                  stiffness: 420,
+                  damping: 32,
+                }}
+              />
+            )}
+            <div className="relative z-10">
+              <Icon size={20} strokeWidth={isActive ? 2.4 : 1.8} className={isActive ? 'text-black' : ''} />
             </div>
-            <span className="text-[10px] font-sans tracking-tight">{tab.label}</span>
+            <span className={`text-[10px] font-sans tracking-tight relative z-10 ${isActive ? 'text-black font-bold' : ''}`}>
+              {tab.label}
+            </span>
           </button>
         );
       })}
