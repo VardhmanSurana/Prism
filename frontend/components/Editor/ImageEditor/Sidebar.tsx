@@ -110,8 +110,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   const handleMouseEnterButton = (id: ToolId, el: HTMLButtonElement) => {
     const rect = el.getBoundingClientRect();
     const sidebarRect = sidebarContainerRef.current?.getBoundingClientRect();
-    const top = sidebarRect ? rect.top - sidebarRect.top + rect.height / 2 : rect.top;
-    setHoveredTool({ id, top });
+    if (!sidebarRect) {
+      setHoveredTool({ id, top: rect.top + rect.height / 2 });
+      return;
+    }
+    const rawTop = rect.top - sidebarRect.top + rect.height / 2;
+    // Estimated tooltip height is ~80px (half-height ~44px). Clamp with comfortable viewport margins.
+    const tooltipHalfHeight = 44;
+    const margin = 14;
+    const minTop = tooltipHalfHeight + margin;
+    const maxTop = Math.max(minTop, sidebarRect.height - tooltipHalfHeight - margin);
+    const clampedTop = Math.max(minTop, Math.min(maxTop, rawTop));
+    setHoveredTool({ id, top: clampedTop });
   };
 
   return (
