@@ -339,9 +339,6 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({
       {/* ── Header ── */}
       <div className="flex items-center justify-between border-b border-white/5 pb-3">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-md bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-[#FCBC00]">
-            <Sparkles size={13} />
-          </div>
           <div>
             <h3 className="text-xs font-bold uppercase tracking-wider text-white">Portrait Studio</h3>
             <p className="text-[10px] text-white/40">
@@ -391,11 +388,10 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({
               <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white/[0.03] border border-white/5 overflow-x-auto custom-scrollbar">
                 <button
                   onClick={() => handleSelectTarget('all', null)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all shrink-0 ${
-                    targetFaceId === 'all'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all shrink-0 ${targetFaceId === 'all'
                       ? 'bg-[#FCBC00] text-black font-semibold shadow'
                       : 'text-white/60 hover:text-white hover:bg-white/5'
-                  }`}
+                    }`}
                 >
                   <Users size={12} />
                   <span>All Faces</span>
@@ -414,11 +410,10 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({
                     <button
                       key={face.id}
                       onClick={() => handleSelectTarget(face.id, index)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all shrink-0 relative ${
-                        isSelected
+                      className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all shrink-0 relative ${isSelected
                           ? 'bg-[#FCBC00] text-black font-semibold shadow'
                           : 'text-white/60 hover:text-white hover:bg-white/5'
-                      }`}
+                        }`}
                     >
                       <User size={12} />
                       <span>Face {index + 1}</span>
@@ -460,33 +455,30 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({
           <div className="grid grid-cols-3 p-1 rounded-xl bg-white/[0.03] border border-white/5">
             <button
               onClick={() => setActiveTab('skin')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                activeTab === 'skin'
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${activeTab === 'skin'
                   ? 'bg-[#FCBC00] text-black shadow font-semibold'
                   : 'text-white/60 hover:text-white'
-              }`}
+                }`}
             >
               <Sun size={12} />
               <span>Skin</span>
             </button>
             <button
               onClick={() => setActiveTab('eyes')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                activeTab === 'eyes'
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${activeTab === 'eyes'
                   ? 'bg-[#FCBC00] text-black shadow font-semibold'
                   : 'text-white/60 hover:text-white'
-              }`}
+                }`}
             >
               <Eye size={12} />
               <span>Eyes</span>
             </button>
             <button
               onClick={() => setActiveTab('mouth')}
-              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
-                activeTab === 'mouth'
+              className={`flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all ${activeTab === 'mouth'
                   ? 'bg-[#FCBC00] text-black shadow font-semibold'
                   : 'text-white/60 hover:text-white'
-              }`}
+                }`}
             >
               <Smile size={12} />
               <span>Mouth</span>

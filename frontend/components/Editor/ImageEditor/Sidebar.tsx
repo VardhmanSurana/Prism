@@ -160,7 +160,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
               key={id}
               role="tab"
               aria-selected={isActive}
-              aria-controls={`tool-panel-${id}`}
+              aria-controls={isActive ? `tool-panel-${id}` : undefined}
               onClick={() => setActiveTool(id)}
               onMouseEnter={e => handleMouseEnterButton(id, e.currentTarget)}
               onMouseLeave={() => setHoveredTool(null)}

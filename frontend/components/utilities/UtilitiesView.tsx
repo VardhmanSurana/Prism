@@ -133,7 +133,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                   role="tab"
                   id={`mobile-tab-${tab.id}`}
                   aria-selected={isActive}
-                  aria-controls={`tabpanel-${tab.id}`}
+                  aria-controls={isActive ? `tabpanel-${tab.id}` : undefined}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => {
                     setActiveTab(tab.id);
@@ -182,7 +182,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                   role="tab"
                   id={`tab-${tab.id}`}
                   aria-selected={isActive}
-                  aria-controls={`tabpanel-${tab.id}`}
+                  aria-controls={isActive ? `tabpanel-${tab.id}` : undefined}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setActiveTab(tab.id)}
                   className={`cr-nav-item w-full text-left flex items-center gap-2.5 min-h-[44px] ${isActive ? 'active' : ''}`}
