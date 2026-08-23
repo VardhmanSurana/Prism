@@ -986,6 +986,141 @@ DELETE /api/v1/shares/:token
 GET /api/v1/shares/:token/download
 ```
 
+## Plugin Endpoints
+
+Manage modular extensions and plugins stored in the `plugins/` directory. For instructions on creating custom plugins, see [Plugin Development Guide](PLUGINS.md).
+
+### List Installed Plugins
+```http
+GET /api/v1/plugins
+```
+
+**Response:**
+```json
+{
+  "plugins": [
+    {
+      "id": "background-removal",
+      "manifest": {
+        "id": "background-removal",
+        "name": "AI Background Removal Studio",
+        "version": "1.2.0",
+        "author": "Prism Core & Open Source AI",
+        "description": "Deep learning matting pack supporting ISNet, BiRefNet, and RMBG-1.4.",
+        "category": "AI & Machine Learning",
+        "capabilities": ["matting", "segmentation", "image-editor"],
+        "entrypoint": "index.js"
+      },
+      "config": {
+        "enabled": true,
+        "installed_at": "2026-08-23T10:00:00Z",
+        "updated_at": "2026-08-23T10:00:00Z",
+        "settings": {}
+      },
+      "path": "plugins/background-removal",
+      "is_active": true,
+      "has_models": true
+    }
+  ],
+  "plugins_dir": "plugins",
+  "total": 1
+}
+```
+
+### Browse Plugin Catalog
+```http
+GET /api/v1/plugins/catalog
+```
+
+**Response:**
+```json
+{
+  "catalog": [
+    {
+      "id": "background-removal",
+      "name": "AI Background Removal Studio",
+      "version": "1.2.0",
+      "author": "Prism Core & Open Source AI",
+      "description": "Deep learning matting pack supporting ISNet Universal, BiRefNet High-Resolution, and RMBG-1.4.",
+      "category": "AI & Machine Learning",
+      "icon": "Scissors",
+      "is_installed": true,
+      "is_active": true,
+      "size_display": "~170 MB",
+      "tags": ["matting", "segmentation", "onnx", "cutout"],
+      "manifest": { ... }
+    }
+  ],
+  "total": 4
+}
+```
+
+### Install Plugin
+Installs a plugin into `plugins/<id>/` from a catalog ID, manifest JSON file (`background-removal.json`), local directory, or GitHub URL.
+
+```http
+POST /api/v1/plugins/install
+Content-Type: application/json
+
+{
+  "source": "background-removal.json"
+}
+```
+
+*Supported `source` formats:*
+- **Catalog ID or JSON**: `"background-removal"`, `"background-removal.json"`
+- **Local JSON manifest file**: `"/path/to/my-plugin/plugin.json"`
+- **Local Directory**: `"/path/to/my-plugin/"`
+- **Direct Manifest URL**: `"https://raw.githubusercontent.com/owner/repo/main/plugin.json"`
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Plugin 'background-removal' successfully installed into plugins/background-removal",
+  "plugin": {
+    "id": "background-removal",
+    "manifest": { ... },
+    "config": { ... },
+    "path": "plugins/background-removal",
+    "is_active": true,
+    "has_models": true
+  }
+}
+```
+
+*Legacy route:* `POST /api/v1/plugins/install/:id` is also supported.
+
+
+### Uninstall Plugin
+Deletes `plugins/<id>/` folder and contents from disk.
+
+```http
+POST /api/v1/plugins/uninstall/:id
+```
+
+### Toggle Plugin Active State
+```http
+POST /api/v1/plugins/toggle/:id
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+```
+
+### Update Plugin Settings
+```http
+POST /api/v1/plugins/config/:id
+Content-Type: application/json
+
+{
+  "settings": {
+    "default_model": "birefnet"
+  }
+}
+```
+
 ## Error Responses
 
 ### 400 Bad Request

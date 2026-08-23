@@ -130,12 +130,14 @@ graph TB
 | Document | Description |
 |----------|-------------|
 | [Architecture](docs/ARCHITECTURE.md) | Technical architecture, component layout, and data flow |
+| [CLI Reference](docs/CLI.md) | Command-line interface and plugin management |
 | [Image Editor Guide](docs/IMAGE_EDITOR.md) | In-depth breakdown of all 19 image editing tools |
 | [Video Editor Guide](docs/VIDEO_EDITOR.md) | NLE timeline features and video pipeline |
 | [AI Features](docs/AI_FEATURES.md) | Local ONNX models and AI capability documentation |
 | [Setup Guide](docs/SETUP.md) | System dependency installation and troubleshooting |
 | [Security Model](docs/SECURITY.md) | Locked folder, encryption, and privacy details |
 | [API Reference](docs/API.md) | REST API endpoint documentation |
+| [Plugin Development](docs/PLUGINS.md) | Guide to building, packaging, and publishing Prism plugins |
 | [Database Schema](docs/DATABASE.md) | SQLite tables and indexes reference |
 
 ---

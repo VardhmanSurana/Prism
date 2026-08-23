@@ -200,6 +200,13 @@ Dominant-color extraction and sampling:
 - **In-canvas loupe eyedropper** — magnified 7×7 pixel grid with hex/RGB readout for precise sampling (native EyeDropper API fallback)
 - **Swatch management** — lock/unlock swatches from re-extraction, copy hex codes, re-sample
 
+### 21. Cutout & Background Studio
+AI deep-learning alpha matting and backdrop compositing:
+- **AI Matting Models** — ISNet Universal, BiRefNet High-Resolution, and RMBG-1.4 Studio
+- **Backdrop replacement** — transparent cutout, solid colors, multi-stop radial/linear gradients, or custom scenic image upload
+- **Refinement controls** — feathering (0–20px), edge shift/expansion (-10 to +10px), subject shadow opacity and blur radius, background blur (bokeh simulation)
+- **Compositing pipeline** — non-destructive live canvas rendering and high-resolution multi-stage export compositing
+
 ## Editor Features
 
 - **Auto-Enhance** — one-click AI optimization from the Light panel (histogram/content analysis on the backend)

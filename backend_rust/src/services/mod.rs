@@ -20,3 +20,5 @@ pub mod agent_search;
 pub mod subtitle_gen;
 pub mod webhooks;
 pub mod model_manager;
+pub mod packs;
+pub mod plugins;

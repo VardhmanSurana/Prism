@@ -3033,6 +3033,7 @@ dependencies = [
  "sha2 0.10.9",
  "sqlx",
  "sysinfo 0.33.1",
+ "tempfile",
  "tokenizers",
  "tokio",
  "tokio-stream",

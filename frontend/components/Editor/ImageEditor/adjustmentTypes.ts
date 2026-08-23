@@ -166,6 +166,44 @@ export interface LutAdjustments {
   opacity:     number;
 }
 
+// ── Background / Matting ─────────────────────────────────────────────────────
+
+export interface BackgroundAdjustments {
+  enabled: boolean;
+  modelId: string;
+  mode: 'remove_bg' | 'keep_bg';
+  backdrop: 'transparent' | 'color' | 'blur' | 'custom';
+  backdropColor?: string;
+  blurRadius?: number;
+  customImageSrc?: string | null;
+  invertMask?: boolean;
+  maskUrl?: string | null;
+  refine: {
+    feather: number;
+    smooth: number;
+    shiftEdge: number;
+    contrast: number;
+  };
+}
+
+export const DEFAULT_BACKGROUND_ADJUSTMENTS: BackgroundAdjustments = {
+  enabled: false,
+  modelId: 'isnet-general-use',
+  mode: 'remove_bg',
+  backdrop: 'transparent',
+  backdropColor: '#ffffff',
+  blurRadius: 20,
+  customImageSrc: null,
+  invertMask: false,
+  maskUrl: null,
+  refine: {
+    feather: 0,
+    smooth: 0,
+    shiftEdge: 0,
+    contrast: 0,
+  },
+};
+
 // ── Default Constants ────────────────────────────────────────────────────────
 
 export const DEFAULT_COLOR_WHEEL_VAL: ColorWheelVal = { x: 0, y: 0, yuma: 0 };

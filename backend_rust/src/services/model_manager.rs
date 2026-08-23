@@ -11,6 +11,8 @@ pub struct ModelFileDef {
     pub url: String,
     pub rel_path: String,
     pub expected_size_bytes: u64,
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,6 +23,12 @@ pub struct ModelDefinition {
     pub description: String,
     pub total_size_bytes: u64,
     pub desktop_only: bool,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub gated: bool,
+    #[serde(default)]
+    pub ack_required: bool,
     pub files: Vec<ModelFileDef>,
 }
 
@@ -48,6 +56,9 @@ pub struct ModelInfoResponse {
     pub desktop_only: bool,
     pub is_downloaded: bool,
     pub disk_size_bytes: u64,
+    pub license: Option<String>,
+    pub gated: bool,
+    pub ack_required: bool,
     pub progress: Option<ModelProgress>,
 }
 
@@ -78,21 +89,27 @@ impl ModelManager {
                 description: "Deep semantic search model enabling free-form natural language queries for photos.".to_string(),
                 total_size_bytes: 452_000_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
                         url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/onnx/model.onnx".to_string(),
                         rel_path: "llm/siglip2_image.onnx".to_string(),
                         expected_size_bytes: 350_000_000,
+                        sha256: None,
                     },
                     ModelFileDef {
                         url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/onnx/text_model.onnx".to_string(),
                         rel_path: "llm/siglip2_text.onnx".to_string(),
                         expected_size_bytes: 100_000_000,
+                        sha256: None,
                     },
                     ModelFileDef {
                         url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/tokenizer.json".to_string(),
                         rel_path: "llm/tokenizer.json".to_string(),
                         expected_size_bytes: 2_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -103,16 +120,21 @@ impl ModelManager {
                 description: "SCRFD detector + ArcFace embedding model for automatic face grouping and people tagging.".to_string(),
                 total_size_bytes: 200_000_000,
                 desktop_only: false,
+                license: Some("MIT / DeepInsight Non-Commercial".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
                         url: "https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/scrfd_500m_kps.onnx".to_string(),
                         rel_path: "face/scrfd_500m_kps.onnx".to_string(),
                         expected_size_bytes: 15_000_000,
+                        sha256: None,
                     },
                     ModelFileDef {
                         url: "https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/w600k_mbf.onnx".to_string(),
                         rel_path: "face/w600k_mbf.onnx".to_string(),
                         expected_size_bytes: 185_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -123,11 +145,15 @@ impl ModelManager {
                 description: "Classifies and locates 80+ categories of objects, pets, vehicles, and scenes.".to_string(),
                 total_size_bytes: 25_000_000,
                 desktop_only: false,
+                license: Some("AGPL-3.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
                         url: "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx".to_string(),
                         rel_path: "objects/yolov8n.onnx".to_string(),
                         expected_size_bytes: 25_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -138,11 +164,15 @@ impl ModelManager {
                 description: "Ultra-fast interactive foreground extraction and precise mask segmentation.".to_string(),
                 total_size_bytes: 40_000_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
                         url: "https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.onnx".to_string(),
                         rel_path: "sam/mobile_sam.onnx".to_string(),
                         expected_size_bytes: 40_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -153,16 +183,21 @@ impl ModelManager {
                 description: "Lightweight neural text detection & recognition for receipts, documents, and signs.".to_string(),
                 total_size_bytes: 14_000_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
                         url: "https://github.com/RapidAI/RapidOCR/releases/download/v1.1.0/ch_PP-OCRv4_det_infer.onnx".to_string(),
                         rel_path: "ocr/ch_PP-OCRv4_det_infer.onnx".to_string(),
                         expected_size_bytes: 4_500_000,
+                        sha256: None,
                     },
                     ModelFileDef {
                         url: "https://github.com/RapidAI/RapidOCR/releases/download/v1.1.0/ch_PP-OCRv4_rec_infer.onnx".to_string(),
                         rel_path: "ocr/ch_PP-OCRv4_rec_infer.onnx".to_string(),
                         expected_size_bytes: 9_500_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -189,6 +224,16 @@ impl ModelManager {
         (all_exist && !model.files.is_empty(), total_disk_size)
     }
 
+    pub fn register_dynamic(&mut self, defs: Vec<ModelDefinition>) {
+        for def in defs {
+            if let Some(existing) = self.models.iter_mut().find(|m| m.id == def.id) {
+                *existing = def;
+            } else {
+                self.models.push(def);
+            }
+        }
+    }
+
     pub async fn list_models(&self) -> Vec<ModelInfoResponse> {
         let progress_guard = self.active_progress.read().await;
         let mut responses = Vec::new();
@@ -206,6 +251,9 @@ impl ModelManager {
                 desktop_only: model.desktop_only,
                 is_downloaded,
                 disk_size_bytes: disk_size,
+                license: model.license.clone(),
+                gated: model.gated,
+                ack_required: model.ack_required,
                 progress,
             });
         }
@@ -376,6 +424,24 @@ impl ModelManager {
 
                 file.flush().await.ok();
                 drop(file);
+
+                // Verify SHA256 if specified
+                if let Some(ref expected_hash) = file_def.sha256 {
+                    use sha2::{Digest, Sha256};
+                    if let Ok(mut f) = std::fs::File::open(&part_path) {
+                        let mut hasher = Sha256::new();
+                        if std::io::copy(&mut f, &mut hasher).is_ok() {
+                            let computed = format!("{:x}", hasher.finalize());
+                            if !computed.eq_ignore_ascii_case(expected_hash) {
+                                let err_msg = format!("Checksum mismatch for {:?}. Expected: {}, Got: {}", file_def.rel_path, expected_hash, computed);
+                                error!("[ModelManager] {}", err_msg);
+                                tokio::fs::remove_file(&part_path).await.ok();
+                                Self::set_error(&active_progress, &model.id, &err_msg).await;
+                                return;
+                            }
+                        }
+                    }
+                }
 
                 // Rename part file to final target file
                 if let Err(e) = tokio::fs::rename(&part_path, &target_path).await {

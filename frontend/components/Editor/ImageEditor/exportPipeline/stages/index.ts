@@ -34,3 +34,8 @@ export {
 export {
   applyAnnotations,
 } from './annotationsStages';
+
+export {
+  applyBackgroundReplacementToCanvas,
+  loadImageAsync,
+} from './backgroundStage';

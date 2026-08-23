@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::Json,
 };
@@ -293,25 +293,28 @@ pub async fn get_semantic_masks(
     }
 }
 
+#[derive(Deserialize)]
+pub struct BackgroundMaskQuery {
+    pub model: Option<String>,
+}
+
 pub async fn get_background_mask(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
+    Query(params): Query<BackgroundMaskQuery>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
     let masks_dir = state.config.thumbnails_dir.join("masks");
-
-    // Return cached mask if it already exists
-    let cached_filename = format!("mask_{}_background.png", photo.id);
-    let cached_path = masks_dir.join(&cached_filename);
-    if cached_path.exists() {
-        return Ok(Json(json!({ "mask_url": format!("/thumbnails/masks/{}", cached_filename) })));
-    }
+    let model_id_str = params.model.as_deref();
 
     let engine = segmentation::SegmentationEngine::get();
-    match engine.get_background_mask(&photo.path, photo.id, &masks_dir) {
+    match engine.get_background_mask(&photo.path, photo.id, &masks_dir, model_id_str, Some(&state.pack_manager)) {
         Ok(resp) => Ok(Json(serde_json::to_value(resp).unwrap_or_default())),
         Err(e) => {
             warn!("Background mask failed: {}", e);
+            if e.contains("not installed") || e.contains("not found") {
+                return Err((StatusCode::CONFLICT, e));
+            }
             Ok(Json(json!({ "photo_id": photo.id, "mask_url": null, "error": e })))
         }
     }

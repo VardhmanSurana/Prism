@@ -83,6 +83,17 @@ queue"| Worker["Background Worker"]
 - Fill in removed areas naturally
 - Preserve image context
 
+### ONNX Matting & Background Removal (Plugin Pack)
+- **Engines & Weights**:
+  - `isnet-general-use` (ISNet Universal Matting, 1024×1024, ~170 MB)
+  - `birefnet-general` (Bilateral Reference Network, 1024×1024, ~200 MB)
+  - `rmbg-1.4` (BRIA RMBG Studio Matting, 1024×1024, ~170 MB)
+- **Purpose**: High-precision alpha matting for complex subjects (fine hair, transparency, foliage).
+- **Usage**: Cutout tool, solid/gradient backdrops, custom scenic background replacement.
+- **Delivery**: Opt-in modular plugin installed via `prism install background-removal` or UI Plugin Catalog into `plugins/background-removal/`.
+- **Runtime**: Dynamic ONNX session pool with LRU RAM caching ($\le 2$ concurrent sessions in memory).
+
+
 ## Local LLM Services
 
 ### Agent Search (Port 9090)

@@ -18,6 +18,8 @@ pub mod video;
 pub mod auth;
 pub mod admin;
 pub mod models;
+pub mod packs;
+pub mod plugins;
 
 use axum::{
     extract::{Request, State},
@@ -558,6 +560,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/shares/:token", get(shares::get_shared_resource).delete(shares::revoke_share))
         .route("/shares/:token/download", get(shares::download_shared_file))
         .nest("/models", models::routes())
+        .nest("/packs", packs::routes())
+        .nest("/plugins", plugins::routes())
         .merge(auth::create_auth_routes())
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 

@@ -18,6 +18,8 @@ use crate::services::llm_server::LlmServer;
 use crate::services::ml_client::MlClient;
 use crate::services::telemetry::TelemetryService;
 use crate::services::model_manager::ModelManager;
+use crate::services::packs::PackManager;
+use crate::services::plugins::PluginManager;
 use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn_worker_loop};
 
 pub struct AppState {
@@ -29,6 +31,8 @@ pub struct AppState {
     pub scheduler: Arc<JobScheduler>,
     pub registry: Arc<AnalyzerRegistry>,
     pub model_manager: Arc<ModelManager>,
+    pub pack_manager: Arc<PackManager>,
+    pub plugin_manager: Arc<PluginManager>,
 }
 
 #[tokio::main]
@@ -93,7 +97,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc::clone(&registry),
     );
 
-    let model_manager = Arc::new(ModelManager::new(config.models_dir.clone()));
+    let mut model_manager_instance = ModelManager::new(config.models_dir.clone());
+    let pack_manager = Arc::new(PackManager::new(config.packs_dir.clone(), config.models_dir.clone()));
+    pack_manager.refresh().await;
+    let pack_models = pack_manager.to_model_definitions().await;
+    model_manager_instance.register_dynamic(pack_models);
+    let model_manager = Arc::new(model_manager_instance);
+
+    let plugin_manager = Arc::new(PluginManager::new(
+        config.plugins_dir.clone(),
+        config.packs_dir.clone(),
+        config.models_dir.clone(),
+    ));
 
     let state = Arc::new(AppState {
         config: config.clone(),
@@ -104,6 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         scheduler,
         registry,
         model_manager,
+        pack_manager,
+        plugin_manager,
     });
 
     let app = routes::create_router(state);

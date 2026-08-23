@@ -7,6 +7,7 @@ import React from 'react';
 import { loadMaskBuffer, LoadedPortraitMasks } from './portraitEngine';
 import type { Adjustments } from './filterEngine';
 import { SingleFaceAdjustments } from './adjustmentTypes';
+import { API_BASE } from '@/constants';
 
 interface UseImageLoaderOptions {
   currentImageSrc: string;
@@ -16,6 +17,8 @@ interface UseImageLoaderOptions {
 interface UseImageLoaderReturn {
   sourceImg: HTMLImageElement | null;
   blendImg: HTMLImageElement | null;
+  backgroundMaskImg: HTMLImageElement | null;
+  customBackdropImg: HTMLImageElement | null;
   portraitMasksRef: React.RefObject<LoadedPortraitMasks>;
   canvasDrawKey: number;
   setCanvasDrawKey: React.Dispatch<React.SetStateAction<number>>;
@@ -27,6 +30,8 @@ export function useImageLoader({
 }: UseImageLoaderOptions): UseImageLoaderReturn {
   const [sourceImg, setSourceImg] = React.useState<HTMLImageElement | null>(null);
   const [blendImg, setBlendImg] = React.useState<HTMLImageElement | null>(null);
+  const [backgroundMaskImg, setBackgroundMaskImg] = React.useState<HTMLImageElement | null>(null);
+  const [customBackdropImg, setCustomBackdropImg] = React.useState<HTMLImageElement | null>(null);
   const portraitMasksRef = React.useRef<LoadedPortraitMasks>({});
   const [canvasDrawKey, setCanvasDrawKey] = React.useState(0);
 
@@ -50,6 +55,60 @@ export function useImageLoader({
       active = false;
     };
   }, [currentImageSrc]);
+
+  // Load background mask image
+  React.useEffect(() => {
+    const maskUrl = adjustments.background?.enabled ? adjustments.background?.maskUrl : null;
+    if (!maskUrl) {
+      setBackgroundMaskImg(null);
+      return;
+    }
+    let active = true;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (active) {
+        setBackgroundMaskImg(img);
+        setCanvasDrawKey(k => k + 1);
+      }
+    };
+    img.onerror = () => {
+      if (active) setBackgroundMaskImg(null);
+    };
+    img.src = maskUrl.startsWith('data:') || maskUrl.startsWith('blob:') || maskUrl.startsWith('http')
+      ? maskUrl
+      : `${API_BASE}${maskUrl}`;
+    return () => {
+      active = false;
+    };
+  }, [adjustments.background?.enabled, adjustments.background?.maskUrl]);
+
+  // Load custom backdrop image
+  React.useEffect(() => {
+    const src = adjustments.background?.enabled && adjustments.background?.backdrop === 'custom'
+      ? adjustments.background?.customImageSrc
+      : null;
+    if (!src) {
+      setCustomBackdropImg(null);
+      return;
+    }
+    let active = true;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (active) {
+        setCustomBackdropImg(img);
+        setCanvasDrawKey(k => k + 1);
+      }
+    };
+    img.onerror = () => {
+      if (active) setCustomBackdropImg(null);
+    };
+    img.src = src;
+    return () => {
+      active = false;
+    };
+  }, [adjustments.background?.enabled, adjustments.background?.backdrop, adjustments.background?.customImageSrc]);
 
   // Load blend overlay image
   React.useEffect(() => {
@@ -168,6 +227,8 @@ export function useImageLoader({
   return {
     sourceImg,
     blendImg,
+    backgroundMaskImg,
+    customBackdropImg,
     portraitMasksRef,
     canvasDrawKey,
     setCanvasDrawKey,

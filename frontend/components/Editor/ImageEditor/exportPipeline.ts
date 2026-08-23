@@ -32,6 +32,8 @@ import {
   renderCanvasWithFilter,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
+  loadImageAsync,
 } from './exportPipeline/stages';
 
 const DEFAULT_EXPORT_MIME = 'image/jpeg';
@@ -61,6 +63,8 @@ export {
   applyBlur,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
+  loadImageAsync,
 } from './exportPipeline/stages';
 
 export const exportEditedCanvas = async ({
@@ -277,6 +281,20 @@ export const exportEditedCanvas = async ({
 
   report('Applying double exposure', 14, TOTAL_STEPS);
   await applyBlendOverlay(preparedCanvas, adjustments);
+
+  // Background Cutout & Replacement Stage
+  if (adjustments.background?.enabled && adjustments.background?.maskUrl) {
+    report('Applying background cutout & backdrop', 14.5, TOTAL_STEPS);
+    try {
+      const maskImg = await loadImageAsync(adjustments.background.maskUrl);
+      const customBackdropImg = adjustments.background.backdrop === 'custom' && adjustments.background.customImageSrc
+        ? await loadImageAsync(adjustments.background.customImageSrc)
+        : null;
+      applyBackgroundReplacementToCanvas(preparedCanvas, adjustments.background, maskImg, customBackdropImg);
+    } catch (err) {
+      console.warn('Failed to apply background replacement during export:', err);
+    }
+  }
 
   report('Applying tilt-shift', 15, TOTAL_STEPS);
   applyTiltShift(preparedCanvas, adjustments);

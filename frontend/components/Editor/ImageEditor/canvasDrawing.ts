@@ -15,6 +15,7 @@ import {
   applyBlur,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
 } from './exportPipeline';
 import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows, applyTemperatureAndTintToImageData } from './filterFallback';
 import { applyRawProcessingToImageData } from './rawEngine';
@@ -28,6 +29,8 @@ export function drawFilteredImageToCanvas(
   curvesTable: { r: string; g: string; b: string },
   isDraggingSlider: boolean,
   portraitMasks?: LoadedPortraitMasks,
+  backgroundMaskImg?: HTMLImageElement | null,
+  customBackdropImg?: HTMLImageElement | null,
 ) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
@@ -194,7 +197,10 @@ export function drawFilteredImageToCanvas(
   applyGrain(canvas, adjustments);
 
   // 10. Light Leaks
-  applyLightLeak(canvas, adjustments);
+  // 10.5. AI Background Cutout & Backdrop Replacement
+  if (adjustments.background?.enabled && backgroundMaskImg) {
+    applyBackgroundReplacementToCanvas(canvas, adjustments.background, backgroundMaskImg, customBackdropImg);
+  }
 
   // 11. Double Exposure
   if (adjustments.blend && blendImg) {

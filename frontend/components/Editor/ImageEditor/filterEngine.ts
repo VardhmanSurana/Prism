@@ -39,6 +39,7 @@ export type {
   BlendAdjustments,
   TiltShiftAdjustments,
   LutAdjustments,
+  BackgroundAdjustments,
 } from './adjustmentTypes';
 
 export {
@@ -54,6 +55,7 @@ export {
   DEFAULT_BLEND,
   DEFAULT_TILT_SHIFT,
   DEFAULT_SPLIT_TONING,
+  DEFAULT_BACKGROUND_ADJUSTMENTS,
 } from './adjustmentTypes';
 
 // ── Combined State Type ──────────────────────────────────────────────────────
@@ -112,6 +114,7 @@ export interface Adjustments {
   blend:       import('./adjustmentTypes').BlendAdjustments;
   tiltShift:   import('./adjustmentTypes').TiltShiftAdjustments;
   lut:         import('./adjustmentTypes').LutAdjustments;
+  background?: import('./adjustmentTypes').BackgroundAdjustments;
   raw?:        RawSettings;
 }
 
@@ -128,6 +131,7 @@ import {
   DEFAULT_BLEND,
   DEFAULT_TILT_SHIFT,
   DEFAULT_SPLIT_TONING,
+  DEFAULT_BACKGROUND_ADJUSTMENTS,
 } from './adjustmentTypes';
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
@@ -169,6 +173,7 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
     customData: null,
     opacity:    100,
   },
+  background: { ...DEFAULT_BACKGROUND_ADJUSTMENTS },
   raw: { ...DEFAULT_RAW_SETTINGS },
 };
 

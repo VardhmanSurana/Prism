@@ -16,7 +16,7 @@ import { TransformPanel } from '../TransformPanel';
 import { TopBar } from '../TopBar';
 import { Sidebar, ToolId } from '../Sidebar';
 import { CanvasArea } from '../CanvasArea';
-import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from '../filterEngine';
+import { Adjustments, DEFAULT_ADJUSTMENTS, DEFAULT_BACKGROUND_ADJUSTMENTS, toFilterString } from '../filterEngine';
 import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
 import { PortraitPanel } from '../PortraitPanel';
 import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '../InpaintPanel';
@@ -40,6 +40,7 @@ import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
 import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
 import { matchColorBetweenImages } from '../colorMatchEngine';
+import { BackgroundPanel } from '../BackgroundPanel';
 
 import { HistoryActionType } from '../history';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -798,6 +799,14 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
           {([
+            ['background', <BackgroundPanel
+              key="background"
+              photoId={photoId || ''}
+              photoUrl={currentImageSrc}
+              adjustments={adjustments}
+              onChange={handleAdjChange}
+              onResetTool={() => handleAdjChange({ ...adjustments, background: { ...DEFAULT_BACKGROUND_ADJUSTMENTS } })}
+            />],
             ['transform', <TransformPanel
               key="transform"
               hasCropSelection={hasCropSelection}

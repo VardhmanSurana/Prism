@@ -24,6 +24,7 @@ import {
   Camera,
   Smile,
   MousePointer,
+  Scissors,
 } from 'lucide-react';
 
 export type ToolId =
@@ -31,6 +32,7 @@ export type ToolId =
   | 'adjust'
   | 'detail'
   | 'portrait'
+  | 'background'
   | 'inpaint'
   | 'healing'
   | 'hsl'
@@ -53,6 +55,7 @@ interface SidebarProps {
 }
 
 const DEFAULT_TABS_ORDER: ToolId[] = [
+  'background',
   'inpaint',
   'healing',
   'lasso',
@@ -83,6 +86,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   } | null>(null);
 
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
+    background: { icon: <Scissors size={20} strokeWidth={1.5} />, label: 'Cutout & BG', description: 'AI background removal, custom solid/blur/image backdrops & edge refinement' },
     inpaint: { icon: <Paintbrush size={20} strokeWidth={1.5} />, label: 'AI Tools', description: 'AI-powered object removal and mask-based image inpainting' },
     healing: { icon: <Eraser size={20} strokeWidth={1.5} />, label: 'Clone & Heal', description: 'Clone Stamp and Healing Brush — Alt+click to set source, then paint' },
     lasso: { icon: <MousePointer size={20} strokeWidth={1.5} />, label: 'Lasso Studio', description: 'Freehand, Polygonal, and Magnetic Edge-Snapping Lasso Selection' },

@@ -236,7 +236,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     }
   }, [cropperRef]);
 
-  const { sourceImg, blendImg, portraitMasksRef, canvasDrawKey, setCanvasDrawKey } = useImageLoader({
+  const { sourceImg, blendImg, backgroundMaskImg, customBackdropImg, portraitMasksRef, canvasDrawKey, setCanvasDrawKey } = useImageLoader({
     currentImageSrc,
     adjustments,
   });
@@ -286,11 +286,15 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       adjustments,
       curvesTable,
       isDraggingSliderRef.current,
-      portraitMasksRef.current ?? undefined
+      portraitMasksRef.current ?? undefined,
+      backgroundMaskImg,
+      customBackdropImg,
     );
   }, [
     sourceImg,
     blendImg,
+    backgroundMaskImg,
+    customBackdropImg,
     adjustments,
     filterString,
     activeTool,
