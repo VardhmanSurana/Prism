@@ -48,12 +48,7 @@ import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
 import { useEditStore } from '@/store/editStore';
-
-declare global {
-  interface Window {
-    __clearInpaintMask?: () => void;
-  }
-}
+import type { InpaintCanvasHandle } from '../InpaintCanvas';
 
 interface EditingModeProps {
   src:     string;
@@ -70,6 +65,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 }) => {
   // Refs / state
   const cropperRef = useRef<Cropper | null>(null);
+  const inpaintCanvasRef = useRef<InpaintCanvasHandle | null>(null);
   const [currentRatio, setCurrentRatio] = useState<number>(NaN);
   const [activeTool, setActiveTool] = useState<ToolId | null>('presets');
   
@@ -570,9 +566,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         );
 
         // Clear the canvas mask
-        if (window.__clearInpaintMask) {
-          window.__clearInpaintMask();
-        }
+        inpaintCanvasRef.current?.clearMask();
 
         showToast(inpaintOperation === 'remove' ? 'Object removed successfully' : 'Inpainting applied');
       }
@@ -609,13 +603,13 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     if (idx <= 0) {
       inpaintHistoryIndexRef.current = -1;
       setInpaintMask(null);
-      if (window.__clearInpaintMask) window.__clearInpaintMask();
+      inpaintCanvasRef.current?.clearMask();
     } else {
       const newIdx = idx - 1;
       inpaintHistoryIndexRef.current = newIdx;
       const dataUrl = inpaintHistoryRef.current[newIdx];
       setInpaintMask(dataUrl);
-      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
+      inpaintCanvasRef.current?.restoreMask(dataUrl);
     }
     setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
     setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
@@ -628,7 +622,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       inpaintHistoryIndexRef.current = newIdx;
       const dataUrl = inpaintHistoryRef.current[newIdx];
       setInpaintMask(dataUrl);
-      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
+      inpaintCanvasRef.current?.restoreMask(dataUrl);
     }
     setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
     setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
@@ -961,9 +955,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
                 inpaintHistoryIndexRef.current = -1;
                 setInpaintCanUndo(false);
                 setInpaintCanRedo(false);
-                if (window.__clearInpaintMask) {
-                  window.__clearInpaintMask();
-                }
+                inpaintCanvasRef.current?.clearMask();
               }}
               onProcess={handleInpaintProcess}
               canUndo={inpaintCanUndo}
@@ -995,6 +987,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           curvesTable={curvesTable}
           isComparing={isComparing}
           inpaintMode={inpaintMode}
+          inpaintCanvasRef={inpaintCanvasRef}
           brushSize={inpaintSettings.brushSize}
           onInpaintMaskChange={setInpaintMask}
           onInpaintStrokeComplete={handleInpaintStrokeComplete}

@@ -3,7 +3,7 @@ import {
   Point,
   splineToSvgPath,
 } from './spline';
-import { computeHistogram } from './Histogram';
+import { computeHistogram } from './histogramUtils';
 
 // Re-export Point so consumers can import it from here if needed
 export type { Point } from './spline';

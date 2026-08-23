@@ -11,7 +11,8 @@
  */
 
 import { PortraitAdjustments, SingleFaceAdjustments } from './filterEngine';
-import { rgbToHsl, hslToRgb } from './hslEngine';
+import { rgbToHsl, hslToRgb } from './utils/colorUtils';
+import { loadCanvasImage } from './utils/imageUtils';
 
 export interface MaskBuffer {
   width: number;
@@ -34,44 +35,34 @@ export async function loadMaskBuffer(maskUrl: string): Promise<MaskBuffer | null
     return cached;
   }
 
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const w = img.naturalWidth || 512;
-        const h = img.naturalHeight || 512;
-        const offCanvas = document.createElement('canvas');
-        offCanvas.width = w;
-        offCanvas.height = h;
-        const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
-        if (!ctx) {
-          resolve(null);
-          return;
-        }
+  try {
+    const img = await loadCanvasImage(maskUrl);
+    const w = img.naturalWidth || 512;
+    const h = img.naturalHeight || 512;
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = w;
+    offCanvas.height = h;
+    const ctx = offCanvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
 
-        ctx.drawImage(img, 0, 0, w, h);
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const data = new Uint8Array(w * h);
+    ctx.drawImage(img, 0, 0, w, h);
+    const imgData = ctx.getImageData(0, 0, w, h);
+    const data = new Uint8Array(w * h);
 
-        // Extract grayscale mask intensity (0-255)
-        for (let i = 0; i < data.length; i++) {
-          const r = imgData.data[i * 4];
-          const a = imgData.data[i * 4 + 3];
-          data[i] = a === 0 ? 0 : r;
-        }
+    // Extract grayscale mask intensity (0-255)
+    for (let i = 0; i < data.length; i++) {
+      const r = imgData.data[i * 4];
+      const a = imgData.data[i * 4 + 3];
+      data[i] = a === 0 ? 0 : r;
+    }
 
-        const buffer: MaskBuffer = { width: w, height: h, data };
-        maskBufferCache.set(maskUrl, buffer);
-        resolve(buffer);
-      } catch (err) {
-        console.warn('Failed to extract mask buffer:', err);
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = maskUrl;
-  });
+    const buffer: MaskBuffer = { width: w, height: h, data };
+    maskBufferCache.set(maskUrl, buffer);
+    return buffer;
+  } catch (err) {
+    console.warn('Failed to extract mask buffer:', err);
+    return null;
+  }
 }
 
 export interface SingleFaceMasks {

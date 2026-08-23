@@ -8,10 +8,9 @@
  */
 
 import { resolveUrl } from '@/constants';
+import { clamp, loadCanvasImage } from './utils/imageUtils';
 
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
+export { loadCanvasImage };
 
 const SQRT_3 = Math.sqrt(3);
 const SQRT_6 = Math.sqrt(6);
@@ -20,49 +19,6 @@ const SQRT_2 = Math.sqrt(2);
 const INV_SQRT_3 = 1 / SQRT_3;
 const INV_SQRT_6 = 1 / SQRT_6;
 const INV_SQRT_2 = 1 / SQRT_2;
-
-/**
- * Loads an image safely from a URL or Data URL, converting remote URLs via fetch+blob
- * to avoid canvas CORS tainting.
- */
-export async function loadCanvasImage(src: string): Promise<HTMLImageElement> {
-  const resolved = resolveUrl(src);
-
-  // If remote HTTP/HTTPS, fetch as blob first to guarantee local canvas origin
-  let effectiveSrc = resolved;
-  let blobToRevoke: string | null = null;
-
-  if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
-    try {
-      const res = await fetch(resolved);
-      if (res.ok) {
-        const blob = await res.blob();
-        effectiveSrc = URL.createObjectURL(blob);
-        blobToRevoke = effectiveSrc;
-      }
-    } catch {
-      // Fallback to direct src with anonymous crossOrigin
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      if (blobToRevoke) {
-        URL.revokeObjectURL(blobToRevoke);
-      }
-      resolve(img);
-    };
-    img.onerror = err => {
-      if (blobToRevoke) {
-        URL.revokeObjectURL(blobToRevoke);
-      }
-      reject(err);
-    };
-    img.src = effectiveSrc;
-  });
-}
 
 export interface LabStats {
   meanL: number;

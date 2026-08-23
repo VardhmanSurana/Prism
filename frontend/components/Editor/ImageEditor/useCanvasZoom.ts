@@ -1,10 +1,6 @@
-/**
- * useCanvasZoom.ts
- * Custom hook encapsulating zoom logic for the canvas area.
- */
-
 import React from 'react';
 import type Cropper from 'cropperjs';
+import { MIN_ZOOM, MAX_ZOOM } from './utils/imageUtils';
 
 interface UseCanvasZoomOptions {
   cropperRef: React.RefObject<Cropper | null>;
@@ -58,10 +54,9 @@ export function useCanvasZoom({
     if (!cropper) return;
     const imageData = cropper.getImageData();
     const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
-    const maxZoom = 500; // max 500%
-    if (currentZoom < maxZoom) {
+    if (currentZoom < MAX_ZOOM) {
       // Smooth zoom using smaller increments
-      const targetZoom = Math.min(maxZoom, currentZoom + 15);
+      const targetZoom = Math.min(MAX_ZOOM, currentZoom + 15);
       const scale = targetZoom / currentZoom;
       cropper.zoom(scale - 1);
       syncZoom();
@@ -74,10 +69,9 @@ export function useCanvasZoom({
     if (!cropper) return;
     const imageData = cropper.getImageData();
     const currentZoom = (cropper.getCanvasData().width / imageData.naturalWidth) * 100;
-    const minZoom = 10; // min 10%
-    if (currentZoom > minZoom) {
+    if (currentZoom > MIN_ZOOM) {
       // Smooth zoom using smaller increments
-      const targetZoom = Math.max(minZoom, currentZoom - 15);
+      const targetZoom = Math.max(MIN_ZOOM, currentZoom - 15);
       const scale = targetZoom / currentZoom;
       cropper.zoom(scale - 1);
       syncZoom();

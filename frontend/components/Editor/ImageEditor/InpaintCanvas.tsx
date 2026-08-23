@@ -1,17 +1,15 @@
 /**
  * InpaintCanvas.tsx
  * Canvas overlay for drawing inpainting masks with brush tools,
- * interactive segmentation, and mask management.
+ * interactive segmentation, and mask management via clean imperative ref handle.
  */
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { InpaintMode } from './InpaintPanel';
 
-declare global {
-  interface Window {
-    __clearInpaintMask?: () => void;
-    __restoreInpaintMask?: (dataUrl: string) => void;
-  }
+export interface InpaintCanvasHandle {
+  clearMask: () => void;
+  restoreMask: (dataUrl: string) => void;
 }
 
 interface Point {
@@ -25,21 +23,17 @@ interface MaskStroke {
   isEraser: boolean;
 }
 
-interface InpaintCanvasProps {
+export interface InpaintCanvasProps {
   imageUrl: string;
   mode: InpaintMode;
   brushSize: number;
   onMaskChange: (maskDataUrl: string) => void;
   onStrokeComplete?: (maskDataUrl: string) => void;
-  onUndo?: () => void;
-  onRedo?: () => void;
-  canUndo?: boolean;
-  canRedo?: boolean;
   showMaskPreview?: boolean;
   maskOpacity?: number;
 }
 
-export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
+export const InpaintCanvas = forwardRef<InpaintCanvasHandle, InpaintCanvasProps>(({
   imageUrl,
   mode,
   brushSize,
@@ -47,7 +41,7 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   onStrokeComplete,
   showMaskPreview = true,
   maskOpacity = 60,
-}) => {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement | null>(null);
@@ -61,14 +55,118 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   const currentStrokeRef = useRef<MaskStroke | null>(null);
   const lastPoint = useRef<Point | null>(null);
 
+  // Redraw the mask canvas
+  const redrawCanvas = useCallback(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+    if (!ctx || !canvas) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (const stroke of strokesRef.current) {
+      if (stroke.points.length === 0) continue;
+
+      ctx.beginPath();
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = stroke.brushSize;
+
+      if (stroke.isEraser) {
+        ctx.globalCompositeOperation = 'destination-out';
+      } else {
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.strokeStyle = '#ffffff';
+        ctx.fillStyle = '#ffffff';
+      }
+
+      if (stroke.points.length === 1) {
+        ctx.arc(stroke.points[0].x, stroke.points[0].y, stroke.brushSize / 2, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+  }, []);
+
+  // Redraw the visual overlay (semi-transparent mask preview + interactive points + cursor)
+  const redrawOverlay = useCallback(() => {
+    const overlay = overlayCanvasRef.current;
+    const oCtx = overlay?.getContext('2d');
+    const maskCanvas = canvasRef.current;
+    if (!oCtx || !overlay || !maskCanvas) return;
+
+    oCtx.clearRect(0, 0, overlay.width, overlay.height);
+
+    // Draw mask preview in red with opacity
+    if (showMaskPreview) {
+      oCtx.save();
+      oCtx.globalAlpha = maskOpacity / 100;
+      oCtx.fillStyle = 'rgba(239, 68, 68, 1)';
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = maskCanvas.width;
+      tempCanvas.height = maskCanvas.height;
+      const tCtx = tempCanvas.getContext('2d');
+      if (tCtx) {
+        tCtx.drawImage(maskCanvas, 0, 0);
+        tCtx.globalCompositeOperation = 'source-in';
+        tCtx.fillStyle = '#ef4444';
+        tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        oCtx.drawImage(tempCanvas, 0, 0);
+      }
+      oCtx.restore();
+    }
+
+    // Draw interactive segmentation points
+    if (mode === 'interactive') {
+      for (const pt of interactivePoints) {
+        oCtx.save();
+        oCtx.beginPath();
+        oCtx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+        oCtx.fillStyle = pt.positive ? '#22c55e' : '#ef4444';
+        oCtx.fill();
+        oCtx.lineWidth = 2;
+        oCtx.strokeStyle = '#ffffff';
+        oCtx.stroke();
+
+        oCtx.fillStyle = '#ffffff';
+        oCtx.font = 'bold 11px sans-serif';
+        oCtx.textAlign = 'center';
+        oCtx.textBaseline = 'middle';
+        oCtx.fillText(pt.positive ? '+' : '−', pt.x, pt.y);
+        oCtx.restore();
+      }
+    }
+
+    // Draw brush outline cursor
+    if (mousePos && (mode === 'brush' || mode === 'erase')) {
+      oCtx.save();
+      oCtx.beginPath();
+      oCtx.arc(mousePos.x, mousePos.y, brushSize / 2, 0, Math.PI * 2);
+      oCtx.strokeStyle = mode === 'erase' ? '#ef4444' : '#ffffff';
+      oCtx.lineWidth = 1.5;
+      oCtx.setLineDash([4, 4]);
+      oCtx.stroke();
+
+      oCtx.beginPath();
+      oCtx.arc(mousePos.x, mousePos.y, 2, 0, Math.PI * 2);
+      oCtx.fillStyle = mode === 'erase' ? '#ef4444' : '#ffffff';
+      oCtx.fill();
+      oCtx.restore();
+    }
+  }, [showMaskPreview, maskOpacity, mode, interactivePoints, mousePos, brushSize]);
+
   // Load image and initialize canvas
   useEffect(() => {
     let cancelled = false;
     const canvas = canvasRef.current;
-    if (!canvas) {
-      cancelled = true;
-      return;
-    }
+    if (!canvas) return;
 
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -84,147 +182,20 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
       
       imageRef.current = img;
       redrawCanvas();
+      redrawOverlay();
     };
     img.src = imageUrl;
     return () => {
       cancelled = true;
     };
-  }, [imageUrl]);
-
-  // Redraw the mask canvas
-  const redrawCanvas = useCallback(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d', { willReadFrequently: true });
-    if (!ctx || !canvas) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    strokesRef.current.forEach(stroke => {
-      drawStroke(ctx, stroke);
-    });
-
-    const maskDataUrl = canvas.toDataURL('image/webp', 0.8);
-    onMaskChange(maskDataUrl);
-  }, [onMaskChange]);
-
-  // Redraw the overlay (cursor, points, etc.)
-  const redrawOverlay = useCallback(() => {
-    const overlayCanvas = overlayCanvasRef.current;
-    const overlayCtx = overlayCanvas?.getContext('2d');
-    if (!overlayCtx || !overlayCanvas) return;
-
-    // Clear overlay
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-    
-    // Draw mask overlay if visible
-    if (showMaskPreview) {
-      const maskCanvas = canvasRef.current;
-      if (maskCanvas && maskCanvas.width > 0 && maskCanvas.height > 0) {
-        overlayCtx.save();
-        overlayCtx.globalAlpha = maskOpacity / 100;
-        overlayCtx.drawImage(maskCanvas, 0, 0);
-        overlayCtx.globalCompositeOperation = 'source-in';
-        overlayCtx.fillStyle = 'rgba(59, 130, 246, 1)'; // Blue tint
-        overlayCtx.fillRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        overlayCtx.restore();
-      }
-    }
-    
-    // Draw interactive points
-    interactivePoints.forEach(p => {
-      overlayCtx.fillStyle = p.positive ? 'rgba(0, 255, 0, 0.5)' : 'rgba(255, 0, 0, 0.5)';
-      overlayCtx.beginPath();
-      overlayCtx.arc(p.x, p.y, 5, 0, 2 * Math.PI);
-      overlayCtx.fill();
-    });
-
-    // Draw brush cursor
-    if (mousePos && (mode === 'brush' || mode === 'erase')) {
-      overlayCtx.save();
-      // Outer glow for dark backgrounds
-      overlayCtx.strokeStyle = 'rgba(0, 0, 0, 0.4)';
-      overlayCtx.lineWidth = 4;
-      overlayCtx.beginPath();
-      overlayCtx.arc(mousePos.x, mousePos.y, brushSize / 2, 0, 2 * Math.PI);
-      overlayCtx.stroke();
-
-      // Primary white ring
-      overlayCtx.strokeStyle = 'white';
-      overlayCtx.lineWidth = 2.5;
-      overlayCtx.beginPath();
-      overlayCtx.arc(mousePos.x, mousePos.y, brushSize / 2, 0, 2 * Math.PI);
-      overlayCtx.stroke();
-      
-      // Mode-specific inner ring
-      overlayCtx.strokeStyle = mode === 'erase' ? 'rgba(255, 60, 60, 0.9)' : 'rgba(60, 160, 255, 0.9)';
-      overlayCtx.lineWidth = 1.5;
-      overlayCtx.beginPath();
-      overlayCtx.arc(mousePos.x, mousePos.y, (brushSize / 2) - 1.5, 0, 2 * Math.PI);
-      overlayCtx.stroke();
-      
-      // Center precision dot
-      overlayCtx.fillStyle = 'white';
-      overlayCtx.beginPath();
-      overlayCtx.arc(mousePos.x, mousePos.y, 2, 0, 2 * Math.PI);
-      overlayCtx.fill();
-      overlayCtx.restore();
-    }
-  }, [mousePos, mode, brushSize, interactivePoints, showMaskPreview, maskOpacity]);
-
-  // Push the current canvas state to the parent (used for live updates during draw)
-  const pushMaskUpdate = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const maskDataUrl = canvas.toDataURL('image/webp', 0.8);
-    onMaskChange(maskDataUrl);
-  }, [onMaskChange]);
-
-  useEffect(() => {
-    if (!isDrawing) {
-      redrawCanvas();
-    }
-  }, [redrawCanvas, isDrawing]);
+  }, [imageUrl, redrawCanvas, redrawOverlay]);
 
   useEffect(() => {
     redrawOverlay();
-  }, [redrawOverlay, brushSize, mousePos, showMaskPreview, maskOpacity]);
+  }, [redrawOverlay]);
 
-  // Draw a single stroke
-  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: MaskStroke) => {
-    if (stroke.points.length === 0) return;
-
-    ctx.save();
-
-    // Set blend mode for eraser
-    ctx.globalCompositeOperation = stroke.isEraser ? 'destination-out' : 'source-over';
-
-    // Set brush properties
-    ctx.strokeStyle = stroke.isEraser ? 'rgba(0, 0, 0, 1)' : 'rgba(255, 255, 255, 1)';
-    ctx.lineWidth = stroke.brushSize;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // Draw the stroke
-    ctx.beginPath();
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-
-    for (let i = 1; i < stroke.points.length; i++) {
-      const p = stroke.points[i];
-      ctx.lineTo(p.x, p.y);
-    }
-
-    ctx.stroke();
-    ctx.restore();
-  }, []);
-
-  const getEffectiveBrushSize = useCallback((e: React.PointerEvent<HTMLCanvasElement>): number => {
-    if (e.pointerType === 'pen' && e.pressure > 0) {
-      return Math.max(5, brushSize * Math.min(1, e.pressure * 1.5));
-    }
-    return brushSize;
-  }, [brushSize]);
-
-  const getCanvasCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>): Point | null => {
+  // Convert client pointer coordinates to canvas pixel space
+  const getCanvasCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement>): Point | null => {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return null;
 
@@ -238,106 +209,137 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
     };
   }, []);
 
-  // Pointer down handler
+  const emitMask = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL('image/png');
+    onMaskChange(dataUrl);
+    return dataUrl;
+  }, [onMaskChange]);
+
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    if (e.pointerType === 'pen') e.currentTarget.setPointerCapture(e.pointerId);
-    
-    const point = getCanvasCoords(e);
-    if (!point) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+
+    const pt = getCanvasCoords(e);
+    if (!pt) return;
 
     if (mode === 'interactive') {
-      const isRightClick = e.button === 2;
-      setInteractivePoints(prev => [...prev, { x: point.x, y: point.y, positive: !isRightClick }]);
-      
-      const overlayCtx = overlayCanvasRef.current?.getContext('2d');
-      if (overlayCtx) {
-        overlayCtx.fillStyle = isRightClick ? 'rgba(255, 0, 0, 0.5)' : 'rgba(0, 255, 0, 0.5)';
-        overlayCtx.beginPath();
-        overlayCtx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
-        overlayCtx.fill();
-      }
-    } else if (mode === 'brush' || mode === 'erase') {
+      const isPositive = e.button === 0;
+      setInteractivePoints(prev => [...prev, { ...pt, positive: isPositive }]);
+      return;
+    }
+
+    if (mode === 'brush' || mode === 'erase') {
       setIsDrawing(true);
       isDrawingRef.current = true;
-      lastPoint.current = point;
-      
-      const effectiveSize = getEffectiveBrushSize(e);
-      currentStrokeRef.current = {
-        points: [point],
-        brushSize: effectiveSize,
+      lastPoint.current = pt;
+
+      const newStroke: MaskStroke = {
+        points: [pt],
+        brushSize,
         isEraser: mode === 'erase',
       };
-    }
-  }, [mode, getCanvasCoords, getEffectiveBrushSize]);
+      currentStrokeRef.current = newStroke;
+      strokesRef.current.push(newStroke);
 
-  // Pointer move handler
-  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const point = getCanvasCoords(e);
-    if (!point) return;
-
-    setMousePos(point);
-
-    if (isDrawingRef.current && currentStrokeRef.current && lastPoint.current) {
-      const ctx = canvasRef.current?.getContext('2d');
-      if (!ctx) return;
-
-      const dx = point.x - lastPoint.current.x;
-      const dy = point.y - lastPoint.current.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const steps = Math.max(1, Math.floor(dist / 1));
-      const effectiveSize = getEffectiveBrushSize(e);
-
-      ctx.save();
-      ctx.globalCompositeOperation = mode === 'erase' ? 'destination-out' : 'source-over';
-      ctx.fillStyle = mode === 'erase' ? 'rgba(0, 0, 0, 1)' : 'rgba(255, 255, 255, 1)';
-
-      for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const interpPoint = {
-          x: lastPoint.current.x + dx * t,
-          y: lastPoint.current.y + dy * t,
-        };
-
-        ctx.beginPath();
-        ctx.arc(interpPoint.x, interpPoint.y, effectiveSize / 2, 0, 2 * Math.PI);
-        ctx.fill();
-        
-        currentStrokeRef.current.points.push(interpPoint);
-      }
-      ctx.restore();
-
-      lastPoint.current = point;
-    }
-  }, [mode, getCanvasCoords, getEffectiveBrushSize]);
-
-  // Pointer up handler
-  const handlePointerUp = useCallback(() => {
-    if (isDrawingRef.current && currentStrokeRef.current) {
-      strokesRef.current.push({ ...currentStrokeRef.current });
-      currentStrokeRef.current = null;
       const canvas = canvasRef.current;
-      if (canvas && onStrokeComplete) {
-        queueMicrotask(() => {
-          const maskDataUrl = canvas.toDataURL('image/png');
-          onStrokeComplete(maskDataUrl);
-        });
+      const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+      if (ctx && canvas) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, brushSize / 2, 0, Math.PI * 2);
+        if (mode === 'erase') {
+          ctx.globalCompositeOperation = 'destination-out';
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.fillStyle = '#ffffff';
+        }
+        ctx.fill();
+        ctx.restore();
       }
-      queueMicrotask(pushMaskUpdate);
+
+      redrawOverlay();
     }
-    setIsDrawing(false);
-    isDrawingRef.current = false;
-    lastPoint.current = null;
-  }, [pushMaskUpdate, onStrokeComplete]);
+  }, [mode, brushSize, getCanvasCoords, redrawOverlay]);
 
-  // Pointer leave handler
+  const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    const pt = getCanvasCoords(e);
+    if (!pt) return;
+
+    setMousePos(pt);
+
+    if (isDrawingRef.current && (mode === 'brush' || mode === 'erase')) {
+      const currentStroke = currentStrokeRef.current;
+      if (currentStroke) {
+        currentStroke.points.push(pt);
+      }
+
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+      const last = lastPoint.current;
+
+      if (ctx && last) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = brushSize;
+
+        if (mode === 'erase') {
+          ctx.globalCompositeOperation = 'destination-out';
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = '#ffffff';
+        }
+
+        ctx.moveTo(last.x, last.y);
+        ctx.lineTo(pt.x, pt.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      lastPoint.current = pt;
+    }
+
+    redrawOverlay();
+  }, [mode, brushSize, getCanvasCoords, redrawOverlay]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDrawingRef.current) {
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      lastPoint.current = null;
+      currentStrokeRef.current = null;
+
+      const dataUrl = emitMask();
+      if (dataUrl && onStrokeComplete) {
+        onStrokeComplete(dataUrl);
+      }
+    }
+
+    try {
+      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignored
+    }
+  }, [emitMask, onStrokeComplete]);
+
   const handlePointerLeave = useCallback(() => {
-    handlePointerUp();
     setMousePos(null);
-  }, [handlePointerUp]);
+    if (isDrawingRef.current) {
+      setIsDrawing(false);
+      isDrawingRef.current = false;
+      lastPoint.current = null;
+      currentStrokeRef.current = null;
+      const dataUrl = emitMask();
+      if (dataUrl && onStrokeComplete) {
+        onStrokeComplete(dataUrl);
+      }
+    }
+    redrawOverlay();
+  }, [emitMask, onStrokeComplete, redrawOverlay]);
 
-  // Context menu handler (prevent default for right-click interactive seg)
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (mode === 'interactive') {
       e.preventDefault();
@@ -363,30 +365,33 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
     onMaskChange('');
   }, [onMaskChange]);
 
-  // Expose clear and restore functions
-  useEffect(() => {
-    window.__clearInpaintMask = clearMask;
-    window.__restoreInpaintMask = (dataUrl: string) => {
-      strokesRef.current = [];
-      currentStrokeRef.current = null;
-      const img = new Image();
-      img.onload = () => {
-        const canvas = canvasRef.current;
-        const ctx = canvas?.getContext('2d');
-        if (ctx && canvas) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0);
-        }
-        onMaskChange(dataUrl);
-        redrawOverlay();
-      };
-      img.src = dataUrl;
+  // Restore mask from image data URL
+  const restoreMask = useCallback((dataUrl: string) => {
+    strokesRef.current = [];
+    currentStrokeRef.current = null;
+    if (!dataUrl) {
+      clearMask();
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (ctx && canvas) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+      }
+      onMaskChange(dataUrl);
+      redrawOverlay();
     };
-    return () => {
-      delete window.__clearInpaintMask;
-      delete window.__restoreInpaintMask;
-    };
+    img.src = dataUrl;
   }, [clearMask, onMaskChange, redrawOverlay]);
+
+  // Expose clean imperative handle via ref
+  useImperativeHandle(ref, () => ({
+    clearMask,
+    restoreMask,
+  }), [clearMask, restoreMask]);
 
   return (
     <div 
@@ -418,4 +423,6 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
       />
     </div>
   );
-};
+});
+
+InpaintCanvas.displayName = 'InpaintCanvas';

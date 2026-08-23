@@ -1,10 +1,6 @@
-/**
- * ZoomControls.tsx
- * Floating glassmorphic zoom HUD widget rendered directly inside the canvas.
- */
-
 import React, { useState, useEffect } from 'react';
 import { ZoomIn, ZoomOut } from 'lucide-react';
+import { MIN_ZOOM, MAX_ZOOM } from './utils/imageUtils';
 
 interface ZoomControlsProps {
   zoomPercent: number;
@@ -22,8 +18,8 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
   onZoomOut,
   onReset,
   onZoomTo,
-  minZoom = 10,
-  maxZoom = 500,
+  minZoom = MIN_ZOOM,
+  maxZoom = MAX_ZOOM,
 }) => {
   const [localZoom, setLocalZoom] = useState(zoomPercent);
 

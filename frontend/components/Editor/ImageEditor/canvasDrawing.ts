@@ -25,7 +25,6 @@ export function drawFilteredImageToCanvas(
   sourceImg: HTMLImageElement,
   blendImg: HTMLImageElement | null,
   adjustments: Adjustments,
-  _isComparing: boolean,
   curvesTable: { r: string; g: string; b: string },
   isDraggingSlider: boolean,
   portraitMasks?: LoadedPortraitMasks,

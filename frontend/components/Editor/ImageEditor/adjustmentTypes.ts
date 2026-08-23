@@ -189,3 +189,42 @@ export const DEFAULT_DEFRINGE: DefringeAdjustments = {
   hueEnd: 330,
   vignetteCos4: 0,
 };
+
+export const DEFAULT_GRAIN: GrainAdjustments = {
+  amount: 0,
+  size: 'medium',
+  colored: false,
+};
+
+export const DEFAULT_LIGHT_LEAK: LightLeakAdjustments = {
+  preset: null,
+  opacity: 50,
+};
+
+export const DEFAULT_FRAME: FrameAdjustments = {
+  style: 'none',
+  color: '#ffffff',
+  thickness: 5,
+};
+
+export const DEFAULT_BLEND: BlendAdjustments = {
+  photoId: null,
+  blendImageSrc: null,
+  mode: 'screen',
+  opacity: 50,
+  fit: 'cover',
+};
+
+export const DEFAULT_TILT_SHIFT: TiltShiftAdjustments = {
+  enabled: false,
+  mode: 'linear',
+  blurStrength: 30,
+  focusPosition: 50,
+  focusWidth: 30,
+};
+
+export const DEFAULT_SPLIT_TONING: SplitToningAdjustments = {
+  shadows: { hue: 0, saturation: 0 },
+  highlights: { hue: 0, saturation: 0 },
+  balance: 0,
+};

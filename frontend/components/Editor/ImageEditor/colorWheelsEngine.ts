@@ -1,8 +1,5 @@
 import { ColorWheelsAdjustments, ColorWheelVal } from './filterEngine';
-
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
+import { clamp } from './utils/imageUtils';
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp((x - edge0) / (edge1 - edge0 || 1e-5), 0, 1);

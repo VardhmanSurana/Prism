@@ -12,18 +12,9 @@ export interface InpaintProgressCallback {
   (progress: number, stage: string): void;
 }
 
-/**
- * Loads an image from a URL or Data URL into an HTMLImageElement.
- */
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = (e) => reject(e);
-    img.src = src;
-  });
-}
+import { loadCanvasImage } from './utils/imageUtils';
+
+export const loadImage = (src: string): Promise<HTMLImageElement> => loadCanvasImage(src);
 
 /**
  * Runs local high-quality client-side inpainting on an image using a binary mask.

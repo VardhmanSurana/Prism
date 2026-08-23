@@ -10,6 +10,7 @@ import {
   getPreviewBaseFilter,
   hasGlobalPreviewAdjustments,
   cloneCanvas,
+  compositeCanvasLayer,
 } from './exportPipeline/helpers';
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
 import { applySpecializedCurvesToImageData } from './hslEngine';
@@ -79,40 +80,10 @@ export const exportEditedCanvas = async ({
   report('Preparing canvas', 1, TOTAL_STEPS);
 
   // Composite liquify mesh deformation if present
-  if (
-    liquifyCanvas &&
-    liquifyCanvas.width > 0 &&
-    liquifyCanvas.height > 0 &&
-    preparedCanvas.width > 0 &&
-    preparedCanvas.height > 0
-  ) {
-    const lCtx = preparedCanvas.getContext('2d');
-    if (lCtx) {
-      try {
-        lCtx.drawImage(liquifyCanvas, 0, 0, preparedCanvas.width, preparedCanvas.height);
-      } catch (err) {
-        console.warn('Failed to composite liquifyCanvas:', err);
-      }
-    }
-  }
+  compositeCanvasLayer(preparedCanvas, liquifyCanvas, 'liquifyCanvas');
 
   // Composite healing & clone strokes if present
-  if (
-    healingCanvas &&
-    healingCanvas.width > 0 &&
-    healingCanvas.height > 0 &&
-    preparedCanvas.width > 0 &&
-    preparedCanvas.height > 0
-  ) {
-    const hCtx = preparedCanvas.getContext('2d');
-    if (hCtx) {
-      try {
-        hCtx.drawImage(healingCanvas, 0, 0, preparedCanvas.width, preparedCanvas.height);
-      } catch (err) {
-        console.warn('Failed to composite healingCanvas:', err);
-      }
-    }
-  }
+  compositeCanvasLayer(preparedCanvas, healingCanvas, 'healingCanvas');
 
   const noise = adjustments.noiseReduction || 0;
   const sharp = adjustments.sharpness || 0;

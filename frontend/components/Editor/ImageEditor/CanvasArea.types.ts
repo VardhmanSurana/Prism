@@ -3,6 +3,7 @@ import type Cropper from 'cropperjs';
 import type { ToolId } from './Sidebar';
 import type { Adjustments } from './filterEngine';
 import type { InpaintMode } from './InpaintPanel';
+import type { InpaintCanvasHandle } from './InpaintCanvas';
 import type { Annotation, DrawToolId } from './AnnotationsPanel';
 import type { HealingSettings } from './HealingPanel';
 import type { HealingCanvasRef } from './HealingCanvas';
@@ -20,6 +21,7 @@ export interface CanvasAreaProps {
   curvesTable: { r: string; g: string; b: string };
   isComparing?: boolean;
   inpaintMode?: InpaintMode;
+  inpaintCanvasRef?: React.Ref<InpaintCanvasHandle>;
   brushSize?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
   onInpaintStrokeComplete?: (maskDataUrl: string) => void;

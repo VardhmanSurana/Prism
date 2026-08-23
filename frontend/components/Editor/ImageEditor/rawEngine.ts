@@ -63,9 +63,9 @@ export const DEFAULT_RAW_SETTINGS: RawSettings = {
   rawClarity: 0,
 };
 
-function clamp(v: number, min = 0, max = 255): number {
-  return v < min ? min : v > max ? max : v;
-}
+import { clamp } from './utils/imageUtils';
+
+export { clamp };
 
 /**
  * High-accuracy Planckian locus blackbody radiator calculation.

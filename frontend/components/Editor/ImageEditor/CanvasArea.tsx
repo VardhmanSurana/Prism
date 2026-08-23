@@ -37,6 +37,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   curvesTable,
   isComparing = false,
   inpaintMode = 'brush',
+  inpaintCanvasRef,
   brushSize = 50,
   onInpaintMaskChange = (_mask: string): void => {},
   onInpaintStrokeComplete,
@@ -283,7 +284,6 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       sourceImg,
       blendImg,
       adjustments,
-      false,
       curvesTable,
       isDraggingSliderRef.current,
       portraitMasksRef.current ?? undefined
@@ -450,6 +450,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             }}
           >
             <InpaintCanvas
+              ref={inpaintCanvasRef}
               imageUrl={currentImageSrc}
               mode={inpaintMode}
               brushSize={brushSize}

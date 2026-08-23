@@ -1,75 +1,36 @@
 /**
  * TexturePanel.tsx
- * Renders controls for Film Grain, Light Leaks, Vignette, and Double Exposure blending.
+ * Renders controls for Film Grain, Light Leaks (presets, custom tint, position), Vignette, and Double Exposure blending.
  */
 
 import React, { useMemo, useRef, useCallback } from 'react';
 import { RotateCcw, Trash2, FolderOpen } from 'lucide-react';
-import { Adjustments } from './filterEngine';
+import {
+  Adjustments,
+  DEFAULT_GRAIN,
+  DEFAULT_LIGHT_LEAK,
+  DEFAULT_BLEND,
+} from './filterEngine';
 import { openFileFolderBrowser } from '@/services/FileFolderBrowserService';
 import { resolveUrl } from '@/constants';
 import { EditorSlider } from './ui/EditorSlider';
+import {
+  LEAKS,
+  LEAK_COLORS,
+  LEAK_POSITIONS,
+  BLEND_MODES,
+} from './textureConstants';
 
 interface TexturePanelProps {
   adjustments: Adjustments;
   onChange: (adj: Adjustments) => void;
 }
 
-const LEAKS = [
-  {
-    id: 'warm-left',
-    name: 'Warm Left',
-    background: 'linear-gradient(to right, rgba(251, 146, 60, 0.5), transparent)',
-  },
-  {
-    id: 'cool-top',
-    name: 'Cool Top',
-    background: 'linear-gradient(to bottom, rgba(56, 189, 248, 0.5), transparent)',
-  },
-  {
-    id: 'rainbow-corner',
-    name: 'Rainbow',
-    background: 'radial-gradient(circle at top right, rgba(236, 72, 153, 0.5) 0%, rgba(59, 130, 246, 0.4) 40%, transparent 80%)',
-  },
-  {
-    id: 'soft-glow',
-    name: 'Soft Glow',
-    background: 'radial-gradient(circle at center, rgba(253, 224, 71, 0.4) 0%, transparent 70%)',
-  },
-  {
-    id: 'sunset-bleed',
-    name: 'Sunset Bleed',
-    background: 'radial-gradient(circle at bottom left, rgba(239, 68, 68, 0.5) 0%, rgba(249, 115, 22, 0.3) 50%, transparent 90%)',
-  },
-  {
-    id: 'vintage-haze',
-    name: 'Vintage Haze',
-    background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.4), rgba(16, 185, 129, 0.2) 60%, transparent)',
-  },
-];
-
-const BLEND_MODES: { value: GlobalCompositeOperation; label: string }[] = [
-  { value: 'screen', label: 'Screen' },
-  { value: 'multiply', label: 'Multiply' },
-  { value: 'overlay', label: 'Overlay' },
-  { value: 'soft-light', label: 'Soft Light' },
-  { value: 'hard-light', label: 'Hard Light' },
-  { value: 'color-dodge', label: 'Color Dodge' },
-  { value: 'color-burn', label: 'Color Burn' },
-  { value: 'difference', label: 'Difference' },
-];
-
 export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChange }) => {
-  const grain = adjustments.grain ?? { amount: 0, size: 'medium', colored: false };
-  const lightLeak = adjustments.lightLeak ?? { preset: null, opacity: 50 };
+  const grain = adjustments.grain ?? { ...DEFAULT_GRAIN };
+  const lightLeak = adjustments.lightLeak ?? { ...DEFAULT_LIGHT_LEAK };
   const vignette = adjustments.vignette ?? 0;
-  const blend = adjustments.blend ?? {
-    photoId: null,
-    blendImageSrc: null,
-    mode: 'screen',
-    opacity: 50,
-    fit: 'cover',
-  };
+  const blend = adjustments.blend ?? { ...DEFAULT_BLEND };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isDefault = useMemo(() => {
@@ -84,16 +45,10 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   const handleReset = () => {
     onChange({
       ...adjustments,
-      grain: { amount: 0, size: 'medium', colored: false },
-      lightLeak: { preset: null, opacity: 50 },
+      grain: { ...DEFAULT_GRAIN },
+      lightLeak: { ...DEFAULT_LIGHT_LEAK },
       vignette: 0,
-      blend: {
-        photoId: null,
-        blendImageSrc: null,
-        mode: 'screen',
-        opacity: 50,
-        fit: 'cover',
-      },
+      blend: { ...DEFAULT_BLEND },
     });
   };
 
@@ -134,6 +89,26 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     onChange({
       ...adjustments,
       lightLeak: { ...lightLeak, opacity: val },
+    });
+  };
+
+  const handleLeakColorChange = (hex: string) => {
+    onChange({
+      ...adjustments,
+      lightLeak: {
+        ...lightLeak,
+        color: lightLeak.color === hex ? undefined : hex,
+      },
+    });
+  };
+
+  const handleLeakPositionChange = (pos: any) => {
+    onChange({
+      ...adjustments,
+      lightLeak: {
+        ...lightLeak,
+        position: lightLeak.position === pos ? undefined : pos,
+      },
     });
   };
 
@@ -209,40 +184,23 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
-  const handleBlendOpacityChange = (opacity: number) => {
+  const handleBlendOpacityChange = (val: number) => {
     onChange({
       ...adjustments,
-      blend: { ...blend, opacity },
+      blend: { ...blend, opacity: val },
     });
   };
 
-  const handleFitChange = (fit: 'cover' | 'contain' | 'center') => {
+  const handleBlendFitChange = (fit: 'cover' | 'contain' | 'center') => {
     onChange({
       ...adjustments,
       blend: { ...blend, fit },
     });
   };
 
-  const blendFilename = useMemo(() => {
-    if (!blend.blendImageSrc) return '';
-    try {
-      const decoded = decodeURIComponent(blend.blendImageSrc);
-      const parts = decoded.split('/');
-      return parts[parts.length - 1] || 'overlay_image';
-    } catch {
-      return 'overlay_image';
-    }
-  }, [blend.blendImageSrc]);
-
-  // Compute fill track percentages
-  const grainPct = grain.amount;
-  const leakPct = lightLeak.opacity;
-  const vignettePct = ((vignette + 100) / 200) * 100;
-  const vignetteFillLeft = vignette < 0 ? `${50 + vignette / 2}%` : '50%';
-  const vignetteFillWidth = `${Math.abs(vignette) / 2}%`;
-
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
+    <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar text-white pb-6 select-none">
+      {/* Hidden File Input for Web Mode */}
       <input
         ref={fileInputRef}
         type="file"
@@ -253,7 +211,7 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between">
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">
-          Texture & Effects
+          Texture & Atmosphere
         </span>
         {!isDefault && (
           <button
@@ -364,9 +322,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
           })}
         </div>
 
-        {/* Leak Opacity slider - only visible when a leak is selected */}
+        {/* Leak controls (intensity, tint, position) */}
         {lightLeak.preset && (
-          <div className="pt-2 animate-in fade-in duration-200">
+          <div className="space-y-4 pt-2 animate-in fade-in duration-200">
             <EditorSlider
               label="Leak Intensity"
               value={lightLeak.opacity}
@@ -376,6 +334,46 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
               defaultValue={80}
               unit="%"
             />
+
+            {/* Custom Tint Color */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium text-white/40">Custom Tint</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {LEAK_COLORS.map(c => (
+                  <button
+                    key={c.hex}
+                    onClick={() => handleLeakColorChange(c.hex)}
+                    title={c.name}
+                    className={`w-6 h-6 rounded-full border-2 transition-all cursor-pointer ${
+                      lightLeak.color === c.hex
+                        ? 'border-white scale-110 shadow-lg'
+                        : 'border-transparent hover:border-white/40'
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Position Selector */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium text-white/40">Position</span>
+              <div className="grid grid-cols-2 gap-1 bg-white/[0.02] border border-white/5 rounded-lg p-1">
+                {LEAK_POSITIONS.map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => handleLeakPositionChange(p.value)}
+                    className={`px-2 py-1 rounded text-[10px] font-medium transition-colors text-left truncate ${
+                      lightLeak.position === p.value
+                        ? 'bg-primary text-black font-semibold'
+                        : 'text-white/60 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -385,7 +383,6 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
         <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-4">
           Vignette
         </p>
-
         <EditorSlider
           label="Vignette"
           value={vignette}
@@ -393,120 +390,117 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
           min={-100}
           max={100}
           defaultValue={0}
-          bipolar
         />
       </div>
 
-      {/* ── Double Exposure / Blend Section ── */}
+      {/* ── Double Exposure (Blend) Section ── */}
       <div className="px-4 pt-5 pb-6">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">
-          Double Exposure
-        </p>
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25">
+            Double Exposure
+          </p>
+          {blend.blendImageSrc && (
+            <button
+              onClick={handleRemoveImage}
+              className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors"
+            >
+              <Trash2 size={9} /> Remove
+            </button>
+          )}
+        </div>
 
         {!blend.blendImageSrc ? (
+          /* Empty / Upload State */
           <button
             onClick={handlePickImage}
-            className="w-full aspect-video rounded-2xl border border-dashed border-white/10 hover:border-white/20 hover:bg-white/[0.02] flex flex-col items-center justify-center gap-2 text-white/40 hover:text-white/60 transition-all cursor-pointer group"
+            className="w-full h-24 border border-dashed border-white/10 hover:border-white/30 rounded-xl bg-white/[0.01] hover:bg-white/[0.03] transition-all flex flex-col items-center justify-center gap-2 cursor-pointer group"
           >
-            <FolderOpen size={24} className="stroke-[1.5] group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-medium">Browse Files...</span>
+            <FolderOpen
+              size={18}
+              className="text-white/30 group-hover:text-white/60 transition-colors"
+            />
+            <span className="text-[10px] font-semibold text-white/40 group-hover:text-white/80 transition-colors">
+              Choose Overlay Photo
+            </span>
           </button>
         ) : (
-          <>
-            {/* Image Thumbnail Card */}
-            <div className="relative rounded-2xl border border-white/10 bg-black/40 p-3 flex gap-3 items-center group mb-5">
-              <div className="w-14 h-14 rounded-xl overflow-hidden bg-black/30 border border-white/5 shrink-0">
-                <img
-                  src={blend.blendImageSrc}
-                  alt="Overlay preview"
-                  className="w-full h-full object-cover"
-                  crossOrigin="anonymous"
-                />
-              </div>
-              
+          /* Overlay Controls */
+          <div className="space-y-4">
+            {/* Image Preview & Change button */}
+            <div className="flex items-center gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-2">
+              <img
+                src={blend.blendImageSrc}
+                alt="Blend Overlay"
+                className="w-10 h-10 object-cover rounded-lg border border-white/10"
+              />
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-white/80 font-medium truncate leading-tight mb-1" title={blendFilename}>
-                  {blendFilename}
+                <p className="text-[10px] font-bold text-white/80 truncate">
+                  Active Overlay
                 </p>
                 <button
                   onClick={handlePickImage}
-                  className="text-[10px] text-primary/80 hover:text-primary font-bold uppercase tracking-wider"
+                  className="text-[9px] text-primary hover:underline font-medium"
                 >
-                  Change...
+                  Change Image
                 </button>
               </div>
-
-              <button
-                onClick={handleRemoveImage}
-                className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors cursor-pointer"
-                title="Remove overlay"
-              >
-                <Trash2 size={14} />
-              </button>
             </div>
 
-            {/* Blend Controls */}
-            <div className="space-y-5">
-              {/* Blend Mode Selector */}
-              <div className="space-y-2">
-                <label className="text-[11px] font-medium text-white/40 leading-none select-none">
-                  Blend Mode
-                </label>
-                <div className="relative group">
-                  <select
-                    value={blend.mode}
-                    onChange={e => handleBlendModeChange(e.target.value as GlobalCompositeOperation)}
-                    className="w-full appearance-none bg-[#111] border border-white/10 text-white/90 text-xs rounded-xl pl-3 pr-10 py-2.5 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/20 transition-all cursor-pointer group-hover:bg-[#161616]"
-                  >
-                    {BLEND_MODES.map(mode => (
-                      <option key={mode.value} value={mode.value} className="bg-[#111] text-white py-2">
-                        {mode.label}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 group-hover:text-white/60 transition-colors">
-                    <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Opacity Slider */}
-              <EditorSlider
-                label="Overlay Opacity"
-                value={blend.opacity}
-                onChange={handleBlendOpacityChange}
-                min={0}
-                max={100}
-                defaultValue={100}
-                unit="%"
-              />
-
-              {/* Fit Mode Toggle */}
-              <div className="space-y-2">
-                <span className="text-[11px] font-medium text-white/40">Fit Mode</span>
-                <div className="flex bg-white/[0.02] border border-white/5 rounded-xl p-0.5 w-full">
-                  {(['cover', 'contain', 'center'] as const).map(fit => {
-                    const isActive = blend.fit === fit;
-                    return (
-                      <button
-                        key={fit}
-                        onClick={() => handleFitChange(fit)}
-                        className={`flex-1 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 cursor-pointer ${
-                          isActive
-                            ? 'bg-white/10 text-white border border-white/5 shadow-inner'
-                            : 'text-white/30 hover:text-white/50 border border-transparent'
-                        }`}
-                      >
-                        {fit}
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Blend Mode Selection */}
+            <div className="space-y-1.5">
+              <span className="text-[11px] font-medium text-white/40">Blend Mode</span>
+              <div className="grid grid-cols-2 gap-1 bg-white/[0.02] border border-white/5 rounded-lg p-1">
+                {BLEND_MODES.map(m => {
+                  const isActive = blend.mode === m.value;
+                  return (
+                    <button
+                      key={m.value}
+                      onClick={() => handleBlendModeChange(m.value)}
+                      className={`px-2 py-1 rounded text-[10px] font-medium transition-colors text-left truncate ${
+                        isActive
+                          ? 'bg-primary text-black font-semibold'
+                          : 'text-white/60 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </>
+
+            {/* Opacity Slider */}
+            <EditorSlider
+              label="Overlay Opacity"
+              value={blend.opacity}
+              onChange={handleBlendOpacityChange}
+              min={0}
+              max={100}
+              defaultValue={50}
+              unit="%"
+            />
+
+            {/* Fit Options */}
+            <div className="flex justify-between items-center py-1">
+              <span className="text-[11px] font-medium text-white/40">Fit Mode</span>
+              <div className="flex bg-white/[0.02] border border-white/5 rounded-lg p-0.5">
+                {(['cover', 'contain', 'center'] as const).map(fit => {
+                  const isActive = blend.fit === fit;
+                  return (
+                    <button
+                      key={fit}
+                      onClick={() => handleBlendFitChange(fit)}
+                      className={`editor-btn editor-chip-btn ${
+                        isActive ? 'active' : ''
+                      } px-2 py-1 text-[9px] font-bold uppercase tracking-wider`}
+                    >
+                      {fit}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -14,6 +14,7 @@ import {
   Layers,
   ChevronDown,
   Wand2,
+  Sun,
 } from 'lucide-react';
 import { HealingToolMode, HealingSettings, DEFAULT_HEALING_SETTINGS } from './healingEngine';
 import { EditorSlider } from './ui/EditorSlider';
@@ -94,6 +95,7 @@ export const HealingPanel: React.FC<HealingPanelProps> = ({
                   { id: 'healing-brush', label: 'Spot Heal', icon: <Wand2 size={11} /> },
                   { id: 'frequency-separation', label: 'Freq Sep', icon: <Layers size={11} /> },
                   { id: 'content-patch', label: 'Patch Blend', icon: <Sparkles size={11} /> },
+                  { id: 'dodge-burn', label: 'Dodge / Burn', icon: <Sun size={11} /> },
                 ] as const
               ).map(m => {
                 const isSelected = settings.mode === m.id;
@@ -103,7 +105,9 @@ export const HealingPanel: React.FC<HealingPanelProps> = ({
                     onClick={() => update({ mode: m.id as HealingToolMode })}
                     className={`editor-btn editor-chip-btn ${
                       isSelected ? 'active' : ''
-                    } py-2 px-2 text-[10px] font-bold uppercase flex items-center justify-center gap-1.5`}
+                    } py-2 px-2 text-[10px] font-bold uppercase flex items-center justify-center gap-1.5 ${
+                      m.id === 'dodge-burn' ? 'col-span-2' : ''
+                    }`}
                   >
                     {m.icon}
                     <span className="truncate">{m.label}</span>
@@ -122,6 +126,8 @@ export const HealingPanel: React.FC<HealingPanelProps> = ({
                 'Separates low-frequency color & high-frequency texture for skin smoothing.'}
               {settings.mode === 'content-patch' &&
                 'Replaces target selection area with seamless Poisson gradient blending.'}
+              {settings.mode === 'dodge-burn' &&
+                'Paint locally to lighten (dodge) or darken (burn) luminance values non-destructively.'}
             </div>
           </div>
         )}

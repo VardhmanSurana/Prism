@@ -48,6 +48,12 @@ export {
   DEFAULT_COLOR_WHEEL_VAL,
   DEFAULT_COLOR_WHEELS,
   DEFAULT_DEFRINGE,
+  DEFAULT_GRAIN,
+  DEFAULT_LIGHT_LEAK,
+  DEFAULT_FRAME,
+  DEFAULT_BLEND,
+  DEFAULT_TILT_SHIFT,
+  DEFAULT_SPLIT_TONING,
 } from './adjustmentTypes';
 
 // ── Combined State Type ──────────────────────────────────────────────────────
@@ -116,6 +122,12 @@ import {
   DEFAULT_PORTRAIT_ADJUSTMENTS,
   DEFAULT_COLOR_WHEELS,
   DEFAULT_DEFRINGE,
+  DEFAULT_GRAIN,
+  DEFAULT_LIGHT_LEAK,
+  DEFAULT_FRAME,
+  DEFAULT_BLEND,
+  DEFAULT_TILT_SHIFT,
+  DEFAULT_SPLIT_TONING,
 } from './adjustmentTypes';
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
@@ -146,39 +158,12 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   colorWheels: { ...DEFAULT_COLOR_WHEELS },
   defringe:    { ...DEFAULT_DEFRINGE },
   portrait:    { ...DEFAULT_PORTRAIT_ADJUSTMENTS },
-  splitToning: {
-    shadows:    { hue: 0, saturation: 0 },
-    highlights: { hue: 0, saturation: 0 },
-    balance:    0,
-  },
-  grain: {
-    amount:  0,
-    size:    'medium',
-    colored: false,
-  },
-  lightLeak: {
-    preset:  null,
-    opacity: 50,
-  },
-  frame: {
-    style:     'none',
-    color:     '#ffffff',
-    thickness: 5,
-  },
-  blend: {
-    photoId:       null,
-    blendImageSrc: null,
-    mode:          'screen',
-    opacity:       50,
-    fit:           'cover',
-  },
-  tiltShift: {
-    enabled:       false,
-    mode:          'linear',
-    blurStrength:  30,
-    focusPosition: 50,
-    focusWidth:    30,
-  },
+  splitToning: { ...DEFAULT_SPLIT_TONING },
+  grain:       { ...DEFAULT_GRAIN },
+  lightLeak:   { ...DEFAULT_LIGHT_LEAK },
+  frame:       { ...DEFAULT_FRAME },
+  blend:       { ...DEFAULT_BLEND },
+  tiltShift:   { ...DEFAULT_TILT_SHIFT },
   lut: {
     builtinId:  null,
     customData: null,

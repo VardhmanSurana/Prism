@@ -1,11 +1,7 @@
-/**
- * PaletteEyedropperOverlay.tsx
- * In-canvas interactive pixel loupe eyedropper for sampling colors directly from the photo.
- * Cross-browser compatible (works in Firefox, Safari, Chrome, WebKit, and Tauri).
- */
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Pipette, X } from 'lucide-react';
+import { rgbToHex } from './utils/colorUtils';
+import { loadCanvasImage } from './utils/imageUtils';
 
 interface PaletteEyedropperOverlayProps {
   width: number;
@@ -38,13 +34,13 @@ export const PaletteEyedropperOverlay: React.FC<PaletteEyedropperOverlayProps> =
   // Load fallback image if sourceImage is missing or detached
   useEffect(() => {
     if (!imageSrc) return;
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
+    let isMounted = true;
+    loadCanvasImage(imageSrc).then(img => {
+      if (!isMounted) return;
       fallbackImgRef.current = img;
       initSampleCanvas(img);
-    };
-    img.src = imageSrc;
+    }).catch(() => {});
+    return () => { isMounted = false; };
   }, [imageSrc]);
 
   // Render full source image onto offscreen sampling canvas
@@ -235,10 +231,3 @@ export const PaletteEyedropperOverlay: React.FC<PaletteEyedropperOverlayProps> =
   );
 };
 
-function rgbToHex(r: number, g: number, b: number): string {
-  const toHex = (c: number) => {
-    const hex = c.toString(16);
-    return hex.length === 1 ? '0' + hex : hex;
-  };
-  return ('#' + toHex(r) + toHex(g) + toHex(b)).toUpperCase();
-}

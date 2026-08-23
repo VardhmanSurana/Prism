@@ -40,12 +40,7 @@ export function isCtxFilterSupported(): boolean {
   }
 }
 
-/**
- * Helper to clamp values between 0 and 255.
- */
-function clamp(val: number): number {
-  return Math.min(255, Math.max(0, val));
-}
+import { clamp } from './utils/imageUtils';
 
 /**
  * Applies CSS-equivalent filters (brightness, contrast, saturate, hue-rotate)
