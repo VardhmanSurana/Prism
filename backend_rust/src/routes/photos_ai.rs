@@ -217,6 +217,19 @@ pub struct DepthRequest {
     pub focus: f32,
 }
 
+fn invalidate_photo_thumbnails(thumbnails_dir: &std::path::Path, photo_id: i64) {
+    if let Ok(entries) = std::fs::read_dir(thumbnails_dir) {
+        let prefix = format!("{}_thumb", photo_id);
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.starts_with(&prefix) {
+                    std::fs::remove_file(entry.path()).ok();
+                }
+            }
+        }
+    }
+}
+
 pub async fn process_depth(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<DepthRequest>,
@@ -228,7 +241,18 @@ pub async fn process_depth(
         .process_async(&photo.path, &payload.mode, payload.strength_px, payload.focus)
         .await
     {
-        Ok(val) => Ok(Json(val)),
+        Ok(val) => {
+            if payload.mode == "bokeh" {
+                invalidate_photo_thumbnails(&state.config.thumbnails_dir, photo.id);
+                let new_hash = chrono::Utc::now().timestamp_millis().to_string();
+                let _ = sqlx::query("UPDATE photos SET hash = ? WHERE id = ?")
+                    .bind(&new_hash)
+                    .bind(photo.id)
+                    .execute(&state.db)
+                    .await;
+            }
+            Ok(Json(val))
+        }
         Err(e) => {
             warn!("Depth processing failed: {}", e);
             Ok(Json(json!({ "success": false, "error": e })))
@@ -256,10 +280,13 @@ pub async fn upscale_photo(
 
     match enhance::UpscaleEngine::get().upscale_async(&photo.path, payload.scale).await {
         Ok(val) => {
+            invalidate_photo_thumbnails(&state.config.thumbnails_dir, photo.id);
+            let new_hash = chrono::Utc::now().timestamp_millis().to_string();
             // Dimensions changed — keep the DB in sync.
-            let _ = sqlx::query("UPDATE photos SET width = ?, height = ? WHERE id = ?")
+            let _ = sqlx::query("UPDATE photos SET width = ?, height = ?, hash = ? WHERE id = ?")
                 .bind(val["width"].as_i64().unwrap_or(photo.width as i64))
                 .bind(val["height"].as_i64().unwrap_or(photo.height as i64))
+                .bind(&new_hash)
                 .bind(photo.id)
                 .execute(&state.db).await;
             Ok(Json(val))
@@ -300,7 +327,16 @@ pub async fn face_restore_photo(
         .restore_async(&photo.path, boxes, payload.strength)
         .await
     {
-        Ok(val) => Ok(Json(val)),
+        Ok(val) => {
+            invalidate_photo_thumbnails(&state.config.thumbnails_dir, photo.id);
+            let new_hash = chrono::Utc::now().timestamp_millis().to_string();
+            let _ = sqlx::query("UPDATE photos SET hash = ? WHERE id = ?")
+                .bind(&new_hash)
+                .bind(photo.id)
+                .execute(&state.db)
+                .await;
+            Ok(Json(val))
+        }
         Err(e) => {
             warn!("Face restore failed: {}", e);
             Ok(Json(json!({ "success": false, "error": e })))
@@ -323,7 +359,16 @@ pub async fn denoise_photo(
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
 
     match denoise::DenoiseEngine::get().denoise_async(&photo.path).await {
-        Ok(val) => Ok(Json(val)),
+        Ok(val) => {
+            invalidate_photo_thumbnails(&state.config.thumbnails_dir, photo.id);
+            let new_hash = chrono::Utc::now().timestamp_millis().to_string();
+            let _ = sqlx::query("UPDATE photos SET hash = ? WHERE id = ?")
+                .bind(&new_hash)
+                .bind(photo.id)
+                .execute(&state.db)
+                .await;
+            Ok(Json(val))
+        }
         Err(e) => {
             warn!("Denoise failed: {}", e);
             Ok(Json(json!({ "success": false, "error": e })))
