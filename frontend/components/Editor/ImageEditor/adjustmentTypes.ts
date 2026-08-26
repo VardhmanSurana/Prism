@@ -4,7 +4,7 @@
  * Split from filterEngine.ts for modularity.
  */
 
-import type { LutData } from './lutEngine';
+import type { LutData } from '@plugins/creative-color-studio/lutEngine';
 import { RawSettings } from './rawEngine';
 
 // ── HSL Per-Band Types ───────────────────────────────────────────────────────

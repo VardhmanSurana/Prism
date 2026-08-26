@@ -2,7 +2,7 @@ import { Adjustments, HslBand, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
 import { applyHslToImageData, applySpecializedCurvesToImageData } from './hslEngine';
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
-import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
+import { applyLutToImageData, getBuiltinLutData } from '@plugins/creative-color-studio/lutEngine';
 import {
   applySplitToning,
   applyGrain,

@@ -18,29 +18,60 @@ import { Sidebar, ToolId } from '../Sidebar';
 import { CanvasArea } from '../CanvasArea';
 import { Adjustments, DEFAULT_ADJUSTMENTS, DEFAULT_BACKGROUND_ADJUSTMENTS, toFilterString } from '../filterEngine';
 import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
-import { PortraitPanel } from '../PortraitPanel';
-import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '../InpaintPanel';
-import { inpaintImageLocally } from '../inpaintEngine';
 import { HslPanel } from '../HslPanel';
 import { PresetsPanel } from '../PresetsPanel';
-import { TexturePanel } from '../TexturePanel';
-import { FramesPanel } from '../FramesPanel';
 import { PalettePanel } from '../PalettePanel';
-import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
-import { LutPanel } from '../LutPanel';
 import { HealingPanel } from '../HealingPanel';
 import { HealingSettings, DEFAULT_HEALING_SETTINGS } from '../healingEngine';
 import { LayersPanel } from '../LayersPanel';
 import { RawEnginePanel } from '../RawEnginePanel';
 import { LiquifyPanel } from '../LiquifyPanel';
 import { DEFAULT_LIQUIFY_SETTINGS } from '../liquifyEngine';
-import { ColorMatchPanel } from '../ColorMatchPanel';
 import { LassoPanel } from '../LassoPanel';
 import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
 import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
-import { matchColorBetweenImages } from '../colorMatchEngine';
-import { BackgroundPanel } from '../BackgroundPanel';
+
+// ── Types & Utilities from Plugins ──
+import type { InpaintMode, InpaintOperation, InpaintSettings, InpaintCanvasHandle } from '@plugins/ai-vision-studio';
+import { inpaintImageLocally } from '@plugins/ai-vision-studio';
+import type { DepthMode, DepthSettings, EnhanceSettings, EnhanceAction, CaptionTask } from '@plugins/ai-vision-studio';
+import { matchColorBetweenImages } from '@plugins/retouch-metadata-studio';
+import type { DrawToolId } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { DEFAULT_PEN_SETTINGS, PenSettings } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+
+// ── Lazy-loaded Plugin Panels (Loaded on-demand directly from plugins/ folder) ──
+const BackgroundPanel = React.lazy(() =>
+  import('@plugins/ai-vision-studio/BackgroundPanel').then((m) => ({ default: m.BackgroundPanel }))
+);
+const MagicEraserPanel = React.lazy(() =>
+  import('@plugins/ai-vision-studio/MagicEraserPanel').then((m) => ({ default: m.MagicEraserPanel }))
+)
+const DepthPanel = React.lazy(() =>
+  import('@plugins/ai-vision-studio/DepthPanel').then((m) => ({ default: m.DepthPanel }))
+)
+const EnhancePanel = React.lazy(() =>
+  import('@plugins/ai-vision-studio/EnhancePanel').then((m) => ({ default: m.EnhancePanel }))
+);
+const InpaintPanel = MagicEraserPanel;
+const PortraitPanel = React.lazy(() =>
+  import('@plugins/retouch-metadata-studio/PortraitPanel').then((m) => ({ default: m.PortraitPanel }))
+);
+const ColorMatchPanel = React.lazy(() =>
+  import('@plugins/retouch-metadata-studio/ColorMatchPanel').then((m) => ({ default: m.ColorMatchPanel }))
+);
+const AnnotationsPanel = React.lazy(() =>
+  import('@plugins/retouch-metadata-studio/AnnotationsPanel').then((m) => ({ default: m.AnnotationsPanel }))
+);
+const LutPanel = React.lazy(() =>
+  import('@plugins/creative-color-studio/LutPanel').then((m) => ({ default: m.LutPanel }))
+);
+const TexturePanel = React.lazy(() =>
+  import('@plugins/creative-color-studio/TexturePanel').then((m) => ({ default: m.TexturePanel }))
+);
+const FramesPanel = React.lazy(() =>
+  import('@plugins/creative-color-studio/FramesPanel').then((m) => ({ default: m.FramesPanel }))
+);
 
 import { HistoryActionType } from '../history';
 import { API_BASE, resolveUrl } from '@/constants';
@@ -49,7 +80,6 @@ import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
 import { useEditStore } from '@/store/editStore';
-import type { InpaintCanvasHandle } from '../InpaintCanvas';
 
 interface EditingModeProps {
   src:     string;
@@ -79,6 +109,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [activeOpacity, setActiveOpacity] = useState<number>(1);
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [brushSize, setBrushSize] = useState<number>(35);
+  const [penSettings, setPenSettings] = useState<PenSettings>(DEFAULT_PEN_SETTINGS);
   const userChangedStyleRef = useRef(false);
 
   // History and adjustments state (via hook)
@@ -136,6 +167,20 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [inpaintCanRedo, setInpaintCanRedo] = useState(false);
   const [inpaintInfoMessage, setInpaintInfoMessage] = useState<string | null>(null);
 
+  // ── Depth effects + AI enhance (ai-vision-studio plugin) ──
+  const [depthMode, setDepthMode] = useState<DepthMode>('bokeh');
+  const [depthSettings, setDepthSettings] = useState<DepthSettings>({ strengthPx: 6, focus: 0.5 });
+  const [depthMapData, setDepthMapData] = useState<string | null>(null);
+  const [isDepthProcessing, setIsDepthProcessing] = useState(false);
+  const [enhanceSettings, setEnhanceSettings] = useState<EnhanceSettings>({ scale: 2, restoreStrength: 1 });
+  const [isEnhanceProcessing, setIsEnhanceProcessing] = useState(false);
+  const [activeEnhanceAction, setActiveEnhanceAction] = useState<EnhanceAction | null>(null);
+  const [captionText, setCaptionText] = useState<string | null>(null);
+  const [isCaptionLoading, setIsCaptionLoading] = useState(false);
+  const [samCanSegment, setSamCanSegment] = useState(false);
+  const [isSamSegmenting, setIsSamSegmenting] = useState(false);
+  const samPointsRef = useRef<Array<{ x: number; y: number; positive: boolean }>>([]);
+
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const savedCropBoxRef = useRef<Cropper.CropBoxData | null>(null);
 
@@ -156,7 +201,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
 
   // Face Detection Bounding Boxes State
-  const [faces, setFaces] = useState<import('../FaceBoundingBoxOverlay').FaceBBox[]>([]);
+  const [faces, setFaces] = useState<import('@plugins/retouch-metadata-studio/FaceBoundingBoxOverlay').FaceBBox[]>([]);
   const [selectedFaceIndex, setSelectedFaceIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -629,6 +674,184 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
   }, []);
 
+  // ── Depth effects + AI enhance (backend writes the photo file back) ──
+
+  const reloadPhotoAfterServerWrite = useCallback(async (label: string): Promise<boolean> => {
+    try {
+      if (!photoId) return false;
+      const res = await fetch(`${API_BASE}/api/v1/photos/${photoId}/file?t=${Date.now()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      revokeLocalUrl();
+      const blobUrl = URL.createObjectURL(blob);
+      historyState.createdUrlRef.current = blobUrl;
+      setCurrentImageSrc(blobUrl);
+      addHistoryEntry('inpaint' as HistoryActionType, label, undefined, blobUrl);
+      return true;
+    } catch (e) {
+      console.error('Failed to reload photo after server write:', e);
+      showToast('Applied, but could not refresh preview');
+      return false;
+    }
+  }, [photoId, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef, addHistoryEntry, showToast]);
+
+  const handleDepthProcess = useCallback(async () => {
+    if (isDepthProcessing || !photoId) return;
+    setIsDepthProcessing(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/photos/depth/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_id: photoId,
+          mode: depthMode,
+          strength_px: depthSettings.strengthPx,
+          focus: depthSettings.focus,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+      if (depthMode === 'map') {
+        setDepthMapData(result.depth_map_data ?? null);
+        showToast('Depth map computed');
+      } else {
+        await reloadPhotoAfterServerWrite('Applied bokeh blur');
+        showToast('Bokeh applied');
+      }
+    } catch (e) {
+      console.error('Depth processing failed:', e);
+      showToast(e instanceof Error ? e.message : 'Depth processing failed');
+    } finally {
+      setIsDepthProcessing(false);
+    }
+  }, [isDepthProcessing, photoId, depthMode, depthSettings, reloadPhotoAfterServerWrite, showToast]);
+
+  const runEnhanceAction = useCallback(async (action: EnhanceAction) => {
+    if (isEnhanceProcessing || !photoId) return;
+    setIsEnhanceProcessing(true);
+    setActiveEnhanceAction(action);
+    try {
+      const endpoint = action === 'upscale'
+        ? '/api/v1/photos/enhance/upscale'
+        : action === 'face-restore'
+          ? '/api/v1/photos/enhance/face-restore'
+          : '/api/v1/photos/denoise';
+      const body = action === 'upscale'
+        ? { photo_id: photoId, scale: enhanceSettings.scale }
+        : action === 'face-restore'
+          ? { photo_id: photoId, strength: enhanceSettings.restoreStrength }
+          : { photo_id: photoId };
+      const response = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+      await reloadPhotoAfterServerWrite(
+        action === 'upscale'
+          ? `Upscaled ${result.width}×${result.height}`
+          : action === 'face-restore'
+            ? `Restored ${result.faces_restored} face(s)`
+            : `Denoised ${result.width}×${result.height}`
+      );
+      showToast(action === 'upscale' ? 'Upscale complete' : action === 'face-restore' ? 'Faces restored' : 'Denoise complete');
+    } catch (e) {
+      console.error(`${action} failed:`, e);
+      showToast(e instanceof Error ? e.message : 'Enhancement failed');
+    } finally {
+      setIsEnhanceProcessing(false);
+      setActiveEnhanceAction(null);
+    }
+  }, [isEnhanceProcessing, photoId, enhanceSettings, reloadPhotoAfterServerWrite, showToast]);
+
+  const handleUpscale = useCallback(() => runEnhanceAction('upscale'), [runEnhanceAction]);
+  const handleFaceRestore = useCallback(() => runEnhanceAction('face-restore'), [runEnhanceAction]);
+  const handleDenoise = useCallback(() => runEnhanceAction('denoise'), [runEnhanceAction]);
+
+  const handleCaption = useCallback(async (task: CaptionTask) => {
+    if (isCaptionLoading || !photoId) return;
+    setIsCaptionLoading(true);
+    setCaptionText(null);
+    try {
+      const taskMap: Record<CaptionTask, string> = {
+        caption: 'caption',
+        detailed: 'detailed',
+        more_detailed: 'more_detailed',
+      };
+      const response = await fetch(`${API_BASE}/api/v1/photos/caption`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photo_id: photoId, task: taskMap[task] }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+      setCaptionText(result.caption || null);
+      showToast('Caption generated');
+    } catch (e) {
+      console.error('Caption generation failed:', e);
+      showToast(e instanceof Error ? e.message : 'Caption generation failed', true);
+    } finally {
+      setIsCaptionLoading(false);
+    }
+  }, [isCaptionLoading, photoId, showToast]);
+
+  // ── SAM click-to-select → feeds the Magic Eraser mask pipeline ──
+  const handleInteractivePointsChange = useCallback(
+    (pts: Array<{ x: number; y: number; positive: boolean }>) => {
+      samPointsRef.current = pts;
+      setSamCanSegment(pts.length > 0);
+    },
+    []
+  );
+
+  const handleGenerateSegmentMask = useCallback(async () => {
+    const points = samPointsRef.current;
+    if (points.length === 0 || isSamSegmenting || !photoId) return;
+    setIsSamSegmenting(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/photos/sam/select`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          photo_id: photoId,
+          points: points.map(p => ({ x: p.x, y: p.y, positive: p.positive })),
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false) {
+        throw new Error(result.error || `HTTP ${response.status}`);
+      }
+      // Feed the mask into the existing brush/erase pipeline — from here the
+      // user just hits "Erase Selected Area" (LaMa) or refines with the brush.
+      setInpaintMask(result.mask_data);
+      inpaintCanvasRef.current?.clearMask();
+      inpaintCanvasRef.current?.restoreMask(result.mask_data);
+      inpaintHistoryRef.current = [];
+      inpaintHistoryIndexRef.current = -1;
+      handleInpaintStrokeComplete(result.mask_data);
+      showToast('Object selected — press Erase to remove it');
+    } catch (e) {
+      console.error('SAM segmentation failed:', e);
+      showToast(e instanceof Error ? e.message : 'Segmentation failed');
+    } finally {
+      setIsSamSegmenting(false);
+    }
+  }, [isSamSegmenting, photoId, showToast]);
+
+  const handleClearSegmentPoints = useCallback(() => {
+    // Canvas clears its own points via clearMask; mirror the flag locally.
+    samPointsRef.current = [];
+    setSamCanSegment(false);
+    inpaintCanvasRef.current?.clearMask();
+  }, []);
+
   const handleInpaintModeChange = useCallback((mode: InpaintMode) => {
     setInpaintMode(mode);
     if (mode === 'interactive') {
@@ -948,6 +1171,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               setDoodleFontFamily={annState.setDoodleFontFamily}
               showDoodleGuide={annState.showDoodleGuide}
               setShowDoodleGuide={annState.setShowDoodleGuide}
+              penSettings={penSettings}
+              setPenSettings={setPenSettings}
             />],
             ['inpaint', <InpaintPanel key="inpaint"
               mode={inpaintMode}
@@ -969,9 +1194,35 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               onProcess={handleInpaintProcess}
               canUndo={inpaintCanUndo}
               canRedo={inpaintCanRedo}
-              isProcessing={isInpainting}
+              isProcessing={isSamSegmenting || isInpainting}
               infoMessage={inpaintInfoMessage}
               onClearInfoMessage={() => setInpaintInfoMessage(null)}
+              onGenerateSegmentMask={handleGenerateSegmentMask}
+              canSegment={samCanSegment}
+              onClearSegmentPoints={handleClearSegmentPoints}
+            />],
+            ['depth', <DepthPanel
+              key="depth"
+              mode={depthMode}
+              settings={depthSettings}
+              onModeChange={(m) => { setDepthMode(m); if (m === 'bokeh') setDepthMapData(null); }}
+              onSettingsChange={setDepthSettings}
+              onProcess={handleDepthProcess}
+              isProcessing={isDepthProcessing}
+              depthMapData={depthMapData}
+            />],
+            ['enhance', <EnhancePanel
+              key="enhance"
+              settings={enhanceSettings}
+              onSettingsChange={setEnhanceSettings}
+              onUpscale={handleUpscale}
+              onFaceRestore={handleFaceRestore}
+              onDenoise={handleDenoise}
+              onCaption={handleCaption}
+              isProcessing={isEnhanceProcessing || isCaptionLoading}
+              activeAction={activeEnhanceAction}
+              caption={captionText}
+              captionLoading={isCaptionLoading}
             />],
           ] as const).map(([toolId, panel]) => (
             <div
@@ -979,7 +1230,16 @@ export const EditingMode: React.FC<EditingModeProps> = ({
               style={activeTool === toolId ? undefined : { visibility: 'hidden', position: 'absolute', pointerEvents: 'none' }}
               className="flex-1 min-h-0 w-full flex flex-col"
             >
-              {panel}
+              <React.Suspense
+                fallback={
+                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-3 text-white/40">
+                    <div className="w-5 h-5 border-2 border-[#FCBC00] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs">Loading tool module...</span>
+                  </div>
+                }
+              >
+                {panel}
+              </React.Suspense>
             </div>
           ))}
         </Sidebar>
@@ -1000,6 +1260,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           brushSize={inpaintSettings.brushSize}
           onInpaintMaskChange={setInpaintMask}
           onInpaintStrokeComplete={handleInpaintStrokeComplete}
+          onInteractivePointsChange={handleInteractivePointsChange}
           showMaskPreview={inpaintSettings.showMask}
           maskOpacity={inpaintSettings.maskOpacity}
           annotations={annState.annotations}
@@ -1041,6 +1302,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           setDoodleFontFamily={annState.setDoodleFontFamily}
           showDoodleGuide={annState.showDoodleGuide}
           setShowDoodleGuide={annState.setShowDoodleGuide}
+          penSettings={penSettings}
           healingSettings={healingSettings}
           healingCanvasRef={healingCanvasRef}
           onHealingStrokeComplete={() => setHealingHasStrokes(true)}

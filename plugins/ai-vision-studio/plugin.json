@@ -1,0 +1,19 @@
+{
+  "id": "ai-vision-studio",
+  "name": "AI Vision Studio (Cutout & Magic Eraser)",
+  "version": "1.0.0",
+  "author": "Prism AI Vision Team",
+  "description": "Neural background cutout & matting, magic eraser object removal, generative neural fill, and super-resolution.",
+  "category": "AI & Machine Learning",
+  "icon": "Wand2",
+  "homepage": "https://github.com/VardhmanSurana/prism-plugin-ai-vision-studio",
+  "capabilities": [
+    "background",
+    "magic-eraser",
+    "object-removal",
+    "super-resolution",
+    "depth-bokeh"
+  ],
+  "entrypoint": "entrypoint.js",
+  "min_app_version": "0.1.0"
+}

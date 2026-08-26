@@ -22,6 +22,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@plugins/*": [
+        "../plugins/*"
       ]
     },
     "allowImportingTsExtensions": true,

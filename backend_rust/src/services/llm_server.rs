@@ -69,6 +69,7 @@ struct Inner {
 #[derive(Clone)]
 pub struct LlmServer {
     inner: Arc<Mutex<Inner>>,
+    transition_lock: Arc<Mutex<()>>,
     models_dir: PathBuf,
     gpu_mode: String,
     http: reqwest::Client,
@@ -83,6 +84,7 @@ impl LlmServer {
 
         Arc::new(LlmServer {
             inner: Arc::new(Mutex::new(Inner { mode: None, child: None })),
+            transition_lock: Arc::new(Mutex::new(())),
             models_dir,
             gpu_mode,
             http,
@@ -107,6 +109,7 @@ impl LlmServer {
     }
 
     async fn ensure_running(&self, mode: LlmMode) -> Result<u16, String> {
+        // Fast path 1: Check if already running this mode with an active child
         {
             let mut inner = self.inner.lock().await;
             if inner.mode == Some(mode) {
@@ -118,8 +121,38 @@ impl LlmServer {
             }
         }
 
-        // Different mode (or dead process) → restart (mutual exclusion).
+        // Serialize all mode transitions and process startups to prevent race conditions & duplicate binds
+        let _guard = self.transition_lock.lock().await;
+
+        // Fast path 2: Re-check after acquiring transition lock
+        {
+            let mut inner = self.inner.lock().await;
+            if inner.mode == Some(mode) {
+                if let Some(child) = &mut inner.child {
+                    if child.try_wait().map_err(|e| e.to_string())?.is_none() {
+                        return Ok(mode.port());
+                    }
+                }
+            }
+        }
+
+        let port = mode.port();
+        let health_url = format!("http://127.0.0.1:{port}/health");
+        let is_healthy = self.http.get(&health_url).send().await
+            .map(|r| r.status().is_success())
+            .unwrap_or(false);
+
+        {
+            let inner = self.inner.lock().await;
+            if inner.mode == Some(mode) && is_healthy {
+                return Ok(port);
+            }
+        }
+
+        // Stop any running process for a different mode (or stale process)
         self.stop().await;
+        tokio::time::sleep(Duration::from_millis(150)).await;
+
         self.spawn(mode).await
     }
 
@@ -127,7 +160,7 @@ impl LlmServer {
         let model_path = mode.model(&self.models_dir);
         if !model_path.exists() {
             return Err(format!(
-                "llama-server model not found: {}",
+                "llama-server model not found: {} (download model in Settings/Utilities)",
                 model_path.to_string_lossy()
             ));
         }
@@ -181,9 +214,10 @@ impl LlmServer {
         let health_url = format!("http://127.0.0.1:{port}/health");
         for _ in 0..60 {
             if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+                let log_preview = std::fs::read_to_string(mode.log_file()).unwrap_or_default();
+                let last_err = log_preview.lines().rev().take(5).collect::<Vec<_>>().into_iter().rev().collect::<Vec<_>>().join(" ");
                 return Err(format!(
-                    "llama-server ({mode:?}) exited during startup with code {status}; check {}",
-                    mode.log_file()
+                    "llama-server ({mode:?}) exited during startup with code {status}: {last_err}",
                 ));
             }
             match self.http.get(&health_url).send().await {
@@ -192,13 +226,13 @@ impl LlmServer {
                     *self.inner.lock().await = Inner { mode: Some(mode), child: Some(child) };
                     return Ok(port);
                 }
-                _ => tokio::time::sleep(Duration::from_secs(1)).await,
+                _ => tokio::time::sleep(Duration::from_millis(500)).await,
             }
         }
 
         child.start_kill().ok();
         Err(format!(
-            "llama-server ({mode:?}) failed to become healthy on :{port}; check {}",
+            "llama-server ({mode:?}) timed out becoming healthy on :{port}; check {}",
             mode.log_file()
         ))
     }

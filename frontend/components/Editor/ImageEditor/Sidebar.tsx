@@ -8,6 +8,8 @@ import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Maximize2,
+  Aperture,
+  Maximize,
   SlidersHorizontal,
   Sparkles,
   User,
@@ -25,7 +27,9 @@ import {
   Smile,
   MousePointer,
   Scissors,
+  Wand2,
 } from 'lucide-react';
+import { usePluginStore } from '@/store/pluginStore';
 
 export type ToolId =
   | 'transform'
@@ -34,6 +38,8 @@ export type ToolId =
   | 'portrait'
   | 'background'
   | 'inpaint'
+  | 'depth'
+  | 'enhance'
   | 'healing'
   | 'hsl'
   | 'presets'
@@ -48,6 +54,23 @@ export type ToolId =
   | 'colormatch'
   | 'lasso';
 
+/**
+ * Map of plugin-gated tool tabs to the plugin IDs that enable them.
+ * A tool tab is displayed if its plugin ID (or unified studio pack ID) is installed and active.
+ */
+export const TOOL_PLUGIN_REQUIREMENTS: Partial<Record<ToolId, string[]>> = {
+  background: ['background-removal', 'ai-vision-studio'],
+  inpaint: ['ai-vision-studio'],
+  depth: ['ai-vision-studio'],
+  enhance: ['ai-vision-studio'],
+  lut: ['creative-color-studio'],
+  texture: ['creative-color-studio'],
+  frame: ['creative-color-studio'],
+  portrait: ['retouch-metadata-studio'],
+  colormatch: ['retouch-metadata-studio'],
+  annotations: ['retouch-metadata-studio'],
+};
+
 interface SidebarProps {
   activeTool: ToolId | null;
   setActiveTool: (tool: ToolId | null) => void;
@@ -57,6 +80,8 @@ interface SidebarProps {
 const DEFAULT_TABS_ORDER: ToolId[] = [
   'background',
   'inpaint',
+  'depth',
+  'enhance',
   'healing',
   'lasso',
   'layers',
@@ -78,6 +103,19 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, children }) => {
   const sidebarContainerRef = useRef<HTMLDivElement>(null);
+  const activePluginIds = usePluginStore((s) => s.activePluginIds);
+  const fetchPlugins = usePluginStore((s) => s.fetchPlugins);
+
+  React.useEffect(() => {
+    fetchPlugins();
+  }, [fetchPlugins]);
+
+  const visibleTabs = DEFAULT_TABS_ORDER.filter(id => {
+    const reqs = TOOL_PLUGIN_REQUIREMENTS[id];
+    if (!reqs) return true; // Core tool, always visible
+    return reqs.some(pluginId => activePluginIds.has(pluginId));
+  });
+
   const [hoveredTool, setHoveredTool] = useState<{
     id: ToolId;
     top?: number;
@@ -87,7 +125,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
 
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     background: { icon: <Scissors size={20} strokeWidth={1.5} />, label: 'Cutout & BG', description: 'AI background removal, custom solid/blur/image backdrops & edge refinement' },
-    inpaint: { icon: <Paintbrush size={20} strokeWidth={1.5} />, label: 'AI Tools', description: 'AI-powered object removal and mask-based image inpainting' },
+    inpaint: { icon: <Wand2 size={20} strokeWidth={1.5} />, label: 'Magic Eraser', description: 'AI distraction eraser, smart brush object removal & generative fill' },
+    depth: { icon: <Aperture size={20} strokeWidth={1.5} />, label: 'Depth Effects', description: 'Monocular depth maps, bokeh background blur & focus falloff' },
+    enhance: { icon: <Maximize size={20} strokeWidth={1.5} />, label: 'AI Enhance', description: 'Real-ESRGAN super-resolution 2x/4x & GFPGAN face restoration' },
     healing: { icon: <Eraser size={20} strokeWidth={1.5} />, label: 'Clone & Heal', description: 'Clone Stamp and Healing Brush — Alt+click to set source, then paint' },
     lasso: { icon: <MousePointer size={20} strokeWidth={1.5} />, label: 'Lasso Studio', description: 'Freehand, Polygonal, and Magnetic Edge-Snapping Lasso Selection' },
     layers: { icon: <Layers size={20} strokeWidth={1.5} />, label: 'Layer Stack', description: 'Non-destructive Layer Stack, Fill Layers, and 27 Blend Modes' },
@@ -155,7 +195,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
         onScroll={() => setHoveredTool(null)}
         className="w-[56px] shrink-0 bg-[#0b0d12] border-r border-white/5 flex flex-col items-center py-4 space-y-3 h-full overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0 select-none relative"
       >
-        {DEFAULT_TABS_ORDER.map(id => {
+        {visibleTabs.map(id => {
           const tab = tabDefinitions[id];
           const isActive = activeTool === id;
 

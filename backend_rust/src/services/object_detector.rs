@@ -23,14 +23,24 @@ pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
         return Ok(detector.clone());
     }
 
-    let model_path = "models/detection/yolov8n.onnx";
+    let candidates = [
+        "models/objects/yolov8n.onnx",
+        "models/detection/yolov8n.onnx",
+        "../models/objects/yolov8n.onnx",
+        "../models/detection/yolov8n.onnx",
+    ];
+    let model_path = candidates
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .copied()
+        .unwrap_or("models/objects/yolov8n.onnx");
     
     let session = Session::builder()
         .map_err(|e| e.to_string())?
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(|e| e.to_string())?
         .commit_from_file(model_path)
-        .map_err(|e| format!("Failed to load YOLO model: {}", e))?;
+        .map_err(|e| format!("Failed to load YOLO model from {}: {}", model_path, e))?;
 
     let detector = Arc::new(ObjectDetector {
         session: Mutex::new(session),

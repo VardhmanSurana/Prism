@@ -7,7 +7,7 @@
 
 import { useEffect } from 'react';
 import { ToolId } from '../Sidebar';
-import { InpaintMode, InpaintSettings } from '../InpaintPanel';
+import type { InpaintMode, InpaintSettings } from '@plugins/ai-vision-studio';
 
 interface UseKeyBindingsProps {
   activeTool: ToolId | null;
@@ -98,12 +98,12 @@ export const useKeyBindings = ({
       // ── Brush size shortcuts (inpaint) ───────────────────────────────────
       if (activeTool === 'inpaint' && (inpaintMode === 'brush' || inpaintMode === 'erase')) {
         if (e.key === '[') {
-          setInpaintSettings(prev => ({
+          setInpaintSettings((prev: InpaintSettings) => ({
             ...prev,
             brushSize: Math.max(5, prev.brushSize - 5),
           }));
         } else if (e.key === ']') {
-          setInpaintSettings(prev => ({
+          setInpaintSettings((prev: InpaintSettings) => ({
             ...prev,
             brushSize: Math.min(200, prev.brushSize + 5),
           }));

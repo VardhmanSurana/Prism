@@ -1,0 +1,19 @@
+{
+  "name": "@prism-plugins/creative-color-studio",
+  "version": "1.0.0",
+  "description": "Professional 3D LUT color grading, 35mm/120mm analog film grain synthesis, red halation glow, vintage instant Polaroid frames, and camera badges.",
+  "main": "index.ts",
+  "author": "Prism Creative Labs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VardhmanSurana/prism-plugin-creative-color-studio.git"
+  },
+  "keywords": [
+    "prism",
+    "prism-plugin",
+    "photo-editor",
+    "creative-&-filters"
+  ],
+  "types": "index.ts"
+}

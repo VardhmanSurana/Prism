@@ -4,7 +4,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Annotation } from '../AnnotationsPanel';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 
 export const useAnnotationsState = () => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);

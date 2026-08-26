@@ -241,14 +241,14 @@ export const AISettings: React.FC = () => {
 
           <div className="cr-toggle-row">
             <div className="cr-toggle-info">
-              <span className="cr-toggle-label">Inpainting & Video AI</span>
+              <span className="cr-toggle-label">Magic Eraser & Video AI</span>
               <span className="cr-toggle-desc">Smart object removal & multi-track timeline AI</span>
             </div>
             <Switch
               label=""
               checked={settings.ENABLE_AI_INPAINTING}
               onToggle={() => handleToggle('ENABLE_AI_INPAINTING')}
-              ariaLabel="Toggle Inpainting & Video AI"
+              ariaLabel="Toggle Magic Eraser & Video AI"
             />
           </div>
         </div>

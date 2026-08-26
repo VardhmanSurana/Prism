@@ -5,16 +5,16 @@ import { Loader2 } from 'lucide-react';
 import { ToolId } from './Sidebar';
 import { Adjustments, getStringHash, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
-import { InpaintCanvas } from './InpaintCanvas';
-import { InpaintMode } from './InpaintPanel';
+import { InpaintCanvas } from '@plugins/ai-vision-studio';
+import type { InpaintMode } from '@plugins/ai-vision-studio';
 import { ZoomControls } from './ZoomControls';
-import { AnnotationCanvas } from './AnnotationCanvas';
-import { Annotation, DrawToolId } from './AnnotationsPanel';
+import { AnnotationCanvas } from '@plugins/retouch-metadata-studio';
+import type { Annotation, DrawToolId } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { drawFilteredImageToCanvas } from './canvasDrawing';
 import { HealingCanvas } from './HealingCanvas';
 import { LassoCanvas } from './LassoCanvas';
 import { PaletteEyedropperOverlay } from './PaletteEyedropperOverlay';
-import { FaceBoundingBoxOverlay } from './FaceBoundingBoxOverlay';
+import { FaceBoundingBoxOverlay } from '@plugins/retouch-metadata-studio';
 import { LiquifyCanvas } from './LiquifyCanvas';
 import type { CanvasAreaProps } from './CanvasArea.types';
 
@@ -41,6 +41,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   brushSize = 50,
   onInpaintMaskChange = (_mask: string): void => {},
   onInpaintStrokeComplete,
+  onInteractivePointsChange,
   showMaskPreview = true,
   maskOpacity = 60,
   annotations = [],
@@ -81,6 +82,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   setDoodleFontFamily,
   showDoodleGuide,
   setShowDoodleGuide,
+  penSettings,
   healingSettings,
   healingCanvasRef,
   onHealingStrokeComplete,
@@ -103,6 +105,12 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   React.useEffect(() => {
     latestImageRectRef.current = imageRect;
   }, [imageRect]);
+
+  const [hasDrawnCanvas, setHasDrawnCanvas] = React.useState(false);
+
+  React.useEffect(() => {
+    setHasDrawnCanvas(false);
+  }, [currentImageSrc]);
 
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -275,7 +283,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // ── Canvas draw effect ─────────────────────────────────────────────────────
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     const canvas = liveCanvasRef.current;
     if (!canvas || !sourceImg || activeTool === 'transform') return;
 
@@ -290,6 +298,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       backgroundMaskImg,
       customBackdropImg,
     );
+
+    setHasDrawnCanvas(true);
   }, [
     sourceImg,
     blendImg,
@@ -301,6 +311,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     isComparing,
     curvesTable,
     canvasDrawKey,
+    imageRect,
   ]);
 
   const handleMaskChange = React.useCallback((maskDataUrl: string) => {
@@ -319,7 +330,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         className={`flex-1 min-w-0 relative bg-[var(--bg-primary)] overflow-hidden ${
           activeTool !== 'transform' ? 'hide-crop-ui' : ''
         } ${
-          (activeTool !== 'transform' && sourceImg !== null && !isComparing) ? 'hide-cropper-image' : ''
+          (activeTool !== 'transform' && hasDrawnCanvas && !isComparing) ? 'hide-cropper-image' : ''
         } ${
           isCtrlPressed ? (isDragging ? 'ctrl-grabbing-active' : 'ctrl-grab-active') : ''
         }`}
@@ -364,12 +375,15 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       {activeTool !== 'transform' && imageRect && sourceImg !== null && (
         <canvas
           ref={liveCanvasRef}
+          width={sourceImg.naturalWidth || 1}
+          height={sourceImg.naturalHeight || 1}
           className="absolute pointer-events-none z-10"
           style={{
             left: imageRect.left,
             top: imageRect.top,
             width: imageRect.width,
             height: imageRect.height,
+            opacity: hasDrawnCanvas ? 1 : 0,
             transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
               ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
               : undefined,
@@ -435,6 +449,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             setDoodleFontFamily={activeTool === 'annotations' ? setDoodleFontFamily : undefined}
             showDoodleGuide={activeTool === 'annotations' ? showDoodleGuide : undefined}
             setShowDoodleGuide={activeTool === 'annotations' ? setShowDoodleGuide : undefined}
+            penSettings={activeTool === 'annotations' ? penSettings : undefined}
           />
         </div>
       )}
@@ -460,6 +475,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
               brushSize={brushSize}
               onMaskChange={handleMaskChange}
               onStrokeComplete={onInpaintStrokeComplete}
+              onInteractivePointsChange={onInteractivePointsChange}
               showMaskPreview={showMaskPreview}
               maskOpacity={maskOpacity}
             />

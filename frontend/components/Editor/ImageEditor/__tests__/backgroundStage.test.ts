@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_BACKGROUND_ADJUSTMENTS, BackgroundAdjustments } from '../filterEngine';
-import { applyBackgroundReplacementToCanvas } from '../exportPipeline/stages/backgroundStage';
+import { applyBackgroundReplacementToCanvas } from '@plugins/ai-vision-studio/backgroundStage';
 
 describe('Background Replacement & Matting Stage', () => {
   it('has valid default background adjustment values', () => {

@@ -17,6 +17,7 @@ import {
   Columns,
   HelpCircle,
   Share2,
+  Type,
 } from 'lucide-react';
 import { API_BASE } from '@/constants';
 import { Photo } from '@/types';
@@ -31,6 +32,7 @@ export interface ExtendedToolbarProps {
   slideshowActive: boolean;
   canStartSlideshow: boolean;
   faceTaggingActive?: boolean;
+  ocrActive?: boolean;
   onClose: () => void;
   onSetZoomScale: (scale: number) => void;
   onResetInteraction: () => void;
@@ -42,6 +44,7 @@ export interface ExtendedToolbarProps {
   onSetAsCover?: () => void;
   onStartSlideshow?: () => void;
   onToggleFaceTagging?: () => void;
+  onToggleOcr?: () => void;
   onOpenComparison?: () => void;
   onOpenShortcutsModal?: () => void;
   onCopyImageToClipboard?: () => void;
@@ -64,6 +67,7 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   slideshowActive,
   canStartSlideshow,
   faceTaggingActive,
+  ocrActive,
   onClose,
   onSetZoomScale,
   onResetInteraction,
@@ -75,6 +79,7 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   onSetAsCover,
   onStartSlideshow,
   onToggleFaceTagging,
+  onToggleOcr,
   onOpenComparison,
   onOpenShortcutsModal,
   onCopyImageToClipboard,
@@ -208,6 +213,19 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
             </button>
           )}
         </div>
+
+        {/* Text Actions Toggle */}
+        {onToggleOcr && (
+          <button
+            onClick={onToggleOcr}
+            className={`p-2 rounded-lg transition-colors ${
+              ocrActive ? 'text-blue-400 bg-blue-500/20 border border-blue-500/40' : 'text-white/50 hover:text-white hover:bg-white/5'
+            }`}
+            title="Text Actions (OCR)"
+          >
+            <Type size={18} />
+          </button>
+        )}
 
         {/* Face Tagging Toggle */}
         {onToggleFaceTagging && (

@@ -241,3 +241,20 @@ export function normalizePhoto(raw: RawPhoto): Photo {
     search_explanation: raw.search_explanation,
   };
 }
+
+// ─── OCR Text Actions Types ───────────────────────────────────────────────
+
+export interface OcrBbox {
+  text: string;
+  bbox: [[number, number], [number, number], [number, number], [number, number]];
+  confidence: number;
+}
+
+export interface OcrBboxesResponse {
+  photo_id: number;
+  ocr_text: string;
+  lines: OcrBbox[];
+  cached: boolean;
+  status: string;
+  error?: string;
+}

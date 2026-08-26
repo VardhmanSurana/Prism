@@ -1,0 +1,11 @@
+{
+  "enabled": true,
+  "installed_at": "2026-08-25T10:00:00Z",
+  "updated_at": "2026-08-25T10:00:00Z",
+  "settings": {
+    "skin_smooth_amount": 40,
+    "preserve_texture": true,
+    "auto_geotag": true,
+    "embed_c2pa": false
+  }
+}

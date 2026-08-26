@@ -39,4 +39,4 @@ export {
 export {
   applyBackgroundReplacementToCanvas,
   loadImageAsync,
-} from './stages/backgroundStage';
+} from '@plugins/ai-vision-studio/backgroundStage';

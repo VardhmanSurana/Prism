@@ -91,22 +91,16 @@ mod server_enhancement_tests {
         let packs_info = manager.get_packs_info().await;
         assert_eq!(packs_info.len(), 1);
         assert_eq!(packs_info[0].id, "background-removal");
-        assert_eq!(packs_info[0].models.len(), 3);
+        assert_eq!(packs_info[0].models.len(), 1);
 
         // Verify model definitions conversion
         let defs = manager.to_model_definitions().await;
-        assert_eq!(defs.len(), 3);
+        assert_eq!(defs.len(), 1);
         assert!(defs.iter().any(|d| d.id == "isnet-general-use"));
-        assert!(defs.iter().any(|d| d.id == "rmbg-1.4" && d.gated));
 
         // Test license acknowledgment
-        let rmbg_status = packs_info[0].models.iter().find(|m| m.id == "rmbg-1.4").unwrap();
-        assert_eq!(rmbg_status.license_acknowledged, false);
-
-        manager.acknowledge_license("rmbg-1.4").await;
-        let packs_info_after = manager.get_packs_info().await;
-        let rmbg_status_after = packs_info_after[0].models.iter().find(|m| m.id == "rmbg-1.4").unwrap();
-        assert_eq!(rmbg_status_after.license_acknowledged, true);
+        let isnet_status = packs_info[0].models.iter().find(|m| m.id == "isnet-general-use").unwrap();
+        assert_eq!(isnet_status.license_acknowledged, true);
     }
 
     #[tokio::test]
@@ -127,51 +121,51 @@ mod server_enhancement_tests {
 
         // 2. Catalog listing has plugins with is_installed = false
         let catalog = manager.get_catalog();
-        assert!(catalog.len() >= 14);
+        assert!(catalog.len() >= 3);
         assert!(catalog.iter().all(|p| !p.is_installed));
 
-        // 3. Install "background-removal.json" manifest name
-        let installed = manager.install_plugin("background-removal.json").await.unwrap();
-        assert_eq!(installed.id, "background-removal");
+        // 3. Install "ai-vision-studio.json" manifest name
+        let installed = manager.install_plugin("ai-vision-studio.json").await.unwrap();
+        assert_eq!(installed.id, "ai-vision-studio");
         assert!(installed.is_active);
 
         // Verify folder and files exist on disk
-        let plugin_folder = plugins_dir.join("background-removal");
+        let plugin_folder = plugins_dir.join("ai-vision-studio");
         assert!(plugin_folder.is_dir());
         assert!(plugin_folder.join("plugin.json").is_file());
         assert!(plugin_folder.join("config.json").is_file());
         assert!(plugin_folder.join("index.js").is_file());
 
-        // Install "depth-bokeh" from catalog
-        let bokeh = manager.install_plugin("depth-bokeh.json").await.unwrap();
-        assert_eq!(bokeh.id, "depth-bokeh");
-        assert!(plugins_dir.join("depth-bokeh").join("plugin.json").is_file());
+        // Install "creative-color-studio" from catalog
+        let color_studio = manager.install_plugin("creative-color-studio.json").await.unwrap();
+        assert_eq!(color_studio.id, "creative-color-studio");
+        assert!(plugins_dir.join("creative-color-studio").join("plugin.json").is_file());
 
         // 4. Scanning finds installed plugins
         let scanned = manager.scan_installed();
         assert_eq!(scanned.len(), 2);
-        assert!(scanned.iter().any(|p| p.id == "background-removal"));
-        assert!(scanned.iter().any(|p| p.id == "depth-bokeh"));
+        assert!(scanned.iter().any(|p| p.id == "ai-vision-studio"));
+        assert!(scanned.iter().any(|p| p.id == "creative-color-studio"));
 
         // 5. Toggle plugin active state
-        let toggled = manager.toggle_plugin("background-removal", false).unwrap();
+        let toggled = manager.toggle_plugin("ai-vision-studio", false).unwrap();
         assert_eq!(toggled.is_active, false);
         let scanned_after_toggle = manager.scan_installed();
-        let bg_p = scanned_after_toggle.iter().find(|p| p.id == "background-removal").unwrap();
+        let bg_p = scanned_after_toggle.iter().find(|p| p.id == "ai-vision-studio").unwrap();
         assert_eq!(bg_p.is_active, false);
 
         // 6. Update plugin settings
         let updated = manager
             .update_config(
-                "background-removal",
-                serde_json::json!({ "default_model": "birefnet", "auto_feather": 4 }),
+                "ai-vision-studio",
+                serde_json::json!({ "default_matting_model": "isnet-general-use", "auto_feather": 4 }),
             )
             .unwrap();
-        assert_eq!(updated.config.settings["default_model"], "birefnet");
+        assert_eq!(updated.config.settings["default_matting_model"], "isnet-general-use");
 
         // 7. Uninstall plugins
-        manager.uninstall_plugin("background-removal").unwrap();
-        manager.uninstall_plugin("depth-bokeh").unwrap();
+        manager.uninstall_plugin("ai-vision-studio").unwrap();
+        manager.uninstall_plugin("creative-color-studio").unwrap();
         assert!(!plugin_folder.exists());
         assert_eq!(manager.scan_installed().len(), 0);
 

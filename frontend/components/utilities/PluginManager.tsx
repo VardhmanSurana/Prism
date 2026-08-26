@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Package, 
   Download, 
@@ -29,9 +29,13 @@ import {
   Stamp,
   ShieldCheck,
   PenTool,
-  Wand2
+  Wand2,
+  Camera,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
-import { API_BASE } from '@/constants';
+import { API_BASE, resolveUrl } from '@/constants';
+import { usePluginStore, PLUGIN_FEATURES_REGISTRY } from '@/store/pluginStore';
 
 export interface PluginManifest {
   id: string;
@@ -136,6 +140,7 @@ export const PluginManager: React.FC = () => {
       setNotification({ type: 'error', message: 'Failed to communicate with plugin manager server' });
     } finally {
       setIsLoading(false);
+      usePluginStore.getState().fetchPlugins().catch(() => {});
     }
   };
 
@@ -336,6 +341,7 @@ export const PluginManager: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {installedPlugins.map((plugin) => {
                 const IconComponent = ICON_MAP[plugin.manifest.icon || ''] || <Package size={20} className="text-blue-400" />;
+                const thumbnailUrl = plugin.config?.settings?.thumbnail_url;
                 return (
                   <div
                     key={plugin.id}
@@ -345,9 +351,17 @@ export const PluginManager: React.FC = () => {
                       {/* Top row: Icon, Name, Active Toggle */}
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
-                          <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
-                            {IconComponent}
-                          </div>
+                          {thumbnailUrl ? (
+                            <img
+                              src={resolveUrl(thumbnailUrl)}
+                              alt={plugin.manifest.name}
+                              className="w-10 h-10 rounded-xl object-cover border border-white/15 shrink-0 shadow-sm"
+                            />
+                          ) : (
+                            <div className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 shrink-0">
+                              {IconComponent}
+                            </div>
+                          )}
                           <div>
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-sm text-[var(--cr-text-primary)] leading-tight">
@@ -558,64 +572,307 @@ export const PluginManager: React.FC = () => {
         </div>
       )}
 
-      {/* ── Plugin Config Modal ── */}
-      {configModalPlugin && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-lg rounded-3xl border border-[var(--cr-border)] bg-[#18181c] p-6 text-[var(--cr-text-primary)] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <div className="flex items-center gap-2.5">
-                <Settings size={18} className="text-blue-400" />
-                <h3 className="font-bold text-sm">Configure {configModalPlugin.manifest.name}</h3>
-              </div>
-              <button
-                onClick={() => setConfigModalPlugin(null)}
-                className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
+      {/* ── Plugin Config Modal with Sub-Features Toggles ── */}
+      {configModalPlugin && (() => {
+        const features = PLUGIN_FEATURES_REGISTRY[configModalPlugin.id] || [];
+        const currentFeatures = configModalPlugin.config?.settings?.features || {};
 
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Plugin ID</span>
-                  <span className="font-mono text-white">{configModalPlugin.id}</span>
+        const handleToggleSubFeature = async (featureKey: string) => {
+          const isEnabled = currentFeatures[featureKey] !== false;
+          const updatedFeatures = { ...currentFeatures, [featureKey]: !isEnabled };
+          const newSettings = { ...(configModalPlugin.config?.settings || {}), features: updatedFeatures };
+
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/plugins/config/${configModalPlugin.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: newSettings }),
+            });
+            if (res.ok) {
+              const updatedPlugin: InstalledPlugin = {
+                ...configModalPlugin,
+                config: {
+                  ...configModalPlugin.config,
+                  settings: newSettings,
+                },
+              };
+              setConfigModalPlugin(updatedPlugin);
+              setInstalledPlugins((prev) =>
+                prev.map((p) => (p.id === updatedPlugin.id ? updatedPlugin : p))
+              );
+              usePluginStore.getState().fetchPlugins();
+            }
+          } catch (e) {
+            console.error('Failed to toggle sub-feature:', e);
+          }
+        };
+
+        const handleResetSubFeatures = async () => {
+          const newSettings = { ...(configModalPlugin.config?.settings || {}), features: {} };
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/plugins/config/${configModalPlugin.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ settings: newSettings }),
+            });
+            if (res.ok) {
+              const updatedPlugin: InstalledPlugin = {
+                ...configModalPlugin,
+                config: {
+                  ...configModalPlugin.config,
+                  settings: newSettings,
+                },
+              };
+              setConfigModalPlugin(updatedPlugin);
+              setInstalledPlugins((prev) =>
+                prev.map((p) => (p.id === updatedPlugin.id ? updatedPlugin : p))
+              );
+              usePluginStore.getState().fetchPlugins();
+            }
+          } catch (e) {
+            console.error('Failed to reset sub-features:', e);
+          }
+        };
+
+        const thumbnailInputRef = useRef<HTMLInputElement>(null);
+        const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
+
+        const handleThumbnailFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          setIsUploadingThumbnail(true);
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const b64 = reader.result as string;
+            try {
+              const res = await fetch(`${API_BASE}/api/v1/plugins/thumbnail/${configModalPlugin.id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ image_base64: b64 }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.plugin) {
+                  setConfigModalPlugin(data.plugin);
+                  setInstalledPlugins((prev) =>
+                    prev.map((p) => (p.id === data.plugin.id ? data.plugin : p))
+                  );
+                  usePluginStore.getState().fetchPlugins();
+                }
+              }
+            } catch (err) {
+              console.error('Failed to upload plugin thumbnail:', err);
+            } finally {
+              setIsUploadingThumbnail(false);
+            }
+          };
+          reader.readAsDataURL(file);
+          e.target.value = '';
+        };
+
+        const handleDeleteThumbnail = async () => {
+          setIsUploadingThumbnail(true);
+          try {
+            const res = await fetch(`${API_BASE}/api/v1/plugins/thumbnail/${configModalPlugin.id}`, {
+              method: 'DELETE',
+            });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.plugin) {
+                setConfigModalPlugin(data.plugin);
+                setInstalledPlugins((prev) =>
+                  prev.map((p) => (p.id === data.plugin.id ? data.plugin : p))
+                );
+                usePluginStore.getState().fetchPlugins();
+              }
+            }
+          } catch (err) {
+            console.error('Failed to delete plugin thumbnail:', err);
+          } finally {
+            setIsUploadingThumbnail(false);
+          }
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fadeIn select-none">
+            <div className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-3xl border border-white/15 bg-[#16171d] text-white shadow-2xl overflow-hidden animate-scaleIn">
+              {/* Modal Header with Thumbnail Uploader */}
+              <div className="flex items-center justify-between p-5 border-b border-white/10 bg-[#121318]">
+                <div className="flex items-center gap-3.5">
+                  <input
+                    type="file"
+                    ref={thumbnailInputRef}
+                    onChange={handleThumbnailFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  
+                  {/* Thumbnail Avatar / Icon Button */}
+                  <div
+                    onClick={() => thumbnailInputRef.current?.click()}
+                    className="relative group/thumb cursor-pointer shrink-0"
+                    title="Click to upload custom plugin thumbnail image"
+                  >
+                    {configModalPlugin.config?.settings?.thumbnail_url ? (
+                      <img
+                        src={resolveUrl(configModalPlugin.config.settings.thumbnail_url)}
+                        alt={configModalPlugin.manifest.name}
+                        className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-md transition-transform group-hover/thumb:scale-105"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center shadow-inner transition-transform group-hover/thumb:scale-105">
+                        {ICON_MAP[configModalPlugin.manifest.icon || ''] || <Sliders size={22} />}
+                      </div>
+                    )}
+                    
+                    {/* Hover Camera Overlay */}
+                    <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white">
+                      {isUploadingThumbnail ? (
+                        <RefreshCw size={14} className="animate-spin text-blue-400" />
+                      ) : (
+                        <>
+                          <Camera size={14} />
+                          <span className="text-[8.5px] font-medium">Edit</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-white leading-tight">{configModalPlugin.manifest.name}</h3>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-gray-300 border border-white/10">
+                        v{configModalPlugin.manifest.version}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Filesystem Location</span>
-                  <span className="font-mono text-white text-[11px] truncate max-w-[280px]">
-                    {configModalPlugin.path}
-                  </span>
+                <button
+                  onClick={() => setConfigModalPlugin(null)}
+                  className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Modal Scrollable Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar text-xs">
+                {/* Sub-Features Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-xs text-gray-200">Studio Sub-Features & Capabilities</h4>
+                      <p className="text-[10px] text-gray-400">Enable or disable specific engines to optimize memory and workflow</p>
+                    </div>
+                    {features.length > 0 && (
+                      <button
+                        onClick={handleResetSubFeatures}
+                        className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                      >
+                        Reset to Defaults
+                      </button>
+                    )}
+                  </div>
+
+                  {features.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {features.map((feat) => {
+                        const isEnabled = currentFeatures[feat.key] !== false;
+                        const FeatIcon = ICON_MAP[feat.icon] || <Sparkles size={16} className="text-blue-400" />;
+                        return (
+                          <div
+                            key={feat.key}
+                            className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3.5 ${
+                              isEnabled
+                                ? 'bg-[#1a1c24] border-blue-500/30 shadow-sm'
+                                : 'bg-[#121318] border-white/5 opacity-60'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className={`p-2 rounded-xl shrink-0 mt-0.5 border ${
+                                isEnabled
+                                  ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                                  : 'bg-white/5 border-white/10 text-gray-500'
+                              }`}>
+                                {FeatIcon}
+                              </div>
+                              <div className="space-y-0.5 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={`font-semibold text-xs ${isEnabled ? 'text-white' : 'text-gray-400'}`}>
+                                    {feat.name}
+                                  </span>
+                                  <span className="font-mono text-[9px] px-1.5 py-0.2 rounded bg-white/5 text-gray-400">
+                                    {feat.key}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-2">
+                                  {feat.description}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Toggle Switch */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSubFeature(feat.key)}
+                              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                                isEnabled ? 'bg-blue-600' : 'bg-white/10'
+                              }`}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                                  isEnabled ? 'translate-x-5' : 'translate-x-0'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-white/5 text-center text-gray-400 text-xs">
+                      No configurable sub-features defined for this plugin.
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400">Installed At</span>
-                  <span className="font-mono text-white text-[11px]">
-                    {new Date(configModalPlugin.config.installed_at).toLocaleString()}
-                  </span>
+
+                {/* System & Location Details */}
+                <div className="p-3.5 rounded-2xl bg-[#121318] border border-white/10 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Plugin ID</span>
+                    <span className="font-mono text-white text-[11px]">{configModalPlugin.id}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Storage Directory</span>
+                    <span className="font-mono text-white text-[10px] truncate max-w-[280px]">
+                      {configModalPlugin.path}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400">Installed At</span>
+                    <span className="font-mono text-white text-[10px]">
+                      {new Date(configModalPlugin.config.installed_at).toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="text-[11px] font-semibold text-gray-300 block mb-1.5">
-                  Manifest Details (plugin.json)
-                </label>
-                <pre className="p-3 rounded-xl bg-black/50 border border-white/10 text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-48 custom-scrollbar">
-                  {JSON.stringify(configModalPlugin.manifest, null, 2)}
-                </pre>
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between p-4 border-t border-white/10 bg-[#121318]">
+                <span className="text-[11px] text-gray-400">
+                  Settings are persisted automatically to <code className="font-mono text-[10px] text-gray-300">config.json</code>
+                </span>
+                <button
+                  onClick={() => setConfigModalPlugin(null)}
+                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-medium text-xs transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+                >
+                  Done
+                </button>
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
-              <button
-                onClick={() => setConfigModalPlugin(null)}
-                className="px-4 py-2 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium"
-              >
-                Done
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

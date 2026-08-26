@@ -21,6 +21,7 @@ import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
 import { SlideshowControls } from './lightbox/SlideshowControls';
 import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
+import { TextActionsOverlay } from './lightbox/TextActionsOverlay';
 import { ComparisonView } from './lightbox/ComparisonView';
 import { AskAIPanel } from './lightbox/AskAIPanel';
 import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
@@ -78,6 +79,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
+  const [isOcrActive, setIsOcrActive] = useState(false);
   const [hasFaces, setHasFaces] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -202,6 +204,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     setEditedPhotoUrl(null);
     setMetadata(null);
     setIsFaceTaggingActive(false);
+    setIsOcrActive(false);
   }, [photo.id, resetInteraction]);
 
   // Check if photo has detected faces
@@ -360,6 +363,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
       }
 
       if (e.key === 'Escape') {
+        if (isOcrActive) {
+          setIsOcrActive(false);
+          return;
+        }
         if (isFaceTaggingActive) {
           setIsFaceTaggingActive(false);
           return;
@@ -379,17 +386,20 @@ export const Lightbox: React.FC<LightboxProps> = ({
         handleStartSlideshow();
         return;
       }
+      if ((e.key === 't' || e.key === 'T') && !isVideo && !isEditing && !isNLEOpen) {
+        e.preventDefault();
+        setIsOcrActive(prev => !prev);
+        return;
+      }
       if (!isVideo && zoomScale === 1) {
         if (e.key === 'ArrowRight') handleNext();
         if (e.key === 'ArrowLeft') handlePrev();
       }
     };
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [
-    onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
+    return () => window.removeEventListener('keydown', handleKey);  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
     slideshowActive, toggleSlideshowPlay, handleStopSlideshow, handleStartSlideshow,
-    canStartSlideshow, isFaceTaggingActive, isComparisonOpen, isAskAIOpen,
+    canStartSlideshow, isFaceTaggingActive, isOcrActive, isComparisonOpen, isAskAIOpen,
   ]);
 
   // Stop slideshow when entering editor
@@ -449,6 +459,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           slideshowActive={slideshowActive}
           canStartSlideshow={canStartSlideshow}
           faceTaggingActive={isFaceTaggingActive}
+          ocrActive={isOcrActive}
           onClose={onClose}
           onSetZoomScale={setZoomScale}
           onResetInteraction={resetInteraction}
@@ -468,6 +479,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onSetAsCover={onSetAsCover}
           onStartSlideshow={handleStartSlideshow}
           onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
+          onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
           onOpenComparison={() => { logAction('Lightbox', 'open_comparison', { photoId: photo.id }); setIsComparisonOpen(true); }}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyImageToClipboard}
@@ -529,12 +541,26 @@ export const Lightbox: React.FC<LightboxProps> = ({
                 />
               )}
 
+              {/* Text Actions Overlay */}
+              {isOcrActive && !isVideo && (
+                <TextActionsOverlay
+                  photo={photo}
+                  onClose={() => setIsOcrActive(false)}
+                  containerRef={containerRef}
+                  zoomScale={zoomScale}
+                  offset={offset}
+                />
+              )}
+
               {/* Face Tagging Overlay */}
               {isFaceTaggingActive && !isVideo && (
                 <FaceTaggingOverlay
                   photo={photo}
                   onClose={() => setIsFaceTaggingActive(false)}
                   onTagUpdated={fetchMetadata}
+                  containerRef={containerRef}
+                  zoomScale={zoomScale}
+                  offset={offset}
                 />
               )}
             </motion.div>

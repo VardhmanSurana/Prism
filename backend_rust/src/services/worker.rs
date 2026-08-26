@@ -224,13 +224,14 @@ pub struct AnalyzerRegistry {
 impl AnalyzerRegistry {
     /// Create registry with all built-in analyzers.
     pub fn new() -> Self {
-        use crate::services::analyzers::{FaceAnalyzer, OcrAnalyzer, SiglipAnalyzer, VisionAnalyzer};
+        use crate::services::analyzers::{FaceAnalyzer, Florence2Analyzer, OcrBboxAnalyzer, SiglipAnalyzer, VisionAnalyzer};
 
         let mut analyzers: Vec<Box<dyn Analyzer>> = vec![
             Box::new(SiglipAnalyzer),
             Box::new(FaceAnalyzer),
             Box::new(VisionAnalyzer),
-            Box::new(OcrAnalyzer),
+            Box::new(Florence2Analyzer),
+            Box::new(OcrBboxAnalyzer),
         ];
         // Higher priority first — determines execution order
         analyzers.sort_by(|a, b| b.priority().cmp(&a.priority()));

@@ -288,10 +288,16 @@ pub async fn download_shared_file(
     } else {
         // ponytail: Re-encode to WebP format in memory to produce a stripped, privacy-sanitized image payload.
         let (bytes, mime) = tokio::task::spawn_blocking(move || {
-            let img = image::open(&file_path).map_err(|e| {
+            let raw_bytes = std::fs::read(&file_path).map_err(|e| {
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to load image for sanitization: {}", e),
+                    format!("Failed to read image for sanitization: {}", e),
+                )
+            })?;
+            let img = image::load_from_memory(&raw_bytes).map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to decode image for sanitization: {}", e),
                 )
             })?;
             let mut buffer = std::io::Cursor::new(Vec::new());

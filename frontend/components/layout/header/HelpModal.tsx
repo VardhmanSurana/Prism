@@ -111,7 +111,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     <Sliders size={13} className="text-amber-400" /> Image & Video Studio
                   </p>
                   <p className="text-gray-400 text-[11px]">
-                    Full non-linear multi-track video timeline editor (NLE) and a 19-tool image editing suite with color curves, crop, flip, and AI inpainting.
+                    Full non-linear multi-track video timeline editor (NLE) and a 19-tool image editing suite with color curves, crop, flip, and AI Magic Eraser.
                   </p>
                 </div>
               </div>

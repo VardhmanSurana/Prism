@@ -38,6 +38,7 @@ import {
   BoxSelect,
   ChevronDown,
   Info,
+  Wand2,
 } from 'lucide-react';
 import { EditorSlider } from './ui/EditorSlider';
 import { Adjustments } from './filterEngine';
@@ -450,8 +451,8 @@ export const LassoPanel: React.FC<LassoPanelProps> = ({
           disabled={!state.hasActiveMask && state.points.length < 3}
           className="w-full py-2.5 px-4 rounded-xl bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary font-bold text-xs uppercase tracking-wider shadow-lg transition-all active:scale-[0.98] cursor-pointer disabled:opacity-30 flex items-center justify-center gap-2"
         >
-          <Paintbrush size={13} />
-          <span>Convert to AI Inpaint Mask</span>
+          <Wand2 size={13} />
+          <span>Convert to Magic Eraser Mask</span>
         </button>
       </div>
 

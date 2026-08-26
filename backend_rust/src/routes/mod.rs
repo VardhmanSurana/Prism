@@ -318,7 +318,8 @@ async fn rate_limit_layer(
 ) -> Response {
     let path = req.uri().path().to_string();
     let is_limited = path.starts_with("/api/v1/video/")
-        || path.starts_with("/api/v1/photos/inpaint/process");
+        || path.starts_with("/api/v1/photos/inpaint/process")
+        || path.starts_with("/api/v1/photos/magic-eraser/process");
     if is_limited {
         let ip = req
             .headers()
@@ -390,13 +391,14 @@ pub fn create_router(state: Arc<AppState>) -> Router {
             .allow_methods(Any)
             .allow_headers(Any),
     };
-
     let api_routes = Router::new()
         .route("/photos/stats", get(system::get_photo_stats))
+        .route("/system/hardware", get(system::get_hardware_profile))
         .route("/photos/upload", post(photos::upload_photo))
         .route("/photos/upload/", post(photos::upload_photo))
         .route("/photos/upload-blob", post(photos::upload_blob))
         .route("/photos/inpaint/unload", post(photos::unload_inpaint))
+        .route("/photos/magic-eraser/unload", post(photos::unload_inpaint))
         .route("/photos/expand-directory", post(photos::expand_directory))
         .route("/sample-images/:filename", get(photos::serve_sample_image))
         .route("/photos/bulk-adjustments", post(photos::bulk_update_adjustments))
@@ -410,11 +412,21 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/photos/:id/favorite", post(photos::toggle_favorite))
         .route("/photos/:id/trash", post(photos::toggle_trash))
         .route("/photos/:id/restore", post(photos::restore_photo))
+        .route("/photos/:uuid/purge", axum::routing::delete(photos::purge_photo))
         .route("/photos/:id/location", axum::routing::put(photos::update_photo_location))
         .route("/photos/:id/adjustments", axum::routing::put(photos::update_photo_adjustments))
         .route("/photos/:id/tag-face", post(photos::tag_photo_face))
         .route("/photos/:id/ocr", post(photos_ai::trigger_ocr))
+        .route("/photos/:id/ocr-bboxes", post(photos_ai::trigger_ocr_bboxes))
         .route("/photos/inpaint/process", post(photos_ai::process_inpaint))
+        .route("/photos/magic-eraser/process", post(photos_ai::process_inpaint))
+        .route("/photos/depth/process", post(photos_ai::process_depth))
+        .route("/photos/enhance/upscale", post(photos_ai::upscale_photo))
+        .route("/photos/enhance/face-restore", post(photos_ai::face_restore_photo))
+        .route("/photos/denoise", post(photos_ai::denoise_photo))
+        .route("/photos/caption", post(photos_ai::caption_photo))
+        .route("/photos/detect", post(photos_ai::detect_photo))
+        .route("/photos/sam/select", post(photos_ai::sam_select))
         .route("/photos/:id/summary", get(photos_ai::get_summary))
         .route("/photos/:id/summary/generate", post(photos_ai::generate_summary))
         .route("/photos/:id/xmp", post(photos_ai::xmp_operation))

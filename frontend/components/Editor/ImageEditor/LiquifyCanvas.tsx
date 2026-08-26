@@ -18,7 +18,7 @@ import {
   WebGLLiquifyRenderer,
   DEFAULT_LIQUIFY_SETTINGS,
 } from './liquifyEngine';
-import type { FaceBBox } from './FaceBoundingBoxOverlay';
+import type { FaceBBox } from '@plugins/retouch-metadata-studio/FaceBoundingBoxOverlay';
 
 export interface LiquifyCanvasRef {
   getWorkCanvas: () => HTMLCanvasElement | null;

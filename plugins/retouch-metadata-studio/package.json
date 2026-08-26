@@ -1,0 +1,19 @@
+{
+  "name": "@prism-plugins/retouch-metadata-studio",
+  "version": "1.0.0",
+  "description": "Professional frequency-separation skin smoothing, facial feature enhancement, Reinhard shot color matching, technical vector markup, and C2PA provenance.",
+  "main": "index.ts",
+  "author": "Prism Vision & Security Labs",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VardhmanSurana/prism-plugin-retouch-metadata-studio.git"
+  },
+  "keywords": [
+    "prism",
+    "prism-plugin",
+    "photo-editor",
+    "image-editor"
+  ],
+  "types": "index.ts"
+}

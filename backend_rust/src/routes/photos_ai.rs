@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tracing::warn;
 
 use crate::AppState;
-use crate::services::{auto_enhance, inpaint, segmentation};
+use crate::services::{auto_enhance, denoise, depth, enhance, florence2, inpaint, segmentation};
 
 pub async fn trigger_ocr(
     State(state): State<Arc<AppState>>,
@@ -30,6 +30,103 @@ pub async fn trigger_ocr(
         Err(e) => {
             warn!("OCR ML call failed: {}", e);
             Ok(Json(json!({ "photo_id": photo.id, "ocr_text": null, "error": e })))
+        }
+    }
+}
+
+/// POST /photos/:id/ocr-bboxes — Extract text + bounding boxes via PP-OCRv4.
+/// Returns cached results if available; otherwise runs on-demand inference.
+pub async fn trigger_ocr_bboxes(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id).await?;
+
+    // Check for cached bboxes in DB
+    let cached_bboxes: Option<String> = sqlx::query_scalar(
+        "SELECT ocr_bboxes FROM photos WHERE id = ?"
+    )
+    .bind(photo.id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    if let Some(ref bboxes_json) = cached_bboxes {
+        if !bboxes_json.is_empty() {
+            // Return cached result
+            let ocr_text: String = sqlx::query_scalar(
+                "SELECT COALESCE(ocr_text, '') FROM photos WHERE id = ?"
+            )
+            .bind(photo.id)
+            .fetch_one(&state.db)
+            .await
+            .unwrap_or_default();
+
+            let lines: Vec<crate::services::ocr_engine::OcrBbox> =
+                serde_json::from_str(bboxes_json).unwrap_or_default();
+
+            return Ok(Json(json!({
+                "photo_id": photo.id,
+                "ocr_text": ocr_text,
+                "lines": lines,
+                "cached": true,
+                "status": "success"
+            })));
+        }
+    }
+
+    // Not cached — run on-demand inference
+    if !crate::services::ocr_engine::is_available() {
+        return Ok(Json(json!({
+            "photo_id": photo.id,
+            "ocr_text": null,
+            "lines": [],
+            "cached": false,
+            "status": "error",
+            "error": "PP-OCRv4 models not downloaded. Download them from Model Manager."
+        })));
+    }
+
+    let path = photo.path.clone();
+    let _slot = crate::services::inference_slot::acquire("ocr-bboxes").await;
+    let result = tokio::task::spawn_blocking(move || {
+        crate::services::ocr_engine::recognize(&path)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("OCR task panicked: {}", e)))?;
+
+    match result {
+        Ok(ocr_result) => {
+            let bboxes_json = serde_json::to_string(&ocr_result.lines).unwrap_or_default();
+
+            // Cache in DB
+            let _ = sqlx::query(
+                "UPDATE photos SET ocr_text = ?, ocr_bboxes = ? WHERE id = ?"
+            )
+            .bind(&ocr_result.full_text)
+            .bind(&bboxes_json)
+            .bind(photo.id)
+            .execute(&state.db)
+            .await;
+
+            Ok(Json(json!({
+                "photo_id": photo.id,
+                "ocr_text": ocr_result.full_text,
+                "lines": ocr_result.lines,
+                "cached": false,
+                "status": "success"
+            })))
+        }
+        Err(e) => {
+            warn!("OCR bbox extraction failed: {}", e);
+            Ok(Json(json!({
+                "photo_id": photo.id,
+                "ocr_text": null,
+                "lines": [],
+                "cached": false,
+                "status": "error",
+                "error": e
+            })))
         }
     }
 }
@@ -75,17 +172,297 @@ pub async fn process_inpaint(
     let path = photo_path.ok_or((StatusCode::BAD_REQUEST, "photo_id required".to_string()))?;
 
     let engine = inpaint::InpaintEngine::get();
-    match engine.process_inpaint(
-        &path,
-        &payload.mask_data,
-        &payload.operation,
-        payload.prompt.as_deref(),
-        payload.guidance_scale,
-        payload.num_inference_steps,
-    ) {
+    match engine
+        .process_inpaint_async(
+            &path,
+            &payload.mask_data,
+            &payload.operation,
+            payload.prompt.as_deref(),
+            payload.guidance_scale,
+            payload.num_inference_steps,
+        )
+        .await
+    {
         Ok(val) => Ok(Json(val)),
         Err(e) => {
             warn!("Inpaint failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- Depth effects (Depth Anything V2 small) --
+
+fn default_depth_mode() -> String { "map".to_string() }
+fn default_strength_px() -> f32 { 6.0 }
+fn default_focus() -> f32 { 0.5 }
+
+/// Accept numeric id or uuid string from the client.
+fn photo_id_to_string(v: &Option<Value>) -> Result<String, (StatusCode, String)> {
+    match v {
+        Some(Value::Number(n)) => Ok(n.to_string()),
+        Some(Value::String(s)) => Ok(s.clone()),
+        _ => Err((StatusCode::BAD_REQUEST, "photo_id required".to_string())),
+    }
+}
+
+#[derive(Deserialize)]
+pub struct DepthRequest {
+    pub photo_id: Option<Value>,
+    #[serde(default = "default_depth_mode")]
+    pub mode: String, // "map" | "bokeh"
+    #[serde(default = "default_strength_px")]
+    pub strength_px: f32,
+    #[serde(default = "default_focus")]
+    pub focus: f32,
+}
+
+pub async fn process_depth(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<DepthRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    match depth::DepthEngine::get()
+        .process_async(&photo.path, &payload.mode, payload.strength_px, payload.focus)
+        .await
+    {
+        Ok(val) => Ok(Json(val)),
+        Err(e) => {
+            warn!("Depth processing failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- AI Enhancement (Real-ESRGAN upscale + GFPGAN face restore) --
+
+#[derive(Deserialize)]
+pub struct UpscaleRequest {
+    pub photo_id: Option<Value>,
+    #[serde(default = "default_scale")]
+    pub scale: i32,
+}
+
+fn default_scale() -> i32 { 2 }
+
+pub async fn upscale_photo(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<UpscaleRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    match enhance::UpscaleEngine::get().upscale_async(&photo.path, payload.scale).await {
+        Ok(val) => {
+            // Dimensions changed — keep the DB in sync.
+            let _ = sqlx::query("UPDATE photos SET width = ?, height = ? WHERE id = ?")
+                .bind(val["width"].as_i64().unwrap_or(photo.width as i64))
+                .bind(val["height"].as_i64().unwrap_or(photo.height as i64))
+                .bind(photo.id)
+                .execute(&state.db).await;
+            Ok(Json(val))
+        }
+        Err(e) => {
+            warn!("Upscale failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct FaceRestoreRequest {
+    pub photo_id: Option<Value>,
+    #[serde(default = "default_restore_strength")]
+    pub strength: f32,
+}
+
+fn default_restore_strength() -> f32 { 1.0 }
+
+pub async fn face_restore_photo(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<FaceRestoreRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    // Detect faces with the existing SCRFD engine, then restore each crop.
+    let faces = crate::services::face_engine::scan_faces(&photo.path)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Face detection failed: {}", e)))?;
+    let boxes: Vec<[i64; 4]> = faces
+        .iter()
+        .filter_map(|f| serde_json::from_str::<[i64; 4]>(&f.box_json).ok())
+        .collect();
+
+    match enhance::FaceRestoreEngine::get()
+        .restore_async(&photo.path, boxes, payload.strength)
+        .await
+    {
+        Ok(val) => Ok(Json(val)),
+        Err(e) => {
+            warn!("Face restore failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- SCUNet blind denoise --
+
+#[derive(Deserialize)]
+pub struct DenoiseRequest {
+    pub photo_id: Option<Value>,
+}
+
+pub async fn denoise_photo(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<DenoiseRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    match denoise::DenoiseEngine::get().denoise_async(&photo.path).await {
+        Ok(val) => Ok(Json(val)),
+        Err(e) => {
+            warn!("Denoise failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- Florence-2 image captioning --
+
+#[derive(Deserialize)]
+pub struct CaptionRequest {
+    pub photo_id: Option<Value>,
+    #[serde(default = "default_caption_task")]
+    pub task: String,
+}
+
+fn default_caption_task() -> String { "caption".to_string() }
+
+/// POST /photos/caption — Florence-2 image captioning.
+/// Returns a text caption for the given photo using the Florence-2 model.
+pub async fn caption_photo(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CaptionRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    let task = florence2::Florence2Task::from_str(&payload.task);
+    match florence2::Florence2Engine::get()
+        .caption_async(&photo.path, task)
+        .await
+    {
+        Ok(val) => {
+            // Store caption in DB if non-empty
+            if let Some(caption) = val.get("caption").and_then(|c| c.as_str()) {
+                if !caption.is_empty() {
+                    let _ = sqlx::query("UPDATE photos SET ai_summary = COALESCE(ai_summary, ?) WHERE id = ?")
+                        .bind(caption)
+                        .bind(photo.id)
+                        .execute(&state.db)
+                        .await;
+                }
+            }
+            Ok(Json(val))
+        }
+        Err(e) => {
+            warn!("Caption failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- Florence-2 object detection / phrase grounding --
+
+#[derive(Deserialize)]
+pub struct DetectRequest {
+    pub photo_id: Option<Value>,
+    #[serde(default = "default_caption_task")]
+    pub task: String,
+    /// For phrase grounding: the caption text to locate phrases in.
+    pub input_text: Option<String>,
+}
+
+/// POST /photos/detect — Florence-2 object detection or phrase grounding.
+/// Returns structured bounding boxes + labels.
+pub async fn detect_photo(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<DetectRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    let task = florence2::Florence2Task::from_str(&payload.task);
+    match florence2::Florence2Engine::get()
+        .detect_async(&photo.path, task, payload.input_text)
+        .await
+    {
+        Ok(val) => Ok(Json(val)),
+        Err(e) => {
+            warn!("Detect failed: {}", e);
+            Ok(Json(json!({ "success": false, "error": e })))
+        }
+    }
+}
+
+// -- SAM interactive click-to-select --
+
+#[derive(Deserialize)]
+pub struct SamPoint {
+    pub x: f32,
+    pub y: f32,
+    /// true = include region (left click), false = exclude (right click).
+    #[serde(default = "default_positive")]
+    pub positive: bool,
+}
+
+fn default_positive() -> bool { true }
+
+#[derive(Deserialize)]
+pub struct SamSelectRequest {
+    pub photo_id: Option<Value>,
+    pub points: Vec<SamPoint>,
+}
+
+/// POST /photos/sam/select — point-prompted MobileSAM. Returns a PNG mask
+/// (data URI) at the photo's original resolution, ready to feed the Magic
+/// Eraser mask pipeline or overlay directly.
+pub async fn sam_select(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SamSelectRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let id_str = photo_id_to_string(&payload.photo_id)?;
+    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+
+    let points: Vec<(f32, f32)> = payload.points.iter().map(|p| (p.x, p.y)).collect();
+    let positive: Vec<bool> = payload.points.iter().map(|p| p.positive).collect();
+
+    let _slot = crate::services::inference_slot::acquire("sam-select").await;
+    let path = photo.path.clone();
+    let result = tokio::task::spawn_blocking(move || {
+        let engine = crate::services::sam::get_sam()?;
+        engine.segment_points(&path, &points, &positive)
+    })
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("SAM task panicked: {}", e)))?;
+
+    match result {
+        Ok(png) => {
+            use base64::Engine as _;
+            let b64 = base64::engine::general_purpose::STANDARD.encode(&png);
+            Ok(Json(json!({
+                "success": true,
+                "mask_data": format!("data:image/png;base64,{}", b64),
+                "width": photo.width,
+                "height": photo.height,
+            })))
+        }
+        Err(e) => {
+            warn!("SAM select failed: {}", e);
             Ok(Json(json!({ "success": false, "error": e })))
         }
     }

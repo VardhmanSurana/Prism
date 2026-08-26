@@ -66,9 +66,13 @@ impl Config {
         let plugins_dir = env::var("PLUGINS_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|_| {
-                env::current_dir()
-                    .unwrap_or_else(|_| PathBuf::from("."))
-                    .join("plugins")
+                let cur = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                let root_plugins = cur.join("../plugins");
+                if root_plugins.exists() {
+                    root_plugins
+                } else {
+                    cur.join("plugins")
+                }
             });
 
         Config {

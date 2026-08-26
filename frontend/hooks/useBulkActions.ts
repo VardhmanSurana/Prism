@@ -79,20 +79,49 @@ export function useBulkActions({
 
     const idsArray = Array.from(selectedIds);
 
-    // Optimistic update
     if (isPermanent) {
-      setPhotos(prev => prev.filter(p => !selectedIds.has(String(p.id))));
-    } else {
-      setPhotos(prev => prev.map(p =>
-        selectedIds.has(String(p.id)) ? { ...p, isTrash: true, is_trash: true } : p
-      ));
-    }
+      // Permanent delete: purge ALL app-side data per item via the backend
+      // (DB row, thumbnails, faces, albums). Media files are never touched.
+      // Snapshot for rollback of failed purges.
+      let snapshot: Photo[] = [];
+      setPhotos(prev => {
+        snapshot = prev;
+        return prev.filter(p => !selectedIds.has(String(p.id)));
+      });
 
-    if (isPermanent) {
+      const results = await fetchInBatches(
+        idsArray,
+        id => {
+          const target = selectedPhotoMap.get(id);
+          return fetch(`${API_BASE}/api/v1/photos/${target?.uuid ?? id}/purge`, {
+            method: 'DELETE',
+          });
+        }
+      );
+
+      const failedIds = new Set<string>();
+      results.forEach((r, idx) => {
+        if (r.status === 'rejected' || !r.value.ok) {
+          failedIds.add(idsArray[idx]);
+        }
+      });
+
+      if (failedIds.size > 0) {
+        console.error(`Permanent delete failed for ${failedIds.size} item(s)`);
+        setPhotos(prev => [
+          ...snapshot.filter(p => failedIds.has(String(p.id))),
+          ...prev,
+        ]);
+      }
+
       return;
     }
 
-    // Call API for logical delete in chunks of 6
+    // Logical delete (move to trash): optimistic update + API call in chunks
+    setPhotos(prev => prev.map(p =>
+      selectedIds.has(String(p.id)) ? { ...p, isTrash: true, is_trash: true } : p
+    ));
+
     const results = await fetchInBatches(
       idsArray,
       id => fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' })

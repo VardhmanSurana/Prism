@@ -12,8 +12,8 @@ pub async fn get_privacy_status() -> Json<Value> {
         "features": [
             { "id": "semantic_search", "label": "Semantic Vector Search", "enabled": true, "description": "On-device SigLIP embedding generation for natural language image retrieval", "network_calls": [], "what_runs_locally": ["Image vector embeddings", "Local cosine similarity search index"], "what_is_sent": "Zero data transmitted. Fully airgapped on local CPU/GPU.", "model": "SigLIP-Base-384" },
             { "id": "face_detection", "label": "Face Recognition & Clustering", "enabled": true, "description": "Local face bounding box detection and identity grouping", "network_calls": [], "what_runs_locally": ["Face detection & cropping", "Euclidean vector distance clustering"], "what_is_sent": "Zero data transmitted. Kept in local SQLite index.", "model": "InsightFace / SCRFD" },
-            { "id": "ocr_text", "label": "Text & Document OCR", "enabled": true, "description": "On-device document classification and optical character recognition", "network_calls": [], "what_runs_locally": ["Text extraction from images", "Document indexing"], "what_is_sent": "Zero data transmitted. Processed 100% on local machine.", "model": "PaddleOCR / Tesseract" },
-            { "id": "inpainting", "label": "AI Object Removal & Inpainting", "enabled": true, "description": "Generative mask removal and background restoration", "network_calls": [], "what_runs_locally": ["Canvas mask tensor generation", "Inpainting diffusion pass"], "what_is_sent": "Zero data transmitted. Runs inside local PyTorch runtime.", "model": "LaMa / Stable Diffusion Inpainting" }
+            { "id": "ocr_text", "label": "Text & Document OCR", "enabled": true, "description": "On-device document classification and optical character recognition", "network_calls": [], "what_runs_locally": ["Text extraction from images", "Document indexing"], "what_is_sent": "Zero data transmitted. Processed 100% on local machine.", "model": "PP-OCRv4 (ONNX)" },
+            { "id": "magic_eraser", "label": "Magic Eraser & Object Removal", "enabled": true, "description": "Generative distraction removal and smart neural object erasure", "network_calls": [], "what_runs_locally": ["Canvas mask tensor generation", "Neural eraser pass"], "what_is_sent": "Zero data transmitted. Runs inside local runtime.", "model": "LaMa / Stable Diffusion" }
         ]
     }))
 }
@@ -26,8 +26,8 @@ pub async fn get_privacy_feature_detail(
     let features = [
         ("semantic_search", "Semantic Vector Search", "On-device SigLIP embedding generation for natural language image retrieval", "SigLIP-Base-384", vec!["Image vector embeddings", "Local cosine similarity search index"]),
         ("face_detection", "Face Recognition & Clustering", "Local face bounding box detection and identity grouping", "InsightFace / SCRFD", vec!["Face detection & cropping", "Euclidean vector distance clustering"]),
-        ("ocr_text", "Text & Document OCR", "On-device document classification and optical character recognition", "PaddleOCR / Tesseract", vec!["Text extraction from images", "Document indexing"]),
-        ("inpainting", "AI Object Removal & Inpainting", "Generative mask removal and background restoration", "LaMa / Stable Diffusion Inpainting", vec!["Canvas mask tensor generation", "Inpainting diffusion pass"]),
+        ("ocr_text", "Text & Document OCR", "On-device document classification and optical character recognition", "PP-OCRv4 (ONNX)", vec!["Text extraction from images", "Document indexing"]),
+        ("magic_eraser", "Magic Eraser & Object Removal", "Generative distraction removal and smart neural object erasure", "LaMa / Stable Diffusion", vec!["Canvas mask tensor generation", "Neural eraser pass"]),
     ];
 
     if let Some((id, label, desc, model, runs_locally)) = features.iter().find(|(id, _, _, _, _)| *id == feature_id.as_str()) {

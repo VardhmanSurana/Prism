@@ -1,9 +1,11 @@
 pub mod listing;
 pub mod metadata;
+pub mod purge;
 pub mod upload;
 
 pub use listing::*;
 pub use metadata::*;
+pub use purge::*;
 pub use upload::*;
 
 use axum::http::StatusCode;

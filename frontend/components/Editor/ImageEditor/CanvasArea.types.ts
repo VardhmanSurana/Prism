@@ -2,9 +2,8 @@ import type React from 'react';
 import type Cropper from 'cropperjs';
 import type { ToolId } from './Sidebar';
 import type { Adjustments } from './filterEngine';
-import type { InpaintMode } from './InpaintPanel';
-import type { InpaintCanvasHandle } from './InpaintCanvas';
-import type { Annotation, DrawToolId } from './AnnotationsPanel';
+import type { InpaintMode, InpaintCanvasHandle } from '@plugins/ai-vision-studio';
+import type { Annotation, DrawToolId, PenSettings } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import type { HealingSettings } from './HealingPanel';
 import type { HealingCanvasRef } from './HealingCanvas';
 import type { LassoState } from './lassoEngine';
@@ -25,6 +24,7 @@ export interface CanvasAreaProps {
   brushSize?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
   onInpaintStrokeComplete?: (maskDataUrl: string) => void;
+  onInteractivePointsChange?: (points: Array<{ x: number; y: number; positive: boolean }>) => void;
   showMaskPreview?: boolean;
   maskOpacity?: number;
   annotations?: Annotation[];
@@ -64,6 +64,8 @@ export interface CanvasAreaProps {
   setDoodleFontFamily?: (font: string) => void;
   showDoodleGuide?: boolean;
   setShowDoodleGuide?: (show: boolean) => void;
+  // Pen (freehand) settings
+  penSettings?: PenSettings;
   // Healing brush / clone stamp
   healingSettings?: HealingSettings;
   healingCanvasRef?: React.Ref<HealingCanvasRef>;
@@ -77,7 +79,7 @@ export interface CanvasAreaProps {
   onPaletteColorPicked?: (hex: string, targetIdx: number) => void;
   onCancelPalettePicking?: () => void;
   // Face Bounding Boxes
-  faces?: import('./FaceBoundingBoxOverlay').FaceBBox[];
+  faces?: import('@plugins/retouch-metadata-studio/FaceBoundingBoxOverlay').FaceBBox[];
   selectedFaceIndex?: number | null;
   onSelectFace?: (index: number) => void;
   // Liquify & Reshape Mesh

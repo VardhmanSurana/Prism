@@ -21,6 +21,8 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/uninstall/:id", post(uninstall_plugin))
         .route("/toggle/:id", post(toggle_plugin))
         .route("/config/:id", post(update_plugin_config))
+        .route("/:id/entrypoint", get(get_plugin_entrypoint))
+        .route("/:id/assets/*path", get(get_plugin_asset))
 }
 
 #[derive(Serialize)]
@@ -216,3 +218,69 @@ pub async fn update_plugin_config(
         }
     }
 }
+
+/// GET /api/v1/plugins/:id/entrypoint
+/// Serves the plugin's JavaScript entrypoint (e.g. `index.js`).
+pub async fn get_plugin_entrypoint(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> Result<impl axum::response::IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    let plugins = state.plugin_manager.scan_installed();
+    let plugin = plugins.into_iter().find(|p| p.id == id).ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("Plugin '{}' not found or not installed", id) })),
+        )
+    })?;
+
+    let entry_file = plugin.manifest.entrypoint.unwrap_or_else(|| "index.js".to_string());
+    let entry_path = state.plugin_manager.plugins_dir().join(&id).join(&entry_file);
+
+    if !entry_path.is_file() {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": format!("Entrypoint {:?} not found", entry_path) })),
+        ));
+    }
+
+    match std::fs::read_to_string(&entry_path) {
+        Ok(code) => Ok((
+            [
+                (axum::http::header::CONTENT_TYPE, "application/javascript; charset=utf-8"),
+                (axum::http::header::CACHE_CONTROL, "no-cache"),
+            ],
+            code,
+        )),
+        Err(e) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({ "error": format!("Failed to read entrypoint: {}", e) })),
+        )),
+    }
+}
+
+/// GET /api/v1/plugins/:id/assets/*path
+/// Serves static assets (e.g. .cube LUTs, textures, SVG icons) from `plugins/<id>/assets/*`.
+pub async fn get_plugin_asset(
+    State(state): State<Arc<AppState>>,
+    Path((id, path)): Path<(String, String)>,
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    if path.contains("..") || path.starts_with('/') {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let asset_path = state.plugin_manager.plugins_dir().join(&id).join("assets").join(&path);
+    if !asset_path.is_file() {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    let mime = mime_guess::from_path(&asset_path).first_or_octet_stream();
+    match std::fs::read(&asset_path) {
+        Ok(bytes) => Ok((
+            [
+                (axum::http::header::CONTENT_TYPE, mime.to_string()),
+                (axum::http::header::CACHE_CONTROL, "public, max-age=86400".to_string()),
+            ],
+            bytes,
+        )),
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+    }
+}
+

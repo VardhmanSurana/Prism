@@ -7,7 +7,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HistoryEntry, HistoryActionType, createHistoryEntry } from '../history';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
-import { Annotation } from '../AnnotationsPanel';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { API_BASE } from '@/constants';
 
 interface UseEditingHistoryProps {

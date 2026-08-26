@@ -28,6 +28,7 @@ touch "$BACKEND_LOG"
 (
   cd "$ROOT/backend_rust"
   export PORT=$BACKEND_PORT
+  export PLUGINS_DIR="$ROOT/plugins"
   nohup cargo run > "$BACKEND_LOG" 2>&1 &
   echo $! > "$ROOT/backend_rust/backend.pid"
   echo "[web] Rust Backend started (PID $(cat "$ROOT/backend_rust/backend.pid"))"

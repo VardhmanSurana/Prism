@@ -499,161 +499,271 @@ impl PluginManager {
         })
     }
 
+    /// Saves a custom thumbnail image for a plugin to `plugins/<id>/assets/thumbnail.png`.
+    pub fn save_thumbnail(&self, plugin_id: &str, image_bytes: &[u8]) -> Result<InstalledPlugin, String> {
+        let plugin_dir = self.plugins_dir.join(plugin_id);
+        if !plugin_dir.exists() {
+            return Err(format!("Plugin '{}' is not installed", plugin_id));
+        }
+
+        let assets_dir = plugin_dir.join("assets");
+        fs::create_dir_all(&assets_dir)
+            .map_err(|e| format!("Failed to create assets dir: {}", e))?;
+
+        let thumbnail_path = assets_dir.join("thumbnail.png");
+        fs::write(&thumbnail_path, image_bytes)
+            .map_err(|e| format!("Failed to write thumbnail: {}", e))?;
+
+        // Update config settings with thumbnail path
+        let mut config = if let Ok(c) = fs::read_to_string(plugin_dir.join("config.json")) {
+            serde_json::from_str::<PluginConfig>(&c).unwrap_or_default()
+        } else {
+            PluginConfig::default()
+        };
+
+        if let serde_json::Value::Object(ref mut map) = config.settings {
+            map.insert("thumbnail_url".to_string(), serde_json::Value::String(format!("/api/v1/plugins/{}/assets/thumbnail.png", plugin_id)));
+        } else {
+            let mut map = serde_json::Map::new();
+            map.insert("thumbnail_url".to_string(), serde_json::Value::String(format!("/api/v1/plugins/{}/assets/thumbnail.png", plugin_id)));
+            config.settings = serde_json::Value::Object(map);
+        }
+
+        config.updated_at = Utc::now().to_rfc3339();
+        let config_json = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("Serialization error: {}", e))?;
+        fs::write(plugin_dir.join("config.json"), config_json)
+            .map_err(|e| format!("Failed to write config.json: {}", e))?;
+
+        let manifest_content = fs::read_to_string(plugin_dir.join("plugin.json"))
+            .map_err(|e| format!("Failed to read plugin.json: {}", e))?;
+        let manifest: PluginManifest = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Invalid plugin.json: {}", e))?;
+
+        Ok(InstalledPlugin {
+            id: manifest.id.clone(),
+            manifest,
+            config: config.clone(),
+            path: plugin_dir.to_string_lossy().to_string(),
+            is_active: config.enabled,
+            has_models: plugin_dir.join("models").is_dir(),
+        })
+    }
+
+    /// Removes custom thumbnail from a plugin.
+    pub fn delete_thumbnail(&self, plugin_id: &str) -> Result<InstalledPlugin, String> {
+        let plugin_dir = self.plugins_dir.join(plugin_id);
+        if !plugin_dir.exists() {
+            return Err(format!("Plugin '{}' is not installed", plugin_id));
+        }
+
+        let thumbnail_path = plugin_dir.join("assets").join("thumbnail.png");
+        if thumbnail_path.exists() {
+            fs::remove_file(&thumbnail_path).ok();
+        }
+
+        let mut config = if let Ok(c) = fs::read_to_string(plugin_dir.join("config.json")) {
+            serde_json::from_str::<PluginConfig>(&c).unwrap_or_default()
+        } else {
+            PluginConfig::default()
+        };
+
+        if let serde_json::Value::Object(ref mut map) = config.settings {
+            map.remove("thumbnail_url");
+        }
+
+        config.updated_at = Utc::now().to_rfc3339();
+        let config_json = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("Serialization error: {}", e))?;
+        fs::write(plugin_dir.join("config.json"), config_json)
+            .map_err(|e| format!("Failed to write config.json: {}", e))?;
+
+        let manifest_content = fs::read_to_string(plugin_dir.join("plugin.json"))
+            .map_err(|e| format!("Failed to read plugin.json: {}", e))?;
+        let manifest: PluginManifest = serde_json::from_str(&manifest_content)
+            .map_err(|e| format!("Invalid plugin.json: {}", e))?;
+
+        Ok(InstalledPlugin {
+            id: manifest.id.clone(),
+            manifest,
+            config: config.clone(),
+            path: plugin_dir.to_string_lossy().to_string(),
+            is_active: config.enabled,
+            has_models: plugin_dir.join("models").is_dir(),
+        })
+    }
+
     /// Built-in catalog definitions (similar to Jellyfin's official repository catalog).
     fn builtin_catalog_definitions() -> Vec<PluginCatalogItem> {
         vec![
             PluginCatalogItem {
                 id: "background-removal".to_string(),
-                name: "AI Background Removal Studio".to_string(),
-                version: "1.2.0".to_string(),
-                author: "Prism Core & Open Source AI".to_string(),
+                name: "AI Background Removal & Cutout Studio".to_string(),
+                version: "1.0.0".to_string(),
+                author: "Prism AI Vision Team".to_string(),
                 description: "Deep learning matting pack supporting ISNet Universal, BiRefNet High-Resolution, and RMBG-1.4 Studio with live backdrop compositing.".to_string(),
                 category: "AI & Machine Learning".to_string(),
                 icon: "Scissors".to_string(),
                 is_installed: false,
                 is_active: false,
                 size_display: "~170 MB".to_string(),
-                tags: vec!["matting".to_string(), "segmentation".to_string(), "onnx".to_string(), "cutout".to_string()],
+                tags: vec!["ai".to_string(), "matting".to_string(), "segmentation".to_string(), "onnx".to_string(), "cutout".to_string()],
                 bundled_code: Some(r#"/**
  * Prism Plugin: background-removal
  * Entrypoint: index.js
  */
 export default {
   id: "background-removal",
-  name: "AI Background Removal Studio",
-  version: "1.2.0",
+  name: "AI Background Removal & Cutout Studio",
+  version: "1.0.0",
   initialize(context) {
-    console.log("[Plugin: background-removal] Initialized matting engine handlers.");
+    console.log("[Plugin: background-removal] Initialized Cutout & BG tools.");
+    if (context && context.registerTool) {
+      context.registerTool({ id: "background", name: "Cutout & BG", icon: "Scissors" });
+    }
   }
 };
 "#.to_string()),
                 manifest: PluginManifest {
                     id: "background-removal".to_string(),
-                    name: "AI Background Removal Studio".to_string(),
-                    version: "1.2.0".to_string(),
-                    author: "Prism Core & Open Source AI".to_string(),
-                    description: "Deep learning matting pack supporting ISNet, BiRefNet, and RMBG-1.4 with live backdrop compositing.".to_string(),
+                    name: "AI Background Removal & Cutout Studio".to_string(),
+                    version: "1.0.0".to_string(),
+                    author: "Prism AI Vision Team".to_string(),
+                    description: "Deep learning matting pack supporting ISNet Universal, BiRefNet High-Resolution, and RMBG-1.4 Studio with live backdrop compositing.".to_string(),
                     category: "AI & Machine Learning".to_string(),
                     icon: Some("Scissors".to_string()),
                     homepage: Some("https://github.com/VardhmanSurana/Prism".to_string()),
-                    capabilities: vec!["matting".to_string(), "segmentation".to_string(), "image-editor".to_string()],
+                    capabilities: vec!["background-removal".to_string(), "matting".to_string(), "segmentation".to_string(), "cutout".to_string()],
                     entrypoint: Some("index.js".to_string()),
                     min_app_version: Some("0.1.0".to_string()),
                 },
             },
             PluginCatalogItem {
-                id: "portrait-enhancer".to_string(),
-                name: "AI Portrait & Face Retouching".to_string(),
+                id: "ai-vision-studio".to_string(),
+                name: "AI Vision Studio (Cutout & Magic Eraser)".to_string(),
                 version: "1.0.0".to_string(),
-                author: "Prism Vision Team".to_string(),
-                description: "Facial feature parsing, non-destructive skin smoothing, iris sharpening, teeth whitening, and lip color enhancement.".to_string(),
-                category: "Image Editor".to_string(),
-                icon: "User".to_string(),
+                author: "Prism AI Vision Team".to_string(),
+                description: "Neural background cutout & matting, magic eraser object removal, generative neural fill, and super-resolution.".to_string(),
+                category: "AI & Machine Learning".to_string(),
+                icon: "Wand2".to_string(),
                 is_installed: false,
                 is_active: false,
-                size_display: "~85 MB".to_string(),
-                tags: vec!["portrait".to_string(), "face".to_string(), "skin".to_string(), "retouch".to_string()],
+                size_display: "~80 MB".to_string(),
+                tags: vec!["ai".to_string(), "magic-eraser".to_string(), "object-removal".to_string(), "super-resolution".to_string(), "onnx".to_string()],
                 bundled_code: Some(r#"/**
- * Prism Plugin: portrait-enhancer
+ * Prism Plugin: ai-vision-studio
  * Entrypoint: index.js
  */
 export default {
-  id: "portrait-enhancer",
-  name: "AI Portrait & Face Retouching",
+  id: "ai-vision-studio",
+  name: "AI Vision Studio (Cutout & Magic Eraser)",
   version: "1.0.0",
   initialize(context) {
-    console.log("[Plugin: portrait-enhancer] Registered face segmentation filters.");
+    console.log("[Plugin: ai-vision-studio] Initialized Magic Eraser & vision tools.");
+    if (context && context.registerTool) {
+      context.registerTool({ id: "magic-eraser", name: "Magic Eraser", icon: "Wand2" });
+    }
   }
 };
 "#.to_string()),
                 manifest: PluginManifest {
-                    id: "portrait-enhancer".to_string(),
-                    name: "AI Portrait & Face Retouching".to_string(),
+                    id: "ai-vision-studio".to_string(),
+                    name: "AI Vision Studio (Cutout & Magic Eraser)".to_string(),
                     version: "1.0.0".to_string(),
-                    author: "Prism Vision Team".to_string(),
-                    description: "Facial feature parsing, non-destructive skin smoothing, iris sharpening, and teeth whitening.".to_string(),
-                    category: "Image Editor".to_string(),
-                    icon: Some("User".to_string()),
-                    homepage: Some("https://github.com/VardhmanSurana/Prism".to_string()),
-                    capabilities: vec!["portrait".to_string(), "face-id".to_string()],
+                    author: "Prism AI Vision Team".to_string(),
+                    description: "Neural background cutout & matting, magic eraser object removal, generative neural fill, and super-resolution.".to_string(),
+                    category: "AI & Machine Learning".to_string(),
+                    icon: Some("Wand2".to_string()),
+                    homepage: Some("https://github.com/VardhmanSurana/prism-plugin-ai-vision-studio".to_string()),
+                    capabilities: vec!["background".to_string(), "magic-eraser".to_string(), "object-removal".to_string(), "super-resolution".to_string()],
                     entrypoint: Some("index.js".to_string()),
                     min_app_version: Some("0.1.0".to_string()),
                 },
             },
             PluginCatalogItem {
-                id: "cinematic-luts".to_string(),
-                name: "Cinematic Color Grade & 3D LUTs".to_string(),
-                version: "2.1.0".to_string(),
+                id: "creative-color-studio".to_string(),
+                name: "Creative, Color & Film Emulation Studio".to_string(),
+                version: "1.0.0".to_string(),
                 author: "Prism Creative Labs".to_string(),
-                description: "Cinema film stock emulations: Kodak Portra 400, Fuji Pro 400H, Cine Teal & Orange, Moody Noir, and Cyberpunk Neon.".to_string(),
+                description: "Professional 3D LUT color grading (.cube), 35mm/120mm analog film grain synthesis, red halation glow, vintage instant Polaroid frames, and camera metadata watermark badges.".to_string(),
                 category: "Creative & Filters".to_string(),
                 icon: "Clapperboard".to_string(),
                 is_installed: false,
                 is_active: false,
-                size_display: "~12 MB".to_string(),
-                tags: vec!["lut".to_string(), "color-grading".to_string(), "cinematic".to_string(), "presets".to_string()],
+                size_display: "~40 MB".to_string(),
+                tags: vec!["lut".to_string(), "film".to_string(), "grain".to_string(), "frames".to_string(), "watermark".to_string(), "color-grading".to_string()],
                 bundled_code: Some(r#"/**
- * Prism Plugin: cinematic-luts
+ * Prism Plugin: creative-color-studio
  * Entrypoint: index.js
  */
 export default {
-  id: "cinematic-luts",
-  name: "Cinematic Color Grade & 3D LUTs",
-  version: "2.1.0",
+  id: "creative-color-studio",
+  name: "Creative, Color & Film Emulation Studio",
+  version: "1.0.0",
   initialize(context) {
-    console.log("[Plugin: cinematic-luts] Loaded 3D LUT color tables.");
+    console.log("[Plugin: creative-color-studio] Initialized 3D LUTs, grain & frames.");
+    if (context && context.registerTool) {
+      context.registerTool({ id: "lut", name: "LUT Grade", icon: "Clapperboard" });
+      context.registerTool({ id: "texture", name: "Grain & Leak", icon: "Film" });
+      context.registerTool({ id: "frame", name: "Frames & Atmosphere", icon: "Grid" });
+    }
   }
 };
 "#.to_string()),
                 manifest: PluginManifest {
-                    id: "cinematic-luts".to_string(),
-                    name: "Cinematic Color Grade & 3D LUTs".to_string(),
-                    version: "2.1.0".to_string(),
+                    id: "creative-color-studio".to_string(),
+                    name: "Creative, Color & Film Emulation Studio".to_string(),
+                    version: "1.0.0".to_string(),
                     author: "Prism Creative Labs".to_string(),
-                    description: "Cinema film stock emulations: Kodak Portra 400, Fuji Pro 400H, Cine Teal & Orange, and Moody Noir.".to_string(),
+                    description: "Professional 3D LUT color grading, analog film grain, vintage frames, and watermarks.".to_string(),
                     category: "Creative & Filters".to_string(),
                     icon: Some("Clapperboard".to_string()),
                     homepage: Some("https://github.com/VardhmanSurana/Prism".to_string()),
-                    capabilities: vec!["lut".to_string(), "color-grading".to_string()],
+                    capabilities: vec!["lut".to_string(), "film-grain".to_string(), "frames".to_string(), "watermark".to_string()],
                     entrypoint: Some("index.js".to_string()),
                     min_app_version: Some("0.1.0".to_string()),
                 },
             },
             PluginCatalogItem {
-                id: "exif-geotagger".to_string(),
-                name: "Smart EXIF & Location Enhancer".to_string(),
-                version: "1.1.0".to_string(),
-                author: "Community".to_string(),
-                description: "Offline reverse geocoding for GPS coordinates, camera model normalization, and automatic lens EXIF metadata enrichment.".to_string(),
-                category: "Metadata & Geotagging".to_string(),
-                icon: "MapPin".to_string(),
+                id: "retouch-metadata-studio".to_string(),
+                name: "Retouching, Metadata & Security Studio".to_string(),
+                version: "1.0.0".to_string(),
+                author: "Prism Vision & Security Labs".to_string(),
+                description: "Frequency-separation portrait retouching (skin smoothing, iris, teeth, lips), Reinhard perceptual shot matching, technical vector markup, offline EXIF reverse geocoding, and C2PA provenance credentials.".to_string(),
+                category: "Image Editor".to_string(),
+                icon: "User".to_string(),
                 is_installed: false,
                 is_active: false,
-                size_display: "~45 MB".to_string(),
-                tags: vec!["exif".to_string(), "gps".to_string(), "geotag".to_string(), "metadata".to_string()],
+                size_display: "~50 MB".to_string(),
+                tags: vec!["portrait".to_string(), "skin".to_string(), "colormatch".to_string(), "vector".to_string(), "exif".to_string(), "c2pa".to_string()],
                 bundled_code: Some(r#"/**
- * Prism Plugin: exif-geotagger
+ * Prism Plugin: retouch-metadata-studio
  * Entrypoint: index.js
  */
 export default {
-  id: "exif-geotagger",
-  name: "Smart EXIF & Location Enhancer",
-  version: "1.1.0",
+  id: "retouch-metadata-studio",
+  name: "Retouching, Metadata & Security Studio",
+  version: "1.0.0",
   initialize(context) {
-    console.log("[Plugin: exif-geotagger] Offline reverse geocoding initialized.");
+    console.log("[Plugin: retouch-metadata-studio] Initialized portrait, colormatch & markup.");
+    if (context && context.registerTool) {
+      context.registerTool({ id: "portrait", name: "Portrait", icon: "User" });
+      context.registerTool({ id: "colormatch", name: "Shot Matcher", icon: "Pipette" });
+      context.registerTool({ id: "annotations", name: "Markup & Vector", icon: "PenTool" });
+    }
   }
 };
 "#.to_string()),
                 manifest: PluginManifest {
-                    id: "exif-geotagger".to_string(),
-                    name: "Smart EXIF & Location Enhancer".to_string(),
-                    version: "1.1.0".to_string(),
-                    author: "Community".to_string(),
-                    description: "Offline reverse geocoding for GPS coordinates and camera lens metadata enrichment.".to_string(),
-                    category: "Metadata & Geotagging".to_string(),
-                    icon: Some("MapPin".to_string()),
+                    id: "retouch-metadata-studio".to_string(),
+                    name: "Retouching, Metadata & Security Studio".to_string(),
+                    version: "1.0.0".to_string(),
+                    author: "Prism Vision & Security Labs".to_string(),
+                    description: "Frequency-separation portrait retouching, Reinhard shot color matching, vector markup, EXIF geocoding, and C2PA.".to_string(),
+                    category: "Image Editor".to_string(),
+                    icon: Some("User".to_string()),
                     homepage: Some("https://github.com/VardhmanSurana/Prism".to_string()),
-                    capabilities: vec!["metadata".to_string(), "geocoding".to_string()],
+                    capabilities: vec!["portrait".to_string(), "colormatch".to_string(), "annotations".to_string(), "exif".to_string(), "c2pa".to_string()],
                     entrypoint: Some("index.js".to_string()),
                     min_app_version: Some("0.1.0".to_string()),
                 },
@@ -661,4 +771,3 @@ export default {
         ]
     }
 }
-

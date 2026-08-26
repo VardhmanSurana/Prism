@@ -1,8 +1,8 @@
 import { Adjustments } from './filterEngine';
-import { Annotation } from './AnnotationsPanel';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { applyHslToCanvas } from './hslEngine';
 import { applyNonLinearHighlightsAndShadows, applyTemperatureAndTintToImageData } from './filterFallback';
-import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
+import { applyLutToImageData, getBuiltinLutData } from '@plugins/creative-color-studio/lutEngine';
 import { canvasToBlob } from './exportPipeline/canvas';
 import { applyRawProcessingToImageData } from './rawEngine';
 import {

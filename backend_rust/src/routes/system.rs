@@ -5,6 +5,25 @@ use std::sync::Arc;
 
 use crate::models::{HealthStatus, PhotoStatsResponse};
 use crate::AppState;
+use crate::services::{hardware, inference_slot};
+
+/// GET /api/v1/system/hardware
+///
+/// Reports the machine's AI capabilities (GPU/VRAM/RAM/backend) plus current
+/// inference-slot occupancy so plugins can gate features that don't fit
+/// (e.g. heavyweight generative models on a 4 GB VRAM laptop).
+pub async fn get_hardware_profile(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let gpu_mode = state.config.gpu_mode.clone();
+    let profile = tokio::task::spawn_blocking(move || hardware::detect(&gpu_mode))
+        .await
+        .unwrap_or_else(|_| hardware::detect("cpu"));
+
+    Json(json!({
+        "profile": profile,
+        "inference_slot": inference_slot::status().await,
+    }))
+}
+
 
 pub async fn root() -> Json<Value> {
     Json(json!({

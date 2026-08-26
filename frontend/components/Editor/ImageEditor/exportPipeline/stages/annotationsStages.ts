@@ -3,14 +3,14 @@
  * Annotation rendering stage: converts vector annotations to SVG and composites onto canvas.
  */
 
-import { Annotation } from '../../AnnotationsPanel';
-import { smoothPath, getRotationAttr } from '../../AnnotationCanvas/utils';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { smoothPath, getRotationAttr } from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
 import {
   getPolygonPoints,
   getShapePathString,
   normalizeBounds,
   VectorShapeType,
-} from '../../AnnotationCanvas/shapeUtils';
+} from '@plugins/retouch-metadata-studio/AnnotationCanvas/shapeUtils';
 
 export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[]): Promise<HTMLCanvasElement> => {
   if (!annotations || annotations.length === 0) return Promise.resolve(canvas);
@@ -29,8 +29,31 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
 
       if (ann.type === 'freehand' && ann.points) {
         const smoothed = smoothPath(ann.points);
-        const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        svgContent += `<g${rotAttr}${opacityAttr}><path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round" /></g>`;
+        let d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+        if (ann.closePath && smoothed.length > 2) d += ' Z';
+        const sw = ann.strokeWidth * 1.5;
+        const dash =
+          ann.penStyle === 'dashed'
+            ? ` stroke-dasharray="${(sw * 2.5).toFixed(1)} ${(sw * 2).toFixed(1)}"`
+            : ann.penStyle === 'dotted'
+              ? ` stroke-dasharray="0.1 ${(sw * 1.6).toFixed(1)}"`
+              : '';
+        const fillAttrs = ann.closePath
+          ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"`
+          : ' fill="none"';
+        svgContent += `<g${rotAttr}${opacityAttr}><path d="${d}"${fillAttrs} stroke="${ann.color}" stroke-width="${sw}"${dash} stroke-linecap="round" stroke-linejoin="round" />`;
+        if (ann.arrowEnd && smoothed.length >= 2) {
+          const end = smoothed[smoothed.length - 1];
+          const prev = smoothed[smoothed.length - 2];
+          const angle = Math.atan2(end.y - prev.y, end.x - prev.x);
+          const headLength = Math.max(20, sw * 2.5);
+          const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
+          const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
+          const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
+          const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
+          svgContent += `<polygon points="${end.x},${end.y} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" />`;
+        }
+        svgContent += `</g>`;
       } else if (ann.type === 'highlighter' && ann.points) {
         const smoothed = smoothPath(ann.points);
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');

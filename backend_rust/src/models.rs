@@ -84,6 +84,7 @@ pub struct Photo {
     pub auto_tags: Option<String>,
     pub embedding: Option<String>,
     pub ocr_text: Option<String>,
+    pub ocr_bboxes: Option<String>,
     pub adjustments_json: Option<String>,
     pub blur_score: Option<f64>,
     pub file_size: Option<i64>,
