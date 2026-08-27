@@ -58,6 +58,9 @@ const TimelineDialItem: React.FC<{
   );
 };
 
+/**
+ * TimelineDial - Renders timeline dial.
+ */
 export const TimelineDial: React.FC<TimelineDialProps> = ({ items, activeId, scrollProgress, scrollHeight }) => {
   if (items.length === 0) return null;
 

@@ -1,5 +1,6 @@
 import React from 'react';
 
+/** Loading placeholder for storage cleanup data. */
 export const LoadingState: React.FC = () => {
   return (
     <div className="flex items-center justify-center py-16">

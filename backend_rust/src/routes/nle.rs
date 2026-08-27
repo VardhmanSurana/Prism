@@ -46,6 +46,7 @@ pub struct UpdateProjectRequest {
     pub fps: Option<i32>,
 }
 
+/// find_project_by_id_or_uuid - Performs find project by id or uuid.
 pub async fn find_project_by_id_or_uuid(
     db: &sqlx::SqlitePool,
     id_or_uuid: &str,
@@ -71,6 +72,7 @@ pub async fn find_project_by_id_or_uuid(
     Err((StatusCode::NOT_FOUND, "Project not found".to_string()))
 }
 
+/// list_projects - Retrieves list projects.
 pub async fn list_projects(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<VideoProject>>, (StatusCode, String)> {
@@ -84,6 +86,7 @@ pub async fn list_projects(
     Ok(Json(projects))
 }
 
+/// create_project - Handles create project.
 pub async fn create_project(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateProjectRequest>,
@@ -124,6 +127,7 @@ pub async fn create_project(
     Ok(Json(project))
 }
 
+/// get_project - Retrieves get project.
 pub async fn get_project(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -146,6 +150,7 @@ pub async fn get_project(
     })))
 }
 
+/// update_project - Updates update project.
 pub async fn update_project(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -197,6 +202,7 @@ pub async fn update_project(
     })))
 }
 
+/// delete_project - Deletes delete project.
 pub async fn delete_project(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -222,6 +228,7 @@ pub struct GenerateProxyRequest {
     pub target_height: Option<i32>,
 }
 
+/// is_ffmpeg_installed - Performs is ffmpeg installed.
 pub fn is_ffmpeg_installed() -> bool {
     std::process::Command::new("ffmpeg")
         .arg("-version")
@@ -230,6 +237,7 @@ pub fn is_ffmpeg_installed() -> bool {
         .unwrap_or(false)
 }
 
+/// generate_proxy_video - Performs generate proxy video.
 pub async fn generate_proxy_video(
     Json(payload): Json<GenerateProxyRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -298,6 +306,7 @@ pub struct AnalyzeClipRequest {
     pub source_path: Option<String>,
 }
 
+/// analyze_video_clip - Performs analyze video clip.
 pub async fn analyze_video_clip(
     Json(payload): Json<AnalyzeClipRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -322,6 +331,7 @@ pub struct StreamQuery {
     pub path: String,
 }
 
+/// stream_video - Performs stream video.
 pub async fn stream_video(
     axum::extract::Query(query): axum::extract::Query<StreamQuery>,
 ) -> Result<axum::response::Response, (StatusCode, String)> {
@@ -400,6 +410,7 @@ pub struct ThumbnailStripRequest {
     pub out_point: Option<f64>,
 }
 
+/// thumbnail_strip - Performs thumbnail strip.
 pub async fn thumbnail_strip(
     Json(payload): Json<ThumbnailStripRequest>,
 ) -> axum::response::Json<Value> {
@@ -581,6 +592,7 @@ pub struct PreviewFrameRequest {
     pub width: u32,
 }
 
+/// default_width - Performs default width.
 fn default_width() -> u32 { 640 }
 
 /// POST /api/v1/nle/preview/frame — Render a single preview frame via FFmpeg.

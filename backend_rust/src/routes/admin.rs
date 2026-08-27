@@ -8,12 +8,14 @@ use axum::{
 use crate::AppState;
 
 // Serve the admin dashboard HTML
+/// admin_dashboard - Performs admin dashboard.
 pub async fn admin_dashboard() -> impl IntoResponse {
     let html = include_str!("../../admin/index.html");
     Html(html.to_string())
 }
 
 // Health check endpoint for admin
+/// admin_health - Performs admin health.
 pub async fn admin_health(
     State(state): State<std::sync::Arc<AppState>>,
 ) -> impl IntoResponse {
@@ -44,6 +46,7 @@ pub async fn admin_health(
 }
 
 // Create admin routes
+/// create_admin_routes - Handles create admin routes.
 pub fn create_admin_routes() -> Router<std::sync::Arc<AppState>> {
     Router::new()
         .route("/", get(admin_dashboard))

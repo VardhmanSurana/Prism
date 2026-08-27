@@ -26,10 +26,12 @@ pub struct VisionResult {
 }
 
 impl LlmClient {
+    /// preload_agent - Performs preload agent.
     pub async fn preload_agent(&self) -> Result<(), String> {
         self.server.base_url(crate::services::llm_server::LlmMode::Agent).await.map(|_| ())
     }
 
+    /// new - Performs new.
     pub fn new(server: Arc<LlmServer>) -> Self {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(180))
@@ -148,6 +150,7 @@ impl LlmClient {
     }
 }
 
+/// chat_message - Performs chat message.
 fn chat_message(image_path: &str, text: &str) -> Value {
     let data_url = image_to_data_url(image_path);
     json!({
@@ -206,6 +209,7 @@ fn parse_tags_json(content: &str) -> Vec<String> {
     Vec::new()
 }
 
+/// strip_code_fence - Performs strip code fence.
 fn strip_code_fence(content: &str) -> &str {
     let trimmed = content.trim();
     if let Some(rest) = trimmed.strip_prefix("```json") {
@@ -221,6 +225,7 @@ fn strip_code_fence(content: &str) -> &str {
     trimmed
 }
 
+/// last_json_array - Performs last json array.
 fn last_json_array(content: &str) -> Option<String> {
     // Find the last [...] block (Python uses re.findall(r'\[.*?\]', ...)).
     let mut last: Option<String> = None;

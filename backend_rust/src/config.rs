@@ -14,6 +14,7 @@ pub struct Config {
 }
 
 impl Config {
+    /// from_env - Creates config from environment variables.
     pub fn from_env() -> Self {
         dotenvy::dotenv().ok();
 

@@ -36,6 +36,9 @@ const DRAW_TOOLS: { id: DrawToolId; name: string; icon: React.ComponentType<any>
   { id: 'eraser', name: 'Eraser', icon: Eraser },
 ];
 
+/**
+ * ToolsGrid - Renders tools grid.
+ */
 export const ToolsGrid: React.FC<ToolsGridProps> = ({ activeDrawTool, setActiveDrawTool }) => {
   return (
     <div>

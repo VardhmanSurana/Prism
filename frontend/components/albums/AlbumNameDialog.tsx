@@ -9,6 +9,9 @@ interface AlbumNameDialogProps {
   onClose: () => void;
 }
 
+/**
+ * AlbumNameDialog - Renders album name dialog.
+ */
 export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
   isOpen,
   mode,
@@ -33,6 +36,9 @@ export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
   const Icon = isCreate ? FolderPlus : Pencil;
   const confirmLabel = isCreate ? 'Create' : 'Save';
 
+  /**
+   * handleSubmit - Handles submit.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();

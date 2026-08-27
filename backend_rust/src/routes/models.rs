@@ -10,6 +10,7 @@ use std::sync::Arc;
 
 use crate::AppState;
 
+/// routes - Performs routes.
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
         .route("/", get(list_models))
@@ -19,6 +20,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/:id", delete(delete_model))
 }
 
+/// list_models - Retrieves list models.
 pub async fn list_models(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -26,6 +28,7 @@ pub async fn list_models(
     Ok(Json(json!({ "models": models })))
 }
 
+/// get_all_progress - Retrieves get all progress.
 pub async fn get_all_progress(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -33,6 +36,7 @@ pub async fn get_all_progress(
     Ok(Json(json!({ "progress": progress })))
 }
 
+/// download_model - Performs download model.
 pub async fn download_model(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -47,6 +51,7 @@ pub async fn download_model(
     }
 }
 
+/// cancel_download - Performs cancel download.
 pub async fn cancel_download(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -61,6 +66,7 @@ pub async fn cancel_download(
     }
 }
 
+/// delete_model - Deletes delete model.
 pub async fn delete_model(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,

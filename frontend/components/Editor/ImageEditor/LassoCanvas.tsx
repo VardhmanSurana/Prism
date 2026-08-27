@@ -10,6 +10,9 @@ interface LassoCanvasProps {
   onSelectionComplete?: (maskCanvas: HTMLCanvasElement) => void;
 }
 
+/**
+ * LassoCanvas - Renders lasso canvas.
+ */
 export const LassoCanvas: React.FC<LassoCanvasProps> = ({
   width,
   height,
@@ -43,6 +46,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
 
   // Animated Marching Ants loop
   useEffect(() => {
+    /**
+     * timer - Performs timer.
+     */
     const timer = setInterval(() => {
       setDashOffset(prev => (prev + 1) % 10);
     }, 100);
@@ -90,6 +96,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
     }
   }, [state, width, height, dashOffset]);
 
+  /**
+   * getCanvasCoords - Retrieves get canvas coords.
+   */
   const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>): Point2D => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -102,6 +111,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
     };
   };
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const p = getCanvasCoords(e);
 
@@ -130,6 +142,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
     }
   };
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!isDrawing && state.type === 'freehand') return;
 
@@ -146,6 +161,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
     }
   };
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = () => {
     if (state.type === 'freehand' && isDrawing) {
       setIsDrawing(false);
@@ -156,6 +174,9 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
     }
   };
 
+  /**
+   * handleDoubleClick - Handles double click.
+   */
   const handleDoubleClick = () => {
     if (state.points.length > 2) {
       const closedState = { ...state, isClosed: true };

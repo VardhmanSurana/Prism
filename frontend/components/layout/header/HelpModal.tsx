@@ -20,6 +20,9 @@ interface HelpModalProps {
   onClose: () => void;
 }
 
+/**
+ * HelpModal - Renders help modal.
+ */
 export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 

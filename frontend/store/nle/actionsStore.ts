@@ -17,6 +17,9 @@ export interface ActionsSlice {
   getTimelineDuration: () => number;
 }
 
+/**
+ * createActionsSlice - Creates actions slice.
+ */
 export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = (set, get) => ({
   addClipFromLibrary: async (trackId, photo) => {
     const state = get();
@@ -60,6 +63,9 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
 
     let startFrame = 0;
     if (targetTrack.clips.length > 0) {
+      /**
+       * lastClip - Performs last clip.
+       */
       const lastClip = targetTrack.clips.reduce((latest, c) =>
         (c.startFrame + c.durationFrames) > (latest.startFrame + latest.durationFrames) ? c : latest
       );
@@ -88,6 +94,9 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
 
     get().pushHistory();
     set((s) => {
+      /**
+       * updatedTracks - Performs updated tracks.
+       */
       const updatedTracks = (s.tracks.length === 0 ? currentTracks : s.tracks).map((t) =>
         t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
       );
@@ -140,6 +149,9 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
 
       get().pushHistory();
 
+      /**
+       * subtitleClips - Performs subtitle clips.
+       */
       const subtitleClips: Clip[] = segments.map((seg) => ({
         id: nextClipId(),
         sourceId: 0,
@@ -170,6 +182,9 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
       }));
 
       set((s) => {
+        /**
+         * tracks - Performs tracks.
+         */
         const tracks = s.tracks.map((t) =>
           t.id === trackId ? { ...t, clips: [...t.clips, ...subtitleClips] } : t
         );
@@ -184,6 +199,9 @@ export const createActionsSlice: StateCreator<NLEStore, [], [], ActionsSlice> = 
     const { tracks, selectedClipId } = get();
     if (!selectedClipId) return null;
     for (const track of tracks) {
+      /**
+       * clip - Performs clip.
+       */
       const clip = track.clips.find((c) => c.id === selectedClipId);
       if (clip) return clip;
     }

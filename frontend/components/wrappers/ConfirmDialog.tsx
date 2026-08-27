@@ -10,6 +10,9 @@ interface ConfirmState {
   resolve: (value: boolean) => void;
 }
 
+/**
+ * ConfirmDialog - Renders confirm dialog.
+ */
 export const ConfirmDialog: React.FC = () => {
   const [state, setState] = useState<ConfirmState | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
@@ -37,11 +40,17 @@ export const ConfirmDialog: React.FC = () => {
     }
   }, [state?.isOpen]);
 
+  /**
+   * handleConfirm - Handles confirm.
+   */
   const handleConfirm = useCallback(() => {
     state?.resolve(true);
     setState(null);
   }, [state]);
 
+  /**
+   * handleCancel - Handles cancel.
+   */
   const handleCancel = useCallback(() => {
     state?.resolve(false);
     setState(null);
@@ -50,6 +59,9 @@ export const ConfirmDialog: React.FC = () => {
   useEffect(() => {
     if (!state?.isOpen) return;
 
+    /**
+     * handleKeyDown - Handles key down.
+     */
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         state?.resolve(false);

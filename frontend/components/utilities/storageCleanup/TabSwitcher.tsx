@@ -12,6 +12,9 @@ const TABS: { id: CleanupTab; label: string }[] = [
   { id: 'documents', label: 'Documents & Receipts' }
 ];
 
+/**
+ * Tab switcher for storage cleanup sub-tabs (blurry/duplicates/documents).
+ */
 export const TabSwitcher: React.FC<TabSwitcherProps> = ({ activeTab, onTabChange }) => {
   return (
     <div className="cr-sub-tabs flex" role="tablist" aria-label="Storage cleanup views">

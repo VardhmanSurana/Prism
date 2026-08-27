@@ -14,6 +14,9 @@ interface AssetsPanelProps {
   coverPhoto?: Photo;
 }
 
+/**
+ * AssetsPanel - Renders assets panel.
+ */
 export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -21,17 +24,38 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
   const [isUploading, setIsUploading] = useState(false);
   const [failedAssets, setFailedAssets] = useState<Record<string, boolean>>({});
 
+  /**
+   * addClipFromLibrary - Performs add clip from library.
+   */
   const addClipFromLibrary = useNLEStore((s) => s.addClipFromLibrary);
+  /**
+   * addProjectAsset - Performs add project asset.
+   */
   const addProjectAsset = useNLEStore((s) => s.addProjectAsset);
+  /**
+   * removeProjectAsset - Performs remove project asset.
+   */
   const removeProjectAsset = useNLEStore((s) => s.removeProjectAsset);
+  /**
+   * projectAssets - Performs project assets.
+   */
   const projectAssets = useNLEStore((s) => s.projectAssets);
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * selectedTrackId - Performs selected track id.
+   */
   const selectedTrackId = useNLEStore((s) => s.selectedTrackId);
   const dropRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const activeTrackId = selectedTrackId ?? tracks[0]?.id ?? '';
 
   // Extract the source video from the cover photo or timeline clips
+  /**
+   * sourceAsset - Performs source asset.
+   */
   const sourceAsset: ProjectAsset | null = (() => {
     if (coverPhoto && coverPhoto.path) {
       return {
@@ -63,6 +87,9 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
   })();
 
   // Combine source + imported assets, deduplicate by type and id/path, filter by search
+  /**
+   * allAssets - Performs all assets.
+   */
   const allAssets: ProjectAsset[] = useMemo(() => {
     const list: ProjectAsset[] = [];
     const seenKeys = new Set<string>();
@@ -77,17 +104,26 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
     return list;
   }, [sourceAsset, projectAssets]);
 
+  /**
+   * filteredAssets - Performs filtered assets.
+   */
   const filteredAssets = allAssets.filter((a) =>
     !search || a.filename?.toLowerCase().includes(search.toLowerCase())
   );
 
   // Drag-and-drop import handler
+  /**
+   * handleDragOver - Handles drag over.
+   */
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(true);
   }, []);
 
+  /**
+   * handleDragLeave - Handles drag leave.
+   */
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -96,6 +132,9 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
     }
   }, []);
 
+  /**
+   * handleFiles - Handles files.
+   */
   const handleFiles = useCallback(async (files: File[]) => {
     setIsUploading(true);
     try {
@@ -135,12 +174,18 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
     }
   }, [addProjectAsset]);
 
+  /**
+   * handleDrop - Handles drop.
+   */
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(false);
 
     const files = Array.from(e.dataTransfer.files);
+    /**
+     * supportedFiles - Performs supported files.
+     */
     const supportedFiles = files.filter((f) =>
       f.type.startsWith('video/') || f.type.startsWith('image/') || f.type.startsWith('audio/') ||
       /\.(mp4|mov|avi|mkv|webm|flv|wmv|jpg|jpeg|png|gif|webp|mp3|wav|flac|ogg)$/i.test(f.name)
@@ -150,6 +195,9 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
     await handleFiles(supportedFiles);
   }, [handleFiles]);
 
+  /**
+   * handleAddClip - Handles add clip.
+   */
   const handleAddClip = useCallback(async (asset: ProjectAsset) => {
     try {
       await addClipFromLibrary(activeTrackId, {
@@ -166,10 +214,16 @@ export const AssetsPanel: React.FC<AssetsPanelProps> = ({ isOpen, coverPhoto }) 
     }
   }, [activeTrackId, addClipFromLibrary]);
 
+  /**
+   * handleImportClick - Handles import click.
+   */
   const handleImportClick = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
+  /**
+   * handleFileInputChange - Handles file input change.
+   */
   const handleFileInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (files.length > 0) {

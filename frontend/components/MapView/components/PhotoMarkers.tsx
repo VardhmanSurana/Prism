@@ -13,12 +13,18 @@ interface PhotoMarkersProps {
   onPhotoLocationChange?: (photo: Photo, coords: { latitude: number; longitude: number }) => Promise<void>;
 }
 
+/**
+ * formatPopupLocation - Formats format popup location.
+ */
 function formatPopupLocation(photo: Photo, editMode: boolean, isSaving: boolean) {
   if (isSaving) return 'Saving location...';
   if (editMode) return 'Drag to update this photo location';
   return photo.location || photo.filename || '';
 }
 
+/**
+ * PhotoMarkers - Renders photo markers.
+ */
 export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({
   geoPhotos,
   onPhotoClick,

@@ -17,6 +17,9 @@ interface ActivityItem {
   session_id?: string;
 }
 
+/**
+ * timeAgo - Performs time ago.
+ */
 const timeAgo = (isoString: string) => {
   try {
     const date = new Date(isoString);
@@ -35,12 +38,18 @@ const timeAgo = (isoString: string) => {
   }
 };
 
+/**
+ * RecentActivityFeed - Renders recent activity feed.
+ */
 export const RecentActivityFeed: React.FC = () => {
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isCurrent = true;
+    /**
+     * fetchActivity - Retrieves fetch activity.
+     */
     const fetchActivity = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/activity`);

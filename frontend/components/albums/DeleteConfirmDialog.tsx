@@ -8,6 +8,9 @@ interface DeleteConfirmDialogProps {
   onClose: () => void;
 }
 
+/**
+ * DeleteConfirmDialog - Renders delete confirm dialog.
+ */
 export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   isOpen,
   albumName,

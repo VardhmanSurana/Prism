@@ -9,6 +9,9 @@ interface ConfirmationDialogProps {
   onCancel: () => void;
 }
 
+/**
+ * Generic confirmation dialog with confirm/cancel actions and optional destructive styling.
+ */
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   isOpen,
   title,

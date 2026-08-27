@@ -1,3 +1,6 @@
+/**
+ * formatDuration - Formats format duration.
+ */
 export function formatDuration(seconds: number): string {
   if (!seconds || !isFinite(seconds) || seconds <= 0) return '0:00';
   const h = Math.floor(seconds / 3600);
@@ -7,6 +10,9 @@ export function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+/**
+ * formatCompactDuration - Formats format compact duration.
+ */
 function formatCompactDuration(seconds: number): string {
   if (!seconds || !isFinite(seconds) || seconds <= 0) return '0s';
   const h = Math.floor(seconds / 3600);

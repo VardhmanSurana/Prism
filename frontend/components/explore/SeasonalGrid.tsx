@@ -100,12 +100,18 @@ const SeasonCard: React.FC<{
   );
 };
 
+/**
+ * SeasonalGrid - Renders seasonal grid.
+ */
 export const SeasonalGrid: React.FC<SeasonalGridProps> = ({ seasons: propSeasons }) => {
   const [seasons, setSeasons] = useState<Season[]>(propSeasons || []);
   const [isLoading, setIsLoading] = useState(!propSeasons);
 
   useEffect(() => {
     if (propSeasons) return;
+    /**
+     * fetchSeasons - Retrieves fetch seasons.
+     */
     const fetchSeasons = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/seasons`);

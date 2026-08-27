@@ -22,13 +22,22 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
 
 export const LAYOUT_STORAGE_KEY = 'prism_explore_layout_v1';
 
+/**
+ * loadSavedWidgets - Performs load saved widgets.
+ */
 export const loadSavedWidgets = (): WidgetConfig[] => {
   try {
     const raw = localStorage.getItem(LAYOUT_STORAGE_KEY);
     if (raw) {
       const parsed: WidgetConfig[] = JSON.parse(raw);
       // Merge with default to handle newly added widgets
+      /**
+       * savedIds - Performs saved ids.
+       */
       const savedIds = new Set(parsed.map(w => w.id));
+      /**
+       * missing - Performs missing.
+       */
       const missing = DEFAULT_WIDGETS.filter(w => !savedIds.has(w.id));
       return [...parsed, ...missing];
     }
@@ -43,15 +52,27 @@ interface ExploreWidgetCustomizerProps {
   onChange: (widgets: WidgetConfig[]) => void;
 }
 
+/**
+ * ExploreWidgetCustomizer - Renders explore widget customizer.
+ */
 export const ExploreWidgetCustomizer: React.FC<ExploreWidgetCustomizerProps> = ({ widgets, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [localWidgets, setLocalWidgets] = useState<WidgetConfig[]>(widgets);
 
+  /**
+   * handleToggle - Handles toggle.
+   */
   const handleToggle = (id: string) => {
+    /**
+     * updated - Performs updated.
+     */
     const updated = localWidgets.map(w => (w.id === id ? { ...w, enabled: !w.enabled } : w));
     setLocalWidgets(updated);
   };
 
+  /**
+   * handleMove - Handles move.
+   */
   const handleMove = (index: number, direction: 'up' | 'down') => {
     const newIdx = direction === 'up' ? index - 1 : index + 1;
     if (newIdx < 0 || newIdx >= localWidgets.length) return;
@@ -61,10 +82,16 @@ export const ExploreWidgetCustomizer: React.FC<ExploreWidgetCustomizerProps> = (
     setLocalWidgets(copy);
   };
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     setLocalWidgets(DEFAULT_WIDGETS);
   };
 
+  /**
+   * handleSave - Handles save.
+   */
   const handleSave = () => {
     localStorage.setItem(LAYOUT_STORAGE_KEY, JSON.stringify(localWidgets));
     onChange(localWidgets);

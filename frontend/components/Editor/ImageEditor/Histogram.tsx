@@ -34,6 +34,9 @@ const W = 256;
 const H = 72;
 const SAMPLE_SIZE = 300; // offscreen canvas width — cheap to read
 
+/**
+ * buildEmptyData - Performs build empty data.
+ */
 function buildEmptyData(): HistogramData {
   return {
     r: new Array(BINS).fill(0),
@@ -44,6 +47,9 @@ function buildEmptyData(): HistogramData {
   };
 }
 
+/**
+ * computeHistogram - Performs compute histogram.
+ */
 export function computeHistogram(
   imageSrc: string,
   filterString: string,
@@ -105,8 +111,14 @@ export function computeHistogram(
   });
 }
 
+/**
+ * buildPath - Performs build path.
+ */
 function buildPath(bins: number[], peak: number): string {
   if (peak === 0) return '';
+  /**
+   * scaleY - Performs scale y.
+   */
   const scaleY = (v: number) => H - (v / peak) * H;
 
   const pts: string[] = [`M0,${H}`];
@@ -119,12 +131,18 @@ function buildPath(bins: number[], peak: number): string {
   return pts.join(' ');
 }
 
+/**
+ * Histogram - Renders histogram.
+ */
 export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString, onBlackPointSet, onWhitePointSet, onReset }) => {
   const [data, setData] = useState<HistogramData>(buildEmptyData());
   const [loading, setLoading] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /**
+   * recompute - Performs recompute.
+   */
   const recompute = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
@@ -142,6 +160,9 @@ export const Histogram: React.FC<HistogramProps> = ({ imageSrc, filterString, on
     };
   }, [recompute]);
 
+  /**
+   * handleHistogramClick - Handles histogram click.
+   */
   const handleHistogramClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (clickTimerRef.current) {
       clearTimeout(clickTimerRef.current);

@@ -15,7 +15,13 @@ export function createMonotoneCubicSpline(points: Point[]): (x: number) => numbe
   if (n === 0) return () => 0;
   if (n === 1) return () => points[0].y;
 
+  /**
+   * xs - Performs xs.
+   */
   const xs = points.map(p => p.x);
+  /**
+   * ys - Performs ys.
+   */
   const ys = points.map(p => p.y);
   
   // Array of secant slopes

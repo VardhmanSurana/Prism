@@ -60,6 +60,9 @@ const INPAINT_MODELS = [
   { id: 'powerpaint', name: 'PowerPaint', type: 'diffusion' },
 ];
 
+/**
+ * InpaintPanel - Renders inpaint panel.
+ */
 export const InpaintPanel: React.FC<InpaintPanelProps> = ({
   mode,
   operation,
@@ -79,15 +82,27 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  /**
+   * handleBrushSizeChange - Handles brush size change.
+   */
   const handleBrushSizeChange = useCallback((value: number) => {
     onSettingsChange({ ...settings, brushSize: value });
   }, [settings, onSettingsChange]);
 
+  /**
+   * handleBrushHardnessChange - Handles brush hardness change.
+   */
   const handleBrushHardnessChange = useCallback((value: number) => {
     onSettingsChange({ ...settings, brushHardness: value });
   }, [settings, onSettingsChange]);
 
+  /**
+   * handleModelChange - Handles model change.
+   */
   const handleModelChange = useCallback((modelId: string) => {
+    /**
+     * targetModel - Performs target model.
+     */
     const targetModel = INPAINT_MODELS.find(m => m.id === modelId);
     if (!targetModel) return;
 
@@ -97,27 +112,45 @@ export const InpaintPanel: React.FC<InpaintPanelProps> = ({
     onSettingsChange({ ...settings, model: modelId });
   }, [settings, operation, onSettingsChange, onOperationChange]);
 
+  /**
+   * handleOperationChange - Handles operation change.
+   */
   const handleOperationChange = useCallback((op: InpaintOperation) => {
     onOperationChange(op);
 
+    /**
+     * currentModel - Performs current model.
+     */
     const currentModel = INPAINT_MODELS.find(m => m.id === settings.model) || INPAINT_MODELS[0];
     if (op !== 'remove' && currentModel.type === 'erase') {
       onSettingsChange({ ...settings, model: 'sd15' });
     }
   }, [settings, onSettingsChange, onOperationChange]);
 
+  /**
+   * handleGuidanceChange - Handles guidance change.
+   */
   const handleGuidanceChange = useCallback((value: number) => {
     onSettingsChange({ ...settings, guidance: value });
   }, [settings, onSettingsChange]);
 
+  /**
+   * handleStepsChange - Handles steps change.
+   */
   const handleStepsChange = useCallback((value: number) => {
     onSettingsChange({ ...settings, steps: value });
   }, [settings, onSettingsChange]);
 
+  /**
+   * handlePromptChange - Handles prompt change.
+   */
   const handlePromptChange = useCallback((prompt: string) => {
     onSettingsChange({ ...settings, prompt });
   }, [settings, onSettingsChange]);
 
+  /**
+   * selectedModel - Performs selected model.
+   */
   const selectedModel = INPAINT_MODELS.find(m => m.id === settings.model) || INPAINT_MODELS[0];
   const isDiffusionModel = selectedModel.type === 'diffusion';
 

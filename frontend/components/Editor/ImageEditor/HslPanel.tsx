@@ -80,6 +80,9 @@ interface HslPanelProps {
   onChange: (adj: Adjustments) => void;
 }
 
+/**
+ * HslPanel - Renders hsl panel.
+ */
 export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => {
   const [activeBand, setActiveBand] = useState<HslBand>('reds');
 
@@ -90,6 +93,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     balance: 0,
   };
 
+  /**
+   * isAllDefault - Performs is all default.
+   */
   const isAllDefault = useMemo(() =>
     (Object.keys(hsl) as HslBand[]).every(b =>
       hsl[b].hue === 0 && hsl[b].saturation === 0 && hsl[b].luminance === 0
@@ -98,11 +104,17 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
       splitToning.balance === 0,
     [hsl, splitToning]);
 
+  /**
+   * isBandModified - Performs is band modified.
+   */
   const isBandModified = useCallback((band: HslBand) => {
     const b = hsl[band];
     return b.hue !== 0 || b.saturation !== 0 || b.luminance !== 0;
   }, [hsl]);
 
+  /**
+   * handleSliderChange - Handles slider change.
+   */
   const handleSliderChange = useCallback((key: 'hue' | 'saturation' | 'luminance', value: number) => {
     const newHsl: HslAdjustments = {
       ...hsl,
@@ -111,6 +123,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     onChange({ ...adjustments, hsl: newHsl });
   }, [hsl, activeBand, adjustments, onChange]);
 
+  /**
+   * handleResetBand - Handles reset band.
+   */
   const handleResetBand = useCallback(() => {
     const newHsl: HslAdjustments = {
       ...hsl,
@@ -119,6 +134,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     onChange({ ...adjustments, hsl: newHsl });
   }, [hsl, activeBand, adjustments, onChange]);
 
+  /**
+   * handleResetAll - Handles reset all.
+   */
   const handleResetAll = useCallback(() => {
     onChange({
       ...adjustments,
@@ -132,6 +150,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
   }, [adjustments, onChange]);
 
   // ── Split Toning handlers ──
+  /**
+   * handleSplitPresetClick - Handles split preset click.
+   */
   const handleSplitPresetClick = (preset: typeof SPLIT_PRESETS[0]) => {
     onChange({
       ...adjustments,
@@ -143,6 +164,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     });
   };
 
+  /**
+   * updateHighlights - Performs update highlights.
+   */
   const updateHighlights = useCallback((key: 'hue' | 'saturation', value: number) => {
     onChange({
       ...adjustments,
@@ -156,6 +180,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     });
   }, [splitToning, adjustments, onChange]);
 
+  /**
+   * updateShadows - Performs update shadows.
+   */
   const updateShadows = useCallback((key: 'hue' | 'saturation', value: number) => {
     onChange({
       ...adjustments,
@@ -169,6 +196,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
     });
   }, [splitToning, adjustments, onChange]);
 
+  /**
+   * updateBalance - Performs update balance.
+   */
   const updateBalance = useCallback((value: number) => {
     onChange({
       ...adjustments,
@@ -180,6 +210,9 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
   }, [splitToning, adjustments, onChange]);
 
   const currentBand = hsl[activeBand];
+  /**
+   * activeMeta - Performs active meta.
+   */
   const activeMeta = BANDS.find(b => b.id === activeBand)!;
 
   const highlightsColor = `hsl(${splitToning.highlights.hue}, ${splitToning.highlights.saturation}%, 50%)`;

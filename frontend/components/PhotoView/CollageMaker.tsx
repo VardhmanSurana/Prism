@@ -84,6 +84,9 @@ interface CollageMakerProps {
   onClose: () => void;
 }
 
+/**
+ * CollageMaker - Renders collage maker.
+ */
 export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onClose }) => {
   const [selectedLayout, setSelectedLayout] = useState<CollageLayout>(LAYOUTS[2]);
   const [gap, setGap] = useState(4);
@@ -100,6 +103,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
 
   useEffect(() => {
     if (isOpen) {
+      /**
+       * slots - Performs slots.
+       */
       const slots: (Photo | null)[] = selectedLayout.slots.map((_, i) =>
         i < photos.length ? photos[i] : null
       );
@@ -107,6 +113,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     }
   }, [isOpen, photos, selectedLayout]);
 
+  /**
+   * drawCanvas - Performs draw canvas.
+   */
   const drawCanvas = useCallback(async (canvas: HTMLCanvasElement, scale: number) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -167,6 +176,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     }
   }, [selectedLayout, photoSlots, gap, bgColor, roundCorners]);
 
+  /**
+   * handleExport - Handles export.
+   */
   const handleExport = useCallback(async () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -218,6 +230,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     return () => { cancelled = true; clearTimeout(estimateTimerRef.current); };
   }, [jpegQuality, exportFormat, drawCanvas]);
 
+  /**
+   * renderPreview - Performs render preview.
+   */
   const renderPreview = useCallback(() => {
     if (!previewRef.current) return;
     const container = previewRef.current;
@@ -237,6 +252,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
     const total = photoSlots.filter(Boolean).length;
     if (total === 0) return;
 
+    /**
+     * drawSlot - Performs draw slot.
+     */
     const drawSlot = (i: number) => {
       const slot = selectedLayout.slots[i];
       const photo = photoSlots[i];
@@ -277,6 +295,9 @@ export const CollageMaker: React.FC<CollageMakerProps> = ({ photos, isOpen, onCl
       img.src = resolveUrl(photo.url);
     };
 
+    /**
+     * commit - Performs commit.
+     */
     const commit = () => {
       const existing = container.querySelector('canvas');
       if (existing) existing.remove();

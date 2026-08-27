@@ -4,6 +4,9 @@ import { PhotoItem } from './PhotoItem';
 import { ROW_PADDING } from './constants';
 import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
+/**
+ * PhotoGridRow - Renders photo grid row.
+ */
 export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   photos,
   isFull,
@@ -22,7 +25,13 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
 }) => {
   const { galleryStyle } = useGalleryLayout();
   const isGoogle = galleryStyle === 'google';
+  /**
+   * handleMouseEnter - Handles mouse enter.
+   */
   const handleMouseEnter = useCallback(() => onRowHover(dateKey), [dateKey, onRowHover]);
+  /**
+   * handleMouseLeave - Handles mouse leave.
+   */
   const handleMouseLeave = useCallback(() => onRowHover(null), [onRowHover]);
 
   return (

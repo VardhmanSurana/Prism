@@ -32,12 +32,30 @@ const GRADING_PRESETS: GradingPreset[] = [
   { name: 'Golden Hour', swatch: 'linear-gradient(135deg, #f4a261 0%, #e76f51 50%, #e63946 100%)', effects: { temperature: 60, saturation: 20, brightness: 10, contrast: -5 } },
 ];
 
+/**
+ * PresetsPanel - Renders presets panel.
+ */
 export const PresetsPanel: React.FC = () => {
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * selectedClip - Performs selected clip.
+   */
   const selectedClip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
+  /**
+   * setClipEffects - Performs set clip effects.
+   */
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
 
+  /**
+   * applyPreset - Performs apply preset.
+   */
   const applyPreset = (preset: GradingPreset) => {
     if (!selectedClip) return;
     setClipEffects(selectedClip.id, preset.effects);

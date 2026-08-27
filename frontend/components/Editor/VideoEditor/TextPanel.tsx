@@ -22,9 +22,18 @@ const TEXT_PRESETS: { label: string; text: string; fontSize: number; fontFamily:
   { label: 'Watermark', text: '© Your Name', fontSize: 18, fontFamily: 'Arial' },
 ];
 
+/**
+ * TextPanel - Renders text panel.
+ */
 export const TextPanel: React.FC = () => {
   const { tracks, projectFps, playheadPosition } = useNLEStore();
+  /**
+   * addClip - Performs add clip.
+   */
   const addClip = useNLEStore((s) => s.addClip);
+  /**
+   * addTrack - Performs add track.
+   */
   const addTrack = useNLEStore((s) => s.addTrack);
 
   const [customText, setCustomText] = useState('');
@@ -33,7 +42,13 @@ export const TextPanel: React.FC = () => {
   const [fontColor, setFontColor] = useState('#ffffff');
 
   // Find or create a text track
+  /**
+   * findTextTrack - Performs find text track.
+   */
   const findTextTrack = useCallback((): string | null => {
+    /**
+     * textTrack - Performs text track.
+     */
     const textTrack = tracks.find((t) => t.type === 'text');
     if (textTrack) return textTrack.id;
     // Create a text track
@@ -44,6 +59,9 @@ export const TextPanel: React.FC = () => {
     return newTextTrack?.id ?? null;
   }, [tracks, addTrack]);
 
+  /**
+   * addTextClip - Performs add text clip.
+   */
   const addTextClip = useCallback((text: string, size: number, family: string, color: string) => {
     const trackId = findTextTrack();
     if (!trackId) return;
@@ -80,6 +98,9 @@ export const TextPanel: React.FC = () => {
     addClip(trackId, clip);
   }, [findTextTrack, playheadPosition, projectFps, addClip]);
 
+  /**
+   * handleAddCustom - Handles add custom.
+   */
   const handleAddCustom = useCallback(() => {
     if (!customText.trim()) return;
     addTextClip(customText.trim(), fontSize, fontFamily, fontColor);

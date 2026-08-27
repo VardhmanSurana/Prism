@@ -17,6 +17,9 @@ const SMART_ALBUM_ICONS: Record<string, React.ReactNode> = {
   places: <MapPin size={24} />,
 };
 
+/**
+ * AlbumsList - Renders albums list.
+ */
 export const AlbumsList: React.FC<AlbumsListProps> = ({ 
   albums, 
   onAlbumClick, 
@@ -24,7 +27,13 @@ export const AlbumsList: React.FC<AlbumsListProps> = ({
   onDeleteAlbum,
   onCreateAlbum
 }) => {
+  /**
+   * smartAlbums - Performs smart albums.
+   */
   const smartAlbums = albums.filter((a): a is SmartAlbum => a.type === 'smart');
+  /**
+   * customAlbums - Performs custom albums.
+   */
   const customAlbums = albums.filter((a): a is Album => a.type !== 'smart');
 
   if (albums.length === 0) {

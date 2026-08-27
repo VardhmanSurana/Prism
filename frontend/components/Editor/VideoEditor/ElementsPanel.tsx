@@ -46,14 +46,23 @@ const CATEGORIES = ['All', 'Shapes', 'Stickers', 'Overlays'];
 
 let _elementCounter = 0;
 
+/**
+ * ElementsPanel - Renders elements panel.
+ */
 export const ElementsPanel: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const { tracks, projectFps, addClip } = useNLEStore();
 
+  /**
+   * filtered - Performs filtered.
+   */
   const filtered = ELEMENT_PRESETS.filter((p) =>
     activeCategory === 'All' || p.category === activeCategory
   );
 
+  /**
+   * handleAdd - Handles add.
+   */
   const handleAdd = useCallback((preset: ElementPreset) => {
     const track = tracks[0];
     if (!track) return;

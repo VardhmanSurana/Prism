@@ -59,6 +59,7 @@ pub struct ModelManager {
 }
 
 impl ModelManager {
+    /// new - Performs new.
     pub fn new(models_dir: PathBuf) -> Self {
         let models = Self::default_model_registry();
         Self {
@@ -69,6 +70,7 @@ impl ModelManager {
         }
     }
 
+    /// default_model_registry - Performs default model registry.
     fn default_model_registry() -> Vec<ModelDefinition> {
         vec![
             ModelDefinition {
@@ -169,6 +171,7 @@ impl ModelManager {
         ]
     }
 
+    /// check_model_on_disk - Performs check model on disk.
     pub fn check_model_on_disk(&self, model: &ModelDefinition) -> (bool, u64) {
         let mut all_exist = true;
         let mut total_disk_size = 0u64;
@@ -189,6 +192,7 @@ impl ModelManager {
         (all_exist && !model.files.is_empty(), total_disk_size)
     }
 
+    /// list_models - Performs list models.
     pub async fn list_models(&self) -> Vec<ModelInfoResponse> {
         let progress_guard = self.active_progress.read().await;
         let mut responses = Vec::new();
@@ -213,10 +217,12 @@ impl ModelManager {
         responses
     }
 
+    /// get_all_progress - Retrieves all progress.
     pub async fn get_all_progress(&self) -> HashMap<String, ModelProgress> {
         self.active_progress.read().await.clone()
     }
 
+    /// start_download - Performs start download.
     pub async fn start_download(&self, model_id: &str) -> Result<(), String> {
         let model = self
             .models
@@ -414,6 +420,7 @@ impl ModelManager {
         Ok(())
     }
 
+    /// set_error - Performs set error.
     async fn set_error(progress_map: &Arc<RwLock<HashMap<String, ModelProgress>>>, model_id: &str, error: &str) {
         let mut guard = progress_map.write().await;
         if let Some(p) = guard.get_mut(model_id) {
@@ -428,6 +435,7 @@ impl ModelManager {
         }
     }
 
+    /// cancel_download - Performs cancel download.
     pub async fn cancel_download(&self, model_id: &str) -> Result<(), String> {
         if let Some(handle) = self.abort_handles.lock().await.remove(model_id) {
             handle.abort();
@@ -443,6 +451,7 @@ impl ModelManager {
         Ok(())
     }
 
+    /// delete_model - Performs delete model.
     pub async fn delete_model(&self, model_id: &str) -> Result<(), String> {
         self.cancel_download(model_id).await.ok();
 

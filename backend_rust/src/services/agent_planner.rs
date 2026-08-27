@@ -14,10 +14,12 @@ pub struct Planner {
 
 #[allow(dead_code)]
 impl Planner {
+    /// new - Performs new.
     pub fn new(llm_client: LlmClient, server: Arc<LlmServer>) -> Self {
         Self { llm_client, server }
     }
 
+    /// parse_json_robustly - Performs parse json robustly.
     fn parse_json_robustly(&self, text: &str) -> Result<Value, String> {
         let mut text = text.trim();
         if text.starts_with("```") {
@@ -57,6 +59,7 @@ impl Planner {
         Err("Could not parse valid JSON from LLM output".to_string())
     }
 
+    /// validate_and_clean_planner_schema - Performs validate and clean planner schema.
     fn validate_and_clean_planner_schema(&self, data: Value) -> Result<Value, String> {
         if !data.is_object() {
             return Err("Parsed LLM output is not a JSON object".to_string());
@@ -197,6 +200,7 @@ impl Planner {
         Ok(cleaned)
     }
 
+    /// heuristic_fallback - Performs heuristic fallback.
     fn heuristic_fallback(&self, message: &str) -> Value {
         let msg_lower = message.to_lowercase();
         // Skip regex for now, just some basic keywords
@@ -249,6 +253,7 @@ impl Planner {
         })
     }
 
+    /// extract_search_parameters - Performs extract search parameters.
     pub async fn extract_search_parameters(&self, message: &str) -> Value {
         if let Ok(base_url) = self.server.base_url(LlmMode::Agent).await {
             let prompt = format!(
@@ -291,6 +296,7 @@ impl Planner {
         self.heuristic_fallback(message)
     }
 
+    /// verify_photos_match - Performs verify photos match.
     pub async fn verify_photos_match(&self, _query: &str, photos_metadata: &[Photo]) -> Vec<i64> {
         let mut ids = Vec::new();
         for p in photos_metadata {
@@ -299,6 +305,7 @@ impl Planner {
         ids
     }
 
+    /// generate_chat_response - Generates chat response.
     pub async fn generate_chat_response(&self, message: &str, photos: &[Photo]) -> String {
         if photos.is_empty() {
             return format!("I couldn't find any photos in your library matching '{}'.", message);

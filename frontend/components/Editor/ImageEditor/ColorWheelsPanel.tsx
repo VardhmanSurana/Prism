@@ -14,10 +14,16 @@ interface SingleWheelProps {
   onChange: (val: ColorWheelVal) => void;
 }
 
+/**
+ * SingleWheel - Renders single wheel.
+ */
 const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }) => {
   const wheelRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -25,11 +31,17 @@ const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }
     updateVector(e.clientX, e.clientY);
   };
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!isDragging) return;
     updateVector(e.clientX, e.clientY);
   };
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = (e: React.PointerEvent) => {
     setIsDragging(false);
     try {
@@ -37,6 +49,9 @@ const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }
     } catch {}
   };
 
+  /**
+   * updateVector - Performs update vector.
+   */
   const updateVector = (clientX: number, clientY: number) => {
     if (!wheelRef.current) return;
     const rect = wheelRef.current.getBoundingClientRect();
@@ -59,6 +74,9 @@ const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }
     onChange({ ...val, x: normX, y: normY });
   };
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     onChange({ ...DEFAULT_COLOR_WHEEL_VAL });
   };
@@ -126,9 +144,15 @@ const SingleWheel: React.FC<SingleWheelProps> = ({ label, val, color, onChange }
   );
 };
 
+/**
+ * ColorWheelsPanel - Renders color wheels panel.
+ */
 export const ColorWheelsPanel: React.FC<ColorWheelsPanelProps> = ({ value, onChange }) => {
   const mode = value.mode || 'primary';
 
+  /**
+   * setMode - Performs set mode.
+   */
   const setMode = (m: 'primary' | 'log') => {
     onChange({ ...value, mode: m });
   };

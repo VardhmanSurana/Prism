@@ -37,12 +37,21 @@ interface LiquifyPanelProps {
   onResetMesh: () => void;
 }
 
+/**
+ * LiquifyPanel - Renders liquify panel.
+ */
 export const LiquifyPanel: React.FC<LiquifyPanelProps> = ({
   settings = DEFAULT_LIQUIFY_SETTINGS,
   onChange,
   onResetMesh,
 }) => {
+  /**
+   * update - Performs update.
+   */
   const update = (patch: Partial<LiquifySettings>) => onChange({ ...settings, ...patch });
+  /**
+   * updateFace - Performs update face.
+   */
   const updateFace = (patch: Partial<FaceLiquifySettings>) =>
     onChange({ ...settings, face: { ...settings.face, ...patch } });
 

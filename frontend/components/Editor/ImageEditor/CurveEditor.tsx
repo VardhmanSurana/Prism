@@ -37,6 +37,9 @@ const channelColors = {
   blue:   '#3b82f6',
 };
 
+/**
+ * CurveEditor - Renders curve editor.
+ */
 export const CurveEditor: React.FC<CurveEditorProps> = ({
   value,
   onChange,
@@ -76,6 +79,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
   }, [imageSrc, filterString]);
 
   // Helper to map mouse client coordinates to SVG coordinate system with float precision
+  /**
+   * getCoordinates - Retrieves get coordinates.
+   */
   const getCoordinates = (clientX: number, clientY: number): Point => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
@@ -93,12 +99,18 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
     return { x, y };
   };
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = useCallback((e: React.PointerEvent, idx: number) => {
     e.stopPropagation();
     e.currentTarget.setPointerCapture(e.pointerId);
     setDragInfo({ index: idx, channel: activeChannel });
   }, [activeChannel]);
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = useCallback((e: PointerEvent) => {
     if (!dragInfo) return;
     
@@ -130,6 +142,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
     });
   }, [dragInfo, value, onChange]);
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = useCallback(() => {
     if (dragInfo) {
       setDragInfo(null);
@@ -148,6 +163,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
     }
   }, [dragInfo, handlePointerMove, handlePointerUp]);
 
+  /**
+   * handleSvgClick - Handles svg click.
+   */
   const handleSvgClick = useCallback((e: React.PointerEvent) => {
     if (dragInfo) return;
     const { x, y } = getCoordinates(e.clientX, e.clientY);
@@ -167,6 +185,9 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
     onChange({ ...value, [activeChannel]: pts });
   }, [dragInfo, value, activeChannel, onChange]);
 
+  /**
+   * handleDoubleClickPoint - Handles double click point.
+   */
   const handleDoubleClickPoint = useCallback((e: React.MouseEvent, idx: number) => {
     e.stopPropagation();
     // Don't allow deleting the end points
@@ -186,11 +207,23 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
   const channels: Channel[] = ['master', 'red', 'green', 'blue'];
 
   // Helper to map internal bottom-left (0,0) to SVG top-left (0,0) with margins
+  /**
+   * mapSvgY - Performs map svg y.
+   */
   const mapSvgY = (y: number) => CANVAS_SIZE - y + MARGIN;
+  /**
+   * mapSvgX - Performs map svg x.
+   */
   const mapSvgX = (x: number) => x + MARGIN;
 
+  /**
+   * buildHistogramPath - Performs build histogram path.
+   */
   const buildHistogramPath = (bins: number[], peak: number): string => {
     if (peak === 0) return '';
+    /**
+     * scaleY - Performs scale y.
+     */
     const scaleY = (v: number) => MARGIN + CANVAS_SIZE - (v / peak) * CANVAS_SIZE;
 
     const pts: string[] = [`M${MARGIN},${MARGIN + CANVAS_SIZE}`];
@@ -203,9 +236,15 @@ export const CurveEditor: React.FC<CurveEditorProps> = ({
     return pts.join(' ');
   };
 
+  /**
+   * renderCurvePath - Performs render curve path.
+   */
   const renderCurvePath = (channel: Channel, strokeWidth: number, opacity: number) => {
     const pts = value[channel];
     // We map the points directly to SVG coordinates to draw them
+    /**
+     * mappedPts - Performs mapped pts.
+     */
     const mappedPts = pts.map(p => ({ x: mapSvgX(p.x), y: mapSvgY(p.y) }));
     const d = splineToSvgPath(mappedPts, 100);
     return (

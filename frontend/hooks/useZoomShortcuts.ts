@@ -1,10 +1,22 @@
 import { useEffect, useCallback } from 'react';
 import { useEditorUIStore } from '../store/uiStore';
 
+/**
+ * useZoomShortcuts - Hook managing zoom shortcuts.
+ */
 export function useZoomShortcuts() {
+  /**
+   * setZoom - Performs set zoom.
+   */
   const setZoom = useEditorUIStore((s) => s.setZoom);
+  /**
+   * resetZoom - Performs reset zoom.
+   */
   const resetZoom = useEditorUIStore((s) => s.resetZoom);
 
+  /**
+   * handleKeyDown - Handles key down.
+   */
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const modifier = isMac ? e.metaKey : e.ctrlKey;

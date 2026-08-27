@@ -285,13 +285,22 @@ const AppleSidebarContent: React.FC<{
   );
 };
 
+/**
+ * Sidebar - Renders sidebar.
+ */
 export const Sidebar: React.FC<{
   currentView: ViewMode;
   onChangeView: (view: ViewMode) => void;
 }> = ({ currentView, onChangeView }) => {
+  /**
+   * isAgentEnabled - Performs is agent enabled.
+   */
   const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
   const { galleryStyle } = useGalleryLayout();
 
+  /**
+   * handlePreloadAgent - Handles preload agent.
+   */
   const handlePreloadAgent = async () => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' });
@@ -303,6 +312,9 @@ export const Sidebar: React.FC<{
     }
   };
 
+  /**
+   * visibleMainNav - Performs visible main nav.
+   */
   const visibleMainNav = MAIN_NAV.filter(item => item.view !== 'agent' || isAgentEnabled);
 
   if (galleryStyle === 'apple') {

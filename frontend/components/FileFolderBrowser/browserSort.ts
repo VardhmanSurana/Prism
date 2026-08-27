@@ -1,10 +1,16 @@
 import { FileEntry, FolderEntry, GroupBy, SortDirection, SortField } from './types';
 
+/**
+ * compareNames - Performs compare names.
+ */
 export function compareNames(a: string, b: string, direction: SortDirection): number {
   const cmp = a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
   return direction === 'asc' ? cmp : -cmp;
 }
 
+/**
+ * compareNumbers - Performs compare numbers.
+ */
 export function compareNumbers(
   a: number | undefined | null,
   b: number | undefined | null,
@@ -17,6 +23,9 @@ export function compareNumbers(
   return direction === 'asc' ? cmp : -cmp;
 }
 
+/**
+ * sortFolders - Performs sort folders.
+ */
 export function sortFolders(
   folders: FolderEntry[],
   sortField: SortField,
@@ -37,12 +46,18 @@ export function sortFolders(
   return next;
 }
 
+/**
+ * resolutionValue - Performs resolution value.
+ */
 function resolutionValue(file: FileEntry): number {
   const width = file.width_px ?? 0;
   const height = file.height_px ?? 0;
   return width > 0 && height > 0 ? width * height : 0;
 }
 
+/**
+ * sortFiles - Performs sort files.
+ */
 export function sortFiles(
   files: FileEntry[],
   sortField: SortField,
@@ -77,12 +92,18 @@ export interface ListGroup {
   files: FileEntry[];
 }
 
+/**
+ * startOfLocalDay - Performs start of local day.
+ */
 function startOfLocalDay(ms: number): number {
   const d = new Date(ms);
   d.setHours(0, 0, 0, 0);
   return d.getTime();
 }
 
+/**
+ * formatDateGroupLabel - Formats format date group label.
+ */
 export function formatDateGroupLabel(modifiedMs: number | undefined | null): string {
   if (modifiedMs == null || !Number.isFinite(modifiedMs)) {
     return 'Unknown date';
@@ -103,6 +124,9 @@ export function formatDateGroupLabel(modifiedMs: number | undefined | null): str
   });
 }
 
+/**
+ * dateGroupKey - Performs date group key.
+ */
 function dateGroupKey(modifiedMs: number | undefined | null): string {
   if (modifiedMs == null || !Number.isFinite(modifiedMs)) return 'unknown';
   return String(startOfLocalDay(modifiedMs));
@@ -127,8 +151,17 @@ export function buildGroups(
   const sortedFiles = sortFiles(files, sortField, sortDirection);
 
   if (groupBy === 'type') {
+    /**
+     * images - Performs images.
+     */
     const images = sortedFiles.filter((f) => f.is_image && !f.is_video);
+    /**
+     * videos - Performs videos.
+     */
     const videos = sortedFiles.filter((f) => f.is_video);
+    /**
+     * other - Performs other.
+     */
     const other = sortedFiles.filter((f) => !f.is_image && !f.is_video);
 
     const groups: ListGroup[] = [];
@@ -151,6 +184,9 @@ export function buildGroups(
   type Bucket = { label: string; folders: FolderEntry[]; files: FileEntry[]; sortKey: number };
   const map = new Map<string, Bucket>();
 
+  /**
+   * ensure - Performs ensure.
+   */
   const ensure = (key: string, label: string, sortKey: number) => {
     let b = map.get(key);
     if (!b) {
@@ -173,6 +209,9 @@ export function buildGroups(
     ensure(key, label, sortKey).files.push(file);
   }
 
+  /**
+   * buckets - Performs buckets.
+   */
   const buckets = Array.from(map.entries()).map(([key, b]) => ({
     key,
     label: b.label,

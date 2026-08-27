@@ -9,6 +9,9 @@ export interface ParsedCubeLut {
   data: Float32Array; // RGB float values [0..1]
 }
 
+/**
+ * parseCubeLut - Formats parse cube lut.
+ */
 export function parseCubeLut(lutText: string): ParsedCubeLut {
   const lines = lutText.split(/\r?\n/);
   let size = 0;
@@ -32,6 +35,9 @@ export function parseCubeLut(lutText: string): ParsedCubeLut {
     }
 
     // Parse float RGB triplets: e.g. "0.0123 0.4567 0.8901"
+    /**
+     * numbers - Performs numbers.
+     */
     const numbers = line.split(/\s+/).map((n) => parseFloat(n));
     if (numbers.length >= 3 && !isNaN(numbers[0])) {
       rgbValues.push(numbers[0], numbers[1], numbers[2]);

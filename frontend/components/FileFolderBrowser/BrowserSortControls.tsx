@@ -26,6 +26,9 @@ const GROUP_LABELS: Record<GroupBy, string> = {
   date: 'Date',
 };
 
+/**
+ * BrowserSortControls - Renders browser sort controls.
+ */
 export const BrowserSortControls: React.FC<BrowserSortControlsProps> = ({
   sortField,
   sortDirection,

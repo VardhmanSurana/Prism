@@ -1,6 +1,12 @@
 import { openFileFolderBrowser, BrowseResult } from '../../services/FileFolderBrowserService';
 
+/**
+ * useFileSelection - Hook managing file selection.
+ */
 export const useFileSelection = () => {
+  /**
+   * extractPaths - Performs extract paths.
+   */
   const extractPaths = (selected: string | string[] | null): string[] => {
     if (!selected) return [];
     const items = Array.isArray(selected) ? selected : [selected];
@@ -10,6 +16,9 @@ export const useFileSelection = () => {
     });
   };
 
+  /**
+   * handleFileUpload - Handles file upload.
+   */
   const handleFileUpload = async (): Promise<BrowseResult | null> => {
     try {
       return await openFileFolderBrowser({
@@ -24,6 +33,9 @@ export const useFileSelection = () => {
     }
   };
 
+  /**
+   * handleFolderSelection - Handles folder selection.
+   */
   const handleFolderSelection = async (): Promise<BrowseResult | null> => {
     try {
       return await openFileFolderBrowser({

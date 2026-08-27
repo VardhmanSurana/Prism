@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../../constants';
 
+/**
+ * useLockedFolder - Hook managing locked folder.
+ */
 export function useLockedFolder() {
   const [isLockedAuthenticated, setIsLockedAuthenticated] = useState(false);
 
   useEffect(() => {
+    /**
+     * checkLockedAuth - Performs check locked auth.
+     */
     const checkLockedAuth = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/settings/locked-folder/status`);
@@ -19,6 +25,9 @@ export function useLockedFolder() {
     checkLockedAuth();
   }, []);
 
+  /**
+   * handleLockSession - Handles lock session.
+   */
   const handleLockSession = async () => {
     if (!isLockedAuthenticated) return;
     try {

@@ -10,15 +10,33 @@ import type { ClipEffects } from '@/types/nle';
 import { isDefaultEffects, DEFAULT_EFFECTS } from '@/types/nle';
 import { EffectSlider } from './EffectSlider';
 
+/**
+ * AdjustPanel - Renders adjust panel.
+ */
 export const AdjustPanel: React.FC = () => {
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
+  /**
+   * setClipEffects - Performs set clip effects.
+   */
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
   const selectedClip = React.useMemo(
     () => findClipById(tracks, selectedClipId),
     [tracks, selectedClipId],
   );
+  /**
+   * onGestureStart - Performs on gesture start.
+   */
   const onGestureStart = React.useCallback(() => pushHistory(), [pushHistory]);
 
   if (!selectedClip) {
@@ -49,10 +67,16 @@ export const AdjustPanel: React.FC = () => {
   const effects = selectedClip.effects;
   const hasEffects = !isDefaultEffects(effects);
 
+  /**
+   * updateEffect - Performs update effect.
+   */
   const updateEffect = (key: keyof ClipEffects, value: number) => {
     setClipEffects(selectedClip.id, { [key]: value });
   };
 
+  /**
+   * resetAll - Performs reset all.
+   */
   const resetAll = () => {
     pushHistory();
     setClipEffects(selectedClip.id, { ...DEFAULT_EFFECTS });

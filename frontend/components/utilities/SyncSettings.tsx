@@ -28,6 +28,7 @@ interface SyncSettingsProps {
   onRemoveFolder?: (folder: string) => void;
 }
 
+/** Small controlled input with browse/add for folder paths. */
 const FolderInput: React.FC<{
   value: string;
   onChange: (v: string) => void;
@@ -65,6 +66,7 @@ const FolderInput: React.FC<{
   </div>
 );
 
+/** Removable tag chip for a watched/excluded folder. */
 const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder, onRemove }) => (
   <div className="group flex items-center justify-between gap-3 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] rounded px-3 py-2 hover:border-[var(--cr-accent)] transition-all">
     <span className="text-[11px] font-mono text-[var(--cr-text-secondary)] group-hover:text-[var(--cr-text-primary)] truncate">{folder}</span>
@@ -78,6 +80,9 @@ const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder,
   </div>
 );
 
+/**
+ * Sync and folder watch settings: watched/excluded folders and companion server URL.
+ */
 export const SyncSettings: React.FC<SyncSettingsProps> = ({
   syncEnabled,
   onToggleSync,
@@ -122,6 +127,10 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
     testServerConnection(getApiBase());
   }, []);
 
+  /**
+   * Tests connectivity to the companion server health endpoint.
+   * @param url - Server base URL.
+   */
   const testServerConnection = async (url: string) => {
     setStatus('testing');
     setStatusMsg('Checking server health...');
@@ -142,6 +151,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
     }
   };
 
+  /** Saves the sanitized server URL to persistent settings. */
   const handleSaveServerUrl = () => {
     const clean = serverUrl.trim().replace(/\/+$/, '');
     setApiBase(clean);

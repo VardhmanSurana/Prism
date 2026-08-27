@@ -18,6 +18,9 @@ import {
 } from './exportPipeline';
 import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows } from './filterFallback';
 
+/**
+ * drawFilteredImageToCanvas - Performs draw filtered image to canvas.
+ */
 export function drawFilteredImageToCanvas(
   canvas: HTMLCanvasElement,
   sourceImg: HTMLImageElement,
@@ -141,6 +144,9 @@ export function drawFilteredImageToCanvas(
 
   // 7. HSL Color Mixer
   if (adjustments.hsl) {
+    /**
+     * activeBands - Performs active bands.
+     */
     const activeBands = (Object.keys(adjustments.hsl) as HslBand[]).filter(band => {
       const b = adjustments.hsl![band];
       return b.hue !== 0 || b.saturation !== 0 || b.luminance !== 0;

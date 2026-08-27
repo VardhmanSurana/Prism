@@ -19,9 +19,18 @@ interface PhotographyInsightsData {
   metadata_coverage: Record<'camera' | 'focal_length' | 'iso' | 'location', number>;
 }
 
+/**
+ * formatCount - Formats format count.
+ */
 const formatCount = (value: number) => new Intl.NumberFormat().format(value);
 
+/**
+ * RankingList - Renders ranking list.
+ */
 const RankingList: React.FC<{ items: RankedInsight[]; emptyLabel: string }> = ({ items, emptyLabel }) => {
+  /**
+   * maxCount - Performs max count.
+   */
   const maxCount = Math.max(...items.map((item) => item.count), 1);
   if (!items.length) return <p className="text-sm text-gray-500 py-3">{emptyLabel}</p>;
 
@@ -44,12 +53,18 @@ const RankingList: React.FC<{ items: RankedInsight[]; emptyLabel: string }> = ({
   );
 };
 
+/**
+ * PhotographyInsights - Renders photography insights.
+ */
 export const PhotographyInsights: React.FC = () => {
   const [insights, setInsights] = useState<PhotographyInsightsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isCurrent = true;
+    /**
+     * loadInsights - Performs load insights.
+     */
     const loadInsights = async () => {
       try {
         const response = await fetch(`${API_BASE}/api/v1/explore/insights`);

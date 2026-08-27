@@ -8,11 +8,17 @@ interface BrowserBreadcrumbsProps {
   onHome: () => void;
 }
 
+/**
+ * BrowserBreadcrumbs - Renders browser breadcrumbs.
+ */
 export const BrowserBreadcrumbs: React.FC<BrowserBreadcrumbsProps> = ({
   currentPath,
   onNavigate,
   onHome,
 }) => {
+  /**
+   * getBreadcrumbs - Retrieves get breadcrumbs.
+   */
   const getBreadcrumbs = (): BreadcrumbItem[] => {
     if (!currentPath) return [];
     const parts = currentPath.split('/').filter(Boolean);

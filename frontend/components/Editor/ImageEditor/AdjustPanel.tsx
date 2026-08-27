@@ -53,6 +53,9 @@ interface AdjustPanelProps {
   isAutoEnhancing?: boolean;
 }
 
+/**
+ * AdjustPanel - Renders adjust panel.
+ */
 export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange, photoId, imageSrc, filterString, onAutoEnhance: onAutoEnhanceProp, isAutoEnhancing: isAutoEnhancingProp }) => {
   const [isAutoEnhancingInternal, setIsAutoEnhancingInternal] = useState(false);
   const isAutoEnhancing = isAutoEnhancingProp !== undefined ? isAutoEnhancingProp : isAutoEnhancingInternal;
@@ -67,6 +70,9 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
 
   const [wbOption, setWbOption] = useState<'as_shot' | 'daylight' | 'cloudy' | 'shade' | 'tungsten' | 'fluorescent' | 'custom'>('as_shot');
 
+  /**
+   * isDefault - Performs is default.
+   */
   const isDefault = useMemo(() => {
     const keys: (keyof typeof DEFAULT_ADJUST_SLIDERS)[] = [
       'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
@@ -75,15 +81,24 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     return keys.every(k => adjustments[k] === DEFAULT_ADJUST_SLIDERS[k]) && isIdentityCurve(adjustments.curves);
   }, [adjustments]);
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = useCallback(() => {
     onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS, curves: DEFAULT_CURVE });
     setWbOption('as_shot');
   }, [onChange, adjustments]);
 
+  /**
+   * handleCurvesChange - Handles curves change.
+   */
   const handleCurvesChange = useCallback((val: CurveState) => {
     onChange({ ...adjustments, curves: val });
   }, [adjustments, onChange]);
 
+  /**
+   * handleAutoEnhance - Handles auto enhance.
+   */
   const handleAutoEnhance = useCallback(async () => {
     // If parent controls auto-enhance (e.g. for keyboard shortcut sharing), delegate to parent
     if (onAutoEnhanceProp) {
@@ -115,6 +130,9 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     [adjustments, onChange],
   );
 
+  /**
+   * handleWbChange - Handles wb change.
+   */
   const handleWbChange = useCallback((val: typeof wbOption) => {
     setWbOption(val);
     let newTemp = adjustments.temperature;
@@ -156,12 +174,18 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   }, [adjustments, onChange]);
 
   // Sliders display helpers
+  /**
+   * formatExposure - Formats format exposure.
+   */
   const formatExposure = (val: number) => {
     const dec = val / 100;
     if (dec > 0) return `+${dec.toFixed(2)}`;
     return dec.toFixed(2);
   };
 
+  /**
+   * formatTemperature - Formats format temperature.
+   */
   const formatTemperature = (val: number) => {
     // Map [-100, 100] to Kelvin [2000, 20000] centered at 5500K
     let k = 5500;
@@ -173,6 +197,9 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     return `${k}K`;
   };
 
+  /**
+   * formatGeneric - Formats format generic.
+   */
   const formatGeneric = (val: number) => {
     if (val > 0) return `+${val}`;
     return String(val);

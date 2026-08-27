@@ -32,6 +32,7 @@ pub struct SetCoverRequest {
     pub photo_id: Value,
 }
 
+/// find_album_by_id_or_uuid - Performs find album by id or uuid.
 pub async fn find_album_by_id_or_uuid(
     db: &sqlx::SqlitePool,
     identifier: &str,
@@ -56,6 +57,7 @@ pub async fn find_album_by_id_or_uuid(
     album_opt.ok_or((StatusCode::NOT_FOUND, "Album not found".to_string()))
 }
 
+/// list_albums - Retrieves list albums.
 pub async fn list_albums(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Album>>, (StatusCode, String)> {
@@ -67,6 +69,7 @@ pub async fn list_albums(
     Ok(Json(albums))
 }
 
+/// list_smart_albums - Retrieves list smart albums.
 pub async fn list_smart_albums(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Album>>, (StatusCode, String)> {
@@ -78,6 +81,7 @@ pub async fn list_smart_albums(
     Ok(Json(albums))
 }
 
+/// get_album_photos - Retrieves get album photos.
 pub async fn get_album_photos(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -102,6 +106,7 @@ pub async fn get_album_photos(
     Ok(Json(photos))
 }
 
+/// get_memories_highlights - Retrieves get memories highlights.
 pub async fn get_memories_highlights(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Value>>, (StatusCode, String)> {
@@ -136,6 +141,7 @@ pub async fn get_memories_highlights(
     Ok(Json(highlights))
 }
 
+/// create_album - Handles create album.
 pub async fn create_album(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateAlbumRequest>,
@@ -175,6 +181,7 @@ pub async fn create_album(
     Ok(Json(album))
 }
 
+/// rename_album - Performs rename album.
 pub async fn rename_album(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -197,6 +204,7 @@ pub async fn rename_album(
     Ok(Json(updated))
 }
 
+/// add_photos_to_album - Performs add photos to album.
 pub async fn add_photos_to_album(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -249,6 +257,7 @@ pub async fn add_photos_to_album(
     Ok(Json(updated))
 }
 
+/// remove_photos_from_album - Deletes remove photos from album.
 pub async fn remove_photos_from_album(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -301,6 +310,7 @@ pub async fn remove_photos_from_album(
     Ok(Json(updated))
 }
 
+/// set_album_cover - Updates set album cover.
 pub async fn set_album_cover(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -334,6 +344,7 @@ pub async fn set_album_cover(
     Ok(Json(updated))
 }
 
+/// delete_album - Deletes delete album.
 pub async fn delete_album(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,

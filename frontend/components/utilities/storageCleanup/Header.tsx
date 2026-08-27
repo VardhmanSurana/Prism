@@ -1,6 +1,7 @@
 import React from 'react';
 import { HardDrive } from 'lucide-react';
 
+/** Header for the storage cleanup section. */
 export const Header: React.FC = () => {
   return (
     <div className="flex items-center gap-2 mb-4 border-b border-white/[0.04] pb-4">

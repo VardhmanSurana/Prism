@@ -18,6 +18,9 @@ interface OnThisDaySectionProps {
   items?: OnThisDayItem[];
 }
 
+/**
+ * getTodayFormatted - Retrieves get today formatted.
+ */
 function getTodayFormatted(): string {
   return new Date().toLocaleDateString('en-US', {
     month: 'long',
@@ -89,6 +92,9 @@ const YearCard: React.FC<{
   );
 };
 
+/**
+ * OnThisDaySection - Renders on this day section.
+ */
 export const OnThisDaySection: React.FC<OnThisDaySectionProps> = ({ items: propItems }) => {
   const [items, setItems] = useState<OnThisDayItem[]>(propItems || []);
   const [isLoading, setIsLoading] = useState(!propItems);
@@ -96,6 +102,9 @@ export const OnThisDaySection: React.FC<OnThisDaySectionProps> = ({ items: propI
 
   useEffect(() => {
     if (propItems) return;
+    /**
+     * fetchOnThisDay - Retrieves fetch on this day.
+     */
     const fetchOnThisDay = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/on-this-day`);
@@ -112,6 +121,9 @@ export const OnThisDaySection: React.FC<OnThisDaySectionProps> = ({ items: propI
     fetchOnThisDay();
   }, [propItems]);
 
+  /**
+   * handleYearClick - Handles year click.
+   */
   const handleYearClick = useCallback((item: OnThisDayItem) => {
     if (item.photos.length > 0) {
       setSelectedYear(item);

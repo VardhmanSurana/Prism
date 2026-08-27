@@ -8,6 +8,9 @@ interface PhotoMetadataDisplayProps {
   metadata?: Photo | null;
 }
 
+/**
+ * Compact bottom metadata bar showing date, duration, location, AI summary and people avatars.
+ */
 export const PhotoMetadataDisplay: React.FC<PhotoMetadataDisplayProps> = ({ photo, metadata }) => {
   const dateStr = new Date(photo.date).toLocaleDateString('en-US', {
     month: 'short',

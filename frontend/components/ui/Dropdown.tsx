@@ -18,10 +18,16 @@ export function Dropdown<T extends string | number>({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * selectedOption - Performs selected option.
+   */
   const selectedOption = options.find((opt) => opt.value === value);
 
   // Close when clicking outside
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);

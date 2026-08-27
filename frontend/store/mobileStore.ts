@@ -36,6 +36,9 @@ export interface MobileState {
 
 const STORAGE_KEY = 'prism_mobile_store';
 
+/**
+ * useMobileStore - Hook managing mobile store.
+ */
 export const useMobileStore = create<MobileState>((set) => ({
   isPaired: false,
   serverUrl: localStorage.getItem('prism_server_url') || 'http://127.0.0.1:8269',

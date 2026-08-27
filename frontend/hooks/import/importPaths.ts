@@ -26,6 +26,9 @@ const EXT_RE = new RegExp(
   'i'
 );
 
+/**
+ * isImportableMediaPath - Performs is importable media path.
+ */
 export function isImportableMediaPath(path: string): boolean {
   return EXT_RE.test(path);
 }
@@ -110,6 +113,9 @@ export async function resolveDroppedPaths(
   return result;
 }
 
+/**
+ * isTauriRuntime - Performs is tauri runtime.
+ */
 export function isTauriRuntime(): boolean {
   if (typeof window === 'undefined') return false;
   const w = window as Window & {

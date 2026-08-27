@@ -4,6 +4,9 @@ import { PhotoGridHeaderProps } from './types';
 import { formatDate } from './utils';
 import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
+/**
+ * PhotoGridHeader - Renders photo grid header.
+ */
 export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
   dateKey,
   photoIds,
@@ -18,7 +21,13 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
 }) => {
   const { settings } = useGalleryLayout();
   const { galleryStyle, imageGrouping } = settings;
+  /**
+   * allSelected - Performs all selected.
+   */
   const allSelected = photoIds.every((id) => selectedIds.has(id));
+  /**
+   * someSelected - Performs some selected.
+   */
   const someSelected = photoIds.some((id) => selectedIds.has(id)) && !allSelected;
   const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 

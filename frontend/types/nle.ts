@@ -166,10 +166,16 @@ export const DEFAULT_TRANSFORM: ClipTransform = {
   opacity: 1,
 };
 
+/**
+ * isDefaultEffects - Performs is default effects.
+ */
 export function isDefaultEffects(e: ClipEffects): boolean {
   return Object.values(e).every(v => v === 0);
 }
 
+/**
+ * isDefaultTransform - Performs is default transform.
+ */
 export function isDefaultTransform(t: ClipTransform): boolean {
   return t.x === 0 && t.y === 0 && t.scaleX === 1 && t.scaleY === 1
     && t.rotation === 0 && t.opacity === 1;

@@ -9,6 +9,9 @@ interface SwitchProps {
   ariaLabel?: string;
 }
 
+/**
+ * Switch - Renders switch.
+ */
 export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabled = false, ariaLabel }) => {
   const [isHovered, setIsHovered] = useState(false);
   const thumbRef = useRef<HTMLSpanElement>(null);

@@ -87,6 +87,9 @@ const SIDEBAR_ITEMS: { panel: EditorPanel; icon: React.ReactNode; label: string 
   },
 ];
 
+/**
+ * LeftSidebar - Renders left sidebar.
+ */
 export const LeftSidebar: React.FC<LeftSidebarProps> = ({ activePanel, onPanelChange }) => {
   return (
     <div className="w-12 bg-[#0e0e10] border-r border-white/[0.06] flex flex-col items-center py-2 gap-0.5 shrink-0">

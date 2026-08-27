@@ -21,6 +21,7 @@ pub struct ListDirRequest {
     pub show_hidden: Option<bool>,
 }
 
+/// list_directory_contents - Retrieves list directory contents.
 pub async fn list_directory_contents(
     Json(payload): Json<ListDirRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -124,6 +125,7 @@ pub async fn list_directory_contents(
     })))
 }
 
+/// get_browser_locations - Retrieves get browser locations.
 pub async fn get_browser_locations(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -174,6 +176,7 @@ pub async fn get_browser_locations(
     }))
 }
 
+/// list_external_locations_api - Retrieves list external locations api.
 pub async fn list_external_locations_api(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -206,6 +209,7 @@ pub async fn list_external_locations_api(
     }))
 }
 
+/// get_duplicates - Retrieves get duplicates.
 pub async fn get_duplicates(State(state): State<Arc<AppState>>) -> Json<Value> {
     let rows = sqlx::query(
         "SELECT hash FROM photos WHERE hash IS NOT NULL AND is_trash = 0 GROUP BY hash HAVING COUNT(*) > 1"
@@ -238,6 +242,7 @@ pub async fn get_duplicates(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!(clusters))
 }
 
+/// get_blurry_photos - Retrieves get blurry photos.
 pub async fn get_blurry_photos(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Photo>>, (StatusCode, String)> {
@@ -251,6 +256,7 @@ pub async fn get_blurry_photos(
     Ok(Json(photos))
 }
 
+/// get_document_photos - Retrieves get document photos.
 pub async fn get_document_photos(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Photo>>, (StatusCode, String)> {
@@ -264,6 +270,7 @@ pub async fn get_document_photos(
     Ok(Json(photos))
 }
 
+/// get_diagnostics - Retrieves get diagnostics.
 pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> {
     let db_path = state.config.database_url.trim_start_matches("sqlite://");
     let db_size = fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
@@ -307,6 +314,7 @@ pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> 
     }))
 }
 
+/// get_logs - Retrieves get logs.
 pub async fn get_logs() -> Json<Value> {
     Json(json!({
         "logs": "INFO [Prism Core Engine] Rust Backend active on port 8269\nINFO System monitoring operational."
@@ -314,6 +322,7 @@ pub async fn get_logs() -> Json<Value> {
 }
 
 
+/// get_background_jobs_status - Retrieves get background jobs status.
 pub async fn get_background_jobs_status(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -414,6 +423,7 @@ pub async fn get_background_jobs_status(
     }))
 }
 
+/// start_background_jobs - Performs start background jobs.
 pub async fn start_background_jobs(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -423,6 +433,7 @@ pub async fn start_background_jobs(
     Json(json!({ "status": "started", "paused": false }))
 }
 
+/// stop_background_jobs - Performs stop background jobs.
 pub async fn stop_background_jobs(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -431,6 +442,7 @@ pub async fn stop_background_jobs(
     Json(json!({ "status": "stopped", "paused": true }))
 }
 
+/// pause_background_jobs - Performs pause background jobs.
 pub async fn pause_background_jobs(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -439,6 +451,7 @@ pub async fn pause_background_jobs(
     Json(json!({ "status": "paused", "paused": true }))
 }
 
+/// resume_background_jobs - Performs resume background jobs.
 pub async fn resume_background_jobs(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -643,6 +656,7 @@ pub struct BatchRenameRequest {
     pub preserve_extension: bool,
 }
 
+/// default_preserve_ext - Performs default preserve ext.
 fn default_preserve_ext() -> bool { true }
 
 /// POST /api/v1/utilities/batch-rename — Pattern-based batch file rename.
@@ -794,6 +808,7 @@ pub struct PurgeTrashRequest {
     pub older_than_days: i32,
 }
 
+/// default_days - Performs default days.
 fn default_days() -> i32 { 30 }
 
 /// POST /api/v1/utilities/purge-trash — Purge trashed photos older than N days.

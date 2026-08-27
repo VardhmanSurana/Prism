@@ -76,12 +76,18 @@ const ThemeCard: React.FC<{
   );
 };
 
+/**
+ * AIThemeGrid - Renders aitheme grid.
+ */
 export const AIThemeGrid: React.FC<AIThemeGridProps> = ({ themes: propThemes }) => {
   const [themes, setThemes] = useState<Theme[]>(propThemes || []);
   const [isLoading, setIsLoading] = useState(!propThemes);
 
   useEffect(() => {
     if (propThemes) return;
+    /**
+     * fetchThemes - Retrieves fetch themes.
+     */
     const fetchThemes = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/themes`);

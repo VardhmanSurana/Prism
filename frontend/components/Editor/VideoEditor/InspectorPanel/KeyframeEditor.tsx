@@ -20,13 +20,37 @@ const H = 100;
 const PAD = 8;
 const KF_R = 4;
 
+/**
+ * KeyframeEditor - Renders keyframe editor.
+ */
 export const KeyframeEditor: React.FC = () => {
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * clip - Performs clip.
+   */
   const clip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
+  /**
+   * setClipKeyframes - Performs set clip keyframes.
+   */
   const setClipKeyframes = useNLEStore((s) => s.setClipKeyframes);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
+  /**
+   * playheadPosition - Performs playhead position.
+   */
   const playheadPosition = useNLEStore((s) => s.playheadPosition);
+  /**
+   * fps - Performs fps.
+   */
   const fps = useNLEStore((s) => s.projectFps);
   const [selectedProp, setSelectedProp] = useState<KeyframeProperty>('opacity');
   const [dragIdx, setDragIdx] = useState<number | null>(null);
@@ -37,6 +61,9 @@ export const KeyframeEditor: React.FC = () => {
   const clipDuration = clip.durationFrames / fps;
   const kfs = clip.keyframes[selectedProp] ?? [];
 
+  /**
+   * propRange - Performs prop range.
+   */
   const propRange = useMemo(() => {
     switch (selectedProp) {
       case 'opacity': return { min: 0, max: 1 };
@@ -49,22 +76,37 @@ export const KeyframeEditor: React.FC = () => {
     }
   }, [selectedProp]);
 
+  /**
+   * toSVG - Performs to svg.
+   */
   const toSVG = useCallback((t: number, v: number) => {
     const x = PAD + (t / clipDuration) * (W - 2 * PAD);
     const y = H - PAD - ((v - propRange.min) / (propRange.max - propRange.min)) * (H - 2 * PAD);
     return { x, y };
   }, [clipDuration, propRange]);
 
+  /**
+   * fromSVG - Performs from svg.
+   */
   const fromSVG = useCallback((svgX: number, svgY: number) => {
     const t = ((svgX - PAD) / (W - 2 * PAD)) * clipDuration;
     const v = propRange.min + ((H - PAD - svgY) / (H - 2 * PAD)) * (propRange.max - propRange.min);
     return { t: Math.max(0, Math.min(clipDuration, t)), v };
   }, [clipDuration, propRange]);
 
+  /**
+   * sorted - Performs sorted.
+   */
   const sorted = useMemo(() => [...kfs].sort((a, b) => a.t - b.t), [kfs]);
 
+  /**
+   * pathD - Performs path d.
+   */
   const pathD = useMemo(() => {
     if (sorted.length === 0) return '';
+    /**
+     * pts - Performs pts.
+     */
     const pts = sorted.map(kf => toSVG(kf.t, kf.v));
     let d = `M ${pts[0].x} ${pts[0].y}`;
     for (let i = 1; i < pts.length; i++) {
@@ -90,6 +132,9 @@ export const KeyframeEditor: React.FC = () => {
     return d;
   }, [sorted, toSVG]);
 
+  /**
+   * handleSvgClick - Handles svg click.
+   */
   const handleSvgClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -100,15 +145,24 @@ export const KeyframeEditor: React.FC = () => {
 
     pushHistory();
     const newKf: Keyframe = { t, v, interpolation: 'linear' };
+    /**
+     * updated - Performs updated.
+     */
     const updated = [...kfs, newKf].sort((a, b) => a.t - b.t);
     setClipKeyframes(clip.id, selectedProp, updated);
   }, [kfs, fromSVG, clip.id, selectedProp, setClipKeyframes, pushHistory]);
 
+  /**
+   * handleKfMouseDown - Handles kf mouse down.
+   */
   const handleKfMouseDown = useCallback((e: React.MouseEvent, idx: number) => {
     e.stopPropagation();
     setDragIdx(idx);
   }, []);
 
+  /**
+   * handleMouseMove - Handles mouse move.
+   */
   const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (dragIdx === null) return;
     const svg = svgRef.current;
@@ -121,18 +175,30 @@ export const KeyframeEditor: React.FC = () => {
     updated[dragIdx] = { ...updated[dragIdx], t, v };
     updated.sort((a, b) => a.t - b.t);
     setClipKeyframes(clip.id, selectedProp, updated);
+    /**
+     * newIdx - Performs new idx.
+     */
     const newIdx = updated.findIndex(kf => kf.t === t && kf.v === v);
     if (newIdx !== -1) setDragIdx(newIdx);
   }, [dragIdx, kfs, fromSVG, clip.id, selectedProp, setClipKeyframes]);
 
+  /**
+   * handleMouseUp - Handles mouse up.
+   */
   const handleMouseUp = useCallback(() => {
     setDragIdx(null);
   }, []);
 
+  /**
+   * handleContextMenu - Handles context menu.
+   */
   const handleContextMenu = useCallback((e: React.MouseEvent, idx: number) => {
     e.preventDefault();
     e.stopPropagation();
     pushHistory();
+    /**
+     * updated - Performs updated.
+     */
     const updated = kfs.filter((_, i) => i !== idx);
     setClipKeyframes(clip.id, selectedProp, updated);
   }, [kfs, clip.id, selectedProp, setClipKeyframes, pushHistory]);

@@ -28,6 +28,9 @@ interface PresetsPanelProps {
   imageSrc?: string;
 }
 
+/**
+ * getSampleUrlForPreset - Retrieves get sample url for preset.
+ */
 const getSampleUrlForPreset = (category?: string, presetId?: string) => {
   let filename = 'nature.png';
   if (category === 'Portrait') {
@@ -42,6 +45,9 @@ const getSampleUrlForPreset = (category?: string, presetId?: string) => {
   return resolveUrl(`/api/v1/sample-images/${filename}`);
 };
 
+/**
+ * PresetsPanel - Renders presets panel.
+ */
 export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChange }) => {
   const [userPresets, setUserPresets] = useState<UserPreset[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -56,11 +62,17 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
     setUserPresets(loadUserPresets());
   }, []);
 
+  /**
+   * filteredPresets - Performs filtered presets.
+   */
   const filteredPresets = useMemo(() => {
     if (activeCategory === 'All') return CURATED_PRESETS;
     return CURATED_PRESETS.filter(p => p.category === activeCategory);
   }, [activeCategory]);
 
+  /**
+   * handleApplyCurated - Handles apply curated.
+   */
   const handleApplyCurated = useCallback((preset: Preset) => {
     setActivePresetId(preset.id);
     setPresetIntensity(100);
@@ -80,9 +92,15 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
     }
   }, [adjustments, onChange, presetIntensity]);
 
+  /**
+   * handleIntensityChange - Handles intensity change.
+   */
   const handleIntensityChange = useCallback((value: number) => {
     setPresetIntensity(value);
     if (activePresetId) {
+      /**
+       * preset - Performs preset.
+       */
       const preset = CURATED_PRESETS.find(p => p.id === activePresetId);
       if (preset) {
         const blended: Partial<Adjustments> = {};
@@ -99,11 +117,17 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
     }
   }, [activePresetId, adjustments, onChange]);
 
+  /**
+   * handleApplyUser - Handles apply user.
+   */
   const handleApplyUser = useCallback((preset: UserPreset) => {
     setActivePresetId(preset.id);
     onChange({ ...preset.adjustments });
   }, [onChange]);
 
+  /**
+   * handleSave - Handles save.
+   */
   const handleSave = useCallback(() => {
     if (!saveName.trim()) return;
     const saved = saveUserPreset(saveName, adjustments);
@@ -113,6 +137,9 @@ export const PresetsPanel: React.FC<PresetsPanelProps> = ({ adjustments, onChang
     setActivePresetId(saved.id);
   }, [saveName, adjustments]);
 
+  /**
+   * handleDelete - Handles delete.
+   */
   const handleDelete = useCallback((id: string) => {
     deleteUserPreset(id);
     setUserPresets(prev => prev.filter(p => p.id !== id));

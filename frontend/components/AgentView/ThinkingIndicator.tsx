@@ -20,6 +20,9 @@ const ThinkingIndicator = forwardRef<HTMLDivElement, ThinkingIndicatorProps>(
 
     useEffect(() => {
       if (reduceMotion) return;
+      /**
+       * interval - Performs interval.
+       */
       const interval = setInterval(() => {
         setIndex((i) => (i + 1) % words.length);
       }, 4000);

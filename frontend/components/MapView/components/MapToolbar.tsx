@@ -15,6 +15,9 @@ interface MapToolbarProps {
   onZoomToExtents: () => void;
 }
 
+/**
+ * MapToolbar - Renders map toolbar.
+ */
 export const MapToolbar: React.FC<MapToolbarProps> = ({
   canShowRoute,
   showRoute,

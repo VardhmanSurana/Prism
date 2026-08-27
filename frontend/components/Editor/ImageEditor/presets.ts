@@ -219,6 +219,9 @@ export function applyPreset(
 
 // ── User preset storage ───────────────────────────────────────────────────────
 
+/**
+ * loadUserPresets - Performs load user presets.
+ */
 export function loadUserPresets(): UserPreset[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -229,6 +232,9 @@ export function loadUserPresets(): UserPreset[] {
   }
 }
 
+/**
+ * saveUserPreset - Performs save user preset.
+ */
 export function saveUserPreset(name: string, adjustments: Adjustments): UserPreset {
   const preset: UserPreset = {
     id: `user-${Date.now()}`,
@@ -242,8 +248,14 @@ export function saveUserPreset(name: string, adjustments: Adjustments): UserPres
   return preset;
 }
 
+/**
+ * deleteUserPreset - Performs delete user preset.
+ */
 export function deleteUserPreset(id: string): void {
   const existing = loadUserPresets();
+  /**
+   * updated - Performs updated.
+   */
   const updated = existing.filter(p => p.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }

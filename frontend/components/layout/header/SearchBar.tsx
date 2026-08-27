@@ -9,6 +9,9 @@ interface SearchBarProps {
   onSortChange: (mode: SortMode) => void;
 }
 
+/**
+ * SearchBar - Renders search bar.
+ */
 export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSortChange }) => {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -16,6 +19,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
   const sortMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (event: MouseEvent) => {
       if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
         setIsSortOpen(false);
@@ -25,6 +31,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * handleKeyDown - Handles key down.
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (!query.trim()) {

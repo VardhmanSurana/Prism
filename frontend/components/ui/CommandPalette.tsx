@@ -52,6 +52,9 @@ const CATEGORY_ORDER = [
   'Help',
 ];
 
+/**
+ * CommandPalette - Renders command palette.
+ */
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
   isOpen,
   onClose,
@@ -72,6 +75,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   }, [isOpen]);
 
   // Filter and group commands
+  /**
+   * filteredCommands - Performs filtered commands.
+   */
   const filteredCommands = useMemo(() => {
     const q = query.toLowerCase().trim();
     if (!q) return commands;
@@ -89,6 +95,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     });
   }, [commands, query]);
 
+  /**
+   * groupedCommands - Performs grouped commands.
+   */
   const groupedCommands = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
     for (const cmd of filteredCommands) {
@@ -286,6 +295,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
 // ─── Default Commands ────────────────────────────────────────────────────────
 
+/**
+ * buildDefaultCommands - Performs build default commands.
+ */
 export function buildDefaultCommands(actions: {
   onNavigate: (view: string) => void;
   onUpload: () => void;

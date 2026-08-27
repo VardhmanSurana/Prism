@@ -15,24 +15,66 @@ import { Dropdown } from '@/components/ui/Dropdown';
 import { getSpeedRampPreset, type SpeedRampPresetType } from '@/lib/speedRampUtils';
 import { Slider } from '@/components/ui/Slider';
 
+/**
+ * InspectorPanel - Renders inspector panel.
+ */
 export const InspectorPanel: React.FC = () => {
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * projectFps - Performs project fps.
+   */
   const projectFps = useNLEStore((s) => s.projectFps);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
+  /**
+   * removeClip - Performs remove clip.
+   */
   const removeClip = useNLEStore((s) => s.removeClip);
+  /**
+   * setClipSpeed - Performs set clip speed.
+   */
   const setClipSpeed = useNLEStore((s) => s.setClipSpeed);
+  /**
+   * setClipVolume - Performs set clip volume.
+   */
   const setClipVolume = useNLEStore((s) => s.setClipVolume);
+  /**
+   * setClipMuted - Performs set clip muted.
+   */
   const setClipMuted = useNLEStore((s) => s.setClipMuted);
+  /**
+   * setClipFadeIn - Performs set clip fade in.
+   */
   const setClipFadeIn = useNLEStore((s) => s.setClipFadeIn);
+  /**
+   * setClipFadeOut - Performs set clip fade out.
+   */
   const setClipFadeOut = useNLEStore((s) => s.setClipFadeOut);
+  /**
+   * setClipTransform - Performs set clip transform.
+   */
   const setClipTransform = useNLEStore((s) => s.setClipTransform);
+  /**
+   * setClipKeyframes - Performs set clip keyframes.
+   */
   const setClipKeyframes = useNLEStore((s) => s.setClipKeyframes);
 
   const selectedClip = useMemo(
     () => findClipById(tracks, selectedClipId),
     [tracks, selectedClipId],
   );
+  /**
+   * onGestureStart - Performs on gesture start.
+   */
   const onGestureStart = useCallback(() => pushHistory(), [pushHistory]);
 
   if (!selectedClip) {
@@ -317,12 +359,27 @@ interface EffectsPanelProps {
   clip: { id: string; effects: ClipEffects };
 }
 
+/**
+ * EffectsPanel - Renders effects panel.
+ */
 const EffectsPanel: React.FC<EffectsPanelProps> = ({ clip }) => {
+  /**
+   * setClipEffects - Performs set clip effects.
+   */
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
   const hasEffects = !isDefaultEffects(clip.effects);
+  /**
+   * onGestureStart - Performs on gesture start.
+   */
   const onGestureStart = useCallback(() => pushHistory(), [pushHistory]);
 
+  /**
+   * updateEffect - Performs update effect.
+   */
   const updateEffect = (key: keyof ClipEffects, value: number) => {
     setClipEffects(clip.id, { [key]: value });
   };
@@ -377,12 +434,27 @@ interface TransformPanelProps {
   clip: { id: string; transform: ClipTransform };
 }
 
+/**
+ * TransformPanel - Renders transform panel.
+ */
 const TransformPanel: React.FC<TransformPanelProps> = ({ clip }) => {
+  /**
+   * setClipTransform - Performs set clip transform.
+   */
   const setClipTransform = useNLEStore((s) => s.setClipTransform);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
+  /**
+   * onGestureStart - Performs on gesture start.
+   */
   const onGestureStart = useCallback(() => pushHistory(), [pushHistory]);
   const t = clip.transform;
 
+  /**
+   * update - Performs update.
+   */
   const update = (key: keyof ClipTransform, value: number) => {
     setClipTransform(clip.id, { [key]: value });
   };
@@ -447,8 +519,17 @@ const TRANSITION_TYPES = [
   { value: 'slide-right', label: 'Slide Right' },
 ] as const;
 
+/**
+ * TransitionPanel - Renders transition panel.
+ */
 const TransitionPanel: React.FC<TransitionPanelProps> = ({ clip }) => {
+  /**
+   * setClipTransition - Performs set clip transition.
+   */
   const setClipTransition = useNLEStore((s) => s.setClipTransition);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
   const transition = clip.transition;
 
@@ -508,12 +589,27 @@ interface AudioEQPanelProps {
   clip: { id: string; eq?: ClipAudioEQ };
 }
 
+/**
+ * AudioEQPanel - Renders audio eqpanel.
+ */
 const AudioEQPanel: React.FC<AudioEQPanelProps> = ({ clip }) => {
+  /**
+   * setClipEQ - Performs set clip eq.
+   */
   const setClipEQ = useNLEStore((s) => s.setClipEQ);
+  /**
+   * pushHistory - Performs push history.
+   */
   const pushHistory = useNLEStore((s) => s.pushHistory);
+  /**
+   * onGestureStart - Performs on gesture start.
+   */
   const onGestureStart = useCallback(() => pushHistory(), [pushHistory]);
   const eq = clip.eq ?? DEFAULT_AUDIO_EQ;
 
+  /**
+   * updateEQ - Performs update eq.
+   */
   const updateEQ = (key: keyof ClipAudioEQ, val: number | boolean) => {
     setClipEQ(clip.id, { [key]: val });
   };

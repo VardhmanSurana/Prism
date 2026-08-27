@@ -39,6 +39,9 @@ const TABS = [
   { id: 'privacy' as const, label: 'Privacy Audit', displayLabel: 'Privacy Audit', icon: Shield },
 ];
 
+/**
+ * Top-level utilities container with tab navigation (models, engine, storage, privacy, diagnostics).
+ */
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
   const [activeTab, setActiveTab] = useState<'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('models');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

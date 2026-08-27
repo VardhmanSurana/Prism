@@ -1,5 +1,8 @@
 import React from 'react';
 
+/**
+ * MapStyles - Renders map styles.
+ */
 export const MapStyles: React.FC = () => {
   return (
     <style>{`

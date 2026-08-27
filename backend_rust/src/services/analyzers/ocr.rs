@@ -9,22 +9,27 @@ pub struct OcrAnalyzer;
 
 #[async_trait]
 impl Analyzer for OcrAnalyzer {
+    /// name - Performs name.
     fn name(&self) -> &'static str {
         "ocr"
     }
 
+    /// resource_need - Performs resource need.
     fn resource_need(&self) -> ResourceNeed {
         ResourceNeed::CpuLight
     }
 
+    /// priority - Performs priority.
     fn priority(&self) -> u32 {
         0
     }
 
+    /// should_run - Performs should run.
     fn should_run(&self, photo: &PhotoRecord) -> bool {
         !photo.has_ocr
     }
 
+    /// execute - Performs execute.
     async fn execute(
         &self,
         ml_client: &MlClient,

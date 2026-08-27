@@ -11,6 +11,9 @@ interface MobileHeaderProps {
   onChangeView: (view: ViewMode) => void;
 }
 
+/**
+ * MobileHeader - Renders mobile header.
+ */
 export const MobileHeader: React.FC<MobileHeaderProps> = ({
   currentView,
   onSearch,

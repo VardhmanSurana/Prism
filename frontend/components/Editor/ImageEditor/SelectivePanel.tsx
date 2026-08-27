@@ -19,6 +19,9 @@ interface SelectivePanelProps {
   onChange: (adj: Adjustments) => void;
 }
 
+/**
+ * getIcon - Retrieves get icon.
+ */
 const getIcon = (label: string) => {
   const l = label.toLowerCase();
   if (l.includes('sky')) return <Cloud size={14} />;
@@ -27,6 +30,9 @@ const getIcon = (label: string) => {
   return <ImageIcon size={14} />;
 };
 
+/**
+ * SelectivePanel - Renders selective panel.
+ */
 export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustments, onChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [availableRegions, setAvailableRegions] = useState<RegionData[]>([]);
@@ -35,6 +41,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
     setAvailableRegions([]);
   }, [photoId]);
 
+  /**
+   * fetchRegions - Retrieves fetch regions.
+   */
   const fetchRegions = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -65,7 +74,13 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
     }
   }, [photoId, fetchRegions]);
 
+  /**
+   * handleToggleRegion - Handles toggle region.
+   */
   const handleToggleRegion = useCallback((reg: RegionData) => {
+    /**
+     * exists - Performs exists.
+     */
     const exists = adjustments.regions.find(r => r.id === reg.id);
     if (exists) {
       // Remove it
@@ -84,7 +99,13 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
     }
   }, [adjustments, onChange]);
 
+  /**
+   * handleRegionChange - Handles region change.
+   */
   const handleRegionChange = useCallback((regionId: string, key: keyof RegionalAdjustment['adjustments'], value: number) => {
+    /**
+     * newRegions - Performs new regions.
+     */
     const newRegions = adjustments.regions.map(r => {
       if (r.id === regionId) {
         return {
@@ -118,6 +139,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
           {/* Quick Selection Chips */}
           <div className="flex flex-wrap gap-2">
             {availableRegions.map(reg => {
+              /**
+               * active - Performs active.
+               */
               const active = !!adjustments.regions.find(r => r.id === reg.id);
               return (
                 <button
@@ -139,6 +163,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
           {/* Active Adjustment Sliders */}
           <div className="space-y-8 pt-2">
             {adjustments.regions.map(reg => {
+              /**
+               * info - Performs info.
+               */
               const info = availableRegions.find(ar => ar.id === reg.id);
               if (!info) return null;
 
@@ -284,6 +311,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                             key={mode}
                             onClick={() => {
                               const rm = reg.rangeMask || { mode: 'none', lumRange: [0, 100], lumFeather: 20, colorSample: '#ef4444', colorTolerance: 30, refineEdge: false, refineRadius: 5 };
+                              /**
+                               * newRegions - Performs new regions.
+                               */
                               const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, mode } } : r);
                               onChange({ ...adjustments, regions: newRegions });
                             }}
@@ -313,6 +343,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                             onChange={e => {
                               const minV = Number(e.target.value);
                               const rm = reg.rangeMask!;
+                              /**
+                               * newRegions - Performs new regions.
+                               */
                               const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, lumRange: [minV, rm.lumRange[1]] as [number, number] } } : r);
                               onChange({ ...adjustments, regions: newRegions });
                             }}
@@ -327,6 +360,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                             onChange={e => {
                               const maxV = Number(e.target.value);
                               const rm = reg.rangeMask!;
+                              /**
+                               * newRegions - Performs new regions.
+                               */
                               const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, lumRange: [rm.lumRange[0], maxV] as [number, number] } } : r);
                               onChange({ ...adjustments, regions: newRegions });
                             }}
@@ -349,6 +385,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                               value={reg.rangeMask.colorSample || '#ef4444'}
                               onChange={e => {
                                 const rm = reg.rangeMask!;
+                                /**
+                                 * newRegions - Performs new regions.
+                                 */
                                 const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, colorSample: e.target.value } } : r);
                                 onChange({ ...adjustments, regions: newRegions });
                               }}
@@ -365,6 +404,9 @@ export const SelectivePanel: React.FC<SelectivePanelProps> = ({ photoId, adjustm
                           value={reg.rangeMask.colorTolerance || 30}
                           onChange={e => {
                             const rm = reg.rangeMask!;
+                            /**
+                             * newRegions - Performs new regions.
+                             */
                             const newRegions = adjustments.regions.map(r => r.id === reg.id ? { ...r, rangeMask: { ...rm, colorTolerance: Number(e.target.value) } } : r);
                             onChange({ ...adjustments, regions: newRegions });
                           }}

@@ -2,6 +2,7 @@ use axum::extract::Path;
 use axum::response::Json;
 use serde_json::{json, Value};
 
+/// get_privacy_status - Retrieves get privacy status.
 pub async fn get_privacy_status() -> Json<Value> {
     Json(json!({
         "summary": {

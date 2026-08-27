@@ -34,6 +34,7 @@ pub struct OcrResponse {
 }
 
 impl MlClient {
+    /// new - Performs new.
     pub fn new(llm: LlmClient) -> Self {
         MlClient { llm }
     }

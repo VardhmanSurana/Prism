@@ -22,6 +22,9 @@ interface UseSlideshowOptions {
   mediaKey: string | number;
 }
 
+/**
+ * useSlideshow - Hook managing slideshow.
+ */
 export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSlideshowOptions) {
   const [isActive, setIsActive] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,6 +55,9 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
   const intervalMsRef = useRef(intervalMs);
   intervalMsRef.current = intervalMs;
 
+  /**
+   * clearTimers - Performs clear timers.
+   */
   const clearTimers = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
@@ -63,6 +69,9 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
     }
   }, []);
 
+  /**
+   * tickProgress - Performs tick progress.
+   */
   const tickProgress = useCallback(() => {
     const elapsed = performance.now() - startTimeRef.current;
     const total = remainingRef.current;
@@ -73,6 +82,9 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
     }
   }, []);
 
+  /**
+   * scheduleFromRemaining - Performs schedule from remaining.
+   */
   const scheduleFromRemaining = useCallback(() => {
     clearTimers();
     if (!isActiveRef.current || !isPlayingRef.current || pauseTimerRef.current) {
@@ -88,6 +100,9 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
     }, wait);
   }, [clearTimers, tickProgress]);
 
+  /**
+   * start - Performs start.
+   */
   const start = useCallback(() => {
     setIsActive(true);
     setIsPlaying(true);
@@ -95,6 +110,9 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
     setProgress(0);
   }, []);
 
+  /**
+   * stop - Performs stop.
+   */
   const stop = useCallback(() => {
     setIsActive(false);
     setIsPlaying(false);
@@ -107,10 +125,16 @@ export function useSlideshow({ onAdvance, pauseTimer = false, mediaKey }: UseSli
     }
   }, [clearTimers]);
 
+  /**
+   * togglePlay - Performs toggle play.
+   */
   const togglePlay = useCallback(() => {
     setIsPlaying((prev) => !prev);
   }, []);
 
+  /**
+   * setMusicFile - Performs set music file.
+   */
   const setMusicFile = useCallback((file: File | null) => {
     if (musicObjectUrlRef.current) {
       URL.revokeObjectURL(musicObjectUrlRef.current);

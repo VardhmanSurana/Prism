@@ -11,12 +11,18 @@ interface RediscoverData {
   missing_location_count: number;
 }
 
+/**
+ * RediscoverPrompts - Renders rediscover prompts.
+ */
 export const RediscoverPrompts: React.FC = () => {
   const [data, setData] = useState<RediscoverData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isCurrent = true;
+    /**
+     * fetchPrompts - Retrieves fetch prompts.
+     */
     const fetchPrompts = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/rediscover-prompts`);

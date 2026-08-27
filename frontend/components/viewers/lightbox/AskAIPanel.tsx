@@ -20,6 +20,11 @@ const GREETING: Message = {
   content: "Ask me anything about this photo — composition, mood, subjects, technical details, or similar photos in your library.",
 };
 
+/**
+ * Slide-in panel for conversing with the AI about the current photo.
+ * Creates an agent session on mount, streams progress/result chunks,
+ * and renders chat history with optional related photo thumbnails.
+ */
 export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
   const [messages, setMessages] = useState<Message[]>([GREETING]);
   const [input, setInput] = useState('');
@@ -65,6 +70,11 @@ export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
     };
   }, []);
 
+  /**
+   * Sends the current query to the agent, creating a session if needed.
+   * Streams NDJSON progress/result events and appends the final answer to messages.
+   * @param text - Optional override text; falls back to input state.
+   */
   const handleSend = useCallback(async (text?: string) => {
     const query = (text || input).trim();
     if (!query || isLoading) return;

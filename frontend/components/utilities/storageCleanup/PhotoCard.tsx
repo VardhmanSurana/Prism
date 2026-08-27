@@ -2,6 +2,9 @@ import React from 'react';
 import { resolveUrl } from '../../../constants';
 import { PhotoCardProps } from './types';
 
+/**
+ * Photo card for cleanup results supporting blurry/document variants.
+ */
 export const PhotoCard: React.FC<PhotoCardProps> = ({ photo, onDelete, variant }) => {
   const isBlurry = variant === 'blurry';
   const isDocument = variant === 'document';

@@ -58,6 +58,9 @@ const BLEND_MODES: { value: GlobalCompositeOperation; label: string }[] = [
   { value: 'difference', label: 'Difference' },
 ];
 
+/**
+ * TexturePanel - Renders texture panel.
+ */
 export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChange }) => {
   const grain = adjustments.grain ?? { amount: 0, size: 'medium', colored: false };
   const lightLeak = adjustments.lightLeak ?? { preset: null, opacity: 50 };
@@ -71,6 +74,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * isDefault - Performs is default.
+   */
   const isDefault = useMemo(() => {
     return (
       grain.amount === 0 &&
@@ -80,6 +86,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     );
   }, [grain, lightLeak, vignette, blend]);
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     onChange({
       ...adjustments,
@@ -97,6 +106,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   };
 
   // ── Grain handlers ──
+  /**
+   * handleGrainAmountChange - Handles grain amount change.
+   */
   const handleGrainAmountChange = (val: number) => {
     onChange({
       ...adjustments,
@@ -104,6 +116,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleGrainSizeChange - Handles grain size change.
+   */
   const handleGrainSizeChange = (size: 'fine' | 'medium' | 'coarse') => {
     onChange({
       ...adjustments,
@@ -111,6 +126,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleGrainColorToggle - Handles grain color toggle.
+   */
   const handleGrainColorToggle = () => {
     onChange({
       ...adjustments,
@@ -119,6 +137,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   };
 
   // ── Light Leaks handlers ──
+  /**
+   * handleLeakClick - Handles leak click.
+   */
   const handleLeakClick = (presetId: string) => {
     onChange({
       ...adjustments,
@@ -129,6 +150,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleLeakOpacityChange - Handles leak opacity change.
+   */
   const handleLeakOpacityChange = (val: number) => {
     onChange({
       ...adjustments,
@@ -137,11 +161,17 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
   };
 
   // ── Vignette handler ──
+  /**
+   * handleVignetteChange - Handles vignette change.
+   */
   const handleVignetteChange = (val: number) => {
     onChange({ ...adjustments, vignette: val });
   };
 
   // ── Blend handlers ──
+  /**
+   * handlePickImage - Handles pick image.
+   */
   const handlePickImage = useCallback(async () => {
     const isTauri = typeof window !== 'undefined' && '__TAURI__' in window;
     
@@ -174,6 +204,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     }
   }, [adjustments, blend, onChange]);
 
+  /**
+   * handleFileInputChange - Handles file input change.
+   */
   const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -190,6 +223,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     e.target.value = '';
   }, [adjustments, blend, onChange]);
 
+  /**
+   * handleRemoveImage - Handles remove image.
+   */
   const handleRemoveImage = () => {
     onChange({
       ...adjustments,
@@ -201,6 +237,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleBlendModeChange - Handles blend mode change.
+   */
   const handleBlendModeChange = (mode: GlobalCompositeOperation) => {
     onChange({
       ...adjustments,
@@ -208,6 +247,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleBlendOpacityChange - Handles blend opacity change.
+   */
   const handleBlendOpacityChange = (opacity: number) => {
     onChange({
       ...adjustments,
@@ -215,6 +257,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * handleFitChange - Handles fit change.
+   */
   const handleFitChange = (fit: 'cover' | 'contain' | 'center') => {
     onChange({
       ...adjustments,
@@ -222,6 +267,9 @@ export const TexturePanel: React.FC<TexturePanelProps> = ({ adjustments, onChang
     });
   };
 
+  /**
+   * blendFilename - Performs blend filename.
+   */
   const blendFilename = useMemo(() => {
     if (!blend.blendImageSrc) return '';
     try {

@@ -18,6 +18,9 @@ interface HighlightReel {
   summary: string;
 }
 
+/**
+ * HighlightReelSection - Renders highlight reel section.
+ */
 export const HighlightReelSection: React.FC = () => {
   const [highlights, setHighlights] = useState<HighlightReel[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,6 +29,9 @@ export const HighlightReelSection: React.FC = () => {
 
   useEffect(() => {
     let isCurrent = true;
+    /**
+     * fetchHighlights - Retrieves fetch highlights.
+     */
     const fetchHighlights = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/highlights`);
@@ -43,6 +49,9 @@ export const HighlightReelSection: React.FC = () => {
     return () => { isCurrent = false; };
   }, []);
 
+  /**
+   * handleOpenInEditor - Handles open in editor.
+   */
   const handleOpenInEditor = async (reel: HighlightReel) => {
     setIsGenerating(reel.id);
     try {

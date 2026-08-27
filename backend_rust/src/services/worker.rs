@@ -51,10 +51,15 @@ pub struct PhotoRecord {
 /// Plugin trait for AI analysis stages.
 #[async_trait]
 pub trait Analyzer: Send + Sync {
+    /// name - Performs name.
     fn name(&self) -> &'static str;
+    /// resource_need - Performs resource need.
     fn resource_need(&self) -> ResourceNeed;
+    /// priority - Performs priority.
     fn priority(&self) -> u32;
+    /// should_run - Performs should run.
     fn should_run(&self, photo: &PhotoRecord) -> bool;
+    /// execute - Performs execute.
     async fn execute(
         &self,
         ml_client: &MlClient,
@@ -85,6 +90,7 @@ pub struct SystemMonitor {
 }
 
 impl SystemMonitor {
+    /// new - Performs new.
     pub fn new(uploads_dir: std::path::PathBuf) -> Self {
         Self {
             last_check: std::sync::atomic::AtomicU64::new(0),
@@ -189,6 +195,7 @@ impl SystemMonitor {
     }
 }
 
+/// run_cmd - Executes run cmd.
 fn run_cmd(cmd: &str, args: &[&str]) -> Result<(String, String), std::io::Error> {
     let output = std::process::Command::new(cmd).args(args).output()?;
     Ok((
@@ -197,6 +204,7 @@ fn run_cmd(cmd: &str, args: &[&str]) -> Result<(String, String), std::io::Error>
     ))
 }
 
+/// epoch_secs - Performs epoch secs.
 fn epoch_secs() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -277,6 +285,7 @@ pub struct JobScheduler {
 }
 
 impl JobScheduler {
+    /// new - Performs new.
     pub fn new(uploads_dir: std::path::PathBuf) -> Arc<Self> {
         Arc::new(Self {
             monitor: SystemMonitor::new(uploads_dir),
@@ -327,6 +336,7 @@ impl JobScheduler {
         }
     }
 
+    /// get_system_state - Retrieves system state.
     pub fn get_system_state(&self) -> SystemState {
         self.monitor.poll()
     }
@@ -357,6 +367,7 @@ pub struct WorkerState {
 }
 
 impl WorkerState {
+    /// new - Performs new.
     pub fn new(analyzer_names: &[&str]) -> Arc<Self> {
         let analyzer_counters = analyzer_names
             .iter()
@@ -374,12 +385,14 @@ impl WorkerState {
         })
     }
 
+    /// increment_counter - Performs increment counter.
     pub fn increment_counter(&self, name: &str) {
         if let Some(counter) = self.analyzer_counters.get(name) {
             counter.fetch_add(1, Ordering::Relaxed);
         }
     }
 
+    /// get_counter - Retrieves counter.
     pub fn get_counter(&self, name: &str) -> u64 {
         self.analyzer_counters
             .get(name)
@@ -387,6 +400,7 @@ impl WorkerState {
             .unwrap_or(0)
     }
 
+    /// reset - Performs reset.
     pub fn reset(&self) {
         self.total_enqueued.store(0, Ordering::Relaxed);
         self.completed.store(0, Ordering::Relaxed);
@@ -397,6 +411,7 @@ impl WorkerState {
         }
     }
 
+    /// status_snapshot - Performs status snapshot.
     pub fn status_snapshot(&self) -> WorkerStatus {
         let analyzer_counts: HashMap<String, u64> = self
             .analyzer_counters
@@ -443,6 +458,7 @@ fn get_resume_priority(
 
 // ─── Worker Loop (scheduler-driven) ───────────────────────────────────────
 
+/// spawn_worker_loop - Spawns worker loop worker/task.
 pub fn spawn_worker_loop(
     worker: Arc<WorkerState>,
     ml_client: MlClient,
@@ -530,6 +546,7 @@ pub(crate) struct PendingJob {
     has_ocr: bool,
 }
 
+/// reset_interrupted_jobs - Updates reset interrupted jobs.
 async fn reset_interrupted_jobs(db: &DbPool) {
     let _ = sqlx::query(
         "UPDATE background_jobs SET status = 'pending', current_stage = NULL, stage_progress = NULL, last_error = 'Interrupted by restart' WHERE status = 'processing'"
@@ -539,6 +556,7 @@ async fn reset_interrupted_jobs(db: &DbPool) {
     info!("[Scheduler] Reset interrupted jobs to pending.");
 }
 
+/// fetch_pending_job - Retrieves pending job.
 async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
     let row = sqlx::query(
         r#"
@@ -636,6 +654,7 @@ async fn run_analyzers(
     (stage_names, results)
 }
 
+/// update_stage - Updates update stage.
 async fn update_stage(db: &DbPool, photo_id: i64, stage: &str) {
     let _ = sqlx::query(
         "UPDATE background_jobs SET current_stage = ?, updated_at = CURRENT_TIMESTAMP WHERE photo_id = ? AND status = 'processing'"
@@ -646,6 +665,7 @@ async fn update_stage(db: &DbPool, photo_id: i64, stage: &str) {
     .await;
 }
 
+/// update_job_status - Updates update job status.
 async fn update_job_status(
     db: &DbPool,
     job_id: i64,

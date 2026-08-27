@@ -57,6 +57,9 @@ let eventBuffer: PendingEvent[] = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 let isFlushing = false;
 
+/**
+ * flushBuffer - Performs flush buffer.
+ */
 async function flushBuffer(): Promise<void> {
   if (isFlushing || eventBuffer.length === 0) return;
   isFlushing = true;
@@ -80,6 +83,9 @@ async function flushBuffer(): Promise<void> {
   }
 }
 
+/**
+ * scheduleFlush - Performs schedule flush.
+ */
 function scheduleFlush(): void {
   if (flushTimer !== null) return; // already scheduled
   flushTimer = setTimeout(() => {
@@ -88,6 +94,9 @@ function scheduleFlush(): void {
   }, BUFFER_FLUSH_INTERVAL_MS);
 }
 
+/**
+ * enqueueEvent - Performs enqueue event.
+ */
 function enqueueEvent(event: PendingEvent): void {
   // Respect the global telemetry opt-out. Errors are always captured so
   // diagnostics remain available even when telemetry collection is paused.

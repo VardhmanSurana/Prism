@@ -7,6 +7,9 @@ interface ToolButtonProps {
   children: React.ReactNode;
 }
 
+/**
+ * ToolButton - Renders tool button.
+ */
 export const ToolButton: React.FC<ToolButtonProps> = ({ title, onClick, active, children }) => (
   <button
     title={title}

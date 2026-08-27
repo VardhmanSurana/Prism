@@ -8,6 +8,9 @@ interface SuggestedFollowupsProps {
   onCreateAlbum?: () => void;
 }
 
+/**
+ * SuggestedFollowups - Renders suggested followups.
+ */
 export const SuggestedFollowups: React.FC<SuggestedFollowupsProps> = ({
   photos = [],
   onSelectFollowup,

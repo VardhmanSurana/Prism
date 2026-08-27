@@ -6,6 +6,9 @@ interface ClipDragLayerProps {
   projectFps: number;
 }
 
+/**
+ * ClipDragLayer - Renders clip drag layer.
+ */
 export const ClipDragLayer: React.FC<ClipDragLayerProps> = ({ dragState, pixelsPerSec, projectFps }) => {
   if (!dragState || dragState.type !== 'move') return null;
 

@@ -21,6 +21,9 @@ export interface StoryViewerProps {
   onClose: () => void;
 }
 
+/**
+ * WordReveal - Renders word reveal.
+ */
 const WordReveal: React.FC<{ text: string }> = ({ text }) => {
   const words = text.split(' ');
   return (
@@ -48,6 +51,9 @@ const WordReveal: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
+/**
+ * StoryViewer - Renders story viewer.
+ */
 export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
@@ -56,6 +62,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
 
   const SLIDE_DURATION = 6000;
 
+  /**
+   * handleNext - Handles next.
+   */
   const handleNext = useCallback(() => {
     if (currentIndex < photos.length - 1) {
       setCurrentIndex(prev => prev + 1);
@@ -64,6 +73,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
     }
   }, [currentIndex, photos.length, onClose]);
 
+  /**
+   * handlePrev - Handles prev.
+   */
   const handlePrev = useCallback(() => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
@@ -72,6 +84,9 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
 
   useEffect(() => {
     if (photos.length === 0) return;
+    /**
+     * timer - Performs timer.
+     */
     const timer = setTimeout(() => {
       handleNext();
     }, SLIDE_DURATION);

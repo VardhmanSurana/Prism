@@ -23,6 +23,9 @@ export interface ProjectSlice {
   removeProjectAsset: (assetId: number | string) => void;
 }
 
+/**
+ * createProjectSlice - Creates project slice.
+ */
 export const createProjectSlice: StateCreator<NLEStore, [], [], ProjectSlice> = (set, get) => ({
   projectId: null,
   projectName: 'Untitled Edit',

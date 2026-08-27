@@ -10,12 +10,18 @@ interface GoogleImportToastProps {
   forceShow?: boolean;
 }
 
+/**
+ * GoogleImportToast - Renders google import toast.
+ */
 export const GoogleImportToast: React.FC<GoogleImportToastProps> = ({
   onStop,
   onShowMore,
   previewImg,
   forceShow = false,
 }) => {
+  /**
+   * syncStatus - Performs sync status.
+   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const { galleryStyle } = useGalleryLayout();
   const [isDismissed, setIsDismissed] = useState(false);

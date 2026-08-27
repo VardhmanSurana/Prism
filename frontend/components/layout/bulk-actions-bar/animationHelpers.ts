@@ -3,6 +3,9 @@ import { gsap } from 'gsap';
 
 export const EASE = 'easeOutCubic';
 
+/**
+ * nextFrame - Performs next frame.
+ */
 export const nextFrame = (cb: () => void) => {
   if (typeof window !== 'undefined' && window.requestAnimationFrame) {
     window.requestAnimationFrame(() => cb());
@@ -11,6 +14,9 @@ export const nextFrame = (cb: () => void) => {
   }
 };
 
+/**
+ * delay - Performs delay.
+ */
 export const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Parabolic arc flight for a cloned card to the trash target using GSAP. */

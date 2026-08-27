@@ -86,4 +86,7 @@ class EventService {
     }
 }
 
+/**
+ * eventService - Performs event service.
+ */
 export const eventService = new EventService();

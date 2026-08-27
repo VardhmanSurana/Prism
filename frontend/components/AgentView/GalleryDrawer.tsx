@@ -5,12 +5,18 @@ import { Photo } from '../../types';
 import { GalleryDrawerProps } from './types';
 import { resolveUrl } from '../../constants';
 
+/**
+ * getPhotoUrl - Retrieves get photo url.
+ */
 const getPhotoUrl = (p: Photo) => {
   if (p.url && p.url.trim().length > 0) return resolveUrl(p.url);
   if (p.path) return resolveUrl(`local://${p.path}`);
   return resolveUrl(`/api/v1/photos/${p.id}/thumbnail`);
 };
 
+/**
+ * GalleryDrawer - Renders gallery drawer.
+ */
 export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
   photos,
   isOpen,

@@ -19,6 +19,7 @@ pub struct InterrogateResult {
     pub sam: JsonValue,
 }
 
+/// run_interrogate - Executes run interrogate.
 pub async fn run_interrogate(photo_path: &str, _prompt: Option<&str>, llm_client: &LlmClient) -> Result<InterrogateResult, String> {
     if !Path::new(photo_path).exists() {
         return Err("Photo file not found".to_string());

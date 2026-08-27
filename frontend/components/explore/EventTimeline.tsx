@@ -52,6 +52,9 @@ const DEFAULT_STYLE = {
   icon: <Calendar size={10} className="text-gray-400" />,
 };
 
+/**
+ * formatDateRange - Formats format date range.
+ */
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
   const e = new Date(end);
@@ -145,12 +148,18 @@ const EventCard: React.FC<{
   );
 };
 
+/**
+ * EventTimeline - Renders event timeline.
+ */
 export const EventTimeline: React.FC<EventTimelineProps> = ({ events: propEvents }) => {
   const [events, setEvents] = useState<TimelineEvent[]>(propEvents || []);
   const [isLoading, setIsLoading] = useState(!propEvents);
 
   useEffect(() => {
     if (propEvents) return;
+    /**
+     * fetchEvents - Retrieves fetch events.
+     */
     const fetchEvents = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/explore/timeline`);

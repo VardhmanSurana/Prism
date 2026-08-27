@@ -10,6 +10,11 @@ interface StorageStats {
   database_path: string;
 }
 
+  /**
+   * Formats bytes into human-readable size.
+   * @param bytes - Size in bytes.
+   * @param decimals - Decimal places.
+   */
 const formatBytes = (bytes: number, decimals = 2) => {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;
@@ -19,6 +24,10 @@ const formatBytes = (bytes: number, decimals = 2) => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 };
 
+/**
+ * Hook managing storage cleanup data, diagnostics, and cache/vacuum actions.
+ * @returns Cleanup state and action handlers.
+ */
 export const useStorageCleanup = () => {
   const [activeSubTab, setActiveSubTab] = useState<CleanupTab>('blurry');
   const [blurryPhotos, setBlurryPhotos] = useState<BlurryPhoto[]>([]);
@@ -30,6 +39,7 @@ export const useStorageCleanup = () => {
   const [isClearingCache, setIsClearingCache] = useState(false);
   const [isVacuuming, setIsVacuuming] = useState(false);
 
+  /** Fetches storage diagnostics (DB/cache sizes) from the backend. */
   const fetchDiagnostics = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/diagnostics`);
@@ -46,6 +56,7 @@ export const useStorageCleanup = () => {
     }
   }, []);
 
+  /** Fetches blurry, duplicate and document cleanup datasets in parallel. */
   const fetchCleanupData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -78,6 +89,7 @@ export const useStorageCleanup = () => {
     fetchCleanupData();
   }, [fetchCleanupData]);
 
+  /** Clears thumbnail cache and refreshes diagnostics. */
   const handleClearCache = async () => {
     if (!await customConfirm('Clear all cached thumbnails? Photos will need to be re-indexed to regenerate thumbnails.', 'Clear Thumbnail Cache')) return;
     setIsClearingCache(true);
@@ -96,6 +108,7 @@ export const useStorageCleanup = () => {
     }
   };
 
+  /** Vacuums the database and refreshes diagnostics. */
   const handleVacuumDatabase = async () => {
     if (!await customConfirm('Optimize the database? This reclaims disk space and improves performance.', 'Vacuum Database')) return;
     setIsVacuuming(true);
@@ -113,6 +126,10 @@ export const useStorageCleanup = () => {
     }
   };
 
+  /**
+   * Deletes a photo by id and refreshes cleanup data.
+   * @param id - Photo database id.
+   */
   const handleDeletePhoto = async (id: number) => {
     if (!await customConfirm('Are you sure you want to move this photo to trash?', 'Confirm Trash')) return;
     try {

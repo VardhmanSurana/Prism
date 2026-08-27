@@ -26,6 +26,7 @@ pub enum LlmMode {
 }
 
 impl LlmMode {
+    /// port - Performs port.
     pub fn port(self) -> u16 {
         match self {
             LlmMode::Agent => 9090,
@@ -34,6 +35,7 @@ impl LlmMode {
         }
     }
 
+    /// model - Performs model.
     fn model(self, models_dir: &PathBuf) -> PathBuf {
         match self {
             LlmMode::Agent => models_dir.join("llm/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"),
@@ -42,6 +44,7 @@ impl LlmMode {
         }
     }
 
+    /// mmproj - Performs mmproj.
     fn mmproj(self, models_dir: &PathBuf) -> PathBuf {
         match self {
             LlmMode::Agent => models_dir.join("llm/mmproj-BF16-E4B.gguf"),
@@ -50,6 +53,7 @@ impl LlmMode {
         }
     }
 
+    /// log_file - Performs log file.
     fn log_file(self) -> String {
         match self {
             LlmMode::Agent => "llm_server_agent.log",
@@ -75,6 +79,7 @@ pub struct LlmServer {
 }
 
 impl LlmServer {
+    /// new - Performs new.
     pub fn new(models_dir: PathBuf, gpu_mode: String) -> Arc<Self> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(3))
@@ -106,6 +111,7 @@ impl LlmServer {
         inner.mode = None;
     }
 
+    /// ensure_running - Performs ensure running.
     async fn ensure_running(&self, mode: LlmMode) -> Result<u16, String> {
         {
             let mut inner = self.inner.lock().await;
@@ -123,6 +129,7 @@ impl LlmServer {
         self.spawn(mode).await
     }
 
+    /// spawn - Performs spawn.
     async fn spawn(&self, mode: LlmMode) -> Result<u16, String> {
         let model_path = mode.model(&self.models_dir);
         if !model_path.exists() {

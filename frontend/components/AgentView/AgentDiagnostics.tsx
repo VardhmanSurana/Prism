@@ -20,6 +20,9 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: '
   search_tags: { label: 'Tag search', icon: <Tag size={11} />, color: 'gray' },
 };
 
+/**
+ * AgentDiagnostics - Renders agent diagnostics.
+ */
 export const AgentDiagnostics: React.FC<AgentDiagnosticsProps> = ({
   plan,
   tools,

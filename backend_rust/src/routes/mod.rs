@@ -69,6 +69,7 @@ pub fn get_telemetry_response_logging() -> bool {
     TELEM_RESPONSE_LOGGING.load(Ordering::Relaxed)
 }
 
+/// set_telemetry_response_logging - Updates set telemetry response logging.
 pub fn set_telemetry_response_logging(enabled: bool) {
     TELEM_RESPONSE_LOGGING.store(enabled, Ordering::Relaxed);
 }
@@ -121,6 +122,7 @@ fn extract_response_summary(body_bytes: &[u8], content_type: &str) -> Option<Str
     }
 }
 
+/// telemetry_tracking_layer - Performs telemetry tracking layer.
 async fn telemetry_tracking_layer(
     State(state): State<Arc<AppState>>,
     req: Request,
@@ -291,6 +293,7 @@ struct RateLimiter {
 }
 
 impl RateLimiter {
+    /// check - Performs check.
     fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
         let mut buckets = self.buckets.lock().unwrap();
         let now = Instant::now();
@@ -363,6 +366,7 @@ async fn rate_limit_layer(
 )]
 pub struct ApiDoc;
 
+/// create_router - Handles create router.
 pub fn create_router(state: Arc<AppState>) -> Router {
     // CORS: use ALLOWED_ORIGINS env var (comma-separated) for production,
     // or fall back to the default dev origins.

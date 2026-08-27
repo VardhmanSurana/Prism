@@ -14,6 +14,9 @@ export interface PlatformInfo {
 
 const STORAGE_KEY = 'prism_platform_mode';
 
+/**
+ * usePlatform - Hook managing platform.
+ */
 export function usePlatform(): PlatformInfo {
   const [preference, setPreferenceState] = useState<PlatformMode>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -26,11 +29,17 @@ export function usePlatform(): PlatformInfo {
   );
 
   useEffect(() => {
+    /**
+     * handleResize - Handles resize.
+     */
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  /**
+   * setPreference - Performs set preference.
+   */
   const setPreference = useCallback((pref: PlatformMode) => {
     localStorage.setItem(STORAGE_KEY, pref);
     setPreferenceState(pref);

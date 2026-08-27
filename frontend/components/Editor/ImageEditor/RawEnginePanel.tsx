@@ -7,10 +7,16 @@ interface RawEnginePanelProps {
   onChange: (s: RawSettings) => void;
 }
 
+/**
+ * RawEnginePanel - Renders raw engine panel.
+ */
 export const RawEnginePanel: React.FC<RawEnginePanelProps> = ({
   settings = DEFAULT_RAW_SETTINGS,
   onChange,
 }) => {
+  /**
+   * update - Performs update.
+   */
   const update = (patch: Partial<RawSettings>) => onChange({ ...settings, ...patch });
 
   return (

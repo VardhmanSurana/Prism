@@ -67,6 +67,9 @@ export class VideoFrameDecoder {
     return new Promise((resolve) => {
       let settled = false;
 
+      /**
+       * onSeeked - Performs on seeked.
+       */
       const onSeeked = () => {
         if (settled) return;
         settled = true;
@@ -93,6 +96,9 @@ export class VideoFrameDecoder {
       };
 
       // Timeout: if seeked event never fires within 2s, unlock and resolve null
+      /**
+       * timeoutId - Performs timeout id.
+       */
       const timeoutId = setTimeout(() => {
         if (settled) return;
         settled = true;

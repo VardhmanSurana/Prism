@@ -23,6 +23,9 @@ interface CameraSlot {
   isVisible: boolean;
 }
 
+/**
+ * MulticamGrid - Renders multicam grid.
+ */
 export const MulticamGrid: React.FC<MulticamGridProps> = ({
   tracks,
   playheadPosition,
@@ -30,9 +33,15 @@ export const MulticamGrid: React.FC<MulticamGridProps> = ({
   onSelectAngle,
   onClose,
 }) => {
+  /**
+   * videoTracks - Performs video tracks.
+   */
   const videoTracks = tracks.filter((t) => t.type === 'video');
 
   // Map 4 camera slots (Angles 1 to 4)
+  /**
+   * slots - Performs slots.
+   */
   const slots: CameraSlot[] = [1, 2, 3, 4].map((angle) => {
     // Find track explicitly assigned to this angle, or fallback to track index
     const track =

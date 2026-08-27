@@ -13,6 +13,9 @@ import { createActionsSlice } from './nle/actionsStore';
 
 export type { ProjectAsset } from './nle/types';
 
+/**
+ * useNLEStore - Hook managing nlestore.
+ */
 export const useNLEStore = create<NLEStore>((set, get, store) => ({
   ...createProjectSlice(set, get, store),
   ...createTimelineSlice(set, get, store),

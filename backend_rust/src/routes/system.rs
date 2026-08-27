@@ -6,6 +6,7 @@ use std::sync::Arc;
 use crate::models::{HealthStatus, PhotoStatsResponse};
 use crate::AppState;
 
+/// root - Performs root.
 pub async fn root() -> Json<Value> {
     Json(json!({
         "name": "Prism Rust Backend API",
@@ -14,6 +15,7 @@ pub async fn root() -> Json<Value> {
     }))
 }
 
+/// health_check - Performs health check.
 pub async fn health_check(State(state): State<Arc<AppState>>) -> Json<HealthStatus> {
     let db_ok = sqlx::query("SELECT 1").execute(&state.db).await.is_ok();
 
@@ -25,6 +27,7 @@ pub async fn health_check(State(state): State<Arc<AppState>>) -> Json<HealthStat
     })
 }
 
+/// get_photo_stats - Retrieves get photo stats.
 pub async fn get_photo_stats(State(state): State<Arc<AppState>>) -> Json<PhotoStatsResponse> {
     let total_photos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE is_trash = 0 AND file_type = 'image'")
         .fetch_one(&state.db)

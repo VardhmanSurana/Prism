@@ -20,6 +20,7 @@ pub struct ExploreQuery {
     pub limit: Option<i64>,
 }
 
+/// explore_photos - Performs explore photos.
 pub async fn explore_photos(
     State(state): State<Arc<AppState>>,
     Query(params): Query<ExploreQuery>,
@@ -74,6 +75,7 @@ pub async fn explore_photos(
     Ok(Json(photos))
 }
 
+/// explore_insights - Performs explore insights.
 pub async fn explore_insights(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -161,6 +163,7 @@ pub async fn explore_insights(
     })))
 }
 
+/// explore_themes - Performs explore themes.
 pub async fn explore_themes(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -202,6 +205,7 @@ pub async fn explore_themes(
     Ok(Json(json!({ "themes": themes })))
 }
 
+/// explore_on_this_day - Performs explore on this day.
 pub async fn explore_on_this_day(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -225,6 +229,7 @@ pub async fn explore_on_this_day(
     Ok(Json(json!({ "items": items })))
 }
 
+/// explore_rediscover_prompts - Performs explore rediscover prompts.
 pub async fn explore_rediscover_prompts(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {

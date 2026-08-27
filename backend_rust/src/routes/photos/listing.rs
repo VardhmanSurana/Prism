@@ -27,6 +27,7 @@ pub struct PhotoQuery {
     pub search: Option<String>,
 }
 
+/// list_photos - Retrieves list photos.
 pub async fn list_photos(
     State(state): State<Arc<AppState>>,
     Query(query): Query<PhotoQuery>,
@@ -67,6 +68,7 @@ pub async fn list_photos(
     Ok(Json(photos))
 }
 
+/// get_photo - Retrieves get photo.
 pub async fn get_photo(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -75,6 +77,7 @@ pub async fn get_photo(
     Ok(Json(photo))
 }
 
+/// get_photo_metadata - Retrieves get photo metadata.
 pub async fn get_photo_metadata(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -84,6 +87,7 @@ pub async fn get_photo_metadata(
 
 // ponytail: canonicalize a user-supplied path to resolve `..` / symlinks.
 // Returns Err if the path is invalid or doesn't exist.
+/// safe_resolve - Performs safe resolve.
 fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
     let raw = PathBuf::from(path);
     let canonical = raw
@@ -96,6 +100,7 @@ fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
 }
 
 // ponytail: ensure resolved path stays under an allowed directory root.
+/// safe_resolve_under - Performs safe resolve under.
 fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (StatusCode, String)> {
     let resolved = safe_resolve(path)?;
     if !resolved.starts_with(root) {
@@ -104,6 +109,7 @@ fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (St
     Ok(resolved)
 }
 
+/// resolve_photo_path - Performs resolve photo path.
 pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     let path = PathBuf::from(raw_path);
     if path.exists() {
@@ -125,6 +131,7 @@ pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     None
 }
 
+/// get_photo_file - Retrieves get photo file.
 pub async fn get_photo_file(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -157,6 +164,7 @@ pub struct ThumbnailQuery {
     pub size: Option<u32>,
 }
 
+/// get_photo_thumbnail - Retrieves get photo thumbnail.
 pub async fn get_photo_thumbnail(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -202,6 +210,7 @@ pub struct ServeLocalQuery {
     pub path: String,
 }
 
+/// serve_local_file - Performs serve local file.
 pub async fn serve_local_file(
     Query(query): Query<ServeLocalQuery>,
 ) -> Result<Response, (StatusCode, String)> {
@@ -209,6 +218,7 @@ pub async fn serve_local_file(
     serve_file_by_path(file_path).await
 }
 
+/// serve_sample_image - Performs serve sample image.
 pub async fn serve_sample_image(
     Path(filename): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
@@ -233,6 +243,7 @@ pub async fn serve_sample_image(
     Err((StatusCode::NOT_FOUND, format!("Sample image '{}' not found", filename)))
 }
 
+/// serve_file_by_path - Performs serve file by path.
 async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode, String)> {
     let mime = mime_guess::from_path(&file_path)
         .first_or_octet_stream()

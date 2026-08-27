@@ -9,6 +9,9 @@ interface DragDropOverlayProps {
   onDismissError?: () => void;
 }
 
+/**
+ * DragDropOverlay - Renders drag drop overlay.
+ */
 export const DragDropOverlay: React.FC<DragDropOverlayProps> = ({
   phase,
   error,

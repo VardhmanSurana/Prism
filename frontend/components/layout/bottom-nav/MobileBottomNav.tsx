@@ -7,6 +7,9 @@ interface MobileBottomNavProps {
   onChangeView: (view: ViewMode) => void;
 }
 
+/**
+ * MobileBottomNav - Renders mobile bottom nav.
+ */
 export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ currentView, onChangeView }) => {
   const tabs: { id: ViewMode; label: string; icon: React.ElementType }[] = [
     { id: 'gallery', label: 'Library', icon: ImageIcon },

@@ -13,6 +13,9 @@ interface AddToAlbumDialogProps {
 
 type FilterTab = 'all' | 'mine' | 'shared';
 
+/**
+ * AddToAlbumDialog - Renders add to album dialog.
+ */
 export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   isOpen,
   onClose,
@@ -26,6 +29,9 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   const [showNewAlbumInput, setShowNewAlbumInput] = useState(false);
   const [newAlbumName, setNewAlbumName] = useState('');
 
+  /**
+   * filteredAlbums - Performs filtered albums.
+   */
   const filteredAlbums = useMemo(() => {
     let filtered = albums;
 
@@ -40,6 +46,9 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
 
   if (!isOpen) return null;
 
+  /**
+   * handleCreate - Handles create.
+   */
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newAlbumName.trim()) {

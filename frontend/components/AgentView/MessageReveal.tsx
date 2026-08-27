@@ -7,6 +7,9 @@ interface MessageRevealProps {
   role: 'assistant' | 'user';
 }
 
+/**
+ * MessageReveal - Renders message reveal.
+ */
 export const MessageReveal: React.FC<MessageRevealProps> = ({ text, role }) => {
   if (role === 'user') return <>{text}</>;
 

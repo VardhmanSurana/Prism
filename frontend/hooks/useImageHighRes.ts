@@ -6,10 +6,16 @@ interface UseImageHighResProps {
   photo: Photo;
 }
 
+/**
+ * useImageHighRes - Hook managing image high res.
+ */
 export const useImageHighRes = ({ photo }: UseImageHighResProps) => {
   const [highResStatus, setHighResStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentHighResUrl, setCurrentHighResUrl] = useState<string | null>(null);
 
+  /**
+   * highResUrl - Performs high res url.
+   */
   const highResUrl = useMemo(() => {
     const isHeic =
       photo.path?.toLowerCase().endsWith('.heic') ||

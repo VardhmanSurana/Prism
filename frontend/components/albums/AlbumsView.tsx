@@ -19,6 +19,9 @@ type DialogState =
   | { type: 'rename'; album: Album }
   | { type: 'delete'; album: Album };
 
+/**
+ * AlbumsView - Renders albums view.
+ */
 export const AlbumsView: React.FC<AlbumsViewProps> = ({
   onPhotoClick,
   selectedIds,
@@ -39,24 +42,45 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
 
   const [dialog, setDialog] = useState<DialogState>({ type: 'none' });
 
+  /**
+   * handleAlbumClick - Handles album click.
+   */
   const handleAlbumClick = async (album: Album | SmartAlbum) => {
     setSelectedAlbum(album);
     await fetchAlbumPhotos(album);
   };
 
+  /**
+   * handleRenameAlbum - Handles rename album.
+   */
   const handleRenameAlbum = (album: Album) => setDialog({ type: 'rename', album });
+  /**
+   * handleDeleteAlbum - Handles delete album.
+   */
   const handleDeleteAlbum = (album: Album) => setDialog({ type: 'delete', album });
+  /**
+   * closeDialog - Performs close dialog.
+   */
   const closeDialog = () => setDialog({ type: 'none' });
 
+  /**
+   * handleConfirmCreate - Handles confirm create.
+   */
   const handleConfirmCreate = async (name: string) => {
     await createAlbum(name);
   };
 
+  /**
+   * handleConfirmRename - Handles confirm rename.
+   */
   const handleConfirmRename = async (name: string) => {
     if (dialog.type !== 'rename') return;
     await renameAlbum(dialog.album, name);
   };
 
+  /**
+   * handleConfirmDelete - Handles confirm delete.
+   */
   const handleConfirmDelete = async () => {
     if (dialog.type !== 'delete') return;
     await deleteAlbum(Number(dialog.album.id));

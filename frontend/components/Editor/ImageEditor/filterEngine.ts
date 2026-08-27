@@ -403,12 +403,18 @@ export function toFilterString(adj: Adjustments): string {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+/**
+ * isDefaultAdjustments - Performs is default adjustments.
+ */
 export const isDefaultAdjustments = (adj: Adjustments): boolean => {
   const baseKeys: (keyof Adjustments)[] = [
     'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
     'vibrance', 'saturation', 'hue', 'temperature', 'tint', 'clarity', 'sharpness', 'noiseReduction',
     'ambiance', 'vignette', 'dehaze', 'perspective', 'verticalPerspective', 'distortion'
   ];
+  /**
+   * isBaseDefault - Performs is base default.
+   */
   const isBaseDefault = baseKeys.every(k => adj[k] === 0);
   if (!isBaseDefault) return false;
 

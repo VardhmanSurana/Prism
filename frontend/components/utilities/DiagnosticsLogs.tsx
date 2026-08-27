@@ -61,6 +61,9 @@ interface DiagnosticsData {
 
 
 
+/**
+ * Diagnostics and telemetry panel: system stats, logs, telemetry stream (SSE), export/restore.
+ */
 export const DiagnosticsLogs: React.FC = () => {
   const [data, setData] = useState<DiagnosticsData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -96,6 +99,7 @@ export const DiagnosticsLogs: React.FC = () => {
     fetchTelemetrySettings();
   }, [fetchTelemetrySettings]);
 
+  /** Applies the selected telemetry sample rate to the backend. */
   const handleApplySampleRate = useCallback(async () => {
     setSampleRateStatus('saving');
     try {
@@ -108,6 +112,7 @@ export const DiagnosticsLogs: React.FC = () => {
     }
   }, [localSampleRate, setTelemetrySampleRate]);
 
+  /** Toggles telemetry enabled state and persists via settings store. */
   const handleToggleTelemetry = useCallback(async () => {
     await setTelemetryEnabled(!telemetryEnabled);
   }, [telemetryEnabled, setTelemetryEnabled]);
@@ -118,6 +123,12 @@ export const DiagnosticsLogs: React.FC = () => {
 
   const { stats } = useStats();
 
+  /**
+   * Formats bytes into human-readable string.
+   * @param bytes - Size in bytes.
+   * @param decimals - Decimal places.
+   * @returns Formatted size (e.g. 1.5 MB).
+   */
   const formatBytes = (bytes: number, decimals = 2) => {
     if (!bytes || bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -127,6 +138,7 @@ export const DiagnosticsLogs: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
+  /** Fetches diagnostics snapshot from the backend and updates state. */
   const fetchDiagnostics = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/diagnostics`);

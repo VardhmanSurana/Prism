@@ -3,7 +3,13 @@ import { useCallback } from 'react';
 let globalAudioContext: AudioContext | null = null;
 let globalMasterGain: GainNode | null = null;
 
+/**
+ * useAudioContext - Hook managing audio context.
+ */
 export function useAudioContext() {
+  /**
+   * getOrCreateContext - Retrieves get or create context.
+   */
   const getOrCreateContext = useCallback(() => {
     if (typeof window === 'undefined') return { ctx: null, masterGain: null };
     if (!globalAudioContext) {
@@ -15,6 +21,9 @@ export function useAudioContext() {
     return { ctx: globalAudioContext, masterGain: globalMasterGain };
   }, []);
 
+  /**
+   * resume - Performs resume.
+   */
   const resume = useCallback(async () => {
     const { ctx } = getOrCreateContext();
     if (ctx && ctx.state === 'suspended') {

@@ -1,3 +1,6 @@
+/**
+ * formatDate - Formats format date.
+ */
 export const formatDate = (dateString: string) => {
   if (!dateString || dateString === 'Invalid Date' || dateString === 'NaN') {
     return {

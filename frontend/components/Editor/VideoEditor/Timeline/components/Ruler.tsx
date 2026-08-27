@@ -9,6 +9,9 @@ const SECOND_MULTIPLIERS = [1, 2, 3, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800
 const MIN_LABEL_SPACING_PX = 120;
 const MIN_TICK_SPACING_PX = 18;
 
+/**
+ * getRulerConfig - Retrieves get ruler config.
+ */
 export function getRulerConfig(pixelsPerSec: number, fps: number) {
   const pixelsPerFrame = pixelsPerSec / fps;
 
@@ -51,6 +54,9 @@ export function getRulerConfig(pixelsPerSec: number, fps: number) {
   return { labelIntervalSeconds, tickIntervalSeconds };
 }
 
+/**
+ * formatRulerLabel - Formats format ruler label.
+ */
 export function formatRulerLabel(timeInSeconds: number, fps: number): string {
   const epsilon = 0.0001;
   const remainder = timeInSeconds % 1;
@@ -80,6 +86,9 @@ interface RulerProps {
   duration: number;
 }
 
+/**
+ * Ruler - Renders ruler.
+ */
 export const Ruler: React.FC<RulerProps> = ({
   timelineWidth,
   pixelsPerSec,
@@ -97,6 +106,9 @@ export const Ruler: React.FC<RulerProps> = ({
     [pixelsPerSec, projectFps]
   );
 
+  /**
+   * ticks - Performs ticks.
+   */
   const ticks = useMemo(() => {
     const result = [];
     const maxTime = Math.max(duration / projectFps, timelineWidth / pixelsPerSec);
@@ -111,6 +123,9 @@ export const Ruler: React.FC<RulerProps> = ({
     return result;
   }, [timelineWidth, pixelsPerSec, duration, projectFps, tickIntervalSeconds, labelIntervalSeconds]);
 
+  /**
+   * handleRulerClick - Handles ruler click.
+   */
   const handleRulerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;

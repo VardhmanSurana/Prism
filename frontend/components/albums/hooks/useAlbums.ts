@@ -18,12 +18,18 @@ interface UseAlbumsReturn {
   setAlbumCover: (albumId: number, photoId: number) => Promise<boolean>;
 }
 
+/**
+ * useAlbums - Hook managing albums state.
+ */
 export const useAlbums = (): UseAlbumsReturn => {
   const [albums, setAlbums] = useState<(Album | SmartAlbum)[]>([]);
   const [selectedAlbum, setSelectedAlbum] = useState<Album | SmartAlbum | null>(null);
   const [albumPhotos, setAlbumPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * fetchAlbums - Retrieves fetch albums.
+   */
   const fetchAlbums = useCallback(async () => {
     try {
       const [customRes, smartRes] = await Promise.all([
@@ -44,6 +50,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     fetchAlbums();
   }, [fetchAlbums]);
 
+  /**
+   * fetchAlbumPhotos - Retrieves fetch album photos.
+   */
   const fetchAlbumPhotos = useCallback(async (album: Album | SmartAlbum) => {
     setIsLoading(true);
     setAlbumPhotos([]);
@@ -66,6 +75,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     }
   }, []);
 
+  /**
+   * createAlbum - Performs create album.
+   */
   const createAlbum = useCallback(async (name: string): Promise<Album | null> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/albums/`, {
@@ -84,6 +96,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     return null;
   }, [fetchAlbums]);
 
+  /**
+   * deleteAlbum - Performs delete album.
+   */
   const deleteAlbum = useCallback(async (albumId: number): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/albums/${albumId}`, {
@@ -102,6 +117,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     return false;
   }, [fetchAlbums, selectedAlbum]);
 
+  /**
+   * renameAlbum - Performs rename album.
+   */
   const renameAlbum = useCallback(async (album: Album, newName: string) => {
     const id = album.id;
     if (!id) return;
@@ -124,6 +142,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     }
   }, [fetchAlbums, selectedAlbum]);
 
+  /**
+   * addPhotosToAlbum - Performs add photos to album.
+   */
   const addPhotosToAlbum = useCallback(async (albumId: number, photoIds: number[]): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/albums/${albumId}/add-photos`, {
@@ -141,6 +162,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     return false;
   }, [fetchAlbums]);
 
+  /**
+   * removePhotosFromAlbum - Performs remove photos from album.
+   */
   const removePhotosFromAlbum = useCallback(async (albumId: number, photoIds: number[]): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/albums/${albumId}/remove-photos`, {
@@ -161,6 +185,9 @@ export const useAlbums = (): UseAlbumsReturn => {
     return false;
   }, [fetchAlbums, selectedAlbum]);
 
+  /**
+   * setAlbumCover - Performs set album cover.
+   */
   const setAlbumCover = useCallback(async (albumId: number, photoId: number): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/albums/${albumId}/set-cover`, {

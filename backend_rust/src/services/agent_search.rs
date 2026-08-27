@@ -9,10 +9,12 @@ pub struct SearchTools {
 }
 
 impl SearchTools {
+    /// new - Performs new.
     pub fn new(db: SqlitePool, siglip: Option<Arc<SiglipEngine>>) -> Self {
         Self { db, siglip }
     }
 
+    /// semantic_search - Performs semantic search.
     pub async fn semantic_search(&self, text_query: &str, top_k: usize, is_locked: bool, _ordered: bool) -> Vec<i64> {
         if text_query.is_empty() {
             return vec![];
@@ -68,6 +70,7 @@ impl SearchTools {
     }
 
     #[allow(dead_code)]
+    /// similar_image - Performs similar image.
     pub async fn similar_image(&self, photo_id: i64, top_k: usize, is_locked: bool, _ordered: bool) -> Vec<i64> {
         let row = sqlx::query(
             "SELECT embedding FROM photos WHERE id = ? AND is_locked = ? AND is_trash = 0 AND embedding IS NOT NULL"

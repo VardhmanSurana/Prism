@@ -35,6 +35,9 @@ const GALLERY_STYLE_MAP: Record<GalleryStyle, string> = {
   apple: 'Apple Photos',
 };
 
+/**
+ * loadSettings - Performs load settings.
+ */
 function loadSettings(): GalleryLayoutSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -57,6 +60,9 @@ function loadSettings(): GalleryLayoutSettings {
   return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default', galleryStyle: 'prism', imageGrouping: 'none', cornerRadius: 0 };
 }
 
+/**
+ * saveSettings - Performs save settings.
+ */
 function saveSettings(settings: GalleryLayoutSettings) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
 }
@@ -73,6 +79,9 @@ interface GalleryLayoutState {
   setCornerRadius: (cornerRadius: number) => void;
 }
 
+/**
+ * useGalleryLayoutStore - Hook managing gallery layout store.
+ */
 export const useGalleryLayoutStore = create<GalleryLayoutState>((set) => ({
   settings: loadSettings(),
   rowHeightPx: ROW_HEIGHT_MAP[loadSettings().rowHeight],
@@ -124,10 +133,16 @@ export const useGalleryLayoutStore = create<GalleryLayoutState>((set) => ({
     }),
 }));
 
+/**
+ * getRowHeightPx - Retrieves get row height px.
+ */
 export function getRowHeightPx(setting: RowHeight): number {
   return ROW_HEIGHT_MAP[setting];
 }
 
+/**
+ * getMaxRowWidth - Retrieves get max row width.
+ */
 export function getMaxRowWidth(setting: PhotoDensity): number {
   return DENSITY_MAP[setting];
 }

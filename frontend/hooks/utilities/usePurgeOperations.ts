@@ -8,15 +8,24 @@ interface UsePurgeOperationsProps {
   openBrowseDialog: (title: string, multiple?: boolean) => Promise<string[] | null>;
 }
 
+/**
+ * usePurgeOperations - Hook managing purge operations.
+ */
 export const usePurgeOperations = ({ openBrowseDialog }: UsePurgeOperationsProps) => {
   const [purgeInput, setPurgeInput] = useState('');
   const [purgeStatus, setPurgeStatus] = useState<string | null>(null);
 
+  /**
+   * handlePurgeBrowse - Handles purge browse.
+   */
   const handlePurgeBrowse = async () => {
     const selected = await openBrowseDialog('Select Folder to Purge from Library', false);
     if (selected && selected.length > 0) setPurgeInput(selected[0]);
   };
 
+  /**
+   * handlePurgeFolder - Handles purge folder.
+   */
   const handlePurgeFolder = async () => {
     if (!purgeInput) return;
     if (!await customConfirm(`Remove all photos from "${purgeInput}" from the library? This cannot be undone.`, 'Confirm Purge')) return;

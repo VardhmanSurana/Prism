@@ -6,6 +6,9 @@ import { usePurgeOperations } from './usePurgeOperations';
 import { useLibraryOperations } from './useLibraryOperations';
 import { useConfirmDialog } from './useConfirmDialog';
 
+/**
+ * useUtilities - Hook managing utilities.
+ */
 export const useUtilities = ({ onResetSuccess }: { onResetSuccess?: () => void } = {}) => {
   const { 
     syncEnabled, 

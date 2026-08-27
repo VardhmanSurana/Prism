@@ -17,6 +17,9 @@ export interface HeaderProps {
   onImportProgress?: (status: any) => void;
 }
 
+/**
+ * Header - Renders header.
+ */
 export const Header: React.FC<HeaderProps> = ({
   onSearch,
   sortMode,
@@ -36,6 +39,9 @@ export const Header: React.FC<HeaderProps> = ({
   });
 
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (e: MouseEvent) => {
       if (uploadMenuRef.current && !uploadMenuRef.current.contains(e.target as Node)) {
         setIsUploadMenuOpen(false);
@@ -45,6 +51,9 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * handleSettingsClick - Handles settings click.
+   */
   const handleSettingsClick = () => {
     if (onChangeView) {
       onChangeView('utilities');

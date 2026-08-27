@@ -19,6 +19,9 @@ const TRACK_HEIGHT = 48;
 const HEADER_WIDTH = 140;
 const TRIM_HANDLE_WIDTH = 6;
 
+/**
+ * Timeline - Renders timeline.
+ */
 export const Timeline: React.FC = () => {
   const {
     tracks, playheadPosition, zoomLevel, selectedClipId, duration,
@@ -38,6 +41,9 @@ export const Timeline: React.FC = () => {
     const el = containerRef.current;
     setContainerWidth(el.clientWidth);
 
+    /**
+     * observer - Performs observer.
+     */
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width);
@@ -67,6 +73,9 @@ export const Timeline: React.FC = () => {
   const [dragTrackOverId, setDragTrackOverId] = useState<string | null>(null);
 
   // ---- Track reordering ----
+  /**
+   * handleTrackDragStart - Handles track drag start.
+   */
   const handleTrackDragStart = useCallback((e: React.DragEvent, trackId: string) => {
     e.stopPropagation();
     setDragTrackId(trackId);
@@ -84,6 +93,9 @@ export const Timeline: React.FC = () => {
     }
   }, []);
 
+  /**
+   * handleTrackDragOver - Handles track drag over.
+   */
   const handleTrackDragOver = useCallback((e: React.DragEvent, trackId: string) => {
     e.preventDefault();
     if (dragTrackId && dragTrackId !== trackId) {
@@ -91,10 +103,16 @@ export const Timeline: React.FC = () => {
     }
   }, [dragTrackId]);
 
+  /**
+   * handleTrackDragLeave - Handles track drag leave.
+   */
   const handleTrackDragLeave = useCallback(() => {
     setDragTrackOverId(null);
   }, []);
 
+  /**
+   * handleTrackDrop - Handles track drop.
+   */
   const handleTrackDrop = useCallback((e: React.DragEvent, targetTrackId: string) => {
     e.preventDefault();
     if (!dragTrackId || dragTrackId === targetTrackId) return;
@@ -113,6 +131,9 @@ export const Timeline: React.FC = () => {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+    /**
+     * handleWheel - Handles wheel.
+     */
     const handleWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
@@ -128,6 +149,9 @@ export const Timeline: React.FC = () => {
   useEffect(() => {
     if (!dragState) return;
 
+    /**
+     * handleMouseMove - Handles mouse move.
+     */
     const handleMouseMove = (e: MouseEvent) => {
       const dx = e.clientX - dragState.startMouseX;
       const dFrames = Math.round((dx / pixelsPerSec) * projectFps);
@@ -198,6 +222,9 @@ export const Timeline: React.FC = () => {
       }
     };
 
+    /**
+     * handleMouseUp - Handles mouse up.
+     */
     const handleMouseUp = () => {
       setDragState(null);
       setDragOverTrackId(null);
@@ -211,35 +238,56 @@ export const Timeline: React.FC = () => {
     };
   }, [dragState, pixelsPerSec, projectFps, moveClip, trimClip, tracks, snapEnabled, playheadPosition]);
 
+  /**
+   * findClip - Performs find clip.
+   */
   function findClip(clipId: string): Clip | undefined {
     for (const track of tracks) {
+      /**
+       * clip - Performs clip.
+       */
       const clip = track.clips.find((c) => c.id === clipId);
       if (clip) return clip;
     }
     return undefined;
   }
 
+  /**
+   * handleRulerClick - Handles ruler click.
+   */
   const handleRulerClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left + (containerRef.current?.scrollLeft ?? 0);
     seek(Math.max(0, x / pixelsPerSec));
   }, [pixelsPerSec, seek]);
 
+  /**
+   * handleTrackAreaClick - Handles track area click.
+   */
   const handleTrackAreaClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       selectClip(null);
     }
   }, [selectClip]);
 
+  /**
+   * handleTrackDoubleClick - Handles track double click.
+   */
   const handleTrackDoubleClick = useCallback(() => {
     if (selectedClipId) {
       splitClip(selectedClipId, playheadPosition);
     }
   }, [selectedClipId, playheadPosition, splitClip]);
 
+  /**
+   * handleCopy - Handles copy.
+   */
   const handleCopy = useCallback(() => {
     if (!selectedClipId) return;
     for (const track of tracks) {
+      /**
+       * clip - Performs clip.
+       */
       const clip = track.clips.find((c) => c.id === selectedClipId);
       if (clip) {
         setClipboardClip(JSON.parse(JSON.stringify(clip)));
@@ -248,12 +296,18 @@ export const Timeline: React.FC = () => {
     }
   }, [selectedClipId, tracks, setClipboardClip]);
 
+  /**
+   * handlePaste - Handles paste.
+   */
   const handlePaste = useCallback(() => {
     const clipData = clipboardClip;
     if (!clipData) return;
     // Find the first video track, or the selected track
     const targetTrackId = selectedTrackId ?? tracks[0]?.id;
     if (!targetTrackId) return;
+    /**
+     * targetTrack - Performs target track.
+     */
     const targetTrack = tracks.find((t) => t.id === targetTrackId);
     if (!targetTrack) return;
 
@@ -298,6 +352,9 @@ export const Timeline: React.FC = () => {
           // Link selected clip with the next clip on the same track
           if (!selectedClipId) return;
           for (const track of tracks) {
+            /**
+             * idx - Performs idx.
+             */
             const idx = track.clips.findIndex((c) => c.id === selectedClipId);
             if (idx !== -1 && idx < track.clips.length - 1) {
               linkClips(track.clips[idx].id, track.clips[idx + 1].id);

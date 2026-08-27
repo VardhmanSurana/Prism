@@ -24,18 +24,30 @@ const TOOL_LABELS: Record<string, string> = {
   eraser: 'Eraser',
 };
 
+/**
+ * getToolLabel - Retrieves get tool label.
+ */
 const getToolLabel = (type: string) => TOOL_LABELS[type] || type;
 
+/**
+ * LayersListSection - Renders layers list section.
+ */
 export const LayersListSection: React.FC<LayersListSectionProps> = ({
   annotations,
   onChange,
 }) => {
   const [isLayersCollapsed, setIsLayersCollapsed] = useState(false);
 
+  /**
+   * handleDelete - Handles delete.
+   */
   const handleDelete = (id: string) => {
     onChange(annotations.filter(a => a.id !== id));
   };
 
+  /**
+   * handleToggleVisibility - Handles toggle visibility.
+   */
   const handleToggleVisibility = (id: string) => {
     onChange(
       annotations.map((a) => {

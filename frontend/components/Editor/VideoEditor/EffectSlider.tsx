@@ -11,6 +11,9 @@ interface EffectSliderProps {
   max: number;
 }
 
+/**
+ * EffectSlider - Renders effect slider.
+ */
 export const EffectSlider: React.FC<EffectSliderProps> = ({ label, value, onChange, onGestureStart, min, max }) => (
   <div className="mb-3">
     <div className="flex items-center justify-between mb-1.5">

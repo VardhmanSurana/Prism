@@ -12,6 +12,9 @@ interface ColorPickerProps {
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
+/**
+ * hexToHsv - Performs hex to hsv.
+ */
 function hexToHsv(hex: string): [number, number, number] {
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -29,15 +32,27 @@ function hexToHsv(hex: string): [number, number, number] {
   return [h / 6, s, v];
 }
 
+/**
+ * hsvToHex - Performs hsv to hex.
+ */
 function hsvToHex(h: number, s: number, v: number): string {
+  /**
+   * f - Performs f.
+   */
   const f = (n: number) => {
     const k = (n + h * 6) % 6;
     return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
   };
+  /**
+   * toHex - Performs to hex.
+   */
   const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
   return `#${toHex(f(5))}${toHex(f(3))}${toHex(f(1))}`;
 }
 
+/**
+ * hsvToHueHex - Performs hsv to hue hex.
+ */
 function hsvToHueHex(h: number): string {
   return hsvToHex(h, 1, 1);
 }
@@ -51,6 +66,9 @@ const PRESETS = [
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+/**
+ * ColorPicker - Renders color picker.
+ */
 export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, className }) => {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -80,6 +98,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
 
   // ── Close on outside click ──────────────────────────────────────────────────
   useEffect(() => {
+    /**
+     * handler - Handles .
+     */
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -125,6 +146,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
   }, []);
 
   // ── Commit color change ────────────────────────────────────────────────────
+  /**
+   * commitHsv - Performs commit hsv.
+   */
   const commitHsv = useCallback((newHsv: [number, number, number]) => {
     setHsv(newHsv);
     const hex = hsvToHex(...newHsv);
@@ -133,6 +157,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
   }, [onChange]);
 
   // ── Gradient interaction ───────────────────────────────────────────────────
+  /**
+   * handleGradientPointer - Handles gradient pointer.
+   */
   const handleGradientPointer = useCallback((e: React.MouseEvent | MouseEvent) => {
     const canvas = gradientRef.current;
     if (!canvas) return;
@@ -142,12 +169,18 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
     commitHsv([hsv[0], s, v]);
   }, [hsv, commitHsv]);
 
+  /**
+   * handleGradientMouseDown - Handles gradient mouse down.
+   */
   const handleGradientMouseDown = useCallback((e: React.MouseEvent) => {
     setDragGrad(true);
     handleGradientPointer(e);
   }, [handleGradientPointer]);
 
   // ── Hue interaction ────────────────────────────────────────────────────────
+  /**
+   * handleHuePointer - Handles hue pointer.
+   */
   const handleHuePointer = useCallback((e: React.MouseEvent | MouseEvent) => {
     const canvas = hueRef.current;
     if (!canvas) return;
@@ -156,6 +189,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
     commitHsv([h, hsv[1], hsv[2]]);
   }, [hsv, commitHsv]);
 
+  /**
+   * handleHueMouseDown - Handles hue mouse down.
+   */
   const handleHueMouseDown = useCallback((e: React.MouseEvent) => {
     setDragHue(true);
     handleHuePointer(e);
@@ -164,10 +200,16 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
   // ── Global mouse move / up ─────────────────────────────────────────────────
   useEffect(() => {
     if (!dragGrad && !dragHue) return;
+    /**
+     * onMove - Performs on move.
+     */
     const onMove = (e: MouseEvent) => {
       if (dragGrad) handleGradientPointer(e);
       if (dragHue) handleHuePointer(e);
     };
+    /**
+     * onUp - Performs on up.
+     */
     const onUp = () => { setDragGrad(false); setDragHue(false); };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
@@ -175,6 +217,9 @@ export const ColorPicker: React.FC<ColorPickerProps> = ({ value, onChange, class
   }, [dragGrad, dragHue, handleGradientPointer, handleHuePointer]);
 
   // ── Hex input ──────────────────────────────────────────────────────────────
+  /**
+   * handleHexInput - Handles hex input.
+   */
   const handleHexInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
     setHexInput(raw);

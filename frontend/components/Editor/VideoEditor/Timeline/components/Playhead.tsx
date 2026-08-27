@@ -8,6 +8,9 @@ interface PlayheadProps {
   timelineWidth: number;
 }
 
+/**
+ * Playhead - Renders playhead.
+ */
 export const Playhead: React.FC<PlayheadProps> = ({
   playheadPosition,
   pixelsPerSec,

@@ -12,6 +12,7 @@ pub struct SamEngine {
 
 static SAM: OnceLock<Arc<SamEngine>> = OnceLock::new();
 
+/// get_sam - Retrieves sam.
 pub fn get_sam() -> Result<Arc<SamEngine>, String> {
     if let Some(sam) = SAM.get() {
         return Ok(sam.clone());
@@ -44,6 +45,7 @@ pub fn get_sam() -> Result<Arc<SamEngine>, String> {
 }
 
 impl SamEngine {
+    /// segment_point - Performs segment point.
     pub fn segment_point(&self, image: &DynamicImage, x: u32, y: u32) -> Result<Vec<u8>, String> {
         let orig_w = image.width() as f32;
         let orig_h = image.height() as f32;

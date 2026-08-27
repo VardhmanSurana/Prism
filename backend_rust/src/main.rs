@@ -32,6 +32,7 @@ pub struct AppState {
 }
 
 #[tokio::main]
+/// main - Entry point for the Prism backend server.
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::registry()
         .with(
@@ -123,6 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// scan_and_recover - Scans and recover.
 fn scan_and_recover(dir: &std::path::Path) {
     if !dir.exists() || !dir.is_dir() {
         return;
@@ -172,6 +174,7 @@ fn scan_and_recover(dir: &std::path::Path) {
     }
 }
 
+/// recover_interrupted_operations - Recovers interrupted operations.
 pub fn recover_interrupted_operations(config: &Config) {
     info!("Scanning for interrupted operations and backup files...");
     scan_and_recover(std::path::Path::new(&config.upload_dir));

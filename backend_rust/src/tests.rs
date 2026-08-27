@@ -4,6 +4,7 @@ mod server_enhancement_tests {
     use crate::services::webhooks::{Webhook, WebhookPayload, WebhookService};
 
     #[tokio::test]
+    /// test_webhook_schema_and_payload - Tests webhook schema and payload.
     async fn test_webhook_schema_and_payload() {
         let pool = init_db("sqlite::memory:").await.unwrap();
 
@@ -49,6 +50,7 @@ mod server_enhancement_tests {
     }
 
     #[tokio::test]
+    /// test_api_key_security_settings - Tests api key security settings.
     async fn test_api_key_security_settings() {
         let pool = init_db("sqlite::memory:").await.unwrap();
 

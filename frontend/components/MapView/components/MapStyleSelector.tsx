@@ -6,6 +6,9 @@ interface MapStyleSelectorProps {
   onStyleChange: (styleId: string) => void;
 }
 
+/**
+ * MapStyleSelector - Renders map style selector.
+ */
 export const MapStyleSelector: React.FC<MapStyleSelectorProps> = ({ 
   selectedStyleId, 
   onStyleChange 

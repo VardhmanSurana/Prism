@@ -27,6 +27,9 @@ import {
   List,
 } from 'lucide-react';
 
+/**
+ * EmptyLibraryState - Renders empty library state.
+ */
 const EmptyLibraryState: React.FC<{ isTrash: boolean }> = React.memo(({ isTrash }) => (
   <div className="flex flex-col items-center gap-4 opacity-60">
     <div className="w-24 h-24 rounded-2xl bg-surface border border-border flex items-center justify-center">
@@ -58,6 +61,9 @@ interface StatsCardProps {
   value: string;
 }
 
+/**
+ * StatsCard - Renders stats card.
+ */
 const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value }) => (
   <div className="flex items-baseline gap-2 py-1">
     <span className="text-2xl font-bold font-sans text-white tracking-tight">{value}</span>
@@ -66,6 +72,9 @@ const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value }) => (
 ));
 StatsCard.displayName = 'StatsCard';
 
+/**
+ * PhotoGrid - Renders photo grid.
+ */
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
   isLoading,
@@ -85,22 +94,34 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const { logAction, logError } = useTelemetry();
 
   // Telemetry-wrapped callbacks for actions not handled in this component directly
+  /**
+   * handlePhotoClickTelemetry - Handles photo click telemetry.
+   */
   const handlePhotoClickTelemetry = useCallback((photo: Photo) => {
     logAction('PhotoGrid', 'photo_click', { photoId: photo.id, filename: photo.filename });
     onPhotoClick?.(photo);
   }, [onPhotoClick, logAction]);
 
+  /**
+   * handleToggleSelectionTelemetry - Handles toggle selection telemetry.
+   */
   const handleToggleSelectionTelemetry = useCallback((id: string) => {
     logAction('PhotoGrid', 'photo_select', { photoId: id });
     onToggleSelection?.(id);
   }, [onToggleSelection, logAction]);
 
+  /**
+   * handleToggleGroupSelectionTelemetry - Handles toggle group selection telemetry.
+   */
   const handleToggleGroupSelectionTelemetry = useCallback((ids: string[]) => {
     logAction('PhotoGrid', 'group_select', { count: ids.length });
     onToggleGroupSelection?.(ids);
   }, [onToggleGroupSelection, logAction]);
 
   const isSelectionMode = selectedIds.size > 0;
+  /**
+   * syncStatus - Performs sync status.
+   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const logRender = useRenderCounter('PhotoGrid');
 
@@ -121,6 +142,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    /**
+     * observer - Performs observer.
+     */
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
@@ -136,6 +160,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const { stats, refetch: refetchStats } = useStats(photos.length);
 
   // Clientside Pill Filtering and sorting logic
+  /**
+   * filteredPhotos - Performs filtered photos.
+   */
   const filteredPhotos = useMemo(() => {
     if (activePill === 'all') return photos;
     if (activePill === 'favorites') {
@@ -151,6 +178,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   }, [photos, activePill]);
 
   // Handle Inline Toggles for List View
+  /**
+   * handleFavoriteToggle - Handles favorite toggle.
+   */
   const handleFavoriteToggle = useCallback(async (id: string | number, current: boolean) => {
     logAction('PhotoGrid', 'favorite_toggle', { photoId: id, newValue: !current });
     if (onBulkFavorite) {
@@ -174,6 +204,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkFavorite, onUpdatePhotos, refetchStats, logAction, logError]);
 
+  /**
+   * handleLockToggle - Handles lock toggle.
+   */
   const handleLockToggle = useCallback(async (id: string | number, current: boolean) => {
     logAction('PhotoGrid', 'lock_toggle', { photoId: id, newValue: !current });
     if (onBulkLockToggle) {
@@ -201,6 +234,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkLockToggle, onUpdatePhotos, refetchStats, logAction, logError]);
 
+  /**
+   * handleDeleteToggle - Handles delete toggle.
+   */
   const handleDeleteToggle = useCallback(async (id: string | number) => {
     logAction('PhotoGrid', 'delete_toggle', { photoId: id });
     if (onBulkDelete) {
@@ -224,11 +260,17 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkDelete, onUpdatePhotos, refetchStats, logAction, logError]);
 
+  /**
+   * handleRowHover - Handles row hover.
+   */
   const handleRowHover = useCallback((dateKey: string | null) => {
     setHoveredDateKey(dateKey);
   }, []);
 
   // Integrated Search trigger
+  /**
+   * handleSearchKeyDown - Handles search key down.
+   */
   const handleSearchKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       if (!searchQuery.trim()) {
@@ -242,6 +284,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth, containerWidth, rowHeightPx);
   const isCompactView = compact || currentView === 'trash';
+  /**
+   * rowItems - Performs row items.
+   */
   const rowItems = useMemo(() => {
     if (isCompactView) {
       if (photos.length === 0) {
@@ -280,6 +325,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   }, [isStatsExpanded, rowVirtualizer]);
 
   // Calculate dynamic date metadata for view controls
+  /**
+   * dateLabel - Performs date label.
+   */
   const dateLabel = useMemo(() => {
     if (filteredPhotos.length === 0) return '0 photos';
     if (isCompactView) return `${filteredPhotos.length} photos`;

@@ -1,5 +1,8 @@
 import { useStats } from '@/hooks/useStats';
 
+/**
+ * formatBytes - Formats format bytes.
+ */
 export function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
@@ -8,6 +11,9 @@ export function formatBytes(bytes: number): string {
   return `${value.toFixed(i >= 2 ? 1 : 0)} ${units[i]}`;
 }
 
+/**
+ * useSidebar - Hook managing sidebar state.
+ */
 export function useSidebar() {
   const { stats } = useStats();
   const totalBytes = stats?.total_size_bytes ?? 0;

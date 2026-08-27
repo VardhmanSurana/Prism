@@ -7,6 +7,9 @@ interface TravelRouteLayerProps {
   onPhotoClick: (photo: Photo) => void;
 }
 
+/**
+ * formatTimelineLabel - Formats format timeline label.
+ */
 function formatTimelineLabel(photo: Photo) {
   const rawDate = photo.date || photo.date_taken || '';
   const date = rawDate ? new Date(rawDate) : null;
@@ -20,7 +23,13 @@ function formatTimelineLabel(photo: Photo) {
   }).format(date);
 }
 
+/**
+ * TravelRouteLayer - Renders travel route layer.
+ */
 export const TravelRouteLayer: React.FC<TravelRouteLayerProps> = ({ photos, onPhotoClick }) => {
+  /**
+   * routePoints - Performs route points.
+   */
   const routePoints = useMemo(() => {
     return photos.map((photo) => [Number(photo.latitude), Number(photo.longitude)] as [number, number]);
   }, [photos]);

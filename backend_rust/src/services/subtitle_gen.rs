@@ -1,6 +1,7 @@
 use std::process::Command;
 use serde_json::{json, Value};
 
+/// generate_subtitles - Generates subtitles.
 pub async fn generate_subtitles(video_path: &str) -> Result<Vec<Value>, String> {
     // 1. Extract audio with ffmpeg
     let temp_audio = "/tmp/prism_subtitle_audio.wav";

@@ -19,6 +19,7 @@ use super::{
     set_telemetry_enabled, set_telemetry_response_logging, set_telemetry_sample_rate,
 };
 
+/// get_settings - Retrieves get settings.
 pub async fn get_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({
         "port": state.config.port,
@@ -28,6 +29,7 @@ pub async fn get_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     }))
 }
 
+/// get_general_settings - Retrieves get general settings.
 pub async fn get_general_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     let defaults = json!({
         "ENABLE_IMAGE_BG_PROCESS": true,
@@ -69,6 +71,7 @@ pub async fn get_general_settings(State(state): State<Arc<AppState>>) -> Json<Va
     Json(defaults)
 }
 
+/// save_general_settings - Performs save general settings.
 pub async fn save_general_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Value>,
@@ -85,6 +88,7 @@ pub async fn save_general_settings(
     Json(payload)
 }
 
+/// get_map_style - Retrieves get map style.
 pub async fn get_map_style(State(state): State<Arc<AppState>>) -> Json<Value> {
     let stored: Option<String> = sqlx::query_scalar(
         "SELECT value FROM settings WHERE key = 'map_style'"
@@ -102,6 +106,7 @@ pub struct SaveMapStyleRequest {
     pub map_style: String,
 }
 
+/// save_map_style - Performs save map style.
 pub async fn save_map_style(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SaveMapStyleRequest>,
@@ -120,6 +125,7 @@ pub async fn save_map_style(
     }))
 }
 
+/// get_folders_settings - Retrieves get folders settings.
 pub async fn get_folders_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
     let default_watched = json!([format!("{}/Pictures", home)]);
@@ -158,6 +164,7 @@ pub struct SaveFoldersRequest {
     pub excluded_folders: Option<Vec<String>>,
 }
 
+/// save_folders_settings - Performs save folders settings.
 pub async fn save_folders_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SaveFoldersRequest>,
@@ -193,6 +200,7 @@ pub async fn save_folders_settings(
     }))
 }
 
+/// reset_library - Updates reset library.
 pub async fn reset_library(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -233,6 +241,7 @@ pub async fn reset_library(
     })))
 }
 
+/// clear_cache - Performs clear cache.
 pub async fn clear_cache(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -255,6 +264,7 @@ pub async fn clear_cache(
     })))
 }
 
+/// vacuum_db - Performs vacuum db.
 pub async fn vacuum_db(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -270,6 +280,7 @@ pub struct PurgeFolderRequest {
     pub folder_path: String,
 }
 
+/// purge_folder - Performs purge folder.
 pub async fn purge_folder(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<PurgeFolderRequest>,
@@ -289,6 +300,7 @@ pub async fn purge_folder(
     })))
 }
 
+/// sse_events - Performs sse events.
 pub async fn sse_events() -> Sse<impl Stream<Item = Result<Event, Infallible>>> {
     let interval = tokio::time::interval(Duration::from_secs(5));
     let stream = IntervalStream::new(interval).map(|_| {
@@ -304,6 +316,7 @@ pub async fn sse_events() -> Sse<impl Stream<Item = Result<Event, Infallible>>> 
     )
 }
 
+/// get_locked_folder_status - Retrieves get locked folder status.
 pub async fn get_locked_folder_status(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -330,6 +343,7 @@ pub async fn get_locked_folder_status(
 }
 
 
+/// get_sync_settings - Retrieves get sync settings.
 pub async fn get_sync_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     let stored: Option<String> = sqlx::query_scalar(
         "SELECT value FROM settings WHERE key = 'sync_enabled'"
@@ -348,6 +362,7 @@ pub async fn get_sync_settings(State(state): State<Arc<AppState>>) -> Json<Value
     }))
 }
 
+/// save_sync_settings - Performs save sync settings.
 pub async fn save_sync_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Value>,
@@ -388,6 +403,7 @@ pub struct SaveTelemetrySettingsRequest {
     pub response_logging: Option<bool>,
 }
 
+/// save_telemetry_settings - Performs save telemetry settings.
 pub async fn save_telemetry_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SaveTelemetrySettingsRequest>,
@@ -440,6 +456,7 @@ pub async fn save_telemetry_settings(
     }))
 }
 
+/// trigger_face_sync - Performs trigger face sync.
 pub async fn trigger_face_sync(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
@@ -571,6 +588,7 @@ pub struct SecuritySettingsRequest {
     pub api_key: Option<String>,
 }
 
+/// get_security_settings - Retrieves get security settings.
 pub async fn get_security_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     let enabled_setting: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
         .fetch_optional(&state.db)
@@ -599,6 +617,7 @@ pub async fn get_security_settings(State(state): State<Arc<AppState>>) -> Json<V
     }))
 }
 
+/// save_security_settings - Performs save security settings.
 pub async fn save_security_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SecuritySettingsRequest>,
@@ -623,6 +642,7 @@ pub async fn save_security_settings(
     Ok(Json(json!({ "status": "success", "enabled": payload.enabled })))
 }
 
+/// generate_api_key - Performs generate api key.
 pub async fn generate_api_key(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
     let new_key = format!("prism_key_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
 
@@ -656,6 +676,7 @@ pub struct CreateWebhookRequest {
     pub enabled: Option<bool>,
 }
 
+/// list_webhooks - Retrieves list webhooks.
 pub async fn list_webhooks(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
     let webhooks: Vec<Webhook> = sqlx::query_as::<_, Webhook>(
         "SELECT id, url, events, secret, enabled, created_at FROM webhooks ORDER BY id DESC"
@@ -667,6 +688,7 @@ pub async fn list_webhooks(State(state): State<Arc<AppState>>) -> Result<Json<Va
     Ok(Json(json!({ "webhooks": webhooks })))
 }
 
+/// create_webhook - Handles create webhook.
 pub async fn create_webhook(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<CreateWebhookRequest>,
@@ -700,6 +722,7 @@ pub async fn create_webhook(
     })))
 }
 
+/// delete_webhook - Deletes delete webhook.
 pub async fn delete_webhook(
     State(state): State<Arc<AppState>>,
     axum::extract::Path(id): axum::extract::Path<i64>,
@@ -713,6 +736,7 @@ pub async fn delete_webhook(
     Ok(Json(json!({ "status": "success", "id": id })))
 }
 
+/// test_webhooks - Performs test webhooks.
 pub async fn test_webhooks(State(state): State<Arc<AppState>>) -> Json<Value> {
     WebhookService::dispatch_event(
         &state.db,

@@ -14,6 +14,7 @@ pub struct SiglipEngine {
 
 static ENGINE: OnceLock<Arc<SiglipEngine>> = OnceLock::new();
 
+/// get_engine - Retrieves engine.
 pub fn get_engine() -> Result<Arc<SiglipEngine>, String> {
     if let Some(engine) = ENGINE.get() {
         return Ok(engine.clone());
@@ -129,6 +130,7 @@ impl SiglipEngine {
     }
 }
 
+/// l2_normalize - Performs l2 normalize.
 fn l2_normalize(vec: &mut [f32]) {
     let sum_sq: f32 = vec.iter().map(|&x| x * x).sum();
     let norm = sum_sq.sqrt().max(1e-12);
@@ -142,6 +144,7 @@ mod tests {
     use super::*;
 
     #[test]
+    /// test_siglip_embeddings - Performs test siglip embeddings.
     fn test_siglip_embeddings() {
         let engine = get_engine().expect("Failed to get SigLIP engine");
         

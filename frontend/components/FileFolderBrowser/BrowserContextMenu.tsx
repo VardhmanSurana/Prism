@@ -18,6 +18,9 @@ interface BrowserContextMenuProps {
   onOpenInOsExplorer: () => void;
 }
 
+/**
+ * BrowserContextMenu - Renders browser context menu.
+ */
 export const BrowserContextMenu: React.FC<BrowserContextMenuProps> = ({
   menu,
   canBatchRename,
@@ -30,9 +33,15 @@ export const BrowserContextMenu: React.FC<BrowserContextMenuProps> = ({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    /**
+     * onKey - Performs on key.
+     */
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
+    /**
+     * onDown - Performs on down.
+     */
     const onDown = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         onClose();

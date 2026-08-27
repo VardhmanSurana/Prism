@@ -17,11 +17,17 @@ interface LibraryResetEventData {
   locked_files_deleted: number;
 }
 
+/**
+ * useLibraryOperations - Hook managing library operations.
+ */
 export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOperationsProps) => {
   const [isResetting, setIsResetting] = useState(false);
   const [systemStatus, setSystemStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    /**
+     * unsubscribe - Performs unsubscribe.
+     */
     const unsubscribe = eventService.subscribe('library_reset', (event) => {
       const data = event as unknown as { data: LibraryResetEventData };
       const deletedAssets = data?.data?.deleted_assets ?? 0;
@@ -38,6 +44,9 @@ export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOp
     return unsubscribe;
   }, [onResetSuccess]);
 
+  /**
+   * handleResetLibrary - Handles reset library.
+   */
   const handleResetLibrary = () => {
     onConfirm({
       title: 'Reset Library',
@@ -47,6 +56,9 @@ export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOp
     });
   };
 
+  /**
+   * executeReset - Performs execute reset.
+   */
   const executeReset = async () => {
     setIsResetting(true);
     setSystemStatus('Resetting library...');
@@ -74,6 +86,9 @@ export const useLibraryOperations = ({ onConfirm, onResetSuccess }: UseLibraryOp
     }
   };
 
+  /**
+   * handleTriggerFaceSync - Handles trigger face sync.
+   */
   const handleTriggerFaceSync = async () => {
     setSystemStatus('Initiating face discovery...');
     try {

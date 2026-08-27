@@ -16,6 +16,9 @@ export interface Layer {
   imageSrc?: string;
 }
 
+/**
+ * createDefaultBaseLayer - Performs create default base layer.
+ */
 export function createDefaultBaseLayer(name: string = 'Background'): Layer {
   return {
     id: 'layer-base',
@@ -27,6 +30,9 @@ export function createDefaultBaseLayer(name: string = 'Background'): Layer {
   };
 }
 
+/**
+ * compositeLayersToCanvas - Performs composite layers to canvas.
+ */
 export function compositeLayersToCanvas(
   layers: Layer[],
   baseCanvas: HTMLCanvasElement,

@@ -11,6 +11,9 @@ export function useRafThrottledValue<T>(initialValue: T) {
     nextValueRef.current = initialValue;
   }, [initialValue]);
 
+  /**
+   * setRafValue - Performs set raf value.
+   */
   const setRafValue = useCallback((next: T) => {
     nextValueRef.current = next;
 

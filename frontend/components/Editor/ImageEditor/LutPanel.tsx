@@ -42,6 +42,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const CATEGORIES = ['all', 'cinematic', 'vintage', 'bw', 'portrait', 'creative'] as const;
 
+/**
+ * LutPanel - Renders lut panel.
+ */
 export const LutPanel: React.FC<LutPanelProps> = ({ adjustments, onChange }) => {
   const lut = adjustments.lut || { builtinId: null, customData: null, opacity: 100 };
   const [activeCategory, setActiveCategory] = useState<string>('all');
@@ -52,10 +55,16 @@ export const LutPanel: React.FC<LutPanelProps> = ({ adjustments, onChange }) => 
   const hasCustom = !!lut.customData;
   const hasAnyLut = activeLutId !== null || hasCustom;
 
+  /**
+   * updateLut - Performs update lut.
+   */
   const updateLut = useCallback((patch: Partial<LutAdjustments>) => {
     onChange({ ...adjustments, lut: { ...lut, ...patch } });
   }, [adjustments, lut, onChange]);
 
+  /**
+   * handleSelectBuiltin - Handles select builtin.
+   */
   const handleSelectBuiltin = useCallback((id: string) => {
     if (activeLutId === id && !hasCustom) {
       // Deselect
@@ -65,10 +74,16 @@ export const LutPanel: React.FC<LutPanelProps> = ({ adjustments, onChange }) => 
     }
   }, [activeLutId, hasCustom, adjustments, lut, onChange]);
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = useCallback(() => {
     onChange({ ...adjustments, lut: { builtinId: null, customData: null, opacity: 100 } });
   }, [adjustments, onChange]);
 
+  /**
+   * handleImportCube - Handles import cube.
+   */
   const handleImportCube = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -89,6 +104,9 @@ export const LutPanel: React.FC<LutPanelProps> = ({ adjustments, onChange }) => 
     e.target.value = '';
   }, [adjustments, lut, onChange]);
 
+  /**
+   * handleExportCube - Handles export cube.
+   */
   const handleExportCube = useCallback(() => {
     const lutData = lut.customData || (lut.builtinId ? getBuiltinLutData(lut.builtinId) : null);
     if (!lutData) return;
@@ -310,6 +328,9 @@ const SWATCH_COLORS: Record<string, [string, string, string]> = {
   'arctic-blue':    ['#0a1020', '#204060', '#80b8e8'],
 };
 
+/**
+ * LutSwatch - Renders lut swatch.
+ */
 const LutSwatch: React.FC<{ lutId: string; category: string; isActive: boolean }> = ({ lutId }) => {
   const colors = SWATCH_COLORS[lutId] || ['#1a1a2e', '#4a4a6a', '#c8c8e8'];
   return (

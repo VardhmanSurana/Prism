@@ -14,6 +14,9 @@ import { drawFilteredImageToCanvas } from './canvasDrawing';
 import { HealingCanvas } from './HealingCanvas';
 import type { CanvasAreaProps } from './CanvasArea.types';
 
+/**
+ * CanvasArea - Renders canvas area.
+ */
 export const CanvasArea: React.FC<CanvasAreaProps> = ({
   currentImageSrc,
   filterString,
@@ -97,11 +100,17 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   const [comparePercent, setComparePercent] = React.useState<number>(50);
   const [isDraggingCompare, setIsDraggingCompare] = React.useState<boolean>(false);
 
+  /**
+   * handleComparePointerDown - Handles compare pointer down.
+   */
   const handleComparePointerDown = React.useCallback((e: React.PointerEvent) => {
     setIsDraggingCompare(true);
     e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
+  /**
+   * handleComparePointerMove - Handles compare pointer move.
+   */
   const handleComparePointerMove = React.useCallback((e: React.PointerEvent) => {
     const pointerId = e.pointerId;
     if (!e.currentTarget.hasPointerCapture(pointerId) || !latestImageRectRef.current) return;
@@ -114,6 +123,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     setComparePercent(percent);
   }, []);
 
+  /**
+   * handleComparePointerUp - Handles compare pointer up.
+   */
   const handleComparePointerUp = React.useCallback((e: React.PointerEvent) => {
     setIsDraggingCompare(false);
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -130,6 +142,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   const isDraggingSliderRef = React.useRef(false);
 
   React.useEffect(() => {
+    /**
+     * handleStartDrag - Handles start drag.
+     */
     const handleStartDrag = (e: MouseEvent | TouchEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' && (target as HTMLInputElement).type === 'range')) {
@@ -137,6 +152,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       }
     };
 
+    /**
+     * handleEndDrag - Handles end drag.
+     */
     const handleEndDrag = () => {
       if (isDraggingSliderRef.current) {
         isDraggingSliderRef.current = false;
@@ -226,6 +244,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     canvasDrawKey,
   ]);
 
+  /**
+   * updateImageRect - Performs update image rect.
+   */
   const updateImageRect = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (cropper) {
@@ -295,12 +316,18 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // Monitor Ctrl key globally
   React.useEffect(() => {
+    /**
+     * handleKeyDown - Handles key down.
+     */
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Control') {
         setIsCtrlPressed(true);
       }
     };
 
+    /**
+     * handleKeyUp - Handles key up.
+     */
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'Control') {
         setIsCtrlPressed(false);
@@ -308,6 +335,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       }
     };
 
+    /**
+     * handleBlur - Handles blur.
+     */
     const handleBlur = () => {
       setIsCtrlPressed(false);
       setIsDragging(false);
@@ -326,6 +356,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // Prevent context menu when Ctrl is held
   React.useEffect(() => {
+    /**
+     * handleContextMenu - Handles context menu.
+     */
     const handleContextMenu = (e: MouseEvent) => {
       if (isCtrlPressed) {
         e.preventDefault();
@@ -342,6 +375,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
+    /**
+     * handleMouseDownCapture - Handles mouse down capture.
+     */
     const handleMouseDownCapture = (e: MouseEvent) => {
       if (e.ctrlKey && (e.button === 0 || e.button === 2)) {
         e.preventDefault();
@@ -362,6 +398,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   React.useEffect(() => {
     if (!isDragging) return;
 
+    /**
+     * handleMouseMove - Handles mouse move.
+     */
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragStartRef.current || !cropperRef.current) return;
 
@@ -376,6 +415,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       }
     };
 
+    /**
+     * handleMouseUp - Handles mouse up.
+     */
     const handleMouseUp = () => {
       setIsDragging(false);
     };
@@ -391,11 +433,17 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     };
   }, [isDragging, cropperRef, updateImageRect]);
 
+  /**
+   * handleMaskChange - Handles mask change.
+   */
   const handleMaskChange = React.useCallback((maskDataUrl: string) => {
     onInpaintMaskChange(maskDataUrl);
   }, [onInpaintMaskChange]);
 
   // ── Zoom helpers ────────────────────────────────────────────────────────
+  /**
+   * syncZoom - Performs sync zoom.
+   */
   const syncZoom = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -415,6 +463,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     } catch { /* cropper not ready */ }
   }, [cropperRef]);
 
+  /**
+   * handleZoomIn - Handles zoom in.
+   */
   const handleZoomIn = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -431,6 +482,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     }
   }, [cropperRef, syncZoom, updateImageRect]);
 
+  /**
+   * handleZoomOut - Handles zoom out.
+   */
   const handleZoomOut = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -447,6 +501,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     }
   }, [cropperRef, syncZoom, updateImageRect]);
 
+  /**
+   * handleZoomReset - Handles zoom reset.
+   */
   const handleZoomReset = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -461,6 +518,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     updateImageRect();
   }, [cropperRef, syncZoom, updateImageRect]);
 
+  /**
+   * handleZoomToPercent - Handles zoom to percent.
+   */
   const handleZoomToPercent = React.useCallback((pct: number) => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -471,6 +531,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [cropperRef, syncZoom, updateImageRect]);
   // ──────────────────────────────────────────────────────────────────────
 
+  /**
+   * onCropperReady - Performs on cropper ready.
+   */
   const onCropperReady = React.useCallback(() => {
     handleReady();
     updateImageRect();
@@ -525,6 +588,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     if (!containerRef.current) return;
     
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    /**
+     * observer - Performs observer.
+     */
     const observer = new ResizeObserver(() => {
       // Small delay to allow cropperjs to finish its internal update
       if (timeoutId) clearTimeout(timeoutId);
@@ -553,6 +619,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     const cropper = cropperRef.current;
     if (!cropper) return;
 
+    /**
+     * frame - Performs frame.
+     */
     const frame = window.requestAnimationFrame(() => {
       try {
         (cropper as any).resize();

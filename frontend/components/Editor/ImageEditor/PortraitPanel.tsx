@@ -19,6 +19,9 @@ interface PortraitPanelProps {
   onChange: (adj: Adjustments) => void;
 }
 
+/**
+ * PortraitPanel - Renders portrait panel.
+ */
 export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustments, onChange }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [faces, setFaces] = useState<FaceData[]>([]);
@@ -27,6 +30,9 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
     setFaces([]);
   }, [photoId]);
 
+  /**
+   * fetchFaces - Retrieves fetch faces.
+   */
   const fetchFaces = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -76,7 +82,13 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
     }
   }, [photoId, fetchFaces]);
 
+  /**
+   * handleRegionChange - Handles region change.
+   */
   const handleRegionChange = useCallback((regionId: string, key: keyof RegionalAdjustment['adjustments'], value: number) => {
+    /**
+     * newRegions - Performs new regions.
+     */
     const newRegions = adjustments.regions.map(r => {
       if (r.id === regionId) {
         return {
@@ -109,6 +121,9 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({ photoId, adjustmen
         <div className="space-y-8">
           {faces.map((face, i) => {
             const regionId = `face-${photoId}-${i}-skin`;
+            /**
+             * region - Performs region.
+             */
             const region = adjustments.regions.find(r => r.id === regionId);
             if (!region) return null;
 

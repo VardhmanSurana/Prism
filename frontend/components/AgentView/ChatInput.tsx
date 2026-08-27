@@ -10,9 +10,15 @@ interface ChatInputProps {
   onActivate?: () => void;
 }
 
+/**
+ * ChatInput - Renders chat input.
+ */
 export const ChatInput: React.FC<ChatInputProps> = ({ value, onChange, onSend, disabled, onActivate }) => {
   const [files, setFiles] = useState<File[]>([]);
 
+  /**
+   * handleSend - Handles send.
+   */
   const handleSend = (text: string, attachedFiles: File[]) => {
     onSend(text, attachedFiles);
     setFiles([]);

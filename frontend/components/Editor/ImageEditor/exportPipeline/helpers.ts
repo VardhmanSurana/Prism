@@ -1,8 +1,14 @@
 import { Adjustments } from '../filterEngine';
 import { isCtxFilterSupported, applyBlurFallback } from '../filterFallback';
 
+/**
+ * clamp - Performs clamp.
+ */
 export const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+/**
+ * getPreviewBaseFilter - Retrieves get preview base filter.
+ */
 export const getPreviewBaseFilter = (adj: Adjustments) => {
   const brightnessFactor = Math.max(
     0.05,
@@ -40,6 +46,9 @@ export const getPreviewBaseFilter = (adj: Adjustments) => {
   ].join(' ');
 };
 
+/**
+ * hasGlobalPreviewAdjustments - Performs has global preview adjustments.
+ */
 export const hasGlobalPreviewAdjustments = (adj: Adjustments) =>
   adj.brightness !== 0 ||
   adj.contrast !== 0 ||
@@ -56,11 +65,17 @@ export const hasGlobalPreviewAdjustments = (adj: Adjustments) =>
   adj.clarity !== 0 ||
   adj.ambiance !== 0;
 
+/**
+ * hasRegionAdjustments - Performs has region adjustments.
+ */
 export const hasRegionAdjustments = (adjustments: Adjustments) =>
   adjustments.regions.some((region) =>
     Object.values(region.adjustments).some((value) => (value || 0) !== 0),
   );
 
+/**
+ * cloneCanvas - Performs clone canvas.
+ */
 export const cloneCanvas = (sourceCanvas: HTMLCanvasElement) => {
   const out = document.createElement('canvas');
   out.width = sourceCanvas.width;
@@ -75,6 +90,9 @@ export const cloneCanvas = (sourceCanvas: HTMLCanvasElement) => {
   return { canvas: out, ctx };
 };
 
+/**
+ * loadMaskBitmap - Performs load mask bitmap.
+ */
 export const loadMaskBitmap = async (maskUrl: string) => {
   const response = await fetch(maskUrl);
   if (!response.ok) {
@@ -85,6 +103,9 @@ export const loadMaskBitmap = async (maskUrl: string) => {
   return createImageBitmap(blob);
 };
 
+/**
+ * createFeatheredMaskCanvas - Performs create feathered mask canvas.
+ */
 export const createFeatheredMaskCanvas = async (maskUrl: string, width: number, height: number) => {
   const bitmap = await loadMaskBitmap(maskUrl);
 
@@ -111,6 +132,9 @@ export const createFeatheredMaskCanvas = async (maskUrl: string, width: number, 
   return maskCanvas;
 };
 
+/**
+ * loadImage - Performs load image.
+ */
 export const loadImage = (src: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -122,6 +146,9 @@ export const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
+/**
+ * hexToRgbString - Performs hex to rgb string.
+ */
 export const hexToRgbString = (hex: string): string => {
   const cleaned = hex.replace('#', '');
   let r = 251, g = 146, b = 60; // default warm-left color

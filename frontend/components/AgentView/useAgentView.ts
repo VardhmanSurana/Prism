@@ -9,6 +9,9 @@ const DEFAULT_GREETING: Message = {
   content: "Hello! I'm Prism, your dedicated AI photo assistant. Ask me to find photos, filter by year, view favorites, search tags, or upload an image to ask questions or find visually similar photos!"
 };
 
+/**
+ * useAgentView - Hook managing agent view state.
+ */
 export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
@@ -33,6 +36,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, [messages, isLoading]);
 
+  /**
+   * fetchSessionMessages - Retrieves fetch session messages.
+   */
   const fetchSessionMessages = useCallback(async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/agent/sessions/${sessionId}`);
@@ -48,6 +54,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
           totalCandidates: m.totalCandidates ?? null,
           attachedImage: m.attachedImage || m.attached_image || null,
         })));
+        /**
+         * lastWithPhotos - Performs last with photos.
+         */
         const lastWithPhotos = [...data.messages].reverse().find((m: any) => m.photos && m.photos.length > 0);
         if (lastWithPhotos) {
           setCurrentPhotos(lastWithPhotos.photos);
@@ -63,6 +72,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, []);
 
+  /**
+   * createSession - Performs create session.
+   */
   const createSession = useCallback(async (title = 'New Chat') => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/agent/sessions`, {
@@ -85,6 +97,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     return null;
   }, []);
 
+  /**
+   * fetchSessions - Retrieves fetch sessions.
+   */
   const fetchSessions = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/agent/sessions`);
@@ -107,6 +122,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     fetchSessions();
   }, [fetchSessions]);
 
+  /**
+   * selectSession - Performs select session.
+   */
   const selectSession = useCallback((sessionId: string) => {
     if (sessionId === activeSessionId) return;
     logAction('AgentView', 'session_select', { sessionId });
@@ -114,6 +132,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     fetchSessionMessages(sessionId);
   }, [activeSessionId, fetchSessionMessages, logAction]);
 
+  /**
+   * renameSession - Performs rename session.
+   */
   const renameSession = useCallback(async (sessionId: string, newTitle: string) => {
     logAction('AgentView', 'session_rename', { sessionId, newTitle });
     try {
@@ -130,6 +151,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, [logAction, logError]);
 
+  /**
+   * deleteSession - Performs delete session.
+   */
   const deleteSession = useCallback(async (sessionId: string) => {
     logAction('AgentView', 'session_delete', { sessionId });
     try {
@@ -138,6 +162,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
       });
       if (res.ok) {
         setSessions(prev => {
+          /**
+           * filtered - Performs filtered.
+           */
           const filtered = prev.filter(s => s.id !== sessionId && s.uuid !== sessionId);
           if (sessionId === activeSessionId) {
             if (filtered.length > 0) {
@@ -156,13 +183,22 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     }
   }, [activeSessionId, fetchSessionMessages, createSession, logAction, logError]);
 
+  /**
+   * toggleLog - Performs toggle log.
+   */
   const toggleLog = useCallback((idx: number) => {
     logAction('AgentView', 'toggle_log', { messageIndex: idx });
     setExpandedLogs(prev => ({ ...prev, [idx]: !prev[idx] }));
   }, [logAction]);
 
+  /**
+   * clearResults - Performs clear results.
+   */
   const clearResults = useCallback(() => { logAction('AgentView', 'clear_results'); setCurrentPhotos([]); }, [logAction]);
 
+  /**
+   * handleSend - Handles send.
+   */
   const handleSend = useCallback(async (textToSend?: string, attachedFiles?: File[]) => {
     let query = (textToSend || input).trim();
     const fileToUpload = attachedFiles && attachedFiles.length > 0 ? attachedFiles[0] : null;
@@ -321,6 +357,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
 
   const modelPreloadedRef = useRef(false);
 
+  /**
+   * preloadModel - Performs preload model.
+   */
   const preloadModel = useCallback(() => {
     if (modelPreloadedRef.current) return;
     modelPreloadedRef.current = true;
@@ -330,6 +369,9 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     });
   }, [logAction, logError]);
 
+  /**
+   * askAboutPhoto - Performs ask about photo.
+   */
   const askAboutPhoto = useCallback((photo: Photo) => {
     logAction('AgentView', 'ask_about_photo', { photoId: photo.id, filename: photo.filename });
     const query = `Analyze and describe photo: "${photo.filename}" (ID: ${photo.id}). What date, metadata, and location details can you find?`;

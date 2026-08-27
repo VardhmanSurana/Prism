@@ -2,6 +2,10 @@ import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { NavigationArrowsProps } from './types';
 
+/**
+ * Previous/next navigation arrows and photo counter for the lightbox.
+ * Hidden automatically when the image is zoomed (zoomScale !== 1).
+ */
 export const NavigationArrows: React.FC<NavigationArrowsProps> = ({
   zoomScale,
   currentIndex,

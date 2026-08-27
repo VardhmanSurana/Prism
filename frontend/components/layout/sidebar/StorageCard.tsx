@@ -3,6 +3,9 @@ import { HardDrive } from 'lucide-react';
 import { GlassMaterial } from '@/components/ui/GlassMaterial';
 import { useSidebar, formatBytes } from './useSidebar';
 
+/**
+ * StorageCard - Renders storage card.
+ */
 export const StorageCard: React.FC = () => {
   const { stats, totalBytes } = useSidebar();
   const usedLabel = formatBytes(totalBytes);

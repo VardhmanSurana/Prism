@@ -10,22 +10,27 @@ pub struct SiglipAnalyzer;
 
 #[async_trait]
 impl Analyzer for SiglipAnalyzer {
+    /// name - Performs name.
     fn name(&self) -> &'static str {
         "siglip"
     }
 
+    /// resource_need - Performs resource need.
     fn resource_need(&self) -> ResourceNeed {
         ResourceNeed::CpuHeavy
     }
 
+    /// priority - Performs priority.
     fn priority(&self) -> u32 {
         300
     }
 
+    /// should_run - Performs should run.
     fn should_run(&self, photo: &PhotoRecord) -> bool {
         !photo.has_embedding
     }
 
+    /// execute - Performs execute.
     async fn execute(
         &self,
         _ml_client: &MlClient,

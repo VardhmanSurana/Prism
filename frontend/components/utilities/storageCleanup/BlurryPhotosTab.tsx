@@ -7,6 +7,9 @@ interface BlurryPhotosTabProps {
   onDelete: (id: number) => void;
 }
 
+/**
+ * Tab rendering blurry photo results with delete actions.
+ */
 export const BlurryPhotosTab: React.FC<BlurryPhotosTabProps> = ({ photos, onDelete }) => {
   if (photos.length === 0) {
     return (

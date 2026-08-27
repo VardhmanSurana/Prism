@@ -13,6 +13,9 @@ interface LockedFolderViewProps {
   scrollParentRef: React.RefObject<HTMLDivElement | null>;
 }
 
+/**
+ * LockedFolderView - Renders locked folder view.
+ */
 export function LockedFolderView({
   photos,
   selectedIds,

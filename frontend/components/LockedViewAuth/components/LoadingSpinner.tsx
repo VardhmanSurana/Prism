@@ -1,5 +1,8 @@
 import React from 'react';
 
+/**
+ * LoadingSpinner - Renders loading spinner.
+ */
 export function LoadingSpinner(): React.ReactElement {
   return (
     <div className="flex items-center justify-center h-full">

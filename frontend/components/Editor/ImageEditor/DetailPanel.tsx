@@ -45,6 +45,9 @@ interface DetailPanelProps {
   onChange:    (adj: Adjustments) => void;
 }
 
+/**
+ * DetailPanel - Renders detail panel.
+ */
 export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange }) => {
   const tiltShift = adjustments.tiltShift ?? {
     enabled: false,
@@ -54,6 +57,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     focusWidth: 30,
   };
 
+  /**
+   * isDefault - Performs is default.
+   */
   const isDefault = useMemo(() => {
     return (
       adjustments.clarity === DEFAULT_DETAIL.clarity &&
@@ -63,6 +69,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     );
   }, [adjustments, tiltShift]);
 
+  /**
+   * handleResetDetail - Handles reset detail.
+   */
   const handleResetDetail = () => {
     onChange({
       ...adjustments,
@@ -85,6 +94,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
   );
 
   // ── Tilt-Shift handlers ──
+  /**
+   * handleTiltShiftToggle - Handles tilt shift toggle.
+   */
   const handleTiltShiftToggle = () => {
     onChange({
       ...adjustments,
@@ -92,6 +104,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     });
   };
 
+  /**
+   * handleModeChange - Handles mode change.
+   */
   const handleModeChange = (mode: 'linear' | 'radial') => {
     onChange({
       ...adjustments,
@@ -99,6 +114,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     });
   };
 
+  /**
+   * handleTiltShiftSliderChange - Handles tilt shift slider change.
+   */
   const handleTiltShiftSliderChange = (key: 'blurStrength' | 'focusPosition' | 'focusWidth', val: number) => {
     onChange({
       ...adjustments,
@@ -106,6 +124,9 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
     });
   };
 
+  /**
+   * items - Performs items.
+   */
   const items = useMemo(() => DETAIL_GROUPS.flatMap(group => group.items), []);
 
   return (

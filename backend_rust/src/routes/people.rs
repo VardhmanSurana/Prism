@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::models::{Person, Photo};
 use crate::AppState;
 
+/// find_person_by_id_or_uuid - Performs find person by id or uuid.
 pub async fn find_person_by_id_or_uuid(
     db: &sqlx::SqlitePool,
     id_or_uuid: &str,
@@ -35,6 +36,7 @@ pub async fn find_person_by_id_or_uuid(
     Err((StatusCode::NOT_FOUND, "Person not found".to_string()))
 }
 
+/// list_people - Retrieves list people.
 pub async fn list_people(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<Person>>, (StatusCode, String)> {
@@ -64,6 +66,7 @@ pub async fn list_people(
     Ok(Json(people))
 }
 
+/// get_person_photos - Retrieves get person photos.
 pub async fn get_person_photos(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -94,6 +97,7 @@ pub struct RenamePersonRequest {
     pub name: String,
 }
 
+/// rename_person - Performs rename person.
 pub async fn rename_person(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -117,6 +121,7 @@ pub async fn rename_person(
     })))
 }
 
+/// get_pending_faces - Retrieves get pending faces.
 pub async fn get_pending_faces(
     State(_state): State<Arc<AppState>>,
     Path(_id): Path<String>,
@@ -124,6 +129,7 @@ pub async fn get_pending_faces(
     Ok(Json(vec![]))
 }
 
+/// get_photo_faces - Retrieves get photo faces.
 pub async fn get_photo_faces(
     State(_state): State<Arc<AppState>>,
     Path(photo_id): Path<i64>,
@@ -134,6 +140,7 @@ pub async fn get_photo_faces(
     })))
 }
 
+/// scan_photo_faces - Performs scan photo faces.
 pub async fn scan_photo_faces(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<i64>,

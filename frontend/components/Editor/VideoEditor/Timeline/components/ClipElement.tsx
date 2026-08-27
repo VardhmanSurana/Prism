@@ -17,9 +17,15 @@ interface ClipElementProps {
   onDragStart: (type: 'move' | 'trim-in' | 'trim-out', mouseX: number) => void;
 }
 
+/**
+ * ClipElement - Renders clip element.
+ */
 export const ClipElement: React.FC<ClipElementProps> = ({
   clip, trackType, pixelsPerSec, fps, isSelected, isDragging, onSelect, onDragStart,
 }) => {
+  /**
+   * detachAudio - Performs detach audio.
+   */
   const detachAudio = useNLEStore((s) => s.detachAudio);
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextPos, setContextPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -27,6 +33,9 @@ export const ClipElement: React.FC<ClipElementProps> = ({
   const left = (clip.startFrame / fps) * pixelsPerSec;
   const width = (clip.durationFrames / fps) * pixelsPerSec;
 
+  /**
+   * getThemeClasses - Retrieves get theme classes.
+   */
   const getThemeClasses = () => {
     if (isDragging) {
       return 'bg-[#2563eb] border-2 border-blue-400 shadow-lg shadow-blue-500/25 ring-2 ring-blue-500/20';
@@ -169,6 +178,9 @@ export const ClipElement: React.FC<ClipElementProps> = ({
 
 const waveformCache = new Map<string, number[]>();
 
+/**
+ * WaveformBar - Renders waveform bar.
+ */
 const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number; height: number; speed: number; inPoint: number; outPoint: number }> = ({ sourcePath, width, height, speed, inPoint, outPoint }) => {
   const cacheKey = `${sourcePath}_${speed}_${inPoint}_${outPoint}`;
   const [peaks, setPeaks] = useState<number[]>(() => waveformCache.get(cacheKey) || []);
@@ -241,6 +253,9 @@ const WaveformBar: React.FC<{ clipId: string; sourcePath: string; width: number;
   );
 };
 
+/**
+ * ThumbnailStrip - Renders thumbnail strip.
+ */
 const ThumbnailStrip: React.FC<{ sourcePath: string; width: number; height: number; speed: number; inPoint: number; outPoint: number }> = ({ sourcePath, width, height, speed, inPoint, outPoint }) => {
   const [thumbs, setThumbs] = useState<string[]>([]);
   useEffect(() => {

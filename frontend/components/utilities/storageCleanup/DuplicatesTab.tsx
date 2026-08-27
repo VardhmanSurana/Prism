@@ -7,6 +7,9 @@ interface DuplicatesTabProps {
   onDelete: (id: number) => void;
 }
 
+/**
+ * Tab rendering duplicate clusters with per-cluster delete.
+ */
 export const DuplicatesTab: React.FC<DuplicatesTabProps> = ({ clusters, onDelete }) => {
   const safeClusters = Array.isArray(clusters) ? clusters : [];
 

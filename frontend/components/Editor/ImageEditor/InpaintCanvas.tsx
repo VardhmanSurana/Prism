@@ -39,6 +39,9 @@ interface InpaintCanvasProps {
   maskOpacity?: number;
 }
 
+/**
+ * InpaintCanvas - Renders inpaint canvas.
+ */
 export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   imageUrl,
   mode,
@@ -92,6 +95,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [imageUrl]);
 
   // Redraw the mask canvas
+  /**
+   * redrawCanvas - Performs redraw canvas.
+   */
   const redrawCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d', { willReadFrequently: true });
@@ -108,6 +114,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [onMaskChange]);
 
   // Redraw the overlay (cursor, points, etc.)
+  /**
+   * redrawOverlay - Performs redraw overlay.
+   */
   const redrawOverlay = useCallback(() => {
     const overlayCanvas = overlayCanvasRef.current;
     const overlayCtx = overlayCanvas?.getContext('2d');
@@ -172,6 +181,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [mousePos, mode, brushSize, interactivePoints, showMaskPreview, maskOpacity]);
 
   // Push the current canvas state to the parent (used for live updates during draw)
+  /**
+   * pushMaskUpdate - Performs push mask update.
+   */
   const pushMaskUpdate = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -190,6 +202,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [redrawOverlay, brushSize, mousePos, showMaskPreview, maskOpacity]);
 
   // Draw a single stroke
+  /**
+   * drawStroke - Performs draw stroke.
+   */
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, stroke: MaskStroke) => {
     if (stroke.points.length === 0) return;
 
@@ -217,6 +232,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
     ctx.restore();
   }, []);
 
+  /**
+   * getEffectiveBrushSize - Retrieves get effective brush size.
+   */
   const getEffectiveBrushSize = useCallback((e: React.PointerEvent<HTMLCanvasElement>): number => {
     if (e.pointerType === 'pen' && e.pressure > 0) {
       return Math.max(5, brushSize * Math.min(1, e.pressure * 1.5));
@@ -224,6 +242,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
     return brushSize;
   }, [brushSize]);
 
+  /**
+   * getCanvasCoords - Retrieves get canvas coords.
+   */
   const getCanvasCoords = useCallback((e: React.PointerEvent<HTMLCanvasElement> | React.MouseEvent<HTMLCanvasElement>): Point | null => {
     const canvas = overlayCanvasRef.current;
     if (!canvas) return null;
@@ -239,6 +260,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, []);
 
   // Pointer down handler
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     if (e.pointerType === 'pen') e.currentTarget.setPointerCapture(e.pointerId);
@@ -272,6 +296,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [mode, getCanvasCoords, getEffectiveBrushSize]);
 
   // Pointer move handler
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = useCallback((e: React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const point = getCanvasCoords(e);
@@ -313,6 +340,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [mode, getCanvasCoords, getEffectiveBrushSize]);
 
   // Pointer up handler
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = useCallback(() => {
     if (isDrawingRef.current && currentStrokeRef.current) {
       strokesRef.current.push({ ...currentStrokeRef.current });
@@ -332,12 +362,18 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [pushMaskUpdate, onStrokeComplete]);
 
   // Pointer leave handler
+  /**
+   * handlePointerLeave - Handles pointer leave.
+   */
   const handlePointerLeave = useCallback(() => {
     handlePointerUp();
     setMousePos(null);
   }, [handlePointerUp]);
 
   // Context menu handler (prevent default for right-click interactive seg)
+  /**
+   * handleContextMenu - Handles context menu.
+   */
   const handleContextMenu = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (mode === 'interactive') {
       e.preventDefault();
@@ -345,6 +381,9 @@ export const InpaintCanvas: React.FC<InpaintCanvasProps> = ({
   }, [mode]);
 
   // Clear all masks
+  /**
+   * clearMask - Performs clear mask.
+   */
   const clearMask = useCallback(() => {
     strokesRef.current = [];
     setInteractivePoints([]);

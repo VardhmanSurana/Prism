@@ -11,6 +11,9 @@ interface SmartAlbumModalProps {
   onCreated?: (albumName: string) => void;
 }
 
+/**
+ * SmartAlbumModal - Renders smart album modal.
+ */
 export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
   isOpen,
   photos,
@@ -27,6 +30,9 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
 
   if (!isOpen) return null;
 
+  /**
+   * handleCreate - Handles create.
+   */
   const handleCreate = async () => {
     if (!albumName.trim()) return;
     logAction('SmartAlbumModal', 'create_smart_album', { name: albumName.trim(), photoCount: photos.length });
@@ -48,6 +54,9 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
       const album = await createRes.json();
 
       // 2. Add matched photo IDs
+      /**
+       * photoIds - Performs photo ids.
+       */
       const photoIds = photos.map((p) => Number(p.id)).filter(Boolean);
       if (photoIds.length > 0) {
         await fetch(`${API_BASE}/api/v1/albums/${album.id}/add-photos`, {

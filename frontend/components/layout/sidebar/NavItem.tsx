@@ -24,6 +24,9 @@ const MATERIAL_ICON_MAP: Record<string, string> = {
   locked: 'lock',
 };
 
+/**
+ * NavItem - Renders nav item.
+ */
 export const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView, onChangeView, onMouseEnter }) => {
   const { galleryStyle } = useGalleryLayout();
   const isActive = currentView === view;

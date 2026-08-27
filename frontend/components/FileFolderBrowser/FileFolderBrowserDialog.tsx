@@ -30,6 +30,9 @@ interface DialogPosition {
   top: number;
 }
 
+/**
+ * FileFolderBrowserDialog - Renders file folder browser dialog.
+ */
 export const FileFolderBrowserDialog: React.FC = () => {
   const browser = useFileFolderBrowser();
   const [showSaveSmart, setShowSaveSmart] = useState(false);
@@ -54,6 +57,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
   const title = browser.options?.title;
   const homePath = browser.homePath;
 
+  /**
+   * filePathSet - Performs file path set.
+   */
   const filePathSet = useMemo(() => new Set(browser.files.map((f) => f.path)), [browser.files]);
 
   const selectedFilePaths = useMemo(
@@ -61,6 +67,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
     [browser.selectedPaths, filePathSet],
   );
 
+  /**
+   * shortcutList - Performs shortcut list.
+   */
   const shortcutList = useMemo(() => {
     const list: { name: string; path: string }[] = [];
     if (homePath) {
@@ -71,6 +80,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
     return list;
   }, [homePath]);
 
+  /**
+   * openRename - Performs open rename.
+   */
   const openRename = useCallback((paths: string[]) => {
     if (paths.length === 0) return;
     setContextMenu(null);
@@ -96,6 +108,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
       e.stopPropagation();
 
       if (!isFolder && filePathSet.has(path) && !browser.selectedPaths.has(path)) {
+        /**
+         * fileObj - Performs file obj.
+         */
         const fileObj = browser.files.find((f) => f.path === path);
         browser.handleItemSelect(path, false, fileObj, {
           directoryOnly,
@@ -115,14 +130,23 @@ export const FileFolderBrowserDialog: React.FC = () => {
     [browser],
   );
 
+  /**
+   * handleHome - Handles home.
+   */
   const handleHome = useCallback(() => {
     browser.navigateTo('');
   }, [browser]);
 
+  /**
+   * handleRetry - Handles retry.
+   */
   const handleRetry = useCallback(() => {
     browser.navigateTo('');
   }, [browser]);
 
+  /**
+   * handleOpenInOsExplorer - Handles open in os explorer.
+   */
   const handleOpenInOsExplorer = useCallback(async () => {
     if (!contextMenu) return;
     try {
@@ -138,6 +162,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
 
   const canRenameFromFooter = !directoryOnly && selectedFilePaths.length > 0;
 
+  /**
+   * beginResize - Performs begin resize.
+   */
   const beginResize = useCallback((event: React.PointerEvent<HTMLDivElement>, edge: ResizeEdge) => {
     event.preventDefault();
     const rect = event.currentTarget.parentElement?.getBoundingClientRect();
@@ -156,6 +183,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    /**
+     * resize - Performs resize.
+     */
     const resize = (event: PointerEvent) => {
       const active = resizeState.current;
       if (!active) return;
@@ -182,6 +212,9 @@ export const FileFolderBrowserDialog: React.FC = () => {
       setDialogPosition({ left, top });
     };
 
+    /**
+     * stopResize - Performs stop resize.
+     */
     const stopResize = () => {
       resizeState.current = null;
     };

@@ -3,12 +3,18 @@ import { Photo } from '../../types';
 import { InlinePhotoGridProps } from './types';
 import { resolveUrl } from '../../constants';
 
+/**
+ * getPhotoUrl - Retrieves get photo url.
+ */
 const getPhotoUrl = (p: Photo) => {
   if (p.url && p.url.trim().length > 0) return resolveUrl(p.url);
   if (p.path) return resolveUrl(`local://${p.path}`);
   return resolveUrl(`/api/v1/photos/${p.id}/thumbnail`);
 };
 
+/**
+ * InlinePhotoGrid - Renders inline photo grid.
+ */
 export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
   photos,
   onPhotoClick,
@@ -20,6 +26,9 @@ export const InlinePhotoGrid: React.FC<InlinePhotoGridProps> = ({
   const hasMore = photos.length > 5;
   const moreCount = photos.length - 4;
 
+  /**
+   * renderGrid - Performs render grid.
+   */
   const renderGrid = () => {
     const count = displayPhotos.length;
 

@@ -7,6 +7,9 @@ interface BrowserSearchProps {
   placeholder: string;
 }
 
+/**
+ * BrowserSearch - Renders browser search.
+ */
 export const BrowserSearch: React.FC<BrowserSearchProps> = ({ value, onChange, placeholder }) => (
   <div className="relative">
     <span className="absolute inset-y-0 left-3 flex items-center text-white/40">

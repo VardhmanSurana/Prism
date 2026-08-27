@@ -13,6 +13,9 @@ export interface ActionButtonProps {
   lockSnap?: boolean;      // lock: rotate 8° → 0°
 }
 
+/**
+ * ActionButton - Renders action button.
+ */
 export const ActionButton: React.FC<ActionButtonProps> = ({
   onClick, label, children, className = '', labelClassName = '',
   hoverRotate = false, pulseOnClick = false, lockSnap = false,
@@ -21,6 +24,9 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   const labelRef = useRef<HTMLSpanElement>(null);
   const iconRef = useRef<HTMLSpanElement>(null);
 
+  /**
+   * hoverIn - Performs hover in.
+   */
   const hoverIn = useCallback(() => {
     const btn = btnRef.current;
     const lbl = labelRef.current;
@@ -33,6 +39,9 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     if (lbl) animate(lbl, { opacity: 1, duration: 120, easing: EASE });
   }, [hoverRotate]);
 
+  /**
+   * hoverOut - Performs hover out.
+   */
   const hoverOut = useCallback(() => {
     const btn = btnRef.current;
     const lbl = labelRef.current;
@@ -45,11 +54,17 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     if (lbl) animate(lbl, { opacity: 0.85, duration: 120, easing: EASE });
   }, [hoverRotate]);
 
+  /**
+   * pressDown - Performs press down.
+   */
   const pressDown = useCallback(() => {
     const btn = btnRef.current;
     if (btn) animate(btn, { scale: 0.94, duration: 70, easing: EASE });
   }, []);
 
+  /**
+   * pressUp - Performs press up.
+   */
   const pressUp = useCallback(() => {
     const btn = btnRef.current;
     if (!btn) return;
@@ -62,6 +77,9 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     });
   }, []);
 
+  /**
+   * handleClick - Handles click.
+   */
   const handleClick = useCallback(() => {
     const icon = iconRef.current;
     if (pulseOnClick && icon) {

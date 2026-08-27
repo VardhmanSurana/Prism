@@ -12,12 +12,18 @@ interface MapTemporalSliderProps {
   onReset: () => void;
 }
 
+/**
+ * formatDate - Formats format date.
+ */
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: 'medium',
   }).format(new Date(timestamp));
 }
 
+/**
+ * MapTemporalSlider - Renders map temporal slider.
+ */
 export const MapTemporalSlider: React.FC<MapTemporalSliderProps> = ({
   minTimestamp,
   maxTimestamp,

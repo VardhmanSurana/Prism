@@ -22,18 +22,27 @@ const springFastExit = { duration: 0.06, ease: "linear" as const };
 
 // ─── CollapsePanel ─────────────────────────────────────────────────────────────
 // Pure framer-motion height collapse (no Radix, but same semantics)
+/**
+ * CollapsePanel - Renders collapse panel.
+ */
 function CollapsePanel({ open, children }: { open: boolean; children: ReactNode }) {
   const innerRef = useRef<HTMLDivElement | null>(null);
   const roRef = useRef<ResizeObserver | null>(null);
   const [contentHeight, setContentHeight] = useState<number | null>(null);
   const needsSnap = useRef(open);
 
+  /**
+   * measureRef - Performs measure ref.
+   */
   const measureRef = useCallback((el: HTMLDivElement | null) => {
     roRef.current?.disconnect();
     roRef.current = null;
     innerRef.current = el;
     if (!el) return;
     if (el.offsetHeight > 0) setContentHeight(el.offsetHeight);
+    /**
+     * ro - Performs ro.
+     */
     const ro = new ResizeObserver(() => {
       if (el.offsetHeight > 0) setContentHeight(el.offsetHeight);
     });
@@ -70,6 +79,9 @@ function CollapsePanel({ open, children }: { open: boolean; children: ReactNode 
 }
 
 // ─── TriggerRow ────────────────────────────────────────────────────────────────
+/**
+ * TriggerRow - Renders trigger row.
+ */
 function TriggerRow({
   open,
   children,
@@ -154,6 +166,9 @@ interface ThinkingStepsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
+/**
+ * ThinkingSteps - Renders thinking steps.
+ */
 function ThinkingSteps({
   defaultOpen = true,
   open: controlledOpen,
@@ -165,6 +180,9 @@ function ThinkingSteps({
   const [internalOpen, setInternalOpen] = useState(defaultOpen);
   const isOpen = controlledOpen ?? internalOpen;
 
+  /**
+   * toggle - Performs toggle.
+   */
   const toggle = () => {
     const next = !isOpen;
     if (controlledOpen === undefined) setInternalOpen(next);
@@ -183,6 +201,9 @@ function ThinkingSteps({
 ThinkingSteps.displayName = "ThinkingSteps";
 
 // ─── ThinkingStepsHeader ───────────────────────────────────────────────────────
+/**
+ * ThinkingStepsHeader - Renders thinking steps header.
+ */
 function ThinkingStepsHeader({
   children = "Thinking",
   open,
@@ -203,6 +224,9 @@ function ThinkingStepsHeader({
 ThinkingStepsHeader.displayName = "ThinkingStepsHeader";
 
 // ─── ThinkingStepsContent ──────────────────────────────────────────────────────
+/**
+ * ThinkingStepsContent - Renders thinking steps content.
+ */
 function ThinkingStepsContent({
   children,
   open,
@@ -234,6 +258,9 @@ interface ThinkingStepProps {
   className?: string;
 }
 
+/**
+ * ThinkingStep - Renders thinking step.
+ */
 function ThinkingStep({
   icon,
   label,
@@ -299,6 +326,9 @@ function ThinkingStep({
 ThinkingStep.displayName = "ThinkingStep";
 
 // ─── ThinkingStepBadge ─────────────────────────────────────────────────────────
+/**
+ * ThinkingStepBadge - Renders thinking step badge.
+ */
 function ThinkingStepBadge({
   children,
   color = "gray",

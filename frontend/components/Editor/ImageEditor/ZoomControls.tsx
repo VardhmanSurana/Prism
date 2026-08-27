@@ -16,6 +16,9 @@ interface ZoomControlsProps {
   maxZoom?: number;
 }
 
+/**
+ * ZoomControls - Renders zoom controls.
+ */
 export const ZoomControls: React.FC<ZoomControlsProps> = ({
   zoomPercent,
   onZoomIn,
@@ -31,6 +34,9 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
     setLocalZoom(zoomPercent);
   }, [zoomPercent]);
 
+  /**
+   * handleSliderChange - Handles slider change.
+   */
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = Number(e.target.value);
     setLocalZoom(val);
