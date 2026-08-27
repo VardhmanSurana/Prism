@@ -396,7 +396,7 @@ export function createEmptyMaskCanvas(width: number, height: number): HTMLCanvas
   const canvas = document.createElement('canvas');
   canvas.width = Math.max(1, width);
   canvas.height = Math.max(1, height);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (ctx) {
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, width, height);
@@ -413,7 +413,7 @@ export function renderPolygonToMask(
   height: number
 ): HTMLCanvasElement {
   const canvas = createEmptyMaskCanvas(width, height);
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx || points.length < 3) return canvas;
 
   ctx.fillStyle = '#ffffff';
@@ -447,7 +447,7 @@ export function combineMaskWithPolygon(
   const resultCanvas = document.createElement('canvas');
   resultCanvas.width = width;
   resultCanvas.height = height;
-  const ctx = resultCanvas.getContext('2d');
+  const ctx = resultCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return newPathMask;
 
   // Initialize with black background
@@ -462,8 +462,8 @@ export function combineMaskWithPolygon(
     ctx.globalCompositeOperation = 'source-over';
   } else if (operation === 'subtract') {
     // Difference: draw existing mask, then subtract newPathMask
-    const eCtx = existingMask.getContext('2d');
-    const nCtx = newPathMask.getContext('2d');
+    const eCtx = existingMask.getContext('2d', { willReadFrequently: true });
+    const nCtx = newPathMask.getContext('2d', { willReadFrequently: true });
     if (eCtx && nCtx) {
       const eData = eCtx.getImageData(0, 0, width, height);
       const nData = nCtx.getImageData(0, 0, width, height);
@@ -485,8 +485,8 @@ export function combineMaskWithPolygon(
     }
   } else if (operation === 'intersect') {
     // Intersection: only where both are white
-    const eCtx = existingMask.getContext('2d');
-    const nCtx = newPathMask.getContext('2d');
+    const eCtx = existingMask.getContext('2d', { willReadFrequently: true });
+    const nCtx = newPathMask.getContext('2d', { willReadFrequently: true });
     if (eCtx && nCtx) {
       const eData = eCtx.getImageData(0, 0, width, height);
       const nData = nCtx.getImageData(0, 0, width, height);

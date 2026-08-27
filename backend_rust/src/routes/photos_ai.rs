@@ -134,7 +134,7 @@ pub async fn trigger_ocr_bboxes(
 #[derive(Deserialize)]
 #[allow(dead_code)]
 pub struct InpaintRequest {
-    pub photo_id: Option<i64>,
+    pub photo_id: Option<Value>,
     pub image_data: Option<String>,
     pub mask_data: String,
     #[serde(default = "default_operation")]
@@ -162,19 +162,28 @@ pub async fn process_inpaint(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<InpaintRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let photo_path = if let Some(pid) = payload.photo_id {
-        let photo = sqlx::query_as::<_, crate::models::Photo>("SELECT * FROM photos WHERE id = ?")
-            .bind(pid).fetch_optional(&state.db).await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-        photo.map(|p| p.path)
-    } else { None };
-
-    let path = photo_path.ok_or((StatusCode::BAD_REQUEST, "photo_id required".to_string()))?;
+    let source_path_or_data = if let Some(ref img_data) = payload.image_data {
+        if !img_data.is_empty() {
+            img_data.clone()
+        } else if let Some(ref pid) = payload.photo_id {
+            let id_str = photo_id_to_string(&Some(pid.clone()))?;
+            let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+            photo.path
+        } else {
+            return Err((StatusCode::BAD_REQUEST, "photo_id or image_data required".to_string()));
+        }
+    } else if let Some(ref pid) = payload.photo_id {
+        let id_str = photo_id_to_string(&Some(pid.clone()))?;
+        let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id_str).await?;
+        photo.path
+    } else {
+        return Err((StatusCode::BAD_REQUEST, "photo_id or image_data required".to_string()));
+    };
 
     let engine = inpaint::InpaintEngine::get();
     match engine
         .process_inpaint_async(
-            &path,
+            &source_path_or_data,
             &payload.mask_data,
             &payload.operation,
             payload.prompt.as_deref(),

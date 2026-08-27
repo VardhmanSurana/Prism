@@ -63,7 +63,7 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
       const c = document.createElement('canvas');
       c.width = width;
       c.height = height;
-      const ctx = c.getContext('2d');
+      const ctx = c.getContext('2d', { willReadFrequently: true });
       if (ctx) {
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
@@ -237,7 +237,7 @@ export const LassoCanvas: React.FC<LassoCanvasProps> = ({
         const emptyCanvas = document.createElement('canvas');
         emptyCanvas.width = width;
         emptyCanvas.height = height;
-        const ctx = emptyCanvas.getContext('2d');
+        const ctx = emptyCanvas.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.fillStyle = '#000000';
           ctx.fillRect(0, 0, width, height);

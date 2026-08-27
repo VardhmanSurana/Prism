@@ -79,6 +79,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
 
   const previewUrl = useMemo(() => {
     if (!imageSrc) return '';
+    if (imageSrc.startsWith('blob:') || imageSrc.startsWith('data:')) {
+      return imageSrc;
+    }
     const resolved = resolveUrl(imageSrc);
     const separator = resolved.includes('?') ? '&' : '?';
     return `${resolved}${separator}previewKey=${Date.now()}`;

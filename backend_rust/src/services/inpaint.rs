@@ -116,22 +116,39 @@ impl MagicEraserEngine {
     /// Blocking core of the LaMa pipeline. Prefer `process_inpaint_async`.
     pub fn process_inpaint(
         &self,
-        photo_path: &str,
+        photo_path_or_data: &str,
         mask_data: &str,
         _operation: &str,
         _prompt: Option<&str>,
         _guidance_scale: f64,
         _num_steps: i32,
     ) -> Result<Value, String> {
-        info!("Magic Eraser requested for: {}", photo_path);
+        let is_data_uri = photo_path_or_data.starts_with("data:image/") || photo_path_or_data.contains("base64,");
+        info!(
+            "Magic Eraser requested for: {}",
+            if is_data_uri { "data URI input" } else { photo_path_or_data }
+        );
 
         let lama = get_lama()?;
         let mask_img = Self::decode_mask(mask_data)?;
 
-        let bytes = std::fs::read(photo_path)
-            .map_err(|e| format!("Failed to read photo {}: {}", photo_path, e))?;
-        let mut source = image::load_from_memory(&bytes)
-            .map_err(|e| format!("Failed to decode photo {}: {}", photo_path, e))?;
+        let mut source = if is_data_uri {
+            let raw = photo_path_or_data
+                .split_once("base64,")
+                .map(|(_, b)| b)
+                .unwrap_or(photo_path_or_data);
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(raw.trim())
+                .map_err(|e| format!("Invalid base64 image: {}", e))?;
+            image::load_from_memory(&bytes)
+                .map_err(|e| format!("Failed to decode image from memory: {}", e))?
+        } else {
+            let bytes = std::fs::read(photo_path_or_data)
+                .map_err(|e| format!("Failed to read photo {}: {}", photo_path_or_data, e))?;
+            image::load_from_memory(&bytes)
+                .map_err(|e| format!("Failed to decode photo {}: {}", photo_path_or_data, e))?
+        };
+
         let (orig_w, orig_h) = (source.width(), source.height());
 
         // ── Prepare model inputs at 512x512 ──────────────────────────────
@@ -237,23 +254,34 @@ impl MagicEraserEngine {
         }
         source = image::DynamicImage::ImageRgba8(blended);
 
-        // Save back in the original format
-        let ext = Path::new(photo_path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("jpg")
-            .to_lowercase();
-        let saved = match ext.as_str() {
-            "png" => source.save_with_format(photo_path, image::ImageFormat::Png),
-            "webp" => source.save_with_format(photo_path, image::ImageFormat::WebP),
-            _ => source.save_with_format(photo_path, image::ImageFormat::Jpeg),
-        };
-        saved.map_err(|e| format!("Failed to write inpainted photo: {}", e))?;
+        // If a file on disk was passed, save back in original format
+        if !is_data_uri && Path::new(photo_path_or_data).exists() {
+            let ext = Path::new(photo_path_or_data)
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("jpg")
+                .to_lowercase();
+            let saved = match ext.as_str() {
+                "png" => source.save_with_format(photo_path_or_data, image::ImageFormat::Png),
+                "webp" => source.save_with_format(photo_path_or_data, image::ImageFormat::WebP),
+                _ => source.save_with_format(photo_path_or_data, image::ImageFormat::Jpeg),
+            };
+            saved.map_err(|e| format!("Failed to write inpainted photo: {}", e))?;
+        }
 
-        info!("Magic Eraser completed for {} ({}x{})", photo_path, orig_w, orig_h);
+        // Encode result as PNG data URI for client
+        let mut png_bytes = std::io::Cursor::new(Vec::new());
+        source
+            .write_to(&mut png_bytes, image::ImageFormat::Png)
+            .map_err(|e| format!("Failed to encode result PNG: {}", e))?;
+        let b64 = base64::engine::general_purpose::STANDARD.encode(png_bytes.into_inner());
+        let result_data_url = format!("data:image/png;base64,{}", b64);
+
+        info!("Magic Eraser completed ({}x{})", orig_w, orig_h);
         Ok(serde_json::json!({
             "success": true,
-            "path": photo_path,
+            "result": result_data_url,
+            "path": photo_path_or_data,
             "width": orig_w,
             "height": orig_h,
             "model": "lama_fp32",

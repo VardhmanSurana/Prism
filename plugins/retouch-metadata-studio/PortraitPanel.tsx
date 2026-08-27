@@ -89,7 +89,11 @@ export const PortraitPanel: React.FC<PortraitPanelProps> = ({
           // Build multi-face masks object preserving any user overrides
           const multiFaces: Record<string, SingleFaceAdjustments> = { ...(currentPortrait.faces || {}) };
           const vTag = Date.now();
-          const resolveWithBuster = (url?: string) => url ? `${resolveUrl(url)}?v=${vTag}` : undefined;
+          const resolveWithBuster = (url?: string) => {
+            if (!url) return undefined;
+            if (url.startsWith('blob:') || url.startsWith('data:')) return url;
+            return `${resolveUrl(url)}?v=${vTag}`;
+          };
 
           data.faces.forEach((face: FaceMaskData, idx: number) => {
             const rawMasks = face.masks || {};
