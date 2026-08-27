@@ -490,3 +490,27 @@ impl SegmentationEngine {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn segmentation_on_sample_image() {
+        let dir = std::env::temp_dir().join("prism_segmentation_test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let photo_path = dir.join("test_seg.png");
+
+        let img = image::RgbaImage::new(256, 256);
+        img.save(&photo_path).unwrap();
+
+        let engine = SegmentationEngine::get();
+        let mask_res = engine.get_background_mask(photo_path.to_str().unwrap(), 1, &dir, None, None);
+        if engine.u2netp.lock().unwrap().is_some() {
+            assert!(mask_res.is_ok(), "Segmentation background mask failed: {:?}", mask_res.err());
+            eprintln!("[test] Segmentation U2NetP OK");
+        } else {
+            eprintln!("skip: u2netp model not present");
+        }
+    }
+}

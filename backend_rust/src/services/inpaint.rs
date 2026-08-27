@@ -18,6 +18,9 @@ pub static INPAINT_ENGINE: OnceLock<MagicEraserEngine> = OnceLock::new();
 /// Output:  "image" [1,3,512,512] f32 RGB in [0,1]
 struct LamaSession {
     session: Mutex<ort::session::Session>,
+    input_img_name: String,
+    input_mask_name: String,
+    output_name: String,
 }
 
 static LAMA: OnceLock<Option<Arc<LamaSession>>> = OnceLock::new();
@@ -41,8 +44,18 @@ fn get_lama() -> Result<Arc<LamaSession>, String> {
                 .map_err(|e| format!("Failed to load LaMa model: {}", e));
             match build {
                 Ok(session) => {
-                    info!("[Inpaint] LaMa ONNX session loaded from {}", path);
-                    Some(Arc::new(LamaSession { session: Mutex::new(session) }))
+                    let inputs: Vec<String> = session.inputs().iter().map(|i| i.name().to_string()).collect();
+                    let outputs: Vec<String> = session.outputs().iter().map(|o| o.name().to_string()).collect();
+                    let input_img_name = inputs.get(0).cloned().unwrap_or_else(|| "image".to_string());
+                    let input_mask_name = inputs.get(1).cloned().unwrap_or_else(|| "mask".to_string());
+                    let output_name = outputs.get(0).cloned().unwrap_or_else(|| "output".to_string());
+                    info!("[Inpaint] LaMa ONNX session loaded from {} (in: {:?}, out: {:?})", path, inputs, outputs);
+                    Some(Arc::new(LamaSession {
+                        session: Mutex::new(session),
+                        input_img_name,
+                        input_mask_name,
+                        output_name,
+                    }))
                 }
                 Err(e) => {
                     warn!("[Inpaint] Failed to load LaMa session from {}: {}", path, e);
@@ -174,12 +187,12 @@ impl MagicEraserEngine {
         let mut session_guard = lama.session.lock().unwrap();
         let outputs = session_guard
             .run(ort::inputs![
-                "image" => img_tensor,
-                "mask" => mask_tensor,
+                lama.input_img_name.as_str() => img_tensor,
+                lama.input_mask_name.as_str() => mask_tensor,
             ])
             .map_err(|e| format!("LaMa inference failed: {}", e))?;
 
-        let (out_shape, out_data) = outputs["image"]
+        let (out_shape, out_data) = outputs[lama.output_name.as_str()]
             .try_extract_tensor::<f32>()
             .map_err(|e| format!("LaMa output decode failed: {}", e))?;
         if out_shape.len() != 4 || out_shape[1] != 3 {
@@ -280,6 +293,40 @@ impl MagicEraserEngine {
             "height": orig_h,
             "model": "lama_fp32",
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn inpaint_on_sample_image() {
+        if LAMA_MODEL_PATHS.iter().any(|p| Path::new(p).exists()) {
+            let dir = std::env::temp_dir().join("prism_inpaint_test");
+            std::fs::create_dir_all(&dir).unwrap();
+            let photo_path = dir.join("test_inpaint.png");
+
+            let img = image::RgbaImage::new(256, 256);
+            let mut mask = image::GrayImage::new(256, 256);
+            for y in 100..150 {
+                for x in 100..150 {
+                    mask.put_pixel(x, y, image::Luma([255]));
+                }
+            }
+            img.save(&photo_path).unwrap();
+
+            let mut mask_bytes = std::io::Cursor::new(Vec::new());
+            image::DynamicImage::ImageLuma8(mask).write_to(&mut mask_bytes, image::ImageFormat::Png).unwrap();
+            let mask_b64 = format!("data:image/png;base64,{}", base64::engine::general_purpose::STANDARD.encode(mask_bytes.into_inner()));
+
+            let res = MagicEraserEngine::get()
+                .process_inpaint(photo_path.to_str().unwrap(), &mask_b64, "erase", None, 7.5, 20);
+            assert!(res.is_ok(), "LaMa inpainting failed: {:?}", res.err());
+            eprintln!("[test] LaMa inpainting OK");
+        } else {
+            eprintln!("skip: lama model not downloaded");
+        }
     }
 }
 

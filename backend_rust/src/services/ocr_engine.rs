@@ -564,3 +564,26 @@ pub fn is_available() -> bool {
     let rec = REC_MODEL_PATHS.iter().any(|p| Path::new(p).exists());
     det && rec
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ocr_on_sample_image() {
+        if is_available() {
+            let dir = std::env::temp_dir().join("prism_ocr_test");
+            std::fs::create_dir_all(&dir).unwrap();
+            let photo_path = dir.join("test_ocr.png");
+
+            let img = image::RgbImage::new(256, 256);
+            img.save(&photo_path).unwrap();
+
+            let res = recognize(photo_path.to_str().unwrap());
+            assert!(res.is_ok(), "OCR extract failed: {:?}", res.err());
+            eprintln!("[test] OCR extract OK");
+        } else {
+            eprintln!("skip: ocr models not downloaded");
+        }
+    }
+}
