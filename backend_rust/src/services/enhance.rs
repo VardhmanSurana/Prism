@@ -2,7 +2,6 @@
 //! face restoration. Both are heavyweight single sessions serialized through
 //! the global inference slot (4 GB VRAM budget — one model at a time).
 
-use rayon::prelude::*;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -35,67 +34,6 @@ fn create_single_session(path: &str, tag: &str) -> Result<NamedSession, String> 
         session,
         input_name,
         output_name,
-    })
-}
-
-struct SessionPool {
-    sessions: Mutex<Vec<NamedSession>>,
-    path: String,
-    tag: String,
-}
-
-impl SessionPool {
-    fn acquire(&self) -> Result<NamedSession, String> {
-        if let Some(sess) = self.sessions.lock().unwrap().pop() {
-            Ok(sess)
-        } else {
-            create_single_session(&self.path, &self.tag)
-        }
-    }
-
-    fn release(&self, sess: NamedSession) {
-        self.sessions.lock().unwrap().push(sess);
-    }
-}
-
-fn load_session_pool(paths: &[&str], tag: &str, initial_count: usize) -> Result<Arc<SessionPool>, String> {
-    static POOL_CACHE: OnceLock<Mutex<std::collections::HashMap<String, Option<Arc<SessionPool>>>>> =
-        OnceLock::new();
-    let cache = POOL_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
-    if let Some(cached) = cache.lock().unwrap().get(tag) {
-        return cached.clone().ok_or_else(|| {
-            format!("{} model failed to load previously; see earlier log", tag)
-        });
-    }
-
-    let found = paths.iter().find(|p| Path::new(p).exists()).copied();
-    let loaded = match found {
-        Some(path) => {
-            let mut list = Vec::new();
-            if let Ok(first) = create_single_session(path, tag) {
-                list.push(first);
-                for _ in 1..initial_count {
-                    if let Ok(sess) = create_single_session(path, tag) {
-                        list.push(sess);
-                    }
-                }
-                Some(Arc::new(SessionPool {
-                    sessions: Mutex::new(list),
-                    path: path.to_string(),
-                    tag: tag.to_string(),
-                }))
-            } else {
-                None
-            }
-        }
-        None => None,
-    };
-    cache.lock().unwrap().insert(tag.to_string(), loaded.clone());
-    loaded.ok_or_else(|| {
-        format!(
-            "{} unavailable: download the model first (Model Manager). Expected at {}",
-            tag, paths[0]
-        )
     })
 }
 
@@ -221,7 +159,6 @@ impl UpscaleEngine {
         if scale != 2 && scale != 4 {
             return Err("scale must be 2 or 4".to_string());
         }
-        let pool = load_session_pool(ESRGAN_PATHS, "Real-ESRGAN", 4)?;
         let bytes = std::fs::read(photo_path)
             .map_err(|e| format!("Failed to read photo {}: {}", photo_path, e))?;
         let source = image::load_from_memory(&bytes)
@@ -265,66 +202,53 @@ impl UpscaleEngine {
             }
         }
         let total_tiles = coords.len();
-        info!("[upscale] Processing {} tiles (tile_size={}x{}) in parallel...", total_tiles, TILE, TILE);
+        let single_sess = load_single_session(ESRGAN_PATHS, "Real-ESRGAN")?;
+        let mut sess_guard = single_sess.session.lock().unwrap();
 
-        // Process all tiles in parallel using rayon
-        let processed_tiles: Result<Vec<(usize, usize, usize, usize, usize, usize, image::RgbaImage)>, String> = coords
-            .into_par_iter()
-            .map(|(tx, ty)| {
-                let t0 = std::time::Instant::now();
-                // Extract tile
-                let cw = TILE.min(w - tx);
-                let ch = TILE.min(h - ty);
-                let mut tile = image::RgbImage::new(TILE as u32, TILE as u32);
-                for yy in 0..ch {
-                    for xx in 0..cw {
-                        tile.put_pixel(xx as u32, yy as u32, *rgb.get_pixel((tx + xx) as u32, (ty + yy) as u32));
-                    }
+        for (idx, &(tx, ty)) in coords.iter().enumerate() {
+            let t0 = std::time::Instant::now();
+            let cw = TILE.min(w - tx);
+            let ch = TILE.min(h - ty);
+            let mut tile = image::RgbImage::new(TILE as u32, TILE as u32);
+            for yy in 0..ch {
+                for xx in 0..cw {
+                    tile.put_pixel(xx as u32, yy as u32, *rgb.get_pixel((tx + xx) as u32, (ty + yy) as u32));
                 }
+            }
 
-                let tensor = ort::value::Value::from_array(to_chw(&tile))
-                    .map_err(|e| e.to_string())?;
+            let tensor = ort::value::Value::from_array(to_chw(&tile))
+                .map_err(|e| e.to_string())?;
 
-                let mut sess = pool.acquire()?;
-                let (shape, data) = {
-                    let input_name = sess.input_name.clone();
-                    let output_name = sess.output_name.clone();
-                    let outputs = sess.session
-                        .run(ort::inputs![input_name.as_str() => tensor])
-                        .map_err(|e| format!("ESRGAN inference failed: {}", e))?;
-                    let (s, d) = outputs[output_name.as_str()]
-                        .try_extract_tensor::<f32>()
-                        .map_err(|e| format!("ESRGAN output decode failed: {}", e))?;
-                    (s.to_vec(), d.to_vec())
-                };
-                pool.release(sess);
+            let input_name = sess_guard.input_name.clone();
+            let output_name = sess_guard.output_name.clone();
+            let outputs = sess_guard.session
+                .run(ort::inputs![input_name.as_str() => tensor])
+                .map_err(|e| format!("ESRGAN inference failed: {}", e))?;
+            let (shape, data) = outputs[output_name.as_str()]
+                .try_extract_tensor::<f32>()
+                .map_err(|e| format!("ESRGAN output decode failed: {}", e))?;
 
-                let up = from_chw(&shape, &data)?;
+            let up = from_chw(&shape, &data)?;
 
-                // Composite coordinates
-                let x0 = if tx == 0 { 0 } else { tx + OVERLAP };
-                let y0 = if ty == 0 { 0 } else { ty + OVERLAP };
-                let x1 = (tx + TILE - OVERLAP).min(w);
-                let y1 = (ty + TILE - OVERLAP).min(h);
+            // Composite coordinates
+            let x0 = if tx == 0 { 0 } else { tx + OVERLAP };
+            let y0 = if ty == 0 { 0 } else { ty + OVERLAP };
+            let x1 = (tx + TILE - OVERLAP).min(w);
+            let y1 = (ty + TILE - OVERLAP).min(h);
 
-                info!(
-                    "[upscale] tile @({},{}) done in {:.1}s",
-                    tx, ty,
-                    t0.elapsed().as_secs_f32()
-                );
-
-                Ok((x0, y0, x1, y1, tx, ty, up))
-            })
-            .collect();
-
-        let processed_tiles = processed_tiles?;
-
-        for (x0, y0, x1, y1, tx, ty, up) in processed_tiles {
             for gy in (y0 * 4)..(y1 * 4) {
                 for gx in (x0 * 4)..(x1 * 4) {
                     let px = up.get_pixel((gx - tx * 4) as u32, (gy - ty * 4) as u32);
                     canvas.put_pixel(gx as u32, gy as u32, *px);
                 }
+            }
+
+            if idx % 5 == 0 || idx == total_tiles - 1 {
+                info!(
+                    "[upscale] tile {}/{} @({},{}) done in {:.2}s",
+                    idx + 1, total_tiles, tx, ty,
+                    t0.elapsed().as_secs_f32()
+                );
             }
         }
 

@@ -91,9 +91,9 @@ impl SegmentationEngine {
             let base      = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation");
             let face_base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face");
 
-            let u2netp = crate::services::onnx_helper::build_session(base.join("u2netp.onnx"), "U2NetP").ok();
+            let u2netp = crate::services::onnx_helper::build_tier1_session(base.join("u2netp.onnx"), "U2NetP").ok();
             let semantic = crate::services::onnx_helper::build_session(base.join("semantic.onnx"), "Semantic-Seg").ok();
-            let face_parsing = crate::services::onnx_helper::build_session(face_base.join("face_parsing.onnx"), "Face-Parsing").ok();
+            let face_parsing = crate::services::onnx_helper::build_tier1_session(face_base.join("face_parsing.onnx"), "Face-Parsing").ok();
 
             SegmentationEngine {
                 u2netp:       Mutex::new(u2netp),

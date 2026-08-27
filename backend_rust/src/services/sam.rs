@@ -74,7 +74,7 @@ fn build_sam() -> Result<Arc<SamEngine>, String> {
         .map(|o| o.name().to_string())
         .ok_or("SAM encoder has no outputs")?;
 
-    let decoder = crate::services::onnx_helper::build_session(decoder_path, "SAM-Decoder")
+    let decoder = crate::services::onnx_helper::build_tier1_session(decoder_path, "SAM-Decoder")
         .map_err(|e| format!("Failed to load SAM decoder: {}", e))?;
     let decoder_inputs: Vec<String> =
         decoder.inputs().iter().map(|i| i.name().to_string()).collect();
@@ -355,111 +355,5 @@ mod tests {
 
         // Empty prompt rejected.
         assert!(eng.segment_points(path.to_str().unwrap(), &[], &[]).is_err());
-    }
-
-    #[test]
-    fn test_sam_on_woman_sample() {
-        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
-        let artifact_dir = Path::new("/home/chotaxdon/.gemini/antigravity/brain/f8fee3f8-2ef0-45f9-8207-61e475632392");
-        if !Path::new(woman_path).exists() {
-            eprintln!("skip: woman.png not found at {}", woman_path);
-            return;
-        }
-
-        let eng = match get_sam() {
-            Ok(e) => e,
-            Err(err) => {
-                eprintln!("skip: SAM model not available: {}", err);
-                return;
-            }
-        };
-
-        // 1. Cold run (Encoder + Decoder) with positive point on the woman's torso/face
-        let prompt_points = vec![(512.0f32, 450.0f32)];
-        let positive = vec![true];
-
-        let t0 = std::time::Instant::now();
-        let mask_bytes = eng
-            .segment_points(woman_path, &prompt_points, &positive)
-            .expect("SAM cold segmentation failed on woman.png");
-        let cold_duration = t0.elapsed();
-
-        // 2. Warm run (Cached encoder embeddings, decoder only)
-        let t1 = std::time::Instant::now();
-        let _ = eng
-            .segment_points(woman_path, &[(512.0, 450.0), (80.0, 80.0)], &[true, false])
-            .expect("SAM warm segmentation failed on woman.png");
-        let warm_duration = t1.elapsed();
-
-        eprintln!(
-            "[SAM Benchmark] woman.png (1024x1024) -> Cold: {:.2?}, Warm: {:.2?}",
-            cold_duration, warm_duration
-        );
-
-        // 3. Load original image and decoded SAM mask
-        let orig_bytes = std::fs::read(woman_path).unwrap();
-        let orig = image::load_from_memory(&orig_bytes).unwrap().to_rgba8();
-        let mask_img = image::load_from_memory(&mask_bytes).unwrap().to_luma8();
-        let (w, h) = (orig.width(), orig.height());
-
-        // 4. Save SAM Mask
-        let mask_art = artifact_dir.join("woman_sam_mask.png");
-        mask_img.save_with_format(&mask_art, image::ImageFormat::Png).unwrap();
-
-        // 5. Create transparent cutout
-        let mut cutout = image::RgbaImage::new(w, h);
-        for y in 0..h {
-            for x in 0..w {
-                let p = orig.get_pixel(x, y);
-                let alpha = mask_img.get_pixel(x, y)[0];
-                cutout.put_pixel(x, y, image::Rgba([p[0], p[1], p[2], alpha]));
-            }
-        }
-        let cutout_art = artifact_dir.join("woman_sam_cutout_transparent.png");
-        cutout.save_with_format(&cutout_art, image::ImageFormat::Png).unwrap();
-
-        // 6. Create Visual Point Prompt overlay on original
-        let mut prompt_overlay = orig.clone();
-        let px = 512i32;
-        let py = 450i32;
-        // Draw green ring target indicator at prompt point
-        for dy in -12..=12 {
-            for dx in -12..=12 {
-                let dist_sq = dx * dx + dy * dy;
-                let nx = px + dx;
-                let ny = py + dy;
-                if nx >= 0 && nx < w as i32 && ny >= 0 && ny < h as i32 {
-                    if (dist_sq >= 64 && dist_sq <= 144) || dist_sq <= 16 {
-                        prompt_overlay.put_pixel(nx as u32, ny as u32, image::Rgba([0, 255, 128, 255]));
-                    }
-                }
-            }
-        }
-        let prompt_art = artifact_dir.join("woman_sam_prompt_overlay.png");
-        prompt_overlay.save_with_format(&prompt_art, image::ImageFormat::Png).unwrap();
-
-        // 7. Create Side-by-Side Comparison
-        let mut side_by_side = image::RgbaImage::new(w * 2, h);
-        for y in 0..h {
-            for x in 0..w {
-                // Left: Prompt annotated original
-                side_by_side.put_pixel(x, y, *prompt_overlay.get_pixel(x, y));
-
-                // Right: SAM cutout on checkerboard
-                let check = if (x / 20 + y / 20) % 2 == 0 { 240u8 } else { 200u8 };
-                let alpha = mask_img.get_pixel(x, y)[0] as f32 / 255.0;
-                let orig_p = orig.get_pixel(x, y);
-                let r = (orig_p[0] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
-                let g = (orig_p[1] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
-                let b = (orig_p[2] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
-                side_by_side.put_pixel(w + x, y, image::Rgba([r, g, b, 255]));
-            }
-            side_by_side.put_pixel(w, y, image::Rgba([255, 255, 255, 255]));
-            side_by_side.put_pixel(w + 1, y, image::Rgba([255, 255, 255, 255]));
-        }
-        let comp_art = artifact_dir.join("woman_sam_comparison.png");
-        side_by_side.save_with_format(&comp_art, image::ImageFormat::Png).unwrap();
-
-        eprintln!("[test] All SAM visual artifacts saved to {:?}", artifact_dir);
     }
 }

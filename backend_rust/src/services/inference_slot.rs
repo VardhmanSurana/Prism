@@ -64,6 +64,17 @@ pub async fn status() -> serde_json::Value {
     }
 }
 
+/// Non-blocking synchronous check if a heavyweight job currently holds the inference slot.
+pub fn is_busy_sync() -> bool {
+    if let Some(slot_mutex) = SLOT.get() {
+        if let Ok(guard) = slot_mutex.try_lock() {
+            return guard.holder.is_some();
+        }
+        return true; // Mutex is currently held by an active job
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -113,6 +113,7 @@ mod tests {
     #[test]
     fn detects_a_profile_without_panicking() {
         let profile = detect("cuda");
+        eprintln!("[test] Detected profile: {:?}", profile);
         assert!(!profile.cpu_model.is_empty());
         assert!(profile.cpu_threads > 0);
     }

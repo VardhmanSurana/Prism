@@ -102,7 +102,7 @@ fn load_dict() -> Result<Vec<String>, String> {
 }
 
 fn load_session(path: &str, label: &str) -> Result<(Session, String, String), String> {
-    let build = crate::services::onnx_helper::build_session(path, label)
+    let build = crate::services::onnx_helper::build_tier1_session(path, label)
         .map_err(|e| format!("Failed to load {} model {}: {}", label, path, e))?;
 
     let input_name = build

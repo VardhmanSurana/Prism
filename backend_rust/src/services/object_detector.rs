@@ -36,7 +36,7 @@ pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
         .copied()
         .unwrap_or("models/objects/yolov8n.onnx");
     
-    let session = crate::services::onnx_helper::build_session(model_path, "YOLOv8")
+    let session = crate::services::onnx_helper::build_tier1_session(model_path, "YOLOv8")
         .map_err(|e| format!("Failed to load YOLO model from {}: {}", model_path, e))?;
 
     let input_name = session
