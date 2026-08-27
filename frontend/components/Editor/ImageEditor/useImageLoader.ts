@@ -78,9 +78,13 @@ export function useImageLoader({
     img.onerror = () => {
       if (active) setBackgroundMaskImg(null);
     };
-    img.src = maskUrl.startsWith('data:') || maskUrl.startsWith('blob:') || maskUrl.startsWith('http')
-      ? maskUrl
-      : `${API_BASE}${maskUrl}`;
+    img.src = resolveUrl(maskUrl);
+    if (img.complete && img.naturalWidth > 0) {
+      if (active) {
+        setBackgroundMaskImg(img);
+        setCanvasDrawKey(k => k + 1);
+      }
+    }
     return () => {
       active = false;
     };

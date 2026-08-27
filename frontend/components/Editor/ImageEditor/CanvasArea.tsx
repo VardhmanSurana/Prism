@@ -377,7 +377,11 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
           ref={liveCanvasRef}
           width={sourceImg.naturalWidth || 1}
           height={sourceImg.naturalHeight || 1}
-          className="absolute pointer-events-none z-10"
+          className={`absolute pointer-events-none z-10 ${
+            adjustments.background?.enabled && adjustments.background?.backdrop === 'transparent'
+              ? 'transparency-checkerboard'
+              : ''
+          }`}
           style={{
             left: imageRect.left,
             top: imageRect.top,
