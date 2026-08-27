@@ -494,6 +494,7 @@ impl SegmentationEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::Path;
 
     #[test]
     fn segmentation_on_sample_image() {
@@ -512,5 +513,78 @@ mod tests {
         } else {
             eprintln!("skip: u2netp model not present");
         }
+    }
+
+    #[test]
+    fn test_bg_removal_on_woman_sample() {
+        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
+        let artifact_dir = Path::new("/home/chotaxdon/.gemini/antigravity/brain/f8fee3f8-2ef0-45f9-8207-61e475632392");
+        if !Path::new(woman_path).exists() {
+            eprintln!("skip: woman.png not found at {}", woman_path);
+            return;
+        }
+
+        let engine = SegmentationEngine::get();
+        let mask_dir = artifact_dir.join("masks_test");
+        let _ = std::fs::create_dir_all(&mask_dir);
+
+        let t0 = std::time::Instant::now();
+        let res = engine.get_background_mask(woman_path, 9999, &mask_dir, None, None)
+            .expect("Failed to run background removal on woman.png");
+        let duration = t0.elapsed();
+        eprintln!("[test] Background mask generated in {:.2?}", duration);
+
+        // Load original and mask
+        let orig = load_image_sniffed(woman_path).expect("Failed to open original woman.png").to_rgba8();
+        let mask_path = mask_dir.join("mask_9999_background.png");
+        let mask = load_image_sniffed(mask_path.to_str().unwrap()).expect("Failed to open generated mask").to_luma8();
+
+        let (w, h) = (orig.width(), orig.height());
+
+        // 1. Save original to artifact directory
+        let orig_art = artifact_dir.join("woman_original.png");
+        orig.save_with_format(&orig_art, image::ImageFormat::Png).unwrap();
+
+        // 2. Save mask to artifact directory
+        let mask_art = artifact_dir.join("woman_bg_mask.png");
+        mask.save_with_format(&mask_art, image::ImageFormat::Png).unwrap();
+
+        // 3. Create transparent RGBA cutout
+        let mut cutout = image::RgbaImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let p = orig.get_pixel(x, y);
+                let alpha = mask.get_pixel(x, y)[0];
+                cutout.put_pixel(x, y, image::Rgba([p[0], p[1], p[2], alpha]));
+            }
+        }
+        let cutout_art = artifact_dir.join("woman_cutout_transparent.png");
+        cutout.save_with_format(&cutout_art, image::ImageFormat::Png).unwrap();
+
+        // 4. Create Side-by-Side (Left: Original, Right: Cutout on subtle checkerboard pattern)
+        let mut side_by_side = image::RgbaImage::new(w * 2, h);
+        for y in 0..h {
+            for x in 0..w {
+                // Left: original
+                side_by_side.put_pixel(x, y, *orig.get_pixel(x, y));
+
+                // Right: cutout over light checkerboard pattern
+                let check = if (x / 20 + y / 20) % 2 == 0 { 240u8 } else { 200u8 };
+                let alpha = mask.get_pixel(x, y)[0] as f32 / 255.0;
+                let orig_p = orig.get_pixel(x, y);
+                let r = (orig_p[0] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+                let g = (orig_p[1] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+                let b = (orig_p[2] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+
+                side_by_side.put_pixel(w + x, y, image::Rgba([r, g, b, 255]));
+            }
+            // 2px center divider line
+            side_by_side.put_pixel(w, y, image::Rgba([255, 255, 255, 255]));
+            side_by_side.put_pixel(w + 1, y, image::Rgba([255, 255, 255, 255]));
+        }
+
+        let comp_art = artifact_dir.join("woman_bg_removal_comparison.png");
+        side_by_side.save_with_format(&comp_art, image::ImageFormat::Png).unwrap();
+        eprintln!("[test] All visual artifacts generated and saved to {:?}", artifact_dir);
     }
 }
