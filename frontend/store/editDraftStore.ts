@@ -71,3 +71,4 @@ export function hasEditDraft(photoId: string | number): boolean {
   if (!photoId) return false;
   return Boolean(localStorage.getItem(getDraftStorageKey(photoId)));
 }
+

@@ -60,3 +60,4 @@ describe('editDraftStore', () => {
     expect(getEditDraft(photoId)).toBeNull();
   });
 });
+

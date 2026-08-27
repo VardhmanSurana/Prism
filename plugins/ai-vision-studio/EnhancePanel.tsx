@@ -77,20 +77,29 @@ export const EnhancePanel: React.FC<EnhancePanelProps> = ({
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20 mb-3">
           Super Resolution
         </p>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {SCALE_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              onClick={() => onSettingsChange({ ...settings, scale: opt.value })}
-              className={`editor-btn editor-card-btn ${settings.scale === opt.value ? 'active' : ''} py-3 px-2 text-center`}
-              disabled={isProcessing}
-            >
-              <span className="block text-sm font-bold text-white/90">{opt.label}</span>
-              <span className="block text-[9px] uppercase tracking-wider text-white/30 mt-1">
-                {opt.hint}
-              </span>
-            </button>
-          ))}
+        <div className="grid grid-cols-2 gap-2.5 mb-3">
+          {SCALE_OPTIONS.map(opt => {
+            const isActive = settings.scale === opt.value;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => onSettingsChange({ ...settings, scale: opt.value })}
+                disabled={isProcessing}
+                className={`flex flex-col items-center justify-center py-2.5 px-3 rounded-xl border transition-all select-none cursor-pointer ${
+                  isActive
+                    ? 'bg-white text-black border-white shadow-[0_2px_12px_rgba(255,255,255,0.12)]'
+                    : 'bg-white/[0.03] border-white/10 text-white/90 hover:bg-white/[0.07] hover:border-white/20'
+                } disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]`}
+              >
+                <span className={`text-sm font-bold tracking-tight ${isActive ? 'text-black' : 'text-white'}`}>
+                  {opt.label}
+                </span>
+                <span className={`text-[9px] uppercase tracking-wider font-semibold mt-0.5 ${isActive ? 'text-black/55' : 'text-white/35'}`}>
+                  {opt.hint}
+                </span>
+              </button>
+            );
+          })}
         </div>
         <button
           onClick={onUpscale}
@@ -202,10 +211,10 @@ export const EnhancePanel: React.FC<EnhancePanelProps> = ({
                 key={opt.value}
                 onClick={() => onCaption(opt.value)}
                 disabled={isProcessing || captionLoading}
-                className="editor-btn editor-card-btn py-2 px-1 text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex flex-col items-center justify-center py-2 px-1.5 rounded-xl border border-white/10 bg-white/[0.03] text-white/90 hover:bg-white/[0.07] hover:border-white/20 transition-all select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]"
               >
-                <span className="block text-[11px] font-bold text-white/90">{opt.label}</span>
-                <span className="block text-[8px] uppercase tracking-wider text-white/30 mt-0.5">
+                <span className="text-[11px] font-bold text-white tracking-tight">{opt.label}</span>
+                <span className="text-[8px] uppercase tracking-wider font-semibold text-white/40 mt-0.5">
                   {opt.hint}
                 </span>
               </button>
