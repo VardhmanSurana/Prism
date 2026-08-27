@@ -257,19 +257,33 @@ impl SegmentationEngine {
         let tensor = Value::from_array((tensor_shape, data))
             .map_err(|e| format!("Failed to create input tensor: {}", e))?;
 
-        let input_name = &model_def.input.name;
+        let dynamic_input_name = session
+            .inputs()
+            .first()
+            .map(|i| i.name().to_string());
+        let effective_input_name = dynamic_input_name
+            .as_deref()
+            .unwrap_or(model_def.input.name.as_str());
+
         let mut inputs_map = std::collections::HashMap::new();
-        inputs_map.insert(input_name.as_str(), tensor);
+        inputs_map.insert(effective_input_name, tensor);
 
         let outputs = session.run(inputs_map)
             .map_err(|e| format!("ORT matting inference failed: {}", e))?;
 
         // 2. Extract output tensor
         let raw_flat: Vec<f32> = if let Some(ref out_name) = model_def.output.output_name {
-            let (_, cow) = outputs[out_name.as_str()]
-                .try_extract_tensor::<f32>()
-                .map_err(|e| format!("Extract output error: {}", e))?;
-            cow.iter().copied().collect()
+            if let Some(out_tensor) = outputs.get(out_name.as_str()) {
+                let (_, cow) = out_tensor
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| format!("Extract output error for '{}': {}", out_name, e))?;
+                cow.iter().copied().collect()
+            } else {
+                let (_, cow) = outputs[0]
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| format!("Extract output error: {}", e))?;
+                cow.iter().copied().collect()
+            }
         } else {
             let out_idx = model_def.output.output_index.unwrap_or(0);
             let (_, cow) = outputs[out_idx]

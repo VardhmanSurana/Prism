@@ -212,7 +212,7 @@ impl PackManager {
                     description: Some("Highly accurate 1024px dichotomic segmentation model for universal portrait & object cutout.".to_string()),
                     file: "isnet_general_use.onnx".to_string(),
                     input: PackInputDef {
-                        name: "input.1".to_string(),
+                        name: "input_image".to_string(),
                         size: [1024, 1024],
                         layout: "NCHW".to_string(),
                         mean: [0.485, 0.456, 0.406],
