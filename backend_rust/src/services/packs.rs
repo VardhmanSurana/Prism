@@ -213,6 +213,7 @@ impl PackManager {
                     file: "isnet_general_use.onnx".to_string(),
                     input: PackInputDef {
                         name: "input_image".to_string(),
+                        size: [1024, 1024],
                         layout: "NCHW".to_string(),
                         mean: [0.485, 0.456, 0.406],
                         std: [0.229, 0.224, 0.225],
