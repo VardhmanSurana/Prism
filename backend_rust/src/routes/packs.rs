@@ -66,7 +66,7 @@ pub async fn acknowledge_license(
     Json(payload): Json<AcknowledgeLicenseRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     if payload.acknowledged {
-        state.pack_manager.acknowledge_license(&payload.model_id).await;
+        state.pack_manager.acknowledge_license(&payload.model_id);
         state.model_manager.acknowledge_license(&payload.model_id).await;
         
         // Also persist acknowledgment in SQLite settings table so it survives restarts

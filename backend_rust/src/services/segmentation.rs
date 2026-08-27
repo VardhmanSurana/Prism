@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use image::{DynamicImage, GrayImage, Luma};
 use ort::session::Session;
 use ort::value::Value;
@@ -78,7 +78,11 @@ pub struct SegmentationEngine {
     matte_sessions: Mutex<std::collections::HashMap<String, (Session, std::time::Instant)>>,
 }
 
-pub static SEGMENTATION_ENGINE: OnceLock<SegmentationEngine> = OnceLock::new();
+pub static SEGMENTATION_ENGINE: OnceLock<Mutex<Option<Arc<SegmentationEngine>>>> = OnceLock::new();
+
+fn segmentation_cache() -> &'static Mutex<Option<Arc<SegmentationEngine>>> {
+    SEGMENTATION_ENGINE.get_or_init(|| Mutex::new(None))
+}
 
 fn load_image_sniffed(path: &str) -> Result<DynamicImage, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
@@ -86,22 +90,32 @@ fn load_image_sniffed(path: &str) -> Result<DynamicImage, String> {
 }
 
 impl SegmentationEngine {
-    pub fn get() -> &'static Self {
-        SEGMENTATION_ENGINE.get_or_init(|| {
-            let base      = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation");
-            let face_base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face");
+    pub fn get() -> Arc<Self> {
+        let mut cache = segmentation_cache().lock().expect("segmentation model cache lock poisoned");
+        if let Some(engine) = cache.as_ref() {
+            return Arc::clone(engine);
+        }
 
-            let u2netp = crate::services::onnx_helper::build_tier1_session(base.join("u2netp.onnx"), "U2NetP").ok();
-            let semantic = crate::services::onnx_helper::build_session(base.join("semantic.onnx"), "Semantic-Seg").ok();
-            let face_parsing = crate::services::onnx_helper::build_tier1_session(face_base.join("face_parsing.onnx"), "Face-Parsing").ok();
-
+        let engine = Arc::new({
             SegmentationEngine {
-                u2netp:       Mutex::new(u2netp),
-                semantic:     Mutex::new(semantic),
-                face_parsing: Mutex::new(face_parsing),
+                // Loading all three models for a single background-mask click
+                // caused avoidable RAM/VRAM spikes. Each is loaded on demand.
+                u2netp:       Mutex::new(None),
+                semantic:     Mutex::new(None),
+                face_parsing: Mutex::new(None),
                 matte_sessions: Mutex::new(std::collections::HashMap::new()),
             }
-        })
+        });
+        *cache = Some(Arc::clone(&engine));
+        engine
+    }
+
+    /// Releases built-in and capability-pack segmentation sessions.
+    pub fn unload() -> bool {
+        segmentation_cache()
+            .lock()
+            .map(|mut cache| cache.take().is_some())
+            .unwrap_or(false)
     }
 
     // ── Background mask (Generic Matting + U²-Net-p fallback) ───────────────────
@@ -150,6 +164,12 @@ impl SegmentationEngine {
                 .map_err(|e| e.to_string())?;
             let inputs = ort::inputs!["input.1" => tensor];
             let mut session_guard = self.u2netp.lock().unwrap();
+            if session_guard.is_none() {
+                *session_guard = Some(crate::services::onnx_helper::build_tier1_session(
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation/u2netp.onnx"),
+                    "U2NetP",
+                ).map_err(|e| format!("Failed to load U2NetP model: {}", e))?);
+            }
             let session = session_guard.as_mut().ok_or("U2Netp model session not loaded on this system")?;
             let outputs = session.run(inputs).map_err(|e| e.to_string())?;
 
@@ -174,9 +194,9 @@ impl SegmentationEngine {
 
         // Generic Capability Pack Model Execution
         let pm = pack_manager.ok_or("Capability pack manager not available")?;
-        let (_pack, model_def, model_path) = tokio::task::block_in_place(|| {
-            tokio::runtime::Handle::current().block_on(pm.get_model_def(req_model))
-        }).ok_or_else(|| format!("Model '{}' not found in capability packs", req_model))?;
+        let (_pack, model_def, model_path) = pm
+            .get_model_def(req_model)
+            .ok_or_else(|| format!("Model '{}' not found in capability packs", req_model))?;
 
         if !model_path.exists() {
             return Err(format!("Model '{}' weights not installed at {:?}", req_model, model_path));
@@ -342,6 +362,12 @@ impl SegmentationEngine {
         let tensor  = Value::from_array(([1usize, 3, h, w], data)).map_err(|e| e.to_string())?;
         let inputs  = ort::inputs!["pixel_values" => tensor];
         let mut session_guard = self.semantic.lock().unwrap();
+        if session_guard.is_none() {
+            *session_guard = Some(crate::services::onnx_helper::build_session(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation/semantic.onnx"),
+                "Semantic-Seg",
+            ).map_err(|e| format!("Failed to load semantic segmentation model: {}", e))?);
+        }
         let session = session_guard.as_mut().ok_or("Semantic segmentation model session not loaded on this system")?;
         let outputs = session.run(inputs).map_err(|e| e.to_string())?;
 
@@ -407,6 +433,12 @@ impl SegmentationEngine {
         masks_dir:  &std::path::Path,
     ) -> Result<PortraitMasksResponse, String> {
         let mut fp_guard = self.face_parsing.lock().unwrap();
+        if fp_guard.is_none() {
+            *fp_guard = Some(crate::services::onnx_helper::build_tier1_session(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face/face_parsing.onnx"),
+                "Face-Parsing",
+            ).map_err(|e| format!("Failed to load face parsing model: {}", e))?);
+        }
         let session = match fp_guard.as_mut() {
             Some(s) => s,
             None => return Ok(PortraitMasksResponse { faces: vec![] }),
@@ -505,6 +537,10 @@ mod tests {
         let img = image::RgbaImage::new(256, 256);
         img.save(&photo_path).unwrap();
 
+        // Force the inference path rather than returning a mask generated by
+        // an earlier test invocation.
+        std::fs::remove_file(dir.join("mask_1_background.png")).ok();
+
         let engine = SegmentationEngine::get();
         let mask_res = engine.get_background_mask(photo_path.to_str().unwrap(), 1, &dir, None, None);
         if engine.u2netp.lock().unwrap().is_some() {
@@ -529,7 +565,7 @@ mod tests {
         let _ = std::fs::create_dir_all(&mask_dir);
 
         let t0 = std::time::Instant::now();
-        let res = engine.get_background_mask(woman_path, 9999, &mask_dir, None, None)
+        let _res = engine.get_background_mask(woman_path, 9999, &mask_dir, None, None)
             .expect("Failed to run background removal on woman.png");
         let duration = t0.elapsed();
         eprintln!("[test] Background mask generated in {:.2?}", duration);
@@ -586,5 +622,24 @@ mod tests {
         let comp_art = artifact_dir.join("woman_bg_removal_comparison.png");
         side_by_side.save_with_format(&comp_art, image::ImageFormat::Png).unwrap();
         eprintln!("[test] All visual artifacts generated and saved to {:?}", artifact_dir);
+    }
+
+    #[tokio::test]
+    async fn test_isnet_matting_on_woman_sample() {
+        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
+        let pack_manager = crate::services::packs::PackManager::new(
+            std::path::PathBuf::from("models/packs"),
+            std::path::PathBuf::from("models"),
+        );
+        pack_manager.refresh().await;
+
+        let engine = SegmentationEngine::get();
+        let dir = std::env::temp_dir().join("prism_isnet_test");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let t0 = std::time::Instant::now();
+        let res = engine.get_background_mask(woman_path, 8888, &dir, Some("isnet-general-use"), Some(&pack_manager));
+        eprintln!("[test] isnet result: {:?} in {:.2?}", res, t0.elapsed());
+        assert!(res.is_ok());
     }
 }

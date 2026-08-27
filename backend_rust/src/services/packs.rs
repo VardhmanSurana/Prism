@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
 use crate::services::model_manager::{ModelDefinition, ModelFileDef};
@@ -31,31 +30,30 @@ fn default_std() -> [f32; 3] { [0.229, 0.224, 0.225] }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PackOutputDef {
     #[serde(default = "default_postprocess")]
-    pub postprocess: String, // "sigmoid" | "clamp" | "raw"
+    pub postprocess: String, // "sigmoid" | "clamp" | "none"
+    #[serde(default)]
     pub threshold: Option<f32>,
+    #[serde(default)]
     pub output_index: Option<usize>,
+    #[serde(default)]
     pub output_name: Option<String>,
 }
 
 fn default_postprocess() -> String { "sigmoid".to_string() }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct PackDownloadDef {
-    pub url: String,
-    pub sha256: Option<String>,
-    pub size_bytes: u64,
-}
+fn default_license() -> String { "Apache-2.0".to_string() }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PackModelDef {
     pub id: String,
     pub name: String,
+    #[serde(default)]
     pub description: Option<String>,
     pub file: String,
-    #[serde(default = "default_input")]
+    #[serde(default)]
     pub input: PackInputDef,
-    #[serde(default = "default_output")]
+    #[serde(default)]
     pub output: PackOutputDef,
+    #[serde(default)]
     pub download: Option<PackDownloadDef>,
     #[serde(default = "default_license")]
     pub license: String,
@@ -65,26 +63,36 @@ pub struct PackModelDef {
     pub ack_required: bool,
 }
 
-fn default_input() -> PackInputDef {
-    PackInputDef {
-        name: default_input_name(),
-        size: default_input_size(),
-        layout: default_layout(),
-        mean: default_mean(),
-        std: default_std(),
+impl Default for PackInputDef {
+    fn default() -> Self {
+        Self {
+            name: default_input_name(),
+            size: default_input_size(),
+            layout: default_layout(),
+            mean: default_mean(),
+            std: default_std(),
+        }
     }
 }
 
-fn default_output() -> PackOutputDef {
-    PackOutputDef {
-        postprocess: default_postprocess(),
-        threshold: None,
-        output_index: None,
-        output_name: None,
+impl Default for PackOutputDef {
+    fn default() -> Self {
+        Self {
+            postprocess: default_postprocess(),
+            threshold: None,
+            output_index: Some(0),
+            output_name: None,
+        }
     }
 }
 
-fn default_license() -> String { "Apache-2.0".to_string() }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PackDownloadDef {
+    pub url: String,
+    #[serde(default)]
+    pub sha256: Option<String>,
+    pub size_bytes: u64,
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PackManifest {
@@ -319,12 +327,12 @@ impl PackManager {
             loaded.push(Self::default_bg_removal_manifest());
         }
 
-        *self.packs.write().await = loaded;
+        *self.packs.write().unwrap() = loaded;
     }
 
     pub async fn get_packs_info(&self) -> Vec<PackInfoResponse> {
-        let packs = self.packs.read().await;
-        let acks = self.acknowledged_licenses.read().await;
+        let packs = self.packs.read().unwrap();
+        let acks = self.acknowledged_licenses.read().unwrap();
         let mut responses = Vec::new();
 
         for pack in packs.iter() {
@@ -396,7 +404,7 @@ impl PackManager {
     }
 
     pub async fn to_model_definitions(&self) -> Vec<ModelDefinition> {
-        let packs = self.packs.read().await;
+        let packs = self.packs.read().unwrap();
         let mut defs = Vec::new();
 
         for pack in packs.iter() {
@@ -429,8 +437,8 @@ impl PackManager {
         defs
     }
 
-    pub async fn get_model_def(&self, model_id: &str) -> Option<(PackManifest, PackModelDef, PathBuf)> {
-        let packs = self.packs.read().await;
+    pub fn get_model_def(&self, model_id: &str) -> Option<(PackManifest, PackModelDef, PathBuf)> {
+        let packs = self.packs.read().unwrap();
         for pack in packs.iter() {
             for m in &pack.models {
                 if m.id == model_id {
@@ -462,12 +470,12 @@ impl PackManager {
         None
     }
 
-    pub async fn acknowledge_license(&self, model_id: &str) {
-        self.acknowledged_licenses.write().await.insert(model_id.to_string());
+    pub fn acknowledge_license(&self, model_id: &str) {
+        self.acknowledged_licenses.write().unwrap().insert(model_id.to_string());
     }
 
     pub async fn verify_model_file(&self, model_id: &str) -> Result<(bool, String), String> {
-        let (_, model_def, path) = self.get_model_def(model_id).await
+        let (_, model_def, path) = self.get_model_def(model_id)
             .ok_or_else(|| format!("Model '{}' not found in any capability pack", model_id))?;
 
         if !path.exists() {

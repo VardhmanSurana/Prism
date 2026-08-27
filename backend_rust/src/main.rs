@@ -114,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     .await {
         for (key, _) in rows {
             if let Some(model_id) = key.strip_prefix("pack_ack_") {
-                pack_manager.acknowledge_license(model_id).await;
+                pack_manager.acknowledge_license(model_id);
                 model_manager_instance.acknowledge_license(model_id).await;
             }
         }
