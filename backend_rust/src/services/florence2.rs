@@ -261,8 +261,9 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
         .to_owned();
 
     let mut logits: ndarray::ArrayD<f32>;
-    // Present KV: decoder self-attn KV for each layer (not encoder cross-attn — those don't change)
-    let mut present_dec_kv: Vec<(String, ndarray::ArrayD<f32>)> = Vec::new();    {
+    // Present KV: all decoder self-attn and encoder cross-attn KV tensors for each layer
+    let mut present_kv: Vec<(String, ndarray::ArrayD<f32>)> = Vec::new();
+    {
         let prefill_last_token = combined_embeds.slice(s![.., seq_len - 1..seq_len, ..]).to_owned();
         let prefill_past_zero = ndarray::Array4::<f32>::zeros((1, 12, 0, 64));
 
@@ -304,12 +305,12 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
                 .map_err(|e| e.to_string())?;
 
             for name in &sess_decoder.output_names {
-                if name.starts_with("present.") && name.contains(".decoder.") {
-                    if let Some(val) = outputs.get(name.as_str()) {
-                        if let Ok((s, d)) = val.try_extract_tensor::<f32>() {
-                            let dims: Vec<usize> = s.iter().map(|&d| d as usize).collect();
+                if let Some(val) = outputs.get(name.as_str()) {
+                    if let Ok((s, d)) = val.try_extract_tensor::<f32>() {
+                        let dims: Vec<usize> = s.iter().map(|&d| d as usize).collect();
+                        if name.starts_with("present.") {
                             if let Ok(arr) = ndarray::Array::from_shape_vec(dims, d.to_vec()) {
-                                present_dec_kv.push((name.clone(), arr));
+                                present_kv.push((name.clone(), arr));
                             }
                         }
                     }
@@ -376,7 +377,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
                 }
                 n if n.starts_with("past_key_values.") => {
                     let present_name = n.replace("past_key_values.", "present.");
-                    let kv = if let Some((_, kv)) = present_dec_kv.iter().find(|(pn, _)| *pn == present_name) {
+                    let kv = if let Some((_, kv)) = present_kv.iter().find(|(pn, _)| *pn == present_name) {
                         kv.clone()
                     } else {
                         warn!("[Florence2] Missing KV for {}", n);
@@ -403,12 +404,15 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
                 .map_err(|e| e.to_string())?;
 
             let mut updates: Vec<(String, ndarray::ArrayD<f32>)> = Vec::new();
-            for (pname, _) in &present_dec_kv {
-                if let Some(val) = outputs.get(pname.as_str()) {
-                    if let Ok((s, d)) = val.try_extract_tensor::<f32>() {
-                        let shape: Vec<usize> = s.iter().map(|&d| d as usize).collect();
-                        if let Ok(arr) = ndarray::Array::from_shape_vec(shape, d.to_vec()) {
-                            updates.push((pname.clone(), arr));
+            for (pname, _) in &present_kv {
+                // Only update decoder self-attention KV; encoder cross-attention KV remains fixed
+                if pname.contains(".decoder.") {
+                    if let Some(val) = outputs.get(pname.as_str()) {
+                        if let Ok((s, d)) = val.try_extract_tensor::<f32>() {
+                            let shape: Vec<usize> = s.iter().map(|&d| d as usize).collect();
+                            if let Ok(arr) = ndarray::Array::from_shape_vec(shape, d.to_vec()) {
+                                updates.push((pname.clone(), arr));
+                            }
                         }
                     }
                 }
@@ -418,7 +422,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
 
         logits = new_logits;
         for (pname, arr) in updates {
-            if let Some(slot) = present_dec_kv.iter_mut().find(|(n, _)| *n == pname) {
+            if let Some(slot) = present_kv.iter_mut().find(|(n, _)| *n == pname) {
                 *slot = (pname, arr);
             }
         }
