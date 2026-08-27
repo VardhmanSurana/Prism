@@ -3027,6 +3027,7 @@ dependencies = [
  "mime_guess",
  "ndarray",
  "ort",
+ "rayon",
  "regex",
  "reqwest 0.12.28",
  "serde",

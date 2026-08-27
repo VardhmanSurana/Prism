@@ -5,7 +5,7 @@ edition = "2021"
 description = "High-performance Rust backend for Prism local-first photo library"
 
 [dependencies]
-ort = { version = "2.0.0-rc.13", features = ["ndarray"] }
+ort = { version = "2.0.0-rc.13", features = ["ndarray", "cuda"] }
 
 tokenizers = "0.20.0"
 axum = { version = "0.7", features = ["macros", "multipart"] }
@@ -39,6 +39,7 @@ base64 = "0.22"
 ndarray = "0.17.2"
 argon2 = "0.5"
 regex = "1"
+rayon = "1.10"
 
 [dev-dependencies]
 tempfile = "3"
