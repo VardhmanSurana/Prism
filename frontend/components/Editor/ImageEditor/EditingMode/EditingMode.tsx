@@ -16,6 +16,8 @@ import { TransformPanel } from '../TransformPanel';
 import { TopBar } from '../TopBar';
 import { Sidebar, ToolId } from '../Sidebar';
 import { CanvasArea } from '../CanvasArea';
+import { DraftRecoveryBanner } from '../DraftRecoveryBanner';
+import { useEditDraftAutoSave } from '@/hooks/useEditDraftAutoSave';
 import { Adjustments, DEFAULT_ADJUSTMENTS, DEFAULT_BACKGROUND_ADJUSTMENTS, toFilterString } from '../filterEngine';
 import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
 import { HslPanel } from '../HslPanel';
@@ -199,6 +201,48 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
   const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
   const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
+
+  // Auto-save and draft recovery hook
+  const draftState = useEditDraftAutoSave({
+    photoId,
+    adjustments,
+    setAdjustments,
+    totalRotation,
+    setTotalRotation,
+    straightenAngle,
+    setStraightenAngle,
+    flipH,
+    setFlipH,
+    flipV,
+    setFlipV,
+    annotations: annState.annotations,
+    setAnnotations: annState.setAnnotations,
+    cropperRef,
+    rawSettings,
+    liquifySettings,
+    isSaving,
+  });
+
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+
+  const handleRequestClose = useCallback(() => {
+    if (draftState.isDirty) {
+      setShowExitConfirm(true);
+    } else {
+      onClose();
+    }
+  }, [draftState.isDirty, onClose]);
+
+  const handleDiscardAndClose = useCallback(() => {
+    draftState.discardDraft();
+    setShowExitConfirm(false);
+    onClose();
+  }, [draftState, onClose]);
+
+  const handleKeepDraftAndClose = useCallback(() => {
+    setShowExitConfirm(false);
+    onClose();
+  }, [onClose]);
 
   // Face Detection Bounding Boxes State
   const [faces, setFaces] = useState<import('@plugins/retouch-metadata-studio/FaceBoundingBoxOverlay').FaceBBox[]>([]);
@@ -900,6 +944,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
                 console.error('Failed to save non-destructive adjustments:', e);
               }
             }
+            draftState.clearDraft();
             setExportProgress(null);
             onSave(blob, isSaveAs);
             setIsSaving(false);
@@ -1003,7 +1048,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   return (
     <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden bg-[var(--bg-primary)]">
       <TopBar
-        onClose={onClose}
+        onClose={handleRequestClose}
+        onReset={draftState.discardDraft}
+        isDirty={draftState.isDirty}
         isSaving={isSaving}
         handleSave={handleSave}
         handleCopy={handleCopy}
@@ -1018,6 +1065,15 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         onPasteEdits={handlePasteEdits}
         hasCopiedEdits={useEditStore((s) => s.copiedAdjustments !== null)}
       />
+
+      {/* Draft Recovery Banner */}
+      {draftState.hasRestoredDraft && (
+        <DraftRecoveryBanner
+          timestamp={draftState.draftTimestamp}
+          onDiscard={draftState.discardDraft}
+          onKeep={draftState.dismissBanner}
+        />
+      )}
 
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
@@ -1341,6 +1397,59 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             )}
             <span>{toastMessage.text}</span>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Exit Confirmation Dialog */}
+      <AnimatePresence>
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-[220] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="bg-[#18181b] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+                  <AlertCircle className="w-5 h-5 text-amber-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Unsaved Changes</h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    What would you like to do?
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-white/70 leading-relaxed">
+                You have active edits on this photo. You can keep them saved as a draft to resume anytime or discard them completely.
+              </p>
+
+              <div className="flex flex-col gap-2 pt-2">
+                <button
+                  onClick={handleKeepDraftAndClose}
+                  className="w-full py-2.5 px-4 bg-primary text-black font-semibold text-xs rounded-xl hover:brightness-110 transition active:scale-[0.98] shadow-md flex items-center justify-center gap-2"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Keep Draft & Exit</span>
+                </button>
+                <button
+                  onClick={handleDiscardAndClose}
+                  className="w-full py-2.5 px-4 bg-red-500/15 border border-red-500/30 text-red-300 font-semibold text-xs rounded-xl hover:bg-red-500/25 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                >
+                  <span>Discard All Edits & Exit</span>
+                </button>
+                <button
+                  onClick={() => setShowExitConfirm(false)}
+                  className="w-full py-2 px-4 text-white/45 hover:text-white text-xs font-medium rounded-xl hover:bg-white/5 transition"
+                >
+                  Cancel (Stay in Editor)
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

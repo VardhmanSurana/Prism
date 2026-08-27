@@ -29,6 +29,7 @@ import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
 import { MobileEditor } from '@/components/Editor/mobile/MobileEditor';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
 import { usePlatform } from '@/hooks/usePlatform';
+import { useSearchParams } from 'react-router-dom';
 
 interface LightboxProps {
   photo: Photo;
@@ -75,7 +76,17 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [showInfo, setShowInfo] = useState(false);
   const [metadata, setMetadata] = useState<Photo | null>(null);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isEditing = searchParams.get('mode') === 'edit';
+
+  const setIsEditing = useCallback((editing: boolean) => {
+    const photoKey = photo.uuid || photo.id;
+    if (editing) {
+      setSearchParams({ photo: String(photoKey), mode: 'edit' });
+    } else {
+      setSearchParams({ photo: String(photoKey) });
+    }
+  }, [photo.uuid, photo.id, setSearchParams]);
   const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);

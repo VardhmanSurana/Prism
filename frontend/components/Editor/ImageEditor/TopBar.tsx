@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, ClipboardCopy, ClipboardPaste } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, ClipboardCopy, ClipboardPaste, RotateCcw } from 'lucide-react';
 import { EditorSlider } from './ui/EditorSlider';
 
 interface TopBarProps {
   onClose: () => void;
+  onReset?: () => void;
+  isDirty?: boolean;
   isSaving: boolean;
   handleSave: (isSaveAs: boolean, format?: string, quality?: number) => void;
   handleCopy: () => void;
@@ -21,6 +23,8 @@ interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({
   onClose,
+  onReset,
+  isDirty = false,
   isSaving,
   handleSave,
   handleCopy,
@@ -82,7 +86,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <div className="h-16 flex items-center justify-between px-8 bg-[var(--bg-primary)] border-b border-white/5 shrink-0 z-50">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         <button
           onClick={onClose}
           disabled={isSaving}
@@ -93,6 +97,18 @@ export const TopBar: React.FC<TopBarProps> = ({
           </div>
           Cancel
         </button>
+
+        {onReset && isDirty && (
+          <button
+            onClick={onReset}
+            disabled={isSaving}
+            title="Reset all edits to original"
+            className="group flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 text-red-300 text-xs font-medium transition-colors 150ms ease disabled:opacity-50"
+          >
+            <RotateCcw size={12} className="group-hover:-rotate-45 transition-transform" />
+            Reset All
+          </button>
+        )}
       </div>
 
       {/* Center Row: Undo, Redo, Compare */}
