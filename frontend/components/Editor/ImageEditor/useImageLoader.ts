@@ -6,8 +6,7 @@
 import React from 'react';
 import { loadMaskBuffer, LoadedPortraitMasks } from './portraitEngine';
 import type { Adjustments } from './filterEngine';
-import { SingleFaceAdjustments } from './adjustmentTypes';
-import { API_BASE } from '@/constants';
+import { API_BASE, resolveUrl } from '@/constants';
 
 interface UseImageLoaderOptions {
   currentImageSrc: string;
