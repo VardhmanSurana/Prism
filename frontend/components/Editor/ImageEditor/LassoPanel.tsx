@@ -137,7 +137,7 @@ export const LassoPanel: React.FC<LassoPanelProps> = ({
         const c = document.createElement('canvas');
         c.width = canvasWidth;
         c.height = canvasHeight;
-        const ctx = c.getContext('2d');
+        const ctx = c.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
           const inverted = invertMask(c);

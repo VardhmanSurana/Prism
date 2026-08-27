@@ -601,7 +601,7 @@ export function applyRefineEdgeToMask(
   const resultCanvas = document.createElement('canvas');
   resultCanvas.width = width;
   resultCanvas.height = height;
-  const ctx = resultCanvas.getContext('2d');
+  const ctx = resultCanvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return sourceMaskCanvas;
 
   // 1. Draw base mask
@@ -676,7 +676,7 @@ export function applyRefineEdgeToMask(
     const featheredCanvas = document.createElement('canvas');
     featheredCanvas.width = width;
     featheredCanvas.height = height;
-    const fCtx = featheredCanvas.getContext('2d');
+    const fCtx = featheredCanvas.getContext('2d', { willReadFrequently: true });
     if (fCtx) {
       fCtx.filter = `blur(${feather}px)`;
       fCtx.drawImage(resultCanvas, 0, 0);
@@ -696,7 +696,7 @@ export function invertMask(maskCanvas: HTMLCanvasElement): HTMLCanvasElement {
   inverted.width = maskCanvas.width;
   inverted.height = maskCanvas.height;
 
-  const ctx = inverted.getContext('2d');
+  const ctx = inverted.getContext('2d', { willReadFrequently: true });
   if (!ctx) return maskCanvas;
 
   ctx.drawImage(maskCanvas, 0, 0);
@@ -721,7 +721,7 @@ export function createSelectAllMask(width: number, height: number): HTMLCanvasEl
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (ctx) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, height);
