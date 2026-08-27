@@ -330,6 +330,10 @@ export const useAgentView = ({ onPhotoClick }: AgentViewProps) => {
     });
   }, [logAction, logError]);
 
+  useEffect(() => {
+    preloadModel();
+  }, [preloadModel]);
+
   const askAboutPhoto = useCallback((photo: Photo) => {
     logAction('AgentView', 'ask_about_photo', { photoId: photo.id, filename: photo.filename });
     const query = `Analyze and describe photo: "${photo.filename}" (ID: ${photo.id}). What date, metadata, and location details can you find?`;

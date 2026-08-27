@@ -292,17 +292,6 @@ export const Sidebar: React.FC<{
   const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
   const { galleryStyle } = useGalleryLayout();
 
-  const handlePreloadAgent = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' });
-      if (!response.ok) {
-        console.warn(`Agent preload failed: ${response.status} ${response.statusText}`);
-      }
-    } catch (e) {
-      console.warn('Silent preload failed:', e);
-    }
-  };
-
   const visibleMainNav = MAIN_NAV.filter(item => item.view !== 'agent' || isAgentEnabled);
 
   if (galleryStyle === 'apple') {
@@ -331,7 +320,6 @@ export const Sidebar: React.FC<{
                 {...item}
                 currentView={currentView}
                 onChangeView={onChangeView}
-                onMouseEnter={item.view === 'agent' ? handlePreloadAgent : undefined}
               />
             ))}
 

@@ -41,10 +41,13 @@ export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
     }
   }, [messages, isLoading]);
 
-  // Create a session when the panel opens
+  // Create a session and preload agent model when the panel opens
   useEffect(() => {
     let cancelled = false;
-    const createSession = async () => {
+    const initPanel = async () => {
+      // Preload the agent model in background
+      fetch(`${API_BASE}/api/v1/agent/preload`, { method: 'POST' }).catch(() => {});
+
       try {
         const res = await fetch(`${API_BASE}/api/v1/agent/sessions`, {
           method: 'POST',
@@ -59,7 +62,7 @@ export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
         console.error('Failed to create AI session:', e);
       }
     };
-    createSession();
+    initPanel();
     return () => { cancelled = true; };
   }, [photo.id]);
 
