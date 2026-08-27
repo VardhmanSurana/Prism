@@ -36,10 +36,27 @@ export function useCropperSetup({
   React.useEffect(() => { onCropCbRef.current = handleCropEvent; }, [handleCropEvent]);
 
   const onCropperReady = React.useCallback(() => {
+    const cropper = cropperRef.current;
+    if (cropper) {
+      const containerData = cropper.getContainerData();
+      const imageData = cropper.getImageData();
+      if (
+        containerData.width > 0 &&
+        containerData.height > 0 &&
+        imageData.naturalWidth > 0 &&
+        imageData.naturalHeight > 0
+      ) {
+        const scale = Math.min(
+          (containerData.width * 0.95) / imageData.naturalWidth,
+          (containerData.height * 0.95) / imageData.naturalHeight,
+        );
+        cropper.zoomTo(scale);
+      }
+    }
     handleReady();
     updateImageRect();
     syncZoom();
-  }, [handleReady, updateImageRect, syncZoom]);
+  }, [handleReady, updateImageRect, syncZoom, cropperRef]);
 
   const onReadyCbRef = React.useRef(onCropperReady);
   React.useEffect(() => { onReadyCbRef.current = onCropperReady; }, [onCropperReady]);
@@ -48,12 +65,13 @@ export function useCropperSetup({
     const img = imgRef.current;
     if (!img || !currentImageSrc) return;
 
+    const isTransform = activeTool === 'transform';
     const cropper = new Cropper(img, {
-      viewMode: 1,
-      dragMode: 'crop',
+      viewMode: isTransform ? 1 : 0,
+      dragMode: isTransform ? 'crop' : 'none',
       background: false,
       responsive: true,
-      autoCrop: true,
+      autoCrop: isTransform,
       autoCropArea: 1,
       checkOrientation: false,
       rotatable: true,
@@ -120,21 +138,19 @@ export function useCropperSetup({
       } catch {}
 
       if (activeTool === 'transform') {
+        (cropper as any).options.viewMode = 1;
         cropper.enable();
         cropper.setDragMode('crop');
         cropper.crop();
         syncZoom();
+        updateImageRect();
       } else {
-        // For inpaint and other tools, keep it enabled so it handles resize
-        // but disable interaction and clearing crop box
+        (cropper as any).options.viewMode = 0;
         cropper.enable();
         cropper.setDragMode('none');
         cropper.clear();
-        // Defer updateImageRect to allow cropper to update internal state after clear()
-        setTimeout(() => {
-          updateImageRect();
-          syncZoom();
-        }, 50);
+        updateImageRect();
+        syncZoom();
       }
     });
 

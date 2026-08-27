@@ -346,7 +346,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         ref={imgRef}
         src={currentImageSrc}
         alt=""
-        style={{ height: '100%', width: '100%', display: 'block' }}
+        style={{ maxWidth: '100%', maxHeight: '100%', display: 'block', opacity: 0 }}
         crossOrigin="anonymous"
         className={adjustments.vignette !== 0 && !isComparing ? 'with-vignette' : ''}
       />

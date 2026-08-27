@@ -84,13 +84,20 @@ export function useCanvasZoom({
     if (!cropper) return;
     const containerData = cropper.getContainerData();
     const imageData     = cropper.getImageData();
-    const scale = Math.min(
-      (containerData.width  * 0.95) / imageData.naturalWidth,
-      (containerData.height * 0.95) / imageData.naturalHeight,
-    );
-    cropper.zoomTo(scale);
-    syncZoom();
-    updateImageRect();
+    if (
+      containerData.width > 0 &&
+      containerData.height > 0 &&
+      imageData.naturalWidth > 0 &&
+      imageData.naturalHeight > 0
+    ) {
+      const scale = Math.min(
+        (containerData.width  * 0.95) / imageData.naturalWidth,
+        (containerData.height * 0.95) / imageData.naturalHeight,
+      );
+      cropper.zoomTo(scale);
+      syncZoom();
+      updateImageRect();
+    }
   }, [cropperRef, syncZoom, updateImageRect]);
 
   const handleZoomToPercent = React.useCallback((pct: number) => {

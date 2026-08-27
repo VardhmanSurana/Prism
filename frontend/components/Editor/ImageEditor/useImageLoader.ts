@@ -51,6 +51,9 @@ export function useImageLoader({
       if (active) setSourceImg(null);
     };
     img.src = currentImageSrc;
+    if (img.complete && img.naturalWidth > 0) {
+      if (active) setSourceImg(img);
+    }
     return () => {
       active = false;
     };
