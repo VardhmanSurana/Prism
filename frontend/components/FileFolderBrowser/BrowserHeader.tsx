@@ -18,6 +18,9 @@ interface BrowserHeaderProps {
   compact?: boolean;
 }
 
+/**
+ * BrowserHeader - Renders browser header.
+ */
 export const BrowserHeader: React.FC<BrowserHeaderProps> = ({
   title,
   onClose,

@@ -1,8 +1,14 @@
 import { useMemo } from 'react';
 import { Photo } from '../../../types';
 
+/**
+ * usePhotoGeoData - Hook managing photo geo data state.
+ */
 export const usePhotoGeoData = (photos: Photo[]) => {
   // Filter photos with valid GPS data — memoized to avoid re-filtering on every render
+  /**
+   * geoPhotos - Performs geo photos.
+   */
   const geoPhotos = useMemo(() => {
     return photos.filter(p => 
       p.latitude !== undefined && p.latitude !== null && !isNaN(Number(p.latitude)) &&
@@ -11,13 +17,25 @@ export const usePhotoGeoData = (photos: Photo[]) => {
   }, [photos]);
 
   // Default center (or center of all photos)
+  /**
+   * center - Performs center.
+   */
   const center = useMemo(() => {
     if (geoPhotos.length === 0) return [20, 0] as [number, number];
+    /**
+     * lat - Performs lat.
+     */
     const lat = geoPhotos.reduce((sum, p) => sum + Number(p.latitude || 0), 0) / geoPhotos.length;
+    /**
+     * lng - Performs lng.
+     */
     const lng = geoPhotos.reduce((sum, p) => sum + Number(p.longitude || 0), 0) / geoPhotos.length;
     return [lat, lng] as [number, number];
   }, [geoPhotos]);
 
+  /**
+   * timelinePhotos - Performs timeline photos.
+   */
   const timelinePhotos = useMemo(() => {
     return [...geoPhotos].sort((a, b) => {
       const left = Date.parse(a.date || a.date_taken || '') || 0;
@@ -26,6 +44,9 @@ export const usePhotoGeoData = (photos: Photo[]) => {
     });
   }, [geoPhotos]);
 
+  /**
+   * bounds - Performs bounds.
+   */
   const bounds = useMemo(() => {
     if (geoPhotos.length === 0) return null;
 

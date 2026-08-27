@@ -11,7 +11,13 @@ interface UseDirectoryExpansionProps {
   onImportProgress: (status: ImportProgressStatus) => void;
 }
 
+/**
+ * useDirectoryExpansion - Hook managing directory expansion.
+ */
 export const useDirectoryExpansion = ({ onImportProgress }: UseDirectoryExpansionProps) => {
+  /**
+   * expandDirectories - Performs expand directories.
+   */
   const expandDirectories = async (paths: string[]): Promise<string[]> => {
     const allFiles: string[] = [];
     const total = paths.length;

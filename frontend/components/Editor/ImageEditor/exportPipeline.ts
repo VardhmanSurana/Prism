@@ -58,6 +58,9 @@ export {
   applyDefringeAndOpticalVignetting,
 } from './exportPipeline/stages';
 
+/**
+ * exportEditedCanvas - Performs export edited canvas.
+ */
 export const exportEditedCanvas = async ({
   sourceCanvas,
   adjustments,
@@ -66,6 +69,9 @@ export const exportEditedCanvas = async ({
   annotations,
   onProgress,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
+  /**
+   * report - Performs report.
+   */
   const report = (step: string, current: number, total: number) => onProgress?.(step, current, total);
   const TOTAL_STEPS = 18;
 

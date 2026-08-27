@@ -50,6 +50,9 @@ const SWATCH_GRID: string[][] = [
   ['#1c1917', '#292524', '#44403c', '#57534e', '#78716c', '#a8a29e', '#d6d3d1', '#f5f5f4'],
 ];
 
+/**
+ * ColorPickerSection - Renders color picker section.
+ */
 export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
   activeColor,
   setActiveColor,
@@ -84,6 +87,9 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
     }
   }, [activeColor]);
 
+  /**
+   * pinColor - Performs pin color.
+   */
   const pinColor = (color: string) => {
     if (!color) return;
     const normalized = color.toLowerCase();
@@ -99,8 +105,14 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
     });
   };
 
+  /**
+   * unpinColor - Performs unpin color.
+   */
   const unpinColor = (color: string) => {
     setPinnedColors(prev => {
+      /**
+       * next - Performs next.
+       */
       const next = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
       try {
         localStorage.setItem('prism_pinned_colors', JSON.stringify(next));
@@ -111,13 +123,22 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
     });
   };
 
+  /**
+   * pushRecentColor - Performs push recent color.
+   */
   const pushRecentColor = (color: string) => {
     setRecentColors(prev => {
+      /**
+       * filtered - Performs filtered.
+       */
       const filtered = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
       return [color, ...filtered].slice(0, 6);
     });
   };
 
+  /**
+   * handlePickColor - Handles pick color.
+   */
   const handlePickColor = (color: string) => {
     setActiveColor(color);
     pushRecentColor(color);

@@ -25,10 +25,16 @@ function safeParse<T>(raw: string | null, fallback: T): T {
   }
 }
 
+/**
+ * loadRecentFolders - Performs load recent folders.
+ */
 export function loadRecentFolders(): RecentFolder[] {
   return safeParse<RecentFolder[]>(localStorage.getItem(RECENT_KEY), []);
 }
 
+/**
+ * pushRecentFolder - Performs push recent folder.
+ */
 export function pushRecentFolder(path: string, name?: string): RecentFolder[] {
   if (!path) return loadRecentFolders();
 
@@ -38,20 +44,32 @@ export function pushRecentFolder(path: string, name?: string): RecentFolder[] {
     lastVisitedAt: Date.now(),
   };
 
+  /**
+   * existing - Performs existing.
+   */
   const existing = loadRecentFolders().filter((r) => r.path !== path);
   const next = [entry, ...existing].slice(0, MAX_RECENT);
   localStorage.setItem(RECENT_KEY, JSON.stringify(next));
   return next;
 }
 
+/**
+ * loadSmartFolders - Performs load smart folders.
+ */
 export function loadSmartFolders(): SmartFolder[] {
   return safeParse<SmartFolder[]>(localStorage.getItem(SMART_KEY), []);
 }
 
+/**
+ * saveSmartFolders - Performs save smart folders.
+ */
 export function saveSmartFolders(folders: SmartFolder[]): void {
   localStorage.setItem(SMART_KEY, JSON.stringify(folders));
 }
 
+/**
+ * createSmartFolder - Performs create smart folder.
+ */
 export function createSmartFolder(
   name: string,
   criteria: SmartFolder['criteria'],
@@ -70,12 +88,21 @@ export function createSmartFolder(
   return folder;
 }
 
+/**
+ * deleteSmartFolder - Performs delete smart folder.
+ */
 export function deleteSmartFolder(id: string): SmartFolder[] {
+  /**
+   * next - Performs next.
+   */
   const next = loadSmartFolders().filter((f) => f.id !== id);
   saveSmartFolders(next);
   return next;
 }
 
+/**
+ * loadSortState - Performs load sort state.
+ */
 export function loadSortState(): BrowserSortState {
   const raw = safeParse<Partial<BrowserSortState>>(localStorage.getItem(SORT_KEY), {});
   return {
@@ -91,6 +118,9 @@ export function loadSortState(): BrowserSortState {
   };
 }
 
+/**
+ * saveSortState - Performs save sort state.
+ */
 export function saveSortState(state: BrowserSortState): void {
   localStorage.setItem(SORT_KEY, JSON.stringify(state));
 }

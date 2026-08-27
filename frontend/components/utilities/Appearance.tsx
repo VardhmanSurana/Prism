@@ -56,6 +56,9 @@ const SAMPLE_IMAGES = [
   { id: 'woman', url: '/sample_images/woman.png', label: 'Portrait' },
 ];
 
+/**
+ * Appearance settings: gallery style, image grouping, corner radius and live preview.
+ */
 export const Appearance: React.FC = () => {
   const { settings, setGalleryStyle, setImageGrouping, setCornerRadius } = useGalleryLayout();
   const { logAction } = useTelemetry();
@@ -64,6 +67,11 @@ export const Appearance: React.FC = () => {
   const [selectedSample, setSelectedSample] = useState('/sample_images/nature.png');
   const [previewModalTheme, setPreviewModalTheme] = useState<GalleryStyle | null>(null);
 
+  /**
+   * Renders a miniature gallery preview for a given theme style.
+   * @param style - Gallery style to preview.
+   * @returns JSX preview element.
+   */
   const renderThemePreview = (style: GalleryStyle) => {
     switch (style) {
       case 'prism':

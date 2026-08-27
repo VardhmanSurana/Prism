@@ -2,10 +2,16 @@ import { useState, useCallback, useRef } from 'react';
 
 const EMPTY_SET: ReadonlySet<string> = new Set();
 
+/**
+ * useSelection - Hook managing selection.
+ */
 export function useSelection() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const emptySetRef = useRef(EMPTY_SET);
 
+  /**
+   * handleToggleSelection - Handles toggle selection.
+   */
   const handleToggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
@@ -15,9 +21,15 @@ export function useSelection() {
     });
   }, []);
 
+  /**
+   * handleToggleGroupSelection - Handles toggle group selection.
+   */
   const handleToggleGroupSelection = useCallback((ids: string[]) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
+      /**
+       * allSelected - Performs all selected.
+       */
       const allSelected = ids.every(id => newSet.has(id));
       if (allSelected) {
         ids.forEach(id => newSet.delete(id));
@@ -28,6 +40,9 @@ export function useSelection() {
     });
   }, []);
 
+  /**
+   * clearSelection - Performs clear selection.
+   */
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);

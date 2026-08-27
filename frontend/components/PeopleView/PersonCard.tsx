@@ -16,6 +16,9 @@ interface PersonCardProps {
   onEditNameChange: (value: string) => void;
 }
 
+/**
+ * PersonCard - Renders person card.
+ */
 export const PersonCard: React.FC<PersonCardProps> = ({
   person,
   isEditing,
@@ -28,6 +31,9 @@ export const PersonCard: React.FC<PersonCardProps> = ({
 }) => {
   const { galleryStyle } = useGalleryLayout();
 
+  /**
+   * handleKeyDown - Handles key down.
+   */
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       onSaveRename(e as unknown as React.MouseEvent);

@@ -17,6 +17,9 @@ interface DoodleSettingsSectionProps {
   setShowDoodleGuide?: (val: boolean) => void;
 }
 
+/**
+ * DoodleSettingsSection - Renders doodle settings section.
+ */
 export const DoodleSettingsSection: React.FC<DoodleSettingsSectionProps> = ({
   doodleText,
   setDoodleText,

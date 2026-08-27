@@ -34,6 +34,7 @@ pub struct TelemetryService {
 }
 
 impl TelemetryService {
+    /// new - Performs new.
     pub fn new(db: SqlitePool) -> Self {
         let (broadcast_tx, _) = broadcast::channel(1024);
         let service = Self { db, broadcast_tx };
@@ -247,6 +248,7 @@ mod tests {
     use super::*;
     use sqlx::sqlite::SqlitePoolOptions;
 
+    /// setup_test_db - Performs setup test db.
     async fn setup_test_db() -> SqlitePool {
         let pool = SqlitePoolOptions::new()
             .connect("sqlite::memory:")
@@ -275,6 +277,7 @@ mod tests {
     }
 
     #[tokio::test]
+    /// test_log_event_and_recent_events - Performs test log event and recent events.
     async fn test_log_event_and_recent_events() {
         let db = setup_test_db().await;
         let service = TelemetryService::new(db);
@@ -311,6 +314,7 @@ mod tests {
     }
 
     #[tokio::test]
+    /// test_log_events_batch - Performs test log events batch.
     async fn test_log_events_batch() {
         let db = setup_test_db().await;
         let service = TelemetryService::new(db);

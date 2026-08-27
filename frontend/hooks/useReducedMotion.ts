@@ -11,6 +11,9 @@
 import { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
 
+/**
+ * useReducedMotion - Hook managing reduced motion.
+ */
 export function useReducedMotion(): boolean {
   const [reducedMotion, setReducedMotion] = useState(false);
 

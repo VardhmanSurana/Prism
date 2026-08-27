@@ -17,6 +17,7 @@ pub struct ExifMetadata {
     pub date_taken: Option<String>,
 }
 
+/// extract_exif - Performs extract exif.
 pub fn extract_exif(path: &Path) -> ExifMetadata {
     let file = match File::open(path) {
         Ok(f) => f,

@@ -5,10 +5,16 @@ interface ColorMatchPanelProps {
   onApplyColorMatch: (refImageSrc: string, strength: number) => void;
 }
 
+/**
+ * ColorMatchPanel - Renders color match panel.
+ */
 export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMatch }) => {
   const [refImageSrc, setRefImageSrc] = useState<string | null>(null);
   const [strength, setStrength] = useState<number>(80);
 
+  /**
+   * handleFileChange - Handles file change.
+   */
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -17,6 +23,9 @@ export const ColorMatchPanel: React.FC<ColorMatchPanelProps> = ({ onApplyColorMa
     }
   };
 
+  /**
+   * handleMatch - Handles match.
+   */
   const handleMatch = () => {
     if (!refImageSrc) return;
     onApplyColorMatch(refImageSrc, strength);

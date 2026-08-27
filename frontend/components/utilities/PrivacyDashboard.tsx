@@ -25,6 +25,9 @@ interface PrivacyStatus {
   features: PrivacyFeature[];
 }
 
+/**
+ * Privacy dashboard: shows local-only guarantees, feature network guarantees, and data counts.
+ */
 export const PrivacyDashboard: React.FC = () => {
   const [status, setStatus] = useState<PrivacyStatus | null>(null);
   const [loading, setLoading] = useState(true);

@@ -13,12 +13,18 @@ interface KeyframeGraphEditorProps {
   durationSec: number;
 }
 
+/**
+ * KeyframeGraphEditor - Renders keyframe graph editor.
+ */
 export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
   clipId,
   property,
   keyframes,
   durationSec,
 }) => {
+  /**
+   * setClipKeyframes - Performs set clip keyframes.
+   */
   const setClipKeyframes = useNLEStore((s) => s.setClipKeyframes);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
@@ -34,10 +40,19 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
   const svgHeight = 90;
   const padding = 15;
 
+  /**
+   * minVal - Performs min val.
+   */
   const minVal = Math.min(...keyframes.map((k) => k.v), 0);
+  /**
+   * maxVal - Performs max val.
+   */
   const maxVal = Math.max(...keyframes.map((k) => k.v), 1);
   const valRange = Math.max(maxVal - minVal, 0.001);
 
+  /**
+   * getSvgCoords - Retrieves get svg coords.
+   */
   const getSvgCoords = (t: number, v: number) => {
     const x = padding + (t / durationSec) * (svgWidth - padding * 2);
     const y = svgHeight - padding - ((v - minVal) / valRange) * (svgHeight - padding * 2);
@@ -45,6 +60,9 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
   };
 
   // Generate SVG path line connecting keyframes
+  /**
+   * points - Performs points.
+   */
   const points = keyframes.map((k) => getSvgCoords(k.t, k.v));
   let pathD = '';
   if (points.length > 0) {
@@ -54,7 +72,13 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
     }
   }
 
+  /**
+   * handleInterpolationChange - Handles interpolation change.
+   */
   const handleInterpolationChange = (idx: number, interpolation: Keyframe['interpolation']) => {
+    /**
+     * updated - Performs updated.
+     */
     const updated = keyframes.map((k, i) => (i === idx ? { ...k, interpolation } : k));
     setClipKeyframes(clipId, property, updated);
   };

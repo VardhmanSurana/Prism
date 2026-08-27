@@ -16,6 +16,9 @@ export interface RenamePreviewItem {
   skipped?: boolean;
 }
 
+/**
+ * applyRenamePattern - Performs apply rename pattern.
+ */
 export function applyRenamePattern(
   originalName: string,
   pattern: string,
@@ -28,11 +31,17 @@ export function applyRenamePattern(
   const ext = hasExt ? originalName.slice(lastDot + 1) : '';
   const now = new Date();
 
+  /**
+   * pad - Performs pad.
+   */
   const pad = (n: number, w: number) => String(n).padStart(w, '0');
   const yyyy = String(now.getFullYear());
   const mm = pad(now.getMonth() + 1, 2);
   const dd = pad(now.getDate(), 2);
 
+  /**
+   * newName - Performs new name.
+   */
   const newName = pattern.replace(TOKEN_RE, (match, token: string) => {
     const t = token.toLowerCase();
     if (t === 'name') return stem;
@@ -57,6 +66,9 @@ export function applyRenamePattern(
   return newName;
 }
 
+/**
+ * validateBasename - Performs validate basename.
+ */
 function validateBasename(name: string): string | null {
   if (!name || !name.trim()) return 'New name is empty';
   if (name === '.' || name === '..') return 'Invalid name';
@@ -64,6 +76,9 @@ function validateBasename(name: string): string | null {
   return null;
 }
 
+/**
+ * buildRenamePreview - Performs build rename preview.
+ */
 export function buildRenamePreview(
   paths: string[],
   pattern: string,

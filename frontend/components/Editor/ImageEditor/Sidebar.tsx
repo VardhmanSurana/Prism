@@ -69,6 +69,9 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
   'transform',
 ];
 
+/**
+ * Sidebar - Renders sidebar.
+ */
 export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, children }) => {
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     inpaint:      { icon: <Paintbrush size={20} strokeWidth={1.5} />,   label: 'AI Tools',             description: 'AI-powered object removal and mask-based image inpainting' },

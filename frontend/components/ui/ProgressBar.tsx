@@ -10,6 +10,9 @@ interface ProgressBarProps {
     color?: string;
 }
 
+/**
+ * ProgressBar - Renders progress bar.
+ */
 export const ProgressBar: React.FC<ProgressBarProps> = ({
     progress,
     total,

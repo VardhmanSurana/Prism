@@ -1,3 +1,6 @@
+/**
+ * clamp - Performs clamp.
+ */
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
@@ -11,6 +14,9 @@ export interface ColorStats {
   stdB: number;
 }
 
+/**
+ * computeImageColorStats - Performs compute image color stats.
+ */
 export function computeImageColorStats(imageData: ImageData): ColorStats {
   const data = imageData.data;
   let sumR = 0, sumG = 0, sumB = 0;
@@ -43,6 +49,9 @@ export function computeImageColorStats(imageData: ImageData): ColorStats {
   };
 }
 
+/**
+ * applyColorMatch - Performs apply color match.
+ */
 export function applyColorMatch(
   targetData: ImageData,
   referenceData: ImageData,

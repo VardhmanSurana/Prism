@@ -34,6 +34,9 @@ interface TextPropertiesSectionProps {
   onUpdateTextProps?: (updatedProps: Partial<Annotation>) => void;
 }
 
+/**
+ * TextPropertiesSection - Renders text properties section.
+ */
 export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
   fontFamily,
   setFontFamily,

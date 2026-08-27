@@ -1,5 +1,8 @@
 import { ViewMode } from '@/types';
 
+/**
+ * useBulkActions - Hook managing bulk actions state.
+ */
 export function useBulkActions({
   selectedCount,
   currentView,

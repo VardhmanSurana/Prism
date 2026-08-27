@@ -21,6 +21,9 @@ interface StatsState {
 const MAX_RETRIES = 10;
 const BASE_DELAY_MS = 500;
 
+/**
+ * useStatsStore - Hook managing stats store.
+ */
 const useStatsStore = create<StatsState>((set, get) => ({
   stats: null,
   isLoading: false,
@@ -55,6 +58,9 @@ const useStatsStore = create<StatsState>((set, get) => ({
   }
 }));
 
+/**
+ * isConnectionError - Performs is connection error.
+ */
 function isConnectionError(e: unknown): boolean {
   if (e instanceof TypeError) {
     const msg = e.message.toLowerCase();
@@ -63,6 +69,9 @@ function isConnectionError(e: unknown): boolean {
   return false;
 }
 
+/**
+ * useStats - Hook managing stats.
+ */
 export function useStats(photosCount?: number) {
   const { stats, isLoading, error, fetchStats } = useStatsStore();
   const prevCountRef = useRef(photosCount);
@@ -81,6 +90,9 @@ export function useStats(photosCount?: number) {
   }, [photosCount, fetchStats]);
 
   useEffect(() => {
+    /**
+     * unsub - Performs unsub.
+     */
     const unsub = eventService.subscribe('photo_trashed', () => {
       fetchStats();
     });

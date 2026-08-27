@@ -10,6 +10,7 @@ pub struct ImageInfo {
     pub aspect_ratio: f64,
 }
 
+/// get_image_info - Retrieves image info.
 pub fn get_image_info(path: &Path) -> Result<ImageInfo, String> {
     let img = image::open(path).map_err(|e| e.to_string())?;
     let (width, height) = img.dimensions();
@@ -26,6 +27,7 @@ pub fn get_image_info(path: &Path) -> Result<ImageInfo, String> {
     })
 }
 
+/// generate_thumbnail - Generates thumbnail.
 pub fn generate_thumbnail(
     source_path: &Path,
     thumb_dir: &Path,

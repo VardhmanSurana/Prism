@@ -16,6 +16,9 @@ export interface ScopeOptions {
 let sampleCanvas: HTMLCanvasElement | null = null;
 let sampleCtx: CanvasRenderingContext2D | null = null;
 
+/**
+ * getSampleCtx - Retrieves get sample ctx.
+ */
 function getSampleCtx(width: number, height: number): CanvasRenderingContext2D | null {
   if (typeof document === 'undefined') return null;
   if (!sampleCanvas) {

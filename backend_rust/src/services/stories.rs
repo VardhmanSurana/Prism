@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::services::llm_client::LlmClient;
 
+/// build_event_context - Performs build event context.
 pub async fn build_event_context(
     pool: &SqlitePool,
     photo_ids: &[i64],
@@ -156,6 +157,7 @@ pub async fn build_event_context(
     Ok(lines.join("\n"))
 }
 
+/// generate_story_for_context - Generates story for context.
 pub async fn generate_story_for_context(
     context: &str,
     llm_client: &LlmClient,

@@ -13,6 +13,9 @@ export interface ColorScopesPanelProps {
   dockPosition?: 'overlay' | 'right';
 }
 
+/**
+ * ColorScopesPanel - Renders color scopes panel.
+ */
 export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
   sourceCanvasRef,
   isOpen,
@@ -25,6 +28,9 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
   const [gain, setGain] = useState<number>(1.2);
   const [showGraticule, setShowGraticule] = useState(true);
 
+  /**
+   * updateScope - Performs update scope.
+   */
   const updateScope = useCallback(() => {
     if (!sourceCanvasRef.current || !scopeCanvasRef.current || !isOpen) return;
     renderColorScope(sourceCanvasRef.current, scopeCanvasRef.current, {
@@ -39,6 +45,9 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
     if (!isOpen) return;
 
     let animId: number;
+    /**
+     * loop - Performs loop.
+     */
     const loop = () => {
       updateScope();
       if (isPlaying) {

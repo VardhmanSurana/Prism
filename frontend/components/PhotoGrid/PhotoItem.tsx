@@ -6,6 +6,9 @@ import { formatDuration } from '@/utils/formatDuration';
 import { resolveUrl } from '@/constants';
 import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
+/**
+ * PhotoItem - Renders photo item.
+ */
 export const PhotoItem = React.memo<PhotoItemProps>(({
   photo,
   isSelected,

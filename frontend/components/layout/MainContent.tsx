@@ -3,17 +3,53 @@ import { PhotoGrid } from '../PhotoGrid';
 import { Photo, ViewMode, SearchFilters, SortMode } from '../../types';
 import { ImportProgressStatus } from '../PhotoGrid/types';
 
+/**
+ * ExploreView - Renders explore view.
+ */
 const ExploreView = React.lazy(() => import('../explore/ExploreView').then(m => ({ default: m.ExploreView })));
+/**
+ * AlbumsView - Renders albums view.
+ */
 const AlbumsView = React.lazy(() => import('../albums').then(m => ({ default: m.AlbumsView })));
+/**
+ * PeopleView - Renders people view.
+ */
 const PeopleView = React.lazy(() => import('../PeopleView/index').then(m => ({ default: m.PeopleView })));
+/**
+ * UtilitiesView - Renders utilities view.
+ */
 const UtilitiesView = React.lazy(() => import('../utilities/UtilitiesView').then(m => ({ default: m.UtilitiesView })));
+/**
+ * MapView - Renders map view.
+ */
 const MapView = React.lazy(() => import('../MapView').then(m => ({ default: m.MapView })));
+/**
+ * LockedViewAuth - Renders locked view auth.
+ */
 const LockedViewAuth = React.lazy(() => import('../LockedViewAuth/index').then(m => ({ default: m.LockedViewAuth })));
+/**
+ * LockedFolderView - Renders locked folder view.
+ */
 const LockedFolderView = React.lazy(() => import('../LockedViewAuth/LockedFolderView').then(m => ({ default: m.LockedFolderView })));
+/**
+ * AgentView - Renders agent view.
+ */
 const AgentView = React.lazy(() => import('../AgentView/AgentView').then(m => ({ default: m.AgentView })));
+/**
+ * ProjectsDashboard - Renders projects dashboard.
+ */
 const ProjectsDashboard = React.lazy(() => import('../projects/ProjectsDashboard').then(m => ({ default: m.ProjectsDashboard })));
+/**
+ * Appearance - Renders appearance.
+ */
 const Appearance = React.lazy(() => import('../utilities/Appearance').then(m => ({ default: m.Appearance })));
+/**
+ * TrashView - Renders trash view.
+ */
 const TrashView = React.lazy(() => import('../TrashView/TrashView').then(m => ({ default: m.TrashView })));
+/**
+ * ImageToolboxView - Renders image toolbox view.
+ */
 const ImageToolboxView = React.lazy(() => import('../ImageToolbox/ImageToolboxView').then(m => ({ default: m.ImageToolboxView })));
 
 interface MainContentProps {
@@ -44,6 +80,9 @@ interface MainContentProps {
   onResetSuccess?: () => void;
 }
 
+/**
+ * MainContent - Renders main content.
+ */
 export const MainContent = React.memo(function MainContent({
   currentView,
   photos,
@@ -71,6 +110,9 @@ export const MainContent = React.memo(function MainContent({
   onBulkLockToggle,
   onResetSuccess
 }: MainContentProps) {
+  /**
+   * renderContent - Performs render content.
+   */
   const renderContent = () => {
     switch (currentView) {
       case 'explore':

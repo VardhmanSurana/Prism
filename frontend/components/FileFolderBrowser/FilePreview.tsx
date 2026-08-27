@@ -14,6 +14,9 @@ interface FilePreviewProps {
   onClose: () => void;
 }
 
+/**
+ * FilePreview - Renders file preview.
+ */
 export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dimensions, onLoad, onClose }) => {
   const previewUrl = resolveUrl('local://' + file.path);
   const isVideo = file.is_video || /\.(mp4|mov|m4v|avi|mkv|webm|3gp)$/i.test(file.name);
@@ -37,6 +40,9 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
     const v = videoRef.current;
     if (!v) return;
 
+    /**
+     * handleTimeUpdate - Handles time update.
+     */
     const handleTimeUpdate = () => {
       if (v.currentTime >= 10) {
         v.pause();
@@ -45,7 +51,13 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
       }
     };
 
+    /**
+     * handlePlay - Handles play.
+     */
     const handlePlay = () => setHasInteracted(true);
+    /**
+     * handlePause - Handles pause.
+     */
     const handlePause = () => {
       if (v.currentTime === 0) setHasInteracted(false);
     };
@@ -61,6 +73,9 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
     };
   }, [isVideo]);
 
+  /**
+   * handleMouseEnter - Handles mouse enter.
+   */
   const handleMouseEnter = useCallback(() => {
     if (!isVideo || !videoRef.current) return;
     const v = videoRef.current;
@@ -69,6 +84,9 @@ export const FilePreview: React.FC<FilePreviewProps> = ({ file, imgLoading, dime
     v.play().catch(() => {});
   }, [isVideo]);
 
+  /**
+   * handleMouseLeave - Handles mouse leave.
+   */
   const handleMouseLeave = useCallback(() => {
     if (!videoRef.current) return;
     const v = videoRef.current;

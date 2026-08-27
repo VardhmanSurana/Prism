@@ -38,6 +38,9 @@ interface BrowserListProps {
   onContextMenu?: (e: React.MouseEvent, path: string, isFolder: boolean) => void;
 }
 
+/**
+ * formatSize - Formats format size.
+ */
 function formatSize(bytes?: number): string {
   if (bytes == null || bytes <= 0) return '';
   if (bytes < 1024) return `${bytes} B`;
@@ -46,6 +49,9 @@ function formatSize(bytes?: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/**
+ * formatModified - Formats format modified.
+ */
 function formatModified(ms?: number): string {
   if (ms == null || !Number.isFinite(ms)) return '';
   const d = new Date(ms);
@@ -60,11 +66,17 @@ function formatModified(ms?: number): string {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
+/**
+ * formatResolution - Formats format resolution.
+ */
 function formatResolution(width?: number, height?: number): string {
   if (!width || !height) return '';
   return `${width}×${height}`;
 }
 
+/**
+ * metaLabel - Performs meta label.
+ */
 function metaLabel(
   sortField: SortField,
   sizeBytes?: number,
@@ -87,6 +99,9 @@ function metaLabel(
   return formatSize(sizeBytes) || formatModified(modifiedMs);
 }
 
+/**
+ * BrowserList - Renders browser list.
+ */
 export const BrowserList: React.FC<BrowserListProps> = ({
   folders,
   files,
@@ -114,6 +129,9 @@ export const BrowserList: React.FC<BrowserListProps> = ({
     ? '28px minmax(0, 1fr) 150px'
     : '28px minmax(0, 1fr) 150px 110px';
 
+  /**
+   * rows - Performs rows.
+   */
   const rows: ListRow[] = React.useMemo(() => {
     const next: ListRow[] = [];
     if (!isRoot && parentPath !== null) {
@@ -201,6 +219,9 @@ export const BrowserList: React.FC<BrowserListProps> = ({
       ? `No matches${activeFilterLabel ? ` for “${activeFilterLabel}”` : ''}${searchQuery ? ` matching “${searchQuery}”` : ''}.`
       : `No folders${!isDirectoryOnly ? ' or supported media files' : ''} found.`;
 
+  /**
+   * selectionMark - Performs selection mark.
+   */
   const selectionMark = (isSelected: boolean) => (
     <span
       aria-hidden="true"

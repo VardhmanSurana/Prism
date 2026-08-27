@@ -22,6 +22,9 @@ interface UseKeyBindingsProps {
   onAutoEnhance?: () => void;
 }
 
+/**
+ * useKeyBindings - Hook managing key bindings state.
+ */
 export const useKeyBindings = ({
   activeTool,
   undoAnnotations,
@@ -36,6 +39,9 @@ export const useKeyBindings = ({
   onAutoEnhance,
 }: UseKeyBindingsProps) => {
   useEffect(() => {
+    /**
+     * handleGlobalKeyDown - Handles global key down.
+     */
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       // ── Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y: Undo / Redo ──────────────────────────────
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
@@ -124,6 +130,9 @@ export const useKeyBindings = ({
       }
     };
 
+    /**
+     * handleGlobalKeyUp - Handles global key up.
+     */
     const handleGlobalKeyUp = (_e: KeyboardEvent) => {
       // Backslash is now a toggle — no keyup action needed
     };

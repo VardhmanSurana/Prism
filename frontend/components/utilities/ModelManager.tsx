@@ -56,6 +56,10 @@ const MODEL_ICONS: Record<string, React.ElementType> = {
   rapid_ocr: FileText,
 };
 
+/**
+ * Model manager: lists ML models, shows download progress, and handles download/cancel/delete.
+ * Polls progress more frequently while downloads are active.
+ */
 export const ModelManager: React.FC = () => {
   const { isMobile } = usePlatform();
   const [models, setModels] = useState<ModelInfo[]>([]);
@@ -63,6 +67,7 @@ export const ModelManager: React.FC = () => {
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
+  /** Fetches full model list with metadata from the backend. */
   const fetchModels = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/models`);
@@ -79,6 +84,7 @@ export const ModelManager: React.FC = () => {
     }
   }, []);
 
+  /** Fetches lightweight progress updates and merges into model state. */
   const fetchProgressOnly = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/models/progress`);
@@ -129,6 +135,10 @@ export const ModelManager: React.FC = () => {
     return () => clearInterval(interval);
   }, [hasActiveDownloads, fetchProgressOnly, fetchModels]);
 
+  /**
+   * Starts download for a specific model.
+   * @param modelId - Model identifier.
+   */
   const handleStartDownload = async (modelId: string) => {
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     try {
@@ -143,6 +153,10 @@ export const ModelManager: React.FC = () => {
     }
   };
 
+  /**
+   * Cancels an in-progress model download.
+   * @param modelId - Model identifier.
+   */
   const handleCancelDownload = async (modelId: string) => {
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     try {
@@ -157,6 +171,10 @@ export const ModelManager: React.FC = () => {
     }
   };
 
+  /**
+   * Deletes a downloaded model from disk.
+   * @param modelId - Model identifier.
+   */
   const handleDeleteModel = async (modelId: string) => {
     if (!window.confirm('Are you sure you want to delete this AI model from disk? You can download it again anytime.')) {
       return;
@@ -177,6 +195,7 @@ export const ModelManager: React.FC = () => {
 
   const visibleModels = models.filter((m) => !isMobile || !m.desktop_only);
 
+  /** Starts downloads for all missing models sequentially. */
   const handleDownloadAll = async () => {
     const missing = visibleModels.filter((m) => !m.is_downloaded && m.progress?.status !== 'downloading');
     for (const m of missing) {
@@ -184,6 +203,11 @@ export const ModelManager: React.FC = () => {
     }
   };
 
+  /**
+   * Formats bytes as B/KB/MB/GB/TB.
+   * @param bytes - Size in bytes.
+   * @returns Formatted string.
+   */
   const formatBytes = (bytes: number): string => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -192,11 +216,21 @@ export const ModelManager: React.FC = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
+  /**
+   * Formats bytes-per-second as /s string.
+   * @param bps - Speed in bytes per second.
+   * @returns Formatted speed (e.g. 1.2 MB/s).
+   */
   const formatSpeed = (bps: number): string => {
     if (!bps || bps <= 0) return '0 B/s';
     return `${formatBytes(bps)}/s`;
   };
 
+  /**
+   * Formats seconds as m:ss duration.
+   * @param seconds - Duration in seconds.
+   * @returns Formatted duration or '--' if missing.
+   */
   const formatDuration = (seconds?: number | null): string => {
     if (seconds === undefined || seconds === null) return '--:--';
     const mins = Math.floor(seconds / 60);

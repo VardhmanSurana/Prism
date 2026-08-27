@@ -41,6 +41,9 @@ export interface PreviewAreaProps {
   projectHeight?: number;
 }
 
+/**
+ * PreviewArea - Renders preview area.
+ */
 export const PreviewArea: React.FC<PreviewAreaProps> = ({
   sourcePath, proxyPath, additionalClips, activeClip, photoId, isPlaying, playheadPosition, clipTimeOffset, clipKeyframes,
   clipEffects, clipTransform, clipSpeed, clipInPoint,
@@ -60,10 +63,22 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   const [decodedFrame, setDecodedFrame] = useState<VideoFrame | null>(null);
   const [showScopes, setShowScopes] = useState(false);
 
+  /**
+   * isImagePath - Performs is image path.
+   */
   const isImagePath = (p?: string) => !!p && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(p);
 
+  /**
+   * isMulticamMode - Performs is multicam mode.
+   */
   const isMulticamMode = useNLEStore((s) => s.isMulticamMode);
+  /**
+   * toggleMulticamMode - Performs toggle multicam mode.
+   */
   const toggleMulticamMode = useNLEStore((s) => s.toggleMulticamMode);
+  /**
+   * switchMulticamAngle - Performs switch multicam angle.
+   */
   const switchMulticamAngle = useNLEStore((s) => s.switchMulticamAngle);
 
   const targetSeekTimeRef = useRef<number | null>(null);
@@ -85,6 +100,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     }
   }, [activeClip?.id]);
 
+  /**
+   * getDecoder - Retrieves get decoder.
+   */
   const getDecoder = useCallback((clipId: string, path: string) => {
     let decoder = decodersRef.current.get(clipId);
     if (!decoder) {
@@ -193,6 +211,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     };
   }, []);
 
+  /**
+   * transitionState - Performs transition state.
+   */
   const transitionState = useMemo(() => {
     const playheadFrame = Math.round(playheadPosition * projectFps);
     for (const track of tracks) {
@@ -261,6 +282,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
   const baseTransform = clipTransform ?? DEFAULT_TRANSFORM;
 
+  /**
+   * currentTransform - Performs current transform.
+   */
   const currentTransform = useMemo(() => {
     return {
       x: kfX ?? baseTransform.x,
@@ -272,6 +296,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     };
   }, [kfOpacity, kfScaleX, kfScaleY, kfRotation, kfX, kfY, baseTransform]);
 
+  /**
+   * handleTimeUpdate - Handles time update.
+   */
   const handleTimeUpdate = useCallback(() => {
     // During playback, the master clock (line ~592) drives playheadPosition.
     // Only write seek corrections when paused (scrubbing).
@@ -289,6 +316,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     const container = containerRef.current;
     if (!container) return;
 
+    /**
+     * computeSize - Performs compute size.
+     */
     const computeSize = () => {
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
@@ -315,15 +345,24 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     return () => ro.disconnect();
   }, [projectWidth, projectHeight]);
 
+  /**
+   * handleCompareMouseDown - Handles compare mouse down.
+   */
   const handleCompareMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     compareDragging.current = true;
+    /**
+     * onMove - Performs on move.
+     */
     const onMove = (ev: MouseEvent) => {
       if (!compareDragging.current || !containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const x = (ev.clientX - rect.left) / rect.width;
       setCompareRatio(Math.max(0.05, Math.min(0.95, x)));
     };
+    /**
+     * onUp - Performs on up.
+     */
     const onUp = () => {
       compareDragging.current = false;
       window.removeEventListener('mousemove', onMove);
@@ -333,14 +372,23 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     window.addEventListener('mouseup', onUp);
   }, [compareDragging, setCompareRatio]);
 
+  /**
+   * handleStepBack - Handles step back.
+   */
   const handleStepBack = useCallback(() => {
     onSeek(Math.max(0, playheadPosition - 1 / projectFps));
   }, [playheadPosition, onSeek, projectFps]);
 
+  /**
+   * handleStepForward - Handles step forward.
+   */
   const handleStepForward = useCallback(() => {
     onSeek(playheadPosition + 1 / projectFps);
   }, [playheadPosition, onSeek, projectFps]);
 
+  /**
+   * renderWebGL - Performs render web gl.
+   */
   const renderWebGL = useCallback(() => {
     const renderer = rendererRef.current;
     const canvas = canvasRef.current;
@@ -541,6 +589,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     const video = videoRef.current;
     if (!video) return;
 
+    /**
+     * handleSeeked - Handles seeked.
+     */
     const handleSeeked = () => {
       if (!isPlaying) {
         renderWebGL();
@@ -568,6 +619,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
   useEffect(() => {
     let frameId: number;
+    /**
+     * loop - Performs loop.
+     */
     const loop = () => {
       renderWebGL();
       if (isPlaying) {
@@ -597,6 +651,9 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
     let frameId: number;
     let lastTime = performance.now();
 
+    /**
+     * tick - Performs tick.
+     */
     const tick = (now: number) => {
       const dt = (now - lastTime) / 1000;
       lastTime = now;

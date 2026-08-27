@@ -23,6 +23,9 @@ export interface UISlice {
   selectClip: (clipId: string | null) => void;
 }
 
+/**
+ * createUISlice - Creates uislice.
+ */
 export const createUISlice: StateCreator<NLEStore, [], [], UISlice> = (set, get) => ({
   zoomLevel: 100,
   scrollOffset: 0,

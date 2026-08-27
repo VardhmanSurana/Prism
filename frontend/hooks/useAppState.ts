@@ -11,8 +11,14 @@ import { useBulkActions } from './useBulkActions';
 import { useAlbums } from '../components/albums/hooks/useAlbums';
 import { useSyncStore } from '../store/syncStore';
 
+/**
+ * useAppState - Hook managing app state.
+ */
 export function useAppState() {
   const { photos, setPhotos, fetchPhotos, isLoading, isStatusLoading } = usePhotos();
+  /**
+   * syncStatus - Performs sync status.
+   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const [contextPhotos, setContextPhotos] = useState<Photo[] | null>(null);
 
@@ -70,11 +76,17 @@ export function useAppState() {
   const [albumAddedSignal, setAlbumAddedSignal] = useState(0);
   const { albums, fetchAlbums, createAlbum, addPhotosToAlbum, removePhotosFromAlbum, selectedAlbum, setSelectedAlbum, setAlbumCover } = useAlbums();
 
+  /**
+   * handleAddToAlbumClick - Handles add to album click.
+   */
   const handleAddToAlbumClick = useCallback(() => {
     fetchAlbums();
     setIsAddToAlbumOpen(true);
   }, [fetchAlbums]);
 
+  /**
+   * handleSelectAlbumToAdd - Handles select album to add.
+   */
   const handleSelectAlbumToAdd = useCallback(async (albumId: number) => {
     const photoIds = Array.from(selectedIds).map(Number);
     if (photoIds.length > 0) {
@@ -84,6 +96,9 @@ export function useAppState() {
     setIsAddToAlbumOpen(false);
   }, [selectedIds, addPhotosToAlbum]);
 
+  /**
+   * handleCreateAlbumAndAdd - Handles create album and add.
+   */
   const handleCreateAlbumAndAdd = useCallback(async (name: string) => {
     const album = await createAlbum(name);
     if (album && selectedIds.size > 0) {
@@ -94,6 +109,9 @@ export function useAppState() {
     setIsAddToAlbumOpen(false);
   }, [selectedIds, createAlbum, addPhotosToAlbum]);
 
+  /**
+   * handleRemovePhotosFromActiveAlbum - Handles remove photos from active album.
+   */
   const handleRemovePhotosFromActiveAlbum = useCallback(async () => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     const photoIds = Array.from(selectedIds).map(Number);
@@ -119,39 +137,66 @@ export function useAppState() {
     onAddToAlbumClick: handleAddToAlbumClick,
   });
 
+  /**
+   * setCurrentView - Performs set current view.
+   */
   const setCurrentView = useCallback((v: typeof currentView) => {
     setView(v, () => setContextPhotos(null));
   }, [setView]);
 
+  /**
+   * setSelectedPhoto - Performs set selected photo.
+   */
   const setSelectedPhoto = useCallback((photo: Photo | null) => {
     setPhotoSelection(photo, () => setContextPhotos(null));
   }, [setPhotoSelection]);
 
+  /**
+   * handleRemoveSingleFromActiveAlbum - Handles remove single from active album.
+   */
   const handleRemoveSingleFromActiveAlbum = useCallback(async (photoId: number) => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     await removePhotosFromAlbum(Number(selectedAlbum.id), [photoId]);
     setSelectedPhoto(null);
   }, [selectedAlbum, removePhotosFromAlbum, setSelectedPhoto]);
 
+  /**
+   * handleSetAlbumCover - Handles set album cover.
+   */
   const handleSetAlbumCover = useCallback(async (photoId: number) => {
     if (!selectedAlbum || selectedAlbum.type === 'smart') return;
     await setAlbumCover(Number(selectedAlbum.id), photoId);
   }, [selectedAlbum, setAlbumCover]);
 
+  /**
+   * handleUpload - Handles upload.
+   */
   const handleUpload = useCallback((newPhotos: Photo[]) => {
     setPhotos(prev => {
+      /**
+       * existingIds - Performs existing ids.
+       */
       const existingIds = new Set(prev.map(p => p.id));
+      /**
+       * filteredNew - Performs filtered new.
+       */
       const filteredNew = newPhotos.filter(p => !existingIds.has(p.id));
       return [...filteredNew, ...prev];
     });
     setSortMode('added');
   }, [setPhotos]);
 
+  /**
+   * handleNextPhoto - Handles next photo.
+   */
   const handleNextPhoto = useCallback(() => {
     const nextPhoto = getNextPhoto();
     if (nextPhoto) setPhotoSelection(nextPhoto, () => setContextPhotos(null));
   }, [getNextPhoto, setPhotoSelection]);
 
+  /**
+   * handlePrevPhoto - Handles prev photo.
+   */
   const handlePrevPhoto = useCallback(() => {
     const prevPhoto = getPrevPhoto();
     if (prevPhoto) setPhotoSelection(prevPhoto, () => setContextPhotos(null));

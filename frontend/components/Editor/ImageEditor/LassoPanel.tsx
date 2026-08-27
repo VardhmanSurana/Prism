@@ -13,6 +13,9 @@ interface LassoPanelProps {
   canvasHeight?: number;
 }
 
+/**
+ * LassoPanel - Renders lasso panel.
+ */
 export const LassoPanel: React.FC<LassoPanelProps> = ({
   state = DEFAULT_LASSO_STATE,
   onChange,
@@ -22,12 +25,21 @@ export const LassoPanel: React.FC<LassoPanelProps> = ({
   canvasWidth = 1920,
   canvasHeight = 1080,
 }) => {
+  /**
+   * update - Performs update.
+   */
   const update = (patch: Partial<LassoState>) => onChange({ ...state, ...patch });
 
+  /**
+   * handleClear - Handles clear.
+   */
   const handleClear = () => {
     onChange({ ...state, points: [], isClosed: false });
   };
 
+  /**
+   * handleConvertToRegionalMask - Handles convert to regional mask.
+   */
   const handleConvertToRegionalMask = () => {
     if (state.points.length < 3) return;
     const maskCanvas = renderLassoPathToMask(state.points, canvasWidth, canvasHeight, state.feather);
@@ -48,6 +60,9 @@ export const LassoPanel: React.FC<LassoPanelProps> = ({
     handleClear();
   };
 
+  /**
+   * handleConvertToInpaint - Handles convert to inpaint.
+   */
   const handleConvertToInpaint = () => {
     if (state.points.length < 3) return;
     const maskCanvas = renderLassoPathToMask(state.points, canvasWidth, canvasHeight, state.feather);

@@ -28,7 +28,13 @@ interface JobStatus {
   };
 }
 
+/**
+ * NotificationsButton - Renders notifications button.
+ */
 export const NotificationsButton: React.FC = () => {
+  /**
+   * syncStatus - Performs sync status.
+   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const [isOpen, setIsOpen] = useState(false);
   const [hasNewCompletion, setHasNewCompletion] = useState(false);
@@ -38,6 +44,9 @@ export const NotificationsButton: React.FC = () => {
 
   // Initial load of background status
   useEffect(() => {
+    /**
+     * fetchStatus - Retrieves fetch status.
+     */
     const fetchStatus = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/utilities/background-jobs/status`);
@@ -54,6 +63,9 @@ export const NotificationsButton: React.FC = () => {
 
   // Listen to SSE events for real-time status & completion pings
   useEffect(() => {
+    /**
+     * fetchStatus - Retrieves fetch status.
+     */
     const fetchStatus = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/utilities/background-jobs/status`);
@@ -66,11 +78,17 @@ export const NotificationsButton: React.FC = () => {
       }
     };
 
+    /**
+     * unsubStatus - Performs unsub status.
+     */
     const unsubStatus = eventService.subscribe('background_job_status', (event) => {
       const data = event.data as JobStatus;
       setStatus(data);
     });
 
+    /**
+     * unsubCompleted - Performs unsub completed.
+     */
     const unsubCompleted = eventService.subscribe('background_job_completed', (event) => {
       const data = event.data as JobStatus;
       setStatus(data);
@@ -82,6 +100,9 @@ export const NotificationsButton: React.FC = () => {
       ]);
     });
 
+    /**
+     * unsubReconnected - Performs unsub reconnected.
+     */
     const unsubReconnected = eventService.subscribe('reconnected', () => {
       fetchStatus();
     });
@@ -95,6 +116,9 @@ export const NotificationsButton: React.FC = () => {
 
   // Close dropdown when clicking outside
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -104,6 +128,9 @@ export const NotificationsButton: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * toggleOpen - Performs toggle open.
+   */
   const toggleOpen = () => {
     setIsOpen((prev) => !prev);
     if (!isOpen) {
@@ -111,6 +138,9 @@ export const NotificationsButton: React.FC = () => {
     }
   };
 
+  /**
+   * clearLogs - Performs clear logs.
+   */
   const clearLogs = () => {
     setLogs([]);
     setHasNewCompletion(false);

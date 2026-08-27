@@ -7,6 +7,9 @@ interface DocumentsTabProps {
   onDelete: (id: number) => void;
 }
 
+/**
+ * Tab rendering document/screenshot results with delete actions.
+ */
 export const DocumentsTab: React.FC<DocumentsTabProps> = ({ photos, onDelete }) => {
   if (photos.length === 0) {
     return (

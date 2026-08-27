@@ -30,6 +30,9 @@ interface UseBulkActionsProps {
   onAddToAlbumClick?: () => void;
 }
 
+/**
+ * useBulkActions - Hook managing bulk actions.
+ */
 export function useBulkActions({
   photos,
   setPhotos,
@@ -39,6 +42,9 @@ export function useBulkActions({
   onAddToAlbumClick,
 }: UseBulkActionsProps) {
 
+  /**
+   * selectedPhotoMap - Performs selected photo map.
+   */
   const selectedPhotoMap = useMemo(() => {
     const map = new Map<string, Photo>();
     for (const p of photos) {
@@ -57,6 +63,9 @@ export function useBulkActions({
     [selectedIds, selectedPhotoMap],
   );
 
+  /**
+   * onAddToAlbum - Performs on add to album.
+   */
   const onAddToAlbum = useCallback(() => {
     if (onAddToAlbumClick) {
       onAddToAlbumClick();
@@ -66,6 +75,9 @@ export function useBulkActions({
     }
   }, [onAddToAlbumClick, selectedIds.size]);
 
+  /**
+   * handleBulkDelete - Handles bulk delete.
+   */
   const handleBulkDelete = useCallback(async (skipConfirmArg?: boolean | Set<string>) => {
     const skipConfirm = typeof skipConfirmArg === 'boolean' ? skipConfirmArg : false;
     const isPermanent = currentView === 'trash';
@@ -119,8 +131,14 @@ export function useBulkActions({
     }
   }, [currentView, selectedPhotoMap, setPhotos, selectedIds]);
 
+  /**
+   * handleBulkFavorite - Handles bulk favorite.
+   */
   const handleBulkFavorite = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
+    /**
+     * allFavorited - Performs all favorited.
+     */
     const allFavorited = idsArray.every(id => {
       const p = selectedPhotoMap.get(id);
       return p?.isFavorite || p?.is_favorite;
@@ -168,6 +186,9 @@ export function useBulkActions({
     }
   }, [selectedPhotoMap, setPhotos, selectedIds]);
 
+  /**
+   * handleBulkLockToggle - Handles bulk lock toggle.
+   */
   const handleBulkLockToggle = useCallback(async () => {
     const isLocking = currentView !== 'locked';
     if (isLocking) {
@@ -223,6 +244,9 @@ export function useBulkActions({
     }
   }, [currentView, selectedPhotoMap, setPhotos, selectedIds]);
 
+  /**
+   * handleBulkRestore - Handles bulk restore.
+   */
   const handleBulkRestore = useCallback(async () => {
     const idsArray = Array.from(selectedIds);
 

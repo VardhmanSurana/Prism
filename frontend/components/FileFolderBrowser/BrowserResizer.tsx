@@ -6,6 +6,9 @@ interface BrowserResizerProps {
   onResize: (value: number | undefined) => void;
 }
 
+/**
+ * BrowserResizer - Renders browser resizer.
+ */
 export const BrowserResizer: React.FC<BrowserResizerProps> = ({ resizeWidth, onResize }) => {
   const options: ResizeOption[] = [
     { label: 'Original', value: undefined },

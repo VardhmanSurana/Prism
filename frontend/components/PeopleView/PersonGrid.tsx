@@ -18,6 +18,9 @@ interface PersonGridProps {
   onEditNameChange: (value: string) => void;
 }
 
+/**
+ * PersonGrid - Renders person grid.
+ */
 export const PersonGrid: React.FC<PersonGridProps> = ({
   people,
   isLoading,
@@ -35,6 +38,9 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
   const [filterMode, setFilterMode] = useState<'all' | 'named' | 'unnamed'>('all');
 
   // Filtered people by search query and category
+  /**
+   * filteredPeople - Performs filtered people.
+   */
   const filteredPeople = useMemo(() => {
     return people.filter((p) => {
       const nameMatch = !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -46,6 +52,9 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
   }, [people, searchQuery, filterMode]);
 
   // Named / Featured people for pinned top row
+  /**
+   * namedPeople - Performs named people.
+   */
   const namedPeople = useMemo(() => {
     return people.filter((p) => !p.name.startsWith('Person #') && !p.name.startsWith('Cluster #'));
   }, [people]);

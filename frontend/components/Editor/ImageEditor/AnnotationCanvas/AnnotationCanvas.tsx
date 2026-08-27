@@ -11,6 +11,9 @@ import {
   TextPathRenderer,
 } from './Renderers';
 
+/**
+ * hexToRgba - Performs hex to rgba.
+ */
 const hexToRgba = (hex: string, opacity: number): string => {
   if (!hex) return 'transparent';
   if (hex.startsWith('rgba') || hex.startsWith('rgb')) return hex;
@@ -27,6 +30,9 @@ const hexToRgba = (hex: string, opacity: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
 
+/**
+ * makeBrushCursor - Performs make brush cursor.
+ */
 const makeBrushCursor = (size: number): string => {
   // Map SVG eraser radius (10-100) to a sensible pixel diameter (14-56px)
   const px = Math.round(Math.max(14, Math.min(56, size * 0.56)));
@@ -42,6 +48,9 @@ const makeBrushCursor = (size: number): string => {
 
 const PEN_CURSOR = `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%23ffffff' stroke='%23000000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 20h9'/><path d='M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z'/></svg>") 2 22, auto`;
 
+/**
+ * AnnotationCanvas - Renders annotation canvas.
+ */
 export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
   const {
     annotations,
@@ -62,6 +71,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    /**
+     * obs - Performs obs.
+     */
     const obs = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { height } = entry.contentRect;
@@ -104,6 +116,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
   // Keyboard deletion
   useEffect(() => {
+    /**
+     * handleKeyDown - Handles key down.
+     */
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnId) {
         const target = e.target as HTMLElement;
@@ -117,6 +132,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedAnnId, annotations, onChange, setSelectedAnnId]);
 
+  /**
+   * renderAnnotation - Performs render annotation.
+   */
   const renderAnnotation = (ann: Annotation) => {
     if (ann.visible === false) {
       return null;
@@ -135,6 +153,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     }
   };
 
+  /**
+   * handleDoubleClickWithEdit - Handles double click with edit.
+   */
   const handleDoubleClickWithEdit = React.useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     handleDoubleClick(e);
   }, [handleDoubleClick]);

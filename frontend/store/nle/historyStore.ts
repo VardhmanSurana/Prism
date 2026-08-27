@@ -15,6 +15,9 @@ export interface HistorySlice {
   canRedo: () => boolean;
 }
 
+/**
+ * createHistorySlice - Creates history slice.
+ */
 export const createHistorySlice: StateCreator<NLEStore, [], [], HistorySlice> = (set, get) => ({
   _history: [],
   _historyIndex: -1,

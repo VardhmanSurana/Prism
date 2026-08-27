@@ -73,6 +73,9 @@ const recomposeHistoryState = (history: HistoryEntry[], currentIndex: number) =>
   return state;
 };
 
+/**
+ * restoreCropperState - Performs restore cropper state.
+ */
 function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boolean; rotation: number }) {
   cropper.scaleX(state.flipH ? -1 : 1);
   cropper.scaleY(state.flipV ? -1 : 1);
@@ -83,6 +86,9 @@ function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boole
   }
 }
 
+/**
+ * useEditingHistory - Hook managing editing history state.
+ */
 export const useEditingHistory = ({
   src,
   cropperRef,
@@ -129,6 +135,9 @@ export const useEditingHistory = ({
     annotations,
   };
 
+  /**
+   * revokeLocalUrl - Performs revoke local url.
+   */
   const revokeLocalUrl = useCallback(() => {
     if (createdUrlRef.current) {
       URL.revokeObjectURL(createdUrlRef.current);
@@ -184,6 +193,9 @@ export const useEditingHistory = ({
     const parsedId = parsedIdMatch ? parsedIdMatch[1] : src;
 
     if (lastPhotoIdRef.current !== parsedId) {
+      /**
+       * fetchInitialAdjustments - Retrieves fetch initial adjustments.
+       */
       const fetchInitialAdjustments = async () => {
         let initialAdjustments = DEFAULT_ADJUSTMENTS;
         const activePhotoId = photoId || parsedId;
@@ -278,6 +290,9 @@ export const useEditingHistory = ({
     if (changes.length > 0) {
       previousAdjustmentsRef.current = { ...curr };
 
+      /**
+       * timer - Performs timer.
+       */
       const timer = setTimeout(() => {
         changes.forEach(({ key, value }) => {
           const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
@@ -286,12 +301,18 @@ export const useEditingHistory = ({
           if (key === 'curves') {
             addHistoryEntry(key as HistoryActionType, `Adjusted ${label}`);
           } else if (key === 'regions') {
+            /**
+             * regionChanges - Performs region changes.
+             */
             const regionChanges = curr.regions.filter((r, i) => {
               const p = prev.regions[i];
               return !p || JSON.stringify(p.adjustments) !== JSON.stringify(r.adjustments);
             });
             
             regionChanges.forEach(region => {
+              /**
+               * prevRegion - Performs prev region.
+               */
               const prevRegion = prev.regions?.find(pr => pr.id === region.id);
               const regionName = region.type === 'face' ? 'Face Skin' : 
                                 region.type === 'background' ? 'Background' : 
@@ -299,6 +320,9 @@ export const useEditingHistory = ({
               
               if (prevRegion) {
                 const adjKeys = Object.keys(region.adjustments) as Array<keyof typeof region.adjustments>;
+                /**
+                 * changedKey - Performs changed key.
+                 */
                 const changedKey = adjKeys.find(k => region.adjustments[k] !== prevRegion.adjustments[k]);
                 
                 if (changedKey) {
@@ -350,6 +374,9 @@ export const useEditingHistory = ({
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (totalRotation !== previousRotationRef.current && totalRotation !== 0) {
+      /**
+       * timer - Performs timer.
+       */
       const timer = setTimeout(() => {
         const degrees = totalRotation - previousRotationRef.current;
         addHistoryEntry('rotate', `Rotated ${degrees > 0 ? '+' : ''}${degrees}°`, degrees);
@@ -363,6 +390,9 @@ export const useEditingHistory = ({
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (straightenAngle !== previousStraightenRef.current && straightenAngle !== 0) {
+      /**
+       * timer - Performs timer.
+       */
       const timer = setTimeout(() => {
         addHistoryEntry('straighten', `Straighten ${straightenAngle > 0 ? '+' : ''}${straightenAngle}°`, straightenAngle);
         previousStraightenRef.current = straightenAngle;
@@ -388,6 +418,9 @@ export const useEditingHistory = ({
     }
   }, [flipV, addHistoryEntry]);
 
+  /**
+   * handleJumpToHistory - Handles jump to history.
+   */
   const handleJumpToHistory = useCallback((index: number) => {
     if (index < 0 || index >= history.length || index === currentHistoryIndex) return;
 
@@ -424,8 +457,14 @@ export const useEditingHistory = ({
     }
   }, [history, currentHistoryIndex, cropperRef, revokeLocalUrl]);
 
+  /**
+   * handleToggleHideHistoryEntry - Handles toggle hide history entry.
+   */
   const handleToggleHideHistoryEntry = useCallback((index: number) => {
     setHistory(prev => {
+      /**
+       * newHistory - Performs new history.
+       */
       const newHistory = prev.map((entry, idx) => {
         if (idx === index) {
           return { ...entry, hidden: !entry.hidden };
@@ -464,10 +503,16 @@ export const useEditingHistory = ({
     });
   }, [currentHistoryIndex, cropperRef]);
 
+  /**
+   * handleDeleteHistoryEntry - Handles delete history entry.
+   */
   const handleDeleteHistoryEntry = useCallback((index: number) => {
     setHistory(prev => {
       if (index <= 0 || index >= prev.length) return prev;
 
+      /**
+       * newHistory - Performs new history.
+       */
       const newHistory = prev.filter((_, idx) => idx !== index);
       
       let newIndex = currentHistoryIndex;
@@ -509,6 +554,9 @@ export const useEditingHistory = ({
     });
   }, [currentHistoryIndex, cropperRef]);
 
+  /**
+   * handleClearHistory - Handles clear history.
+   */
   const handleClearHistory = useCallback(() => {
     const currentEntry = history[currentHistoryIndex];
     if (currentEntry) {
@@ -517,12 +565,18 @@ export const useEditingHistory = ({
     }
   }, [history, currentHistoryIndex]);
 
+  /**
+   * handleUndo - Handles undo.
+   */
   const handleUndo = useCallback(() => {
     if (currentHistoryIndex > 0) {
       handleJumpToHistory(currentHistoryIndex - 1);
     }
   }, [currentHistoryIndex, handleJumpToHistory]);
 
+  /**
+   * handleRedo - Handles redo.
+   */
   const handleRedo = useCallback(() => {
     if (currentHistoryIndex < history.length - 1) {
       handleJumpToHistory(currentHistoryIndex + 1);

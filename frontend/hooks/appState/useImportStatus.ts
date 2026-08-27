@@ -7,6 +7,9 @@ export interface ImportStatus {
   progress: number;
 }
 
+/**
+ * useImportStatus - Hook managing import status.
+ */
 export function useImportStatus() {
   const [importStatus, setImportStatus] = useState<ImportStatus>(() => ({
     is_scanning: false,

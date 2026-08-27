@@ -60,6 +60,9 @@ const slideVariants = {
   },
 };
 
+/**
+ * Lightbox - Renders lightbox.
+ */
 export const Lightbox: React.FC<LightboxProps> = ({
   photo,
   photos,
@@ -85,18 +88,27 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   const { logAction, logError } = useTelemetry();
 
+  /**
+   * unloadInpaintModels - Performs unload inpaint models.
+   */
   const unloadInpaintModels = useCallback(() => {
     fetch(`${API_BASE}/api/v1/photos/inpaint/unload`, { method: 'POST' }).catch(() => {});
   }, []);
 
   // Note: handlePrev/handleNext are intentionally wired to opposite parent callbacks
   // so arrow/swipe direction matches the reversed filmstrip (oldest → newest L→R).
+  /**
+   * handlePrev - Handles prev.
+   */
   const handlePrev = useCallback(() => {
     setLastNavDir('prev');
     logAction('Lightbox', 'navigate_prev', { photoId: photo.id });
     onPrev();
   }, [onPrev, logAction, photo.id]);
 
+  /**
+   * handleNext - Handles next.
+   */
   const handleNext = useCallback(() => {
     setLastNavDir('next');
     logAction('Lightbox', 'navigate_next', { photoId: photo.id });
@@ -119,6 +131,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   // Slideshow advance: visual "next" (right) with optional loop.
   // handleNext increases index in the source list; at photos.length - 1 we jump to the first photo (index 0) when looping.
+  /**
+   * advanceSlideshow - Performs advance slideshow.
+   */
   const advanceSlideshow = useCallback(() => {
     if (!photos || photos.length <= 1) return;
 
@@ -133,6 +148,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     slideshowAdvanceAtEndRef.current();
   }, [photos, currentIndex, handleNext]);
 
+  /**
+   * slideshowAdvanceAtEndRef - Performs slideshow advance at end ref.
+   */
   const slideshowAdvanceAtEndRef = useRef<() => void>(() => {});
 
   const {
@@ -178,6 +196,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     };
   }, [slideshowLoop, setSlideshowPlaying, photos, onPhotoSelect]);
 
+  /**
+   * handleStartSlideshow - Handles start slideshow.
+   */
   const handleStartSlideshow = useCallback(() => {
     if (!canStartSlideshow) return;
     logAction('Lightbox', 'start_slideshow', { photoId: photo.id, totalCount });
@@ -186,11 +207,17 @@ export const Lightbox: React.FC<LightboxProps> = ({
     startSlideshow();
   }, [canStartSlideshow, resetInteraction, startSlideshow, logAction, photo.id, totalCount]);
 
+  /**
+   * handleStopSlideshow - Handles stop slideshow.
+   */
   const handleStopSlideshow = useCallback(() => {
     logAction('Lightbox', 'stop_slideshow');
     stopSlideshow();
   }, [stopSlideshow, logAction]);
 
+  /**
+   * handleVideoEnded - Handles video ended.
+   */
   const handleVideoEnded = useCallback(() => {
     if (slideshowActive && slideshowPlaying) {
       advanceSlideshow();
@@ -247,6 +274,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     };
   }, [photo.id]);
 
+  /**
+   * fetchMetadata - Retrieves fetch metadata.
+   */
   const fetchMetadata = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/metadata`);
@@ -263,6 +293,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     }
   }, [showInfo, fetchMetadata]);
 
+  /**
+   * handleTrash - Handles trash.
+   */
   const handleTrash = useCallback(async () => {
     logAction('Lightbox', 'trash', { photoId: photo.id });
     if (!await customConfirm('Move this photo to trash?', 'Confirm Trash')) return;
@@ -282,6 +315,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     }
   }, [photo.id, onClose, logAction, logError]);
 
+  /**
+   * handleToggleFavorite - Handles toggle favorite.
+   */
   const handleToggleFavorite = useCallback(() => {
     logAction('Lightbox', 'toggle_favorite', { photoId: photo.id });
     onToggleFavorite?.(photo.id);
@@ -305,6 +341,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [photos, currentIndex]);
 
   // Copy Image Blob to OS Clipboard
+  /**
+   * handleCopyImageToClipboard - Handles copy image to clipboard.
+   */
   const handleCopyImageToClipboard = useCallback(async () => {
     logAction('Lightbox', 'copy_to_clipboard', { photoId: photo.id });
     try {
@@ -322,6 +361,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   // Keyboard: slideshow-aware & shortcut overlay ('?')
   useEffect(() => {
+    /**
+     * handleKey - Handles key.
+     */
     const handleKey = (e: KeyboardEvent) => {
       if (isEditing || isNLEOpen) return;
 
@@ -404,6 +446,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     [photo.width, photo.height],
   );
 
+  /**
+   * displayContainerStyle - Performs display container style.
+   */
   const displayContainerStyle = useMemo<React.CSSProperties>(() => ({
     aspectRatio: aspect ? `${aspect}` : undefined,
     width: '100%',
@@ -412,6 +457,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
     maxHeight: slideshowActive ? '90vh' : '80vh',
   }), [aspect, slideshowActive]);
 
+  /**
+   * editingSrc - Performs editing src.
+   */
   const editingSrc = useMemo(() => {
     const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `/api/v1/photos/${photo.id}/file`);
     if (!baseSrc) return '';

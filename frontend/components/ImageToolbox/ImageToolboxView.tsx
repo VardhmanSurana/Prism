@@ -61,6 +61,9 @@ const ToolImageUpload: React.FC<{
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  /**
+   * handleFiles - Handles files.
+   */
   const handleFiles = useCallback((fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
     const items: UploadedFile[] = Array.from(fileList)
@@ -74,6 +77,9 @@ const ToolImageUpload: React.FC<{
     onUpload(items);
   }, [onUpload]);
 
+  /**
+   * handleDrop - Handles drop.
+   */
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -161,6 +167,9 @@ const ToolImageUpload: React.FC<{
 
 // ─── Utility: draw image to canvas ────────────────────────────────────────────
 
+/**
+ * loadImageToCanvas - Performs load image to canvas.
+ */
 function loadImageToCanvas(src: string): Promise<{ img: HTMLImageElement; canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -179,6 +188,9 @@ function loadImageToCanvas(src: string): Promise<{ img: HTMLImageElement; canvas
   });
 }
 
+/**
+ * downloadCanvas - Performs download canvas.
+ */
 function downloadCanvas(canvas: HTMLCanvasElement, filename: string, format: string = 'image/png', quality: number = 0.95) {
   canvas.toBlob(blob => {
     if (!blob) return;
@@ -193,6 +205,9 @@ function downloadCanvas(canvas: HTMLCanvasElement, filename: string, format: str
 
 // ─── Palette utilities ────────────────────────────────────────────────────────
 
+/**
+ * medianCut - Performs median cut.
+ */
 function medianCut(pixels: [number, number, number][], depth: number): [number, number, number][] {
   if (depth <= 0 || pixels.length === 0) {
     if (pixels.length === 0) return [[0, 0, 0]];
@@ -213,10 +228,16 @@ function medianCut(pixels: [number, number, number][], depth: number): [number, 
   return [...medianCut(pixels.slice(0, mid), depth - 1), ...medianCut(pixels.slice(mid), depth - 1)];
 }
 
+/**
+ * rgbToHex - Performs rgb to hex.
+ */
 function rgbToHex(r: number, g: number, b: number): string {
   return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * hexToRgb - Performs hex to rgb.
+ */
 function hexToRgb(hex: string): string {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
@@ -226,6 +247,9 @@ function hexToRgb(hex: string): string {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+/**
+ * ImageToolboxView - Renders image toolbox view.
+ */
 export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] }) => {
   const [activeTab, setActiveTab] = useState<ToolTab>('pdf');
   const [toolCategory, setToolCategory] = useState<'image' | 'video'>('image');
@@ -294,6 +318,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── Converter ────────────────────────────────────────────────────────────
 
+  /**
+   * handleConvertAndDownload - Handles convert and download.
+   */
   const handleConvertAndDownload = async () => {
     if (converterFiles.length === 0) return;
     setIsConverting(true);
@@ -341,6 +368,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── Watermark ────────────────────────────────────────────────────────────
 
+  /**
+   * handleWatermarkExport - Handles watermark export.
+   */
   const handleWatermarkExport = async () => {
     if (watermarkFiles.length === 0) return;
     setIsExportingWatermark(true);
@@ -388,6 +418,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── EXIF Metadata ────────────────────────────────────────────────────────
 
+  /**
+   * handleMetadataUpload - Handles metadata upload.
+   */
   const handleMetadataUpload = useCallback(async (newFiles: UploadedFile[]) => {
     setMetadataFiles(prev => [...prev, ...newFiles]);
     setIsParsing(true);
@@ -403,6 +436,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     setIsParsing(false);
   }, []);
 
+  /**
+   * handleStripAndExport - Handles strip and export.
+   */
   const handleStripAndExport = async () => {
     for (const item of metadataFiles) {
       try {
@@ -416,6 +452,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── Base64 Encode ──────────────────────────────────────────────────────
 
+  /**
+   * handleBase64Encode - Handles base64encode.
+   */
   const handleBase64Encode = async () => {
     if (base64Files.length === 0) return;
     const item = base64Files[0];
@@ -426,6 +465,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     reader.readAsDataURL(item.file);
   };
 
+  /**
+   * handleBase64Decode - Handles base64decode.
+   */
   const handleBase64Decode = () => {
     if (!base64DecodeInput.trim()) return;
     const trimmed = base64DecodeInput.trim();
@@ -433,6 +475,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     setBase64DecodePreview(src);
   };
 
+  /**
+   * handleCopyBase64 - Handles copy base64.
+   */
   const handleCopyBase64 = async () => {
     if (!base64Output) return;
     await navigator.clipboard.writeText(base64Output);
@@ -440,6 +485,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     setTimeout(() => setBase64Copied(false), 2000);
   };
 
+  /**
+   * handleDownloadBase64 - Handles download base64.
+   */
   const handleDownloadBase64 = () => {
     if (!base64DecodePreview) return;
     const a = document.createElement('a');
@@ -450,6 +498,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── SVG Trace ────────────────────────────────────────────────────────────
 
+  /**
+   * traceToSvg - Performs trace to svg.
+   */
   const traceToSvg = useCallback(async () => {
     if (svgFiles.length === 0) return;
     setIsTracing(true);
@@ -499,6 +550,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     setIsTracing(false);
   }, [svgFiles, svgPreset]);
 
+  /**
+   * handleDownloadSvg - Handles download svg.
+   */
   const handleDownloadSvg = () => {
     if (!svgOutput) return;
     const blob = new Blob([svgOutput], { type: 'image/svg+xml' });
@@ -512,6 +566,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── Palette Extraction ───────────────────────────────────────────────────
 
+  /**
+   * extractPalette - Performs extract palette.
+   */
   const extractPalette = useCallback(async (file: UploadedFile) => {
     setIsExtracting(true);
     try {
@@ -543,6 +600,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
   }, []);
 
   const copiedColorTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  /**
+   * handleCopyColor - Handles copy color.
+   */
   const handleCopyColor = (color: string) => {
     navigator.clipboard.writeText(color);
     setCopiedColor(color);
@@ -552,8 +612,14 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // ─── Palette Export ──────────────────────────────────────────────────────
 
+  /**
+   * generatePaletteExport - Performs generate palette export.
+   */
   const generatePaletteExport = useCallback(() => {
     if (paletteColors.length === 0) return '';
+    /**
+     * names - Performs names.
+     */
     const names = paletteColors.map((_, i) => `color-${i + 1}`);
 
     switch (paletteExportFormat) {
@@ -606,6 +672,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
     }
   }, [paletteColors, paletteExportFormat]);
 
+  /**
+   * handleCopyPaletteExport - Handles copy palette export.
+   */
   const handleCopyPaletteExport = async () => {
     const output = generatePaletteExport();
     if (!output) return;
@@ -614,6 +683,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
     setTimeout(() => setPaletteExportCopied(false), 2000);
   };
 
+  /**
+   * handleDownloadPaletteExport - Handles download palette export.
+   */
   const handleDownloadPaletteExport = () => {
     const output = generatePaletteExport();
     if (!output) return;
@@ -629,6 +701,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
   // ─── Web Image Load ──────────────────────────────────────────────────────
 
+  /**
+   * handleWebLoad - Handles web load.
+   */
   const handleWebLoad = async () => {
     if (!webUrl.trim()) return;
     setWebLoading(true);
@@ -649,6 +724,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
     setWebLoading(false);
   };
 
+  /**
+   * handleWebEditorSave - Handles web editor save.
+   */
   const handleWebEditorSave = (blob: Blob, _isSaveAs: boolean) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

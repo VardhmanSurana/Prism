@@ -81,6 +81,7 @@ pub struct SegmentationEngine {
 pub static SEGMENTATION_ENGINE: OnceLock<SegmentationEngine> = OnceLock::new();
 
 impl SegmentationEngine {
+    /// get - Performs get.
     pub fn get() -> &'static Self {
         SEGMENTATION_ENGINE.get_or_init(|| {
             let base      = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation");
@@ -114,6 +115,7 @@ impl SegmentationEngine {
     }
 
     // ── Background mask (U²-Net-p) ───────────────────────────────────────────
+    /// get_background_mask - Retrieves background mask.
     pub fn get_background_mask(
         &self,
         photo_path: &str,
@@ -168,6 +170,7 @@ impl SegmentationEngine {
     }
 
     // ── Semantic segmentation (SegFormer ADE20K-150) ─────────────────────────
+    /// get_semantic_masks - Retrieves semantic masks.
     pub fn get_semantic_masks(
         &self,
         photo_path: &str,
@@ -249,6 +252,7 @@ impl SegmentationEngine {
     }
 
     // ── Portrait / face-parsing (BiSeNet CelebAMask-HQ) ──────────────────────
+    /// get_portrait_masks - Retrieves portrait masks.
     pub fn get_portrait_masks(
         &self,
         photo_path: &str,

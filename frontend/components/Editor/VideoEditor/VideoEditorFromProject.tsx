@@ -21,10 +21,16 @@ interface VideoEditorFromProjectProps {
   onClose: () => void;
 }
 
+/**
+ * VideoEditorFromProject - Renders video editor from project.
+ */
 export const VideoEditorFromProject: React.FC<VideoEditorFromProjectProps> = ({
   projectId,
   onClose,
 }) => {
+  /**
+   * loadProject - Performs load project.
+   */
   const loadProject = useNLEStore((s) => s.loadProject);
 
   const [photoStub, setPhotoStub] = useState<Photo | null>(null);

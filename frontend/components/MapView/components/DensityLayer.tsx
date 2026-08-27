@@ -7,10 +7,16 @@ interface DensityLayerProps {
   photos: Photo[];
 }
 
+/**
+ * clamp - Performs clamp.
+ */
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * getRadius - Retrieves get radius.
+ */
 function getRadius(zoom: number) {
   if (zoom <= 3) return 52;
   if (zoom <= 5) return 42;
@@ -19,6 +25,9 @@ function getRadius(zoom: number) {
   return 16;
 }
 
+/**
+ * DensityLayer - Renders density layer.
+ */
 export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
   const map = useMap();
 
@@ -39,6 +48,9 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
       return;
     }
 
+    /**
+     * draw - Performs draw.
+     */
     const draw = () => {
       const size = map.getSize();
       const bounds = map.getBounds().pad(0.35);
@@ -57,6 +69,9 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, size.x, size.y);
 
+      /**
+       * visiblePhotos - Performs visible photos.
+       */
       const visiblePhotos = photos.filter((photo) =>
         bounds.contains([Number(photo.latitude), Number(photo.longitude)])
       );
@@ -64,6 +79,9 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
         return;
       }
 
+      /**
+       * projectedPoints - Performs projected points.
+       */
       const projectedPoints = visiblePhotos.map((photo) =>
         map.latLngToContainerPoint([Number(photo.latitude), Number(photo.longitude)])
       );
@@ -84,6 +102,9 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
 
       ctx.globalCompositeOperation = 'source-over';
       for (const point of projectedPoints) {
+        /**
+         * stackedNeighbors - Performs stacked neighbors.
+         */
         const stackedNeighbors = projectedPoints.reduce((count, candidate) => {
           const dx = candidate.x - point.x;
           const dy = candidate.y - point.y;

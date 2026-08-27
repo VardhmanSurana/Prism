@@ -1,10 +1,16 @@
 import type { Keyframe, BezierCP } from '@/types/nle';
 
+/**
+ * cubicBezier - Performs cubic bezier.
+ */
 function cubicBezier(t: number, p0: number, p1: number, p2: number, p3: number): number {
   const u = 1 - t;
   return u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
 }
 
+/**
+ * sampleBezier - Performs sample bezier.
+ */
 function sampleBezier(cp: BezierCP, t: number): number {
   const x1 = cp.x1, y1 = cp.y1, x2 = cp.x2, y2 = cp.y2;
   let lo = 0, hi = 1;
@@ -16,18 +22,30 @@ function sampleBezier(cp: BezierCP, t: number): number {
   return cubicBezier((lo + hi) / 2, 0, y1, y2, 1);
 }
 
+/**
+ * easeIn - Performs ease in.
+ */
 function easeIn(t: number): number {
   return t * t;
 }
 
+/**
+ * easeOut - Performs ease out.
+ */
 function easeOut(t: number): number {
   return t * (2 - t);
 }
 
+/**
+ * easeInOut - Performs ease in out.
+ */
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 }
 
+/**
+ * interpolateSegment - Performs interpolate segment.
+ */
 function interpolateSegment(a: Keyframe, b: Keyframe, t: number): number {
   const progress = (t - a.t) / (b.t - a.t);
   switch (b.interpolation) {
@@ -49,8 +67,14 @@ function interpolateSegment(a: Keyframe, b: Keyframe, t: number): number {
   }
 }
 
+/**
+ * evaluateKeyframes - Performs evaluate keyframes.
+ */
 export function evaluateKeyframes(keyframes: Keyframe[], time: number): number {
   if (keyframes.length === 0) return 0;
+  /**
+   * sorted - Performs sorted.
+   */
   const sorted = [...keyframes].sort((a, b) => a.t - b.t);
   if (time <= sorted[0].t) return sorted[0].v;
   if (time >= sorted[sorted.length - 1].t) return sorted[sorted.length - 1].v;
@@ -63,6 +87,9 @@ export function evaluateKeyframes(keyframes: Keyframe[], time: number): number {
 }
 
 
+/**
+ * splitKeyframes - Performs split keyframes.
+ */
 export function splitKeyframes(
   kfs: Record<string, Keyframe[]>,
   t: number,
@@ -82,6 +109,9 @@ export function splitKeyframes(
   return { before, after };
 }
 
+/**
+ * shiftKeyframes - Performs shift keyframes.
+ */
 export function shiftKeyframes(
   kfs: Record<string, Keyframe[]>,
   delta: number,

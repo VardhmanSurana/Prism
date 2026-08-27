@@ -7,6 +7,9 @@ import { useSyncStore } from '../store/syncStore';
 
 const PAGE_SIZE = 50;
 
+/**
+ * usePhotos - Hook managing photos.
+ */
 export function usePhotos() {
   const [photos, setPhotos] = useState<Photo[]>(() => []);
   const [isLoading, setIsLoading] = useState(true);
@@ -14,8 +17,14 @@ export function usePhotos() {
   const offsetRef = useRef(0);
   const hasMoreRef = useRef(true);
   const fetchingRef = useRef(false);
+  /**
+   * setSyncStatus - Performs set sync status.
+   */
   const setSyncStatus = useSyncStore((s) => s.setSyncStatus);
 
+  /**
+   * fetchPhotos - Retrieves fetch photos.
+   */
   const fetchPhotos = useCallback(async (reset = false) => {
     if (fetchingRef.current && !reset) return;
     if (!hasMoreRef.current && !reset) return;
@@ -36,7 +45,13 @@ export function usePhotos() {
         offsetRef.current = PAGE_SIZE;
       } else {
         setPhotos(prev => {
+          /**
+           * existingIds - Performs existing ids.
+           */
           const existingIds = new Set(prev.map(p => p.id));
+          /**
+           * newPhotos - Performs new photos.
+           */
           const newPhotos = normalizedData.filter(p => !existingIds.has(p.id));
           return [...prev, ...newPhotos];
         });
@@ -55,6 +70,9 @@ export function usePhotos() {
     eventService.connect();
 
     // Fetch initial status via REST API (fallback if SSE hasn't pushed yet)
+    /**
+     * fetchInitialStatus - Retrieves fetch initial status.
+     */
     const fetchInitialStatus = async () => {
       try {
         const data: any = await apiClient.get(`/api/v1/utilities/diagnostics`);
@@ -69,11 +87,17 @@ export function usePhotos() {
     };
     fetchInitialStatus();
     
+    /**
+     * unsubStatus - Performs unsub status.
+     */
     const unsubStatus = eventService.subscribe('status', (data) => {
       const statusData = data.data as { is_scanning: boolean; total_files: number; processed_files: number; progress: number };
       setSyncStatus(statusData);
     });
 
+    /**
+     * unsubNewPhoto - Performs unsub new photo.
+     */
     const unsubNewPhoto = eventService.subscribe('new_photo', (data) => {
       const rawPhoto = data.photo as RawPhoto;
       setPhotos(prev => {
@@ -82,10 +106,16 @@ export function usePhotos() {
       });
     });
 
+    /**
+     * unsubTrash - Performs unsub trash.
+     */
     const unsubTrash = eventService.subscribe('photo_trashed', (data) => {
       setPhotos(prev => prev.filter(p => p.id !== data.photoId));
     });
 
+    /**
+     * unsubUpdate - Performs unsub update.
+     */
     const unsubUpdate = eventService.subscribe('photo_updated', (data) => {
       const rawPhoto = data.photo as RawPhoto;
       if (rawPhoto) {
@@ -106,6 +136,9 @@ export function usePhotos() {
     });
 
     // Re-fetch all photos when SSE reconnects (backend restart recovery)
+    /**
+     * unsubReconnect - Performs unsub reconnect.
+     */
     const unsubReconnect = eventService.subscribe('reconnected', () => {
       fetchPhotos(true);
     });

@@ -55,6 +55,10 @@ const EXPORT_PRESETS = [
   { id: 'full_res', label: 'Full Resolution (Original)' },
 ];
 
+/**
+ * Top toolbar for the lightbox: close, file metadata, zoom controls,
+ * quick actions (OCR, face tag, compare, slideshow, favorite, info) and overflow menu.
+ */
 export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   photo,
   highResStatus,
@@ -98,6 +102,10 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [showMore, showExportPresets]);
 
+  /**
+   * Requests a preset export from the backend and triggers a browser download.
+   * @param presetId - Export preset identifier (e.g. instagram_4_5).
+   */
   const handleExportPreset = async (presetId: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/export-preset`, {
@@ -121,6 +129,11 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
     }
   };
 
+  /**
+   * Formats a byte count into a human-readable size string.
+   * @param bytes - File size in bytes.
+   * @returns Formatted string (KB/MB/GB) or null if undefined/zero.
+   */
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return null;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;

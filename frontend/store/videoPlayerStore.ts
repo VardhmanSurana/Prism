@@ -16,6 +16,9 @@ interface VideoPreferencesState {
   setPlaybackRate: (rate: number) => void;
 }
 
+/**
+ * useVideoPlayerStore - Hook managing video player store.
+ */
 export const useVideoPlayerStore = create<VideoPreferencesState>()(
   persist(
     (set) => ({

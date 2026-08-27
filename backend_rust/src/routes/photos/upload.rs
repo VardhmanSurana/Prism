@@ -30,6 +30,7 @@ pub struct ExpandDirectoryRequest {
     pub file_path: String,
 }
 
+/// upload_photo - Performs upload photo.
 pub async fn upload_photo(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
@@ -163,6 +164,7 @@ pub async fn upload_photo(
     Ok(Json(photo))
 }
 
+/// upload_blob - Performs upload blob.
 pub async fn upload_blob(
     State(state): State<Arc<AppState>>,
     mut multipart: axum::extract::Multipart,
@@ -309,6 +311,7 @@ pub async fn upload_blob(
     Ok(Json(photo))
 }
 
+/// expand_directory - Performs expand directory.
 pub async fn expand_directory(
     Json(payload): Json<ExpandDirectoryRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -322,6 +325,7 @@ pub async fn expand_directory(
 
     let mut media_files = Vec::new();
 
+    /// walk_dir - Performs walk dir.
     fn walk_dir(dir: &PathBuf, files: &mut Vec<String>) {
         if let Ok(entries) = fs::read_dir(dir) {
             for entry in entries.flatten() {
@@ -345,6 +349,7 @@ pub async fn expand_directory(
     })))
 }
 
+/// unload_inpaint - Performs unload inpaint.
 pub async fn unload_inpaint() -> Json<Value> {
     Json(json!({ "status": "unloaded" }))
 }

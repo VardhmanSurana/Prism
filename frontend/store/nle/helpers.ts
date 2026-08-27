@@ -1,9 +1,15 @@
 let _clipCounter = 0;
 
+/**
+ * nextClipId - Performs next clip id.
+ */
 export function nextClipId(): string {
   return `clip_${Date.now()}_${++_clipCounter}`;
 }
 
+/**
+ * nextTrackId - Performs next track id.
+ */
 export function nextTrackId(): string {
   return `track_${Date.now()}_${++_clipCounter}`;
 }
@@ -29,6 +35,9 @@ export function findClipById<C extends ClipLike>(
 ): C | null {
   if (!clipId) return null;
   for (const track of tracks) {
+    /**
+     * clip - Performs clip.
+     */
     const clip = track.clips.find((c) => c.id === clipId);
     if (clip) return clip;
   }

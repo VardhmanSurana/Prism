@@ -19,6 +19,9 @@ const DEFAULT_STATUS: SyncStatus = {
   progress: 0,
 };
 
+/**
+ * useSyncStore - Hook managing sync store.
+ */
 export const useSyncStore = create<SyncState>((set) => ({
   syncStatus: DEFAULT_STATUS,
   setSyncStatus: (status) => set({ syncStatus: status }),

@@ -71,6 +71,9 @@ const fabVariants = {
   open: { rotate: 135 },
 };
 
+/**
+ * UltraLightIcon - Renders ultra light icon.
+ */
 const UltraLightIcon = ({ children, className }: { children: React.ReactNode; className?: string }) => (
   <svg
     viewBox="0 0 24 24"
@@ -85,6 +88,9 @@ const UltraLightIcon = ({ children, className }: { children: React.ReactNode; cl
   </svg>
 );
 
+/**
+ * ImageIcon - Renders image icon.
+ */
 const ImageIcon = () => (
   <UltraLightIcon className="w-[15px] h-[15px] text-[#a78bfa]">
     <rect x="3" y="3" width="18" height="18" rx="3" />
@@ -93,25 +99,40 @@ const ImageIcon = () => (
   </UltraLightIcon>
 );
 
+/**
+ * FolderIcon - Renders folder icon.
+ */
 const FolderIcon = () => (
   <UltraLightIcon className="w-[15px] h-[15px] text-[#34d399]">
     <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
   </UltraLightIcon>
 );
 
+/**
+ * CloudIcon - Renders cloud icon.
+ */
 const CloudIcon = () => (
   <UltraLightIcon className="w-[15px] h-[15px] text-[#38bdf8]">
     <path d="M18 10h-1.26A8 8 0 109 20h9a5 5 0 000-10z" />
   </UltraLightIcon>
 );
 
+/**
+ * CloseIcon - Renders close icon.
+ */
 const CloseIcon = () => (
   <UltraLightIcon className="w-5 h-5">
     <path d="M18 6L6 18M6 6l12 12" />
   </UltraLightIcon>
 );
 
+/**
+ * FloatingActions - Renders floating actions.
+ */
 export function FloatingActions({ importStatus, onUpload, onImportProgress }: FloatingActionsProps) {
+  /**
+   * syncStatus - Performs sync status.
+   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -122,6 +143,9 @@ export function FloatingActions({ importStatus, onUpload, onImportProgress }: Fl
   });
 
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);

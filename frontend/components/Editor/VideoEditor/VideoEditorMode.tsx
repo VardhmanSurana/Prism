@@ -35,6 +35,9 @@ interface VideoEditorModeProps {
   onClose: () => void;
 }
 
+/**
+ * VideoEditorMode - Renders video editor mode.
+ */
 export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose }) => {
   const {
     projectId, projectName, isDirty, isSaving,
@@ -50,7 +53,13 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
     isMulticamMode, toggleMulticamMode, switchMulticamAngle,
   } = useNLEStore();
 
+  /**
+   * canUndo - Performs can undo.
+   */
   const canUndo = useNLEStore(s => s.canUndo());
+  /**
+   * canRedo - Performs can redo.
+   */
   const canRedo = useNLEStore(s => s.canRedo());
 
   const activeClips = useMemo(
@@ -144,9 +153,15 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
         const state = useNLEStore.getState();
         // Only add initial clip if the project has no clips on any track
+        /**
+         * hasClips - Performs has clips.
+         */
         const hasClips = state.tracks.some((t) => t.clips.length > 0);
         if (state.tracks.length > 0 && !hasClips) {
           // Find the first video track (not text/audio) to place the clip
+          /**
+           * videoTrack - Performs video track.
+           */
           const videoTrack = state.tracks.find((t) => t.type === 'video') ?? state.tracks[0];
           const fps = analysis.fps ?? 30;
           const clip = {
@@ -188,6 +203,9 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
   // Auto-save every 30 seconds when dirty
   useEffect(() => {
     if (!isDirty) return;
+    /**
+     * timer - Performs timer.
+     */
     const timer = setInterval(() => {
       saveProject();
     }, 30000);
@@ -195,21 +213,33 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
   }, [isDirty, saveProject]);
 
   // Auto-save on Ctrl+S
+  /**
+   * handleSave - Handles save.
+   */
   const handleSave = useCallback(() => {
     saveProject();
   }, [saveProject]);
 
+  /**
+   * handleClose - Handles close.
+   */
   const handleClose = useCallback(() => {
     if (isDirty) saveProject();
     onClose();
   }, [isDirty, saveProject, onClose]);
 
+  /**
+   * handleExport - Handles export.
+   */
   const handleExport = useCallback(() => {
     setExportDialogOpen(true);
   }, [setExportDialogOpen]);
 
   // Keyboard shortcuts
   useEffect(() => {
+    /**
+     * handleKeyDown - Handles key down.
+     */
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
 

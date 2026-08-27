@@ -8,6 +8,7 @@ pub struct InpaintEngine {}
 pub static INPAINT_ENGINE: OnceLock<InpaintEngine> = OnceLock::new();
 
 impl InpaintEngine {
+    /// get - Performs get.
     pub fn get() -> &'static Self {
         INPAINT_ENGINE.get_or_init(|| InpaintEngine {})
     }

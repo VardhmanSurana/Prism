@@ -14,6 +14,9 @@ interface ChangeMapViewProps {
   zoom: number;
 }
 
+/**
+ * Imperatively re-centers the Leaflet map when center/zoom props change.
+ */
 const ChangeMapView: React.FC<ChangeMapViewProps> = ({ center, zoom }) => {
   const map = useMap();
   useEffect(() => {
@@ -28,6 +31,10 @@ interface InfoPanelProps {
   onMetadataUpdated?: () => void;
 }
 
+/**
+ * Side panel showing technical details, editable metadata, OCR text, people and map.
+ * Syncs local form state from photo/metadata and exposes save/OCR actions.
+ */
 export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadataUpdated }) => {
   const navigate = useNavigate();
   const { logAction } = useTelemetry();
@@ -68,6 +75,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     }
   }, [metadata, photo]);
 
+  /** Triggers backend OCR extraction for the current photo and stores the result. */
   const handleExtractOcr = async () => {
     logAction('InfoPanel', 'extract_ocr', { photoId: photo.id });
     setIsExtractingOcr(true);
@@ -89,6 +97,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     }
   };
 
+  /** Copies extracted OCR text to the clipboard with temporary copied feedback. */
   const handleCopyOcr = () => {
     if (!ocrText) return;
     navigator.clipboard.writeText(ocrText);
@@ -96,6 +105,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     setTimeout(() => setOcrCopied(false), 2000);
   };
 
+  /** Saves the caption draft to the backend and exits caption edit mode on success. */
   const handleSaveCaption = async () => {
     logAction('InfoPanel', 'save_caption', { photoId: photo.id });
     setIsSaving(true);
@@ -118,6 +128,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     }
   };
 
+  /** Saves all editable metadata fields (date, location, EXIF) to the backend. */
   const handleSaveMetadata = async () => {
     logAction('InfoPanel', 'save_metadata', { photoId: photo.id });
     setIsSaving(true);

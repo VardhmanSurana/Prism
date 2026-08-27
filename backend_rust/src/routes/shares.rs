@@ -54,6 +54,7 @@ pub struct SharedResourceResponse {
 }
 
 // ponytail: Simple SHA-256 password hashing for shared resources to avoid heavy crypto crates.
+/// hash_password - Performs hash password.
 fn hash_password(password: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(password.as_bytes());
@@ -61,6 +62,7 @@ fn hash_password(password: &str) -> String {
 }
 
 // ponytail: Helper function validating expiration timestamp, download quotas, and optional password access.
+/// validate_share - Performs validate share.
 fn validate_share(share: &ResourceShare, password: Option<&str>) -> Result<(), (StatusCode, String)> {
     if let Some(exp) = share.expires_at {
         if Utc::now() > exp {
@@ -87,6 +89,7 @@ fn validate_share(share: &ResourceShare, password: Option<&str>) -> Result<(), (
     Ok(())
 }
 
+/// mask_exif - Performs mask exif.
 fn mask_exif(photo: &mut Photo) {
     photo.exif_make = None;
     photo.exif_model = None;
@@ -94,6 +97,7 @@ fn mask_exif(photo: &mut Photo) {
     photo.exif_iso = None;
 }
 
+/// mask_gps - Performs mask gps.
 fn mask_gps(photo: &mut Photo) {
     photo.latitude = None;
     photo.longitude = None;

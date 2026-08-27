@@ -11,6 +11,9 @@ interface AddExternalLocationFormProps {
   onCancel: () => void;
 }
 
+/**
+ * AddExternalLocationForm - Renders add external location form.
+ */
 export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = ({
   providers,
   editingLocation,
@@ -18,6 +21,9 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
   onUpdated,
   onCancel,
 }) => {
+  /**
+   * readyProviders - Performs ready providers.
+   */
   const readyProviders = providers.filter((p) => p.ready);
   const [provider, setProvider] = useState<ExternalProviderId>(
     (editingLocation?.provider as ExternalProviderId) || (readyProviders[0]?.id as ExternalProviderId) || 'local_path'
@@ -32,8 +38,14 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  /**
+   * selected - Performs selected.
+   */
   const selected = providers.find((p) => p.id === provider);
 
+  /**
+   * handleSubmit - Handles submit.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -82,6 +94,9 @@ export const AddExternalLocationForm: React.FC<AddExternalLocationFormProps> = (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      /**
+       * data - Performs data.
+       */
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(typeof data.detail === 'string' ? data.detail : 'Failed to save location');

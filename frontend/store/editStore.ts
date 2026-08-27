@@ -7,6 +7,9 @@ interface EditStore {
   clearCopied: () => void;
 }
 
+/**
+ * useEditStore - Hook managing edit store.
+ */
 export const useEditStore = create<EditStore>((set) => ({
   copiedAdjustments: null,
   copyAdjustments: (adj) => set({ copiedAdjustments: adj }),

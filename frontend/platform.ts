@@ -47,6 +47,9 @@ export async function openFileDialog(options: FileDialogOptions = {}): Promise<s
         resolve(null);
         return;
       }
+      /**
+       * paths - Performs paths.
+       */
       const paths = Array.from(input.files).map((f) => f.name);
       resolve(paths);
     };

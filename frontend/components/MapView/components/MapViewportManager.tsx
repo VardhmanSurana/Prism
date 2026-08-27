@@ -16,6 +16,9 @@ interface MapViewportManagerProps {
   emptyZoom: number;
 }
 
+/**
+ * MapViewportManager - Renders map viewport manager.
+ */
 export const MapViewportManager: React.FC<MapViewportManagerProps> = ({ bounds, center, emptyZoom }) => {
   const map = useMap();
   const lastSignature = useRef<string>('');

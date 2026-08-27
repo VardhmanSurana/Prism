@@ -59,6 +59,9 @@ export interface HistoryEntry {
   annotations?: Annotation[];
 }
 
+/**
+ * createHistoryEntry - Performs create history entry.
+ */
 export function createHistoryEntry(
   type: HistoryActionType,
   description: string,

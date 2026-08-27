@@ -10,6 +10,7 @@ use std::sync::Arc;
 use crate::AppState;
 use super::find_photo_by_id_or_uuid;
 
+/// toggle_favorite - Performs toggle favorite.
 pub async fn toggle_favorite(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -27,6 +28,7 @@ pub async fn toggle_favorite(
     Ok(Json(json!({ "id": photo.id, "uuid": photo.uuid, "is_favorite": new_fav })))
 }
 
+/// toggle_trash - Performs toggle trash.
 pub async fn toggle_trash(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -44,6 +46,7 @@ pub async fn toggle_trash(
     Ok(Json(json!({ "id": photo.id, "uuid": photo.uuid, "is_trash": new_trash })))
 }
 
+/// restore_photo - Performs restore photo.
 pub async fn restore_photo(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -65,6 +68,7 @@ pub struct LocationUpdateRequest {
     pub longitude: f64,
 }
 
+/// update_photo_location - Updates update photo location.
 pub async fn update_photo_location(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -91,6 +95,7 @@ pub struct AdjustmentsUpdateRequest {
     pub adjustments: Value,
 }
 
+/// update_photo_adjustments - Updates update photo adjustments.
 pub async fn update_photo_adjustments(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -115,6 +120,7 @@ pub struct BulkAdjustmentsRequest {
     pub adjustments: Value,
 }
 
+/// bulk_update_adjustments - Performs bulk update adjustments.
 pub async fn bulk_update_adjustments(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<BulkAdjustmentsRequest>,
@@ -146,6 +152,7 @@ pub struct TagFaceRequest {
     pub person_id: Option<i64>,
 }
 
+/// tag_photo_face - Performs tag photo face.
 pub async fn tag_photo_face(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,

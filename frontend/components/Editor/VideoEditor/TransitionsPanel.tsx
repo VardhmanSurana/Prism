@@ -106,6 +106,9 @@ const AnimatedTransitionThumbnail: React.FC<{ type: Transition['type'] }> = ({ t
 
     const duration = 1600; // 1.6s loop
 
+    /**
+     * renderFrame - Performs render frame.
+     */
     const renderFrame = (timestamp: number) => {
       if (!startTime) startTime = timestamp;
       const elapsed = (timestamp - startTime) % duration;
@@ -214,13 +217,31 @@ const AnimatedTransitionThumbnail: React.FC<{ type: Transition['type'] }> = ({ t
   );
 };
 
+/**
+ * TransitionsPanel - Renders transitions panel.
+ */
 export const TransitionsPanel: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState<string>('All');
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * selectedClip - Performs selected clip.
+   */
   const selectedClip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
+  /**
+   * setClipTransition - Performs set clip transition.
+   */
   const setClipTransition = useNLEStore((s) => s.setClipTransition);
 
+  /**
+   * applyTransition - Performs apply transition.
+   */
   const applyTransition = useCallback((preset: TransitionPreset) => {
     if (!selectedClip) return;
     setClipTransition(selectedClip.id, {
@@ -229,11 +250,17 @@ export const TransitionsPanel: React.FC = () => {
     });
   }, [selectedClip, setClipTransition]);
 
+  /**
+   * removeTransition - Performs remove transition.
+   */
   const removeTransition = useCallback(() => {
     if (!selectedClip) return;
     setClipTransition(selectedClip.id, undefined);
   }, [selectedClip, setClipTransition]);
 
+  /**
+   * filtered - Performs filtered.
+   */
   const filtered = TRANSITION_PRESETS.filter((p) =>
     activeCategory === 'All' || p.category === activeCategory
   );

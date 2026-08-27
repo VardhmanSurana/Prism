@@ -14,6 +14,9 @@ interface MapPlaybackPanelProps {
   onReset: () => void;
 }
 
+/**
+ * formatPlaybackDate - Formats format playback date.
+ */
 function formatPlaybackDate(timestamp: number | null) {
   if (!timestamp || !Number.isFinite(timestamp)) return 'No date';
   return new Intl.DateTimeFormat(undefined, {
@@ -21,6 +24,9 @@ function formatPlaybackDate(timestamp: number | null) {
   }).format(new Date(timestamp));
 }
 
+/**
+ * MapPlaybackPanel - Renders map playback panel.
+ */
 export const MapPlaybackPanel: React.FC<MapPlaybackPanelProps> = ({
   active,
   isPlaying,

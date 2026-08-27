@@ -16,6 +16,9 @@ interface PersonDetailProps {
   onRefreshPhotos?: () => void;
 }
 
+/**
+ * PersonDetail - Renders person detail.
+ */
 export const PersonDetail: React.FC<PersonDetailProps> = ({
   person,
   photos,
@@ -29,6 +32,9 @@ export const PersonDetail: React.FC<PersonDetailProps> = ({
   const [resolvingId, setResolvingId] = useState<number | null>(null);
   const { logAction } = useTelemetry();
 
+  /**
+   * handleDecision - Handles decision.
+   */
   const handleDecision = async (pendingId: number, decision: 'same' | 'different') => {
     setResolvingId(pendingId);
     logAction('PeopleView', 'face_decision', { personId: person.id, personName: person.name, decision });

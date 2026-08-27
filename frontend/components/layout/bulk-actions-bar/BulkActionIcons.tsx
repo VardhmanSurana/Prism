@@ -1,5 +1,8 @@
 import React from 'react';
 
+/**
+ * CssTrashIcon - Renders css trash icon.
+ */
 export const CssTrashIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div className={`trash-css ${className}`}>
     <div className="trash-css-lid">
@@ -13,6 +16,9 @@ export const CssTrashIcon: React.FC<{ className?: string }> = ({ className = '' 
   </div>
 );
 
+/**
+ * CssFolderIcon - Renders css folder icon.
+ */
 export const CssFolderIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
   <div className={`folder-css ${className}`}>
     <div className="folder-css-back" />
@@ -27,6 +33,9 @@ export const CssFolderIcon: React.FC<{ className?: string }> = ({ className = ''
   </div>
 );
 
+/**
+ * CssVaultIcon - Renders css vault icon.
+ */
 export const CssVaultIcon: React.FC<{ className?: string }> = ({ className = '' }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"

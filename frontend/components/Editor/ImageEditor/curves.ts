@@ -46,17 +46,29 @@ export const DEFAULT_CURVE: CurveState = {
   blue: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
 };
 
+/**
+ * scalePoints - Performs scale points.
+ */
 const scalePoints = (pts: Point[]) => pts.map((p) => ({ x: p.x / 255, y: p.y / 255 }));
 
+/**
+ * arePointsEqual - Performs are points equal.
+ */
 const arePointsEqual = (a: Point[], b: Point[]) =>
   a.length === b.length && a.every((point, index) => point.x === b[index].x && point.y === b[index].y);
 
+/**
+ * isIdentityCurve - Performs is identity curve.
+ */
 export const isIdentityCurve = (curves: CurveState) =>
   arePointsEqual(curves.master, DEFAULT_CURVE.master) &&
   arePointsEqual(curves.red, DEFAULT_CURVE.red) &&
   arePointsEqual(curves.green, DEFAULT_CURVE.green) &&
   arePointsEqual(curves.blue, DEFAULT_CURVE.blue);
 
+/**
+ * isIdentitySpecializedCurves - Performs is identity specialized curves.
+ */
 export const isIdentitySpecializedCurves = (sc: SpecializedCurvesState | undefined) => {
   if (!sc) return true;
   return (
@@ -68,10 +80,19 @@ export const isIdentitySpecializedCurves = (sc: SpecializedCurvesState | undefin
   );
 };
 
+/**
+ * toByteLut - Performs to byte lut.
+ */
 const toByteLut = (lut: number[]) => Uint8Array.from(lut.map((value) => Math.round(Math.max(0, Math.min(1, value)) * 255)));
 
+/**
+ * getCompositeCurveLuts - Retrieves get composite curve luts.
+ */
 export function getCompositeCurveLuts(curves: CurveState, samples: number = 256): CurveLuts {
   if (isIdentityCurve(curves)) {
+    /**
+     * identity - Performs identity.
+     */
     const identity = Uint8Array.from({ length: samples }, (_, index) =>
       Math.round(index / Math.max(1, samples - 1) * 255),
     );
@@ -96,12 +117,18 @@ export function getCompositeCurveLuts(curves: CurveState, samples: number = 256)
   };
 }
 
+/**
+ * getCurvesTableValues - Retrieves get curves table values.
+ */
 export function getCurvesTableValues(curves: CurveState): { r: string; g: string; b: string } {
   if (isIdentityCurve(curves)) {
     return { r: '0 1', g: '0 1', b: '0 1' };
   }
 
   const { r, g, b } = getCompositeCurveLuts(curves, 256);
+  /**
+   * toTableValues - Performs to table values.
+   */
   const toTableValues = (lut: Uint8Array) => Array.from(lut, (value) => (value / 255).toFixed(4)).join(' ');
 
   return {

@@ -9,6 +9,9 @@ interface SuggestionsPanelProps {
   onSend: (text: string) => void;
 }
 
+/**
+ * SuggestionsPanel - Renders suggestions panel.
+ */
 export const SuggestionsPanel: React.FC<SuggestionsPanelProps> = ({ suggestions, onSend }) => {
   const iconMap: Record<string, React.ElementType> = {
     'Show my favorite photos': Heart,

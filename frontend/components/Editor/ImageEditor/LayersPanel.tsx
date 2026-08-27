@@ -28,14 +28,23 @@ const BLEND_MODES: { value: GlobalCompositeOperation; label: string }[] = [
   { value: 'luminosity', label: 'Luminosity' },
 ];
 
+/**
+ * LayersPanel - Renders layers panel.
+ */
 export const LayersPanel: React.FC<LayersPanelProps> = ({
   layers = [createDefaultBaseLayer()],
   onChange,
   activeLayerId,
   setActiveLayerId,
 }) => {
+  /**
+   * activeLayer - Performs active layer.
+   */
   const activeLayer = layers.find(l => l.id === activeLayerId) || layers[0];
 
+  /**
+   * handleAddLayer - Handles add layer.
+   */
   const handleAddLayer = (type: LayerType) => {
     const newId = `layer-${Date.now()}`;
     const newLayer: Layer = {
@@ -51,18 +60,33 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     setActiveLayerId(newId);
   };
 
+  /**
+   * handleToggleVisible - Handles toggle visible.
+   */
   const handleToggleVisible = (id: string) => {
     onChange(layers.map(l => (l.id === id ? { ...l, visible: !l.visible } : l)));
   };
 
+  /**
+   * handleDeleteLayer - Handles delete layer.
+   */
   const handleDeleteLayer = (id: string) => {
     if (layers.length <= 1) return;
+    /**
+     * filtered - Performs filtered.
+     */
     const filtered = layers.filter(l => l.id !== id);
     onChange(filtered);
     if (activeLayerId === id) setActiveLayerId(filtered[0]?.id || null);
   };
 
+  /**
+   * handleMoveLayer - Handles move layer.
+   */
   const handleMoveLayer = (id: string, direction: 'up' | 'down') => {
+    /**
+     * idx - Performs idx.
+     */
     const idx = layers.findIndex(l => l.id === id);
     if (idx === -1) return;
     const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
@@ -74,6 +98,9 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
     onChange(copy);
   };
 
+  /**
+   * updateActiveLayer - Performs update active layer.
+   */
   const updateActiveLayer = (patch: Partial<Layer>) => {
     if (!activeLayer) return;
     onChange(layers.map(l => (l.id === activeLayer.id ? { ...l, ...patch } : l)));

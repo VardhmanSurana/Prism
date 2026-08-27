@@ -8,6 +8,9 @@ interface PurgeSettingsProps {
   onPurge: () => void;
 }
 
+/**
+ * Purge settings: dangerous actions for clearing data with confirmation.
+ */
 export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
   purgeInput,
   setPurgeInput,

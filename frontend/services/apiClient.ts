@@ -40,6 +40,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    /**
+     * data - Performs data.
+     */
     const data = await response.json().catch(() => null);
     throw new ApiError(response.status, `API error: ${response.statusText}`, data);
   }
@@ -52,6 +55,9 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return response.json();
 }
 
+/**
+ * apiClient - Performs api client.
+ */
 export const apiClient = {
   get: <T>(url: string) => request<T>(url),
   post: <T>(url: string, body: unknown) => request<T>(url, { method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) }),

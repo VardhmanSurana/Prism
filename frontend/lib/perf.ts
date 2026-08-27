@@ -5,10 +5,16 @@
 
 const isDev = import.meta.env.DEV;
 
+/**
+ * mark - Performs mark.
+ */
 function mark(name: string) {
   if (isDev) performance.mark(`prism:${name}`);
 }
 
+/**
+ * measure - Performs measure.
+ */
 function measure(name: string, startMark: string, endMark?: string) {
   if (!isDev) return;
   const end = endMark || `prism:${name}:end`;

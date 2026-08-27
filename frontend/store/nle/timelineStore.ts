@@ -44,16 +44,25 @@ export interface TimelineSlice {
   detachAudio: (clipId: string) => void;
 }
 
+/**
+ * createTimelineSlice - Creates timeline slice.
+ */
 export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> = (set, get) => ({
   tracks: [],
   duration: 0,
   isMulticamMode: false,
 
   addClip: (trackId, clip) => {
+    /**
+     * track - Performs track.
+     */
     const track = get().tracks.find((t) => t.id === trackId);
     if (track?.locked) return;
     get().pushHistory();
     set((s) => {
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) =>
         t.id === trackId ? { ...t, clips: [...t.clips, clip] } : t
       );
@@ -64,6 +73,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   removeClip: (clipId) => {
     get().pushHistory();
     set((s) => {
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => ({
         ...t,
         clips: t.clips.filter((c) => c.id !== clipId),
@@ -83,7 +95,13 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       let movedClip: Clip | undefined;
       let originalStartFrame = 0;
       let sourceTrackId: string | undefined;
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => {
+        /**
+         * idx - Performs idx.
+         */
         const idx = t.clips.findIndex((c) => c.id === clipId);
         if (idx === -1) return t;
         originalStartFrame = t.clips[idx].startFrame;
@@ -94,6 +112,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       if (!movedClip) return {};
       const targetId = newTrackId ?? sourceTrackId;
       if (targetId) {
+        /**
+         * targetIdx - Performs target idx.
+         */
         const targetIdx = tracks.findIndex((t) => t.id === targetId);
         if (targetIdx !== -1) {
           let snappedFrame = movedClip.startFrame;
@@ -115,6 +136,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
             movedClip = { ...movedClip, startFrame: snappedFrame };
           }
           const candidate = { startFrame: movedClip.startFrame, durationFrames: movedClip.durationFrames };
+          /**
+           * hasOverlap - Performs has overlap.
+           */
           const hasOverlap = tracks[targetIdx].clips.some((c) => clipsOverlap(candidate, c));
           if (hasOverlap) return {};
           const newClips = [...tracks[targetIdx].clips, movedClip];
@@ -145,7 +169,13 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   splitClip: (clipId, atTime) => {
     get().pushHistory();
     set((s) => {
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => {
+        /**
+         * idx - Performs idx.
+         */
         const idx = t.clips.findIndex((c) => c.id === clipId);
         if (idx === -1) return t;
         const clip = t.clips[idx];
@@ -190,6 +220,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       let targetTrackIndex = -1;
 
       for (const t of s.tracks) {
+        /**
+         * idx - Performs idx.
+         */
         const idx = t.clips.findIndex((c) => c.id === clipId);
         if (idx === -1) continue;
         const clip = t.clips[idx];
@@ -218,14 +251,23 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       if (!trimmedClip || targetTrackIndex === -1) return {};
 
       const targetTrack = s.tracks[targetTrackIndex];
+      /**
+       * hasOverlap - Performs has overlap.
+       */
       const hasOverlap = targetTrack.clips.some((c) => {
         if (c.id === clipId) return false;
         return clipsOverlap(trimmedClip!, c);
       });
       if (hasOverlap) return {};
 
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => {
         if (t.id !== targetTrackId) return t;
+        /**
+         * newClips - Performs new clips.
+         */
         const newClips = t.clips.map((c) => c.id === clipId ? trimmedClip! : c);
         return { ...t, clips: newClips };
       });
@@ -353,7 +395,13 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
 
   addFreezeFrame: (clipId, atTime) => {
     set((s) => {
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => {
+        /**
+         * idx - Performs idx.
+         */
         const idx = t.clips.findIndex((c) => c.id === clipId);
         if (idx === -1) return t;
         const clip = t.clips[idx];
@@ -435,7 +483,13 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
   reorderTrack: (sourceTrackId, targetTrackId) => {
     get().pushHistory();
     set((s) => {
+      /**
+       * sourceIdx - Performs source idx.
+       */
       const sourceIdx = s.tracks.findIndex(t => t.id === sourceTrackId);
+      /**
+       * targetIdx - Performs target idx.
+       */
       const targetIdx = s.tracks.findIndex(t => t.id === targetTrackId);
       if (sourceIdx === -1 || targetIdx === -1) return s;
       const newTracks = [...s.tracks];
@@ -509,10 +563,16 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
     get().pushHistory();
     set((s) => {
       // Find track assigned to target camera angle
+      /**
+       * targetTrack - Performs target track.
+       */
       const targetTrack = s.tracks.find((t) => t.angle === angle && t.type === 'video');
       if (!targetTrack) return {};
 
       // Make target angle track visible and hide non-matching angle video tracks
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = s.tracks.map((t) => {
         if (t.type !== 'video' || t.angle === undefined) return t;
         return {
@@ -532,6 +592,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
       let sourceTrackId: string | undefined;
 
       for (const t of s.tracks) {
+        /**
+         * c - Performs c.
+         */
         const c = t.clips.find((clip) => clip.id === clipId);
         if (c) {
           sourceClip = c;
@@ -567,6 +630,9 @@ export const createTimelineSlice: StateCreator<NLEStore, [], [], TimelineSlice> 
         effects: { brightness: 0, contrast: 0, saturation: 0, temperature: 0, highlights: 0, shadows: 0, sharpness: 0, vignette: 0, noiseReduction: 0 },
       };
 
+      /**
+       * tracks - Performs tracks.
+       */
       const tracks = updatedTracks.map((t) => {
         if (t.id === sourceTrackId) {
           return {

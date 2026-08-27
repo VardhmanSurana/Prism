@@ -15,6 +15,7 @@ pub struct AutoEnhanceParams {
     pub blacks: i32,
 }
 
+/// calculate_auto_enhance - Performs calculate auto enhance.
 pub fn calculate_auto_enhance(img: &DynamicImage) -> AutoEnhanceParams {
     // Resize for speed
     let resized = img.thumbnail(256, 256);

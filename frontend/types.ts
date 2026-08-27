@@ -151,6 +151,9 @@ export interface RawPhoto {
   search_explanation?: { score: number; matched: string[] };
 }
 
+/**
+ * sanitizeDateString - Performs sanitize date string.
+ */
 function sanitizeDateString(dateStr: string | undefined | null): string {
   if (!dateStr) return '';
   let sanitized = dateStr.trim();

@@ -52,6 +52,9 @@ interface BrowserState {
   cloudProviders: CloudProviderInfo[];
 }
 
+/**
+ * matchesSmartCriteria - Performs matches smart criteria.
+ */
 function matchesSmartCriteria(
   name: string,
   file: FileEntry | null,
@@ -75,6 +78,9 @@ function matchesSmartCriteria(
   return true;
 }
 
+/**
+ * useFileFolderBrowser - Hook managing file folder browser state.
+ */
 export const useFileFolderBrowser = () => {
   const initialSort = loadSortState();
   const [state, setState] = useState<BrowserState>({
@@ -108,6 +114,9 @@ export const useFileFolderBrowser = () => {
   const showHiddenRef = useRef(state.showHidden);
   showHiddenRef.current = state.showHidden;
 
+  /**
+   * fetchBrowserLocations - Retrieves fetch browser locations.
+   */
   const fetchBrowserLocations = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/browser-locations`);
@@ -125,6 +134,9 @@ export const useFileFolderBrowser = () => {
     }
   }, []);
 
+  /**
+   * fetchDirectory - Retrieves fetch directory.
+   */
   const fetchDirectory = useCallback(async (path: string, showHiddenFiles: boolean) => {
     setState((prev) => ({
       ...prev,
@@ -225,6 +237,9 @@ export const useFileFolderBrowser = () => {
     [state.smartFolders, state.activeSmartFolderId],
   );
 
+  /**
+   * filteredFolders - Performs filtered folders.
+   */
   const filteredFolders = useMemo(() => {
     const q = state.searchQuery.trim().toLowerCase();
     const criteria = activeSmartFolder?.criteria;
@@ -240,6 +255,9 @@ export const useFileFolderBrowser = () => {
     });
   }, [state.folders, state.searchQuery, activeSmartFolder]);
 
+  /**
+   * filteredFiles - Performs filtered files.
+   */
   const filteredFiles = useMemo(() => {
     const q = state.searchQuery.trim().toLowerCase();
     const criteria = activeSmartFolder?.criteria;
@@ -252,20 +270,32 @@ export const useFileFolderBrowser = () => {
     });
   }, [state.files, state.searchQuery, activeSmartFolder]);
 
+  /**
+   * toggleHidden - Performs toggle hidden.
+   */
   const toggleHidden = useCallback(() => {
     const nextHidden = !state.showHidden;
     setState((prev) => ({ ...prev, showHidden: nextHidden }));
     fetchDirectory(state.currentPath, nextHidden);
   }, [state.showHidden, state.currentPath, fetchDirectory]);
 
+  /**
+   * setSearchQuery - Performs set search query.
+   */
   const setSearchQuery = useCallback((query: string) => {
     setState((prev) => ({ ...prev, searchQuery: query }));
   }, []);
 
+  /**
+   * cancel - Performs cancel.
+   */
   const cancel = useCallback(() => {
     setState((prev) => (prev.options ? { ...prev, options: null } : prev));
   }, []);
 
+  /**
+   * confirm - Performs confirm.
+   */
   const confirm = useCallback(() => {
     setState((prev) => {
       if (!prev.options) return prev;
@@ -295,6 +325,9 @@ export const useFileFolderBrowser = () => {
     });
   }, []);
 
+  /**
+   * navigateUp - Performs navigate up.
+   */
   const navigateUp = useCallback(() => {
     setState((prev) => {
       if (prev.parentPath !== null) {
@@ -387,18 +420,30 @@ export const useFileFolderBrowser = () => {
     [navigateTo],
   );
 
+  /**
+   * setSelectedPaths - Performs set selected paths.
+   */
   const setSelectedPaths = useCallback((paths: Set<string>) => {
     setState((prev) => ({ ...prev, selectedPaths: paths }));
   }, []);
 
+  /**
+   * setResizeWidth - Performs set resize width.
+   */
   const setResizeWidth = useCallback((value: number | undefined) => {
     setState((prev) => ({ ...prev, resizeWidth: value }));
   }, []);
 
+  /**
+   * setDimensions - Performs set dimensions.
+   */
   const setDimensions = useCallback((dimensions: { width: number; height: number } | null) => {
     setState((prev) => ({ ...prev, dimensions, imgLoading: false }));
   }, []);
 
+  /**
+   * clearPreview - Performs clear preview.
+   */
   const clearPreview = useCallback(() => {
     setState((prev) => ({ ...prev, previewFile: null, dimensions: null, imgLoading: true }));
   }, []);
@@ -420,6 +465,9 @@ export const useFileFolderBrowser = () => {
     [fetchDirectory],
   );
 
+  /**
+   * clearSmartFolder - Performs clear smart folder.
+   */
   const clearSmartFolder = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -442,6 +490,9 @@ export const useFileFolderBrowser = () => {
     [],
   );
 
+  /**
+   * removeSmartFolder - Performs remove smart folder.
+   */
   const removeSmartFolder = useCallback((id: string) => {
     const next = persistDeleteSmartFolder(id);
     setState((prev) => ({
@@ -451,6 +502,9 @@ export const useFileFolderBrowser = () => {
     }));
   }, []);
 
+  /**
+   * setSortField - Performs set sort field.
+   */
   const setSortField = useCallback((field: SortField) => {
     setState((prev) => {
       const next = {
@@ -473,6 +527,9 @@ export const useFileFolderBrowser = () => {
     });
   }, []);
 
+  /**
+   * toggleSortDirection - Performs toggle sort direction.
+   */
   const toggleSortDirection = useCallback(() => {
     setState((prev) => {
       const nextDir: SortDirection = prev.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -486,6 +543,9 @@ export const useFileFolderBrowser = () => {
     });
   }, []);
 
+  /**
+   * setGroupBy - Performs set group by.
+   */
   const setGroupBy = useCallback((groupBy: GroupBy) => {
     setState((prev) => {
       const next = { ...prev, groupBy };
@@ -498,6 +558,9 @@ export const useFileFolderBrowser = () => {
     });
   }, []);
 
+  /**
+   * addExternalLocation - Performs add external location.
+   */
   const addExternalLocation = useCallback((loc: ExternalLocation) => {
     setState((prev) => ({
       ...prev,
@@ -505,6 +568,9 @@ export const useFileFolderBrowser = () => {
     }));
   }, []);
 
+  /**
+   * updateExternalLocation - Performs update external location.
+   */
   const updateExternalLocation = useCallback((loc: ExternalLocation) => {
     setState((prev) => ({
       ...prev,
@@ -513,6 +579,9 @@ export const useFileFolderBrowser = () => {
     fetchBrowserLocations();
   }, [fetchBrowserLocations]);
 
+  /**
+   * removeExternalLocation - Performs remove external location.
+   */
   const removeExternalLocation = useCallback(async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/external-locations/${id}`, {
@@ -529,6 +598,9 @@ export const useFileFolderBrowser = () => {
     }
   }, [fetchBrowserLocations]);
 
+  /**
+   * openInOsExplorer - Performs open in os explorer.
+   */
   const openInOsExplorer = useCallback(async (path: string) => {
     const res = await fetch(`${API_BASE}/api/v1/utilities/open-in-os-explorer`, {
       method: 'POST',
@@ -537,6 +609,9 @@ export const useFileFolderBrowser = () => {
     });
 
     if (!res.ok) {
+      /**
+       * data - Performs data.
+       */
       const data = await res.json().catch(() => null);
       throw new Error(data?.detail || 'Failed to open OS explorer');
     }

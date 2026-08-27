@@ -28,12 +28,18 @@ interface HealingPanelProps {
   hasStrokes: boolean;
 }
 
+/**
+ * HealingPanel - Renders healing panel.
+ */
 export const HealingPanel: React.FC<HealingPanelProps> = ({
   settings,
   onSettingsChange,
   onClearStrokes,
   hasStrokes,
 }) => {
+  /**
+   * update - Performs update.
+   */
   const update = (patch: Partial<HealingSettings>) =>
     onSettingsChange({ ...settings, ...patch });
 

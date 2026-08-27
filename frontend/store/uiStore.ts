@@ -20,6 +20,9 @@ const DEFAULT_ZOOM: ZoomState = {
   mode: 'fit',
 };
 
+/**
+ * useEditorUIStore - Hook managing editor uistore.
+ */
 export const useEditorUIStore = create<EditorUIState>((set) => ({
   zoom: { ...DEFAULT_ZOOM },
 

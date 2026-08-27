@@ -91,6 +91,9 @@ const MemoryCard: React.FC<{
   );
 };
 
+/**
+ * MemoriesCarousel - Renders memories carousel.
+ */
 export const MemoriesCarousel: React.FC = () => {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [selectedHighlight, setSelectedHighlight] = useState<Highlight | null>(null);
@@ -100,6 +103,9 @@ export const MemoriesCarousel: React.FC = () => {
     fetchHighlights();
   }, []);
 
+  /**
+   * fetchHighlights - Retrieves fetch highlights.
+   */
   const fetchHighlights = async () => {
     setIsLoading(true);
     try {

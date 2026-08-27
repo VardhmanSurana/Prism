@@ -114,4 +114,7 @@ class SoundEffects {
   }
 }
 
+/**
+ * soundEffects - Performs sound effects.
+ */
 export const soundEffects = new SoundEffects();

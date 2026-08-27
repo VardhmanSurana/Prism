@@ -18,6 +18,10 @@ interface FaceTaggingOverlayProps {
   onTagUpdated?: () => void;
 }
 
+/**
+ * Overlay that fetches detected faces for the photo and lets the user
+ * assign person names via bounding-box popovers aligned to the image bounds.
+ */
 export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, onClose, onTagUpdated }) => {
   const { logAction } = useTelemetry();
   const [faces, setFaces] = useState<FaceData[]>([]);
@@ -42,6 +46,11 @@ export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, o
     return () => { isCurrent = false; };
   }, [photo.id]);
 
+  /**
+   * Parses a stored face_box (JSON string or array) into normalized {x,y,w,h}.
+   * @param rawBox - Raw box value from the API; null yields a centered fallback.
+   * @returns Normalized bounding box with 0-1 coordinates.
+   */
   const parseBox = (rawBox: string | null) => {
     if (!rawBox) return { x: 0.3, y: 0.2, w: 0.4, h: 0.4 };
     try {
@@ -56,6 +65,10 @@ export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, o
     return { x: 0.3, y: 0.2, w: 0.4, h: 0.4 };
   };
 
+  /**
+   * Persists the entered name for a face box to the backend.
+   * @param face - Target face entry whose box/person_id is sent with the new name.
+   */
   const handleSaveTag = async (face: FaceData) => {
     if (!nameInput.trim()) return;
     logAction('FaceTaggingOverlay', 'tag_face', { photoId: photo.id, personName: nameInput.trim() });

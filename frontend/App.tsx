@@ -28,22 +28,40 @@ import { GoogleImportToast } from './components/ui/GoogleImportToast';
 import { photoSrc } from './constants';
 import { useTelemetry } from './hooks/useTelemetry';
 
+/**
+ * Lightbox - Renders lightbox.
+ */
 const Lightbox = React.lazy(() =>
   import('./components/viewers/Lightbox').then((m) => ({ default: m.Lightbox }))
 );
+/**
+ * ConfirmDialog - Renders confirm dialog.
+ */
 const ConfirmDialog = React.lazy(() =>
   import('./components/wrappers/ConfirmDialog').then((m) => ({ default: m.ConfirmDialog }))
 );
+/**
+ * FileFolderBrowserDialog - Renders file folder browser dialog.
+ */
 const FileFolderBrowserDialog = React.lazy(() =>
   import('./components/FileFolderBrowser/FileFolderBrowserDialog').then((m) => ({ default: m.FileFolderBrowserDialog }))
 );
+/**
+ * CollageMaker - Renders collage maker.
+ */
 const CollageMaker = React.lazy(() =>
   import('./components/PhotoView/CollageMaker').then((m) => ({ default: m.CollageMaker }))
 );
+/**
+ * PhotoBook - Renders photo book.
+ */
 const PhotoBook = React.lazy(() =>
   import('./components/PhotoView/PhotoBook').then((m) => ({ default: m.PhotoBook }))
 );
 
+/**
+ * App - Renders app.
+ */
 function App() {
   const {
     currentView,
@@ -94,7 +112,13 @@ function App() {
   const { isMobile } = usePlatform();
   const { logAction, logNavigation, logError } = useTelemetry();
 
+  /**
+   * fetchSettings - Retrieves fetch settings.
+   */
   const fetchSettings = useSettingsStore((s) => s.fetchSettings);
+  /**
+   * isAgentEnabled - Performs is agent enabled.
+   */
   const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
 
   // Initialize GSAP defaults once at app startup
@@ -112,6 +136,9 @@ function App() {
     }
   }, [currentView, isAgentEnabled, setCurrentView]);
 
+  /**
+   * handlePhotoLocationUpdate - Handles photo location update.
+   */
   const handlePhotoLocationUpdate = useCallback((photoId: string | number, next: Partial<Photo>) => {
     setPhotos(prev => prev.map(photo =>
       String(photo.id) === String(photoId)
@@ -124,6 +151,9 @@ function App() {
   }, [setPhotos, setSelectedPhoto, selectedPhoto]);
 
   React.useEffect(() => {
+    /**
+     * unsubUpdate - Performs unsub update.
+     */
     const unsubUpdate = eventService.subscribe('update_photo', (data) => {
       const rawPhoto = data.photo as any;
       if (rawPhoto) {
@@ -135,6 +165,9 @@ function App() {
     };
   }, [handlePhotoLocationUpdate]);
 
+  /**
+   * handleViewChange - Handles view change.
+   */
   const handleViewChange = useCallback((v: ViewMode) => {
     setCurrentView(v);
     setActiveFilters(null);
@@ -145,42 +178,66 @@ function App() {
     }
   }, [setCurrentView, setActiveFilters, handleLockSession, clearSelection, logNavigation]);
 
+  /**
+   * handleResetSuccess - Handles reset success.
+   */
   const handleResetSuccess = useCallback(() => {
     setPhotos([]);
     setSelectedPhoto(null);
     clearSelection();
   }, [setPhotos, setSelectedPhoto, clearSelection]);
 
+  /**
+   * handleLightboxToggleFavorite - Handles lightbox toggle favorite.
+   */
   const handleLightboxToggleFavorite = useCallback(async (id: string | number) => {
     logAction('Lightbox', 'toggle_favorite', { photoId: id });
     await apiClient.post(`/api/v1/photos/${id}/favorite`, {});
     setPhotos(prev => {
+      /**
+       * updated - Performs updated.
+       */
       const updated = prev.map(p =>
         String(p.id) === String(id)
           ? { ...p, isFavorite: !p.isFavorite, is_favorite: !p.is_favorite }
           : p
       );
+      /**
+       * toggled - Performs toggled.
+       */
       const toggled = updated.find(p => String(p.id) === String(id));
       if (toggled) setSelectedPhoto(toggled);
       return updated;
     });
   }, [setPhotos, setSelectedPhoto, logAction]);
 
+  /**
+   * handleLightboxRemoveFromAlbum - Handles lightbox remove from album.
+   */
   const handleLightboxRemoveFromAlbum = useMemo(() =>
     selectedAlbum ? () => selectedPhoto && handleRemoveSingleFromActiveAlbum(Number(selectedPhoto.id)) : undefined,
     [selectedAlbum, selectedPhoto, handleRemoveSingleFromActiveAlbum]
   );
 
+  /**
+   * handleLightboxSetAsCover - Handles lightbox set as cover.
+   */
   const handleLightboxSetAsCover = useMemo(() =>
     selectedAlbum ? () => selectedPhoto && handleSetAlbumCover(Number(selectedPhoto.id)) : undefined,
     [selectedAlbum, selectedPhoto, handleSetAlbumCover]
   );
 
+  /**
+   * handleAuthenticate - Handles authenticate.
+   */
   const handleAuthenticate = useCallback(() => setIsLockedAuthenticated(true), [setIsLockedAuthenticated]);
 
   const selectedPhotoRef = React.useRef(selectedPhoto);
   selectedPhotoRef.current = selectedPhoto;
 
+  /**
+   * handleLightboxClose - Handles lightbox close.
+   */
   const handleLightboxClose = useCallback(() => {
     logAction('Lightbox', 'close', { photoId: selectedPhotoRef.current?.id });
     setSelectedPhoto(null);
@@ -194,18 +251,30 @@ function App() {
     enabled: true,
   });
 
+  /**
+   * handleAddToAlbumClose - Handles add to album close.
+   */
   const handleAddToAlbumClose = useCallback(() => setIsAddToAlbumOpen(false), [setIsAddToAlbumOpen]);
 
   const [isCollageOpen, setIsCollageOpen] = useState(false);
   const [isPhotoBookOpen, setIsPhotoBookOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
 
+  /**
+   * selectedPhotos - Performs selected photos.
+   */
   const selectedPhotos = useMemo(() =>
     displayedPhotos.filter(p => selectedIds.has(String(p.id))),
     [displayedPhotos, selectedIds]
   );
 
+  /**
+   * handleCollage - Handles collage.
+   */
   const handleCollage = useCallback(() => setIsCollageOpen(true), []);
+  /**
+   * handlePhotoBook - Handles photo book.
+   */
   const handlePhotoBook = useCallback(() => setIsPhotoBookOpen(true), []);
 
   // ─── Command Palette ──────────────────────────────────────────────────────
@@ -238,6 +307,9 @@ function App() {
     enabled: !isLoading,
   });
 
+  /**
+   * handleBulkPasteEdits - Handles bulk paste edits.
+   */
   const handleBulkPasteEdits = useCallback(async () => {
     const copied = useEditStore.getState().copiedAdjustments;
     if (!copied || selectedIds.size === 0) return;

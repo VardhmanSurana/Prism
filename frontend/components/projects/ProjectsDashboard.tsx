@@ -37,6 +37,9 @@ import { useVideoProjects, type VideoProject } from '@/hooks/useVideoProjects';
 import { useTelemetry } from '@/hooks/useTelemetry';
 
 // Lazy-load the editor wrapper so it doesn't bloat the initial bundle
+/**
+ * VideoEditorFromProject - Renders video editor from project.
+ */
 const VideoEditorFromProject = React.lazy(() =>
   import('@/components/Editor/VideoEditor/VideoEditorFromProject').then((m) => ({
     default: m.VideoEditorFromProject,
@@ -47,6 +50,9 @@ const VideoEditorFromProject = React.lazy(() =>
 // Utility — relative time
 // ---------------------------------------------------------------------------
 
+/**
+ * formatRelativeTime - Formats format relative time.
+ */
 function formatRelativeTime(isoString: string): string {
   const now = Date.now();
   const then = new Date(isoString).getTime();
@@ -74,6 +80,9 @@ function formatRelativeTime(isoString: string): string {
 
 type AspectRatioKey = '16:9' | '9:16' | '1:1' | 'custom';
 
+/**
+ * getAspectRatioKey - Retrieves get aspect ratio key.
+ */
 function getAspectRatioKey(width: number, height: number): AspectRatioKey {
   const ratio = width / height;
   if (Math.abs(ratio - 16 / 9) < 0.05) return '16:9';
@@ -82,6 +91,9 @@ function getAspectRatioKey(width: number, height: number): AspectRatioKey {
   return 'custom';
 }
 
+/**
+ * getResolutionLabel - Retrieves get resolution label.
+ */
 function getResolutionLabel(width: number, height: number): string {
   const maxDim = Math.max(width, height);
   if (maxDim >= 3840) return '4K UHD';
@@ -95,6 +107,9 @@ function getResolutionLabel(width: number, height: number): string {
 // Modal focus trap helper
 // ---------------------------------------------------------------------------
 
+/**
+ * useFocusTrap - Hook managing focus trap state.
+ */
 function useFocusTrap(ref: React.RefObject<HTMLDivElement | null>, active: boolean) {
   useEffect(() => {
     if (!active || !ref.current) return;
@@ -108,6 +123,9 @@ function useFocusTrap(ref: React.RefObject<HTMLDivElement | null>, active: boole
 
     first?.focus();
 
+    /**
+     * handleTab - Handles tab.
+     */
     function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
       if (e.shiftKey) {
@@ -172,6 +190,9 @@ const AspectPreview: React.FC<{
   );
 };
 
+/**
+ * ViewfinderOverlay - Renders viewfinder overlay.
+ */
 const ViewfinderOverlay: React.FC = () => (
   <div
     className="absolute inset-3 border border-dashed border-white/[0.04] pointer-events-none z-[1]"
@@ -210,6 +231,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen) return;
+    /**
+     * handleClick - Handles click.
+     */
     function handleClick(e: MouseEvent) {
       if (
         menuRef.current &&
@@ -227,6 +251,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
   // Close menu on Escape
   useEffect(() => {
     if (!menuOpen) return;
+    /**
+     * handleKey - Handles key.
+     */
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         setMenuOpen(false);
@@ -348,6 +375,9 @@ const ProjectCard: React.FC<ProjectCardProps> = ({
 // Loading Skeleton
 // ---------------------------------------------------------------------------
 
+/**
+ * SkeletonCard - Renders skeleton card.
+ */
 const SkeletonCard: React.FC = () => (
   <div className="bg-[#0c0c0c] border border-[#20212b] rounded-xl overflow-hidden animate-pulse">
     <div className="aspect-[16/9] bg-[#161616]" />
@@ -385,6 +415,9 @@ interface CreateProjectModalProps {
   onCreate: (name: string, width: number, height: number, fps: number) => Promise<void>;
 }
 
+/**
+ * CreateProjectModal - Renders create project modal.
+ */
 const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCreate }) => {
   const [name, setName] = useState('Untitled Edit');
   const [selectedRatio, setSelectedRatio] = useState(ASPECT_OPTIONS[0]);
@@ -402,6 +435,9 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
     nameInputRef.current?.select();
   }, []);
 
+  /**
+   * handleSubmit - Handles submit.
+   */
   const handleSubmit = useCallback(async () => {
     const trimmed = name.trim() || 'Untitled Edit';
     setSubmitting(true);
@@ -418,6 +454,9 @@ const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ onClose, onCrea
 
   // Escape + overlay click to close
   useEffect(() => {
+    /**
+     * handleKey - Handles key.
+     */
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -560,6 +599,9 @@ interface RenameProjectModalProps {
   onRename: (id: number | string, name: string) => Promise<void>;
 }
 
+/**
+ * RenameProjectModal - Renders rename project modal.
+ */
 const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClose, onRename }) => {
   const [name, setName] = useState(project.name);
   const [submitting, setSubmitting] = useState(false);
@@ -574,6 +616,9 @@ const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClos
   }, []);
 
   useEffect(() => {
+    /**
+     * handleKey - Handles key.
+     */
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -581,6 +626,9 @@ const RenameProjectModal: React.FC<RenameProjectModalProps> = ({ project, onClos
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  /**
+   * handleSubmit - Handles submit.
+   */
   const handleSubmit = useCallback(async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -668,6 +716,9 @@ interface DeleteProjectModalProps {
   onDelete: (id: number | string) => Promise<void>;
 }
 
+/**
+ * DeleteProjectModal - Renders delete project modal.
+ */
 const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClose, onDelete }) => {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -676,6 +727,9 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClos
   useFocusTrap(dialogRef, true);
 
   useEffect(() => {
+    /**
+     * handleKey - Handles key.
+     */
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }
@@ -683,6 +737,9 @@ const DeleteProjectModal: React.FC<DeleteProjectModalProps> = ({ project, onClos
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
+  /**
+   * handleDelete - Handles delete.
+   */
   const handleDelete = useCallback(async () => {
     setDeleting(true);
     setError(null);
@@ -773,6 +830,9 @@ const FormatSelect: React.FC<{
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     function handleClickOutside(event: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
@@ -782,6 +842,9 @@ const FormatSelect: React.FC<{
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * selectedOption - Performs selected option.
+   */
   const selectedOption = FORMAT_OPTIONS.find((opt) => opt.value === value) ?? FORMAT_OPTIONS[0];
 
   return (
@@ -846,6 +909,9 @@ const FormatSelect: React.FC<{
   );
 };
 
+/**
+ * ProjectsDashboard - Renders projects dashboard.
+ */
 export const ProjectsDashboard: React.FC = () => {
   const { projects, isLoading, error, createProject, renameProject, deleteProject, refresh } =
     useVideoProjects();
@@ -859,6 +925,9 @@ export const ProjectsDashboard: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  /**
+   * openProjectId - Performs open project id.
+   */
   const openProjectId = useMemo(() => {
     const parts = location.pathname.split('/');
     if (parts[1] === 'projects' && parts[2]) {
@@ -867,10 +936,16 @@ export const ProjectsDashboard: React.FC = () => {
     return null;
   }, [location.pathname]);
 
+  /**
+   * handleOpenProject - Handles open project.
+   */
   const handleOpenProject = useCallback((id: number | string) => {
     navigate(`/projects/${id}`);
   }, [navigate]);
 
+  /**
+   * handleCloseProject - Handles close project.
+   */
   const handleCloseProject = useCallback(() => {
     navigate('/projects');
   }, [navigate]);
@@ -884,6 +959,9 @@ export const ProjectsDashboard: React.FC = () => {
 
   // Global keyboard shortcuts
   useEffect(() => {
+    /**
+     * handleKeyDown - Handles key down.
+     */
     function handleKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       const isInput =
@@ -919,6 +997,9 @@ export const ProjectsDashboard: React.FC = () => {
   }, [showCreateModal, renameTarget, deleteTarget, search]);
 
   // Filtered projects
+  /**
+   * filteredProjects - Performs filtered projects.
+   */
   const filteredProjects = useMemo(() => {
     let list = projects;
 

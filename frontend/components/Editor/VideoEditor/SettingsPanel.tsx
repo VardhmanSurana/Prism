@@ -15,12 +15,18 @@ const RESOLUTION_PRESETS = [
 
 const FPS_OPTIONS = [24, 25, 30, 60];
 
+/**
+ * SettingsPanel - Renders settings panel.
+ */
 export const SettingsPanel: React.FC = () => {
   const {
     projectName, projectWidth, projectHeight, projectFps,
     tracks, bookmarks, duration,
   } = useNLEStore();
 
+  /**
+   * totalClips - Performs total clips.
+   */
   const totalClips = tracks.reduce((sum, t) => sum + t.clips.length, 0);
 
   return (

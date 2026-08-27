@@ -23,6 +23,9 @@ interface ColorPresetsProps {
   onApply: (effects: Partial<ClipEffects>) => void;
 }
 
+/**
+ * presetMatches - Performs preset matches.
+ */
 function presetMatches(preset: ColorPreset, current: ClipEffects): boolean {
   if (preset.name === 'None') {
     return Object.values(current).every((v) => v === 0);
@@ -34,6 +37,9 @@ function presetMatches(preset: ColorPreset, current: ClipEffects): boolean {
   });
 }
 
+/**
+ * ColorPresets - Renders color presets.
+ */
 export const ColorPresets: React.FC<ColorPresetsProps> = ({ currentEffects, onApply }) => {
   return (
     <div className="mb-3">
@@ -64,6 +70,9 @@ export const ColorPresets: React.FC<ColorPresetsProps> = ({ currentEffects, onAp
   );
 };
 
+/**
+ * presetSwatchColor - Performs preset swatch color.
+ */
 function presetSwatchColor(name: string): string {
   switch (name) {
     case 'None': return 'linear-gradient(135deg, #444 0%, #666 100%)';

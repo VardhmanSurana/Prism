@@ -35,6 +35,9 @@ const BAND_DEFS: Record<HslBand, BandDefinition> = {
 
 // ── RGB ↔ HSL conversion ─────────────────────────────────────────────────────
 
+/**
+ * rgbToHsl - Performs rgb to hsl.
+ */
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   const rn = r / 255, gn = g / 255, bn = b / 255;
   const max = Math.max(rn, gn, bn);
@@ -57,6 +60,9 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h, s, l];
 }
 
+/**
+ * hueToRgb - Performs hue to rgb.
+ */
 function hueToRgb(p: number, q: number, t: number): number {
   if (t < 0) t += 1;
   if (t > 1) t -= 1;
@@ -66,6 +72,9 @@ function hueToRgb(p: number, q: number, t: number): number {
   return p;
 }
 
+/**
+ * hslToRgb - Performs hsl to rgb.
+ */
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const hn = h / 360;
   if (s === 0) {
@@ -84,6 +93,9 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 // ── Band influence weight ────────────────────────────────────────────────────
 // Returns 0–1: how much influence the given band has on a pixel with hue `hue`.
 
+/**
+ * getBandWeight - Retrieves get band weight.
+ */
 function getBandWeight(hue: number, def: BandDefinition): number {
   // Handle wraparound (reds straddle 0°/360°)
   let diff = Math.abs(hue - def.center);
@@ -109,6 +121,9 @@ export function applyHslToImageData(
   hsl: HslAdjustments,
 ): void {
   // Pre-filter bands that have any non-zero adjustment
+  /**
+   * activeBands - Performs active bands.
+   */
   const activeBands = (Object.keys(hsl) as HslBand[]).filter(band => {
     const b = hsl[band];
     return b.hue !== 0 || b.saturation !== 0 || b.luminance !== 0;
@@ -187,6 +202,9 @@ export { rgbToHsl, hslToRgb };
 import { SpecializedCurvesState, isIdentitySpecializedCurves } from './curves';
 import { createMonotoneCubicSpline, generateLUT } from './spline';
 
+/**
+ * applySpecializedCurvesToImageData - Performs apply specialized curves to image data.
+ */
 export function applySpecializedCurvesToImageData(
   imageData: ImageData,
   curves: SpecializedCurvesState
@@ -194,7 +212,13 @@ export function applySpecializedCurvesToImageData(
   if (!curves || isIdentitySpecializedCurves(curves)) return;
 
   // Build LUTs for each curve
+  /**
+   * buildLut - Performs build lut.
+   */
   const buildLut = (pts: { x: number; y: number }[], xDomain: number, yDomain: number, samples: number = 360) => {
+    /**
+     * scaled - Performs scaled.
+     */
     const scaled = pts.map(p => ({ x: p.x / xDomain, y: p.y / yDomain }));
     const fn = createMonotoneCubicSpline(scaled);
     const rawLut = generateLUT(fn, samples);
@@ -254,6 +278,9 @@ export function applyHslToCanvas(
   canvas: HTMLCanvasElement,
   hsl: HslAdjustments,
 ): HTMLCanvasElement {
+  /**
+   * activeBands - Performs active bands.
+   */
   const activeBands = (Object.keys(hsl) as HslBand[]).filter(band => {
     const b = hsl[band];
     return b.hue !== 0 || b.saturation !== 0 || b.luminance !== 0;

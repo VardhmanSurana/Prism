@@ -30,6 +30,9 @@ interface TransformPanelProps {
   onAdjustmentsChange: (adj: Adjustments) => void;
 }
 
+/**
+ * TransformPanel - Renders transform panel.
+ */
 export const TransformPanel: React.FC<TransformPanelProps> = ({
   hasCropSelection,
   isImageCropped,

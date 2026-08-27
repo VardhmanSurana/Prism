@@ -15,6 +15,9 @@ interface SettingsState {
   setTelemetryResponseLogging: (enabled: boolean) => Promise<void>;
 }
 
+/**
+ * useSettingsStore - Hook managing settings store.
+ */
 export const useSettingsStore = create<SettingsState>((set) => ({
   isAgentEnabled: true,
   setAgentEnabled: (enabled) => set({ isAgentEnabled: enabled }),

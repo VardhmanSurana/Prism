@@ -11,7 +11,13 @@ interface AlbumCardProps {
   icon?: React.ReactNode;
 }
 
+/**
+ * AlbumCard - Renders album card.
+ */
 export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, onDelete, icon }) => {
+  /**
+   * handleRename - Handles rename.
+   */
   const handleRename = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onRename && album.type !== 'smart') {
@@ -19,6 +25,9 @@ export const AlbumCard: React.FC<AlbumCardProps> = ({ album, onClick, onRename, 
     }
   };
 
+  /**
+   * handleDelete - Handles delete.
+   */
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onDelete && album.type !== 'smart') {

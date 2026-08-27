@@ -26,6 +26,9 @@ const PAGE_SIZES: Record<PageSize, { width: number; height: number; label: strin
   square: { width: 200, height: 200, label: 'Square', dims: '8×8 in' },
 };
 
+/**
+ * createPages - Performs create pages.
+ */
 function createPages(photos: Photo[], layout: PageLayout): Page[] {
   if (layout === 'mixed') {
     const pages: Page[] = [];
@@ -62,6 +65,9 @@ function createPages(photos: Photo[], layout: PageLayout): Page[] {
   return pages;
 }
 
+/**
+ * PhotoBook - Renders photo book.
+ */
 export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose }) => {
   const [pages, setPages] = useState<Page[]>([]);
   const [layout, setLayout] = useState<PageLayout>('1-per-page');
@@ -76,15 +82,24 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
     }
   }, [isOpen, photos, layout]);
 
+  /**
+   * handleLayoutChange - Handles layout change.
+   */
   const handleLayoutChange = useCallback((newLayout: PageLayout) => {
     setLayout(newLayout);
     setPages(createPages(photos, newLayout));
   }, [photos]);
 
+  /**
+   * handleImageUpload - Handles image upload.
+   */
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
+    /**
+     * uploadedPhotos - Performs uploaded photos.
+     */
     const uploadedPhotos: Photo[] = Array.from(files).map((file, idx) => ({
       id: `uploaded-${Date.now()}-${idx}`,
       url: URL.createObjectURL(file),
@@ -101,10 +116,16 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [layout]);
 
+  /**
+   * triggerUpload - Performs trigger upload.
+   */
   const triggerUpload = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
+  /**
+   * movePhoto - Performs move photo.
+   */
   const movePhoto = useCallback((pageIdx: number, photoIdx: number, direction: 'up' | 'down') => {
     setPages(prev => {
       const next = [...prev];
@@ -132,13 +153,22 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
     });
   }, []);
 
+  /**
+   * removePhoto - Performs remove photo.
+   */
   const removePhoto = useCallback((pageIdx: number, photoIdx: number) => {
     setPages(prev => {
+      /**
+       * next - Performs next.
+       */
       const next = prev.map((p, i) => i === pageIdx ? { ...p, photos: p.photos.filter((_, j) => j !== photoIdx) } : p);
       return next.filter(p => p.photos.length > 0);
     });
   }, []);
 
+  /**
+   * addPage - Performs add page.
+   */
   const addPage = useCallback(() => {
     setPages(prev => [...prev, {
       id: `page-${Date.now()}`,
@@ -147,10 +177,16 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
     }]);
   }, []);
 
+  /**
+   * removePage - Performs remove page.
+   */
   const removePage = useCallback((pageIdx: number) => {
     setPages(prev => prev.filter((_, i) => i !== pageIdx));
   }, []);
 
+  /**
+   * handleExport - Handles export.
+   */
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     try {
@@ -158,6 +194,9 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
       const printWindow = window.open('', '_blank');
       if (!printWindow) return;
 
+      /**
+       * pageHtml - Performs page html.
+       */
       const pageHtml = pages.map((page, pageIdx) => {
         let layoutHtml = '';
 
@@ -464,6 +503,9 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
     </AnimatePresence>
   );
 
+  /**
+   * renderPagePreview - Performs render page preview.
+   */
   function renderPagePreview(page: Page, pageIdx: number) {
     if (page.photos.length === 0) {
       return (

@@ -10,6 +10,9 @@ interface ExploreHeaderProps {
   showTimeGreeting?: boolean;
 }
 
+/**
+ * getTimeGreeting - Retrieves get time greeting.
+ */
 export const getTimeGreeting = (): string => {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return 'Good Morning';
@@ -18,6 +21,9 @@ export const getTimeGreeting = (): string => {
   return 'Good Night';
 };
 
+/**
+ * ExploreHeader - Renders explore header.
+ */
 export const ExploreHeader: React.FC<ExploreHeaderProps> = ({
   icon,
   label,

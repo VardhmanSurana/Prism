@@ -3,6 +3,9 @@ import { Photo } from '../../../types';
 import { RowItem } from '../types';
 import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
+/**
+ * usePhotoGrid - Hook managing photo grid state.
+ */
 export const usePhotoGrid = (
   photos: Photo[],
   maxRowWidth?: number,
@@ -12,6 +15,9 @@ export const usePhotoGrid = (
   const { settings } = useGalleryLayout();
   const imageGrouping = settings.imageGrouping;
 
+  /**
+   * effectiveMaxWidth - Performs effective max width.
+   */
   const effectiveMaxWidth = useMemo(() => {
     if (containerWidth && containerWidth > 300) {
       // Subtract grid margins/padding (e.g. 140px total for padding & timeline offset)
@@ -21,6 +27,9 @@ export const usePhotoGrid = (
     return maxRowWidth ? maxRowWidth * 1.5 : 6.0;
   }, [containerWidth, rowHeight, maxRowWidth]);
 
+  /**
+   * rowItems - Performs row items.
+   */
   const rowItems = useMemo(() => {
     const rows: RowItem[] = [];
 
@@ -67,6 +76,9 @@ export const usePhotoGrid = (
       groups[dateKey].push(photo);
     });
 
+    /**
+     * sortedGroups - Performs sorted groups.
+     */
     const sortedGroups = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
 
     sortedGroups.forEach(([dateKey, groupPhotos]) => {

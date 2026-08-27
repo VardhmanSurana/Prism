@@ -14,12 +14,18 @@ interface UseLockedFolderReturn {
   setSubmitting: (submitting: boolean) => void;
 }
 
+/**
+ * useLockedFolder - Hook managing locked folder state.
+ */
 export function useLockedFolder(onAuthenticate: () => void): UseLockedFolderReturn {
   const [isConfigured, setIsConfigured] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
 
+  /**
+   * checkStatus - Performs check status.
+   */
   const checkStatus = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/locked-folder/status`);
@@ -41,6 +47,9 @@ export function useLockedFolder(onAuthenticate: () => void): UseLockedFolderRetu
     checkStatus();
   }, [checkStatus]);
 
+  /**
+   * setup - Performs setup.
+   */
   const setup = async (password: string): Promise<boolean> => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/locked-folder/setup`, {
@@ -55,6 +64,9 @@ export function useLockedFolder(onAuthenticate: () => void): UseLockedFolderRetu
     }
   };
 
+  /**
+   * verify - Performs verify.
+   */
   const verify = async (password: string): Promise<boolean> => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/locked-folder/verify`, {

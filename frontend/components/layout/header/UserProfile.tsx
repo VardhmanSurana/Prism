@@ -8,12 +8,18 @@ interface UserProfileProps {
   onChangeView?: (view: ViewMode) => void;
 }
 
+/**
+ * UserProfile - Renders user profile.
+ */
 export const UserProfile: React.FC<UserProfileProps> = ({ onChangeView }) => {
   const [isOpen, setIsOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const { stats } = useStats();
 
   useEffect(() => {
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
         setIsOpen(false);
@@ -23,6 +29,9 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onChangeView }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  /**
+   * formatBytes - Formats format bytes.
+   */
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return '0 MB';
     const i = Math.floor(Math.log(bytes) / Math.log(1024));

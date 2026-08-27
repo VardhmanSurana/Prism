@@ -172,6 +172,9 @@ const SliderThumb = React.forwardRef<HTMLDivElement, SliderThumbProps>(
 
     // Reset gesture flag between pointer sessions; pointer-down sets its own
     // snapshot at the top of the handler, so the ref only gates keyboard.
+    /**
+     * handlePointerUp - Handles pointer up.
+     */
     const handlePointerUp = useCallback(() => {
       setIsDragging(false);
       hasGestureRef.current = false;
@@ -226,6 +229,9 @@ const SliderThumb = React.forwardRef<HTMLDivElement, SliderThumbProps>(
       [disabled, value, min, max, step, onValueChange, onGestureStart]
     );
 
+    /**
+     * handleBlur - Handles blur.
+     */
     const handleBlur = useCallback(() => {
       // Reset so a subsequent keyboard session starts a new history step
       hasGestureRef.current = false;
@@ -271,6 +277,9 @@ SliderThumb.displayName = 'SliderThumb';
 // Compound export
 // ---------------------------------------------------------------------------
 
+/**
+ * Slider - Renders slider.
+ */
 export const Slider = Object.assign(SliderRoot, {
   Track: SliderTrack,
   Range: SliderRange,

@@ -60,6 +60,9 @@ interface EditingModeProps {
   photoId?: number | string;
 }
 
+/**
+ * EditingMode - Renders editing mode.
+ */
 export const EditingMode: React.FC<EditingModeProps> = ({
   src,
   onClose,
@@ -170,6 +173,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
   const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
 
+  /**
+   * handleApplyColorMatch - Handles apply color match.
+   */
   const handleApplyColorMatch = useCallback(async (refSrc: string, strength: number) => {
     try {
       const refImg = new Image();
@@ -226,6 +232,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     activeToolRef.current = activeTool;
   }, [activeTool]);
 
+  /**
+   * handleCropEvent - Handles crop event.
+   */
   const handleCropEvent = useCallback(() => {
     if (activeToolRef.current !== 'transform') {
       setHasCropSelection(false);
@@ -256,6 +265,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     });
   }, []);
 
+  /**
+   * handleApplyCrop - Handles apply crop.
+   */
   const handleApplyCrop = useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -291,6 +303,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV, historyState.createdUrlRef]);
 
+  /**
+   * handleResetCrop - Handles reset crop.
+   */
   const handleResetCrop = useCallback(() => {
     revokeLocalUrl();
     setCurrentImageSrc(src);
@@ -302,8 +317,14 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setFlipV(false);
   }, [src, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV]);
 
+  /**
+   * filterString - Performs filter string.
+   */
   const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
   const deferredAdjustments = React.useDeferredValue(adjustments);
+  /**
+   * deferredFilterString - Performs deferred filter string.
+   */
   const deferredFilterString = useMemo(() => toFilterString(deferredAdjustments), [deferredAdjustments]);
 
   useEffect(() => {
@@ -325,6 +346,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [activeTool]);
 
+  /**
+   * handleRotate - Handles rotate.
+   */
   const handleRotate = useCallback((degree: number) => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -364,11 +388,17 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [totalRotation, currentRatio, setTotalRotation]);
 
+  /**
+   * handleSetAspectRatio - Handles set aspect ratio.
+   */
   const handleSetAspectRatio = useCallback((ratio: number) => {
     setCurrentRatio(ratio);
     cropperRef.current?.setAspectRatio(ratio);
   }, []);
 
+  /**
+   * handleReady - Handles ready.
+   */
   const handleReady = useCallback(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -398,18 +428,27 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     isRestoringHistory.current = false;
   }, [flipH, flipV, totalRotation, isRestoringHistory]);
 
+  /**
+   * handleFlipH - Handles flip h.
+   */
   const handleFlipH = useCallback(() => {
     const next = !flipH;
     setFlipH(next);
     cropperRef.current?.scaleX(next ? -1 : 1);
   }, [flipH, setFlipH]);
 
+  /**
+   * handleFlipV - Handles flip v.
+   */
   const handleFlipV = useCallback(() => {
     const next = !flipV;
     setFlipV(next);
     cropperRef.current?.scaleY(next ? -1 : 1);
   }, [flipV, setFlipV]);
 
+  /**
+   * handleStraighten - Handles straighten.
+   */
   const handleStraighten = useCallback((angle: number) => {
     const cropper = cropperRef.current;
     if (!cropper) return;
@@ -418,15 +457,24 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     cropper.rotate(delta);
   }, [straightenAngle, setStraightenAngle]);
 
+  /**
+   * handleAdjChange - Handles adj change.
+   */
   const handleAdjChange = useCallback((adj: Adjustments) => {
     setAdjustments(adj);
   }, [setAdjustments]);
 
+  /**
+   * handleCopyEdits - Handles copy edits.
+   */
   const handleCopyEdits = useCallback(() => {
     const { copyAdjustments } = useEditStore.getState();
     copyAdjustments(adjustments);
   }, [adjustments]);
 
+  /**
+   * handlePasteEdits - Handles paste edits.
+   */
   const handlePasteEdits = useCallback(() => {
     const { copiedAdjustments } = useEditStore.getState();
     if (!copiedAdjustments) return;
@@ -434,6 +482,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, [setAdjustments]);
 
   const [isAutoEnhancing, setIsAutoEnhancing] = useState<boolean>(false);
+  /**
+   * handleAutoEnhance - Handles auto enhance.
+   */
   const handleAutoEnhance = useCallback(async () => {
     if (!photoId || isAutoEnhancing) return;
     setIsAutoEnhancing(true);
@@ -448,6 +499,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [photoId, isAutoEnhancing, setAdjustments]);
 
+  /**
+   * handleInpaintProcess - Handles inpaint process.
+   */
   const handleInpaintProcess = useCallback(async () => {
     if (!inpaintMask || isInpainting) return;
     
@@ -455,6 +509,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     
     try {
       // Helper to convert any image source to Base64
+      /**
+       * getBase64FromUrl - Retrieves get base64from url.
+       */
       const getBase64FromUrl = async (url: string): Promise<string> => {
         const response = await fetch(url);
         const blob = await response.blob();
@@ -519,6 +576,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, [inpaintMask, isInpainting, currentImageSrc, inpaintOperation, inpaintSettings, addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef]);
 
+  /**
+   * handleInpaintStrokeComplete - Handles inpaint stroke complete.
+   */
   const handleInpaintStrokeComplete = useCallback((maskDataUrl: string) => {
     const idx = inpaintHistoryIndexRef.current;
     inpaintHistoryRef.current = inpaintHistoryRef.current.slice(0, idx + 1);
@@ -528,6 +588,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setInpaintCanRedo(false);
   }, []);
 
+  /**
+   * handleInpaintUndo - Handles inpaint undo.
+   */
   const handleInpaintUndo = useCallback(() => {
     const idx = inpaintHistoryIndexRef.current;
     if (idx <= 0) {
@@ -545,6 +608,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
   }, []);
 
+  /**
+   * handleInpaintRedo - Handles inpaint redo.
+   */
   const handleInpaintRedo = useCallback(() => {
     const idx = inpaintHistoryIndexRef.current;
     if (idx < inpaintHistoryRef.current.length - 1) {
@@ -558,6 +624,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
   }, []);
 
+  /**
+   * handleInpaintModeChange - Handles inpaint mode change.
+   */
   const handleInpaintModeChange = useCallback((mode: InpaintMode) => {
     setInpaintMode(mode);
     if (mode === 'interactive') {
@@ -569,6 +638,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }
   }, []);
 
+  /**
+   * handleSave - Handles save.
+   */
   const handleSave = useCallback((isSaveAs: boolean, format?: string, quality?: number) => {
     if (isSaving) return;
     const cropper = cropperRef.current;
@@ -621,6 +693,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     }, 50);
   }, [adjustments, isSaving, onSave, annState.annotations]);
 
+  /**
+   * handleCopy - Handles copy.
+   */
   const handleCopy = useCallback(() => {
     if (isSaving) return;
     const cropper = cropperRef.current;

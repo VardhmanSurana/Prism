@@ -21,6 +21,9 @@ interface TopBarProps {
   onPasteEdits?: () => void;
 }
 
+/**
+ * TopBar - Renders top bar.
+ */
 export const TopBar: React.FC<TopBarProps> = ({
   onClose,
   isSaving,
@@ -49,11 +52,17 @@ export const TopBar: React.FC<TopBarProps> = ({
   useEffect(() => {
     if (!dropdownOpen) return;
 
+    /**
+     * handleClickOutside - Handles click outside.
+     */
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
     };
+    /**
+     * handleEscape - Handles escape.
+     */
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setDropdownOpen(false);
     };
@@ -66,6 +75,9 @@ export const TopBar: React.FC<TopBarProps> = ({
     };
   }, [dropdownOpen]);
 
+  /**
+   * onSaveAs - Performs on save as.
+   */
   const onSaveAs = () => {
     const mime = exportFormat === 'png' ? 'image/png' : exportFormat === 'webp' ? 'image/webp' : 'image/jpeg';
     const q = exportFormat === 'png' ? 1 : exportQuality / 100;
@@ -73,6 +85,9 @@ export const TopBar: React.FC<TopBarProps> = ({
     setDropdownOpen(false);
   };
 
+  /**
+   * onOverwrite - Performs on overwrite.
+   */
   const onOverwrite = () => {
     const mime = exportFormat === 'png' ? 'image/png' : exportFormat === 'webp' ? 'image/webp' : 'image/jpeg';
     const q = exportFormat === 'png' ? 1 : exportQuality / 100;
@@ -80,6 +95,9 @@ export const TopBar: React.FC<TopBarProps> = ({
     setDropdownOpen(false);
   };
 
+  /**
+   * onCopy - Performs on copy.
+   */
   const onCopy = () => {
     handleCopy();
     setDropdownOpen(false);

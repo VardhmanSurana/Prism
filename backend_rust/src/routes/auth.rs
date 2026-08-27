@@ -51,6 +51,7 @@ pub struct ErrorResponse {
 }
 
 // Hash a password
+/// hash_password - Performs hash password.
 fn hash_password(password: &str) -> Result<String, String> {
     let salt = SaltString::generate(&mut OsRng);
     let argon2 = Argon2::default();
@@ -61,6 +62,7 @@ fn hash_password(password: &str) -> Result<String, String> {
 }
 
 // Verify a password
+/// verify_password - Performs verify password.
 fn verify_password(password: &str, hash: &str) -> Result<bool, String> {
     let parsed_hash = PasswordHash::new(hash)
         .map_err(|e| e.to_string())?;
@@ -72,6 +74,7 @@ fn verify_password(password: &str, hash: &str) -> Result<bool, String> {
 
 // Generate a simple JWT-like token (for demo purposes)
 // In production, use a proper JWT library like `jsonwebtoken`
+/// generate_token - Performs generate token.
 fn generate_token(user_id: i64, username: &str) -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
@@ -82,6 +85,7 @@ fn generate_token(user_id: i64, username: &str) -> String {
 }
 
 // Login handler
+/// login - Performs login.
 pub async fn login(
     State(state): State<std::sync::Arc<AppState>>,
     Json(request): Json<LoginRequest>,
@@ -125,6 +129,7 @@ pub async fn login(
 }
 
 // Register handler
+/// register - Performs register.
 pub async fn register(
     State(state): State<std::sync::Arc<AppState>>,
     Json(request): Json<CreateUserRequest>,
@@ -171,6 +176,7 @@ pub async fn register(
 }
 
 // Get current user (requires auth)
+/// me - Performs me.
 pub async fn me(
     State(_state): State<std::sync::Arc<AppState>>,
 ) -> impl IntoResponse {
@@ -188,6 +194,7 @@ pub async fn me(
 }
 
 // List all users (admin only)
+/// list_users - Retrieves list users.
 pub async fn list_users(
     State(state): State<std::sync::Arc<AppState>>,
 ) -> impl IntoResponse {
@@ -220,6 +227,7 @@ pub async fn list_users(
 }
 
 // Delete user (admin only)
+/// delete_user - Deletes delete user.
 pub async fn delete_user(
     State(state): State<std::sync::Arc<AppState>>,
     Path(user_id): Path<i64>,
@@ -239,6 +247,7 @@ pub async fn delete_user(
 }
 
 // Create auth routes
+/// create_auth_routes - Handles create auth routes.
 pub fn create_auth_routes() -> Router<std::sync::Arc<AppState>> {
     Router::new()
         .route("/login", post(login))

@@ -12,6 +12,9 @@ interface UsePhotoSortingProps {
   onSetContextPhotos: (photos: Photo[] | null) => void;
 }
 
+/**
+ * usePhotoSorting - Hook managing photo sorting.
+ */
 export function usePhotoSorting({
   photos,
   currentView,
@@ -25,6 +28,9 @@ export function usePhotoSorting({
   const scrollRef = useRef<HTMLDivElement>(null);
   const isScrollingRef = useRef(false);
 
+  /**
+   * displayedPhotos - Performs displayed photos.
+   */
   const displayedPhotos = useMemo(() => {
     const isTrashView = currentView === 'trash';
     const isLockedView = currentView === 'locked';
@@ -84,6 +90,9 @@ export function usePhotoSorting({
     return result;
   }, [currentView, activeFilters, photos, sortMode]);
 
+  /**
+   * handleScroll - Handles scroll.
+   */
   const handleScroll = useCallback(() => {
     if (!isScrollingRef.current) {
       isScrollingRef.current = true;
@@ -104,17 +113,29 @@ export function usePhotoSorting({
     }
   }, [onFetchPhotos]);
 
+  /**
+   * handleNextPhoto - Handles next photo.
+   */
   const handleNextPhoto = useCallback(() => {
     if (!selectedPhoto) return null;
     const photoList = contextPhotos || displayedPhotos;
+    /**
+     * idx - Performs idx.
+     */
     const idx = photoList.findIndex(p => String(p.id) === String(selectedPhoto.id));
     if (idx !== -1 && idx < photoList.length - 1) return photoList[idx + 1];
     return null;
   }, [selectedPhoto, contextPhotos, displayedPhotos]);
 
+  /**
+   * handlePrevPhoto - Handles prev photo.
+   */
   const handlePrevPhoto = useCallback(() => {
     if (!selectedPhoto) return null;
     const photoList = contextPhotos || displayedPhotos;
+    /**
+     * idx - Performs idx.
+     */
     const idx = photoList.findIndex(p => String(p.id) === String(selectedPhoto.id));
     if (idx > 0) return photoList[idx - 1];
     return null;

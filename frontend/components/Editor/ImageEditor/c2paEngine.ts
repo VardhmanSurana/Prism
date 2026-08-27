@@ -4,6 +4,9 @@ export interface C2paManifestOptions {
   softwareAgent?: string;
 }
 
+/**
+ * buildC2paManifest - Performs build c2pa manifest.
+ */
 export function buildC2paManifest(options: C2paManifestOptions = {}): ArrayBuffer {
   const manifest = {
     claim_generator: options.softwareAgent || 'Prism Image Editor 1.0',

@@ -8,6 +8,9 @@ interface UseFolderManagementProps {
   onExcludedFoldersChange: (folders: string[]) => void;
 }
 
+/**
+ * useFolderManagement - Hook managing folder management.
+ */
 export const useFolderManagement = ({
   watchedFolders,
   onWatchedFoldersChange,
@@ -17,6 +20,9 @@ export const useFolderManagement = ({
   const [watchedInput, setWatchedInput] = useState('');
   const [excludedInput, setExcludedInput] = useState('');
 
+  /**
+   * openBrowseDialog - Performs open browse dialog.
+   */
   const openBrowseDialog = async (title: string, multiple = false): Promise<string[] | null> => {
     try {
       const result = await openFileFolderBrowser({
@@ -29,6 +35,9 @@ export const useFolderManagement = ({
     return null;
   };
 
+  /**
+   * handleAddWatchedFolder - Handles add watched folder.
+   */
   const handleAddWatchedFolder = () => {
     if (watchedInput && !watchedFolders.includes(watchedInput)) {
       const newFolders = [...watchedFolders, watchedInput];
@@ -37,11 +46,20 @@ export const useFolderManagement = ({
     }
   };
 
+  /**
+   * handleRemoveWatchedFolder - Handles remove watched folder.
+   */
   const handleRemoveWatchedFolder = (folder: string) => {
+    /**
+     * newFolders - Performs new folders.
+     */
     const newFolders = watchedFolders.filter(f => f !== folder);
     onWatchedFoldersChange(newFolders);
   };
 
+  /**
+   * handleBrowseWatched - Handles browse watched.
+   */
   const handleBrowseWatched = async () => {
     const selected = await openBrowseDialog('Select Library Folder(s) to Watch', true);
     if (selected && selected.length > 0) {
@@ -57,6 +75,9 @@ export const useFolderManagement = ({
     }
   };
 
+  /**
+   * handleAddExcludedFolder - Handles add excluded folder.
+   */
   const handleAddExcludedFolder = () => {
     if (excludedInput && !excludedFolders.includes(excludedInput)) {
       const newFolders = [...excludedFolders, excludedInput];
@@ -65,11 +86,20 @@ export const useFolderManagement = ({
     }
   };
 
+  /**
+   * handleRemoveExcludedFolder - Handles remove excluded folder.
+   */
   const handleRemoveExcludedFolder = (folder: string) => {
+    /**
+     * newFolders - Performs new folders.
+     */
     const newFolders = excludedFolders.filter(f => f !== folder);
     onExcludedFoldersChange(newFolders);
   };
 
+  /**
+   * handleBrowseExcluded - Handles browse excluded.
+   */
   const handleBrowseExcluded = async () => {
     const selected = await openBrowseDialog('Select Folder(s) to Exclude', true);
     if (selected && selected.length > 0) {

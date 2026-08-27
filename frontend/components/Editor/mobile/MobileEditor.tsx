@@ -31,6 +31,9 @@ const MOBILE_TOOLS: ToolDef[] = [
   { id: 'vignette', label: 'Vignette', icon: Disc, min: 0, max: 100, defaultValue: 0 },
 ];
 
+/**
+ * MobileEditor - Renders mobile editor.
+ */
 export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSave }) => {
   const [activeToolId, setActiveToolId] = useState<string>('exposure');
   const [adjustments, setAdjustments] = useState<Record<string, number>>(() => ({
@@ -55,11 +58,17 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
 
   const currentValue = adjustments[activeTool.id] ?? activeTool.defaultValue;
 
+  /**
+   * handleSliderChange - Handles slider change.
+   */
   const handleSliderChange = (val: number) => {
     const next = { ...adjustments, [activeTool.id]: val };
     setAdjustments(next);
   };
 
+  /**
+   * handleSliderCommit - Handles slider commit.
+   */
   const handleSliderCommit = (val: number) => {
     const next = { ...adjustments, [activeTool.id]: val };
     const nextHistory = history.slice(0, historyIndex + 1);
@@ -68,6 +77,9 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
     setHistoryIndex(nextHistory.length - 1);
   };
 
+  /**
+   * handleUndo - Handles undo.
+   */
   const handleUndo = () => {
     if (historyIndex > 0) {
       setHistoryIndex(historyIndex - 1);
@@ -75,6 +87,9 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
     }
   };
 
+  /**
+   * handleRedo - Handles redo.
+   */
   const handleRedo = () => {
     if (historyIndex < history.length - 1) {
       setHistoryIndex(historyIndex + 1);
@@ -82,6 +97,9 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
     }
   };
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     const resetValues: Record<string, number> = {};
     MOBILE_TOOLS.forEach((t) => {
@@ -93,6 +111,9 @@ export const MobileEditor: React.FC<MobileEditorProps> = ({ photo, onClose, onSa
   };
 
   // Preview CSS filter simulation
+  /**
+   * previewFilter - Performs preview filter.
+   */
   const previewFilter = useMemo(() => {
     const b = 1 + (adjustments.brightness || 0) / 100;
     const c = 1 + (adjustments.contrast || 0) / 100;

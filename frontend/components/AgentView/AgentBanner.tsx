@@ -6,6 +6,9 @@ interface AgentBannerProps {
   subtitle: string;
 }
 
+/**
+ * AgentBanner - Renders agent banner.
+ */
 export const AgentBanner: React.FC<AgentBannerProps> = ({ title, subtitle }) => {
   return (
     <div className="p-6 border-b border-white/5 flex items-center gap-3 bg-white/[0.02]">

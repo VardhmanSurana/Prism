@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 pub type DbPool = Pool<Sqlite>;
 
+/// init_db - Initializes SQLite pool and runs migrations.
 pub async fn init_db(database_url: &str) -> Result<DbPool, Error> {
     // Extract the filesystem path from the connection URL and ensure its parent
     // directory exists. SQLite's `create_if_missing` will create the *file* when
@@ -42,6 +43,7 @@ pub async fn init_db(database_url: &str) -> Result<DbPool, Error> {
     Ok(pool)
 }
 
+/// create_tables - Creates tables.
 async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query(
         r#"
@@ -330,6 +332,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     Ok(())
 }
 
+/// ensure_uuids - Ensures uuids.
 async fn ensure_uuids(pool: &DbPool) -> Result<(), Error> {
     let unassigned_photos: Vec<i64> = sqlx::query_scalar("SELECT id FROM photos WHERE uuid IS NULL OR uuid = ''")
         .fetch_all(pool)

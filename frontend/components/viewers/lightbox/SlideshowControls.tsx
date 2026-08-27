@@ -47,6 +47,11 @@ const TRANSITIONS: { id: SlideshowTransition; label: string }[] = [
   { id: 'ken-burns', label: 'Ken Burns' },
 ];
 
+/**
+ * Slideshow playback bar with progress rail, transport controls, music toggle,
+ * and a settings popover for interval, transition, loop and volume.
+ * Auto-hides after inactivity while playing.
+ */
 export const SlideshowControls: React.FC<SlideshowControlsProps> = ({
   isPlaying,
   progress,
@@ -75,6 +80,7 @@ export const SlideshowControls: React.FC<SlideshowControlsProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const settingsRef = useRef<HTMLDivElement>(null);
 
+  /** Shows controls and schedules auto-hide when playing and settings are closed. */
   const bumpVisibility = () => {
     setVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);

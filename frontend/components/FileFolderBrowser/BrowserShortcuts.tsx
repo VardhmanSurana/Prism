@@ -36,11 +36,17 @@ interface BrowserShortcutsProps {
   variant?: 'inline' | 'sidebar';
 }
 
+/**
+ * kindIcon - Performs kind icon.
+ */
 function kindIcon(kind: string) {
   if (kind === 'network') return <Wifi size={10} className="shrink-0" />;
   return <HardDrive size={10} className="shrink-0" />;
 }
 
+/**
+ * shortcutIcon - Performs shortcut icon.
+ */
 function shortcutIcon(name: string) {
   const key = name.toLowerCase();
   if (key === 'home') return <Home size={14} className="shrink-0" />;
@@ -49,6 +55,9 @@ function shortcutIcon(name: string) {
   return <FolderOpen size={14} className="shrink-0" />;
 }
 
+/**
+ * BrowserShortcuts - Renders browser shortcuts.
+ */
 export const BrowserShortcuts: React.FC<BrowserShortcutsProps> = ({
   shortcuts,
   recentFolders = [],

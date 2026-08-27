@@ -3,10 +3,16 @@ import { API_BASE } from '../../constants';
 import { Photo } from '../../types';
 import { Person } from './types';
 
+/**
+ * usePeople - Hook managing people state.
+ */
 export function usePeople() {
   const [people, setPeople] = useState<Person[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * fetchPeople - Retrieves fetch people.
+   */
   const fetchPeople = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -26,6 +32,9 @@ export function usePeople() {
     fetchPeople();
   }, [fetchPeople]);
 
+  /**
+   * updatePersonName - Performs update person name.
+   */
   const updatePersonName = useCallback((personId: number, newName: string) => {
     setPeople(prev =>
       prev.map(p => (p.id === personId ? { ...p, name: newName } : p))
@@ -35,10 +44,16 @@ export function usePeople() {
   return { people, isLoading, fetchPeople, updatePersonName };
 }
 
+/**
+ * usePersonPhotos - Hook managing person photos state.
+ */
 export function usePersonPhotos(person: Person | null) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * fetchPhotos - Retrieves fetch photos.
+   */
   const fetchPhotos = useCallback(async () => {
     if (!person) return;
 
@@ -66,17 +81,26 @@ export function usePersonPhotos(person: Person | null) {
   return { photos, isLoading, fetchPhotos };
 }
 
+/**
+ * usePersonRename - Hook managing person rename state.
+ */
 export function usePersonRename(
   onSuccess: (personId: number | string, newName: string) => void
 ) {
   const [editingId, setEditingId] = useState<number | string | null>(null);
   const [editName, setEditName] = useState('');
 
+  /**
+   * startRename - Performs start rename.
+   */
   const startRename = useCallback((person: Person) => {
     setEditingId(person.uuid || person.id);
     setEditName(person.name);
   }, []);
 
+  /**
+   * cancelRename - Performs cancel rename.
+   */
   const cancelRename = useCallback(() => {
     setEditingId(null);
     setEditName('');
@@ -127,10 +151,16 @@ export interface PendingFace {
   created_at: string | null;
 }
 
+/**
+ * usePendingFaces - Hook managing pending faces state.
+ */
 export function usePendingFaces(personId: number | string | null) {
   const [pendingFaces, setPendingFaces] = useState<PendingFace[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  /**
+   * fetchPendingFaces - Retrieves fetch pending faces.
+   */
   const fetchPendingFaces = useCallback(async () => {
     if (personId === null) return;
     setIsLoading(true);
@@ -151,6 +181,9 @@ export function usePendingFaces(personId: number | string | null) {
     fetchPendingFaces();
   }, [fetchPendingFaces]);
 
+  /**
+   * submitFeedback - Performs submit feedback.
+   */
   const submitFeedback = useCallback(async (pendingId: number, decision: 'same' | 'different') => {
     try {
       const response = await fetch(`${API_BASE}/api/v1/people/pending-faces/${pendingId}/feedback`, {

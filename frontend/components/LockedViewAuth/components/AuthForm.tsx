@@ -13,6 +13,9 @@ interface AuthFormProps {
   setSubmitting: (submitting: boolean) => void;
 }
 
+/**
+ * AuthForm - Renders auth form.
+ */
 export function AuthForm({
   isConfigured,
   error,
@@ -27,6 +30,9 @@ export function AuthForm({
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
 
+  /**
+   * handleSetup - Handles setup.
+   */
   const handleSetup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -53,6 +59,9 @@ export function AuthForm({
     setSubmitting(false);
   };
 
+  /**
+   * handleVerify - Handles verify.
+   */
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');

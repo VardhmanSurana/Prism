@@ -15,6 +15,9 @@ interface TrashViewProps {
   onUpdatePhotos?: React.Dispatch<React.SetStateAction<Photo[]>>;
 }
 
+/**
+ * TrashView - Renders trash view.
+ */
 export const TrashView: React.FC<TrashViewProps> = ({
   photos,
   selectedIds,
@@ -38,6 +41,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
     [trashedPhotos]
   );
 
+  /**
+   * formattedTotalSize - Formats formatted total size.
+   */
   const formattedTotalSize = useMemo(() => {
     if (totalSizeBytes === 0) return '0 B';
     const k = 1024;
@@ -98,6 +104,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
   );
 
   // Restore all trashed photos
+  /**
+   * handleRestoreAll - Handles restore all.
+   */
   const handleRestoreAll = useCallback(async () => {
     if (trashedPhotos.length === 0) return;
     if (
@@ -111,6 +120,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
     logAction('TrashView', 'restore_all', { count: trashedPhotos.length });
     setIsProcessing(true);
+    /**
+     * ids - Performs ids.
+     */
     const ids = trashedPhotos.map((p) => String(p.id));
 
     // Optimistic restore
@@ -135,6 +147,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
   }, [trashedPhotos, onUpdatePhotos, logAction, logError]);
 
   // Empty Trash completely
+  /**
+   * handleEmptyTrash - Handles empty trash.
+   */
   const handleEmptyTrash = useCallback(async () => {
     if (trashedPhotos.length === 0) return;
     if (
@@ -148,6 +163,9 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
     logAction('TrashView', 'empty_trash', { count: trashedPhotos.length });
     setIsProcessing(true);
+    /**
+     * ids - Performs ids.
+     */
     const ids = new Set(trashedPhotos.map((p) => String(p.id)));
 
     // Optimistic removal
@@ -163,8 +181,14 @@ export const TrashView: React.FC<TrashViewProps> = ({
     [trashedPhotos, selectedIds]
   );
 
+  /**
+   * handleToggleSelectAll - Handles toggle select all.
+   */
   const handleToggleSelectAll = useCallback(() => {
     if (!onToggleGroupSelection) return;
+    /**
+     * ids - Performs ids.
+     */
     const ids = trashedPhotos.map((p) => String(p.id));
     if (allSelected) {
       onToggleGroupSelection([]);

@@ -111,6 +111,7 @@ cargo build --release
 
 ### Common Patterns
 ```typescript
+/** fetchPhotos - Retrieves photos list from the backend API. */
 // Frontend: API call
 const response = await fetch(`${API_BASE}/api/v1/photos`, {
   method: 'GET',
@@ -119,6 +120,7 @@ const response = await fetch(`${API_BASE}/api/v1/photos`, {
 const data = await response.json();
 
 // Backend: Handler
+/// handler - Handles incoming API request and returns JSON response.
 async fn handler(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<Request>,

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { API_BASE } from '../../constants';
 
+/**
+ * useSyncConfig - Hook managing sync config.
+ */
 export const useSyncConfig = () => {
   const [syncEnabled, setSyncEnabled] = useState(false);
   const [watchedFolders, setWatchedFolders] = useState<string[]>([]);
@@ -11,6 +14,9 @@ export const useSyncConfig = () => {
     fetchSyncConfig();
   }, []);
 
+  /**
+   * fetchSyncConfig - Retrieves fetch sync config.
+   */
   const fetchSyncConfig = async () => {
     try {
       const syncResponse = await fetch(`${API_BASE}/api/v1/settings/sync`);
@@ -28,6 +34,9 @@ export const useSyncConfig = () => {
     }
   };
 
+  /**
+   * saveSyncConfig - Performs save sync config.
+   */
   const saveSyncConfig = async (enabled: boolean, excluded: string[]) => {
     try {
       await fetch(`${API_BASE}/api/v1/settings/sync`, {
@@ -40,6 +49,9 @@ export const useSyncConfig = () => {
     }
   };
 
+  /**
+   * saveFoldersConfig - Performs save folders config.
+   */
   const saveFoldersConfig = async (watched: string[], excluded: string[]) => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/folders`, {
@@ -57,17 +69,26 @@ export const useSyncConfig = () => {
     }
   };
 
+  /**
+   * handleToggleSync - Handles toggle sync.
+   */
   const handleToggleSync = () => {
     const newValue = !syncEnabled;
     setSyncEnabled(newValue);
     saveSyncConfig(newValue, excludedFolders);
   };
 
+  /**
+   * updateWatchedFolders - Performs update watched folders.
+   */
   const updateWatchedFolders = (folders: string[]) => {
     setWatchedFolders(folders);
     saveFoldersConfig(folders, excludedFolders);
   };
 
+  /**
+   * updateExcludedFolders - Performs update excluded folders.
+   */
   const updateExcludedFolders = (folders: string[]) => {
     setExcludedFolders(folders);
     saveFoldersConfig(watchedFolders, folders);

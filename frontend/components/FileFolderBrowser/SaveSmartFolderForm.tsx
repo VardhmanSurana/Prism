@@ -16,6 +16,9 @@ const SIZE_PRESETS: { label: string; value: number | undefined }[] = [
   { label: '≥ 20 MB', value: 20_000_000 },
 ];
 
+/**
+ * SaveSmartFolderForm - Renders save smart folder form.
+ */
 export const SaveSmartFolderForm: React.FC<SaveSmartFolderFormProps> = ({
   initialNamePattern = '',
   currentPath,
@@ -30,6 +33,9 @@ export const SaveSmartFolderForm: React.FC<SaveSmartFolderFormProps> = ({
   const [minSizeBytes, setMinSizeBytes] = useState<number | undefined>(undefined);
   const [pinBasePath, setPinBasePath] = useState(Boolean(currentPath));
 
+  /**
+   * handleSubmit - Handles submit.
+   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;

@@ -8,10 +8,16 @@ interface SelectionHighlightProps {
   onHandleStart?: (handleId: HandleId, e: React.PointerEvent) => void;
 }
 
+/**
+ * SelectionHighlight - Renders selection highlight.
+ */
 export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotation, onHandleStart }) => {
   const bbox = getAnnotationBBox(annotation);
   const isArrow = annotation.type === 'arrow';
 
+  /**
+   * handleMouseDown - Handles mouse down.
+   */
   const handleMouseDown = (handleId: HandleId) => (e: React.PointerEvent) => {
     e.preventDefault();
     onHandleStart?.(handleId, e);
@@ -19,6 +25,9 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
 
   const HANDLE_R = 5;
 
+  /**
+   * renderEndpointHandles - Performs render endpoint handles.
+   */
   const renderEndpointHandles = () => {
     if (!annotation.points || annotation.points.length < 2) return null;
     const p0 = annotation.points[0];
@@ -42,6 +51,9 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
     );
   };
 
+  /**
+   * renderResizeHandles - Performs render resize handles.
+   */
   const renderResizeHandles = () => {
     const cornerSize = 6;
 

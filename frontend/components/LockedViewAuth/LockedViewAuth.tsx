@@ -4,6 +4,9 @@ import { useLockedFolder } from './hooks/useLockedFolder';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { AuthForm } from './components/AuthForm';
 
+/**
+ * LockedViewAuth - Renders locked view auth.
+ */
 export function LockedViewAuth({ onAuthenticate }: LockedViewAuthProps): React.ReactElement {
   const {
     isConfigured,

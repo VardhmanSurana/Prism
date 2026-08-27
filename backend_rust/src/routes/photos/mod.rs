@@ -10,6 +10,7 @@ use axum::http::StatusCode;
 use chrono::Utc;
 use crate::models::Photo;
 
+/// find_photo_by_id_or_uuid - Performs find photo by id or uuid.
 pub async fn find_photo_by_id_or_uuid(
     db: &sqlx::SqlitePool,
     identifier: &str,

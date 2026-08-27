@@ -6,6 +6,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Annotation } from '../AnnotationsPanel';
 
+/**
+ * useAnnotationsState - Hook managing annotations state state.
+ */
 export const useAnnotationsState = () => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationsHistoryPast, setAnnotationsHistoryPast] = useState<Annotation[][]>([]);
@@ -20,11 +23,17 @@ export const useAnnotationsState = () => {
     latestAnnotationsRef.current = annotations;
   }, [annotations]);
 
+  /**
+   * pushToAnnotationsHistory - Performs push to annotations history.
+   */
   const pushToAnnotationsHistory = useCallback((pastState: Annotation[]) => {
     setAnnotationsHistoryPast(prev => [...prev, pastState]);
     setAnnotationsHistoryFuture([]);
   }, []);
 
+  /**
+   * onStartGesture - Performs on start gesture.
+   */
   const onStartGesture = useCallback(() => {
     isGestureActiveRef.current = true;
     if (!annotationsStartRef.current) {
@@ -36,6 +45,9 @@ export const useAnnotationsState = () => {
     }
   }, []);
 
+  /**
+   * onEndGesture - Performs on end gesture.
+   */
   const onEndGesture = useCallback(() => {
     isGestureActiveRef.current = false;
     const start = annotationsStartRef.current;
@@ -77,6 +89,9 @@ export const useAnnotationsState = () => {
     setAnnotations(next);
   }, [pushToAnnotationsHistory]);
 
+  /**
+   * undoAnnotations - Performs undo annotations.
+   */
   const undoAnnotations = useCallback(() => {
     if (annotationsHistoryPast.length === 0) return;
     const previous = annotationsHistoryPast[annotationsHistoryPast.length - 1];
@@ -87,6 +102,9 @@ export const useAnnotationsState = () => {
     setAnnotations(previous);
   }, [annotationsHistoryPast]);
 
+  /**
+   * redoAnnotations - Performs redo annotations.
+   */
   const redoAnnotations = useCallback(() => {
     if (annotationsHistoryFuture.length === 0) return;
     const next = annotationsHistoryFuture[0];
@@ -127,6 +145,9 @@ export const useAnnotationsState = () => {
   // Synchronize sidebar state when selected annotation changes
   useEffect(() => {
     if (selectedAnnId) {
+      /**
+       * selected - Performs selected.
+       */
       const selected = annotations.find(a => a.id === selectedAnnId);
       if (selected && selected.type === 'text') {
         setFontFamily(selected.fontFamily || 'Space Grotesk');
@@ -141,6 +162,9 @@ export const useAnnotationsState = () => {
     }
   }, [selectedAnnId, annotations]);
 
+  /**
+   * onUpdateTextProps - Performs on update text props.
+   */
   const onUpdateTextProps = useCallback((updatedProps: Partial<Annotation>) => {
     if (!selectedAnnId) return;
     updateAnnotations(prev =>

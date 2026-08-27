@@ -19,6 +19,9 @@ const SHORTCUTS = [
   { key: '?', description: 'Show Keyboard Shortcuts Overlay' },
 ];
 
+/**
+ * Modal that lists all lightbox keyboard shortcuts. Renders nothing when closed.
+ */
 export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 

@@ -22,6 +22,9 @@ const SUGGESTIONS = [
   { text: "Show all my images", icon: 'ImageIcon' },
 ];
 
+/**
+ * AgentView - Renders agent view.
+ */
 export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ onPhotoClick }) => {
   const {
     sessions,
@@ -47,6 +50,9 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
     }
   }, [currentPhotos]);
 
+  /**
+   * handleClear - Handles clear.
+   */
   const handleClear = () => {
     clearResults();
     setIsDrawerOpen(false);

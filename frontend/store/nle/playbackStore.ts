@@ -10,6 +10,9 @@ export interface PlaybackSlice {
   seek: (time: number) => void;
 }
 
+/**
+ * createPlaybackSlice - Creates playback slice.
+ */
 export const createPlaybackSlice: StateCreator<NLEStore, [], [], PlaybackSlice> = (set) => ({
   isPlaying: false,
   playheadPosition: 0,

@@ -5,6 +5,9 @@
 
 const peakCache = new Map<string, number[]>();
 
+/**
+ * extractAudioPeaks - Performs extract audio peaks.
+ */
 export async function extractAudioPeaks(
   audioUrl: string,
   targetSamples: number = 100

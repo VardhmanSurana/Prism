@@ -6,10 +6,16 @@ import { ROW_HEIGHT } from '../constants';
 
 const HEADER_HEIGHT = 80;
 
+/**
+ * useTimeline - Hook managing timeline state.
+ */
 export const useTimeline = (
   rowItems: RowItem[],
   scrollParentRef?: RefObject<HTMLDivElement | null>
 ) => {
+  /**
+   * timelineItems - Performs timeline items.
+   */
   const timelineItems = useMemo(() => {
     const items: TimelineItem[] = [];
     let currentTop = 0;
@@ -64,6 +70,9 @@ export const useTimeline = (
   const scrollStateRef = useRef(scrollState);
   scrollStateRef.current = scrollState;
 
+  /**
+   * itemsKey - Performs items key.
+   */
   const itemsKey = useMemo(() => {
     return JSON.stringify(timelineItems.map(i => ({ id: i.id, progress: i.progress })));
   }, [timelineItems]);
@@ -73,6 +82,9 @@ export const useTimeline = (
     if (!parent) return;
 
     let rafId = 0;
+    /**
+     * handleScroll - Handles scroll.
+     */
     const handleScroll = () => {
       if (rafId) return;
       rafId = requestAnimationFrame(() => {

@@ -9,22 +9,27 @@ pub struct VisionAnalyzer;
 
 #[async_trait]
 impl Analyzer for VisionAnalyzer {
+    /// name - Performs name.
     fn name(&self) -> &'static str {
         "vision"
     }
 
+    /// resource_need - Performs resource need.
     fn resource_need(&self) -> ResourceNeed {
         ResourceNeed::Gpu
     }
 
+    /// priority - Performs priority.
     fn priority(&self) -> u32 {
         100
     }
 
+    /// should_run - Performs should run.
     fn should_run(&self, photo: &PhotoRecord) -> bool {
         !photo.has_summary
     }
 
+    /// execute - Performs execute.
     async fn execute(
         &self,
         ml_client: &MlClient,

@@ -14,6 +14,9 @@ interface TrackLanesProps {
   setDragState: (state: unknown) => void;
 }
 
+/**
+ * TrackLanes - Renders track lanes.
+ */
 export const TrackLanes: React.FC<TrackLanesProps> = ({
   tracks,
   pixelsPerSec,

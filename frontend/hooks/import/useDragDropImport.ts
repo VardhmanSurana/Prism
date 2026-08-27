@@ -124,6 +124,9 @@ export function useDragDropImport({
     };
   }, [enabled, handlePaths]);
 
+  /**
+   * clearError - Performs clear error.
+   */
   const clearError = useCallback(() => setError(null), []);
 
   return {

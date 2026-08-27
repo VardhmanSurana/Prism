@@ -59,6 +59,9 @@ export interface AnnotationsPanelProps {
   setShowDoodleGuide?: (val: boolean) => void;
 }
 
+/**
+ * AnnotationsPanel - Renders annotations panel.
+ */
 export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
   annotations,
   onChange,
@@ -101,16 +104,28 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
   brushSize = 35,
   setBrushSize,
 }) => {
+  /**
+   * isDefault - Performs is default.
+   */
   const isDefault = useMemo(() => annotations.length === 0, [annotations]);
 
+  /**
+   * selectedAnn - Performs selected ann.
+   */
   const selectedAnn = useMemo(() => {
     return annotations.find(a => a.id === selectedAnnId) || null;
   }, [annotations, selectedAnnId]);
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     onChange([]);
   };
 
+  /**
+   * handleEmojiSelect - Handles emoji select.
+   */
   const handleEmojiSelect = (emoji: string) => {
     const newAnn: Annotation = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

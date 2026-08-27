@@ -14,6 +14,9 @@ interface SessionSidebarProps {
   onDeleteSession: (id: string) => void;
 }
 
+/**
+ * SessionSidebar - Renders session sidebar.
+ */
 export const SessionSidebar: React.FC<SessionSidebarProps> = ({
   sessions,
   activeSessionId,
@@ -28,12 +31,18 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
   const [editTitle, setEditTitle] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  /**
+   * startEditing - Performs start editing.
+   */
   const startEditing = (e: React.MouseEvent, session: SessionItem) => {
     e.stopPropagation();
     setEditingId(session.id);
     setEditTitle(session.title);
   };
 
+  /**
+   * saveEditing - Performs save editing.
+   */
   const saveEditing = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (editingId && editTitle.trim()) {
@@ -43,12 +52,18 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
     setEditTitle('');
   };
 
+  /**
+   * cancelEditing - Performs cancel editing.
+   */
   const cancelEditing = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setEditingId(null);
     setEditTitle('');
   };
 
+  /**
+   * handleDelete - Handles delete.
+   */
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     if (deletingId === id) {

@@ -10,6 +10,9 @@ interface BatchRenameModalProps {
   onComplete: () => void;
 }
 
+/**
+ * BatchRenameModal - Renders batch rename modal.
+ */
 export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
   paths,
   onClose,
@@ -26,10 +29,19 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
     [paths, pattern, startIndex, preserveExtension]
   );
 
+  /**
+   * errorCount - Performs error count.
+   */
   const errorCount = preview.filter((p) => !p.ok).length;
+  /**
+   * changeCount - Performs change count.
+   */
   const changeCount = preview.filter((p) => p.ok && !p.skipped).length;
   const canApply = changeCount > 0 && errorCount === 0 && pattern.trim().length > 0;
 
+  /**
+   * handleApply - Handles apply.
+   */
   const handleApply = async () => {
     if (!canApply || isSubmitting) return;
     setIsSubmitting(true);
@@ -49,6 +61,9 @@ export const BatchRenameModal: React.FC<BatchRenameModalProps> = ({
       });
 
       if (!res.ok) {
+        /**
+         * err - Performs err.
+         */
         const err = await res.json().catch(() => ({}));
         const detail = err.detail;
         const message =

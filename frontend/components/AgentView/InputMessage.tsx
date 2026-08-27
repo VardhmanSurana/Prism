@@ -31,10 +31,16 @@ const useIsoLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // Touch devices have no hover, so show controls persistently on them.
+/**
+ * useIsTouch - Hook managing is touch state.
+ */
 function useIsTouch() {
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
     const mq = window.matchMedia("(hover: none)");
+    /**
+     * update - Performs update.
+     */
     const update = () => setIsTouch(mq.matches);
     update();
     mq.addEventListener("change", update);
@@ -126,6 +132,9 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
       ...restTextareaProps
     } = textareaProps ?? {};
 
+    /**
+     * filesArr - Performs files arr.
+     */
     const filesArr = useMemo(() => files ?? [], [files]);
     const supportsFiles = onFilesChange !== undefined;
     const streaming = status === "streaming";
@@ -168,17 +177,26 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
           : `0 1px 3px rgba(0,0,0,0.3), ${EDGE_DROP}`;
 
     // ── Send handler ──────────────────────────────────────────────────────────
+    /**
+     * handleSend - Handles send.
+     */
     const handleSend = useCallback(() => {
       if (!canSend) return;
       setHistoryIndex(null);
       onSend?.(trimmed, filesArr);
     }, [canSend, onSend, trimmed, filesArr]);
 
+    /**
+     * handleStop - Handles stop.
+     */
     const handleStop = useCallback(() => onStop?.(), [onStop]);
 
     const buttonMode: "send" | "stop" = streaming && onStop ? "stop" : "send";
     const buttonLabel = buttonMode === "stop" ? "Stop" : sendLabel;
 
+    /**
+     * setCaretEnd - Performs set caret end.
+     */
     const setCaretEnd = useCallback(() => {
       requestAnimationFrame(() => {
         const el = textareaRef.current;
@@ -266,6 +284,9 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
     const addFiles = useCallback(
       (incoming: File[]) => {
         if (!onFilesChange) return;
+        /**
+         * fingerprint - Performs fingerprint.
+         */
         const fingerprint = (f: File) => `${f.name}-${f.size}-${f.lastModified}`;
         const existing = new Set(filesArr.map(fingerprint));
         const accepted: File[] = [];

@@ -12,6 +12,9 @@ import { RediscoverPrompts } from '@/components/explore/RediscoverPrompts';
 import { ExploreWidgetCustomizer, loadSavedWidgets, WidgetConfig } from '@/components/explore/ExploreWidgetCustomizer';
 import { ExploreHeader } from '@/components/explore/ExploreHeader';
 
+/**
+ * ExploreView - Renders explore view.
+ */
 export const ExploreView: React.FC = () => {
   const { logAction } = useTelemetry();
   const [widgets, setWidgets] = useState<WidgetConfig[]>(loadSavedWidgets);
@@ -20,15 +23,27 @@ export const ExploreView: React.FC = () => {
     logAction('ExploreView', 'page_view', { widgetCount: widgets.filter(w => w.enabled).length });
   }, [logAction]);
 
+  /**
+   * handleWidgetsChange - Handles widgets change.
+   */
   const handleWidgetsChange = useCallback((next: WidgetConfig[]) => {
+    /**
+     * toggled - Performs toggled.
+     */
     const toggled = widgets.filter(w => w.enabled).length !== next.filter(w => w.enabled).length;
     if (toggled) {
+      /**
+       * enabledIds - Performs enabled ids.
+       */
       const enabledIds = next.filter(w => w.enabled).map(w => w.id);
       logAction('ExploreView', 'widgets_customized', { enabledWidgets: enabledIds });
     }
     setWidgets(next);
   }, [widgets, logAction]);
 
+  /**
+   * renderWidget - Performs render widget.
+   */
   const renderWidget = (id: string) => {
     switch (id) {
       case 'memories':

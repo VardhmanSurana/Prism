@@ -37,6 +37,9 @@ interface HealingCanvasProps {
   onStrokeComplete?: () => void;
 }
 
+/**
+ * HealingCanvas - Renders healing canvas.
+ */
 export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
   width,
   height,
@@ -81,9 +84,15 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
 
   // Track Alt key for source point selection
   useEffect(() => {
+    /**
+     * onKeyDown - Performs on key down.
+     */
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.altKey) setIsAltHeld(true);
     };
+    /**
+     * onKeyUp - Performs on key up.
+     */
     const onKeyUp = (e: KeyboardEvent) => {
       if (!e.altKey) setIsAltHeld(false);
     };
@@ -96,6 +105,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
   }, []);
 
   // Convert canvas coordinates (display) → source image coordinates
+  /**
+   * toImageCoords - Performs to image coords.
+   */
   const toImageCoords = useCallback((cx: number, cy: number) => {
     if (!sourceImage) return { x: cx, y: cy };
     const scaleX = sourceImage.naturalWidth / width;
@@ -104,6 +116,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
   }, [sourceImage, width, height]);
 
   // Convert image coords → canvas coords
+  /**
+   * toCanvasCoords - Performs to canvas coords.
+   */
   const toCanvasCoords = useCallback((ix: number, iy: number) => {
     if (!sourceImage) return { x: ix, y: iy };
     const scaleX = width / sourceImage.naturalWidth;
@@ -113,6 +128,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
 
   // ── Core painting function ────────────────────────────────────────────────
 
+  /**
+   * paintAt - Performs paint at.
+   */
   const paintAt = useCallback((canvasX: number, canvasY: number) => {
     const workCanvas = workCanvasRef.current;
     const displayCanvas = canvasRef.current;
@@ -205,6 +223,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
 
   // ── Source point display — draw a cross at source point location ──────────
 
+  /**
+   * drawSourceIndicator - Performs draw source indicator.
+   */
   const drawSourceIndicator = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas || !sourcePointRef.current) return;
@@ -231,6 +252,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
+  /**
+   * getPos - Retrieves get pos.
+   */
   const getPos = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return { x: 0, y: 0 };
@@ -240,6 +264,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
     };
   }, []);
 
+  /**
+   * handleMouseDown - Handles mouse down.
+   */
   const handleMouseDown = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (e.button !== 0) return;
     const pos = getPos(e);
@@ -259,6 +286,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
     paintAt(pos.x, pos.y);
   }, [isAltHeld, getPos, paintAt]);
 
+  /**
+   * handleMouseMove - Handles mouse move.
+   */
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getPos(e);
     setCursorPos(pos);
@@ -267,6 +297,9 @@ export const HealingCanvas = forwardRef<HealingCanvasRef, HealingCanvasProps>(({
     paintAt(pos.x, pos.y);
   }, [getPos, paintAt]);
 
+  /**
+   * handleMouseUp - Handles mouse up.
+   */
   const handleMouseUp = useCallback(() => {
     if (isPaintingRef.current) {
       isPaintingRef.current = false;

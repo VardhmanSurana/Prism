@@ -18,6 +18,7 @@ pub struct Detection {
 
 static DETECTOR: OnceLock<Arc<ObjectDetector>> = OnceLock::new();
 
+/// get_detector - Retrieves detector.
 pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
     if let Some(detector) = DETECTOR.get() {
         return Ok(detector.clone());
@@ -54,6 +55,7 @@ const COCO_CLASSES: [&str; 80] = [
 ];
 
 impl ObjectDetector {
+    /// detect - Performs detect.
     pub fn detect(&self, image: &DynamicImage) -> Result<Vec<Detection>, String> {
         let orig_width = image.width() as f32;
         let orig_height = image.height() as f32;
@@ -141,6 +143,7 @@ impl ObjectDetector {
     }
 }
 
+/// bbox_iou - Performs bbox iou.
 fn bbox_iou(box1: &[f32; 4], box2: &[f32; 4]) -> f32 {
     let x1 = box1[0].max(box2[0]);
     let y1 = box1[1].max(box2[1]);

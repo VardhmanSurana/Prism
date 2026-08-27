@@ -12,6 +12,9 @@ import {
   hasRegionAdjustments,
 } from './helpers';
 
+/**
+ * applyRegionToneAdjustments - Performs apply region tone adjustments.
+ */
 export const applyRegionToneAdjustments = (
   imageData: ImageData,
   regionAdjustments: Adjustments['regions'][number]['adjustments'],
@@ -53,6 +56,9 @@ export const applyRegionToneAdjustments = (
   return imageData;
 };
 
+/**
+ * createRegionAdjustedCanvas - Performs create region adjusted canvas.
+ */
 export const createRegionAdjustedCanvas = async (
   baseCanvas: HTMLCanvasElement,
   regionAdjustments: Adjustments['regions'][number]['adjustments'],
@@ -71,12 +77,18 @@ export const createRegionAdjustedCanvas = async (
   return canvas;
 };
 
+/**
+ * applyRegionalAdjustments - Performs apply regional adjustments.
+ */
 export const applyRegionalAdjustments = async (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   if (!hasRegionAdjustments(adjustments)) {
     return canvas;
   }
 
   for (const region of adjustments.regions) {
+    /**
+     * hasAdjustments - Performs has adjustments.
+     */
     const hasAdjustments = Object.values(region.adjustments).some((value) => (value || 0) !== 0);
     if (!hasAdjustments) {
       continue;
@@ -109,6 +121,9 @@ export const applyRegionalAdjustments = async (canvas: HTMLCanvasElement, adjust
   return canvas;
 };
 
+/**
+ * applyBlur - Performs apply blur.
+ */
 export const applyBlur = (canvas: HTMLCanvasElement, radius: number) => {
   if (radius <= 0) {
     return canvas;
@@ -141,6 +156,9 @@ export const applyBlur = (canvas: HTMLCanvasElement, radius: number) => {
   return canvas;
 };
 
+/**
+ * applyUnsharpMask - Performs apply unsharp mask.
+ */
 export const applyUnsharpMask = (
   canvas: HTMLCanvasElement,
   sharpness: number,
@@ -190,6 +208,9 @@ export const applyUnsharpMask = (
   return canvas;
 };
 
+/**
+ * applyVignette - Performs apply vignette.
+ */
 export const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
   if (!vignette) {
     return canvas;
@@ -249,6 +270,9 @@ export const applyVignette = (canvas: HTMLCanvasElement, vignette: number) => {
   return canvas;
 };
 
+/**
+ * applyCurveLutsToCanvas - Performs apply curve luts to canvas.
+ */
 export const applyCurveLutsToCanvas = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   if (isIdentityCurve(adjustments.curves)) {
     return canvas;
@@ -272,6 +296,9 @@ export const applyCurveLutsToCanvas = (canvas: HTMLCanvasElement, adjustments: A
   return canvas;
 };
 
+/**
+ * applySplitToning - Performs apply split toning.
+ */
 export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const st = adjustments.splitToning;
   if (!st || (st.shadows.saturation === 0 && st.highlights.saturation === 0)) {
@@ -290,6 +317,9 @@ export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustm
 
   const pivot = 0.5 + balance * 0.2;
 
+  /**
+   * hslToRgb - Performs hsl to rgb.
+   */
   const hslToRgb = (h: number, s: number, l: number) => {
     const c = (1 - Math.abs(2 * l - 1)) * s;
     const x = c * (1 - Math.abs((h / 60) % 2 - 1));
@@ -337,6 +367,9 @@ export const applySplitToning = (canvas: HTMLCanvasElement, adjustments: Adjustm
   return canvas;
 };
 
+/**
+ * applyGrain - Performs apply grain.
+ */
 export const applyGrain = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const gState = adjustments.grain;
   if (!gState || gState.amount === 0) {
@@ -391,6 +424,9 @@ export const applyGrain = (canvas: HTMLCanvasElement, adjustments: Adjustments) 
   return canvas;
 };
 
+/**
+ * applyLightLeak - Performs apply light leak.
+ */
 export const applyLightLeak = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const leak = adjustments.lightLeak;
   if (!leak || !leak.preset) return canvas;
@@ -476,6 +512,9 @@ export const applyLightLeak = (canvas: HTMLCanvasElement, adjustments: Adjustmen
   return canvas;
 };
 
+/**
+ * drawBlendOverlay - Performs draw blend overlay.
+ */
 export const drawBlendOverlay = (
   canvas: HTMLCanvasElement,
   overlayImg: HTMLImageElement,
@@ -529,6 +568,9 @@ export const drawBlendOverlay = (
   return canvas;
 };
 
+/**
+ * applyBlendOverlay - Performs apply blend overlay.
+ */
 export const applyBlendOverlay = async (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const blend = adjustments.blend;
   if (!blend || !blend.blendImageSrc) return canvas;
@@ -542,6 +584,9 @@ export const applyBlendOverlay = async (canvas: HTMLCanvasElement, adjustments: 
   return canvas;
 };
 
+/**
+ * applyTiltShift - Performs apply tilt shift.
+ */
 export const applyTiltShift = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const ts = adjustments.tiltShift;
   if (!ts || !ts.enabled || ts.blurStrength === 0) return canvas;
@@ -617,6 +662,9 @@ export const applyTiltShift = (canvas: HTMLCanvasElement, adjustments: Adjustmen
   return canvas;
 };
 
+/**
+ * applyAnnotations - Performs apply annotations.
+ */
 export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[]): Promise<HTMLCanvasElement> => {
   if (!annotations || annotations.length === 0) return Promise.resolve(canvas);
 
@@ -631,10 +679,16 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
       const opacityAttr = ann.opacity != null && ann.opacity < 1 ? ` opacity="${ann.opacity}"` : '';
       if (ann.type === 'freehand' && ann.points) {
         const smoothed = smoothPath(ann.points);
+        /**
+         * d - Performs d.
+         */
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" stroke-linejoin="round"${opacityAttr} />`;
       } else if (ann.type === 'highlighter' && ann.points) {
         const smoothed = smoothPath(ann.points);
+        /**
+         * d - Performs d.
+         */
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         const hOpacity = ann.opacity ?? 0.4;
         svgContent += `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${hOpacity}" style="mix-blend-mode: multiply" />`;
@@ -670,6 +724,9 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
       } else if (ann.type === 'textPath' && ann.points && ann.points.length >= 2) {
         const pathId = `path-${ann.id}`;
         const smoothed = smoothPath(ann.points);
+        /**
+         * d - Performs d.
+         */
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
         const showGuide = ann.showGuidePath !== false;
 
@@ -752,6 +809,9 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
       }
     });
 
+    /**
+     * renderSvgAndResolve - Performs render svg and resolve.
+     */
     const renderSvgAndResolve = () => {
       if (svgContent) {
         const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="${w}" height="${h}" preserveAspectRatio="none">${svgContent}</svg>`;
@@ -783,6 +843,9 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
   });
 };
 
+/**
+ * applyFrame - Performs apply frame.
+ */
 export const applyFrame = (canvas: HTMLCanvasElement, adjustments: Adjustments) => {
   const frame = adjustments.frame;
   if (!frame || frame.style === 'none') return canvas;
@@ -883,6 +946,9 @@ export const applyFrame = (canvas: HTMLCanvasElement, adjustments: Adjustments) 
   return framedCanvas;
 };
 
+/**
+ * applyPerspective - Performs apply perspective.
+ */
 export const applyPerspective = (canvas: HTMLCanvasElement, horizontal: number, vertical: number) => {
   if (horizontal === 0 && vertical === 0) return canvas;
 
@@ -903,6 +969,9 @@ export const applyPerspective = (canvas: HTMLCanvasElement, horizontal: number, 
     [-w / 2, h / 2],
   ];
 
+  /**
+   * projected - Performs projected.
+   */
   const projected = srcCorners.map(([x, y]) => {
     let px = x, py = y, pz = 0;
     const ty = px * sinY + pz * cosY;
@@ -944,6 +1013,9 @@ export const applyPerspective = (canvas: HTMLCanvasElement, horizontal: number, 
   return out;
 };
 
+/**
+ * renderCanvasWithFilter - Performs render canvas with filter.
+ */
 export const renderCanvasWithFilter = (sourceCanvas: HTMLCanvasElement, filter: string, adjustments: Adjustments) => {
   const { canvas, ctx } = cloneCanvas(sourceCanvas);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -960,6 +1032,9 @@ export const renderCanvasWithFilter = (sourceCanvas: HTMLCanvasElement, filter: 
   return canvas;
 };
 
+/**
+ * applyLensCorrection - Performs apply lens correction.
+ */
 export const applyLensCorrection = (
   canvas: HTMLCanvasElement,
   distortionStrength: number,
@@ -1068,6 +1143,9 @@ export const applyLensCorrection = (
   return canvas;
 };
 
+/**
+ * applyDefringeAndOpticalVignetting - Performs apply defringe and optical vignetting.
+ */
 export const applyDefringeAndOpticalVignetting = (
   canvas: HTMLCanvasElement,
   defringe: Adjustments['defringe'],

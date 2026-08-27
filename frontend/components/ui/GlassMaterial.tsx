@@ -105,6 +105,9 @@ const InteractiveGlass: React.FC<{
   const quickHighlightX = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
   const quickHighlightY = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -128,6 +131,9 @@ const InteractiveGlass: React.FC<{
     }
   }, []);
 
+  /**
+   * handleMouseEnter - Handles mouse enter.
+   */
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
     if (highlightRef.current) {
@@ -139,6 +145,9 @@ const InteractiveGlass: React.FC<{
     }
   }, []);
 
+  /**
+   * handleMouseLeave - Handles mouse leave.
+   */
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
     if (highlightRef.current) {
@@ -150,6 +159,9 @@ const InteractiveGlass: React.FC<{
     }
   }, []);
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = useCallback(() => {
     if (containerRef.current) {
       gsap.to(containerRef.current, {
@@ -160,6 +172,9 @@ const InteractiveGlass: React.FC<{
     }
   }, []);
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = useCallback(() => {
     if (containerRef.current) {
       gsap.to(containerRef.current, {

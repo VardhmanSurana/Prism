@@ -5,6 +5,9 @@ import { usePeople, usePersonPhotos, usePersonRename } from './hooks';
 import { PersonGrid } from './PersonGrid';
 import { PersonDetail } from './PersonDetail';
 
+/**
+ * PeopleView - Renders people view.
+ */
 export const PeopleView: React.FC<PeopleViewProps> = ({
   onPhotoClick,
   onPhotosLoaded,
@@ -39,6 +42,9 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
   // Handle URL param for selected person
   useEffect(() => {
     if (personIdParam && people.length > 0 && !selectedPerson) {
+      /**
+       * p - Performs p.
+       */
       const p = people.find((p) => String(p.id) === personIdParam || p.uuid === personIdParam);
       if (p) {
         setSelectedPerson(p);
@@ -61,6 +67,9 @@ export const PeopleView: React.FC<PeopleViewProps> = ({
     [setSearchParams]
   );
 
+  /**
+   * handleBack - Handles back.
+   */
   const handleBack = useCallback(() => {
     setSelectedPerson(null);
     setSearchParams({});

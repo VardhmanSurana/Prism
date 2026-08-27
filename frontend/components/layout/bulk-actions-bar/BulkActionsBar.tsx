@@ -37,6 +37,9 @@ export interface BulkActionsBarProps {
 }
 
 // ─── BulkActionsBar ──────────────────────────────────────────────────────
+/**
+ * BulkActionsBar - Renders bulk actions bar.
+ */
 export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   selectedCount,
   currentView,
@@ -55,6 +58,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onPasteEdits,
 }) => {
   const { isTrashView } = useBulkActions({ selectedCount, currentView });
+  /**
+   * copiedAdjustments - Performs copied adjustments.
+   */
   const copiedAdjustments = useEditStore((s) => s.copiedAdjustments);
 
   const barRef = useRef<HTMLDivElement>(null);
@@ -85,6 +91,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   const [lockAnimating, setLockAnimating] = useState(false);
 
   // ── Favorite micro-interaction ──────────────────────────────────────────
+  /**
+   * animateFavorite - Performs animate favorite.
+   */
   const animateFavorite = useCallback(() => {
     const favWrap = favBtnRef.current;
     if (favWrap) {
@@ -119,6 +128,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   }, [isFavorited, onFavorite, onClear]);
 
   // Enter: rise + fade + scale, shadow blooms, divider grows
+  /**
+   * playEnter - Performs play enter.
+   */
   const playEnter = useCallback(() => {
     const el = barRef.current;
     if (el) {
@@ -140,6 +152,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   }, []);
 
   // Exit: quick drop + fade
+  /**
+   * playExit - Performs play exit.
+   */
   const playExit = useCallback((done: () => void) => {
     const el = barRef.current;
     if (!el) { done(); return; }
@@ -154,12 +169,18 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   }, []);
 
   // Close button: exit, then close once the fade finishes
+  /**
+   * handleClose - Handles close.
+   */
   const handleClose = useCallback(() => {
     playExit(() => setOpen(false));
     onClear();
   }, [playExit, onClear]);
 
   // ── Folder animation sequence for Add to Album ─────────────────────────
+  /**
+   * animateAddToAlbum - Performs animate add to album.
+   */
   const animateAddToAlbum = useCallback(async () => {
     if (folderAnimating || selectedCount === 0) return;
     setFolderAnimating(true);
@@ -304,6 +325,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   }, [albumAddedSignal, animateAddToAlbum]);
 
   // ── Lock / Encrypt animation sequence (3D Armored Vault Door) ────────────
+  /**
+   * animateLock - Performs animate lock.
+   */
   const animateLock = useCallback(async () => {
     if (lockAnimating || selectedCount === 0) return;
     setLockAnimating(true);
@@ -453,6 +477,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   }, [lockAnimating, selectedCount, onToggleLock, onClear]);
 
   // ── Trash animation sequence ───────────────────────────────────────────
+  /**
+   * animateTrash - Performs animate trash.
+   */
   const animateTrash = useCallback(async () => {
     if (trashAnimating || selectedCount === 0) return;
     setTrashAnimating(true);
@@ -576,6 +603,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     onClear();
   }, [trashAnimating, selectedCount, onDelete, onClear]);
 
+  /**
+   * handleTrashClick - Handles trash click.
+   */
   const handleTrashClick = useCallback(async () => {
     if (trashAnimating || selectedCount === 0) return;
 

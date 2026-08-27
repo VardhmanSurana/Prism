@@ -15,6 +15,9 @@ interface AlbumDetailProps {
   onToggleGroupSelection: (ids: string[]) => void;
 }
 
+/**
+ * AlbumDetail - Renders album detail.
+ */
 export const AlbumDetail: React.FC<AlbumDetailProps> = ({ 
   album, 
   photos, 
@@ -28,8 +31,14 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
   const { logAction } = useTelemetry();
   const albumScrollRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * allSelected - Performs all selected.
+   */
   const allSelected = photos.length > 0 && photos.every(p => selectedIds.has(String(p.id)));
 
+  /**
+   * handleSelectAll - Handles select all.
+   */
   const handleSelectAll = useCallback(() => {
     if (allSelected) {
       onToggleGroupSelection(photos.map(p => String(p.id)));

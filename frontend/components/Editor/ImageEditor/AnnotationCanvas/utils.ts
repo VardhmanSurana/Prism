@@ -1,12 +1,18 @@
 import { Annotation } from '../AnnotationsPanel';
 import { HandleId } from './types';
 
+/**
+ * pointDistance - Performs point distance.
+ */
 export const pointDistance = (p1: { x: number; y: number }, p2: { x: number; y: number }) => {
   const dx = p1.x - p2.x;
   const dy = p1.y - p2.y;
   return Math.sqrt(dx * dx + dy * dy);
 };
 
+/**
+ * distToSegment - Performs dist to segment.
+ */
 export const distToSegment = (p: { x: number; y: number }, v: { x: number; y: number }, w: { x: number; y: number }) => {
   const l2 = (v.x - w.x) ** 2 + (v.y - w.y) ** 2;
   if (l2 === 0) return pointDistance(p, v);
@@ -15,6 +21,9 @@ export const distToSegment = (p: { x: number; y: number }, v: { x: number; y: nu
   return pointDistance(p, { x: v.x + t * (w.x - v.x), y: v.y + t * (w.y - v.y) });
 };
 
+/**
+ * getAnnotationBBox - Retrieves get annotation bbox.
+ */
 export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: number; h: number } => {
   if (ann.bounds) {
     const x = ann.bounds.w < 0 ? ann.bounds.x + ann.bounds.w : ann.bounds.x;
@@ -22,7 +31,13 @@ export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: n
     return { x, y, w: Math.abs(ann.bounds.w), h: Math.abs(ann.bounds.h) };
   }
   if (ann.points && ann.points.length > 0) {
+    /**
+     * xs - Performs xs.
+     */
     const xs = ann.points.map(p => p.x);
+    /**
+     * ys - Performs ys.
+     */
     const ys = ann.points.map(p => p.y);
     const minX = Math.min(...xs);
     const maxX = Math.max(...xs);
@@ -33,6 +48,9 @@ export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: n
   return { x: 0, y: 0, w: 0, h: 0 };
 };
 
+/**
+ * getAnnotationDistance - Retrieves get annotation distance.
+ */
 export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotation): number => {
   if ((ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath') && ann.points) {
     let minDist = Infinity;
@@ -90,6 +108,9 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
 
 const HANDLE_THRESHOLD = 30;
 
+/**
+ * detectHandleClick - Performs detect handle click.
+ */
 export const detectHandleClick = (x: number, y: number, ann: Annotation): HandleId | null => {
   if (ann.type === 'text') return null;
   if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
@@ -116,6 +137,9 @@ export const detectHandleClick = (x: number, y: number, ann: Annotation): Handle
   return null;
 };
 
+/**
+ * simplifyPoints - Performs simplify points.
+ */
 export const simplifyPoints = (points: { x: number; y: number }[], tolerance: number = 2): { x: number; y: number }[] => {
   if (points.length < 3) return points;
   const result = [points[0]];
@@ -133,6 +157,9 @@ export const simplifyPoints = (points: { x: number; y: number }[], tolerance: nu
   return result;
 };
 
+/**
+ * smoothChaikin - Performs smooth chaikin.
+ */
 export const smoothChaikin = (points: { x: number; y: number }[], iterations: number = 2): { x: number; y: number }[] => {
   if (points.length < 3) return points;
   let current = points;
@@ -161,6 +188,9 @@ export const smoothChaikin = (points: { x: number; y: number }[], iterations: nu
   return current;
 };
 
+/**
+ * smoothPath - Performs smooth path.
+ */
 export const smoothPath = (points: { x: number; y: number }[]): { x: number; y: number }[] => {
   if (!points || points.length < 3) return points;
   const simplified = simplifyPoints(points, 2.5);

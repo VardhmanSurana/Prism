@@ -39,10 +39,16 @@ interface ZoomToExtentsControlProps {
   onReady: (action: () => void) => void;
 }
 
+/**
+ * ZoomToExtentsControl - Renders zoom to extents control.
+ */
 const ZoomToExtentsControl: React.FC<ZoomToExtentsControlProps> = ({ bounds, center, onReady }) => {
   const map = useMap();
 
   useEffect(() => {
+    /**
+     * zoomAction - Performs zoom action.
+     */
     const zoomAction = () => {
       if (!bounds) {
         map.setView(center, 2);
@@ -69,6 +75,9 @@ const ZoomToExtentsControl: React.FC<ZoomToExtentsControlProps> = ({ bounds, cen
   return null;
 };
 
+/**
+ * MapView - Renders map view.
+ */
 export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoLocationUpdate }) => {
   const { selectedStyleId, currentStyle, handleStyleChange } = useMapStyle();
   const [showRoute, setShowRoute] = useState(true);
@@ -81,6 +90,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   const [zoomToExtents, setZoomToExtents] = useState<() => void>(() => () => undefined);
   const [temporalRange, setTemporalRange] = useState<{ start: number; end: number } | null>(null);
 
+  /**
+   * datedGeoPhotos - Performs dated geo photos.
+   */
   const datedGeoPhotos = useMemo(() => {
     return photos
       .filter((photo) =>
@@ -104,6 +116,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
       .sort((left, right) => left.timestamp - right.timestamp);
   }, [photos]);
 
+  /**
+   * temporalBounds - Performs temporal bounds.
+   */
   const temporalBounds = useMemo(() => {
     if (datedGeoPhotos.length === 0) return null;
     return {
@@ -132,6 +147,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
 
   const deferredTemporalRange = useDeferredValue(temporalRange);
 
+  /**
+   * filteredPhotos - Performs filtered photos.
+   */
   const filteredPhotos = useMemo(() => {
     if (!deferredTemporalRange) {
       return photos;
@@ -147,6 +165,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   }, [deferredTemporalRange, photos]);
 
   const { geoPhotos, center, timelinePhotos, bounds } = usePhotoGeoData(filteredPhotos);
+  /**
+   * filteredTimelineWindow - Performs filtered timeline window.
+   */
   const filteredTimelineWindow = useMemo(() => {
     if (!deferredTemporalRange) return null;
     return {
@@ -155,6 +176,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     };
   }, [deferredTemporalRange]);
 
+  /**
+   * currentPlaybackTimestamp - Performs current playback timestamp.
+   */
   const currentPlaybackTimestamp = useMemo(() => {
     if (!filteredTimelineWindow) return null;
     const { min, max } = filteredTimelineWindow;
@@ -163,6 +187,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     return min + span * timeLapseProgress;
   }, [filteredTimelineWindow, timeLapseProgress]);
 
+  /**
+   * timeLapsePhotos - Performs time lapse photos.
+   */
   const timeLapsePhotos = useMemo(() => {
     if (!timeLapseActive || currentPlaybackTimestamp === null) {
       return geoPhotos;
@@ -173,6 +200,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     });
   }, [currentPlaybackTimestamp, geoPhotos, timeLapseActive]);
 
+  /**
+   * visibleTimelinePhotos - Performs visible timeline photos.
+   */
   const visibleTimelinePhotos = useMemo(() => {
     if (!timeLapseActive || currentPlaybackTimestamp === null) {
       return timelinePhotos;
@@ -193,16 +223,28 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
 
   const { logAction } = useTelemetry();
 
+  /**
+   * handleToggleRoute - Handles toggle route.
+   */
   const handleToggleRoute = useCallback(() => {
     if (!canShowRoute) return;
     setShowRoute((current) => !current);
   }, [canShowRoute]);
+  /**
+   * handleToggleDensity - Handles toggle density.
+   */
   const handleToggleDensity = useCallback(() => {
     setShowDensity((current) => !current);
   }, []);
+  /**
+   * handleToggleEditMode - Handles toggle edit mode.
+   */
   const handleToggleEditMode = useCallback(() => {
     setEditMode((current) => !current);
   }, []);
+  /**
+   * handleToggleTimeLapse - Handles toggle time lapse.
+   */
   const handleToggleTimeLapse = useCallback(() => {
     setTimeLapseActive((current) => {
       const next = !current;
@@ -217,6 +259,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     });
   }, [logAction]);
 
+  /**
+   * handlePhotoLocationChange - Handles photo location change.
+   */
   const handlePhotoLocationChange = useCallback(async (photo: Photo, coords: { latitude: number; longitude: number }) => {
     const photoId = String(photo.id);
     logAction('MapView', 'update_photo_location', { photoId, coords });
@@ -257,19 +302,34 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     }
   }, [onPhotoLocationUpdate]);
 
+  /**
+   * savingPhotoIdsMemo - Performs saving photo ids memo.
+   */
   const savingPhotoIdsMemo = useMemo(() => savingPhotoIds, [savingPhotoIds]);
+  /**
+   * handleTogglePlayback - Handles toggle playback.
+   */
   const handleTogglePlayback = useCallback(() => {
     if (!timeLapseActive) return;
     setTimeLapsePlaying((current) => !current);
   }, [timeLapseActive]);
+  /**
+   * handlePlaybackReset - Handles playback reset.
+   */
   const handlePlaybackReset = useCallback(() => {
     setTimeLapsePlaying(false);
     setTimeLapseProgress(0);
   }, []);
+  /**
+   * handlePlaybackProgressChange - Handles playback progress change.
+   */
   const handlePlaybackProgressChange = useCallback((progress: number) => {
     setTimeLapsePlaying(false);
     setTimeLapseProgress(Math.max(0, Math.min(1, progress)));
   }, []);
+  /**
+   * handleTemporalStartChange - Handles temporal start change.
+   */
   const handleTemporalStartChange = useCallback((nextStart: number) => {
     if (!temporalBounds) return;
     startTransition(() => {
@@ -283,6 +343,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     });
   }, [temporalBounds]);
 
+  /**
+   * handleTemporalEndChange - Handles temporal end change.
+   */
   const handleTemporalEndChange = useCallback((nextEnd: number) => {
     if (!temporalBounds) return;
     startTransition(() => {
@@ -296,6 +359,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     });
   }, [temporalBounds]);
 
+  /**
+   * handleTemporalReset - Handles temporal reset.
+   */
   const handleTemporalReset = useCallback(() => {
     if (!temporalBounds) return;
     startTransition(() => {
@@ -312,6 +378,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     let lastTime = 0;
     const durationMs = 12000;
 
+    /**
+     * step - Performs step.
+     */
     const step = (time: number) => {
       if (!lastTime) {
         lastTime = time;
@@ -335,6 +404,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     return () => window.cancelAnimationFrame(frameId);
   }, [timeLapseActive, timeLapsePlaying]);
 
+  /**
+   * timeLapseDateLabel - Performs time lapse date label.
+   */
   const timeLapseDateLabel = useMemo(() => {
     if (!timeLapseActive || currentPlaybackTimestamp === null) {
       return null;
@@ -342,6 +414,9 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(currentPlaybackTimestamp));
   }, [currentPlaybackTimestamp, timeLapseActive]);
 
+  /**
+   * handleZoomReady - Handles zoom ready.
+   */
   const handleZoomReady = useCallback((action: () => void) => {
     setZoomToExtents(() => action);
   }, []);

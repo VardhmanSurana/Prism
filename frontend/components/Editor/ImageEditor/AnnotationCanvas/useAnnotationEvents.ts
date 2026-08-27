@@ -23,6 +23,9 @@ function partialEraseAnnotation(
   if (!isStroke || !ann.points || ann.points.length === 0) return [ann];
 
   // Tag each point: true = inside eraser (to be removed)
+  /**
+   * tagged - Performs tagged.
+   */
   const tagged = ann.points.map(p => ({
     x: p.x,
     y: p.y,
@@ -53,6 +56,9 @@ function partialEraseAnnotation(
   }));
 }
 
+/**
+ * useAnnotationEvents - Hook managing annotation events state.
+ */
 export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   const {
     annotations,
@@ -120,6 +126,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     };
   }, []);
 
+  /**
+   * getCoordinates - Retrieves get coordinates.
+   */
   const getCoordinates = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 1000;
@@ -127,6 +136,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     return { x, y };
   };
 
+  /**
+   * getCoordinatesFromClient - Retrieves get coordinates from client.
+   */
   const getCoordinatesFromClient = (clientX: number, clientY: number) => {
     if (!svgRef.current) return { x: 0, y: 0 };
     const rect = svgRef.current.getBoundingClientRect();
@@ -135,6 +147,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     return { x, y };
   };
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     propsRef.current.onStartGesture?.();
     const { x, y } = getCoordinates(e);
@@ -142,6 +157,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     if (activeDrawTool === 'select') {
       // 1. Check if clicking a handle on the selected annotation
       if (selectedAnnId) {
+        /**
+         * selAnn - Performs sel ann.
+         */
         const selAnn = annotations.find(a => a.id === selectedAnnId);
         if (selAnn) {
           const handleId = detectHandleClick(x, y, selAnn);
@@ -256,6 +274,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     setCurrentAnn(newAnn);
   };
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isDrawing.current) return;
 
@@ -404,6 +425,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
                 const scaleX = bbox.w > 0 ? newBBox.w / bbox.w : 1;
                 const scaleY = bbox.h > 0 ? newBBox.h / bbox.h : 1;
 
+                /**
+                 * newPoints - Performs new points.
+                 */
                 const newPoints = ann.points.map(p => ({
                   x: newBBox.x + (p.x - bbox.x) * scaleX,
                   y: newBBox.y + (p.y - bbox.y) * scaleY,
@@ -472,6 +496,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     }
   };
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isDrawing.current) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -501,14 +528,23 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     setCurrentAnn(null);
   };
 
+  /**
+   * handleDoubleClick - Handles double click.
+   */
   const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
     e.preventDefault();
   };
 
+  /**
+   * handleContextMenu - Handles context menu.
+   */
   const handleContextMenu = (e: React.MouseEvent<SVGSVGElement>) => {
     if (e.ctrlKey) {
       e.preventDefault();
       const { x, y } = getCoordinates(e as any);
+      /**
+       * clickedAnn - Performs clicked ann.
+       */
       const clickedAnn = [...annotations].reverse().find((ann) => getAnnotationDistance({ x, y }, ann) < 35);
       if (clickedAnn) {
         setSelectedAnnId?.(clickedAnn.id);
@@ -517,10 +553,16 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     }
   };
 
+  /**
+   * handleTextRotateStart - Handles text rotate start.
+   */
   const handleTextRotateStart = (e: React.PointerEvent, annId: string) => {
     propsRef.current.onStartGesture?.();
     e.stopPropagation();
     e.preventDefault();
+    /**
+     * ann - Performs ann.
+     */
     const ann = annotations.find(a => a.id === annId);
     if (!ann) return;
 
@@ -545,6 +587,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     }
   };
 
+  /**
+   * handleTextResizeStart - Handles text resize start.
+   */
   const handleTextResizeStart = (e: React.PointerEvent, handleId: HandleId, annId: string) => {
     propsRef.current.onStartGesture?.();
     e.stopPropagation();
@@ -564,6 +609,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     }
   };
 
+  /**
+   * handleTextMoveStart - Handles text move start.
+   */
   const handleTextMoveStart = (e: React.PointerEvent, annId: string) => {
     propsRef.current.onStartGesture?.();
     e.stopPropagation();

@@ -8,6 +8,9 @@ interface RendererProps {
   aspectRatio?: number;
 }
 
+/**
+ * arePropsEqual - Performs are props equal.
+ */
 const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
   return (
     prev.ann === next.ann &&
@@ -16,6 +19,9 @@ const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
   );
 };
 
+/**
+ * ArrowRenderer - Renders arrow renderer.
+ */
 export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const start = ann.points[0];
@@ -53,6 +59,9 @@ export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * FreehandRenderer - Renders freehand renderer.
+ */
 export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
@@ -73,6 +82,9 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * HighlighterRenderer - Renders highlighter renderer.
+ */
 export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
@@ -94,6 +106,9 @@ export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * RectRenderer - Renders rect renderer.
+ */
 export const RectRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
@@ -117,6 +132,9 @@ export const RectRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * CircleRenderer - Renders circle renderer.
+ */
 export const CircleRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
@@ -140,6 +158,9 @@ export const CircleRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * calculatePathLength - Performs calculate path length.
+ */
 const calculatePathLength = (points: { x: number; y: number }[]) => {
   let length = 0;
   for (let i = 1; i < points.length; i++) {
@@ -150,6 +171,9 @@ const calculatePathLength = (points: { x: number; y: number }[]) => {
   return length;
 };
 
+/**
+ * TextPathRenderer - Renders text path renderer.
+ */
 export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const pathId = `path-${ann.id}`;
@@ -196,6 +220,9 @@ export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   );
 }, arePropsEqual);
 
+/**
+ * TextRenderer - Renders text renderer.
+ */
 export const TextRenderer = React.memo(({ ann, aspectRatio }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;

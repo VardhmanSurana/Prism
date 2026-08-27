@@ -44,6 +44,10 @@ const GPU_OPTIONS = [
   { value: 'cpu', label: 'CPU Only (Low VRAM)' },
 ];
 
+/**
+ * Settings panel for AI/background worker: GPU mode, background jobs, and agent provider config.
+ * Fetches general settings and worker status, polls status, and persists changes.
+ */
 export const AISettings: React.FC = () => {
   const [settings, setSettings] = useState<GeneralSettings | null>(null);
   const [status, setStatus] = useState<WorkerStatus | null>(null);
@@ -66,6 +70,7 @@ export const AISettings: React.FC = () => {
     };
   }, []);
 
+  /** Fetches general settings from the backend and syncs local state. */
   const fetchSettings = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/general`);
@@ -82,6 +87,7 @@ export const AISettings: React.FC = () => {
     }
   };
 
+  /** Fetches background worker status and updates polling state. */
   const fetchWorkerStatus = async () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/utilities/background-jobs/status`);
@@ -97,6 +103,10 @@ export const AISettings: React.FC = () => {
     }
   };
 
+  /**
+   * Persists updated general settings to the backend.
+   * @param updated - Full settings object to save.
+   */
   const saveSettings = async (updated: GeneralSettings) => {
     setIsSaving(true);
     setError(null);
@@ -119,6 +129,10 @@ export const AISettings: React.FC = () => {
     }
   };
 
+  /**
+   * Toggles a boolean setting and saves the result.
+   * @param key - Settings key to flip.
+   */
   const handleToggle = (key: keyof GeneralSettings) => {
     if (!settings) return;
     const updated = { ...settings, [key]: !settings[key] };
@@ -126,6 +140,10 @@ export const AISettings: React.FC = () => {
     saveSettings(updated);
   };
 
+  /**
+   * Updates GPU mode selection and saves.
+   * @param val - Selected GPU mode value.
+   */
   const handleSelectChange = (val: string) => {
     if (!settings) return;
     const updated = { ...settings, GPU_MODE: val };
@@ -133,6 +151,7 @@ export const AISettings: React.FC = () => {
     saveSettings(updated);
   };
 
+  /** Starts the background worker and refreshes status. */
   const handleStartWorker = async () => {
     setManualPaused(false);
     try {
@@ -146,6 +165,7 @@ export const AISettings: React.FC = () => {
     }
   };
 
+  /** Stops/pauses the background worker and refreshes status. */
   const handleStopWorker = async () => {
     setManualPaused(true);
     try {

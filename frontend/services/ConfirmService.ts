@@ -6,14 +6,23 @@ export type ConfirmOptions = {
 
 let showConfirmCallback: ((options: ConfirmOptions) => void) | null = null;
 
+/**
+ * registerConfirmCallback - Performs register confirm callback.
+ */
 export const registerConfirmCallback = (callback: (options: ConfirmOptions) => void) => {
   showConfirmCallback = callback;
 };
 
+/**
+ * unregisterConfirmCallback - Performs unregister confirm callback.
+ */
 export const unregisterConfirmCallback = () => {
   showConfirmCallback = null;
 };
 
+/**
+ * customConfirm - Performs custom confirm.
+ */
 export async function customConfirm(message: string, title?: string): Promise<boolean> {
   // If the global confirm callback is registered (the React modal provider is active), use it!
   if (showConfirmCallback) {

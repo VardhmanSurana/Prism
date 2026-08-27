@@ -13,7 +13,13 @@ interface UseImportProcessProps {
   onImportProgress: (status: ImportProgressStatus) => void;
 }
 
+/**
+ * useImportProcess - Hook managing import process.
+ */
 export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProcessProps) => {
+  /**
+   * startImport - Performs start import.
+   */
   const startImport = async (filePaths: string[], resizeWidth?: number) => {
     const total = filePaths.length;
     const counter = { processed: 0 };

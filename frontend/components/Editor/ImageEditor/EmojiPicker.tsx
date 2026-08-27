@@ -14,6 +14,9 @@ const EMOJI_CATEGORIES = {
   'Nature': ['🌸', '🌺', '🌻', '🌹', '🍀', '🌿', '🌵', '🍁', '🍂', '🌊', '🏔️', '🌅', '🦋', '🐝', '🐾', '🐛'],
 };
 
+/**
+ * EmojiPicker - Renders emoji picker.
+ */
 export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect }) => {
   const [activeCategory, setActiveCategory] = useState('Smileys');
 

@@ -28,8 +28,14 @@ export interface BuiltinLut {
 
 // ── .cube file parser ────────────────────────────────────────────────────────
 
+/**
+ * parseCubeFile - Performs parse cube file.
+ */
 export function parseCubeFile(text: string): LutData | null {
   try {
+    /**
+     * lines - Performs lines.
+     */
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
     let size = 0;
     let title = 'Imported LUT';
@@ -67,6 +73,9 @@ export function parseCubeFile(text: string): LutData | null {
 
 // ── Trilinear interpolation lookup ───────────────────────────────────────────
 
+/**
+ * trilinearLookup - Performs trilinear lookup.
+ */
 function trilinearLookup(lut: LutData, r: number, g: number, b: number): [number, number, number] {
   const { size, table } = lut;
   const s = size - 1;
@@ -83,6 +92,9 @@ function trilinearLookup(lut: LutData, r: number, g: number, b: number): [number
   const fr = r - r0, fg = g - g0, fb = b - b0;
 
   // Index into the flattened table (B changes slowest in .cube format)
+  /**
+   * idx - Performs idx.
+   */
   const idx = (bv: number, gv: number, rv: number) => (bv * size * size + gv * size + rv) * 3;
 
   const i000 = idx(b0, g0, r0), i001 = idx(b0, g0, r1);
@@ -90,6 +102,9 @@ function trilinearLookup(lut: LutData, r: number, g: number, b: number): [number
   const i100 = idx(b1, g0, r0), i101 = idx(b1, g0, r1);
   const i110 = idx(b1, g1, r0), i111 = idx(b1, g1, r1);
 
+  /**
+   * lerp - Performs lerp.
+   */
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
   const out: [number, number, number] = [0, 0, 0];
@@ -110,6 +125,9 @@ function trilinearLookup(lut: LutData, r: number, g: number, b: number): [number
 
 // ── Apply LUT to ImageData ───────────────────────────────────────────────────
 
+/**
+ * applyLutToImageData - Performs apply lut to image data.
+ */
 export function applyLutToImageData(imageData: ImageData, lut: LutData, opacity: number = 1.0): ImageData {
   const { data } = imageData;
   const out = new ImageData(
@@ -136,6 +154,9 @@ export function applyLutToImageData(imageData: ImageData, lut: LutData, opacity:
 
 // ── Apply LUT to Canvas ───────────────────────────────────────────────────────
 
+/**
+ * applyLutToCanvas - Performs apply lut to canvas.
+ */
 export function applyLutToCanvas(
   canvas: HTMLCanvasElement,
   lut: LutData,
@@ -152,6 +173,9 @@ export function applyLutToCanvas(
 // Each LUT is expressed as a 17×17×17 cube (4913 entries × 3 channels = 14739 values)
 // Generated via mathematical transforms for zero external dependencies.
 
+/**
+ * generateLut - Performs generate lut.
+ */
 function generateLut(size: number, transform: (r: number, g: number, b: number) => [number, number, number]): LutData {
   const total = size * size * size * 3;
   const table = new Float32Array(total);
@@ -173,6 +197,9 @@ function generateLut(size: number, transform: (r: number, g: number, b: number) 
 }
 
 // Helper: RGB to HSL and back
+/**
+ * rgbToHsl - Performs rgb to hsl.
+ */
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   const max = Math.max(r, g, b), min = Math.min(r, g, b);
   const l = (max + min) / 2;
@@ -186,8 +213,14 @@ function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   return [h / 6, s, l];
 }
 
+/**
+ * hslToRgb - Performs hsl to rgb.
+ */
 function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   if (s === 0) return [l, l, l];
+  /**
+   * hue2rgb - Performs hue2rgb.
+   */
   const hue2rgb = (p: number, q: number, t: number) => {
     if (t < 0) t += 1;
     if (t > 1) t -= 1;
@@ -202,6 +235,9 @@ function hslToRgb(h: number, s: number, l: number): [number, number, number] {
 }
 
 // S-curve for cinematic contrast
+/**
+ * sCurve - Performs s curve.
+ */
 function sCurve(x: number, strength: number = 0.3): number {
   // Sigmoid: produces smooth S-curve contrast enhancement
   const a = strength;
@@ -383,8 +419,14 @@ export const BUILTIN_LUTS: BuiltinLut[] = [
 // Cache for lazy-generated LUT data
 const lutCache = new Map<string, LutData>();
 
+/**
+ * getBuiltinLutData - Retrieves get builtin lut data.
+ */
 export function getBuiltinLutData(id: string): LutData | null {
   if (lutCache.has(id)) return lutCache.get(id)!;
+  /**
+   * builtin - Performs builtin.
+   */
   const builtin = BUILTIN_LUTS.find(l => l.id === id);
   if (!builtin) return null;
   const data = builtin.generate();
@@ -395,6 +437,9 @@ export function getBuiltinLutData(id: string): LutData | null {
 
 // ── Export .cube file from LutData ───────────────────────────────────────────
 
+/**
+ * exportToCubeFile - Performs export to cube file.
+ */
 export function exportToCubeFile(lut: LutData, title?: string): string {
   const lines: string[] = [
     `TITLE "${title || lut.title || 'Exported LUT'}"`,

@@ -29,6 +29,9 @@ export const motionTokens = {
   }
 };
 
+/**
+ * springs - Performs springs.
+ */
 export const springs = {
   // Ultra-fast, no bounce. Best for hover/press states.
   snappy: {
@@ -68,6 +71,9 @@ export const springs = {
 
 // ── GSAP Configuration ───────────────────────────────────────────────────────
 // GSAP-native easing names that map to our motion tokens.
+/**
+ * gsapEase - Performs gsap ease.
+ */
 export const gsapEase = {
   smooth: 'power3.out',        // maps to motionTokens.easing.smooth
   snappy: 'back.out(1.7)',     // maps to motionTokens.easing.snappy

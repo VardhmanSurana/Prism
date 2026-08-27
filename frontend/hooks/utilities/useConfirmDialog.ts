@@ -8,6 +8,9 @@ interface ConfirmDialogConfig {
   type: 'primary' | 'rose';
 }
 
+/**
+ * useConfirmDialog - Hook managing confirm dialog.
+ */
 export const useConfirmDialog = () => {
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogConfig>({
     isOpen: false,
@@ -17,6 +20,9 @@ export const useConfirmDialog = () => {
     type: 'primary'
   });
 
+  /**
+   * openConfirmDialog - Performs open confirm dialog.
+   */
   const openConfirmDialog = (config: Omit<ConfirmDialogConfig, 'isOpen'>) => {
     setConfirmDialog({
       ...config,
@@ -24,6 +30,9 @@ export const useConfirmDialog = () => {
     });
   };
 
+  /**
+   * closeConfirmDialog - Performs close confirm dialog.
+   */
   const closeConfirmDialog = () => {
     setConfirmDialog(prev => ({ ...prev, isOpen: false }));
   };

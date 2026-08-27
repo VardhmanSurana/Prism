@@ -7,6 +7,9 @@ import { BlurryPhotosTab } from './BlurryPhotosTab';
 import { DuplicatesTab } from './DuplicatesTab';
 import { DocumentsTab } from './DocumentsTab';
 
+/**
+ * Storage cleanup overview: storage stats, cache actions, and tabbed cleanup results.
+ */
 export const StorageCleanup: React.FC = () => {
   const {
     activeSubTab,

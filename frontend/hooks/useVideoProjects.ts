@@ -37,6 +37,9 @@ interface UseVideoProjectsReturn {
 // Hook
 // ---------------------------------------------------------------------------
 
+/**
+ * useVideoProjects - Hook managing video projects.
+ */
 export function useVideoProjects(): UseVideoProjectsReturn {
   const [projects, setProjects] = useState<VideoProject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -45,6 +48,9 @@ export function useVideoProjects(): UseVideoProjectsReturn {
   // Guard against concurrent refresh calls
   const refreshInFlight = useRef(false);
 
+  /**
+   * refresh - Performs refresh.
+   */
   const refresh = useCallback(async () => {
     if (refreshInFlight.current) return;
     refreshInFlight.current = true;
@@ -80,6 +86,9 @@ export function useVideoProjects(): UseVideoProjectsReturn {
     []
   );
 
+  /**
+   * renameProject - Performs rename project.
+   */
   const renameProject = useCallback(async (id: number | string, name: string): Promise<void> => {
     // Non-optimistic rename: update local state only after backend confirms
     const updated = await apiClient.put<VideoProject>(`/api/v1/nle/projects/${id}`, { name });
@@ -88,6 +97,9 @@ export function useVideoProjects(): UseVideoProjectsReturn {
     );
   }, []);
 
+  /**
+   * deleteProject - Performs delete project.
+   */
   const deleteProject = useCallback(async (id: number | string): Promise<void> => {
     // Optimistic delete: remove from UI immediately, restore on error
     let snapshot: VideoProject[] = [];

@@ -9,6 +9,7 @@ use super::ml_client::DetectedFace;
 /// Built on first use — downloads ~200MB of models from HuggingFace once.
 static ENGINE: OnceLock<Arc<FaceAnalyzer>> = OnceLock::new();
 
+/// get_engine - Retrieves engine.
 async fn get_engine() -> Result<Arc<FaceAnalyzer>, String> {
     if let Some(engine) = ENGINE.get() {
         return Ok(engine.clone());

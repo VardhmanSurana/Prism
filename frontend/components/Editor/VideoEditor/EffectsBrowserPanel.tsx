@@ -170,14 +170,32 @@ const EFFECT_PRESETS: EffectPreset[] = [
 
 const CATEGORIES = ['All', 'Color', 'Light', 'Texture', 'Creative'];
 
+/**
+ * EffectsBrowserPanel - Renders effects browser panel.
+ */
 export const EffectsBrowserPanel: React.FC = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [search, setSearch] = useState('');
+  /**
+   * tracks - Performs tracks.
+   */
   const tracks = useNLEStore((s) => s.tracks);
+  /**
+   * selectedClipId - Performs selected clip id.
+   */
   const selectedClipId = useNLEStore((s) => s.selectedClipId);
+  /**
+   * selectedClip - Performs selected clip.
+   */
   const selectedClip = useMemo(() => selectedClipId ? findClipById(tracks, selectedClipId) : null, [tracks, selectedClipId]);
+  /**
+   * setClipEffects - Performs set clip effects.
+   */
   const setClipEffects = useNLEStore((s) => s.setClipEffects);
 
+  /**
+   * filtered - Performs filtered.
+   */
   const filtered = EFFECT_PRESETS.filter((p) => {
     if (activeCategory !== 'All' && p.category !== activeCategory) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;

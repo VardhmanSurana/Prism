@@ -1,14 +1,23 @@
 import { ColorWheelsAdjustments, ColorWheelVal } from './filterEngine';
 
+/**
+ * clamp - Performs clamp.
+ */
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
+/**
+ * smoothstep - Performs smoothstep.
+ */
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = clamp((x - edge0) / (edge1 - edge0 || 1e-5), 0, 1);
   return t * t * (3 - 2 * t);
 }
 
+/**
+ * applyColorWheelsToImageData - Performs apply color wheels to image data.
+ */
 export function applyColorWheelsToImageData(imgData: ImageData, wheels: ColorWheelsAdjustments): void {
   if (!wheels) return;
 
@@ -16,6 +25,9 @@ export function applyColorWheelsToImageData(imgData: ImageData, wheels: ColorWhe
   const isLog = wheels.mode === 'log';
 
   // Check if identity
+  /**
+   * isValZero - Performs is val zero.
+   */
   const isValZero = (v: ColorWheelVal) => v.x === 0 && v.y === 0 && v.yuma === 0;
   if (
     isValZero(wheels.lift) &&
@@ -31,6 +43,9 @@ export function applyColorWheelsToImageData(imgData: ImageData, wheels: ColorWhe
 
   // Pre-calculate vector RGB deltas for Primary (3-Way)
   // X axis shifts Red (+X) vs Cyan (-X), Y axis shifts Magenta (+Y) vs Green (-Y)
+  /**
+   * getRgbDelta - Retrieves get rgb delta.
+   */
   const getRgbDelta = (v: ColorWheelVal, scale: number = 0.35) => {
     const normX = (v.x / 100) * scale;
     const normY = (v.y / 100) * scale;

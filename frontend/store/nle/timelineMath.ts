@@ -1,10 +1,16 @@
 import type { Track } from '@/types/nle';
 
+/**
+ * clipsOverlap - Performs clips overlap.
+ */
 export const clipsOverlap = (
   a: { startFrame: number; durationFrames: number },
   b: { startFrame: number; durationFrames: number },
 ): boolean => a.startFrame < b.startFrame + b.durationFrames && b.startFrame < a.startFrame + a.durationFrames;
 
+/**
+ * computeTimelineDuration - Performs compute timeline duration.
+ */
 export const computeTimelineDuration = (tracks: Track[], fps = 30): number => {
   let max = 0;
   for (const track of tracks) {

@@ -12,6 +12,9 @@ interface HistoryPanelProps {
   onClose?: () => void;
 }
 
+/**
+ * HistoryPanel - Renders history panel.
+ */
 export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   history,
   currentIndex,

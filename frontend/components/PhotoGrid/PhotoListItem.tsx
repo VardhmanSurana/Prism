@@ -14,6 +14,9 @@ interface PhotoListItemProps {
   onDeleteToggle: (id: string | number) => void;
 }
 
+/**
+ * PhotoListItem - Renders photo list item.
+ */
 export const PhotoListItem: React.FC<PhotoListItemProps> = ({
   photo,
   isSelected,

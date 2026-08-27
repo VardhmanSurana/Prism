@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 const DEFAULT_API_BASE = 'http://127.0.0.1:8269';
 
+/**
+ * getApiBase - Retrieves get api base.
+ */
 export const getApiBase = (): string => {
   if (typeof window !== 'undefined' && window.localStorage) {
     const saved = localStorage.getItem('prism_server_url');
@@ -11,6 +14,9 @@ export const getApiBase = (): string => {
   return (import.meta.env.VITE_API_BASE as string) || DEFAULT_API_BASE;
 };
 
+/**
+ * setApiBase - Performs set api base.
+ */
 export const setApiBase = (url: string): void => {
   if (typeof window !== 'undefined' && window.localStorage) {
     const cleaned = url.trim().replace(/\/+$/, '');
@@ -28,6 +34,9 @@ export const API_BASE = {
   length: 0,
 } as unknown as string;
 
+/**
+ * resolveUrl - Performs resolve url.
+ */
 export const resolveUrl = (url: string) => {
   if (!url) return '';
   if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {

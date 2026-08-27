@@ -20,6 +20,7 @@ pub struct StoryRequest {
     pub title: String,
 }
 
+/// generate_story - Performs generate story.
 pub async fn generate_story(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<StoryRequest>,
@@ -73,6 +74,7 @@ pub async fn generate_story(
     })))
 }
 
+/// get_event_story - Retrieves get event story.
 pub async fn get_event_story(
     State(state): State<Arc<AppState>>,
     Path(event_id): Path<i64>,

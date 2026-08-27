@@ -29,17 +29,26 @@ interface UseImportProps {
   onImportProgress: (status: ImportProgressStatus) => void;
 }
 
+/**
+ * useImport - Hook managing import.
+ */
 export const useImport = ({ onUpload, onImportProgress }: UseImportProps) => {
   const { handleFileUpload, handleFolderSelection } = useFileSelection();
   const { startImport } = useImportProcess({ onUpload, onImportProgress });
   const { expandDirectories } = useDirectoryExpansion({ onImportProgress });
 
+  /**
+   * handleFileUploadWithImport - Handles file upload with import.
+   */
   const handleFileUploadWithImport = async () => {
     const result = await handleFileUpload();
     if (!result || result.paths.length === 0) return;
     await startImport(result.paths, result.resizeWidth);
   };
 
+  /**
+   * handleFolderImport - Handles folder import.
+   */
   const handleFolderImport = async () => {
     const result = await handleFolderSelection();
     if (!result || result.paths.length === 0) {

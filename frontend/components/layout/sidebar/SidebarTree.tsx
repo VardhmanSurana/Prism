@@ -18,12 +18,18 @@ interface SidebarTreeProps {
   onSelectItem: (id: number | string) => void;
 }
 
+/**
+ * SidebarTree - Renders sidebar tree.
+ */
 export const SidebarTree: React.FC<SidebarTreeProps> = ({ type, onViewAll, onSelectItem }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [items, setItems] = useState<TreeItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { galleryStyle } = useGalleryLayout();
 
+  /**
+   * fetchItems - Retrieves fetch items.
+   */
   const fetchItems = useCallback(async () => {
     if (items.length > 0 || isLoading) return;
     setIsLoading(true);
@@ -50,6 +56,9 @@ export const SidebarTree: React.FC<SidebarTreeProps> = ({ type, onViewAll, onSel
     }
   }, [type, items.length, isLoading]);
 
+  /**
+   * handleToggle - Handles toggle.
+   */
   const handleToggle = () => {
     if (!isExpanded) fetchItems();
     setIsExpanded(!isExpanded);

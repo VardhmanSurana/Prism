@@ -2,6 +2,9 @@ import L from 'leaflet';
 import { Photo } from '../../../types';
 import { resolveUrl } from '../../../constants';
 
+/**
+ * createPhotoIcon - Performs create photo icon.
+ */
 export const createPhotoIcon = (photo: Photo) => {
   const thumbUrl = resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=96`);
   return L.divIcon({

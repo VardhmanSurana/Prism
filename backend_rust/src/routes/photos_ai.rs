@@ -11,6 +11,7 @@ use tracing::warn;
 use crate::AppState;
 use crate::services::{auto_enhance, inpaint, segmentation};
 
+/// trigger_ocr - Performs trigger ocr.
 pub async fn trigger_ocr(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -53,14 +54,19 @@ pub struct InpaintRequest {
 }
 
 #[allow(dead_code)]
+/// default_operation - Performs default operation.
 fn default_operation() -> String { "remove".to_string() }
 #[allow(dead_code)]
+/// default_model - Performs default model.
 fn default_model() -> String { "lama".to_string() }
 #[allow(dead_code)]
+/// default_guidance - Performs default guidance.
 fn default_guidance() -> f64 { 7.5 }
 #[allow(dead_code)]
+/// default_steps - Performs default steps.
 fn default_steps() -> i32 { 50 }
 
+/// process_inpaint - Performs process inpaint.
 pub async fn process_inpaint(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<InpaintRequest>,
@@ -91,6 +97,7 @@ pub async fn process_inpaint(
     }
 }
 
+/// get_summary - Retrieves get summary.
 pub async fn get_summary(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -100,6 +107,7 @@ pub async fn get_summary(
     Ok(Json(json!({ "photo_id": photo.id, "summary": photo.ai_summary, "message": message })))
 }
 
+/// generate_summary - Performs generate summary.
 pub async fn generate_summary(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -125,6 +133,7 @@ pub struct XmpRequest {
     pub action: Option<String>,
 }
 
+/// xmp_operation - Performs xmp operation.
 pub async fn xmp_operation(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -158,6 +167,7 @@ pub struct LockRequest {
     pub passcode: Option<String>,
 }
 
+/// toggle_lock - Performs toggle lock.
 pub async fn toggle_lock(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -176,6 +186,7 @@ pub struct ExportPhotosRequest {
     pub photo_ids: Vec<Value>,
 }
 
+/// export_photos - Performs export photos.
 pub async fn export_photos(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<ExportPhotosRequest>,
@@ -201,6 +212,7 @@ pub struct DirectoryRequest {
     pub show_hidden: bool,
 }
 
+/// list_directory - Retrieves list directory.
 pub async fn list_directory(
     Json(payload): Json<DirectoryRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -242,6 +254,7 @@ pub struct UpdateMetadataRequest {
     pub exif_iso: Option<i32>,
 }
 
+/// update_photo_metadata - Updates update photo metadata.
 pub async fn update_photo_metadata(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -277,6 +290,7 @@ pub async fn update_photo_metadata(
     Ok(Json(json!({ "photo_id": photo.id, "status": "success", "updated_fields": sets.len() })))
 }
 
+/// get_semantic_masks - Retrieves get semantic masks.
 pub async fn get_semantic_masks(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
@@ -293,6 +307,7 @@ pub async fn get_semantic_masks(
     }
 }
 
+/// get_background_mask - Retrieves get background mask.
 pub async fn get_background_mask(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
@@ -317,6 +332,7 @@ pub async fn get_background_mask(
     }
 }
 
+/// get_portrait_masks - Retrieves get portrait masks.
 pub async fn get_portrait_masks(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
@@ -333,6 +349,7 @@ pub async fn get_portrait_masks(
     }
 }
 
+/// get_auto_enhance - Retrieves get auto enhance.
 pub async fn get_auto_enhance(
     State(_state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
@@ -350,6 +367,7 @@ pub async fn get_auto_enhance(
     }
 }
 
+/// unlock_photo - Performs unlock photo.
 pub async fn unlock_photo(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -370,6 +388,7 @@ pub struct ExportPresetRequest {
     pub preset: String,
 }
 
+/// export_photo_preset - Performs export photo preset.
 pub async fn export_photo_preset(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
@@ -401,6 +420,7 @@ pub struct XmpExportRequest {
     pub photo_ids: Option<Vec<Value>>,
 }
 
+/// xmp_export - Performs xmp export.
 pub async fn xmp_export(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<XmpExportRequest>,
@@ -428,6 +448,7 @@ pub struct XmpImportRequest {
     pub directory: Option<String>,
 }
 
+/// xmp_import - Performs xmp import.
 pub async fn xmp_import(
     Json(payload): Json<XmpImportRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
@@ -449,12 +470,14 @@ pub struct XmpUploadImportRequest {
     pub photo_id: Option<String>,
 }
 
+/// xmp_upload_import - Performs xmp upload import.
 pub async fn xmp_upload_import(
     Json(_payload): Json<XmpUploadImportRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
     Ok(Json(json!({ "status": "success", "message": "XMP upload-import received" })))
 }
 
+/// xmp_check - Performs xmp check.
 pub async fn xmp_check(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,

@@ -10,9 +10,21 @@ interface UseLightboxGesturesProps {
 const ZOOM_MIN = 1.0;
 const ZOOM_MAX = 10;
 
+/**
+ * useLightboxGestures - Hook managing lightbox gestures.
+ */
 export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLightboxGesturesProps) => {
+  /**
+   * zoom - Performs zoom.
+   */
   const zoom = useEditorUIStore((s) => s.zoom);
+  /**
+   * setZoom - Performs set zoom.
+   */
   const setZoom = useEditorUIStore((s) => s.setZoom);
+  /**
+   * resetZoom - Performs reset zoom.
+   */
   const resetZoom = useEditorUIStore((s) => s.resetZoom);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -24,11 +36,17 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
   const zoomScale = zoom.scale;
   const offset = { x: zoom.offsetX, y: zoom.offsetY };
 
+  /**
+   * resetInteraction - Performs reset interaction.
+   */
   const resetInteraction = useCallback(() => {
     resetZoom();
     setIsDragging(false);
   }, [resetZoom]);
 
+  /**
+   * setZoomScale - Performs set zoom scale.
+   */
   const setZoomScale = useCallback((newScale: number) => {
     const nextScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
     if (nextScale <= 1.0) {
@@ -46,6 +64,9 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
     }
   }, [setZoom]);
 
+  /**
+   * handleDoubleClick - Handles double click.
+   */
   const handleDoubleClick = (e: MouseEvent) => {
     if (disabled) return;
     if (zoomScale > 1) {
@@ -55,6 +76,9 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
     }
   };
 
+  /**
+   * handlePointerDown - Handles pointer down.
+   */
   const handlePointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     pointers.current.set(e.pointerId, e);
@@ -67,6 +91,9 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
     }
   };
 
+  /**
+   * handlePointerMove - Handles pointer move.
+   */
   const handlePointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (disabled) return;
     pointers.current.set(e.pointerId, e);
@@ -114,6 +141,9 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
     }
   };
 
+  /**
+   * handlePointerUp - Handles pointer up.
+   */
   const handlePointerUp = (e: PointerEvent) => {
     if (disabled) return;
     if (isDragging && zoomScale === 1 && pointers.current.size === 1) {
@@ -135,6 +165,9 @@ export const useLightboxGestures = ({ onNext, onPrev, disabled = false }: UseLig
     const target = containerRef.current;
     if (!target || disabled) return;
 
+    /**
+     * nativeWheel - Performs native wheel.
+     */
     const nativeWheel = (e: globalThis.WheelEvent) => {
       e.preventDefault();
       const delta = -e.deltaY * 0.001;

@@ -1,6 +1,9 @@
 import React from 'react';
 import { ShieldAlert } from 'lucide-react';
 
+/**
+ * SecurityFooter - Renders security footer.
+ */
 export function SecurityFooter(): React.ReactElement {
   return (
     <div className="flex justify-center mt-8">

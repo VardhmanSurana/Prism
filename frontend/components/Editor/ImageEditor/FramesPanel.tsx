@@ -89,6 +89,9 @@ const LEAK_PREVIEW_GRADIENTS: Record<string, string> = {
   'vintage-haze': 'linear-gradient(135deg, rgba(217, 119, 6, 0.6) 0%, rgba(16, 185, 129, 0.3) 50%, transparent 100%)',
 };
 
+/**
+ * FramesPanel - Renders frames panel.
+ */
 export const FramesPanel: React.FC<FramesPanelProps> = ({
   adjustments,
   onChange,
@@ -143,6 +146,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     setLightLeakOpacityUI(lightLeak.opacity);
   }
 
+  /**
+   * commitThickness - Performs commit thickness.
+   */
   const commitThickness = useCallback((next: number) => {
     onChange({
       ...adjustments,
@@ -150,6 +156,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   }, [onChange, adjustments, frame]);
 
+  /**
+   * commitTemperature - Performs commit temperature.
+   */
   const commitTemperature = useCallback((next: number) => {
     onChange({
       ...adjustments,
@@ -157,6 +166,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   }, [onChange, adjustments]);
 
+  /**
+   * commitVignette - Performs commit vignette.
+   */
   const commitVignette = useCallback((next: number) => {
     onChange({
       ...adjustments,
@@ -164,6 +176,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   }, [onChange, adjustments]);
 
+  /**
+   * commitGrainAmount - Performs commit grain amount.
+   */
   const commitGrainAmount = useCallback((next: number) => {
     onChange({
       ...adjustments,
@@ -171,6 +186,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   }, [onChange, adjustments, grain]);
 
+  /**
+   * commitLightLeakOpacity - Performs commit light leak opacity.
+   */
   const commitLightLeakOpacity = useCallback((next: number) => {
     onChange({
       ...adjustments,
@@ -178,6 +196,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   }, [onChange, adjustments, lightLeak]);
 
+  /**
+   * previewUrl - Performs preview url.
+   */
   const previewUrl = useMemo(() => {
     if (!imageSrc) return '';
     const resolved = resolveUrl(imageSrc);
@@ -185,6 +206,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     return `${resolved}${separator}previewKey=${Date.now()}`;
   }, [imageSrc]);
 
+  /**
+   * isDefault - Performs is default.
+   */
   const isDefault = useMemo(() => {
     return (
       frame.style === 'none' &&
@@ -195,6 +219,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     );
   }, [frame, grain, lightLeak, temperature, vignette]);
 
+  /**
+   * handleReset - Handles reset.
+   */
   const handleReset = () => {
     onChange({
       ...adjustments,
@@ -206,6 +233,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleStyleChange - Handles style change.
+   */
   const handleStyleChange = (style: typeof FRAME_TYPES[0]['id']) => {
     onChange({
       ...adjustments,
@@ -213,6 +243,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleThicknessChange - Handles thickness change.
+   */
   const handleThicknessChange = (thickness: number) => {
     onChange({
       ...adjustments,
@@ -220,6 +253,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleColorChange - Handles color change.
+   */
   const handleColorChange = (color: string) => {
     onChange({
       ...adjustments,
@@ -227,6 +263,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleGrainChange - Handles grain change.
+   */
   const handleGrainChange = (updates: Partial<typeof grain>) => {
     onChange({
       ...adjustments,
@@ -234,6 +273,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleLeakChange - Handles leak change.
+   */
   const handleLeakChange = (updates: Partial<typeof lightLeak>) => {
     onChange({
       ...adjustments,
@@ -241,6 +283,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleTemperatureChange - Handles temperature change.
+   */
   const handleTemperatureChange = (temp: number) => {
     onChange({
       ...adjustments,
@@ -248,6 +293,9 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
     });
   };
 
+  /**
+   * handleVignetteChange - Handles vignette change.
+   */
   const handleVignetteChange = (vig: number) => {
     onChange({
       ...adjustments,

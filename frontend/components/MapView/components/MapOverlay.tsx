@@ -16,6 +16,9 @@ interface MapOverlayProps {
   lastRoutePhoto?: Photo;
 }
 
+/**
+ * formatRouteDate - Formats format route date.
+ */
 function formatRouteDate(value?: string) {
   if (!value) return 'Unknown date';
   const date = new Date(value);
@@ -23,6 +26,9 @@ function formatRouteDate(value?: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date);
 }
 
+/**
+ * MapOverlay - Renders map overlay.
+ */
 export const MapOverlay: React.FC<MapOverlayProps> = ({
   geoPhotoCount,
   totalGeoPhotoCount,

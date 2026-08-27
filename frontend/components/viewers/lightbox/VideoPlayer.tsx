@@ -58,6 +58,13 @@ const initialState: PlayerState = {
   showSpeedMenu: false,
 };
 
+/**
+ * Reducer for video player state machine.
+ * Handles load lifecycle, playback, UI controls and error states.
+ * @param state - Current player state.
+ * @param action - Dispatched player action.
+ * @returns Next player state.
+ */
 function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
   switch (action.type) {
     case 'LOAD_START':
@@ -117,6 +124,10 @@ function playerReducer(state: PlayerState, action: PlayerAction): PlayerState {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+/**
+ * Full-featured video player with HLS/transcode fallback, custom controls,
+ * keyboard shortcuts, PiP/fullscreen and auto-hide chrome.
+ */
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   photo,
   onClose,
@@ -208,11 +219,16 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // ── Controls auto-hide ────────────────────────────────────────────────────
 
+  /** Schedules auto-hiding of player controls after the hide delay. */
   const scheduleHide = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => dispatch({ type: 'HIDE_CONTROLS' }), CONTROLS_HIDE_DELAY_MS);
   }, []);
 
+  /**
+   * Handles unrecoverable playback failure: retries via transcode endpoint once,
+   * otherwise surfaces an error state.
+   */
   const handlePlaybackFailure = useCallback(() => {
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     if (stallTimeoutRef.current) clearTimeout(stallTimeoutRef.current);
@@ -253,6 +269,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const isPlayingRef = useRef(state.isPlaying);
   isPlayingRef.current = state.isPlaying;
 
+  /** Immediately shows controls and re-schedules hide when playing. */
   const showControlsNow = useCallback(() => {
     dispatch({ type: 'SHOW_CONTROLS' });
     if (isPlayingRef.current) scheduleHide();
@@ -564,18 +581,27 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // ── Playback actions ──────────────────────────────────────────────────────
 
+  /** Toggles play/pause when the video is ready. */
   const togglePlay = useCallback(() => {
     const v = videoRef.current;
     if (!v || state.loadState !== 'ready') return;
     v.paused ? v.play().catch(() => {}) : v.pause();
   }, [state.loadState]);
 
+  /**
+   * Seeks relative to currentTime, clamping to [0, duration].
+   * @param deltaSec - Seconds to seek (negative for backwards).
+   */
   const seek = useCallback((deltaSec: number) => {
     const v = videoRef.current;
     if (!v) return;
     v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + deltaSec));
   }, []);
 
+  /**
+   * Sets volume/mute in both the video element and the global store.
+   * @param val - Volume in 0-1 range.
+   */
   const handleVolumeChange = useCallback((val: number) => {
     const v = videoRef.current;
     if (!v) return;
@@ -586,6 +612,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setMuted(clamped === 0);
   }, [setVolume, setMuted]);
 
+  /** Toggles muted state on the video element. */
   const toggleMute = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -594,6 +621,10 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setMuted(next);
   }, [setMuted]);
 
+  /**
+   * Sets playback rate and closes the speed menu.
+   * @param rate - New playback rate multiplier.
+   */
   const handleSpeedChange = useCallback((rate: number) => {
     const v = videoRef.current;
     if (v) v.playbackRate = rate;
@@ -601,12 +632,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     dispatch({ type: 'CLOSE_SPEED_MENU' });
   }, [setPlaybackRate]);
 
+  /** Toggles fullscreen on the player container. */
   const toggleFullscreen = useCallback(() => {
     const c = containerRef.current;
     if (!c) return;
     document.fullscreenElement ? document.exitFullscreen() : c.requestFullscreen();
   }, []);
 
+  /** Toggles Picture-in-Picture for the video element. */
   const togglePiP = useCallback(async () => {
     const v = videoRef.current;
     if (!v) return;
@@ -621,11 +654,13 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, []);
 
+  /** Rotates the video 90° clockwise (CSS only). */
   const rotateClockwise = useCallback(() => {
     setManualRotation((prev) => (prev + 90) % 360);
     showControlsNow();
   }, [showControlsNow]);
 
+  /** Manually retries loading via HLS or transcode fallback after an error. */
   const retry = useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -682,11 +717,18 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // ── Progress bar drag ─────────────────────────────────────────────────────
 
+  /**
+   * Calculates pointer X position as 0-1 fraction within an element.
+   * @param e - Mouse event.
+   * @param el - Target element for bounds.
+   * @returns Clamped fraction 0-1.
+   */
   const calcPct = (e: React.MouseEvent | MouseEvent, el: HTMLElement) => {
     const rect = el.getBoundingClientRect();
     return Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   };
 
+  /** Begins scrubbing on the progress bar via mouse drag. */
   const handleProgressMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault();
     seekDragRef.current = true;

@@ -177,6 +177,7 @@ struct PrismClient {
 }
 
 impl PrismClient {
+    /// new - Creates a new PrismClient instance.
     fn new(api_url: Option<String>, verbose: bool) -> Self {
         let base = api_url
             .unwrap_or_else(|| "http://127.0.0.1:8269".to_string())
@@ -192,6 +193,7 @@ impl PrismClient {
         }
     }
 
+    /// get_json - Retrieves get json.
     async fn get_json<T: for<'de> Deserialize<'de>>(&self, path: &str) -> Result<T> {
         let url = format!("{}{}", self.base, path);
         if self.verbose {
@@ -215,6 +217,7 @@ impl PrismClient {
         serde_json::from_value(value).with_context(|| "response did not match expected shape")
     }
 
+    /// post_json - Performs post json.
     async fn post_json<B: Serialize, T: for<'de> Deserialize<'de>>(
         &self,
         path: &str,
@@ -247,6 +250,7 @@ impl PrismClient {
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 #[tokio::main]
+/// main - Entry point for the Prism CLI.
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let client = PrismClient::new(cli.api_url, cli.verbose);
@@ -277,6 +281,7 @@ async fn main() -> Result<()> {
 
 // ─── Command handlers ─────────────────────────────────────────────────────────
 
+/// cmd_status - Executes status command.
 async fn cmd_status(c: &PrismClient, json: bool) -> Result<()> {
     let health: HealthStatus = c.get_json("/health").await?;
     let stats: PhotoStats = c.get_json("/api/v1/photos/stats").await?;
@@ -296,6 +301,7 @@ async fn cmd_status(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_stats - Executes stats command.
 async fn cmd_stats(c: &PrismClient, json: bool) -> Result<()> {
     let stats: PhotoStats = c.get_json("/api/v1/photos/stats").await?;
     if json {
@@ -306,6 +312,7 @@ async fn cmd_stats(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// print_stats_table - Prints stats table to stdout.
 fn print_stats_table(s: &PhotoStats) {
     let mut t = Table::new();
     t.set_content_arrangement(ContentArrangement::Disabled);
@@ -319,6 +326,7 @@ fn print_stats_table(s: &PhotoStats) {
     println!("{t}");
 }
 
+/// cmd_photos - Executes photos command.
 async fn cmd_photos(c: &PrismClient, limit: u32, json: bool) -> Result<()> {
     let photos: Vec<Photo> = c.get_json(&format!("/api/v1/photos?limit={limit}")).await?;
     if json {
@@ -329,6 +337,7 @@ async fn cmd_photos(c: &PrismClient, limit: u32, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_photo - Executes photo command.
 async fn cmd_photo(c: &PrismClient, id: &str, json: bool) -> Result<()> {
     let photo: Photo = c
         .get_json(&format!("/api/v1/photos/{id}"))
@@ -342,6 +351,7 @@ async fn cmd_photo(c: &PrismClient, id: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_search - Executes search command.
 async fn cmd_search(c: &PrismClient, query: Option<&str>, limit: u32, json: bool) -> Result<()> {
     let path = match query {
         Some(q) if !q.is_empty() => {
@@ -396,6 +406,7 @@ async fn cmd_search(c: &PrismClient, query: Option<&str>, limit: u32, json: bool
     Ok(())
 }
 
+/// cmd_people - Executes people command.
 async fn cmd_people(c: &PrismClient, json: bool) -> Result<()> {
     let people: Vec<Person> = c.get_json("/api/v1/people").await?;
     if json {
@@ -418,6 +429,7 @@ async fn cmd_people(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_albums - Executes albums command.
 async fn cmd_albums(c: &PrismClient, json: bool) -> Result<()> {
     let albums: Vec<Album> = c.get_json("/api/v1/albums").await?;
     if json {
@@ -451,6 +463,7 @@ async fn cmd_albums(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_import - Executes import command.
 async fn cmd_import(c: &PrismClient, path: &str, recursive: bool, json: bool) -> Result<()> {
     let payload = serde_json::json!({
         "path": path,
@@ -487,6 +500,7 @@ async fn cmd_import(c: &PrismClient, path: &str, recursive: bool, json: bool) ->
     Ok(())
 }
 
+/// cmd_export - Executes export command.
 async fn cmd_export(c: &PrismClient, album_id: Option<i64>, output_dir: &str, json: bool) -> Result<()> {
     let payload = serde_json::json!({
         "album_id": album_id,
@@ -514,6 +528,7 @@ async fn cmd_export(c: &PrismClient, album_id: Option<i64>, output_dir: &str, js
     Ok(())
 }
 
+/// cmd_config - Executes config command.
 async fn cmd_config(c: &PrismClient, key: Option<&str>, value: Option<&str>, json: bool) -> Result<()> {
     match (key, value) {
         (None, _) => {
@@ -557,6 +572,7 @@ async fn cmd_config(c: &PrismClient, key: Option<&str>, value: Option<&str>, jso
     Ok(())
 }
 
+/// cmd_purge_trash - Executes purge trash command.
 async fn cmd_purge_trash(c: &PrismClient, json: bool) -> Result<()> {
     let payload = serde_json::json!({ "older_than_days": 0 });
     let res: serde_json::Value = c.post_json("/api/v1/utilities/purge-trash", &payload).await?;
@@ -577,6 +593,7 @@ async fn cmd_purge_trash(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+/// cmd_diagnostics - Executes diagnostics command.
 async fn cmd_diagnostics(c: &PrismClient, json: bool) -> Result<()> {
     let diag: serde_json::Value = c.get_json("/api/v1/utilities/diagnostics").await?;
     if json {
@@ -606,6 +623,7 @@ async fn cmd_diagnostics(c: &PrismClient, json: bool) -> Result<()> {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+/// print_photos_table - Prints photos table to stdout.
 fn print_photos_table(photos: &[Photo]) {
     if photos.is_empty() {
         println!("No photos.");
@@ -640,6 +658,7 @@ fn print_photos_table(photos: &[Photo]) {
     println!("\n{} photo(s).", photos.len());
 }
 
+/// print_photo_detail - Prints photo detail to stdout.
 fn print_photo_detail(p: &Photo) {
     let mut t = Table::new();
     t.set_header(vec!["Field".to_string(), "Value".to_string()]);
@@ -699,6 +718,7 @@ fn print_photo_detail(p: &Photo) {
     println!("{t}");
 }
 
+/// fmt_bytes - Formats fmt bytes.
 fn fmt_bytes(n: i64) -> String {
     let mut n = n as f64;
     for unit in ["B", "KB", "MB", "GB", "TB"] {
@@ -710,6 +730,7 @@ fn fmt_bytes(n: i64) -> String {
     format!("{:.1} PB", n)
 }
 
+/// short_date - Performs short date.
 fn short_date(iso: &str) -> String {
     // Backend returns RFC3339; trim to YYYY-MM-DD for compact display.
     if let Some((d, _)) = iso.split_once('T') {
@@ -718,6 +739,7 @@ fn short_date(iso: &str) -> String {
     iso.to_string()
 }
 
+/// format_location - Formats format location.
 fn format_location(city: Option<&str>, state: Option<&str>, country: Option<&str>) -> String {
     let mut parts: Vec<&str> = Vec::new();
     if let Some(c) = city {
@@ -736,6 +758,7 @@ fn format_location(city: Option<&str>, state: Option<&str>, country: Option<&str
     }
 }
 
+/// paint_status - Performs paint status.
 fn paint_status(s: &str) -> String {
     // No color escapes (terminal-agnostic); keep it plain but readable.
     match s.to_lowercase().as_str() {

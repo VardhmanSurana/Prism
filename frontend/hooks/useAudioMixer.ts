@@ -11,6 +11,9 @@ interface AudioNodeEntry {
   gainNode: GainNode;
 }
 
+/**
+ * useAudioMixer - Hook managing audio mixer.
+ */
 export function useAudioMixer(
   videoRefs: Map<string, HTMLVideoElement | null>,
   tracks: Track[],
@@ -39,6 +42,9 @@ export function useAudioMixer(
     if (!ctx || !masterGain) return;
 
     // Check if any speech/dialogue (video track audio) is actively playing at playhead
+    /**
+     * speechIsActive - Performs speech is active.
+     */
     const speechIsActive = tracks.some((t) => {
       if (t.muted || t.type === 'audio') return false;
       return t.clips.some((c) => {
@@ -135,6 +141,9 @@ export function useAudioMixer(
           clipVolume = evaluateKeyframes(clip.keyframes['volume'], relativeTime);
         }
 
+        /**
+         * anySolo - Performs any solo.
+         */
         const anySolo = tracks.some((t) => t.solo);
         const effectiveVolume = anySolo
           ? (track.solo && !clipMuted ? clipVolume : 0)

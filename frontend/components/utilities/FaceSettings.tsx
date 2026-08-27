@@ -5,6 +5,9 @@ interface FaceSettingsProps {
   status: string | null;
 }
 
+/**
+ * Face recognition settings: shows discovery status and triggers sync.
+ */
 export const FaceSettings: React.FC<FaceSettingsProps> = ({ onTriggerSync, status }) => {
   const isRunning = status?.includes('discovery') || status?.includes('Initiating');
   

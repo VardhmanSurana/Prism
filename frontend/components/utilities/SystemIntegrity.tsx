@@ -7,6 +7,9 @@ interface SystemIntegrityProps {
   systemStatus: string | null;
 }
 
+/**
+ * System integrity panel: arm/disarm and execute integrity checks.
+ */
 export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
   isResetting,
   onReset,
@@ -14,9 +17,12 @@ export const SystemIntegrity: React.FC<SystemIntegrityProps> = ({
 }) => {
   const [armed, setArmed] = useState(false);
 
+  /** Arms the destructive integrity action. */
   const handleArm = () => setArmed(true);
+  /** Disarms the integrity action. */
   const handleDisarm = () => setArmed(false);
 
+  /** Executes the armed integrity operation. */
   const handleExecute = () => {
     setArmed(false);
     onReset();

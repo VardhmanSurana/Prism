@@ -11,6 +11,9 @@ interface PalettePanelProps {
   imageSrc?: string;
 }
 
+/**
+ * PalettePanel - Renders palette panel.
+ */
 export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
   const [extractedColors, setExtractedColors] = useState<string[]>([]);
   const [lockedColors, setLockedColors] = useState<(string | null)[]>([null, null, null, null, null, null]);
@@ -18,6 +21,9 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
 
   // Median Cut Extractor
+  /**
+   * extractColors - Performs extract colors.
+   */
   const extractColors = async (src: string) => {
     if (!src) return;
     setIsExtracting(true);
@@ -39,6 +45,9 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
   }, [imageSrc]);
 
   // Combine extracted colors and locked colors
+  /**
+   * finalColors - Performs final colors.
+   */
   const finalColors = useMemo(() => {
     const palette = [...extractedColors];
     // Pad to 6 if needed
@@ -49,6 +58,9 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
     });
   }, [extractedColors, lockedColors]);
 
+  /**
+   * handleCopy - Handles copy.
+   */
   const handleCopy = (color: string) => {
     navigator.clipboard.writeText(color);
     setToastColor(color);
@@ -57,6 +69,9 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
     }, 2000);
   };
 
+  /**
+   * handleToggleLock - Handles toggle lock.
+   */
   const handleToggleLock = (idx: number, color: string) => {
     const nextLocked = [...lockedColors];
     if (nextLocked[idx] === null) {
@@ -167,6 +182,9 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({ imageSrc }) => {
 
 // ── Quantization Logic ────────────────────────────────────────────────────────
 
+/**
+ * runMedianCut - Performs run median cut.
+ */
 function runMedianCut(imgSrc: string, count: number): Promise<string[]> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -232,6 +250,9 @@ function runMedianCut(imgSrc: string, count: number): Promise<string[]> {
           buckets.push(b2);
         }
 
+        /**
+         * colors - Performs colors.
+         */
         const colors = buckets.map(bucket => {
           let sumR = 0, sumG = 0, sumB = 0;
           for (const p of bucket) {
@@ -260,7 +281,13 @@ function runMedianCut(imgSrc: string, count: number): Promise<string[]> {
   });
 }
 
+/**
+ * rgbToHex - Performs rgb to hex.
+ */
 function rgbToHex(r: number, g: number, b: number): string {
+  /**
+   * toHex - Performs to hex.
+   */
   const toHex = (c: number) => {
     const hex = c.toString(16);
     return hex.length === 1 ? '0' + hex : hex;

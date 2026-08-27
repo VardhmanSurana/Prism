@@ -4,6 +4,9 @@ const SECOND_MULTIPLIERS = [1, 2, 3, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800
 const MIN_LABEL_SPACING_PX = 120;
 const MIN_TICK_SPACING_PX = 18;
 
+/**
+ * getRulerConfig - Retrieves get ruler config.
+ */
 export function getRulerConfig(pixelsPerSec: number, fps: number) {
   const pixelsPerFrame = pixelsPerSec / fps;
   let labelIntervalSeconds = 60;
@@ -61,6 +64,9 @@ export function getRulerConfig(pixelsPerSec: number, fps: number) {
   return { labelIntervalSeconds, tickIntervalSeconds };
 }
 
+/**
+ * formatRulerLabel - Formats format ruler label.
+ */
 export function formatRulerLabel(timeInSeconds: number, fps: number): string {
   const epsilon = 0.0001;
   const remainder = timeInSeconds % 1;

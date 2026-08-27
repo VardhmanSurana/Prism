@@ -20,12 +20,33 @@ const EXPORT_PRESETS = [
   { name: 'Custom', w: 0, h: 0, fps: 0, quality: 'high' as const },
 ] as const;
 
+/**
+ * ExportDialog - Renders export dialog.
+ */
 export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
+  /**
+   * toProjectJson - Performs to project json.
+   */
   const toProjectJson = useNLEStore((s) => s.toProjectJson);
+  /**
+   * projectWidth - Performs project width.
+   */
   const projectWidth = useNLEStore((s) => s.projectWidth);
+  /**
+   * projectHeight - Performs project height.
+   */
   const projectHeight = useNLEStore((s) => s.projectHeight);
+  /**
+   * projectFps - Performs project fps.
+   */
   const projectFps = useNLEStore((s) => s.projectFps);
+  /**
+   * duration - Performs duration.
+   */
   const duration = useNLEStore((s) => s.duration);
+  /**
+   * seek - Performs seek.
+   */
   const seek = useNLEStore((s) => s.seek);
   const [resolution, setResolution] = useState<[number, number]>([projectWidth, projectHeight]);
   const [fps, setFps] = useState(projectFps);
@@ -46,6 +67,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
 
   const { logAction, logError } = useTelemetry();
 
+  /**
+   * applyPreset - Performs apply preset.
+   */
   const applyPreset = (preset: typeof EXPORT_PRESETS[number]) => {
     setActivePreset(preset.name);
     if (preset.name === 'Custom') return;
@@ -54,6 +78,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
     setQuality(preset.quality);
   };
 
+  /**
+   * handleExport - Handles export.
+   */
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     setDownloadUrl(null);
@@ -133,6 +160,9 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
       setProgress('Rendering video locally...');
       setProgressPercent(0);
 
+      /**
+       * unlisten - Performs unlisten.
+       */
       const unlisten = await listen<number>('nle-export-progress', (event) => {
         setProgressPercent(Math.round(event.payload * 100));
       });

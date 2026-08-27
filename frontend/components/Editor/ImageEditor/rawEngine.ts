@@ -16,11 +16,17 @@ export const DEFAULT_RAW_SETTINGS: RawSettings = {
   denoiseAi: 0,
 };
 
+/**
+ * clamp - Performs clamp.
+ */
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
 
 // Convert Kelvin temperature to RGB scaling multiplier (Planckian locus)
+/**
+ * kelvinToRgbScale - Performs kelvin to rgb scale.
+ */
 function kelvinToRgbScale(kelvin: number): [number, number, number] {
   const temp = kelvin / 100;
   let r: number, g: number, b: number;
@@ -46,6 +52,9 @@ function kelvinToRgbScale(kelvin: number): [number, number, number] {
   return [clamp(r / 255, 0.1, 2.5), clamp(g / 255, 0.1, 2.5), clamp(b / 255, 0.1, 2.5)];
 }
 
+/**
+ * applyRawProcessingToImageData - Performs apply raw processing to image data.
+ */
 export function applyRawProcessingToImageData(imgData: ImageData, raw: RawSettings): void {
   if (!raw) return;
 

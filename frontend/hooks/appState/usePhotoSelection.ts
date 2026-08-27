@@ -2,12 +2,18 @@ import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Photo } from '../../types';
 
+/**
+ * usePhotoSelection - Hook managing photo selection.
+ */
 export function usePhotoSelection(photos: Photo[]) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedPhotoOverride, setSelectedPhotoOverride] = useState<Photo | null>(null);
 
   const photoKey = searchParams.get('photo');
 
+  /**
+   * selectedPhoto - Performs selected photo.
+   */
   const selectedPhoto = useMemo(() => {
     if (!photoKey) return null;
     if (
@@ -21,6 +27,9 @@ export function usePhotoSelection(photos: Photo[]) {
     );
   }, [photoKey, photos, selectedPhotoOverride]);
 
+  /**
+   * setSelectedPhoto - Performs set selected photo.
+   */
   const setSelectedPhoto = useCallback((photo: Photo | null, onClearContext?: () => void) => {
     setSelectedPhotoOverride(photo);
     if (photo) {

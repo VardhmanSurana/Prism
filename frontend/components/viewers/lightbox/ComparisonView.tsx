@@ -11,6 +11,11 @@ interface ComparisonViewProps {
   onSelectPhoto: (photo: Photo) => void;
 }
 
+/**
+ * Full-screen synchronized comparison view (2-up or 4-up grid).
+ * Picks surrounding photos relative to currentPhoto, shares zoom/offset
+ * across all tiles, and lets the user select any tile to exit comparison.
+ */
 export const ComparisonView: React.FC<ComparisonViewProps> = ({
   currentPhoto,
   photos = [],
@@ -38,8 +43,11 @@ export const ComparisonView: React.FC<ComparisonViewProps> = ({
         candidatePhotos[(currentIdx + 3) % candidatePhotos.length] || currentPhoto,
       ];
 
+  /** Increases synced zoom by 0.5x, capped at 4x. */
   const handleZoomIn = () => setZoomScale(prev => Math.min(prev + 0.5, 4));
+  /** Decreases synced zoom by 0.5x, floored at 1x. */
   const handleZoomOut = () => setZoomScale(prev => Math.max(prev - 0.5, 1));
+  /** Resets synced zoom and pan offset to defaults. */
   const handleResetZoom = () => {
     setZoomScale(1);
     setOffset({ x: 0, y: 0 });

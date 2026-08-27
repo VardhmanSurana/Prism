@@ -9,6 +9,9 @@ interface LazyImageProps {
   className: string;
 }
 
+/**
+ * LazyImage - Renders lazy image.
+ */
 export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fallbackSrc, alt, className }) {
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentSrc, setCurrentSrc] = useState(src);
@@ -51,6 +54,9 @@ export const LazyImage: FC<LazyImageProps> = memo(function LazyImage({ src, fall
     }
   }, [currentSrc, isVisible]);
 
+  /**
+   * handleError - Handles error.
+   */
   const handleError = () => {
     if (fallbackSrc && !isUsingFallback) {
       setIsUsingFallback(true);
