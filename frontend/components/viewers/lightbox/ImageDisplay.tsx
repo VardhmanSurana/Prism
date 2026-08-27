@@ -2,6 +2,10 @@ import React, { useMemo } from 'react';
 import { resolveUrl } from '@/constants';
 import { ImageDisplayProps } from './types';
 
+/**
+ * Renders the lightbox image with progressive high-res loading.
+ * Computes CSS transform for zoom/pan; optionally applies Ken Burns animation when idle.
+ */
 export const ImageDisplay: React.FC<ImageDisplayProps> = ({
   photo,
   zoomScale,

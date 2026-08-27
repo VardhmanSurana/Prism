@@ -3,6 +3,10 @@ import { Play } from 'lucide-react';
 import { FilmstripProps } from './types';
 import { resolveUrl } from '@/constants';
 
+/**
+ * Horizontal scrollable filmstrip of photo thumbnails.
+ * Auto-centers the active thumbnail on selection change.
+ */
 export const Filmstrip: React.FC<FilmstripProps> = ({
   photos,
   currentPhotoId,

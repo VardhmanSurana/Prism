@@ -24,6 +24,11 @@ interface TextActionsOverlayProps {
   containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
+/**
+ * Masks sensitive patterns (emails, phone numbers, credit cards) in text.
+ * @param text - Raw OCR text.
+ * @returns Redacted string with placeholders.
+ */
 function applyQuickRedact(text: string): string {
   // Redact emails
   let result = text.replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g, '[REDACTED EMAIL]');
@@ -34,6 +39,12 @@ function applyQuickRedact(text: string): string {
   return result;
 }
 
+/**
+ * Formats OCR bounding boxes into a TSV table by grouping lines into rows
+ * based on Y proximity and sorting columns by X position.
+ * @param selectedLines - OCR boxes to format.
+ * @returns Tab-separated table string.
+ */
 function formatAsTable(selectedLines: OcrBbox[]): string {
   if (selectedLines.length === 0) return '';
   const sorted = [...selectedLines].sort((a, b) => {
@@ -73,6 +84,10 @@ function formatAsTable(selectedLines: OcrBbox[]): string {
   return rows.map(r => r.map(c => c.text).join('\t')).join('\n');
 }
 
+/**
+ * Interactive OCR overlay with selectable bounding boxes, drag-select,
+ * copy (plain/table) and redact/line-break toggles aligned to the image frame.
+ */
 export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
   photo,
   onClose,
@@ -134,7 +149,11 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     return () => { cancelled = true; };
   }, [photo.id]);
 
-  // Format processed text based on user toggles (Quick Redact, Remove Line Breaks)
+  /**
+   * Applies active text transforms (redact, line-break removal) to raw OCR output.
+   * @param raw - Unprocessed OCR text.
+   * @returns Transformed text ready for clipboard.
+   */
   const processOutputText = useCallback((raw: string): string => {
     let out = raw;
     if (quickRedact) {
@@ -146,7 +165,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     return out;
   }, [quickRedact, removeLineBreaks]);
 
-  // Copy all text
+  /** Copies the full OCR text (with active transforms) to the clipboard. */
   const handleCopyAll = useCallback(async () => {
     if (!fullText) return;
     const textToCopy = processOutputText(fullText);
@@ -155,7 +174,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     setTimeout(() => setCopiedAll(false), 2000);
   }, [fullText, processOutputText]);
 
-  // Copy selected text
+  /** Copies only the user-selected OCR lines to the clipboard. */
   const handleCopySelected = useCallback(async () => {
     if (selectedIndices.size === 0) return;
     const selectedLines = lines.filter((_, i) => selectedIndices.has(i));
@@ -166,7 +185,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     setTimeout(() => setCopiedSelected(false), 2000);
   }, [lines, selectedIndices, processOutputText]);
 
-  // Copy as structured table
+  /** Copies selected (or all) OCR lines as a TSV table to the clipboard. */
   const handleCopyTable = useCallback(async () => {
     const targetLines = selectedIndices.size > 0
       ? lines.filter((_, i) => selectedIndices.has(i))
@@ -181,7 +200,10 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     setTimeout(() => setCopiedSelected(false), 2000);
   }, [lines, selectedIndices, quickRedact]);
 
-  // Toggle selection of a single line
+  /**
+   * Toggles selection state for a single OCR line.
+   * @param index - Index of the line in the lines array.
+   */
   const toggleSelection = useCallback((index: number) => {
     setSelectedIndices(prev => {
       const next = new Set(prev);
@@ -194,12 +216,12 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     });
   }, []);
 
-  // Select all lines
+  /** Selects all OCR lines. */
   const selectAll = useCallback(() => {
     setSelectedIndices(new Set(lines.map((_, i) => i)));
   }, [lines]);
 
-  // Deselect all
+  /** Clears all OCR line selections. */
   const deselectAll = useCallback(() => {
     setSelectedIndices(new Set());
   }, []);
@@ -223,7 +245,10 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectAll, handleCopySelected, handleCopyAll, selectedIndices.size]);
 
-  // Drag-select: find lines intersecting the selection rectangle
+  /**
+   * Computes the current drag-selection rectangle in normalized 0-1 coordinates.
+   * @returns Normalized rect or null if drag state/size is invalid.
+   */
   const getSelectionRect = useCallback(() => {
     if (!dragStart || !dragEnd || !imageOverlayRef.current) return null;
     const rect = imageOverlayRef.current.getBoundingClientRect();
@@ -239,7 +264,9 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
 
   const selectionRect = getSelectionRect();
 
-  // Check if a bbox intersects with the selection rectangle
+  /**
+   * Tests whether an OCR bounding box intersects the drag-selection rectangle.
+   */
   const bboxIntersectsSelection = useCallback(
     (bbox: OcrBbox['bbox'], sel: { x1: number; y1: number; x2: number; y2: number }) => {
       const [tl, tr, br, bl] = bbox;
@@ -253,7 +280,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     []
   );
 
-  // Handle pointer events for drag-select
+  /** Starts a drag-select gesture and resets previous selection. */
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
@@ -262,6 +289,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     e.currentTarget.setPointerCapture(e.pointerId);
   }, []);
 
+  /** Updates drag-select rectangle and selects intersecting OCR lines on move. */
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     if (!isDragging) return;
     setDragEnd({ x: e.clientX, y: e.clientY });
@@ -289,13 +317,19 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
     setSelectedIndices(newSelected);
   }, [isDragging, dragStart, lines, bboxIntersectsSelection]);
 
+  /** Ends the drag-select gesture. */
   const handlePointerUp = useCallback(() => {
     setIsDragging(false);
     setDragStart(null);
     setDragEnd(null);
   }, []);
 
-  // Render bounding box overlay for a single line
+  /**
+   * Renders an absolute-positioned bounding box overlay for a single OCR line,
+   * including selection/hover styling and a hover tooltip.
+   * @param line - OCR box and text.
+   * @param index - Position in the lines array.
+   */
   const renderBbox = (line: OcrBbox, index: number) => {
     const [tl, tr, br, bl] = line.bbox;
     const left = Math.min(tl[0], bl[0]) * 100;

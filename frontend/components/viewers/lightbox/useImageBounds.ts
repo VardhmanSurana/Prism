@@ -9,6 +9,16 @@ export interface ImageBounds {
   height: number;
 }
 
+/**
+ * Computes the on-screen pixel bounds of the displayed image (object-contain fit)
+ * including zoom and pan offset. Also tracks natural image size and container size.
+ * @param photo - Photo whose dimensions/path are used to resolve natural size.
+ * @param containerRef - Preferred container element ref for measuring bounds.
+ * @param fallbackElementRef - Fallback ref whose parent is measured if containerRef is absent.
+ * @param zoomScale - Current zoom multiplier (1 = fitted).
+ * @param offset - Current pan offset in pixels.
+ * @returns Pixel bounds {left, top, width, height} in viewport coordinates.
+ */
 export function useImageBounds(
   photo: Photo,
   containerRef?: RefObject<HTMLDivElement | null>,
