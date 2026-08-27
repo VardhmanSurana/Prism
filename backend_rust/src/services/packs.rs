@@ -176,6 +176,23 @@ impl PackManager {
                 }
                 Err(e) => error!("[PackManager] Failed to serialize seed manifest: {}", e),
             }
+        } else if let Ok(content) = std::fs::read_to_string(&manifest_file) {
+            if let Ok(mut manifest) = serde_json::from_str::<PackManifest>(&content) {
+                let default_manifest = Self::default_bg_removal_manifest();
+                let mut updated = false;
+                for def_model in default_manifest.models {
+                    if !manifest.models.iter().any(|m| m.id == def_model.id) {
+                        manifest.models.push(def_model);
+                        updated = true;
+                    }
+                }
+                if updated {
+                    if let Ok(json_str) = serde_json::to_string_pretty(&manifest) {
+                        let _ = std::fs::write(&manifest_file, json_str);
+                        info!("[PackManager] Updated seed pack manifest with missing models at {:?}", manifest_file);
+                    }
+                }
+            }
         }
     }
 
@@ -187,7 +204,7 @@ impl PackManager {
             capability: "image.matting".to_string(),
             description: Some("High-precision AI background removal, subject extraction, and alpha matting capability pack.".to_string()),
             author: Some("Prism AI Team".to_string()),
-            license: "Apache-2.0".to_string(),
+            license: "mixed-per-model".to_string(),
             models: vec![
                 PackModelDef {
                     id: "isnet-general-use".to_string(),
@@ -215,6 +232,60 @@ impl PackManager {
                     license: "Apache-2.0".to_string(),
                     gated: false,
                     ack_required: false,
+                },
+                PackModelDef {
+                    id: "birefnet".to_string(),
+                    name: "BiRefNet (Bilateral Reference High-Res)".to_string(),
+                    description: Some("State-of-the-art bilateral reference model with extreme edge and hair detail resolution.".to_string()),
+                    file: "birefnet.onnx".to_string(),
+                    input: PackInputDef {
+                        name: "input_image".to_string(),
+                        size: [1024, 1024],
+                        layout: "NCHW".to_string(),
+                        mean: [0.485, 0.456, 0.406],
+                        std: [0.229, 0.224, 0.225],
+                    },
+                    output: PackOutputDef {
+                        postprocess: "sigmoid".to_string(),
+                        threshold: None,
+                        output_index: Some(0),
+                        output_name: None,
+                    },
+                    download: Some(PackDownloadDef {
+                        url: "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model.onnx".to_string(),
+                        sha256: None,
+                        size_bytes: 450_000_000,
+                    }),
+                    license: "MIT".to_string(),
+                    gated: false,
+                    ack_required: false,
+                },
+                PackModelDef {
+                    id: "rmbg-1.4".to_string(),
+                    name: "RMBG-1.4 (BRIA Studio Matting)".to_string(),
+                    description: Some("Commercial-grade image matting by BRIA AI. Gated under non-commercial creative license.".to_string()),
+                    file: "rmbg_1_4.onnx".to_string(),
+                    input: PackInputDef {
+                        name: "input.1".to_string(),
+                        size: [1024, 1024],
+                        layout: "NCHW".to_string(),
+                        mean: [0.5, 0.5, 0.5],
+                        std: [1.0, 1.0, 1.0],
+                    },
+                    output: PackOutputDef {
+                        postprocess: "sigmoid".to_string(),
+                        threshold: None,
+                        output_index: Some(0),
+                        output_name: None,
+                    },
+                    download: Some(PackDownloadDef {
+                        url: "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx".to_string(),
+                        sha256: None,
+                        size_bytes: 176_000_000,
+                    }),
+                    license: "Non-Commercial (BRIA)".to_string(),
+                    gated: true,
+                    ack_required: true,
                 },
             ],
         }

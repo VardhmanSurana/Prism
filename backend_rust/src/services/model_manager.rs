@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, UNIX_EPOCH};
@@ -59,6 +59,7 @@ pub struct ModelInfoResponse {
     pub license: Option<String>,
     pub gated: bool,
     pub ack_required: bool,
+    pub license_acknowledged: bool,
     pub progress: Option<ModelProgress>,
 }
 
@@ -67,6 +68,7 @@ pub struct ModelManager {
     models: Vec<ModelDefinition>,
     active_progress: Arc<RwLock<HashMap<String, ModelProgress>>>,
     abort_handles: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
+    acknowledged_licenses: Arc<RwLock<HashSet<String>>>,
 }
 
 impl ModelManager {
@@ -77,6 +79,7 @@ impl ModelManager {
             models,
             active_progress: Arc::new(RwLock::new(HashMap::new())),
             abort_handles: Arc::new(Mutex::new(HashMap::new())),
+            acknowledged_licenses: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
@@ -351,6 +354,63 @@ impl ModelManager {
                     },
                 ],
             },
+            ModelDefinition {
+                id: "isnet-general-use".to_string(),
+                name: "ISNet (High Quality Universal)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "Highly accurate 1024px dichotomic segmentation model for universal portrait & object cutout.".to_string(),
+                total_size_bytes: 178_648_008,
+                desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx".to_string(),
+                        rel_path: "packs/background-removal/isnet_general_use.onnx".to_string(),
+                        expected_size_bytes: 178_648_008,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "birefnet".to_string(),
+                name: "BiRefNet (Bilateral Reference High-Res)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "State-of-the-art bilateral reference model with extreme edge and hair detail resolution.".to_string(),
+                total_size_bytes: 450_000_000,
+                desktop_only: false,
+                license: Some("MIT".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model.onnx".to_string(),
+                        rel_path: "packs/background-removal/birefnet.onnx".to_string(),
+                        expected_size_bytes: 450_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "rmbg-1.4".to_string(),
+                name: "RMBG-1.4 (BRIA Studio Matting)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "Commercial-grade image matting by BRIA AI. Gated under non-commercial creative license.".to_string(),
+                total_size_bytes: 176_000_000,
+                desktop_only: false,
+                license: Some("Non-Commercial (BRIA)".to_string()),
+                gated: true,
+                ack_required: true,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx".to_string(),
+                        rel_path: "packs/background-removal/rmbg_1_4.onnx".to_string(),
+                        expected_size_bytes: 176_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
         ]
     }
 
@@ -359,9 +419,28 @@ impl ModelManager {
         let mut total_disk_size = 0u64;
 
         for file_def in &model.files {
-            let path = self.models_dir.join(&file_def.rel_path);
-            if path.exists() {
-                if let Ok(meta) = std::fs::metadata(&path) {
+            let primary_path = self.models_dir.join(&file_def.rel_path);
+            let file_name = std::path::Path::new(&file_def.rel_path)
+                .file_name()
+                .unwrap_or_default();
+            let alt_matting_path = self.models_dir.join("matting").join(file_name);
+            let alt_pack_path = self.models_dir.join("packs/background-removal").join(file_name);
+            let plugin_path = std::path::Path::new("plugins/ai-vision-studio/models").join(file_name);
+
+            let effective_path = if primary_path.exists() {
+                primary_path
+            } else if alt_matting_path.exists() {
+                alt_matting_path
+            } else if alt_pack_path.exists() {
+                alt_pack_path
+            } else if plugin_path.exists() {
+                plugin_path
+            } else {
+                primary_path
+            };
+
+            if effective_path.exists() {
+                if let Ok(meta) = std::fs::metadata(&effective_path) {
                     total_disk_size += meta.len();
                 } else {
                     all_exist = false;
@@ -384,13 +463,19 @@ impl ModelManager {
         }
     }
 
+    pub async fn acknowledge_license(&self, model_id: &str) {
+        self.acknowledged_licenses.write().await.insert(model_id.to_string());
+    }
+
     pub async fn list_models(&self) -> Vec<ModelInfoResponse> {
         let progress_guard = self.active_progress.read().await;
+        let ack_guard = self.acknowledged_licenses.read().await;
         let mut responses = Vec::new();
 
         for model in &self.models {
             let (is_downloaded, disk_size) = self.check_model_on_disk(model);
             let progress = progress_guard.get(&model.id).cloned();
+            let is_acknowledged = !model.ack_required || ack_guard.contains(&model.id);
 
             responses.push(ModelInfoResponse {
                 id: model.id.clone(),
@@ -404,6 +489,7 @@ impl ModelManager {
                 license: model.license.clone(),
                 gated: model.gated,
                 ack_required: model.ack_required,
+                license_acknowledged: is_acknowledged,
                 progress,
             });
         }

@@ -148,14 +148,7 @@ export const ModelManager: React.FC = () => {
     return () => clearInterval(interval);
   }, [hasActiveDownloads, fetchProgressOnly, fetchModels]);
 
-  const handleStartDownload = async (modelId: string) => {
-    const target = models.find(m => m.id === modelId);
-    if (target?.gated && !target.license_acknowledged) {
-      setAckModalModel(target);
-      setAckChecked(false);
-      return;
-    }
-
+  const triggerDownloadApi = async (modelId: string) => {
     setActionLoading((prev) => ({ ...prev, [modelId]: true }));
     setError(null);
     try {
@@ -175,20 +168,34 @@ export const ModelManager: React.FC = () => {
     }
   };
 
+  const handleStartDownload = async (modelId: string) => {
+    const target = models.find(m => m.id === modelId);
+    if (target?.gated && !target.license_acknowledged) {
+      setAckModalModel(target);
+      setAckChecked(false);
+      return;
+    }
+
+    await triggerDownloadApi(modelId);
+  };
+
   const handleConfirmGatedAcknowledgment = async () => {
     if (!ackModalModel || !ackChecked) return;
     setIsAcknowledging(true);
+    const modelId = ackModalModel.id;
     try {
       const res = await fetch(`${API_BASE}/api/v1/packs/acknowledge-license`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model_id: ackModalModel.id, acknowledged: true }),
+        body: JSON.stringify({ model_id: modelId, acknowledged: true }),
       });
       if (res.ok) {
-        const modelId = ackModalModel.id;
         setAckModalModel(null);
         setModels(prev => prev.map(m => m.id === modelId ? { ...m, license_acknowledged: true } : m));
-        await handleStartDownload(modelId);
+        await triggerDownloadApi(modelId);
+      } else {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || 'Failed to record license acknowledgment');
       }
     } catch (e: any) {
       setError(e.message || 'Failed to record license acknowledgment');

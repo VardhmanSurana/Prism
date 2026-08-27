@@ -102,6 +102,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     pack_manager.refresh().await;
     let pack_models = pack_manager.to_model_definitions().await;
     model_manager_instance.register_dynamic(pack_models);
+
+    // Restore persisted license acknowledgments
+    if let Ok(rows) = sqlx::query_as::<_, (String, String)>(
+        "SELECT key, value FROM settings WHERE key LIKE 'pack_ack_%' AND value = 'true'"
+    )
+    .fetch_all(&db_pool)
+    .await {
+        for (key, _) in rows {
+            if let Some(model_id) = key.strip_prefix("pack_ack_") {
+                pack_manager.acknowledge_license(model_id).await;
+                model_manager_instance.acknowledge_license(model_id).await;
+            }
+        }
+    }
+
     let model_manager = Arc::new(model_manager_instance);
 
     let plugin_manager = Arc::new(PluginManager::new(

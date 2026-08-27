@@ -91,16 +91,27 @@ mod server_enhancement_tests {
         let packs_info = manager.get_packs_info().await;
         assert_eq!(packs_info.len(), 1);
         assert_eq!(packs_info[0].id, "background-removal");
-        assert_eq!(packs_info[0].models.len(), 1);
+        assert_eq!(packs_info[0].models.len(), 3);
 
         // Verify model definitions conversion
         let defs = manager.to_model_definitions().await;
-        assert_eq!(defs.len(), 1);
+        assert_eq!(defs.len(), 3);
         assert!(defs.iter().any(|d| d.id == "isnet-general-use"));
+        assert!(defs.iter().any(|d| d.id == "birefnet"));
+        assert!(defs.iter().any(|d| d.id == "rmbg-1.4"));
 
         // Test license acknowledgment
         let isnet_status = packs_info[0].models.iter().find(|m| m.id == "isnet-general-use").unwrap();
         assert_eq!(isnet_status.license_acknowledged, true);
+
+        let rmbg_status = packs_info[0].models.iter().find(|m| m.id == "rmbg-1.4").unwrap();
+        assert_eq!(rmbg_status.gated, true);
+        assert_eq!(rmbg_status.license_acknowledged, false);
+
+        manager.acknowledge_license("rmbg-1.4").await;
+        let updated_packs = manager.get_packs_info().await;
+        let updated_rmbg = updated_packs[0].models.iter().find(|m| m.id == "rmbg-1.4").unwrap();
+        assert_eq!(updated_rmbg.license_acknowledged, true);
     }
 
     #[tokio::test]
