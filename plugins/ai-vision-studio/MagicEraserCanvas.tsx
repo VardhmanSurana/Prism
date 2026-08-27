@@ -35,6 +35,7 @@ export interface MagicEraserCanvasProps {
   onInteractivePointsChange?: (points: Array<{ x: number; y: number; positive: boolean }>) => void;
   showMaskPreview?: boolean;
   maskOpacity?: number;
+  initialMask?: string | null;
 }
 
 export type InpaintCanvasProps = MagicEraserCanvasProps;
@@ -48,6 +49,7 @@ export const MagicEraserCanvas = forwardRef<MagicEraserCanvasHandle, MagicEraser
   onInteractivePointsChange,
   showMaskPreview = true,
   maskOpacity = 60,
+  initialMask,
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -169,6 +171,56 @@ export const MagicEraserCanvas = forwardRef<MagicEraserCanvasHandle, MagicEraser
     }
   }, [showMaskPreview, maskOpacity, mode, interactivePoints, mousePos, brushSize]);
 
+  // Clear all masks
+  const clearMask = useCallback(() => {
+    strokesRef.current = [];
+    setInteractivePoints([]);
+    currentStrokeRef.current = null;
+    
+    const ctx = canvasRef.current?.getContext('2d', { willReadFrequently: true });
+    if (ctx && canvasRef.current) {
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    
+    const overlayCtx = overlayCanvasRef.current?.getContext('2d', { willReadFrequently: true });
+    if (overlayCtx && overlayCanvasRef.current) {
+      overlayCtx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
+    }
+
+    onMaskChange('');
+  }, [onMaskChange]);
+
+  // Restore mask from image data URL
+  const restoreMask = useCallback((dataUrl: string) => {
+    strokesRef.current = [];
+    currentStrokeRef.current = null;
+    if (!dataUrl) {
+      clearMask();
+      return;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d', { willReadFrequently: true });
+      if (ctx && canvas) {
+        if (canvas.width === 0 || canvas.height === 0) {
+          canvas.width = img.width;
+          canvas.height = img.height;
+        }
+        if (overlayCanvasRef.current && (overlayCanvasRef.current.width === 0 || overlayCanvasRef.current.height === 0)) {
+          overlayCanvasRef.current.width = img.width;
+          overlayCanvasRef.current.height = img.height;
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+      onMaskChange(dataUrl);
+      redrawOverlay();
+    };
+    img.src = dataUrl;
+  }, [clearMask, onMaskChange, redrawOverlay]);
+
   // Load image and initialize canvas
   useEffect(() => {
     let cancelled = false;
@@ -188,14 +240,25 @@ export const MagicEraserCanvas = forwardRef<MagicEraserCanvasHandle, MagicEraser
       }
       
       imageRef.current = img;
-      redrawCanvas();
-      redrawOverlay();
+      if (initialMask) {
+        restoreMask(initialMask);
+      } else {
+        redrawCanvas();
+        redrawOverlay();
+      }
     };
     img.src = imageUrl;
     return () => {
       cancelled = true;
     };
-  }, [imageUrl, redrawCanvas, redrawOverlay]);
+  }, [imageUrl, initialMask, redrawCanvas, redrawOverlay, restoreMask]);
+
+  // Sync initialMask when prop changes
+  useEffect(() => {
+    if (initialMask) {
+      restoreMask(initialMask);
+    }
+  }, [initialMask, restoreMask]);
 
   useEffect(() => {
     redrawOverlay();
@@ -354,47 +417,6 @@ export const MagicEraserCanvas = forwardRef<MagicEraserCanvasHandle, MagicEraser
       e.preventDefault();
     }
   }, [mode]);
-
-  // Clear all masks
-  const clearMask = useCallback(() => {
-    strokesRef.current = [];
-    setInteractivePoints([]);
-    currentStrokeRef.current = null;
-    
-    const ctx = canvasRef.current?.getContext('2d');
-    if (ctx && canvasRef.current) {
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    }
-    
-    const overlayCtx = overlayCanvasRef.current?.getContext('2d');
-    if (overlayCtx && overlayCanvasRef.current) {
-      overlayCtx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
-    }
-
-    onMaskChange('');
-  }, [onMaskChange]);
-
-  // Restore mask from image data URL
-  const restoreMask = useCallback((dataUrl: string) => {
-    strokesRef.current = [];
-    currentStrokeRef.current = null;
-    if (!dataUrl) {
-      clearMask();
-      return;
-    }
-    const img = new Image();
-    img.onload = () => {
-      const canvas = canvasRef.current;
-      const ctx = canvas?.getContext('2d');
-      if (ctx && canvas) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
-      }
-      onMaskChange(dataUrl);
-      redrawOverlay();
-    };
-    img.src = dataUrl;
-  }, [clearMask, onMaskChange, redrawOverlay]);
 
   // Expose clean imperative handle via ref
   useImperativeHandle(ref, () => ({

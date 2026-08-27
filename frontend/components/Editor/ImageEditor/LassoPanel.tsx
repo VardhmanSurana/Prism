@@ -17,6 +17,7 @@ import {
   createSelectAllMask,
   invertMask,
   applyRefineEdgeToMask,
+  renderPolygonToMask,
 } from './lassoEngine';
 import {
   MousePointer,
@@ -154,9 +155,14 @@ export const LassoPanel: React.FC<LassoPanelProps> = ({
   };
 
   const handleConvertToInpaint = () => {
-    if (!state.activeMaskDataUrl && state.points.length < 3) return;
-    if (state.activeMaskDataUrl) {
-      onConvertToInpaintMask?.(state.activeMaskDataUrl);
+    let maskUrl = state.activeMaskDataUrl;
+    if (!maskUrl && state.points.length >= 3) {
+      const maskCanvas = renderPolygonToMask(state.points, canvasWidth, canvasHeight);
+      const refined = applyRefineEdgeToMask(maskCanvas, state.refine);
+      maskUrl = refined.toDataURL('image/png');
+    }
+    if (maskUrl) {
+      onConvertToInpaintMask?.(maskUrl);
       handleClear();
     }
   };

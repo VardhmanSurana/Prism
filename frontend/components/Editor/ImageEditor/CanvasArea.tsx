@@ -38,6 +38,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
   isComparing = false,
   inpaintMode = 'brush',
   inpaintCanvasRef,
+  inpaintMask = null,
   brushSize = 50,
   onInpaintMaskChange = (_mask: string): void => {},
   onInpaintStrokeComplete,
@@ -478,6 +479,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
               onInteractivePointsChange={onInteractivePointsChange}
               showMaskPreview={showMaskPreview}
               maskOpacity={maskOpacity}
+              initialMask={inpaintMask}
             />
           </div>
         </>

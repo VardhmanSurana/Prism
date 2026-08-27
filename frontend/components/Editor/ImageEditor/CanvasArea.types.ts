@@ -21,6 +21,7 @@ export interface CanvasAreaProps {
   isComparing?: boolean;
   inpaintMode?: InpaintMode;
   inpaintCanvasRef?: React.Ref<InpaintCanvasHandle>;
+  inpaintMask?: string | null;
   brushSize?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
   onInpaintStrokeComplete?: (maskDataUrl: string) => void;

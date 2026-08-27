@@ -1257,6 +1257,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           isComparing={isComparing}
           inpaintMode={inpaintMode}
           inpaintCanvasRef={inpaintCanvasRef}
+          inpaintMask={inpaintMask}
           brushSize={inpaintSettings.brushSize}
           onInpaintMaskChange={setInpaintMask}
           onInpaintStrokeComplete={handleInpaintStrokeComplete}
