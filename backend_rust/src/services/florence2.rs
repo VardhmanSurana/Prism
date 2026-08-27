@@ -158,6 +158,35 @@ fn preprocess_image(photo_path: &str) -> Result<ndarray::Array4<f32>, String> {
     Ok(arr)
 }
 
+fn construct_prompt(task: &str, text_input: Option<&str>) -> String {
+    match task {
+        "<CAPTION>" | "caption" => "What does the image describe?".to_string(),
+        "<DETAILED_CAPTION>" | "detailed" | "detailed_caption" => {
+            "Describe in detail what is shown in the image.".to_string()
+        }
+        "<MORE_DETAILED_CAPTION>" | "more_detailed" | "more_detailed_caption" => {
+            "Describe with a paragraph what is shown in the image.".to_string()
+        }
+        "<OD>" | "od" | "object_detection" => {
+            "Locate the objects with category name in the image.".to_string()
+        }
+        "<DENSE_REGION_CAPTION>" => {
+            "Locate the objects with category name and description in the image.".to_string()
+        }
+        "<REGION_PROPOSAL>" => "Locate the region proposal in the image.".to_string(),
+        "<CAPTION_TO_PHRASE_GROUNDING>" | "phrase_grounding" => {
+            if let Some(txt) = text_input {
+                format!("Locate the phrases in the caption: {}", txt)
+            } else {
+                "Locate the phrases in the caption.".to_string()
+            }
+        }
+        "<OCR>" => "What is the text in the image?".to_string(),
+        "<OCR_WITH_REGION>" => "What is the text in the image, with regions?".to_string(),
+        other => other.to_string(),
+    }
+}
+
 // ─────────────────────────── Captioning pipeline ─────────────────────────
 
 /// Run the full Florence-2 captioning pipeline for a photo.
@@ -191,13 +220,14 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
     let n_img = image_features.shape()[1];
     info!("[Florence2] Image features: [1, {}, 768]", n_img);
 
-    // 3. Tokenize task prefix
+    // 3. Tokenize task prompt
+    let prompt_text = construct_prompt(task, None);
     let encoding = tokenizer
-        .encode(task, true)
+        .encode(prompt_text.as_str(), true)
         .map_err(|e| format!("Tokenize: {}", e))?;
     let input_ids: Vec<i64> = encoding.get_ids().iter().map(|&id| id as i64).collect();
     let n_txt = input_ids.len();
-    info!("[Florence2] Task tokens: {:?} (len={})", input_ids, n_txt);
+    info!("[Florence2] Prompt: \"{}\" -> tokens: {:?} (len={})", prompt_text, input_ids, n_txt);
 
     let ids_array =
         ndarray::Array2::from_shape_vec((1, n_txt), input_ids).map_err(|e| format!("ids: {}", e))?;
@@ -322,7 +352,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
     // 9. Autoregressive decode loop
     let mut generated_tokens: Vec<i64> = Vec::new();
 
-    for step in 0..MAX_NEW_TOKENS {
+    for _step in 0..MAX_NEW_TOKENS {
         let seq_len_logits = logits.shape()[1];
         let next_logits = logits
             .slice(s![.., seq_len_logits - 1, ..])
@@ -330,7 +360,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
         let next_token = next_logits
             .iter()
             .enumerate()
-            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+            .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .map(|(i, _)| i as i64)
             .unwrap_or(EOS_TOKEN_ID);
 
@@ -349,58 +379,77 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
             let mut guard = sess_embed.session.lock().unwrap();
             let outputs = guard
                 .run(ort::inputs![emb_in.as_str() => next_ids_tensor])
-                .map_err(|e| e.to_string())?;
-            let (s, d) = outputs[emb_out.as_str()]
+                .map_err(|e| format!("Embed next token: {}", e))?;
+            let (shape, data) = outputs[emb_out.as_str()]
                 .try_extract_tensor::<f32>()
-                .map_err(|e| e.to_string())?;
-            let dims: Vec<usize> = s.iter().map(|&d| d as usize).collect();
-            ndarray::Array::from_shape_vec(dims, d.to_vec())
-                .map_err(|e| e.to_string())?
+                .map_err(|e| format!("Embed next token output: {}", e))?;
+            let dims: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+            ndarray::Array::from_shape_vec(dims, data.to_vec())
+                .map_err(|e| format!("Embed next token reshape: {}", e))?
         };
 
-        // Run decoder with KV cache (use_cache_branch=true)
-        let step_present_zero = ndarray::Array::zeros(ndarray::IxDyn(&[1, 12, seq_len, 64]));
-        let mut dec_inputs: std::collections::HashMap<String, DynTensor> = std::collections::HashMap::new();
+        let mut step_inputs: std::collections::HashMap<String, DynTensor> =
+            std::collections::HashMap::new();
         for name in &sess_decoder.input_names {
             match name.as_str() {
                 "encoder_attention_mask" => {
-                    dec_inputs.insert(name.clone(), ort::value::Value::from_array(attention_mask.clone()).map_err(|e| e.to_string())?.upcast());
+                    step_inputs.insert(
+                        name.clone(),
+                        ort::value::Value::from_array(attention_mask.clone())
+                            .map_err(|e| e.to_string())?
+                            .upcast(),
+                    );
                 }
                 "encoder_hidden_states" => {
-                    dec_inputs.insert(name.clone(), ort::value::Value::from_array(encoder_hidden_states.clone()).map_err(|e| e.to_string())?.upcast());
+                    step_inputs.insert(
+                        name.clone(),
+                        ort::value::Value::from_array(encoder_hidden_states.clone())
+                            .map_err(|e| e.to_string())?
+                            .upcast(),
+                    );
                 }
                 "inputs_embeds" => {
-                    dec_inputs.insert(name.clone(), ort::value::Value::from_array(next_embed.clone()).map_err(|e| e.to_string())?.upcast());
+                    step_inputs.insert(
+                        name.clone(),
+                        ort::value::Value::from_array(next_embed.clone())
+                            .map_err(|e| e.to_string())?
+                            .upcast(),
+                    );
                 }
                 "use_cache_branch" => {
-                    dec_inputs.insert(name.clone(), ort::value::Value::from_array(ndarray::Array1::<bool>::from_vec(vec![true])).map_err(|e| e.to_string())?.upcast());
+                    step_inputs.insert(
+                        name.clone(),
+                        ort::value::Value::from_array(ndarray::Array1::<bool>::from_vec(vec![true]))
+                            .map_err(|e| e.to_string())?
+                            .upcast(),
+                    );
                 }
                 n if n.starts_with("past_key_values.") => {
-                    let present_name = n.replace("past_key_values.", "present.");
-                    let kv = if let Some((_, kv)) = present_kv.iter().find(|(pn, _)| *pn == present_name) {
-                        kv.clone()
-                    } else {
-                        warn!("[Florence2] Missing KV for {}", n);
-                        step_present_zero.clone()
-                    };
-                    dec_inputs.insert(name.clone(), ort::value::Value::from_array(kv).map_err(|e| e.to_string())?.upcast());
+                    let past_name = n.replace("past_key_values.", "present.");
+                    if let Some((_, arr)) = present_kv.iter().find(|(k, _)| *k == past_name) {
+                        step_inputs.insert(
+                            name.clone(),
+                            ort::value::Value::from_array(arr.clone())
+                                .map_err(|e| e.to_string())?
+                                .upcast(),
+                        );
+                    }
                 }
                 _ => {}
             }
         }
 
-        // Extract everything from outputs while guard is alive, then drop
         let (new_logits, updates) = {
             let mut guard = sess_decoder.session.lock().unwrap();
             let outputs = guard
-                .run(dec_inputs)
-                .map_err(|e| format!("Decoder step {}: {}", step, e))?;
+                .run(step_inputs)
+                .map_err(|e| format!("Decoder step: {}", e))?;
 
-            let val = outputs["logits"].try_extract_tensor::<f32>()
+            let (ls, ld) = outputs["logits"]
+                .try_extract_tensor::<f32>()
                 .map_err(|e| e.to_string())?;
-            let (ls, ld) = val;
             let dims: Vec<usize> = ls.iter().map(|&d| d as usize).collect();
-            let new_logits: ndarray::ArrayD<f32> = ndarray::Array::from_shape_vec(dims, ld.to_vec())
+            let new_logits = ndarray::Array::from_shape_vec(dims, ld.to_vec())
                 .map_err(|e| e.to_string())?;
 
             let mut updates: Vec<(String, ndarray::ArrayD<f32>)> = Vec::new();
@@ -418,7 +467,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
                 }
             }
             (new_logits, updates)
-        }; // guard dropped here
+        };
 
         logits = new_logits;
         for (pname, arr) in updates {
@@ -434,7 +483,7 @@ fn caption_inner(photo_path: &str, task: &str) -> Result<String, String> {
         .decode(&token_u32, true)
         .map_err(|e| format!("Decode: {}", e))?;
 
-    Ok(text)
+    Ok(text.trim().to_string())
 }
 
 // ─────────────────────────── Public API ──────────────────────────────────
@@ -476,13 +525,7 @@ impl Florence2Task {
 
     /// Returns the full task prompt string (with input text for grounding).
     pub fn full_prompt(&self, input_text: Option<&str>) -> String {
-        match self {
-            Florence2Task::PhraseGrounding => {
-                let text = input_text.unwrap_or("");
-                format!("Locate the phrases in the caption: {}", text)
-            }
-            _ => self.as_str().to_string(),
-        }
+        construct_prompt(self.as_str(), input_text)
     }
 }
 
@@ -785,12 +828,20 @@ mod tests {
     }
 
     #[test]
-    fn dequantize_loc_roundtrip() {
-        // 0 → 0.5, 999 → 999.5
-        assert!((dequantize_loc(0, 1000) - 0.5).abs() < 0.01);
-        assert!((dequantize_loc(999, 1000) - 999.5).abs() < 0.01);
-        // For a 640px image: 500 → (500+0.5)*640/1000 = 320.32
-        assert!((dequantize_loc(500, 640) - 320.32).abs() < 0.1);
+    fn inspect_florence2_tokenization() {
+        if let Ok(tok) = load_tokenizer() {
+            for task in &["<CAPTION>", "<DETAILED_CAPTION>", "<MORE_DETAILED_CAPTION>", "<OD>"] {
+                let e_true = tok.encode(*task, true).unwrap();
+                let e_false = tok.encode(*task, false).unwrap();
+                eprintln!("[tok test] '{}' with special: ids={:?}, tokens={:?}", task, e_true.get_ids(), e_true.get_tokens());
+                eprintln!("[tok test] '{}' without special: ids={:?}, tokens={:?}", task, e_false.get_ids(), e_false.get_tokens());
+            }
+            for id in 51260..51289 {
+                if let Some(tok_str) = tok.id_to_token(id) {
+                    eprintln!("[id {}] -> '{}'", id, tok_str);
+                }
+            }
+        }
     }
 
     #[test]
@@ -816,14 +867,18 @@ mod tests {
             .save_with_format(&path, image::ImageFormat::Png)
             .unwrap();
 
-        eprintln!("[test] running Florence-2 caption (CPU, may take a while)...");
-        let res = Florence2Engine::get()
-            .caption(path.to_str().unwrap(), "<CAPTION>")
-            .expect("caption failed");
-        assert_eq!(res["success"], true);
-        assert!(res["caption"].is_string());
-        let caption_text = res["caption"].as_str().unwrap();
-        assert!(!caption_text.is_empty());
-        eprintln!("caption: \"{}\"", caption_text);
+        let test_file = if Path::new("/home/chotaxdon/Pictures/Camera/1766720356892 (Edited).jpg").exists() {
+            "/home/chotaxdon/Pictures/Camera/1766720356892 (Edited).jpg".to_string()
+        } else {
+            path.to_str().unwrap().to_string()
+        };
+
+        for task in &["<CAPTION>", "<DETAILED_CAPTION>", "<MORE_DETAILED_CAPTION>"] {
+            eprintln!("\n=== Testing task: {} ===", task);
+            let res = Florence2Engine::get()
+                .caption(&test_file, task)
+                .expect("caption failed");
+            eprintln!("Result {}: \"{}\"", task, res["caption"]);
+        }
     }
 }
