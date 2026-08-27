@@ -11,7 +11,6 @@
 
 use image::DynamicImage;
 use ndarray::Array3;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
 use ort::value::Value;
 use std::path::Path;
@@ -62,11 +61,7 @@ fn build_sam() -> Result<Arc<SamEngine>, String> {
         }
     }
 
-    let encoder = Session::builder()
-        .map_err(|e| e.to_string())?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| e.to_string())?
-        .commit_from_file(encoder_path)
+    let encoder = crate::services::onnx_helper::build_session(encoder_path, "SAM-Encoder")
         .map_err(|e| format!("Failed to load SAM encoder: {}", e))?;
     let encoder_input = encoder
         .inputs()
@@ -79,11 +74,7 @@ fn build_sam() -> Result<Arc<SamEngine>, String> {
         .map(|o| o.name().to_string())
         .ok_or("SAM encoder has no outputs")?;
 
-    let decoder = Session::builder()
-        .map_err(|e| e.to_string())?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| e.to_string())?
-        .commit_from_file(decoder_path)
+    let decoder = crate::services::onnx_helper::build_session(decoder_path, "SAM-Decoder")
         .map_err(|e| format!("Failed to load SAM decoder: {}", e))?;
     let decoder_inputs: Vec<String> =
         decoder.inputs().iter().map(|i| i.name().to_string()).collect();

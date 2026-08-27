@@ -27,6 +27,7 @@ pub mod model_manager;
 pub mod hardware;
 pub mod inference_slot;
 pub mod ocr_engine;
+pub mod onnx_helper;
 
 pub mod packs;
 pub mod plugins;

@@ -1,5 +1,3 @@
-use ort::session::builder::GraphOptimizationLevel;
-use ort::session::Session;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 use base64::Engine as _;
@@ -39,11 +37,7 @@ fn get_lama() -> Result<Arc<LamaSession>, String> {
     let found = LAMA_MODEL_PATHS.iter().find(|p| Path::new(p).exists()).copied();
     let loaded = match found {
         Some(path) => {
-            let build = Session::builder()
-                .map_err(|e| e.to_string())?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .map_err(|e| e.to_string())?
-                .commit_from_file(path)
+            let build = crate::services::onnx_helper::build_session(path, "Inpaint")
                 .map_err(|e| format!("Failed to load LaMa model: {}", e));
             match build {
                 Ok(session) => {

@@ -2,8 +2,6 @@
 //! face restoration. Both are heavyweight single sessions serialized through
 //! the global inference slot (4 GB VRAM budget — one model at a time).
 
-use ort::session::builder::GraphOptimizationLevel;
-use ort::session::Session;
 use rayon::prelude::*;
 use serde_json::Value;
 use std::path::Path;
@@ -19,28 +17,8 @@ struct NamedSession {
 }
 
 fn create_single_session(path: &str, tag: &str) -> Result<NamedSession, String> {
-    let session_res = (|| -> Result<Session, ort::Error> {
-        Session::builder()?
-            .with_execution_providers([ort::ep::CUDA::default().build()])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .commit_from_file(path)
-    })();
-
-    let session = match session_res {
-        Ok(s) => {
-            info!("[Enhance] {} loaded with CUDA GPU acceleration from {}", tag, path);
-            s
-        }
-        Err(e) => {
-            info!("[Enhance] CUDA init for {} ({}): falling back to CPU", tag, e);
-            Session::builder()
-                .map_err(|e| e.to_string())?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .map_err(|e| e.to_string())?
-                .commit_from_file(path)
-                .map_err(|e| e.to_string())?
-        }
-    };
+    let session = crate::services::onnx_helper::build_session(path, tag)
+        .map_err(|e| e.to_string())?;
 
     let input_name = session
         .inputs()
@@ -535,63 +513,6 @@ mod tests {
             eprintln!("upscale sample OK");
         } else {
             eprintln!("skip: esrgan model not downloaded");
-        }
-
-        // ── Visual comparison generator ─────────────────────────────────
-        let artifact_dir = Path::new("/home/chotaxdon/.gemini/antigravity/brain/f8fee3f8-2ef0-45f9-8207-61e475632392");
-        let sample_source = "/home/chotaxdon/Pictures/Camera/1766720356892 (Edited).jpg";
-        if Path::new(sample_source).exists() && ESRGAN_PATHS.iter().any(|p| Path::new(p).exists()) {
-            if let Ok(bytes) = std::fs::read(sample_source) {
-                if let Ok(img) = image::load_from_memory(&bytes) {
-                    // Extract a rich 400x400 center detail crop
-                    let (w, h) = (img.width(), img.height());
-                    let cx = w / 2;
-                    let cy = h / 3;
-                    let crop_side = 400u32.min(w).min(h);
-                    let x0 = cx.saturating_sub(crop_side / 2);
-                    let y0 = cy.saturating_sub(crop_side / 2);
-                    let cropped = image::imageops::crop_imm(&img, x0, y0, crop_side, crop_side).to_image();
-                    
-                    let orig_path = artifact_dir.join("original_crop.png");
-                    let up_path = artifact_dir.join("upscaled_4x.png");
-                    let _ = cropped.save_with_format(&orig_path, image::ImageFormat::Png);
-                    let _ = cropped.save_with_format(&up_path, image::ImageFormat::Png);
-
-                    if let Ok(res) = UpscaleEngine::get().upscale(up_path.to_str().unwrap(), 4) {
-                        eprintln!("Upscale comparison generated: {:?}", res);
-                        if let Ok(up_img) = image::open(&up_path) {
-                            let up_rgb = up_img.to_rgb8();
-                            let up_w = up_rgb.width();
-                            let up_h = up_rgb.height();
-
-                            // Standard bicubic upscale of original for fair side-by-side
-                            let standard_bicubic = image::DynamicImage::ImageRgba8(cropped)
-                                .resize_exact(up_w, up_h, image::imageops::FilterType::CatmullRom)
-                                .to_rgb8();
-
-                            // Create side-by-side composite (Left: Standard Bicubic 4x | Right: Real-ESRGAN AI 4x)
-                            let mut side_by_side = image::RgbImage::new(up_w, up_h);
-                            let split_x = up_w / 2;
-                            for y in 0..up_h {
-                                for x in 0..split_x {
-                                    side_by_side.put_pixel(x, y, *standard_bicubic.get_pixel(x, y));
-                                }
-                                for x in split_x..up_w {
-                                    side_by_side.put_pixel(x, y, *up_rgb.get_pixel(x, y));
-                                }
-                                // Draw 2px vertical white separator line
-                                side_by_side.put_pixel(split_x, y, image::Rgb([255, 255, 255]));
-                                if split_x + 1 < up_w {
-                                    side_by_side.put_pixel(split_x + 1, y, image::Rgb([255, 255, 255]));
-                                }
-                            }
-                            let comp_path = artifact_dir.join("comparison_side_by_side.png");
-                            let _ = side_by_side.save_with_format(&comp_path, image::ImageFormat::Png);
-                            eprintln!("Side-by-side composite written to {:?}", comp_path);
-                        }
-                    }
-                }
-            }
         }
 
         // ── Face restore: synthetic "face" box covering center quarter ──

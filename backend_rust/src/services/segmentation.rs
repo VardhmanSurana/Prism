@@ -1,7 +1,6 @@
 use std::sync::{Mutex, OnceLock};
 use image::{DynamicImage, GrayImage, Luma};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
 use serde::{Deserialize, Serialize};
 
@@ -92,20 +91,9 @@ impl SegmentationEngine {
             let base      = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation");
             let face_base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face");
 
-            let u2netp = Session::builder()
-                .ok()
-                .and_then(|b| b.with_optimization_level(GraphOptimizationLevel::Level3).ok())
-                .and_then(|mut b| b.commit_from_file(base.join("u2netp.onnx")).ok());
-
-            let semantic = Session::builder()
-                .ok()
-                .and_then(|b| b.with_optimization_level(GraphOptimizationLevel::Level3).ok())
-                .and_then(|mut b| b.commit_from_file(base.join("semantic.onnx")).ok());
-
-            let face_parsing = Session::builder()
-                .ok()
-                .and_then(|b| b.with_optimization_level(GraphOptimizationLevel::Level3).ok())
-                .and_then(|mut b| b.commit_from_file(face_base.join("face_parsing.onnx")).ok());
+            let u2netp = crate::services::onnx_helper::build_session(base.join("u2netp.onnx"), "U2NetP").ok();
+            let semantic = crate::services::onnx_helper::build_session(base.join("semantic.onnx"), "Semantic-Seg").ok();
+            let face_parsing = crate::services::onnx_helper::build_session(face_base.join("face_parsing.onnx"), "Face-Parsing").ok();
 
             SegmentationEngine {
                 u2netp:       Mutex::new(u2netp),
@@ -208,11 +196,7 @@ impl SegmentationEngine {
             }
 
             tracing::info!("[SegmentationEngine] Loading matting model '{}' from {:?}", req_model, model_path);
-            let session = Session::builder()
-                .map_err(|e| format!("Failed to create ORT builder: {}", e))?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .map_err(|e| format!("Failed to set opt level: {}", e))?
-                .commit_from_file(&model_path)
+            let session = crate::services::onnx_helper::build_session(&model_path, req_model)
                 .map_err(|e| format!("Failed to load ONNX file {:?}: {}", model_path, e))?;
 
             cache_guard.insert(req_model.to_string(), (session, std::time::Instant::now()));

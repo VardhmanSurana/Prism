@@ -5,8 +5,6 @@
 //! serialized through the global inference slot like LaMa / SAM.
 
 use base64::Engine as _;
-use ort::session::builder::GraphOptimizationLevel;
-use ort::session::Session;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -46,11 +44,7 @@ fn get_depth() -> Result<Arc<DepthSession>, String> {
     let found = DEPTH_MODEL_PATHS.iter().find(|p| Path::new(p).exists()).copied();
     let loaded = match found {
         Some(path) => {
-            let build = Session::builder()
-                .map_err(|e| e.to_string())?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .map_err(|e| e.to_string())?
-                .commit_from_file(path)
+            let build = crate::services::onnx_helper::build_session(path, "Depth")
                 .map_err(|e| format!("Failed to load Depth Anything model: {}", e));
             match build {
                 Ok(session) => {

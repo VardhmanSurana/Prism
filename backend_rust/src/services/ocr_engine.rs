@@ -8,7 +8,6 @@
 //! scores, suitable for the frontend Text Actions overlay.
 
 use ndarray::Array4;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -103,11 +102,7 @@ fn load_dict() -> Result<Vec<String>, String> {
 }
 
 fn load_session(path: &str, label: &str) -> Result<(Session, String, String), String> {
-    let build = Session::builder()
-        .map_err(|e| format!("{} session builder failed: {}", label, e))?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| format!("{} optimization failed: {}", label, e))?
-        .commit_from_file(path)
+    let build = crate::services::onnx_helper::build_session(path, label)
         .map_err(|e| format!("Failed to load {} model {}: {}", label, path, e))?;
 
     let input_name = build

@@ -7,7 +7,6 @@
 //! Tasks: `<CAPTION>`, `<DETAILED_CAPTION>`, `<MORE_DETAILED_CAPTION>`, `<OD>`, `<CAPTION_TO_PHRASE_GROUNDING>`.
 
 use ndarray::s;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::session::Session;
 use ort::value::DynTensor;
 use serde_json::Value;
@@ -69,12 +68,7 @@ fn load_cached_session(paths: &[&str], tag: &str) -> Result<Arc<CachedSession>, 
     let found = paths.iter().find(|p| Path::new(p).exists()).copied();
     let loaded = match found {
         Some(path) => {
-            match Session::builder()
-                .map_err(|e| e.to_string())?
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .map_err(|e| e.to_string())?
-                .commit_from_file(path)
-            {
+            match crate::services::onnx_helper::build_session(path, &format!("Florence2-{}", tag)) {
                 Ok(session) => {
                     let input_names: Vec<String> =
                         session.inputs().iter().map(|i| i.name().to_string()).collect();

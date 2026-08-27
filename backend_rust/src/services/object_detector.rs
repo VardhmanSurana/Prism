@@ -1,7 +1,6 @@
 use image::DynamicImage;
 use ndarray::Array4;
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
 use std::sync::{Arc, Mutex, OnceLock};
 
@@ -35,11 +34,7 @@ pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
         .copied()
         .unwrap_or("models/objects/yolov8n.onnx");
     
-    let session = Session::builder()
-        .map_err(|e| e.to_string())?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| e.to_string())?
-        .commit_from_file(model_path)
+    let session = crate::services::onnx_helper::build_session(model_path, "YOLOv8")
         .map_err(|e| format!("Failed to load YOLO model from {}: {}", model_path, e))?;
 
     let detector = Arc::new(ObjectDetector {

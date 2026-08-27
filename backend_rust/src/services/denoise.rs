@@ -7,8 +7,6 @@
 //! H/W must be padded to multiples of 8 before feeding the model; the result
 //! is cropped back to the original dimensions.
 
-use ort::session::builder::GraphOptimizationLevel;
-use ort::session::Session;
 use serde_json::Value;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -34,12 +32,7 @@ fn load_session(paths: &[&str], tag: &str) -> Result<Arc<NamedSession>, String> 
 
     let found = paths.iter().find(|p| Path::new(p).exists()).copied();
     let loaded = match found {
-        Some(path) => match Session::builder()
-            .map_err(|e| e.to_string())?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(|e| e.to_string())?
-            .commit_from_file(path)
-        {
+        Some(path) => match crate::services::onnx_helper::build_session(path, "Denoise") {
             Ok(session) => {
                 info!("[Denoise] {} session loaded from {}", tag, path);
                 let input_name = session.inputs().first().map(|i| i.name().to_string())
