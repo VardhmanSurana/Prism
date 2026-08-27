@@ -43,20 +43,27 @@ export function applyBackgroundReplacementToCanvas(
   // 2. Apply Edge Refinement (Feather, Smooth, Shift Edge, Contrast)
   const refinedMask = applyRefineEdgeToMask(maskCanvas, bg.refine);
   const refinedCtx = refinedMask.getContext('2d', { willReadFrequently: true });
+  if (!refinedCtx) return;
 
-  // Invert mask if keep_bg mode or invertMask is checked
+  const maskImgData = refinedCtx.getImageData(0, 0, w, h);
+  const mData = maskImgData.data;
+
+  // Invert mask if keep_bg mode or invertMask is checked, and map luminance to alpha channel
   const shouldInvert = bg.mode === 'keep_bg' || bg.invertMask;
-  if (shouldInvert && refinedCtx) {
-    const imgData = refinedCtx.getImageData(0, 0, w, h);
-    const d = imgData.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const inv = 255 - d[i];
-      d[i] = inv;
-      d[i + 1] = inv;
-      d[i + 2] = inv;
+  if (shouldInvert) {
+    for (let i = 0; i < mData.length; i += 4) {
+      const inv = 255 - mData[i];
+      mData[i] = inv;
+      mData[i + 1] = inv;
+      mData[i + 2] = inv;
+      mData[i + 3] = inv; // Map to alpha channel for destination-in compositing
     }
-    refinedCtx.putImageData(imgData, 0, 0);
+  } else {
+    for (let i = 0; i < mData.length; i += 4) {
+      mData[i + 3] = mData[i]; // Map to alpha channel for destination-in compositing
+    }
   }
+  refinedCtx.putImageData(maskImgData, 0, 0);
 
   // 3. Extract Subject onto isolated canvas using destination-in
   const subjectCanvas = document.createElement('canvas');
