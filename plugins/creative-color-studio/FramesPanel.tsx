@@ -340,29 +340,33 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
                     return (
                       <button
                         key={color.hex}
+                        type="button"
                         onClick={() => handleColorChange(color.hex)}
-                        className={`w-5.5 h-5.5 rounded-lg transition-all duration-200 cursor-pointer ${
+                        className={`w-6 h-6 rounded-full transition-all duration-200 cursor-pointer border ${
+                          color.hex.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                        } ${
                           isColorActive
-                            ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md shadow-black/40'
+                            ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-110 shadow-md shadow-black/50'
                             : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                         }`}
-                        style={{ backgroundColor: color.hex }}
+                        style={{ backgroundColor: color.hex, borderRadius: '9999px' }}
                         title={color.name}
                       />
                     );
                   })}
 
                   {/* Custom Color Input */}
-                  <div className="relative w-5.5 h-5.5 rounded-lg overflow-hidden border border-white/10 flex items-center justify-center bg-white/5 hover:scale-105 transition-transform duration-200">
+                  <div className="relative w-6 h-6 rounded-full overflow-hidden border border-white/20 flex items-center justify-center bg-white/5 hover:scale-105 transition-transform duration-200">
                     <input
                       type="color"
                       value={frame.color}
                       onChange={e => handleColorChange(e.target.value)}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      title="Custom color"
                     />
                     <div
-                      className="w-3.5 h-3.5 rounded-full border border-white/10"
-                      style={{ backgroundColor: frame.color }}
+                      className="w-4 h-4 rounded-full border border-white/20"
+                      style={{ backgroundColor: frame.color, borderRadius: '9999px' }}
                     />
                   </div>
                 </div>

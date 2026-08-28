@@ -6,8 +6,6 @@
 import React, { useState, useEffect } from 'react';
 import { Grid3X3, Pipette } from 'lucide-react';
 import { ColorPicker, useColor } from 'react-color-palette';
-import 'react-color-palette/css';
-
 interface ColorPickerSectionProps {
   activeColor: string;
   setActiveColor: (color: string) => void;
@@ -143,14 +141,14 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 key={color}
                 type="button"
                 onClick={() => handlePickColor(color)}
-                className={`w-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                className={`w-full rounded-full transition-all duration-200 cursor-pointer border ${
                   color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
                 } ${
                   isActive
                     ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
                     : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                 }`}
-                style={{ backgroundColor: color, aspectRatio: '1 / 1' }}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1', borderRadius: '9999px' }}
                 role="radio"
                 aria-checked={isActive}
                 aria-label={`Preset color ${color}`}
@@ -187,14 +185,14 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => handlePickColor(color)}
-                  className={`w-full h-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                  className={`w-full h-full rounded-full transition-all duration-200 cursor-pointer border ${
                     color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
                   } ${
                     isActive
                       ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
                       : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                   }`}
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: color, borderRadius: '9999px' }}
                   role="radio"
                   aria-checked={isActive}
                   aria-label={`Pinned color ${color}`}
@@ -236,14 +234,14 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 key={color}
                 type="button"
                 onClick={() => handlePickColor(color)}
-                className={`w-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                className={`w-full rounded-full transition-all duration-200 cursor-pointer border ${
                   color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
                 } ${
                   isActive
                     ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
                     : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                 }`}
-                style={{ backgroundColor: color, aspectRatio: '1 / 1' }}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1', borderRadius: '9999px' }}
                 role="radio"
                 aria-checked={isActive}
                 aria-label={`Recent color ${color}`}
@@ -304,12 +302,12 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                     key={hex}
                     type="button"
                     onClick={() => handlePickColor(hex)}
-                    className={`w-full rounded-md border border-white/5 transition-all duration-150 cursor-pointer ${
+                    className={`w-full rounded-full border border-white/5 transition-all duration-150 cursor-pointer ${
                       isActive
                         ? 'ring-2 ring-blue-500 ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md'
                         : 'hover:scale-110 hover:ring-1 hover:ring-white/20'
                     }`}
-                    style={{ backgroundColor: hex, aspectRatio: '1 / 1' }}
+                    style={{ backgroundColor: hex, aspectRatio: '1 / 1', borderRadius: '9999px' }}
                     title={hex}
                     role="radio"
                     aria-checked={isActive}
