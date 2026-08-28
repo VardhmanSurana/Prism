@@ -281,6 +281,26 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     syncZoom,
   });
 
+  // ── Effective Image Rect (with instant container fallback) ───────────────
+  const effectiveImageRect = React.useMemo(() => {
+    if (imageRect && imageRect.width > 0 && imageRect.height > 0) {
+      return imageRect;
+    }
+    if (sourceImg && sourceImg.naturalWidth > 0 && sourceImg.naturalHeight > 0 && containerRef.current) {
+      const cw = containerRef.current.clientWidth || window.innerWidth;
+      const ch = containerRef.current.clientHeight || window.innerHeight;
+      if (cw > 0 && ch > 0) {
+        const scale = Math.min((cw * 0.95) / sourceImg.naturalWidth, (ch * 0.95) / sourceImg.naturalHeight);
+        const w = Math.round(sourceImg.naturalWidth * scale);
+        const h = Math.round(sourceImg.naturalHeight * scale);
+        const left = Math.round((cw - w) / 2);
+        const top = Math.round((ch - h) / 2);
+        return { left, top, width: w, height: h };
+      }
+    }
+    return null;
+  }, [imageRect, sourceImg]);
+
   // ── Canvas draw effect ─────────────────────────────────────────────────────
 
   React.useLayoutEffect(() => {
@@ -312,6 +332,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
     curvesTable,
     canvasDrawKey,
     imageRect,
+    effectiveImageRect,
   ]);
 
   const handleMaskChange = React.useCallback((maskDataUrl: string) => {
@@ -352,17 +373,17 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       />
 
       {/* ── Base Before Original Image Layer (Visible during Split Compare) ── */}
-      {isComparing && imageRect && (
+      {isComparing && effectiveImageRect && (
         <img
           ref={beforeImageRef}
           src={currentImageSrc}
           alt="Original"
           className="absolute pointer-events-none z-0 object-contain select-none"
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
               ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
               : undefined,
@@ -372,7 +393,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Live Preview Canvas Overlay ── */}
-      {activeTool !== 'transform' && imageRect && sourceImg !== null && (
+      {activeTool !== 'transform' && effectiveImageRect && sourceImg !== null && (
         <canvas
           ref={liveCanvasRef}
           width={sourceImg.naturalWidth || 1}
@@ -383,10 +404,10 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
               : ''
           }`}
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             opacity: hasDrawnCanvas ? 1 : 0,
             transform: (adjustments.perspective !== 0 || adjustments.verticalPerspective !== 0)
               ? `perspective(1000px) rotateY(${adjustments.perspective * 0.3}deg) rotateX(${adjustments.verticalPerspective * 0.3}deg)`
@@ -399,15 +420,15 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Annotations Overlay (Preserved across tab switches to prevent unmounting issues) ── */}
-      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && (activeTool === 'annotations' || (annotations && annotations.length > 0 && activeTool !== 'transform')) && (
+      {effectiveImageRect && Number.isFinite(effectiveImageRect.width) && effectiveImageRect.width > 0 && Number.isFinite(effectiveImageRect.height) && effectiveImageRect.height > 0 && !isComparing && (activeTool === 'annotations' || (annotations && annotations.length > 0 && activeTool !== 'transform')) && (
         <div
           ref={annotationsContainerRef}
           className={`absolute ${activeTool === 'annotations' ? '' : 'pointer-events-none'}`}
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: activeTool === 'annotations' ? 'auto' : 'none',
             zIndex: activeTool === 'annotations' ? 30 : 20,
           }}
@@ -459,16 +480,16 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* Inpaint Canvas Overlay */}
-      {activeTool === 'inpaint' && imageRect && (
+      {activeTool === 'inpaint' && effectiveImageRect && (
         <>
           <div 
             ref={inpaintContainerRef}
             className="absolute z-20"
             style={{
-              left: imageRect.left,
-              top: imageRect.top,
-              width: imageRect.width,
-              height: imageRect.height,
+              left: effectiveImageRect.left,
+              top: effectiveImageRect.top,
+              width: effectiveImageRect.width,
+              height: effectiveImageRect.height,
               pointerEvents: 'auto',
             }}
           >
@@ -488,22 +509,22 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Healing Brush / Clone Stamp overlay (Preserved across tool switches to prevent disappearing strokes/unmounting) ── */}
-      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
+      {effectiveImageRect && Number.isFinite(effectiveImageRect.width) && effectiveImageRect.width > 0 && Number.isFinite(effectiveImageRect.height) && effectiveImageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
         <div
           ref={healingContainerRef}
           className={`absolute z-20 ${activeTool === 'healing' && !isCtrlPressed ? '' : 'pointer-events-none'}`}
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: activeTool === 'healing' && !isCtrlPressed ? 'auto' : 'none',
           }}
         >
           <HealingCanvas
             ref={healingCanvasRef}
-            width={Math.round(imageRect.width)}
-            height={Math.round(imageRect.height)}
+            width={Math.round(effectiveImageRect.width)}
+            height={Math.round(effectiveImageRect.height)}
             sourceImage={sourceImg || imgRef.current}
             imageSrc={currentImageSrc}
             mode={healingSettings?.mode || 'clone-stamp'}
@@ -517,21 +538,21 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Lasso & Intelligent Scissors Selection Overlay ── */}
-      {activeTool === 'lasso' && imageRect && lassoState && onLassoStateChange && (
+      {activeTool === 'lasso' && effectiveImageRect && lassoState && onLassoStateChange && (
         <div
           ref={lassoContainerRef}
           className="absolute z-20"
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: isCtrlPressed ? 'none' : 'auto',
           }}
         >
           <LassoCanvas
-            width={Math.round(imageRect.width)}
-            height={Math.round(imageRect.height)}
+            width={Math.round(effectiveImageRect.width)}
+            height={Math.round(effectiveImageRect.height)}
             imageSrc={currentImageSrc}
             state={lassoState}
             onChange={onLassoStateChange}
@@ -541,21 +562,21 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── In-Canvas Loupe Eyedropper Overlay for Palette Sampling ── */}
-      {typeof palettePickingIndex === 'number' && imageRect && onPaletteColorPicked && (
+      {typeof palettePickingIndex === 'number' && effectiveImageRect && onPaletteColorPicked && (
         <div
           ref={paletteContainerRef}
           className="absolute z-30"
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: isCtrlPressed ? 'none' : 'auto',
           }}
         >
           <PaletteEyedropperOverlay
-            width={Math.round(imageRect.width)}
-            height={Math.round(imageRect.height)}
+            width={Math.round(effectiveImageRect.width)}
+            height={Math.round(effectiveImageRect.height)}
             sourceImage={sourceImg || imgRef.current}
             imageSrc={currentImageSrc}
             targetSwatchIndex={palettePickingIndex}
@@ -566,24 +587,24 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Face Bounding Box & Landmark Overlay (Portrait / Liquify / Face Tools) ── */}
-      {faces && faces.length > 0 && imageRect && !isComparing && (activeTool === 'portrait' || activeTool === 'liquify' || activeTool === 'adjust') && (
+      {faces && faces.length > 0 && effectiveImageRect && !isComparing && (activeTool === 'portrait' || activeTool === 'liquify' || activeTool === 'adjust') && (
         <div
           ref={faceBBoxContainerRef}
           className="absolute z-20 pointer-events-none"
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: 'none',
           }}
         >
           <FaceBoundingBoxOverlay
             faces={faces}
-            naturalWidth={sourceImg?.naturalWidth || imgRef.current?.naturalWidth || imageRect.width}
-            naturalHeight={sourceImg?.naturalHeight || imgRef.current?.naturalHeight || imageRect.height}
-            containerWidth={Math.round(imageRect.width)}
-            containerHeight={Math.round(imageRect.height)}
+            naturalWidth={sourceImg?.naturalWidth || imgRef.current?.naturalWidth || effectiveImageRect.width}
+            naturalHeight={sourceImg?.naturalHeight || imgRef.current?.naturalHeight || effectiveImageRect.height}
+            containerWidth={Math.round(effectiveImageRect.width)}
+            containerHeight={Math.round(effectiveImageRect.height)}
             selectedFaceIndex={selectedFaceIndex}
             onSelectFace={onSelectFace}
             showLandmarks={activeTool === 'liquify' || activeTool === 'portrait'}
@@ -593,15 +614,15 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* ── Liquify & Reshape Mesh Canvas Overlay (Preserved across tool switches) ── */}
-      {imageRect && Number.isFinite(imageRect.width) && imageRect.width > 0 && Number.isFinite(imageRect.height) && imageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
+      {effectiveImageRect && Number.isFinite(effectiveImageRect.width) && effectiveImageRect.width > 0 && Number.isFinite(effectiveImageRect.height) && effectiveImageRect.height > 0 && !isComparing && activeTool !== 'transform' && (
         <div
           ref={liquifyContainerRef}
           className={`absolute z-30 ${activeTool === 'liquify' && !isCtrlPressed ? '' : 'pointer-events-none hidden'}`}
           style={{
-            left: imageRect.left,
-            top: imageRect.top,
-            width: imageRect.width,
-            height: imageRect.height,
+            left: effectiveImageRect.left,
+            top: effectiveImageRect.top,
+            width: effectiveImageRect.width,
+            height: effectiveImageRect.height,
             pointerEvents: activeTool === 'liquify' && !isCtrlPressed ? 'auto' : 'none',
             display: activeTool === 'liquify' ? 'block' : 'none',
             zIndex: 30,
@@ -609,8 +630,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
         >
           <LiquifyCanvas
             ref={liquifyCanvasRef}
-            width={Math.round(imageRect.width)}
-            height={Math.round(imageRect.height)}
+            width={Math.round(effectiveImageRect.width)}
+            height={Math.round(effectiveImageRect.height)}
             sourceImage={sourceImg || imgRef.current}
             imageSrc={currentImageSrc}
             settings={liquifySettings}
@@ -629,14 +650,14 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       )}
 
       {/* Before/After split comparison slider and labels */}
-      {isComparing && imageRect && (
+      {isComparing && effectiveImageRect && (
         <>
           <div 
             ref={beforeLabelRef}
             className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-[#0D0F14]/75 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-white/50"
             style={{
-              left: imageRect.left + 16,
-              top: imageRect.top + 16,
+              left: effectiveImageRect.left + 16,
+              top: effectiveImageRect.top + 16,
             }}
           >
             Before
@@ -645,8 +666,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             ref={afterLabelRef}
             className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-primary/25 border border-primary/35 text-[9px] font-bold uppercase tracking-wider text-primary shadow-[0_2px_12px_rgba(var(--color-primary),0.15)]"
             style={{
-              left: imageRect.left + imageRect.width - 64,
-              top: imageRect.top + 16,
+              left: effectiveImageRect.left + effectiveImageRect.width - 64,
+              top: effectiveImageRect.top + 16,
             }}
           >
             After
@@ -656,9 +677,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
             ref={compareDividerRef}
             className="absolute z-30 select-none cursor-ew-resize flex flex-col items-center justify-center touch-none"
             style={{
-              left: imageRect.left + (comparePercent / 100) * imageRect.width,
-              top: imageRect.top,
-              height: imageRect.height,
+              left: effectiveImageRect.left + (comparePercent / 100) * effectiveImageRect.width,
+              top: effectiveImageRect.top,
+              height: effectiveImageRect.height,
               width: 40,
               transform: 'translateX(-50%)',
             }}

@@ -91,7 +91,18 @@ export function useCropperSetup({
       (cropperRef as React.MutableRefObject<any>).current = cropper;
     }
 
+    // Ensure onCropperReady runs even if image was already decoded or cached during HMR/fast-load
+    const frameId = requestAnimationFrame(() => {
+      try {
+        const canvasData = cropper.getCanvasData();
+        if (canvasData && canvasData.width > 0 && canvasData.height > 0) {
+          onReadyCbRef.current();
+        }
+      } catch {}
+    });
+
     return () => {
+      cancelAnimationFrame(frameId);
       cropper.destroy();
       if (cropperRef && typeof cropperRef !== 'function') {
         (cropperRef as React.MutableRefObject<any>).current = null;
