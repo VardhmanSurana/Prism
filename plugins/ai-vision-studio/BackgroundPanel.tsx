@@ -431,10 +431,15 @@ export const BackgroundPanel: React.FC<BackgroundPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => handleDownloadModel(selectedModelDef.id)}
-                  className="w-full py-2 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] text-white rounded-lg text-xs font-medium flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                  style={{
+                    background: 'linear-gradient(135deg, #2563EB 0%, #4F46E5 100%)',
+                    border: 'none',
+                    outline: 'none',
+                  }}
+                  className="w-full py-2.5 px-4 text-white rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer select-none"
                 >
-                  <Download size={13} />
-                  <span>Download Model Now</span>
+                  <Download size={14} className="text-white shrink-0" />
+                  <span className="text-white font-semibold">Download Model Now</span>
                 </button>
               </div>
             )}
@@ -444,17 +449,22 @@ export const BackgroundPanel: React.FC<BackgroundPanelProps> = ({
             type="button"
             onClick={handleGenerateMask}
             disabled={isGenerating}
-            className="w-full py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-[0.98] disabled:opacity-50 text-white rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 transition-all cursor-pointer"
+            style={{
+              background: 'linear-gradient(135deg, #2563EB 0%, #4F46E5 100%)',
+              border: 'none',
+              outline: 'none',
+            }}
+            className="w-full py-2.5 px-4 text-white rounded-xl font-semibold text-xs flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 hover:brightness-110 active:scale-[0.98] disabled:opacity-50 transition-all cursor-pointer select-none"
           >
             {isGenerating ? (
               <>
-                <RefreshCw size={13} className="animate-spin text-white" />
-                <span>Extracting Subjects & Matting...</span>
+                <RefreshCw size={14} className="animate-spin text-white shrink-0" />
+                <span className="text-white font-semibold">Extracting Subjects & Matting...</span>
               </>
             ) : (
               <>
-                <Sparkles size={13} className="text-blue-200" />
-                <span>{bg.maskUrl ? 'Recompute AI Matte' : 'Extract Subject / Cutout'}</span>
+                <Sparkles size={14} className="text-white shrink-0" />
+                <span className="text-white font-semibold">{bg.maskUrl ? 'Recompute AI Matte' : 'Extract Subject / Cutout'}</span>
               </>
             )}
           </button>
