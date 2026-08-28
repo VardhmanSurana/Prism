@@ -1,11 +1,12 @@
 /**
  * useEditingHistory.ts
- * Custom React hook encapsulating adjustments state, crop, rotation, and linear undo/redo.
- * ponytail: removed history panel management functions (hide/unhide, arbitrary entry deletion).
+ * Custom React hook encapsulating adjustments state, custom variables,
+ * crop, rotation, non-destructive timeline, and undo/redo history.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { HistoryEntry, HistoryActionType, appendBoundedHistory, createHistoryEntry } from '../history';
+import { recomputeActiveEditorState } from '../historyUtils';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { API_BASE } from '@/constants';
@@ -30,6 +31,40 @@ function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boole
   }
 }
 
+/**
+ * Maps standard adjustment keys to their corresponding editor tool tabs.
+ */
+function inferToolId(key: string): string {
+  if (
+    key === 'exposure' ||
+    key === 'contrast' ||
+    key === 'brightness' ||
+    key === 'highlights' ||
+    key === 'shadows' ||
+    key === 'whites' ||
+    key === 'blacks' ||
+    key === 'vibrance' ||
+    key === 'saturation' ||
+    key === 'temperature' ||
+    key === 'tint' ||
+    key === 'clarity' ||
+    key === 'sharpness' ||
+    key === 'noiseReduction' ||
+    key === 'ambiance' ||
+    key === 'vignette'
+  ) {
+    return 'adjust';
+  }
+  if (key === 'hsl') return 'hsl';
+  if (key === 'curves') return 'adjust'; // or curves tab if present
+  if (key === 'splitToning') return 'hsl';
+  if (key === 'grain' || key === 'lightLeak') return 'texture';
+  if (key === 'frame') return 'frame';
+  if (key === 'layers' || key === 'blend') return 'layers';
+  if (key === 'tiltShift') return 'detail';
+  return 'adjust';
+}
+
 export const useEditingHistory = ({
   src,
   cropperRef,
@@ -41,6 +76,7 @@ export const useEditingHistory = ({
 }: UseEditingHistoryProps) => {
   const [currentImageSrc, setCurrentImageSrc] = useState<string>(src);
   const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
+  const [customVariables, setCustomVariables] = useState<Record<string, any>>({});
   const [flipH, setFlipH] = useState<boolean>(false);
   const [flipV, setFlipV] = useState<boolean>(false);
   const [straightenAngle, setStraightenAngle] = useState<number>(0);
@@ -53,10 +89,12 @@ export const useEditingHistory = ({
   const createdUrlRef = useRef<string | null>(null);
   const lastPhotoIdRef = useRef<string | null>(null);
   const initRunIdRef = useRef(0);
+  const initialAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
 
   const stateRef = useRef({
     currentImageSrc,
     adjustments,
+    customVariables,
     totalRotation,
     flipH,
     flipV,
@@ -68,6 +106,7 @@ export const useEditingHistory = ({
   stateRef.current = {
     currentImageSrc,
     adjustments,
+    customVariables,
     totalRotation,
     flipH,
     flipV,
@@ -88,9 +127,16 @@ export const useEditingHistory = ({
     (
       type: HistoryActionType,
       description: string,
-      value?: number,
+      value?: any,
       overrideImageSrc?: string,
-      overrideAnnotations?: Annotation[]
+      overrideAnnotations?: Annotation[],
+      options?: {
+        customVariables?: Record<string, any>;
+        hidden?: boolean;
+        isSnapshot?: boolean;
+        toolId?: string;
+        propertyKey?: string;
+      }
     ) => {
       if (isRestoringHistory.current) return;
 
@@ -105,7 +151,14 @@ export const useEditingHistory = ({
         s.flipV,
         s.straightenAngle,
         value,
-        overrideAnnotations || s.annotations
+        overrideAnnotations || s.annotations,
+        {
+          customVariables: options?.customVariables || s.customVariables,
+          hidden: options?.hidden,
+          isSnapshot: options?.isSnapshot,
+          toolId: options?.toolId || (options?.propertyKey ? inferToolId(options.propertyKey) : undefined),
+          propertyKey: options?.propertyKey,
+        }
       );
 
       const isCollapsible =
@@ -121,8 +174,8 @@ export const useEditingHistory = ({
         let newHistory = activeHistory;
         let collapsed: HistoryEntry[] = [];
         if (isCollapsible) {
-          collapsed = activeHistory.filter(h => h.type === type);
-          newHistory = newHistory.filter(h => h.type !== type);
+          collapsed = activeHistory.filter(h => h.type === type && h.propertyKey === options?.propertyKey);
+          newHistory = newHistory.filter(h => !(h.type === type && h.propertyKey === options?.propertyKey));
         }
         const result = appendBoundedHistory(newHistory, newHistory.length - 1, entry);
         return { ...result, evicted: [...collapsed, ...result.evicted] };
@@ -131,7 +184,7 @@ export const useEditingHistory = ({
       setHistory(prev => {
         const result = appendEntry(prev);
         for (const evicted of result.evicted) {
-          if (evicted.imageSrc.startsWith('blob:')) {
+          if (evicted.imageSrc.startsWith('blob:') && !result.history.some(h => h.imageSrc === evicted.imageSrc)) {
             URL.revokeObjectURL(evicted.imageSrc);
           }
         }
@@ -154,8 +207,6 @@ export const useEditingHistory = ({
       for (const entry of stateRef.current.history) {
         if (entry.imageSrc.startsWith('blob:')) URL.revokeObjectURL(entry.imageSrc);
       }
-      // Claim this init immediately (before awaiting) so a slow metadata fetch
-      // can't trigger duplicate concurrent initializations on effect re-runs.
       const runId = ++initRunIdRef.current;
       lastPhotoIdRef.current = parsedId;
 
@@ -176,14 +227,13 @@ export const useEditingHistory = ({
           }
         }
 
-        // Abort if a newer init superseded this one, or if the user already
-        // made edits while the metadata fetch was in flight (e.g. backend was
-        // busy loading models) — applying stale init state would wipe them.
         if (runId !== initRunIdRef.current) return;
         if (stateRef.current.history.length > 0) {
           console.warn('[useEditingHistory] Skipping late initial-adjustments fetch — user edits already exist.');
           return;
         }
+
+        initialAdjustmentsRef.current = initialAdjustments;
 
         const initialEntry = createHistoryEntry(
           'initial',
@@ -201,6 +251,7 @@ export const useEditingHistory = ({
         setCurrentHistoryIndex(0);
         setCurrentImageSrc(src);
         setAdjustments(initialAdjustments);
+        setCustomVariables({});
 
         previousAdjustmentsRef.current = { ...initialAdjustments };
         previousRotationRef.current = 0;
@@ -243,7 +294,7 @@ export const useEditingHistory = ({
 
     const prev = previousAdjustmentsRef.current;
     const curr = adjustments;
-    const changes: Array<{ key: keyof Adjustments; value: number | string }> = [];
+    const changes: Array<{ key: keyof Adjustments; value: any }> = [];
 
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
       if (
@@ -258,7 +309,7 @@ export const useEditingHistory = ({
         key === 'layers'
       ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
-          changes.push({ key, value: 'modified' });
+          changes.push({ key, value: curr[key] });
         }
       } else if (prev[key] !== curr[key]) {
         const val = curr[key];
@@ -277,28 +328,58 @@ export const useEditingHistory = ({
           const numValue = typeof value === 'number' ? value : undefined;
 
           if (key === 'curves') {
-            addHistoryEntry(key as HistoryActionType, `Adjusted ${label}`);
+            addHistoryEntry(key, `Adjusted ${label}`, value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'adjust',
+            });
           } else if (key === 'hsl') {
-            addHistoryEntry('hsl' as HistoryActionType, 'Adjusted Color Mixer');
+            addHistoryEntry('hsl', 'Adjusted Color Mixer', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'hsl',
+            });
           } else if (key === 'splitToning') {
-            addHistoryEntry('splitToning' as HistoryActionType, 'Adjusted Split Toning');
+            addHistoryEntry('splitToning', 'Adjusted Split Toning', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'hsl',
+            });
           } else if (key === 'grain') {
-            addHistoryEntry('grain' as HistoryActionType, `Film Grain: ${curr.grain.amount}%`);
+            addHistoryEntry('grain', `Film Grain: ${curr.grain.amount}%`, value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'texture',
+            });
           } else if (key === 'lightLeak') {
-            addHistoryEntry('lightLeak' as HistoryActionType, 'Adjusted Light Leak');
+            addHistoryEntry('lightLeak', 'Adjusted Light Leak', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'texture',
+            });
           } else if (key === 'frame') {
-            addHistoryEntry('frame' as HistoryActionType, 'Adjusted Frame');
+            addHistoryEntry('frame', 'Adjusted Frame', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'frame',
+            });
           } else if (key === 'blend') {
-            addHistoryEntry('blend' as HistoryActionType, 'Adjusted Blend');
+            addHistoryEntry('blend', 'Adjusted Blend', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'layers',
+            });
           } else if (key === 'tiltShift') {
-            addHistoryEntry('tiltShift' as HistoryActionType, 'Adjusted Tilt-Shift');
+            addHistoryEntry('tiltShift', 'Adjusted Tilt-Shift', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'detail',
+            });
           } else if (key === 'layers') {
-            addHistoryEntry('layer' as HistoryActionType, 'Modified layer stack');
+            addHistoryEntry('layer', 'Modified layer stack', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'layers',
+            });
           } else {
             addHistoryEntry(
-              key as HistoryActionType,
+              key,
               `${label} ${numValue !== undefined ? (numValue > 0 ? '+' : '') + numValue : 'adjusted'}`,
-              numValue
+              numValue,
+              undefined,
+              undefined,
+              { propertyKey: key, toolId: inferToolId(key) }
             );
           }
         });
@@ -314,7 +395,9 @@ export const useEditingHistory = ({
     if (totalRotation !== previousRotationRef.current && totalRotation !== 0) {
       const timer = setTimeout(() => {
         const degrees = totalRotation - previousRotationRef.current;
-        addHistoryEntry('rotate', `Rotated ${degrees > 0 ? '+' : ''}${degrees}°`, degrees);
+        addHistoryEntry('rotate', `Rotated ${degrees > 0 ? '+' : ''}${degrees}°`, degrees, undefined, undefined, {
+          toolId: 'transform',
+        });
         previousRotationRef.current = totalRotation;
       }, 300);
       return () => clearTimeout(timer);
@@ -326,7 +409,9 @@ export const useEditingHistory = ({
     if (isRestoringHistory.current) return;
     if (straightenAngle !== previousStraightenRef.current && straightenAngle !== 0) {
       const timer = setTimeout(() => {
-        addHistoryEntry('straighten', `Straighten ${straightenAngle > 0 ? '+' : ''}${straightenAngle}°`, straightenAngle);
+        addHistoryEntry('straighten', `Straighten ${straightenAngle > 0 ? '+' : ''}${straightenAngle}°`, straightenAngle, undefined, undefined, {
+          toolId: 'transform',
+        });
         previousStraightenRef.current = straightenAngle;
       }, 300);
       return () => clearTimeout(timer);
@@ -337,7 +422,9 @@ export const useEditingHistory = ({
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (flipH !== previousFlipHRef.current) {
-      addHistoryEntry('flip', flipH ? 'Flipped horizontally' : 'Un-flipped horizontally');
+      addHistoryEntry('flip', flipH ? 'Flipped horizontally' : 'Un-flipped horizontally', flipH, undefined, undefined, {
+        toolId: 'transform',
+      });
       previousFlipHRef.current = flipH;
     }
   }, [flipH, addHistoryEntry]);
@@ -345,7 +432,9 @@ export const useEditingHistory = ({
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (flipV !== previousFlipVRef.current) {
-      addHistoryEntry('flip', flipV ? 'Flipped vertically' : 'Un-flipped vertically');
+      addHistoryEntry('flip', flipV ? 'Flipped vertically' : 'Un-flipped vertically', flipV, undefined, undefined, {
+        toolId: 'transform',
+      });
       previousFlipVRef.current = flipV;
     }
   }, [flipV, addHistoryEntry]);
@@ -356,6 +445,7 @@ export const useEditingHistory = ({
 
       setCurrentImageSrc(entry.imageSrc);
       setAdjustments({ ...entry.adjustments });
+      setCustomVariables(entry.customVariables ? { ...entry.customVariables } : {});
       setTotalRotation(entry.rotation);
       setStraightenAngle(entry.straightenAngle);
       setFlipH(entry.flipH);
@@ -378,6 +468,79 @@ export const useEditingHistory = ({
       isRestoringHistory.current = false;
     },
     [cropperRef, setAnnotations]
+  );
+
+  const toggleHideHistoryEntry = useCallback(
+    (id: string) => {
+      setHistory(prev => {
+        const updated = prev.map(entry => (entry.id === id ? { ...entry, hidden: !entry.hidden } : entry));
+        const recomputed = recomputeActiveEditorState(updated, initialAdjustmentsRef.current);
+        isRestoringHistory.current = true;
+        setAdjustments(recomputed.adjustments);
+        setCustomVariables(recomputed.customVariables);
+        previousAdjustmentsRef.current = { ...recomputed.adjustments };
+        isRestoringHistory.current = false;
+        return updated;
+      });
+    },
+    []
+  );
+
+  const deleteHistoryEntry = useCallback(
+    (id: string) => {
+      setHistory(prev => {
+        const target = prev.find(e => e.id === id);
+        if (target?.type === 'initial') return prev; // Do not delete root initial state
+
+        const updated = prev.filter(e => e.id !== id);
+        if (target?.imageSrc.startsWith('blob:') && !updated.some(h => h.imageSrc === target.imageSrc)) {
+          URL.revokeObjectURL(target.imageSrc);
+        }
+
+        const recomputed = recomputeActiveEditorState(updated, initialAdjustmentsRef.current);
+        isRestoringHistory.current = true;
+        setAdjustments(recomputed.adjustments);
+        setCustomVariables(recomputed.customVariables);
+        previousAdjustmentsRef.current = { ...recomputed.adjustments };
+        isRestoringHistory.current = false;
+        return updated;
+      });
+
+      setCurrentHistoryIndex(prev => Math.max(0, prev - 1));
+    },
+    []
+  );
+
+  const jumpToHistoryEntry = useCallback(
+    (index: number) => {
+      const target = history[index];
+      if (target) {
+        applyEntry(target, index);
+      }
+    },
+    [history, applyEntry]
+  );
+
+  const setCustomVariable = useCallback(
+    (key: string, value: any, options?: { label?: string; toolId?: string }) => {
+      setCustomVariables(prev => {
+        const next = { ...prev, [key]: value };
+        addHistoryEntry(
+          `customVar:${key}`,
+          options?.label || `Set ${key}: ${typeof value === 'object' ? 'custom' : value}`,
+          value,
+          undefined,
+          undefined,
+          {
+            toolId: options?.toolId,
+            propertyKey: `customVariables.${key}`,
+            customVariables: next,
+          }
+        );
+        return next;
+      });
+    },
+    [addHistoryEntry]
   );
 
   const handleUndo = useCallback(() => {
@@ -403,16 +566,15 @@ export const useEditingHistory = ({
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
 
-  // History owns generated blob URLs. They are released on eviction and when
-  // the editor unmounts, never during undo/redo where an older entry is reused.
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
       const urls = new Set(
         stateRef.current.history
-          .map((entry) => entry.imageSrc)
-          .filter((source) => source.startsWith('blob:')),
+          .map(entry => entry.imageSrc)
+          .filter(source => source.startsWith('blob:'))
       );
-      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
 
@@ -421,6 +583,9 @@ export const useEditingHistory = ({
     setCurrentImageSrc,
     adjustments,
     setAdjustments,
+    customVariables,
+    setCustomVariables,
+    setCustomVariable,
     flipH,
     setFlipH,
     flipV,
@@ -437,6 +602,9 @@ export const useEditingHistory = ({
     createdUrlRef,
     revokeLocalUrl,
     addHistoryEntry,
+    toggleHideHistoryEntry,
+    deleteHistoryEntry,
+    jumpToHistoryEntry,
     handleUndo,
     handleRedo,
     canUndo,
