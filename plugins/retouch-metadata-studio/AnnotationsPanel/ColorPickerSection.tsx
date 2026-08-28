@@ -125,54 +125,73 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
   };
 
   return (
-    <div>
-      <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400 mb-3">
-        Color
-      </p>
-      <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Preset Colors">
-        {PRESET_COLORS.map(color => {
-          const isActive = activeColor.toLowerCase() === color.toLowerCase();
-          return (
-            <button
-              key={color}
-              onClick={() => handlePickColor(color)}
-              className={`w-full aspect-square rounded-lg transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                isActive
-                  ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md shadow-black/40'
-                  : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
-              }`}
-              style={{ backgroundColor: color }}
-              role="radio"
-              aria-checked={isActive}
-              aria-label={`Preset color ${color}`}
-            />
-          );
-        })}
+    <div className="space-y-4">
+      <div>
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40 mb-2.5">
+          Color
+        </p>
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Preset Colors"
+        >
+          {PRESET_COLORS.map(color => {
+            const isActive = activeColor.toLowerCase() === color.toLowerCase();
+            return (
+              <button
+                key={color}
+                type="button"
+                onClick={() => handlePickColor(color)}
+                className={`w-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                  color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                } ${
+                  isActive
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
+                }`}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1' }}
+                role="radio"
+                aria-checked={isActive}
+                aria-label={`Preset color ${color}`}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      <div className="mt-4 space-y-2">
+      <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40">
             Pinned
           </p>
           <button
+            type="button"
             onClick={() => pinColor(activeColor)}
-            className="text-[9px] font-bold uppercase text-primary hover:text-primary-focus transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded border border-white/5 hover:border-white/10 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+            className="text-[9px] font-bold uppercase text-blue-400 hover:text-blue-300 transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded border border-white/10 hover:border-white/20"
             title="Pin active color"
           >
             + Pin Active
           </button>
         </div>
-        <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Pinned Colors">
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Pinned Colors"
+        >
           {pinnedColors.map(color => {
             const isActive = activeColor.toLowerCase() === color.toLowerCase();
             return (
-              <div key={color} className="relative group/pin w-full aspect-square">
+              <div key={color} className="relative group/pin w-full" style={{ aspectRatio: '1 / 1' }}>
                 <button
+                  type="button"
                   onClick={() => handlePickColor(color)}
-                  className={`w-full h-full rounded-lg transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                  className={`w-full h-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                    color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                  } ${
                     isActive
-                      ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md shadow-black/40'
+                      ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
                       : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                   }`}
                   style={{ backgroundColor: color }}
@@ -182,11 +201,12 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 />
                 {pinnedColors.length > 2 && (
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       unpinColor(color);
                     }}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/pin:opacity-100 transition-opacity shadow cursor-pointer border border-black/25 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-red-400"
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/pin:opacity-100 transition-opacity shadow cursor-pointer border border-black/30"
                     title="Remove from pinned"
                     aria-label={`Remove pinned color ${color}`}
                   >
@@ -199,86 +219,97 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
         </div>
       </div>
 
-      <div className="mt-4 space-y-2">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400">
+      <div className="space-y-2">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40">
           Recent
         </p>
-        <div className="grid grid-cols-6 gap-2" role="radiogroup" aria-label="Recent Colors">
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Recent Colors"
+        >
           {recentColors.length > 0 ? recentColors.map(color => {
             const isActive = activeColor.toLowerCase() === color.toLowerCase();
             return (
               <button
                 key={color}
+                type="button"
                 onClick={() => handlePickColor(color)}
-                className={`w-full aspect-square rounded-lg transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                className={`w-full rounded-lg transition-all duration-200 cursor-pointer border ${
+                  color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                } ${
                   isActive
-                    ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md shadow-black/40'
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
                     : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
                 }`}
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1' }}
                 role="radio"
                 aria-checked={isActive}
                 aria-label={`Recent color ${color}`}
               />
             );
           }) : (
-            <p className="col-span-6 text-[9px] text-zinc-500 italic">No colors used yet</p>
+            <p className="col-span-6 text-[9px] text-white/30 italic">No colors used yet</p>
           )}
         </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2 pt-1">
         <button
+          type="button"
           onClick={() => {
             setShowSwatchGrid(prev => !prev);
             setShowColorPicker(false);
           }}
-          className={`flex items-center justify-center gap-1.5 w-full p-2 rounded-lg text-xs transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
             showSwatchGrid
-              ? 'bg-primary/20 text-primary'
-              : 'bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
+              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
           }`}
           aria-expanded={showSwatchGrid}
           aria-label="Toggle palette swatches"
         >
-          <Grid3X3 size={12} />
-          Palette
+          <Grid3X3 size={13} />
+          <span>Palette</span>
         </button>
         <button
+          type="button"
           onClick={() => {
             handlePickColor(customColor.hex);
             setShowColorPicker(prev => !prev);
             setShowSwatchGrid(false);
           }}
-          className={`flex items-center justify-center gap-1.5 w-full p-2 rounded-lg text-xs transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          className={`flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
             showColorPicker
-              ? 'bg-primary/20 text-primary'
-              : 'bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white'
+              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
           }`}
           aria-expanded={showColorPicker}
           aria-label="Toggle custom color picker"
         >
-          <Pipette size={12} />
-          Custom Color
+          <Pipette size={13} />
+          <span>Custom Color</span>
         </button>
       </div>
 
       {showSwatchGrid && (
-        <div className="mt-3 rounded-xl border border-white/10 p-2 space-y-1" role="radiogroup" aria-label="Palette Grid">
+        <div className="mt-3 rounded-xl border border-white/10 p-2.5 bg-black/40 space-y-1" role="radiogroup" aria-label="Palette Grid">
           {SWATCH_GRID.map((row, ri) => (
-            <div key={ri} className="grid grid-cols-8 gap-1">
+            <div key={ri} className="grid grid-cols-8 gap-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: '4px' }}>
               {row.map((hex) => {
                 const isActive = activeColor.toLowerCase() === hex.toLowerCase();
                 return (
                   <button
                     key={hex}
+                    type="button"
                     onClick={() => handlePickColor(hex)}
-                    className={`w-full aspect-square rounded-md border transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    className={`w-full rounded-md border border-white/5 transition-all duration-150 cursor-pointer ${
                       isActive
-                        ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md'
+                        ? 'ring-2 ring-blue-500 ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md'
                         : 'hover:scale-110 hover:ring-1 hover:ring-white/20'
                     }`}
-                    style={{ backgroundColor: hex }}
+                    style={{ backgroundColor: hex, aspectRatio: '1 / 1' }}
                     title={hex}
                     role="radio"
                     aria-checked={isActive}
