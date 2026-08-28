@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Grid3X3, Pipette } from 'lucide-react';
+import { Grid3X3, Pipette, X } from 'lucide-react';
 import { ColorPicker, useColor } from 'react-color-palette';
 interface ColorPickerSectionProps {
   activeColor: string;
@@ -82,6 +82,8 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
     }
   }, [activeColor]);
 
+  const [hoveredPinColor, setHoveredPinColor] = useState<string | null>(null);
+
   const pinColor = (color: string) => {
     if (!color) return;
     const normalized = color.toLowerCase();
@@ -152,6 +154,7 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 role="radio"
                 aria-checked={isActive}
                 aria-label={`Preset color ${color}`}
+                title={color}
               />
             );
           })}
@@ -180,17 +183,18 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
         >
           {pinnedColors.map(color => {
             const isActive = activeColor.toLowerCase() === color.toLowerCase();
+            const isHovered = hoveredPinColor?.toLowerCase() === color.toLowerCase();
             return (
-              <div key={color} className="relative group/pin w-full" style={{ aspectRatio: '1 / 1' }}>
+              <div
+                key={color}
+                className="relative group w-full"
+                style={{ aspectRatio: '1 / 1' }}
+                onMouseEnter={() => setHoveredPinColor(color)}
+                onMouseLeave={() => setHoveredPinColor(null)}
+              >
                 <button
                   type="button"
                   onClick={() => handlePickColor(color)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    if (pinnedColors.length > 1) {
-                      unpinColor(color);
-                    }
-                  }}
                   className={`w-full h-full rounded-full transition-all duration-200 cursor-pointer border ${
                     color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
                   } ${
@@ -202,20 +206,22 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                   role="radio"
                   aria-checked={isActive}
                   aria-label={`Pinned color ${color}`}
-                  title={`${color} (Left-click to select, right-click or click ✕ to unpin)`}
+                  title={color}
                 />
-                {pinnedColors.length > 1 && (
+
+                {/* Remove Pinned Color (✕) button visible on hover */}
+                {isHovered && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       unpinColor(color);
                     }}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-500 hover:bg-red-600 text-white text-[8px] flex items-center justify-center opacity-0 group-hover/pin:opacity-100 transition-opacity shadow cursor-pointer border border-black/30"
-                    title="Remove from pinned"
-                    aria-label={`Remove pinned color ${color}`}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer border border-black/40 z-30 transition-transform active:scale-90"
+                    title={`Unpin ${color}`}
+                    aria-label={`Unpin ${color}`}
                   >
-                    ✕
+                    <X size={10} strokeWidth={2.5} />
                   </button>
                 )}
               </div>
