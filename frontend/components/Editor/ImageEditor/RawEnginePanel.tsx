@@ -24,10 +24,8 @@ import {
   RotateCcw,
   Sparkles,
   ChevronDown,
-  Info,
   Sliders,
 } from 'lucide-react';
-import { API_BASE } from '@/constants';
 import { EditorSlider } from './ui/EditorSlider';
 
 interface RawEnginePanelProps {
@@ -37,32 +35,14 @@ interface RawEnginePanelProps {
   imageSrc?: string;
 }
 
-interface PhotoMetadata {
-  camera_make?: string;
-  camera_model?: string;
-  exif_make?: string;
-  exif_model?: string;
-  lens_model?: string;
-  iso?: number;
-  exif_iso?: number;
-  f_number?: number;
-  exposure_time?: string;
-  focal_length?: number;
-  exif_focal_length?: number;
-  color_space?: string;
-}
-
 export const RawEnginePanel: React.FC<RawEnginePanelProps> = ({
   settings = DEFAULT_RAW_SETTINGS,
   onChange,
-  photoId,
 }) => {
-  const [metadata, setMetadata] = useState<PhotoMetadata | null>(null);
   const [openSections, setOpenSections] = useState({
     wb: true,
     exposure: true,
     details: true,
-    info: true,
   });
 
   const update = (patch: Partial<RawSettings>) => {
@@ -76,17 +56,6 @@ export const RawEnginePanel: React.FC<RawEnginePanelProps> = ({
   const toggleSection = (key: keyof typeof openSections) => {
     setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
   };
-
-  // Fetch camera/sensor metadata if available
-  useEffect(() => {
-    if (!photoId) return;
-    fetch(`${API_BASE}/api/v1/photos/${photoId}/metadata`)
-      .then(res => (res.ok ? res.json() : null))
-      .then(data => {
-        if (data) setMetadata(data);
-      })
-      .catch(() => {});
-  }, [photoId]);
 
   const handlePresetSelect = (preset: RawWhitebalancePreset) => {
     if (preset === 'custom') {
@@ -137,63 +106,6 @@ export const RawEnginePanel: React.FC<RawEnginePanelProps> = ({
             <RotateCcw size={10} />
             Reset
           </button>
-        )}
-      </div>
-
-      {/* ── Camera & Sensor Info Badge ── */}
-      <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-2">
-        <div
-          onClick={() => toggleSection('info')}
-          className="flex items-center justify-between cursor-pointer group/info"
-        >
-          <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white/50 group-hover/info:text-white/80">
-            <Info size={11} className="text-primary" />
-            <span>Camera & Sensor Profile</span>
-          </div>
-          <ChevronDown
-            size={12}
-            className={`text-white/30 transition-transform ${
-              openSections.info ? 'rotate-0' : '-rotate-90'
-            }`}
-          />
-        </div>
-
-        {openSections.info && (
-          <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5 text-[10px] animate-in fade-in duration-150">
-            <div>
-              <span className="text-white/30 block text-[9px]">Camera Model</span>
-              <span className="font-semibold text-white/80 truncate block">
-                {metadata?.camera_make || metadata?.camera_model
-                  ? `${metadata.camera_make || ''} ${metadata.camera_model || ''}`.trim()
-                  : metadata?.exif_make || metadata?.exif_model
-                  ? `${metadata.exif_make || ''} ${metadata.exif_model || ''}`.trim()
-                  : 'Digital Sensor (CFA)'}
-              </span>
-            </div>
-            <div>
-              <span className="text-white/30 block text-[9px]">Lens</span>
-              <span className="font-semibold text-white/80 truncate block">
-                {metadata?.lens_model
-                  ? metadata.lens_model
-                  : metadata?.focal_length || metadata?.exif_focal_length
-                  ? `${Math.round(metadata.focal_length || metadata.exif_focal_length!)}mm Prime`
-                  : 'Primary Sensor'}
-              </span>
-            </div>
-            <div>
-              <span className="text-white/30 block text-[9px]">Exposure</span>
-              <span className="font-mono text-primary font-bold">
-                {metadata?.exposure_time ? `${metadata.exposure_time}s` : '1/250s'}
-                {metadata?.f_number ? ` • ƒ/${metadata.f_number}` : ' • ƒ/2.8'}
-              </span>
-            </div>
-            <div>
-              <span className="text-white/30 block text-[9px]">ISO / Profile</span>
-              <span className="font-mono text-white/70">
-                ISO {metadata?.iso ?? metadata?.exif_iso ?? 100} • Linear RAW
-              </span>
-            </div>
-          </div>
         )}
       </div>
 
