@@ -158,3 +158,5 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     </div>
   );
 };
+
+export default HistoryPanel;

@@ -7,4 +7,4 @@ export {
   InpaintPanel,
   InpaintCanvas,
 } from '@plugins/ai-vision-studio';
-
+export { HistoryPanel } from './HistoryPanel';
