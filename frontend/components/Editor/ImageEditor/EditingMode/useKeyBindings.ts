@@ -20,6 +20,7 @@ interface UseKeyBindingsProps {
   inpaintMode: InpaintMode;
   setInpaintSettings: React.Dispatch<React.SetStateAction<InpaintSettings>>;
   onAutoEnhance?: () => void;
+  onToggleHistory?: () => void;
 }
 
 export const useKeyBindings = ({
@@ -33,6 +34,7 @@ export const useKeyBindings = ({
   inpaintMode,
   setInpaintSettings,
   onAutoEnhance,
+  onToggleHistory,
 }: UseKeyBindingsProps) => {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -95,6 +97,15 @@ export const useKeyBindings = ({
         return;
       }
 
+      // ── H: Toggle History Panel ─────────────────────────────────────────
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = targetTag === 'input' || targetTag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
+      if (!isInput && (e.key === 'h' || e.key === 'H') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        onToggleHistory?.();
+        return;
+      }
+
       // ── Brush size shortcuts (inpaint) ───────────────────────────────────
       if (activeTool === 'inpaint' && (inpaintMode === 'brush' || inpaintMode === 'erase')) {
         if (e.key === '[') {
@@ -126,5 +137,6 @@ export const useKeyBindings = ({
     cropperRef,
     setInpaintSettings,
     onAutoEnhance,
+    onToggleHistory,
   ]);
 };

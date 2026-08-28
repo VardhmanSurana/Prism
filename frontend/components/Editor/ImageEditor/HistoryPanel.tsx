@@ -6,6 +6,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { gsap } from 'gsap';
+import { X } from 'lucide-react';
 import { HistoryEntry } from './history';
 
 export interface HistoryPanelProps {
@@ -16,6 +17,7 @@ export interface HistoryPanelProps {
   onEdit: (entry: HistoryEntry) => void;
   onJump: (index: number) => void;
   onResetAll?: () => void;
+  onClose?: () => void;
 }
 
 export const HistoryPanel: React.FC<HistoryPanelProps> = ({
@@ -26,6 +28,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   onEdit,
   onJump,
   onResetAll,
+  onClose,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -57,14 +60,25 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             {history.length} {history.length === 1 ? 'Step' : 'Steps'}
           </p>
         </div>
-        {onResetAll && history.length > 1 && (
-          <button
-            onClick={onResetAll}
-            className="text-[10px] text-red-400/80 hover:text-red-300 transition-colors uppercase font-medium tracking-wider"
-          >
-            Reset All
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onResetAll && history.length > 1 && (
+            <button
+              onClick={onResetAll}
+              className="text-[10px] text-red-400/80 hover:text-red-300 transition-colors uppercase font-medium tracking-wider px-2 py-1 rounded hover:bg-white/5"
+            >
+              Reset All
+            </button>
+          )}
+          {onClose && (
+            <button
+              onClick={onClose}
+              title="Close History Panel (Escape / H)"
+              className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Timeline List */}

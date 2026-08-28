@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, ClipboardCopy, ClipboardPaste, RotateCcw } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, ClipboardCopy, ClipboardPaste, RotateCcw, History } from 'lucide-react';
 import { EditorSlider } from './ui/EditorSlider';
 
 interface TopBarProps {
@@ -15,6 +15,9 @@ interface TopBarProps {
   handleRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  onToggleHistory?: () => void;
+  isHistoryOpen?: boolean;
+  historyCount?: number;
   exportProgress?: { step: string; current: number; total: number } | null;
   onCopyEdits?: () => void;
   hasCopiedEdits?: boolean;
@@ -34,6 +37,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   handleRedo,
   canUndo = false,
   canRedo = false,
+  onToggleHistory,
+  isHistoryOpen = false,
+  historyCount,
   exportProgress,
   onCopyEdits,
   hasCopiedEdits,
@@ -146,6 +152,22 @@ export const TopBar: React.FC<TopBarProps> = ({
           <SplitSquareHorizontal size={12} strokeWidth={2} />
           {isComparing ? 'Hide Original' : 'Compare'}
         </button>
+
+        {/* History Toggle Button */}
+        {onToggleHistory && (
+          <button
+            onClick={onToggleHistory}
+            title="Toggle Edit History Timeline (H)"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all select-none cursor-pointer ${
+              isHistoryOpen
+                ? 'bg-[#FCBC00] text-black shadow-[0_0_12px_rgba(252,188,0,0.45)]'
+                : 'bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08]'
+            }`}
+          >
+            <History size={12} strokeWidth={2} />
+            History{historyCount !== undefined && historyCount > 0 ? ` (${historyCount})` : ''}
+          </button>
+        )}
 
         <div className="h-4 w-px bg-white/10" />
 

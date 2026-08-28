@@ -6,7 +6,6 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle } from 'lucide-react';
-// @ts-expect-error -- react-color-palette css side-effect import lacks types
 import 'react-color-palette/css';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
@@ -101,6 +100,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const inpaintCanvasRef = useRef<InpaintCanvasHandle | null>(null);
   const [currentRatio, setCurrentRatio] = useState<number>(NaN);
   const [activeTool, setActiveTool] = useState<ToolId | null>('presets');
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   
   // Annotations state (via hook)
   const annState = useAnnotationsState();

@@ -27,12 +27,10 @@ import {
   MousePointer,
   Scissors,
   Wand2,
-  History,
 } from 'lucide-react';
 import { usePluginStore } from '@/store/pluginStore';
 
 export type ToolId =
-  | 'history'
   | 'transform'
   | 'adjust'
   | 'detail'
@@ -79,7 +77,6 @@ interface SidebarProps {
 }
 
 const DEFAULT_TABS_ORDER: ToolId[] = [
-  'history',
   'background',
   'inpaint',
   'depth',
@@ -126,7 +123,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   } | null>(null);
 
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
-    history: { icon: <History size={20} strokeWidth={1.5} />, label: 'History', description: 'Non-destructive timeline of edits, selective bypass & step jumping' },
     background: { icon: <Scissors size={20} strokeWidth={1.5} />, label: 'Cutout & BG', description: 'AI background removal, custom solid/blur/image backdrops & edge refinement' },
     inpaint: { icon: <Wand2 size={20} strokeWidth={1.5} />, label: 'Magic Eraser', description: 'AI distraction eraser, smart brush object removal & generative fill' },
     depth: { icon: <Aperture size={20} strokeWidth={1.5} />, label: 'Depth Effects', description: 'Monocular depth maps, bokeh background blur & focus falloff' },
@@ -151,7 +147,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   };
 
   const shortcutHints: Partial<Record<ToolId, string>> = {
-    history: 'Selective bypass & jump',
     transform: 'Ctrl+Z/Y undo/redo',
     annotations: 'Ctrl+Z/Y undo/redo, [ ] brush size',
     inpaint: '[ ] brush size',
