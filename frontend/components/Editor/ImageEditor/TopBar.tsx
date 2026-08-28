@@ -160,7 +160,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             title="Toggle Edit History Timeline (H)"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all select-none cursor-pointer ${
               isHistoryOpen
-                ? 'bg-[#FCBC00] text-black shadow-[0_0_12px_rgba(252,188,0,0.45)]'
+                ? 'bg-white text-black shadow-[0_0_12px_rgba(255,255,255,0.18)]'
                 : 'bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08]'
             }`}
           >
