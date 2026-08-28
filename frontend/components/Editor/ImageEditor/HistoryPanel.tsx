@@ -31,8 +31,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
+    const items = containerRef.current.querySelectorAll('.timeline-item');
+    if (!items.length) return;
+
     const ctx = gsap.context(() => {
-      gsap.from('.timeline-item', {
+      gsap.from(items, {
         opacity: 0,
         y: 8,
         stagger: 0.03,
