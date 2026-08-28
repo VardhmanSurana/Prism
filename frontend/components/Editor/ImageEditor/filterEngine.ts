@@ -116,6 +116,9 @@ export interface Adjustments {
   lut:         import('./adjustmentTypes').LutAdjustments;
   background?: import('./adjustmentTypes').BackgroundAdjustments;
   raw?:        RawSettings;
+
+  // Non-destructive layer stack (index 0 = top of stack). Absent = base only.
+  layers?:     import('./layersEngine').Layer[];
 }
 
 // ── Defaults ─────────────────────────────────────────────────────────────────

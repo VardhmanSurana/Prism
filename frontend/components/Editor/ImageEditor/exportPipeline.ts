@@ -15,6 +15,7 @@ import {
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
 import { applySpecializedCurvesToImageData } from './hslEngine';
 import { applyPortraitToImageData, loadMaskBuffer } from './portraitEngine';
+import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
 import {
   applyBlur,
   applyUnsharpMask,
@@ -103,6 +104,12 @@ export const exportEditedCanvas = async ({
   if (hasGlobalPreviewAdjustments(effectiveAdj)) {
     report('Applying tone adjustments', 2, TOTAL_STEPS);
     preparedCanvas = renderCanvasWithFilter(preparedCanvas, getPreviewBaseFilter(effectiveAdj), effectiveAdj);
+  }
+
+  // Non-destructive layer stack (fill + adjustment layers over the base render)
+  if (!isLayerStackEmpty(adjustments.layers)) {
+    report('Compositing layer stack', 2.2, TOTAL_STEPS);
+    preparedCanvas = compositeLayersToCanvas(adjustments.layers, preparedCanvas, preparedCanvas);
   }
 
   // Color Temperature & Tint (Chromatic Balance)

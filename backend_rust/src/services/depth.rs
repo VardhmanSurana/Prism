@@ -7,7 +7,7 @@
 use base64::Engine as _;
 use serde_json::Value;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use tracing::{info, warn};
 
 pub struct DepthEngine {}
@@ -27,22 +27,18 @@ struct DepthSession {
     output_name: String,
 }
 
-static DEPTH: OnceLock<Option<Arc<DepthSession>>> = OnceLock::new();
+static DEPTH: crate::services::model_cache::ModelCache<DepthSession> =
+    crate::services::model_cache::ModelCache::new();
 
 const DEPTH_MODEL_PATHS: &[&str] = &[
     "models/depth/depth_anything_v2_small.onnx",
     "../models/depth/depth_anything_v2_small.onnx",
 ];
 
-fn get_depth() -> Result<Arc<DepthSession>, String> {
-    if let Some(cached) = DEPTH.get() {
-        return cached
-            .clone()
-            .ok_or_else(|| "Depth model failed to load previously; see earlier log".to_string());
-    }
-
+fn get_depth() -> Result<std::sync::Arc<DepthSession>, String> {
+    DEPTH.get_or_try_init(|| {
     let found = DEPTH_MODEL_PATHS.iter().find(|p| Path::new(p).exists()).copied();
-    let loaded = match found {
+    match found {
         Some(path) => {
             let build = crate::services::onnx_helper::build_session(path, "Depth")
                 .map_err(|e| format!("Failed to load Depth Anything model: {}", e));
@@ -55,26 +51,30 @@ fn get_depth() -> Result<Arc<DepthSession>, String> {
                         .ok_or("depth model has no inputs")?;
                     let output_name = session.outputs().first().map(|o| o.name().to_string())
                         .ok_or("depth model has no outputs")?;
-                    Some(Arc::new(DepthSession {
+                    Ok(DepthSession {
                         session: Mutex::new(session),
                         input_name,
                         output_name,
-                    }))
+                    })
                 }
                 Err(e) => {
                     warn!("[Depth] Failed to load session from {}: {}", path, e);
-                    None
+                    Err(e)
                 }
             }
         }
-        None => None,
-    };
-    let _ = DEPTH.set(loaded.clone());
-    loaded.ok_or_else(|| format!(
+        None => Err(format!(
         "Depth effects unavailable: download the model first \
          (Model Manager → 'Depth Anything V2 Small'). Expected at {}",
         DEPTH_MODEL_PATHS[0]
-    ))
+    )),
+    }
+    })
+}
+
+/// Releases Depth Anything weights once the editor is closed.
+pub fn unload() -> bool {
+    DEPTH.unload()
 }
 
 /// Run the session on an [1,3,IN,IN] tensor, returning flattened depth output.

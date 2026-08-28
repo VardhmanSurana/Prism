@@ -5,7 +5,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { HistoryEntry, HistoryActionType, createHistoryEntry } from '../history';
+import { HistoryEntry, HistoryActionType, appendBoundedHistory, createHistoryEntry } from '../history';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { API_BASE } from '@/constants';
@@ -52,6 +52,7 @@ export const useEditingHistory = ({
   const isRestoringHistory = useRef(false);
   const createdUrlRef = useRef<string | null>(null);
   const lastPhotoIdRef = useRef<string | null>(null);
+  const initRunIdRef = useRef(0);
 
   const stateRef = useRef({
     currentImageSrc,
@@ -115,20 +116,30 @@ export const useEditingHistory = ({
         type !== 'flip' &&
         type !== 'annotations';
 
-      setHistory(prev => {
-        let newHistory = prev.slice(0, s.currentHistoryIndex + 1);
+      const appendEntry = (historyEntries: HistoryEntry[]) => {
+        const activeHistory = historyEntries.slice(0, s.currentHistoryIndex + 1);
+        let newHistory = activeHistory;
+        let collapsed: HistoryEntry[] = [];
         if (isCollapsible) {
+          collapsed = activeHistory.filter(h => h.type === type);
           newHistory = newHistory.filter(h => h.type !== type);
         }
-        return [...newHistory, entry];
+        const result = appendBoundedHistory(newHistory, newHistory.length - 1, entry);
+        return { ...result, evicted: [...collapsed, ...result.evicted] };
+      };
+
+      setHistory(prev => {
+        const result = appendEntry(prev);
+        for (const evicted of result.evicted) {
+          if (evicted.imageSrc.startsWith('blob:')) {
+            URL.revokeObjectURL(evicted.imageSrc);
+          }
+        }
+        return result.history;
       });
 
       setCurrentHistoryIndex(() => {
-        let newHistory = s.history.slice(0, s.currentHistoryIndex + 1);
-        if (isCollapsible) {
-          newHistory = newHistory.filter(h => h.type !== type);
-        }
-        return newHistory.length;
+        return appendEntry(s.history).currentHistoryIndex;
       });
     },
     []
@@ -140,6 +151,14 @@ export const useEditingHistory = ({
     const parsedId = parsedIdMatch ? parsedIdMatch[1] : src;
 
     if (lastPhotoIdRef.current !== parsedId) {
+      for (const entry of stateRef.current.history) {
+        if (entry.imageSrc.startsWith('blob:')) URL.revokeObjectURL(entry.imageSrc);
+      }
+      // Claim this init immediately (before awaiting) so a slow metadata fetch
+      // can't trigger duplicate concurrent initializations on effect re-runs.
+      const runId = ++initRunIdRef.current;
+      lastPhotoIdRef.current = parsedId;
+
       const fetchInitialAdjustments = async () => {
         let initialAdjustments = DEFAULT_ADJUSTMENTS;
         const activePhotoId = photoId || parsedId;
@@ -155,6 +174,15 @@ export const useEditingHistory = ({
           } catch (e) {
             console.error('Failed to fetch initial photo adjustments:', e);
           }
+        }
+
+        // Abort if a newer init superseded this one, or if the user already
+        // made edits while the metadata fetch was in flight (e.g. backend was
+        // busy loading models) — applying stale init state would wipe them.
+        if (runId !== initRunIdRef.current) return;
+        if (stateRef.current.history.length > 0) {
+          console.warn('[useEditingHistory] Skipping late initial-adjustments fetch — user edits already exist.');
+          return;
         }
 
         const initialEntry = createHistoryEntry(
@@ -183,7 +211,6 @@ export const useEditingHistory = ({
         setAnnotationsHistoryPast([]);
         setAnnotationsHistoryFuture([]);
 
-        lastPhotoIdRef.current = parsedId;
         isRestoringHistory.current = false;
       };
 
@@ -227,7 +254,8 @@ export const useEditingHistory = ({
         key === 'lightLeak' ||
         key === 'frame' ||
         key === 'blend' ||
-        key === 'tiltShift'
+        key === 'tiltShift' ||
+        key === 'layers'
       ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
           changes.push({ key, value: 'modified' });
@@ -264,6 +292,8 @@ export const useEditingHistory = ({
             addHistoryEntry('blend' as HistoryActionType, 'Adjusted Blend');
           } else if (key === 'tiltShift') {
             addHistoryEntry('tiltShift' as HistoryActionType, 'Adjusted Tilt-Shift');
+          } else if (key === 'layers') {
+            addHistoryEntry('layer' as HistoryActionType, 'Modified layer stack');
           } else {
             addHistoryEntry(
               key as HistoryActionType,
@@ -323,7 +353,6 @@ export const useEditingHistory = ({
   const applyEntry = useCallback(
     (entry: HistoryEntry, index: number) => {
       isRestoringHistory.current = true;
-      revokeLocalUrl();
 
       setCurrentImageSrc(entry.imageSrc);
       setAdjustments({ ...entry.adjustments });
@@ -348,7 +377,7 @@ export const useEditingHistory = ({
       }
       isRestoringHistory.current = false;
     },
-    [cropperRef, revokeLocalUrl, setAnnotations]
+    [cropperRef, setAnnotations]
   );
 
   const handleUndo = useCallback(() => {
@@ -374,12 +403,18 @@ export const useEditingHistory = ({
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
 
-  // Clean up object URL on unmount
+  // History owns generated blob URLs. They are released on eviction and when
+  // the editor unmounts, never during undo/redo where an older entry is reused.
   useEffect(() => {
     return () => {
-      revokeLocalUrl();
+      const urls = new Set(
+        stateRef.current.history
+          .map((entry) => entry.imageSrc)
+          .filter((source) => source.startsWith('blob:')),
+      );
+      urls.forEach((url) => URL.revokeObjectURL(url));
     };
-  }, [revokeLocalUrl]);
+  }, []);
 
   return {
     currentImageSrc,

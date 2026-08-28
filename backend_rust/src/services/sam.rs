@@ -14,7 +14,7 @@ use ndarray::Array3;
 use ort::session::Session;
 use ort::value::Value;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex};
 use tracing::info;
 
 const ENC_SIZE: f32 = 1024.0;
@@ -37,18 +37,19 @@ struct EmbeddingCache {
     orig_h: u32,
 }
 
-static SAM: OnceLock<Result<Arc<SamEngine>, String>> = OnceLock::new();
+static SAM: crate::services::model_cache::ModelCache<SamEngine> =
+    crate::services::model_cache::ModelCache::new();
 
 pub fn get_sam() -> Result<Arc<SamEngine>, String> {
-    if let Some(res) = SAM.get() {
-        return res.clone();
-    }
-    let built = build_sam();
-    let _ = SAM.set(built.clone());
-    built
+    SAM.get_or_try_init(build_sam)
 }
 
-fn build_sam() -> Result<Arc<SamEngine>, String> {
+/// Releases both MobileSAM sessions and the cached image embedding.
+pub fn unload() -> bool {
+    SAM.unload()
+}
+
+fn build_sam() -> Result<SamEngine, String> {
     let encoder_path = "models/SAM/image_encoder.onnx";
     let decoder_path = "models/SAM/mask_decoder.onnx";
     for p in [encoder_path, decoder_path] {
@@ -81,14 +82,14 @@ fn build_sam() -> Result<Arc<SamEngine>, String> {
 
     info!("[SAM] ready (decoder inputs: {:?})", decoder_inputs);
 
-    Ok(Arc::new(SamEngine {
+    Ok(SamEngine {
         encoder: Mutex::new(encoder),
         encoder_input,
         encoder_output,
         decoder: Mutex::new(decoder),
         decoder_inputs,
         cache: Mutex::new(None),
-    }))
+    })
 }
 
 /// Cache key including mtime so edits invalidate stale embeddings.

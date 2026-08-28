@@ -297,6 +297,10 @@ impl SegmentationEngine {
         };
 
         // 3. Postprocess and scale to 8-bit alpha matte
+        // NOTE: "minmax" is used for pack models (ISNet/BiRefNet/RMBG) whose ONNX
+        // exports already include the final sigmoid — their raw outputs just need
+        // min-max normalization (same as rembg). Applying another sigmoid on top
+        // squashes everything into [128,186] and produces a garbage mid-gray mask.
         let postprocess = model_def.output.postprocess.to_lowercase();
         let threshold = model_def.output.threshold;
 
@@ -307,12 +311,29 @@ impl SegmentationEngine {
             &raw_flat[..]
         };
 
+        let values: Vec<f32> = if postprocess == "minmax" {
+            let mut min = f32::INFINITY;
+            let mut max = f32::NEG_INFINITY;
+            for &v in slice {
+                if v < min { min = v; }
+                if v > max { max = v; }
+            }
+            let range = max - min;
+            if range > f32::EPSILON {
+                slice.iter().map(|v| (*v - min) / range).collect()
+            } else {
+                vec![0.0; slice.len()]
+            }
+        } else {
+            slice.to_vec()
+        };
+
         let mut gray = GrayImage::new(in_w as u32, in_h as u32);
         for py in 0..in_h {
             for px in 0..in_w {
                 let idx = py * in_w + px;
-                if idx < slice.len() {
-                    let mut val = slice[idx];
+                if idx < values.len() {
+                    let mut val = values[idx];
                     if postprocess == "sigmoid" {
                         val = 1.0 / (1.0 + (-val).exp());
                     } else if postprocess == "clamp" {

@@ -73,6 +73,7 @@ export function useEditDraftAutoSave({
       }
     }
     if (adjustments.curves && !isIdentityCurve(adjustments.curves)) return true;
+    if (adjustments.layers && adjustments.layers.length > 0) return true;
 
     return false;
   }, [adjustments, totalRotation, straightenAngle, flipH, flipV, annotations]);

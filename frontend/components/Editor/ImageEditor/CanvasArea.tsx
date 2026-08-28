@@ -317,6 +317,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = ({
       portraitMasksRef.current ?? undefined,
       backgroundMaskImg,
       customBackdropImg,
+      adjustments.layers ?? null,
     );
 
     setHasDrawnCanvas(true);

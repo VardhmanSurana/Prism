@@ -20,6 +20,8 @@ import {
 import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows, applyTemperatureAndTintToImageData } from './filterFallback';
 import { applyRawProcessingToImageData } from './rawEngine';
 import { applyPortraitToImageData, LoadedPortraitMasks } from './portraitEngine';
+import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
+import type { Layer } from './layersEngine';
 
 export function drawFilteredImageToCanvas(
   canvas: HTMLCanvasElement,
@@ -31,6 +33,7 @@ export function drawFilteredImageToCanvas(
   portraitMasks?: LoadedPortraitMasks,
   backgroundMaskImg?: HTMLImageElement | null,
   customBackdropImg?: HTMLImageElement | null,
+  layers?: Layer[] | null,
 ) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
@@ -219,6 +222,11 @@ export function drawFilteredImageToCanvas(
   }
 
   // 14. Frame border preview
+  // ── Layer stack (under the frame overlay) ──
+  if (!isLayerStackEmpty(layers)) {
+    compositeLayersToCanvas(layers, canvas, canvas);
+  }
+
   const frame = adjustments.frame;
   if (frame && frame.style !== 'none') {
     const ctx2 = canvas.getContext('2d');

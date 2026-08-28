@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use face_id::analyzer::FaceAnalyzer;
 use tracing::info;
@@ -7,11 +7,15 @@ use super::ml_client::DetectedFace;
 
 /// Lazily-initialized in-process face engine (SCRFD + ArcFace via ONNX Runtime).
 /// Built on first use — downloads ~200MB of models from HuggingFace once.
-static ENGINE: OnceLock<Arc<FaceAnalyzer>> = OnceLock::new();
+static ENGINE: OnceLock<Mutex<Option<Arc<FaceAnalyzer>>>> = OnceLock::new();
+
+fn engine_cache() -> &'static Mutex<Option<Arc<FaceAnalyzer>>> {
+    ENGINE.get_or_init(|| Mutex::new(None))
+}
 
 async fn get_engine() -> Result<Arc<FaceAnalyzer>, String> {
-    if let Some(engine) = ENGINE.get() {
-        return Ok(engine.clone());
+    if let Some(engine) = engine_cache().lock().map_err(|_| "face model cache lock poisoned".to_string())?.as_ref() {
+        return Ok(Arc::clone(engine));
     }
 
     info!("[FaceEngine] Building in-process face analyzer (first run downloads models from HuggingFace)...");
@@ -21,7 +25,16 @@ async fn get_engine() -> Result<Arc<FaceAnalyzer>, String> {
         .map_err(|e| format!("Failed to init face analyzer: {}", e))?;
     let engine = Arc::new(engine);
     info!("[FaceEngine] Face analyzer ready");
-    Ok(ENGINE.get_or_init(|| engine).clone())
+    let mut cache = engine_cache().lock().map_err(|_| "face model cache lock poisoned".to_string())?;
+    Ok(Arc::clone(cache.get_or_insert(engine)))
+}
+
+/// Releases the face detector/embedding model after editor face restoration.
+pub fn unload() -> bool {
+    engine_cache()
+        .lock()
+        .map(|mut cache| cache.take().is_some())
+        .unwrap_or(false)
 }
 
 /// Scan a photo for faces in-process. Boxes are absolute pixel [x, y, w, h],

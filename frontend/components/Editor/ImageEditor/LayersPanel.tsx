@@ -49,11 +49,14 @@ const BLEND_MODES: { value: GlobalCompositeOperation; label: string }[] = [
 ];
 
 export const LayersPanel: React.FC<LayersPanelProps> = ({
-  layers = [createDefaultBaseLayer()],
+  layers: layersProp = [],
   onChange,
   activeLayerId,
   setActiveLayerId,
 }) => {
+  // The implicit base layer always exists even before the stack is persisted.
+  const layers = layersProp.length > 0 ? layersProp : [createDefaultBaseLayer()];
+
   const [openSections, setOpenSections] = useState({
     controls: true,
     stack: true,
@@ -201,6 +204,37 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Adjustment Layer quick parameters */}
+              {activeLayer.type === 'adjustment' && (
+                <div className="space-y-2.5 pt-1">
+                  <span className="text-[10px] font-medium text-white/60">Adjustment Values</span>
+                  <EditorSlider
+                    label="Exposure"
+                    value={activeLayer.adjustmentData?.exposure ?? 0}
+                    onChange={val => updateActiveLayer({ adjustmentData: { ...activeLayer.adjustmentData, exposure: val } })}
+                    min={-100}
+                    max={100}
+                    defaultValue={0}
+                  />
+                  <EditorSlider
+                    label="Contrast"
+                    value={activeLayer.adjustmentData?.contrast ?? 0}
+                    onChange={val => updateActiveLayer({ adjustmentData: { ...activeLayer.adjustmentData, contrast: val } })}
+                    min={-100}
+                    max={100}
+                    defaultValue={0}
+                  />
+                  <EditorSlider
+                    label="Saturation"
+                    value={activeLayer.adjustmentData?.saturation ?? 0}
+                    onChange={val => updateActiveLayer({ adjustmentData: { ...activeLayer.adjustmentData, saturation: val } })}
+                    min={-100}
+                    max={100}
+                    defaultValue={0}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -278,7 +312,7 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
                     >
                       <ArrowDown size={11} />
                     </button>
-                    {layers.length > 1 && (
+                    {layers.length > 1 && l.type !== 'pixel' && (
                       <button
                         onClick={e => {
                           e.stopPropagation();

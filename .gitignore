@@ -72,3 +72,4 @@ settings.json
 
 # Rust CLI build artifacts
 cli/target/
+backend_rust/test_artifacts/*

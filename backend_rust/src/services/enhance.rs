@@ -41,10 +41,15 @@ struct SingleSession {
     session: Mutex<NamedSession>,
 }
 
+type SessionCache = std::collections::HashMap<String, Option<Arc<SingleSession>>>;
+static SINGLE_SESSION_CACHE: OnceLock<Mutex<SessionCache>> = OnceLock::new();
+
+fn single_session_cache() -> &'static Mutex<SessionCache> {
+    SINGLE_SESSION_CACHE.get_or_init(|| Mutex::new(SessionCache::new()))
+}
+
 fn load_single_session(paths: &[&str], tag: &str) -> Result<Arc<SingleSession>, String> {
-    static SINGLE_CACHE: OnceLock<Mutex<std::collections::HashMap<String, Option<Arc<SingleSession>>>>> =
-        OnceLock::new();
-    let cache = SINGLE_CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let cache = single_session_cache();
     if let Some(cached) = cache.lock().unwrap().get(tag) {
         return cached.clone().ok_or_else(|| {
             format!("{} model failed to load previously; see earlier log", tag)
@@ -71,6 +76,14 @@ fn load_single_session(paths: &[&str], tag: &str) -> Result<Arc<SingleSession>, 
             tag, paths[0]
         )
     })
+}
+
+/// Releases cached upscaling and face-restoration sessions.
+pub fn unload() -> bool {
+    single_session_cache()
+        .lock()
+        .map(|mut cache| !cache.is_empty() && { cache.clear(); true })
+        .unwrap_or(false)
 }
 
 /// RGB image → CHW f32 tensor in [0,1].

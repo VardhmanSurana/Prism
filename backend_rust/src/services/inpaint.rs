@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Mutex, OnceLock};
 use base64::Engine as _;
 use serde_json::Value;
 use tracing::{info, warn};
@@ -23,22 +23,18 @@ struct LamaSession {
     output_name: String,
 }
 
-static LAMA: OnceLock<Option<Arc<LamaSession>>> = OnceLock::new();
+static LAMA: crate::services::model_cache::ModelCache<LamaSession> =
+    crate::services::model_cache::ModelCache::new();
 
 const LAMA_MODEL_PATHS: &[&str] = &[
     "models/inpainting/lama_fp32.onnx",
     "../models/inpainting/lama_fp32.onnx",
 ];
 
-fn get_lama() -> Result<Arc<LamaSession>, String> {
-    if let Some(cached) = LAMA.get() {
-        return cached
-            .clone()
-            .ok_or_else(|| "LaMa model failed to load previously; see earlier log".to_string());
-    }
-
+fn get_lama() -> Result<std::sync::Arc<LamaSession>, String> {
+    LAMA.get_or_try_init(|| {
     let found = LAMA_MODEL_PATHS.iter().find(|p| Path::new(p).exists()).copied();
-    let loaded = match found {
+    match found {
         Some(path) => {
             let build = crate::services::onnx_helper::build_session(path, "Inpaint")
                 .map_err(|e| format!("Failed to load LaMa model: {}", e));
@@ -50,27 +46,31 @@ fn get_lama() -> Result<Arc<LamaSession>, String> {
                     let input_mask_name = inputs.get(1).cloned().unwrap_or_else(|| "mask".to_string());
                     let output_name = outputs.get(0).cloned().unwrap_or_else(|| "output".to_string());
                     info!("[Inpaint] LaMa ONNX session loaded from {} (in: {:?}, out: {:?})", path, inputs, outputs);
-                    Some(Arc::new(LamaSession {
+                    Ok(LamaSession {
                         session: Mutex::new(session),
                         input_img_name,
                         input_mask_name,
                         output_name,
-                    }))
+                    })
                 }
                 Err(e) => {
                     warn!("[Inpaint] Failed to load LaMa session from {}: {}", path, e);
-                    None
+                    Err(e)
                 }
             }
         }
-        None => None,
-    };
-    let _ = LAMA.set(loaded.clone());
-    loaded.ok_or_else(|| format!(
+        None => Err(format!(
         "Magic Eraser unavailable: download the LaMa model first \
          (Model Manager → 'LaMa Inpainting (Object Removal)'). Expected at {}",
         LAMA_MODEL_PATHS[0]
-    ))
+        )),
+    }
+    })
+}
+
+/// Releases LaMa weights once the editor no longer needs Magic Eraser.
+pub fn unload() -> bool {
+    LAMA.unload()
 }
 
 impl MagicEraserEngine {
@@ -137,7 +137,7 @@ impl MagicEraserEngine {
         );
 
         let lama = get_lama()?;
-        let mask_img = Self::decode_mask(mask_data)?;
+        let mut mask_img = Self::decode_mask(mask_data)?;
 
         let mut source = if is_data_uri {
             let raw = photo_path_or_data
@@ -157,6 +157,14 @@ impl MagicEraserEngine {
         };
 
         let (orig_w, orig_h) = (source.width(), source.height());
+        if mask_img.dimensions() != (orig_w, orig_h) {
+            mask_img = image::imageops::resize(
+                &mask_img,
+                orig_w,
+                orig_h,
+                image::imageops::FilterType::Triangle,
+            );
+        }
 
         // ── Prepare model inputs at 512x512 ──────────────────────────────
         const IN: usize = 512;
@@ -328,6 +336,19 @@ mod tests {
             eprintln!("skip: lama model not downloaded");
         }
     }
+
+    #[test]
+    fn unload_releases_the_cached_lama_session() {
+        unload();
+        if LAMA_MODEL_PATHS.iter().any(|path| Path::new(path).exists()) {
+            let session = get_lama().expect("LaMa model should load");
+            assert!(LAMA.is_loaded());
+            drop(session);
+
+            assert!(unload());
+            assert!(!LAMA.is_loaded());
+        } else {
+            assert!(!unload(), "unloading an empty cache is safe");
+        }
+    }
 }
-
-

@@ -28,6 +28,8 @@ pub mod hardware;
 pub mod inference_slot;
 pub mod ocr_engine;
 pub mod onnx_helper;
+pub mod model_cache;
+pub mod editor_models;
 
 pub mod packs;
 pub mod plugins;

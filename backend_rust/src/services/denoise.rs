@@ -20,10 +20,15 @@ struct NamedSession {
     output_name: String,
 }
 
+type SessionCache = std::collections::HashMap<String, Option<Arc<NamedSession>>>;
+static SESSION_CACHE: OnceLock<Mutex<SessionCache>> = OnceLock::new();
+
+fn session_cache() -> &'static Mutex<SessionCache> {
+    SESSION_CACHE.get_or_init(|| Mutex::new(SessionCache::new()))
+}
+
 fn load_session(paths: &[&str], tag: &str) -> Result<Arc<NamedSession>, String> {
-    static CACHE: OnceLock<Mutex<std::collections::HashMap<String, Option<Arc<NamedSession>>>>> =
-        OnceLock::new();
-    let cache = CACHE.get_or_init(|| Mutex::new(std::collections::HashMap::new()));
+    let cache = session_cache();
     if let Some(cached) = cache.lock().unwrap().get(tag) {
         return cached.clone().ok_or_else(|| {
             format!("{} model failed to load previously; see earlier log", tag)
@@ -57,6 +62,14 @@ fn load_session(paths: &[&str], tag: &str) -> Result<Arc<NamedSession>, String> 
         "{} unavailable: download the model first (Model Manager). Expected at {}",
         tag, paths[0]
     ))
+}
+
+/// Releases every cached denoise session. The next request reloads on demand.
+pub fn unload() -> bool {
+    session_cache()
+        .lock()
+        .map(|mut cache| !cache.is_empty() && { cache.clear(); true })
+        .unwrap_or(false)
 }
 
 /// Round `v` up to the nearest multiple of `align`.

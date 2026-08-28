@@ -5,10 +5,6 @@ export default {
     "./*.{js,ts,jsx,tsx}",
     "./components/**/*.{js,ts,jsx,tsx}",
     "./services/**/*.{js,ts,jsx,tsx}",
-    "./hooks/**/*.{js,ts,jsx,tsx}",
-    "./store/**/*.{js,ts,jsx,tsx}",
-    "./lib/**/*.{js,ts,jsx,tsx}",
-    "../plugins/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {

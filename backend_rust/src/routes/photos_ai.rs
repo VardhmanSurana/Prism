@@ -712,6 +712,7 @@ pub async fn get_semantic_masks(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let _slot = crate::services::inference_slot::acquire("semantic-segmentation").await;
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
     let masks_dir = state.config.thumbnails_dir.join("masks");
     let engine = segmentation::SegmentationEngine::get();
@@ -734,6 +735,7 @@ pub async fn get_background_mask(
     Path(photo_id): Path<String>,
     Query(params): Query<BackgroundMaskQuery>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let _slot = crate::services::inference_slot::acquire("background-segmentation").await;
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
     let masks_dir = state.config.thumbnails_dir.join("masks");
     let model_id_str = params.model.as_deref();
@@ -755,6 +757,7 @@ pub async fn get_portrait_masks(
     State(state): State<Arc<AppState>>,
     Path(photo_id): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let _slot = crate::services::inference_slot::acquire("portrait-segmentation").await;
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &photo_id).await?;
     let masks_dir = state.config.thumbnails_dir.join("masks");
     let engine = segmentation::SegmentationEngine::get();
@@ -902,4 +905,3 @@ pub async fn xmp_check(
     let exists = std::path::Path::new(&xmp_path).exists();
     Ok(Json(json!({ "photo_id": photo.id, "has_xmp": exists })))
 }
-

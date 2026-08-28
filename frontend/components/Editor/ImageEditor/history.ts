@@ -37,6 +37,7 @@ export type HistoryActionType =
   | 'blend'
   | 'tiltShift'
   | 'annotations'
+  | 'layer'
   | 'inpaint'
   | 'initial';
 
@@ -53,6 +54,25 @@ export interface HistoryEntry {
   flipV: boolean;
   straightenAngle: number;
   annotations?: Annotation[];
+}
+
+export const MAX_IMAGE_HISTORY_ENTRIES = 12;
+
+export function appendBoundedHistory(
+  history: HistoryEntry[],
+  currentHistoryIndex: number,
+  entry: HistoryEntry,
+  maxEntries = MAX_IMAGE_HISTORY_ENTRIES,
+): { history: HistoryEntry[]; currentHistoryIndex: number; evicted: HistoryEntry[] } {
+  const retained = history.slice(0, currentHistoryIndex + 1);
+  const discardedRedo = history.slice(currentHistoryIndex + 1);
+  const next = [...retained, entry];
+  const overflow = Math.max(0, next.length - maxEntries);
+  return {
+    history: next.slice(overflow),
+    currentHistoryIndex: next.length - 1 - overflow,
+    evicted: [...discardedRedo, ...next.slice(0, overflow)],
+  };
 }
 
 export function createHistoryEntry(

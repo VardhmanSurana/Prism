@@ -346,5 +346,5 @@ pub async fn expand_directory(
 }
 
 pub async fn unload_inpaint() -> Json<Value> {
-    Json(json!({ "status": "unloaded" }))
+    Json(crate::services::editor_models::unload_all().await)
 }

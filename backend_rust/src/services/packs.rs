@@ -192,6 +192,23 @@ impl PackManager {
                     if !manifest.models.iter().any(|m| m.id == def_model.id) {
                         manifest.models.push(def_model);
                         updated = true;
+                    } else if let Some(existing) =
+                        manifest.models.iter_mut().find(|m| m.id == def_model.id)
+                    {
+                        // Self-heal input/output pre-post-processing (older seeds
+                        // shipped a double-sigmoid + ImageNet-normalization config
+                        // that produced garbage mid-gray masks).
+                        if existing.output.postprocess != def_model.output.postprocess {
+                            existing.output.postprocess = def_model.output.postprocess.clone();
+                            updated = true;
+                        }
+                        if existing.input.mean != def_model.input.mean
+                            || existing.input.std != def_model.input.std
+                        {
+                            existing.input.mean = def_model.input.mean;
+                            existing.input.std = def_model.input.std;
+                            updated = true;
+                        }
                     }
                 }
                 if updated {
@@ -223,11 +240,13 @@ impl PackManager {
                         name: "input_image".to_string(),
                         size: [1024, 1024],
                         layout: "NCHW".to_string(),
-                        mean: [0.485, 0.456, 0.406],
-                        std: [0.229, 0.224, 0.225],
+                        mean: [0.5, 0.5, 0.5],
+                        std: [1.0, 1.0, 1.0],
                     },
                     output: PackOutputDef {
-                        postprocess: "sigmoid".to_string(),
+                        // ISNet's ONNX export already includes its final sigmoid
+                        // activation — only min-max normalization is required.
+                        postprocess: "minmax".to_string(),
                         threshold: None,
                         output_index: Some(0),
                         output_name: None,
@@ -250,11 +269,13 @@ impl PackManager {
                         name: "input_image".to_string(),
                         size: [1024, 1024],
                         layout: "NCHW".to_string(),
-                        mean: [0.485, 0.456, 0.406],
-                        std: [0.229, 0.224, 0.225],
+                        mean: [0.5, 0.5, 0.5],
+                        std: [1.0, 1.0, 1.0],
                     },
                     output: PackOutputDef {
-                        postprocess: "sigmoid".to_string(),
+                        // BiRefNet's ONNX export already includes its final
+                        // sigmoid — only min-max normalization is required.
+                        postprocess: "minmax".to_string(),
                         threshold: None,
                         output_index: Some(0),
                         output_name: None,
@@ -281,7 +302,9 @@ impl PackManager {
                         std: [1.0, 1.0, 1.0],
                     },
                     output: PackOutputDef {
-                        postprocess: "sigmoid".to_string(),
+                        // RMBG-1.4's ONNX export already includes its final
+                        // sigmoid — only min-max normalization is required.
+                        postprocess: "minmax".to_string(),
                         threshold: None,
                         output_index: Some(0),
                         output_name: None,

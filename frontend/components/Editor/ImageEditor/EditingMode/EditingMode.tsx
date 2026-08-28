@@ -31,12 +31,11 @@ import { LiquifyPanel } from '../LiquifyPanel';
 import { DEFAULT_LIQUIFY_SETTINGS } from '../liquifyEngine';
 import { LassoPanel } from '../LassoPanel';
 import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
-import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
 
 // ── Types & Utilities from Plugins ──
 import type { InpaintMode, InpaintOperation, InpaintSettings, InpaintCanvasHandle } from '@plugins/ai-vision-studio';
-import { inpaintImageLocally } from '@plugins/ai-vision-studio';
+import { createInpaintPayload } from '../utils/inpaintPayload';
 import type { DepthMode, DepthSettings, EnhanceSettings, EnhanceAction, CaptionTask } from '@plugins/ai-vision-studio';
 import { matchColorBetweenImages } from '@plugins/retouch-metadata-studio';
 import type { DrawToolId } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
@@ -196,7 +195,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   const liquifyCanvasRef = useRef<import('../LiquifyCanvas').LiquifyCanvasRef | null>(null);
 
   // New Professional Tools State
-  const [layers, setLayers] = useState<Layer[]>([createDefaultBaseLayer()]);
   const [activeLayerId, setActiveLayerId] = useState<string | null>('layer-base');
   const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
   const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
@@ -287,7 +285,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
 
     try {
       const blobUrl = await matchColorBetweenImages(currentImageSrc, refSrc, strength);
-      revokeLocalUrl();
       historyState.createdUrlRef.current = blobUrl;
 
       setCurrentImageSrc(blobUrl);
@@ -307,7 +304,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
   }, [
     currentImageSrc,
     isColorMatching,
-    revokeLocalUrl,
     setCurrentImageSrc,
     addHistoryEntry,
     showToast,
@@ -380,8 +376,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       croppedCanvas.toBlob((blob) => {
         if (!blob) return;
 
-        revokeLocalUrl();
-
         const newUrl = URL.createObjectURL(blob);
         historyState.createdUrlRef.current = newUrl;
 
@@ -400,10 +394,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     } catch (e) {
       console.error('Failed to apply crop in-place:', e);
     }
-  }, [addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV, historyState.createdUrlRef]);
+  }, [addHistoryEntry, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV, historyState.createdUrlRef]);
 
   const handleResetCrop = useCallback(() => {
-    revokeLocalUrl();
     setCurrentImageSrc(src);
     setHasCropSelection(false);
 
@@ -411,7 +404,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setStraightenAngle(0);
     setFlipH(false);
     setFlipV(false);
-  }, [src, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV]);
+  }, [src, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV]);
 
   const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
   // ponytail: deferred values removed — isDraggingSliderRef already handles perf at 450px during drag
@@ -589,56 +582,31 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     setIsInpainting(true);
     
     try {
-      // Helper to convert any image source to Base64
-      const getBase64FromUrl = async (url: string): Promise<string> => {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      };
-
-      // Ensure we are sending actual data, not just a URL
-      const imageData = currentImageSrc.startsWith('data:') 
-        ? currentImageSrc 
-        : await getBase64FromUrl(resolveUrl(currentImageSrc));
+      const imageData = await createInpaintPayload(resolveUrl(currentImageSrc));
 
       let resultUrl: string | null = null;
 
-      try {
-        const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image_data: imageData,
-            mask_data: inpaintMask,
-            operation: inpaintOperation,
-            model: inpaintSettings.model,
-            prompt: inpaintSettings.prompt,
-            guidance_scale: inpaintSettings.guidance,
-            num_inference_steps: inpaintSettings.steps,
-          }),
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          resultUrl = result.result;
-        }
-      } catch (e) {
-        console.warn('Backend inpaint request failed, using local engine:', e);
+      const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_data: imageData,
+          mask_data: inpaintMask,
+          operation: inpaintOperation,
+          model: inpaintSettings.model,
+          prompt: inpaintSettings.prompt,
+          guidance_scale: inpaintSettings.guidance,
+          num_inference_steps: inpaintSettings.steps,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok || result.success === false || !result.result) {
+        throw new Error(result.error || `HTTP ${response.status}`);
       }
-
-      // If backend is missing model or returns error, execute local client-side inpaint
-      if (!resultUrl) {
-        resultUrl = await inpaintImageLocally(imageData, inpaintMask);
-      }
+      resultUrl = result.result;
 
       if (resultUrl) {
         // Create blob URL for consistency
-        revokeLocalUrl();
         const res = await fetch(resultUrl);
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
@@ -673,7 +641,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     inpaintOperation,
     inpaintSettings,
     addHistoryEntry,
-    revokeLocalUrl,
     setCurrentImageSrc,
     historyState.createdUrlRef,
     showToast,
@@ -726,7 +693,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       const res = await fetch(`${API_BASE}/api/v1/photos/${photoId}/file?t=${Date.now()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const blob = await res.blob();
-      revokeLocalUrl();
       const blobUrl = URL.createObjectURL(blob);
       historyState.createdUrlRef.current = blobUrl;
       setCurrentImageSrc(blobUrl);
@@ -737,7 +703,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       showToast('Applied, but could not refresh preview');
       return false;
     }
-  }, [photoId, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef, addHistoryEntry, showToast]);
+  }, [photoId, setCurrentImageSrc, historyState.createdUrlRef, addHistoryEntry, showToast]);
 
   const handleDepthProcess = useCallback(async () => {
     if (isDepthProcessing || !photoId) return;
@@ -1139,8 +1105,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({
             />],
             ['layers', <LayersPanel
               key="layers"
-              layers={layers}
-              onChange={setLayers}
+              layers={adjustments.layers ?? []}
+              onChange={(updatedLayers) => handleAdjChange({ ...adjustments, layers: updatedLayers })}
               activeLayerId={activeLayerId}
               setActiveLayerId={setActiveLayerId}
             />],
