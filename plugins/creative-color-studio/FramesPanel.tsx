@@ -140,56 +140,65 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
 
       {/* ── Transform (Rotate & Flip) Section ── */}
       <div className="px-4 pb-5 border-b border-white/5">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3 flex items-center gap-1.5">
-          <Grid size={10} /> Orientation
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40 mb-2.5 flex items-center gap-1.5">
+          <Grid size={11} className="text-white/50" />
+          <span>Orientation</span>
         </p>
 
         <div className="grid grid-cols-4 gap-1.5 bg-white/[0.02] border border-white/5 rounded-xl p-1.5">
           <button
+            type="button"
             onClick={() => handleRotate(-90)}
-            className="editor-btn editor-chip-btn py-1.5 flex flex-col items-center justify-center gap-1 hover:text-primary transition-colors cursor-pointer"
-            title="Rotate 90° CCW"
+            className="py-2 px-1 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/10 hover:border-white/15 flex flex-col items-center justify-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer select-none active:scale-95"
+            title="Rotate 90° Counter-Clockwise"
           >
-            <RotateCcw size={13} />
-            <span className="text-[8px] font-semibold tracking-wider">90° CCW</span>
+            <RotateCcw size={13} className="text-white/80" />
+            <span className="text-[9px] font-medium tracking-tight">90° CCW</span>
           </button>
 
           <button
+            type="button"
             onClick={() => handleRotate(90)}
-            className="editor-btn editor-chip-btn py-1.5 flex flex-col items-center justify-center gap-1 hover:text-primary transition-colors cursor-pointer"
-            title="Rotate 90° CW"
+            className="py-2 px-1 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/10 hover:border-white/15 flex flex-col items-center justify-center gap-1 text-white/70 hover:text-white transition-all cursor-pointer select-none active:scale-95"
+            title="Rotate 90° Clockwise"
           >
-            <RotateCw size={13} />
-            <span className="text-[8px] font-semibold tracking-wider">90° CW</span>
+            <RotateCw size={13} className="text-white/80" />
+            <span className="text-[9px] font-medium tracking-tight">90° CW</span>
           </button>
 
           <button
+            type="button"
             onClick={handleFlipH}
-            className={`editor-btn editor-chip-btn py-1.5 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
-              flipH ? 'active text-primary' : 'hover:text-primary'
+            className={`py-2 px-1 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
+              flipH
+                ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 font-semibold'
+                : 'border-white/5 bg-white/[0.02] hover:bg-white/10 hover:border-white/15 text-white/70 hover:text-white'
             }`}
             title="Flip Horizontal"
           >
-            <FlipHorizontal size={13} />
-            <span className="text-[8px] font-semibold tracking-wider">Flip H</span>
+            <FlipHorizontal size={13} className={flipH ? 'text-blue-400' : 'text-white/80'} />
+            <span className="text-[9px] font-medium tracking-tight">Flip H</span>
           </button>
 
           <button
+            type="button"
             onClick={handleFlipV}
-            className={`editor-btn editor-chip-btn py-1.5 flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors ${
-              flipV ? 'active text-primary' : 'hover:text-primary'
+            className={`py-2 px-1 rounded-lg border flex flex-col items-center justify-center gap-1 transition-all cursor-pointer select-none active:scale-95 ${
+              flipV
+                ? 'bg-blue-500/20 border-blue-500/40 text-blue-400 font-semibold'
+                : 'border-white/5 bg-white/[0.02] hover:bg-white/10 hover:border-white/15 text-white/70 hover:text-white'
             }`}
             title="Flip Vertical"
           >
-            <FlipVertical size={13} />
-            <span className="text-[8px] font-semibold tracking-wider">Flip V</span>
+            <FlipVertical size={13} className={flipV ? 'text-blue-400' : 'text-white/80'} />
+            <span className="text-[9px] font-medium tracking-tight">Flip V</span>
           </button>
         </div>
       </div>
 
       {/* ── Frame Types Grid ── */}
       <div className="px-4 py-5 border-b border-white/5">
-        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/25 mb-3">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40 mb-3">
           Border & Frame Styles
         </p>
 
@@ -199,88 +208,101 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
             return (
               <button
                 key={f.id}
+                type="button"
                 onClick={() => handleFrameStyleSelect(f.id)}
-                className={`group/frame relative aspect-[4/3] rounded-xl overflow-hidden border transition-all duration-200 flex flex-col justify-end p-2.5 cursor-pointer text-left ${
+                className={`group/frame relative rounded-xl border p-2 flex flex-col gap-2 transition-all duration-200 cursor-pointer text-left ${
                   isActive
-                    ? 'border-primary ring-2 ring-primary/20 scale-[1.02] shadow-lg shadow-black/60 bg-black/60'
-                    : 'border-white/5 hover:border-white/20 bg-black/40'
+                    ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/30 shadow-md shadow-blue-500/10'
+                    : 'border-white/5 bg-white/[0.02] hover:bg-white/[0.06] hover:border-white/15'
                 }`}
               >
-                {/* Live Miniature Frame Mockup */}
-                <div className="absolute inset-2 mb-6 flex items-center justify-center pointer-events-none">
+                {/* Dedicated Miniature Frame Mockup Box */}
+                <div className="w-full h-12 rounded-lg bg-black/50 border border-white/5 overflow-hidden flex items-center justify-center p-1 relative pointer-events-none">
                   {f.id === 'none' && (
-                    <div className="w-full h-full border border-dashed border-white/10 rounded flex items-center justify-center">
-                      <span className="text-[9px] text-white/20">No Border</span>
+                    <div className="w-full h-full border border-dashed border-white/20 rounded flex items-center justify-center">
+                      <span className="text-[8.5px] text-white/30 font-medium">None</span>
                     </div>
                   )}
 
                   {f.id === 'polaroid' && (
-                    <div className="w-full h-full bg-white p-1 pb-3 rounded-[2px] shadow flex flex-col">
-                      <div className="flex-1 bg-zinc-800 rounded-[1px] overflow-hidden">
-                        {previewUrl && (
-                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-7 h-9 bg-white p-0.5 pb-2 rounded-[2px] shadow-sm flex flex-col">
+                      <div className="flex-1 bg-zinc-700 rounded-[1px] overflow-hidden flex items-center justify-center">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/30" />
                         )}
                       </div>
                     </div>
                   )}
 
                   {f.id === 'filmstrip' && (
-                    <div className="w-full h-full bg-black border-y-2 border-dashed border-white/40 p-1 flex items-center justify-center">
-                      <div className="w-full h-full bg-zinc-800 overflow-hidden">
-                        {previewUrl && (
-                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-9 h-7 bg-zinc-950 border-y-2 border-dashed border-amber-400/60 p-0.5 flex items-center justify-center">
+                      <div className="w-full h-full bg-zinc-700 overflow-hidden flex items-center justify-center">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/30" />
                         )}
                       </div>
                     </div>
                   )}
 
                   {f.id === 'matte' && (
-                    <div className="w-full h-full bg-zinc-200 p-2 shadow flex items-center justify-center">
-                      <div className="w-full h-full bg-zinc-800 overflow-hidden">
-                        {previewUrl && (
-                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-9 h-7 bg-zinc-300 p-1 rounded-[1px] shadow-sm flex items-center justify-center">
+                      <div className="w-full h-full bg-zinc-700 overflow-hidden flex items-center justify-center">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/30" />
                         )}
                       </div>
                     </div>
                   )}
 
                   {f.id === 'rounded' && (
-                    <div className="w-full h-full p-1 bg-white rounded-xl shadow flex items-center justify-center">
-                      <div className="w-full h-full bg-zinc-800 rounded-lg overflow-hidden">
-                        {previewUrl && (
-                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-9 h-7 p-0.5 bg-white rounded-lg shadow-sm flex items-center justify-center">
+                      <div className="w-full h-full bg-zinc-700 rounded-md overflow-hidden flex items-center justify-center">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/30" />
                         )}
                       </div>
                     </div>
                   )}
 
                   {f.id === 'thinline' && (
-                    <div className="w-full h-full border border-white p-1 flex items-center justify-center">
-                      <div className="w-full h-full bg-zinc-800 overflow-hidden">
-                        {previewUrl && (
-                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-9 h-7 border border-white/90 p-0.5 flex items-center justify-center">
+                      <div className="w-full h-full bg-zinc-700 overflow-hidden flex items-center justify-center">
+                        {previewUrl ? (
+                          <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                        ) : (
+                          <div className="w-full h-full bg-blue-500/30" />
                         )}
                       </div>
                     </div>
                   )}
 
                   {f.id === 'shadowbox' && (
-                    <div className="w-[85%] h-[85%] bg-zinc-800 shadow-2xl shadow-black border border-white/20 overflow-hidden">
-                      {previewUrl && (
-                        <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-60" />
+                    <div className="w-8 h-6 bg-zinc-700 shadow-md shadow-black/80 border border-white/30 overflow-hidden flex items-center justify-center">
+                      {previewUrl ? (
+                        <img src={previewUrl} alt="" className="w-full h-full object-cover opacity-75" />
+                      ) : (
+                        <div className="w-full h-full bg-blue-500/30" />
                       )}
                     </div>
                   )}
                 </div>
 
                 {/* Title & Description */}
-                <div className="relative z-10">
-                  <p className="text-[10px] font-bold text-white/90 group-hover/frame:text-white leading-tight">
+                <div className="flex flex-col min-w-0">
+                  <span className={`text-[11px] font-semibold tracking-tight truncate ${isActive ? 'text-blue-400' : 'text-white/90 group-hover/frame:text-white'}`}>
                     {f.name}
-                  </p>
-                  <p className="text-[8px] text-white/40 group-hover/frame:text-white/60 leading-none truncate mt-0.5">
+                  </span>
+                  <span className="text-[9px] text-white/40 group-hover/frame:text-white/60 leading-none truncate mt-0.5">
                     {f.desc}
-                  </p>
+                  </span>
                 </div>
               </button>
             );
