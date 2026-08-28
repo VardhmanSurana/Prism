@@ -82,8 +82,6 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
     }
   }, [activeColor]);
 
-  const [hoveredPinColor, setHoveredPinColor] = useState<string | null>(null);
-
   const pinColor = (color: string) => {
     if (!color) return;
     const normalized = color.toLowerCase();
@@ -183,14 +181,11 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
         >
           {pinnedColors.map(color => {
             const isActive = activeColor.toLowerCase() === color.toLowerCase();
-            const isHovered = hoveredPinColor?.toLowerCase() === color.toLowerCase();
             return (
               <div
                 key={color}
                 className="relative group w-full"
                 style={{ aspectRatio: '1 / 1' }}
-                onMouseEnter={() => setHoveredPinColor(color)}
-                onMouseLeave={() => setHoveredPinColor(null)}
               >
                 <button
                   type="button"
@@ -209,21 +204,20 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                   title={color}
                 />
 
-                {/* Remove Pinned Color (✕) button visible on hover */}
-                {isHovered && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      unpinColor(color);
-                    }}
-                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center shadow-lg cursor-pointer border border-black/40 z-30 transition-transform active:scale-90"
-                    title={`Unpin ${color}`}
-                    aria-label={`Unpin ${color}`}
-                  >
-                    <X size={10} strokeWidth={2.5} />
-                  </button>
-                )}
+                {/* Remove Pinned Color (✕) button in top-right with vivid red */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unpinColor(color);
+                  }}
+                  className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 hover:bg-red-500 hover:scale-110 text-white flex items-center justify-center shadow-md cursor-pointer border border-black/40 z-30 transition-all"
+                  style={{ backgroundColor: '#dc2626' }}
+                  title={`Unpin ${color}`}
+                  aria-label={`Unpin ${color}`}
+                >
+                  <X size={9} strokeWidth={3} className="text-white" />
+                </button>
               </div>
             );
           })}
