@@ -1,13 +1,13 @@
 /**
  * HistoryPanel.tsx
  * Sidebar control panel for the non-destructive edit timeline and history stack.
- * Features connected thread layout, GSAP motion animations, and pure text hover controls.
- * Styled with a minimalist black, gray, and white aesthetic.
+ * Features connected thread layout, GSAP motion animations, and icon hover controls.
+ * Styled with a minimalist black, gray, and white palette.
  */
 
 import React, { useRef, useEffect, useMemo } from 'react';
 import { gsap } from 'gsap';
-import { X } from 'lucide-react';
+import { X, Eye, EyeOff, SlidersHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 import { HistoryEntry } from './history';
 
 export interface HistoryPanelProps {
@@ -143,42 +143,49 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                       {entry.description}
                     </span>
 
-                    {/* Pure Text Hover Actions (No icons, monochrome styling) */}
+                    {/* Icon Hover Actions: [Hide/Unhide/Revert] -> [Edit] -> [Del] */}
                     <div
-                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 text-[10px] font-medium flex-shrink-0"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 text-white/50 flex-shrink-0"
                       onClick={e => e.stopPropagation()}
                     >
+                      {/* Hide / Unhide or Revert */}
                       {!isSnapshot ? (
                         <button
                           onClick={() => onToggleHide(entry.id)}
-                          className="text-white/60 hover:text-white transition-colors"
+                          title={isHidden ? 'Unhide edit' : 'Hide edit'}
+                          className="p-1 rounded hover:bg-white/10 hover:text-white transition-colors"
                         >
-                          {isHidden ? 'unhide' : 'hide'}
+                          {isHidden ? <EyeOff size={13} strokeWidth={2} /> : <Eye size={13} strokeWidth={2} />}
                         </button>
                       ) : (
                         <button
                           onClick={() => onJump(originalIndex)}
-                          className="text-white/60 hover:text-white transition-colors"
+                          title="Revert to this snapshot"
+                          className="p-1 rounded hover:bg-white/10 hover:text-white transition-colors"
                         >
-                          revert
+                          <RotateCcw size={13} strokeWidth={2} />
                         </button>
                       )}
 
-                      <button
-                        onClick={() => onDelete(entry.id)}
-                        className="text-white/40 hover:text-red-400 transition-colors"
-                      >
-                        del
-                      </button>
-
+                      {/* Edit settings (Jump to tool) */}
                       {entry.toolId && (
                         <button
                           onClick={() => onEdit(entry)}
-                          className="text-white/60 hover:text-white transition-colors"
+                          title="Edit settings"
+                          className="p-1 rounded hover:bg-white/10 hover:text-white transition-colors"
                         >
-                          edit
+                          <SlidersHorizontal size={13} strokeWidth={2} />
                         </button>
                       )}
+
+                      {/* Delete (Moved to end) */}
+                      <button
+                        onClick={() => onDelete(entry.id)}
+                        title="Delete edit"
+                        className="p-1 rounded hover:bg-white/10 hover:text-red-400 transition-colors"
+                      >
+                        <Trash2 size={13} strokeWidth={2} />
+                      </button>
                     </div>
                   </div>
                 </div>

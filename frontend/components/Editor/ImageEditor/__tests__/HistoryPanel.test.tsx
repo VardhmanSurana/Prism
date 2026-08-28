@@ -57,17 +57,17 @@ describe('HistoryPanel Component', () => {
     // Actual edit should be rendered
     expect(screen.getByText('Exposure +0.50')).toBeDefined();
 
-    const hideBtn = screen.getByText('hide');
+    const hideBtn = screen.getByTitle('Hide edit');
     fireEvent.click(hideBtn);
     expect(onToggleHide).toHaveBeenCalledWith('entry-2');
 
-    const delBtn = screen.getByText('del');
-    fireEvent.click(delBtn);
-    expect(onDelete).toHaveBeenCalledWith('entry-2');
-
-    const editBtn = screen.getByText('edit');
+    const editBtn = screen.getByTitle('Edit settings');
     fireEvent.click(editBtn);
     expect(onEdit).toHaveBeenCalledWith(mockEntries[1]);
+
+    const delBtn = screen.getByTitle('Delete edit');
+    fireEvent.click(delBtn);
+    expect(onDelete).toHaveBeenCalledWith('entry-2');
 
     const editRow = screen.getByText('Exposure +0.50');
     fireEvent.click(editRow);
