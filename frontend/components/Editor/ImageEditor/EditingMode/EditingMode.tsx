@@ -1004,6 +1004,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
     inpaintMode,
     setInpaintSettings,
     onAutoEnhance: handleAutoEnhance,
+    onToggleHistory: () => setIsHistoryOpen(prev => !prev),
   });
 
   const curvesTable = useMemo(
@@ -1027,6 +1028,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         handleRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
+        isHistoryOpen={isHistoryOpen}
+        historyCount={historyState.history.length}
         exportProgress={exportProgress}
         onCopyEdits={handleCopyEdits}
         onPasteEdits={handlePasteEdits}
@@ -1355,6 +1359,47 @@ export const EditingMode: React.FC<EditingModeProps> = ({
           liquifySettings={liquifySettings}
           liquifyCanvasRef={liquifyCanvasRef}
         />
+
+        {/* Slide-out History Overlay Drawer */}
+        <AnimatePresence>
+          {isHistoryOpen && (
+            <>
+              {/* Backdrop click-to-close */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                onClick={() => setIsHistoryOpen(false)}
+                className="absolute inset-0 bg-black/40 z-30"
+              />
+
+              {/* Slide-out Panel */}
+              <motion.div
+                initial={{ x: 320, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 320, opacity: 0 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+                className="absolute right-0 top-0 bottom-0 w-[320px] bg-[#0d0f14]/95 backdrop-blur-2xl border-l border-white/10 shadow-2xl z-40 flex flex-col"
+              >
+                <HistoryPanel
+                  history={historyState.history}
+                  currentHistoryIndex={historyState.currentHistoryIndex}
+                  onToggleHide={historyState.toggleHideHistoryEntry}
+                  onDelete={historyState.deleteHistoryEntry}
+                  onEdit={(entry) => {
+                    if (entry.toolId) {
+                      setActiveTool(entry.toolId as ToolId);
+                    }
+                  }}
+                  onJump={historyState.jumpToHistoryEntry}
+                  onResetAll={() => historyState.jumpToHistoryEntry(0)}
+                  onClose={() => setIsHistoryOpen(false)}
+                />
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Floating Toast Notification */}
