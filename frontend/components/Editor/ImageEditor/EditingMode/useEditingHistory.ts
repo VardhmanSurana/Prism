@@ -200,19 +200,22 @@ export const useEditingHistory = ({
 
   // Initialize history on mount or if photo changes
   useEffect(() => {
-    const parsedIdMatch = src.match(/nocache=([^&-]+)/);
-    const parsedId = parsedIdMatch ? parsedIdMatch[1] : src;
+    // Determine the stable canonical photo identifier (preferring explicit photoId prop)
+    const canonicalPhotoId = photoId !== undefined && photoId !== null && String(photoId).length > 0
+      ? String(photoId)
+      : (src.match(/nocache=([^&-]+)/)?.[1] || src.split('?')[0]);
 
-    if (lastPhotoIdRef.current !== parsedId) {
+    if (lastPhotoIdRef.current !== canonicalPhotoId) {
+      console.log(`[useEditingHistory] Opening photo: "${canonicalPhotoId}" (previous was "${lastPhotoIdRef.current}")`);
       for (const entry of stateRef.current.history) {
         if (entry.imageSrc.startsWith('blob:')) URL.revokeObjectURL(entry.imageSrc);
       }
       const runId = ++initRunIdRef.current;
-      lastPhotoIdRef.current = parsedId;
+      lastPhotoIdRef.current = canonicalPhotoId;
 
       const fetchInitialAdjustments = async () => {
         let initialAdjustments = DEFAULT_ADJUSTMENTS;
-        const activePhotoId = photoId || parsedId;
+        const activePhotoId = photoId || canonicalPhotoId;
         if (activePhotoId && !isNaN(Number(activePhotoId))) {
           try {
             const res = await fetch(`${API_BASE}/api/v1/photos/${activePhotoId}/metadata`);
@@ -223,13 +226,18 @@ export const useEditingHistory = ({
               }
             }
           } catch (e) {
-            console.error('Failed to fetch initial photo adjustments:', e);
+            console.error('[useEditingHistory] Failed to fetch initial photo adjustments:', e);
           }
         }
 
         if (runId !== initRunIdRef.current) return;
-        if (stateRef.current.history.length > 0) {
-          console.warn('[useEditingHistory] Skipping late initial-adjustments fetch — user edits already exist.');
+        
+        // Guard: Do not overwrite if user already made edits while metadata was fetching
+        const hasUserEdits = stateRef.current.history.length > 1 ||
+          JSON.stringify(stateRef.current.adjustments) !== JSON.stringify(DEFAULT_ADJUSTMENTS);
+
+        if (hasUserEdits) {
+          console.warn('[useEditingHistory] Skipping initial-adjustments fetch — user edits already exist in progress.');
           return;
         }
 
@@ -267,10 +275,13 @@ export const useEditingHistory = ({
 
       fetchInitialAdjustments();
     } else {
+      // Same photo — URL updated (e.g. background high-res loader finished after ~10s).
+      // Keep current adjustments, timeline history, and annotations completely intact!
+      console.log(`[useEditingHistory] High-res image upgraded for photo "${canonicalPhotoId}"`);
       setHistory(prev => {
         if (prev.length === 0) return prev;
         const newHistory = [...prev];
-        if (newHistory[0].type === 'initial') {
+        if (newHistory[0]?.type === 'initial') {
           newHistory[0] = { ...newHistory[0], imageSrc: src };
         }
         return newHistory;
@@ -288,13 +299,13 @@ export const useEditingHistory = ({
   const previousStraightenRef = useRef<number>(0);
   const previousFlipHRef = useRef<boolean>(false);
   const previousFlipVRef = useRef<boolean>(false);
+  const pendingChangesRef = useRef<Map<keyof Adjustments, any>>(new Map());
 
   useEffect(() => {
     if (isRestoringHistory.current) return;
 
     const prev = previousAdjustmentsRef.current;
     const curr = adjustments;
-    const changes: Array<{ key: keyof Adjustments; value: any }> = [];
 
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
       if (
@@ -309,23 +320,28 @@ export const useEditingHistory = ({
         key === 'layers'
       ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
-          changes.push({ key, value: curr[key] });
+          pendingChangesRef.current.set(key, curr[key]);
         }
       } else if (prev[key] !== curr[key]) {
         const val = curr[key];
         if (typeof val === 'number') {
-          changes.push({ key, value: val });
+          pendingChangesRef.current.set(key, val);
         }
       }
     });
 
-    if (changes.length > 0) {
+    if (pendingChangesRef.current.size > 0) {
       previousAdjustmentsRef.current = { ...curr };
 
       const timer = setTimeout(() => {
-        changes.forEach(({ key, value }) => {
+        const changesToCommit = Array.from(pendingChangesRef.current.entries());
+        pendingChangesRef.current.clear();
+
+        changesToCommit.forEach(([key, value]) => {
           const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
           const numValue = typeof value === 'number' ? value : undefined;
+
+          console.log(`[useEditingHistory] Commit timeline entry for ${key}:`, value);
 
           if (key === 'curves') {
             addHistoryEntry(key, `Adjusted ${label}`, value, undefined, undefined, {
