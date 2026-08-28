@@ -25,6 +25,7 @@ import { PresetsPanel } from '../PresetsPanel';
 import { PalettePanel } from '../PalettePanel';
 import { HealingPanel } from '../HealingPanel';
 import { HealingSettings, DEFAULT_HEALING_SETTINGS } from '../healingEngine';
+import { HistoryPanel } from '../HistoryPanel';
 import { LayersPanel } from '../LayersPanel';
 import { RawEnginePanel } from '../RawEnginePanel';
 import { LiquifyPanel } from '../LiquifyPanel';
@@ -1044,6 +1045,20 @@ export const EditingMode: React.FC<EditingModeProps> = ({
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
         <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
           {([
+            ['history', <HistoryPanel
+              key="history"
+              history={historyState.history}
+              currentHistoryIndex={historyState.currentHistoryIndex}
+              onToggleHide={historyState.toggleHideHistoryEntry}
+              onDelete={historyState.deleteHistoryEntry}
+              onEdit={(entry) => {
+                if (entry.toolId) {
+                  setActiveTool(entry.toolId as ToolId);
+                }
+              }}
+              onJump={historyState.jumpToHistoryEntry}
+              onResetAll={() => historyState.jumpToHistoryEntry(0)}
+            />],
             ['background', <BackgroundPanel
               key="background"
               photoId={photoId || ''}
