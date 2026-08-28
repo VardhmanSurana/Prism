@@ -1350,14 +1350,10 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         <AnimatePresence>
           {isHistoryOpen && (
             <>
-              {/* Backdrop click-to-close */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+              {/* Invisible click-outside to close without dimming canvas */}
+              <div
                 onClick={() => setIsHistoryOpen(false)}
-                className="absolute inset-0 bg-black/40 z-30"
+                className="absolute inset-0 z-30"
               />
 
               {/* Slide-out Panel */}

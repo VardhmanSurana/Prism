@@ -48,13 +48,18 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     if (!items.length) return;
 
     const ctx = gsap.context(() => {
-      gsap.from(items, {
-        opacity: 0,
-        y: 8,
-        stagger: 0.03,
-        duration: 0.25,
-        ease: 'power2.out',
-      });
+      gsap.fromTo(
+        items,
+        { opacity: 0, y: 6 },
+        {
+          opacity: 1,
+          y: 0,
+          stagger: 0.02,
+          duration: 0.2,
+          ease: 'power2.out',
+          clearProps: 'opacity,transform',
+        }
+      );
     }, containerRef);
 
     return () => ctx.revert();
@@ -124,7 +129,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                       ? 'bg-white ring-4 ring-white/20 scale-110 shadow-[0_0_8px_rgba(255,255,255,0.4)]'
                       : isHidden
                       ? 'border border-white/30 bg-transparent'
-                      : 'bg-white/30'
+                      : 'bg-white/60'
                   }`}
                 />
 
@@ -137,7 +142,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                           ? 'line-through text-white/30'
                           : isActive
                           ? 'text-white font-semibold'
-                          : 'text-white/70'
+                          : 'text-white/90'
                       }`}
                     >
                       {entry.description}
