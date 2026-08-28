@@ -185,6 +185,12 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                 <button
                   type="button"
                   onClick={() => handlePickColor(color)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    if (pinnedColors.length > 1) {
+                      unpinColor(color);
+                    }
+                  }}
                   className={`w-full h-full rounded-full transition-all duration-200 cursor-pointer border ${
                     color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
                   } ${
@@ -196,8 +202,9 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
                   role="radio"
                   aria-checked={isActive}
                   aria-label={`Pinned color ${color}`}
+                  title={`${color} (Left-click to select, right-click or click ✕ to unpin)`}
                 />
-                {pinnedColors.length > 2 && (
+                {pinnedColors.length > 1 && (
                   <button
                     type="button"
                     onClick={(e) => {
