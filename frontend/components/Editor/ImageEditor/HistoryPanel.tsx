@@ -4,12 +4,11 @@
  * Features connected thread layout, GSAP motion animations, and pure text hover controls.
  */
 
-import React, { useRef } from 'react';
-import { useGSAP } from '@gsap/react';
-import gsap from 'gsap';
+import React, { useRef, useEffect } from 'react';
+import { gsap } from 'gsap';
 import { HistoryEntry } from './history';
 
-interface HistoryPanelProps {
+export interface HistoryPanelProps {
   history: HistoryEntry[];
   currentHistoryIndex: number;
   onToggleHide: (id: string) => void;
@@ -30,8 +29,9 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  useGSAP(
-    () => {
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const ctx = gsap.context(() => {
       gsap.from('.timeline-item', {
         opacity: 0,
         y: 8,
@@ -39,9 +39,10 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
         duration: 0.25,
         ease: 'power2.out',
       });
-    },
-    { scope: containerRef, dependencies: [history.length] }
-  );
+    }, containerRef);
+
+    return () => ctx.revert();
+  }, [history.length]);
 
   return (
     <div ref={containerRef} className="flex flex-col h-full bg-[var(--bg-secondary)] select-none text-white/90 p-4">
