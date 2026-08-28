@@ -6,7 +6,7 @@
 import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, AlertCircle } from 'lucide-react';
-// @ts-ignore -- react-color-palette css side-effect import lacks types
+// @ts-expect-error -- react-color-palette css side-effect import lacks types
 import 'react-color-palette/css';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
