@@ -1030,7 +1030,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({
         canRedo={canRedo}
         onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
         isHistoryOpen={isHistoryOpen}
-        historyCount={historyState.history.length}
+        historyCount={historyState.history.filter(e => e.type !== 'initial').length}
         exportProgress={exportProgress}
         onCopyEdits={handleCopyEdits}
         onPasteEdits={handlePasteEdits}

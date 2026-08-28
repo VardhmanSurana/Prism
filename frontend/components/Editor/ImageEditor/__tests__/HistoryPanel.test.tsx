@@ -1,6 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import React from 'react';
 import { HistoryPanel } from '../HistoryPanel';
 import { HistoryEntry } from '../history';
 import { DEFAULT_ADJUSTMENTS } from '../filterEngine';
@@ -35,7 +34,7 @@ const mockEntries: HistoryEntry[] = [
 ];
 
 describe('HistoryPanel Component', () => {
-  it('renders timeline entries and fires callbacks for hide, del, edit, and jump', () => {
+  it('renders edit entries excluding initial, and fires callbacks for hide, del, edit, and jump', () => {
     const onToggleHide = vi.fn();
     const onDelete = vi.fn();
     const onEdit = vi.fn();
@@ -52,8 +51,11 @@ describe('HistoryPanel Component', () => {
       />
     );
 
+    // Initial / Original image should NOT be rendered in the list
+    expect(screen.queryByText('Original image')).toBeNull();
+
+    // Actual edit should be rendered
     expect(screen.getByText('Exposure +0.50')).toBeDefined();
-    expect(screen.getByText('Original image')).toBeDefined();
 
     const hideBtn = screen.getByText('hide');
     fireEvent.click(hideBtn);
@@ -67,8 +69,23 @@ describe('HistoryPanel Component', () => {
     fireEvent.click(editBtn);
     expect(onEdit).toHaveBeenCalledWith(mockEntries[1]);
 
-    const originalRow = screen.getByText('Original image');
-    fireEvent.click(originalRow);
-    expect(onJump).toHaveBeenCalledWith(0);
+    const editRow = screen.getByText('Exposure +0.50');
+    fireEvent.click(editRow);
+    expect(onJump).toHaveBeenCalledWith(1);
+  });
+
+  it('renders empty state when no edits have been applied yet', () => {
+    render(
+      <HistoryPanel
+        history={[mockEntries[0]]}
+        currentHistoryIndex={0}
+        onToggleHide={vi.fn()}
+        onDelete={vi.fn()}
+        onEdit={vi.fn()}
+        onJump={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('No edits made yet')).toBeDefined();
   });
 });
