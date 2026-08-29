@@ -41,7 +41,7 @@ export type ToolId =
   | 'enhance'
   | 'healing'
   | 'hsl'
-  | 'presets'
+  | 'templates'
   | 'texture'
   | 'lut'
   | 'frame'
@@ -87,7 +87,7 @@ const DEFAULT_TABS_ORDER: ToolId[] = [
   'raw',
   'liquify',
   'colormatch',
-  'presets',
+  'templates',
   'adjust',
   'hsl',
   'detail',
@@ -133,7 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
     raw: { icon: <Camera size={20} strokeWidth={1.5} />, label: 'Camera RAW', description: 'Sensor Demosaicing (AMaZE/AHD), Kelvin 2000K-50000K WB & Highlight Recovery' },
     liquify: { icon: <Smile size={20} strokeWidth={1.5} />, label: 'Liquify & Reshape', description: 'Interactive Mesh Displacement, Forward Warp, Pucker, Bloat & Face Reshape' },
     colormatch: { icon: <Pipette size={20} strokeWidth={1.5} />, label: 'Shot Matcher', description: '3D Color Histogram Matching to sample reference photos and cinema stills' },
-    presets: { icon: <BookMarked size={20} strokeWidth={1.5} />, label: 'Presets', description: 'Apply curated cinematic, vintage, and creative look presets' },
+    templates: { icon: <BookMarked size={20} strokeWidth={1.5} />, label: 'Templates', description: 'Apply curated cinematic, vintage, and creative look templates' },
     adjust: { icon: <SlidersHorizontal size={20} strokeWidth={1.5} />, label: 'Light', description: 'Adjust exposure, brightness, contrast, highlights, and shadows' },
     hsl: { icon: <Palette size={20} strokeWidth={1.5} />, label: 'Color', description: 'Finely tune hue, saturation, and luminance of specific color bands' },
     detail: { icon: <Sparkles size={20} strokeWidth={1.5} />, label: 'Detail', description: 'Enhance details with sharpness, clarity, and noise reduction' },

@@ -662,3 +662,4 @@ Expected: All tests pass.
 ```bash
 git commit -m "chore(editor): complete history panel and timeline integration"
 ```
+

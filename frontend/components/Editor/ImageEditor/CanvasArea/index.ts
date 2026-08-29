@@ -1,0 +1,16 @@
+export { CanvasArea } from './CanvasArea';
+export * from './imageRect';
+export { useImageRectSync, type OverlayRefs } from './useImageRectSync';
+export { AnnotationsOverlay } from './overlays/AnnotationsOverlay';
+export { InpaintOverlay } from './overlays/InpaintOverlay';
+export { HealingOverlay } from './overlays/HealingOverlay';
+export { LassoOverlay } from './overlays/LassoOverlay';
+export { PaletteEyedropperOverlayHost } from './overlays/PaletteEyedropperOverlayHost';
+export { FaceBBoxOverlayHost } from './overlays/FaceBBoxOverlayHost';
+export { LiquifyOverlay } from './overlays/LiquifyOverlay';
+export { CompareOverlay } from './overlays/CompareOverlay';
+export { BeforeImageLayer } from './overlays/BeforeImageLayer';
+export { LivePreviewCanvas } from './overlays/LivePreviewCanvas';
+export { CanvasFilters } from './overlays/CanvasFilters';
+export { CanvasSavingOverlay } from './overlays/CanvasSavingOverlay';
+export { ZoomControlsHost } from './overlays/ZoomControlsHost';

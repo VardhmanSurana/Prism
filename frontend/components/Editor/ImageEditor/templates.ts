@@ -1,8 +1,8 @@
 /**
- * presets.ts
- * Curated film look presets + localStorage user preset management.
+ * templates.ts
+ * Curated film look templates + localStorage user template management.
  *
- * Each curated preset is a Partial<Adjustments> — only the sliders
+ * Each curated template is a Partial<Adjustments> — only the sliders
  * that deviate from default are specified. The rest remain at 0.
  */
 
@@ -10,7 +10,7 @@ import { Adjustments, DEFAULT_ADJUSTMENTS } from './filterEngine';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-export interface Preset {
+export interface Template {
   id: string;
   name: string;
   description: string;
@@ -19,18 +19,18 @@ export interface Preset {
   adjustments: Partial<Adjustments>;
 }
 
-export interface UserPreset {
+export interface UserTemplate {
   id: string;
   name: string;
   createdAt: number;
   adjustments: Adjustments;
 }
 
-const STORAGE_KEY = 'prism_user_presets';
+const STORAGE_KEY = 'prism_user_templates';
 
-// ── Curated Presets ──────────────────────────────────────────────────────────
+// ── Curated Templates ──────────────────────────────────────────────────────────
 
-export const CURATED_PRESETS: Preset[] = [
+export const CURATED_TEMPLATES: Template[] = [
   {
     id: 'studio-clean',
     name: 'Studio Clean',
@@ -196,15 +196,15 @@ export const CURATED_PRESETS: Preset[] = [
   },
 ];
 
-// ── Preset application ────────────────────────────────────────────────────────
+// ── Template application ────────────────────────────────────────────────────────
 
 /**
- * Merges a preset's partial adjustments into the current full Adjustments object.
+ * Merges a template's partial adjustments into the current full Adjustments object.
  * Transform/crop/inpaint state (regions, curves, hsl) are preserved.
  */
-export function applyPreset(
+export function applyTemplate(
   current: Adjustments,
-  preset: Partial<Adjustments>,
+  template: Partial<Adjustments>,
 ): Adjustments {
   return {
     ...DEFAULT_ADJUSTMENTS,
@@ -212,38 +212,38 @@ export function applyPreset(
     curves: current.curves,
     hsl: current.hsl,
     portrait: current.portrait,
-    // Apply preset
-    ...preset,
+    // Apply template
+    ...template,
   };
 }
 
-// ── User preset storage ───────────────────────────────────────────────────────
+// ── User template storage ───────────────────────────────────────────────────────
 
-export function loadUserPresets(): UserPreset[] {
+export function loadUserTemplates(): UserTemplate[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as UserPreset[];
+    return JSON.parse(raw) as UserTemplate[];
   } catch {
     return [];
   }
 }
 
-export function saveUserPreset(name: string, adjustments: Adjustments): UserPreset {
-  const preset: UserPreset = {
+export function saveUserTemplate(name: string, adjustments: Adjustments): UserTemplate {
+  const template: UserTemplate = {
     id: `user-${Date.now()}`,
-    name: name.trim() || 'My Preset',
+    name: name.trim() || 'My Template',
     createdAt: Date.now(),
     adjustments,
   };
-  const existing = loadUserPresets();
-  const updated = [preset, ...existing];
+  const existing = loadUserTemplates();
+  const updated = [template, ...existing];
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  return preset;
+  return template;
 }
 
-export function deleteUserPreset(id: string): void {
-  const existing = loadUserPresets();
+export function deleteUserTemplate(id: string): void {
+  const existing = loadUserTemplates();
   const updated = existing.filter(p => p.id !== id);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
