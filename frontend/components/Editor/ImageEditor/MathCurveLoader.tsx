@@ -276,3 +276,4 @@ export const MathCurveLoader: React.FC<MathCurveLoaderProps> = ({
     </div>
   );
 };
+

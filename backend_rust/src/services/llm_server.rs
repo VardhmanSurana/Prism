@@ -4,7 +4,7 @@
 //!
 //! Modes (ports match Python exactly):
 //!   Agent  :9090 — Gemma 3.2 E4B (+mmproj)  — agent chat / stories
-//!   Vision :9091 — Gemma 3.2 E2B (+mmproj)  — image captions + tags
+//!   Vision :9091 — Gemma 3.2 E4B (+mmproj)  — image captions + tags
 //!   Ocr    :9092 — PaddleOCR-VL GGUF         — text extraction
 //!
 //! Only one mode runs at a time: starting a different mode kills the current
@@ -37,7 +37,7 @@ impl LlmMode {
     fn model(self, models_dir: &PathBuf) -> PathBuf {
         match self {
             LlmMode::Agent => models_dir.join("llm/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"),
-            LlmMode::Vision => models_dir.join("llm/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"),
+            LlmMode::Vision => models_dir.join("llm/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"),
             LlmMode::Ocr => models_dir.join("PaddleOCR/PaddleOCR-VL-1.6-GGUF.gguf"),
         }
     }
@@ -45,7 +45,7 @@ impl LlmMode {
     fn mmproj(self, models_dir: &PathBuf) -> PathBuf {
         match self {
             LlmMode::Agent => models_dir.join("llm/mmproj-BF16-E4B.gguf"),
-            LlmMode::Vision => models_dir.join("llm/mmproj-BF16-E2B.gguf"),
+            LlmMode::Vision => models_dir.join("llm/mmproj-BF16-E4B.gguf"),
             LlmMode::Ocr => models_dir.join("PaddleOCR/PaddleOCR-VL-1.6-GGUF-mmproj.gguf"),
         }
     }

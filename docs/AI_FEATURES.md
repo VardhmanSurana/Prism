@@ -108,7 +108,7 @@ queue"| Worker["Background Worker"]
 - Generate search explanations
 
 ### Vision/Captioning (Port 9091)
-- **Model**: Gemma 4 E2B
+- **Model**: Gemma 4 E4B
 - **Purpose**: Image understanding and captioning
 - **Usage**: Auto-captioning, content analysis
 
@@ -229,7 +229,7 @@ For advanced AI features, run llama-server instances:
 llama-server -m models/llm/gemma-4-e4b.gguf --port 9090
 
 # Vision/captioning (port 9091)
-llama-server -m models/llm/gemma-4-e2b.gguf --port 9091
+llama-server -m models/llm/gemma-4-e4b.gguf --port 9091
 
 # OCR (port 9092)
 llama-server -m models/ocr/paddleocr.onnx --port 9092

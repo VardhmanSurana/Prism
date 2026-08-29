@@ -1,6 +1,6 @@
 //! llm_client.rs — direct HTTP calls to the local llama-server, replicating
 //! Python's payloads exactly:
-//!   - vision summary + tags: `app/services/image_summary/llm.py` (Gemma E2B :9091)
+//!   - vision summary + tags: `app/services/image_summary/llm.py` (Gemma E4B :9091)
 //!   - OCR: `app/services/ocr/ocr_manager.py` (PaddleOCR-VL :9092)
 //! Replaces the Python-orchestrated `/ml/vision` and `/ml/ocr` endpoints.
 

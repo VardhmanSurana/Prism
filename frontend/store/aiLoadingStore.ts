@@ -41,3 +41,4 @@ export const useAiLoadingStore = create<AiLoadingState>((set) => ({
       curveType: undefined,
     }),
 }));
+
