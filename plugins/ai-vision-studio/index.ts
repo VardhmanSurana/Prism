@@ -16,5 +16,7 @@ export { DepthPanel } from './DepthPanel';
 export type { DepthMode, DepthSettings, DepthPanelProps } from './DepthPanel';
 export { EnhancePanel } from './EnhancePanel';
 export type { EnhanceSettings, EnhanceAction, EnhancePanelProps, CaptionTask } from './EnhancePanel';
+export { DepthTextPanel } from './DepthTextPanel';
+
 
 

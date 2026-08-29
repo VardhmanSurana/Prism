@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { ToolId } from '../Sidebar';
-import { Adjustments, DEFAULT_BACKGROUND_ADJUSTMENTS } from '../filterEngine';
+import { Adjustments, DEFAULT_BACKGROUND_ADJUSTMENTS, DEFAULT_DEPTH_TEXT_SETTINGS } from '../filterEngine';
 import { AdjustPanel } from '../AdjustPanel';
 import { DetailPanel } from '../DetailPanel';
 import { TransformPanel } from '../TransformPanel';
@@ -29,6 +29,9 @@ import { LassoState } from '../lassoEngine';
 
 const BackgroundPanelLazy = React.lazy(() =>
   import('@plugins/ai-vision-studio/BackgroundPanel').then((m) => ({ default: m.BackgroundPanel })),
+);
+const DepthTextPanelLazy = React.lazy(() =>
+  import('@plugins/ai-vision-studio/DepthTextPanel').then((m) => ({ default: m.DepthTextPanel })),
 );
 const MagicEraserPanelLazy = React.lazy(() =>
   import('@plugins/ai-vision-studio/MagicEraserPanel').then((m) => ({ default: m.MagicEraserPanel })),
@@ -191,6 +194,15 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
       adjustments={c.adjustments}
       onChange={c.handleAdjChange}
       onResetTool={() => c.handleAdjChange({ ...c.adjustments, background: { ...DEFAULT_BACKGROUND_ADJUSTMENTS } })}
+    />
+  )],
+  ['depthText', (c) => (
+    <DepthTextPanelLazy
+      photoId={c.photoId || ''}
+      photoUrl={c.currentImageSrc}
+      adjustments={c.adjustments}
+      onChange={c.handleAdjChange}
+      onResetTool={() => c.handleAdjChange({ ...c.adjustments, depthText: { ...DEFAULT_DEPTH_TEXT_SETTINGS } })}
     />
   )],
   ['transform', (c) => (

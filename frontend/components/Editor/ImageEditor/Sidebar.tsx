@@ -27,6 +27,7 @@ import {
   MousePointer,
   Scissors,
   Wand2,
+  Type,
 } from 'lucide-react';
 import { usePluginStore } from '@/store/pluginStore';
 
@@ -36,6 +37,7 @@ export type ToolId =
   | 'detail'
   | 'portrait'
   | 'background'
+  | 'depthText'
   | 'inpaint'
   | 'depth'
   | 'enhance'
@@ -59,6 +61,7 @@ export type ToolId =
  */
 export const TOOL_PLUGIN_REQUIREMENTS: Partial<Record<ToolId, string[]>> = {
   background: ['background-removal', 'ai-vision-studio'],
+  depthText: ['background-removal', 'ai-vision-studio'],
   inpaint: ['ai-vision-studio'],
   depth: ['ai-vision-studio'],
   enhance: ['ai-vision-studio'],
@@ -78,6 +81,7 @@ interface SidebarProps {
 
 const DEFAULT_TABS_ORDER: ToolId[] = [
   'background',
+  'depthText',
   'inpaint',
   'depth',
   'enhance',
@@ -124,6 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
 
   const tabDefinitions: Record<ToolId, { icon: React.ReactNode; label: string; description: string }> = {
     background: { icon: <Scissors size={20} strokeWidth={1.5} />, label: 'Cutout & BG', description: 'AI background removal, custom solid/blur/image backdrops & edge refinement' },
+    depthText: { icon: <Type size={20} strokeWidth={1.5} />, label: 'Depth Text', description: '3D Text Behind Subject using SAM and AI matting' },
     inpaint: { icon: <Wand2 size={20} strokeWidth={1.5} />, label: 'Magic Eraser', description: 'AI distraction eraser, smart brush object removal & generative fill' },
     depth: { icon: <Aperture size={20} strokeWidth={1.5} />, label: 'Depth Effects', description: 'Monocular depth maps, bokeh background blur & focus falloff' },
     enhance: { icon: <Maximize size={20} strokeWidth={1.5} />, label: 'AI Enhance', description: 'Real-ESRGAN super-resolution 2x/4x & GFPGAN face restoration' },

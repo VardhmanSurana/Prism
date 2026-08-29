@@ -58,9 +58,15 @@ export function useImageLoader({
     };
   }, [currentImageSrc]);
 
-  // Load background mask image
+  // Load background mask image (used by Cutout & BG and Depth Typography)
   React.useEffect(() => {
-    const maskUrl = adjustments.background?.enabled ? adjustments.background?.maskUrl : null;
+    let maskUrl: string | null = null;
+    if (adjustments.depthText?.enabled) {
+      maskUrl = adjustments.depthText.maskData || adjustments.depthText.maskUrl || adjustments.background?.maskUrl || null;
+    } else if (adjustments.background?.enabled) {
+      maskUrl = adjustments.background.maskUrl || null;
+    }
+
     if (!maskUrl) {
       setBackgroundMaskImg(null);
       return;
@@ -77,7 +83,9 @@ export function useImageLoader({
     img.onerror = () => {
       if (active) setBackgroundMaskImg(null);
     };
-    img.src = resolveUrl(maskUrl);
+    img.src = maskUrl.startsWith('data:') || maskUrl.startsWith('blob:') || maskUrl.startsWith('http')
+      ? maskUrl
+      : resolveUrl(maskUrl);
     if (img.complete && img.naturalWidth > 0) {
       if (active) {
         setBackgroundMaskImg(img);
@@ -87,7 +95,13 @@ export function useImageLoader({
     return () => {
       active = false;
     };
-  }, [adjustments.background?.enabled, adjustments.background?.maskUrl]);
+  }, [
+    adjustments.background?.enabled,
+    adjustments.background?.maskUrl,
+    adjustments.depthText?.enabled,
+    adjustments.depthText?.maskData,
+    adjustments.depthText?.maskUrl,
+  ]);
 
   // Load custom backdrop image
   React.useEffect(() => {
