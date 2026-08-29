@@ -395,3 +395,4 @@ export function drawDepthTextToCanvas(
     ctx.restore();
   }
 }
+

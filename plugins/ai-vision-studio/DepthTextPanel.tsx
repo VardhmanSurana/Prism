@@ -25,6 +25,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { API_BASE, resolveUrl } from '@/constants';
+import { useAiLoadingStore } from '@/store/aiLoadingStore';
 import {
   Adjustments,
   DepthTextSettings,
@@ -110,6 +111,7 @@ export const DepthTextPanel: React.FC<DepthTextPanelProps> = ({
     setIsDetectingSubject(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    useAiLoadingStore.getState().startAiProcessing('AI Subject Isolation', 'Extracting high-precision alpha contours via ISNet/U²-Net...');
 
     try {
       // First check if background-mask is available via local segmentation engine
@@ -156,6 +158,7 @@ export const DepthTextPanel: React.FC<DepthTextPanelProps> = ({
       setErrorMessage(err.message || 'Failed to communicate with AI segmentation server');
     } finally {
       setIsDetectingSubject(false);
+      useAiLoadingStore.getState().stopAiProcessing();
     }
   };
 
@@ -169,6 +172,7 @@ export const DepthTextPanel: React.FC<DepthTextPanelProps> = ({
     setIsDetectingSubject(true);
     setErrorMessage(null);
     setSuccessMessage(null);
+    useAiLoadingStore.getState().startAiProcessing('MobileSAM Interactive Segmentation', 'Tracing subject boundaries with zero-shot point prompt...');
 
     try {
       const res = await fetch(`${API_BASE}/api/v1/photos/sam/select`, {
@@ -203,6 +207,7 @@ export const DepthTextPanel: React.FC<DepthTextPanelProps> = ({
       setErrorMessage('Failed to run MobileSAM segmentation');
     } finally {
       setIsDetectingSubject(false);
+      useAiLoadingStore.getState().stopAiProcessing();
     }
   };
 
@@ -662,3 +667,4 @@ export const DepthTextPanel: React.FC<DepthTextPanelProps> = ({
     </div>
   );
 };
+

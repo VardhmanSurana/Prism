@@ -104,3 +104,4 @@ describe('Depth Typography Engine (Text Behind Subject)', () => {
     expect(mockCtx.strokeText).toHaveBeenCalled();
   });
 });
+

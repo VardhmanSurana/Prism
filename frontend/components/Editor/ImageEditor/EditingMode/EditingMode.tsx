@@ -42,6 +42,8 @@ import { ToolsSidebar } from './components/ToolsSidebar';
 import { HistoryOverlay } from './components/HistoryOverlay';
 import { ToastNotification } from './components/ToastNotification';
 import { ExitConfirmDialog } from './components/ExitConfirmDialog';
+import { AiModelLoadingOverlay } from '../AiModelLoadingOverlay';
+import { useAiLoadingStore } from '@/store/aiLoadingStore';
 import { PanelCtx } from './panelRegistry';
 import { ToolId } from '../Sidebar';
 import { HistoryActionType } from '../history';
@@ -177,6 +179,37 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
       setIsColorMatching(false);
     }
   }, [isColorMatching, currentImageSrc, history, setCurrentImageSrc, addHistoryEntry, showToast]);
+
+  // ── Global AI Processing Overlay State ────────────────────────────────────
+  const aiStore = useAiLoadingStore();
+  const isAnyAiProcessing =
+    aiStore.isLoading ||
+    inpaint.isInpainting ||
+    ai.isSamSegmenting ||
+    ai.isDepthProcessing ||
+    ai.isEnhanceProcessing ||
+    ai.isCaptionLoading ||
+    isColorMatching;
+
+  const currentOperationName = useMemo(() => {
+    if (aiStore.isLoading && aiStore.operationName) return aiStore.operationName;
+    if (inpaint.isInpainting) return 'Magic Eraser Inpainting';
+    if (ai.isSamSegmenting) return 'MobileSAM Subject Segmentation';
+    if (ai.isDepthProcessing) return 'Monocular Depth & Bokeh';
+    if (ai.isEnhanceProcessing) return 'AI Super-Resolution & Restore';
+    if (ai.isCaptionLoading) return 'Florence-2 Vision Analysis';
+    if (isColorMatching) return 'Shot Matcher 3D Color Transfer';
+    return 'AI Model Inference';
+  }, [
+    aiStore.isLoading,
+    aiStore.operationName,
+    inpaint.isInpainting,
+    ai.isSamSegmenting,
+    ai.isDepthProcessing,
+    ai.isEnhanceProcessing,
+    ai.isCaptionLoading,
+    isColorMatching,
+  ]);
 
   // ── Raw settings change → adjustments merge ───────────────────────────────
   const handleRawSettingsChange = useCallback((raw: RawSettings) => {
@@ -467,6 +500,13 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
         onKeep={exit.handleKeepDraftAndClose}
         onDiscard={exit.handleDiscardAndClose}
         onCancel={() => exit.setShowExitConfirm(false)}
+      />
+
+      <AiModelLoadingOverlay
+        isLoading={isAnyAiProcessing}
+        operationName={currentOperationName}
+        detailMessage={aiStore.detailMessage}
+        curveType={aiStore.curveType}
       />
     </div>
   );

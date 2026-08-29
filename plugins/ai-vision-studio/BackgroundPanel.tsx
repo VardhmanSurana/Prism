@@ -19,6 +19,7 @@ import {
   X
 } from 'lucide-react';
 import { API_BASE, resolveUrl } from '@/constants';
+import { useAiLoadingStore } from '@/store/aiLoadingStore';
 import { Adjustments, DEFAULT_BACKGROUND_ADJUSTMENTS, BackgroundAdjustments } from '@/components/Editor/ImageEditor/filterEngine';
 
 interface BackgroundPanelProps {
@@ -184,6 +185,7 @@ export const BackgroundPanel: React.FC<BackgroundPanelProps> = ({
   const handleGenerateMask = async () => {
     setIsGenerating(true);
     setError(null);
+    useAiLoadingStore.getState().startAiProcessing('AI Background Matting', 'Segmenting subject contours and alpha transparency...');
 
     try {
       const modelQuery = bg.modelId && bg.modelId !== 'builtin-u2netp' ? `?model=${encodeURIComponent(bg.modelId)}` : '';
@@ -208,6 +210,7 @@ export const BackgroundPanel: React.FC<BackgroundPanelProps> = ({
       setError(e.message || 'Background extraction failed');
     } finally {
       setIsGenerating(false);
+      useAiLoadingStore.getState().stopAiProcessing();
     }
   };
 
