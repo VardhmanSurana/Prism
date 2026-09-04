@@ -1,191 +1,347 @@
+/**
+ * useAnnotationEvents.ts
+ *
+ * Drag is handled via native window pointermove/pointerup listeners registered
+ * on pointerdown — the same pattern the editor (CanvasViewport.tsx) uses for its
+ * resize/rotate handlers. This bypasses React's synthetic event batching overhead
+ * and gives smooth 60 fps moves on every annotation type.
+ */
 import React, { useState, useRef, useEffect } from 'react';
 import { Annotation } from '../AnnotationsPanel';
 import { AnnotationCanvasProps, HandleId, DragMode } from './types';
 import { getAnnotationDistance, detectHandleClick, getAnnotationBBox } from './utils';
 
-/**
- * partialEraseAnnotation
- * For freehand / highlighter / textPath annotations: removes every point
- * that falls inside `radius` around `center`, then returns the surviving
- * point-runs as separate new Annotation objects (stroke-splitting).
- * For all other annotation types the whole annotation is returned unchanged
- * so the caller can decide whether to keep or delete it based on distance.
- */
-function partialEraseAnnotation(
-  ann: Annotation,
-  center: { x: number; y: number },
-  radius: number,
-): Annotation[] {
+// ─── Partial erase ────────────────────────────────────────────────────────────
+
+function partialEraseAnnotation(ann: Annotation, center: { x: number; y: number }, radius: number): Annotation[] {
   const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'] as const;
-  type StrokeType = typeof STROKE_TYPES[number];
-  const isStroke = (STROKE_TYPES as readonly string[]).includes(ann.type);
+  if (!(STROKE_TYPES as readonly string[]).includes(ann.type) || !ann.points?.length) return [ann];
 
-  if (!isStroke || !ann.points || ann.points.length === 0) return [ann];
-
-  // Tag each point: true = inside eraser (to be removed)
-  const tagged = ann.points.map(p => ({
-    x: p.x,
-    y: p.y,
-    erase: Math.hypot(p.x - center.x, p.y - center.y) < radius,
-  }));
-
-  // If nothing falls in the eraser, return unchanged
+  const tagged = ann.points.map(p => ({ ...p, erase: Math.hypot(p.x - center.x, p.y - center.y) < radius }));
   if (!tagged.some(p => p.erase)) return [ann];
 
-  // Split into consecutive runs of non-erased points
-  const segments: { x: number; y: number }[][] = [];
-  let current: { x: number; y: number }[] = [];
+  const segs: { x: number; y: number }[][] = [];
+  let run: { x: number; y: number }[] = [];
   for (const p of tagged) {
-    if (!p.erase) {
-      current.push({ x: p.x, y: p.y });
-    } else {
-      if (current.length >= 2) segments.push(current);
-      current = [];
-    }
+    if (!p.erase) run.push({ x: p.x, y: p.y });
+    else { if (run.length >= 2) segs.push(run); run = []; }
   }
-  if (current.length >= 2) segments.push(current);
-
-  // Return each surviving segment as its own annotation
-  return segments.map((pts, i) => ({
-    ...ann,
-    id: i === 0 ? ann.id : `${ann.id}-seg${i}-${Date.now()}`,
-    points: pts,
-  }));
+  if (run.length >= 2) segs.push(run);
+  return segs.map((pts, i) => ({ ...ann, id: i === 0 ? ann.id : `${ann.id}-seg${i}-${Date.now()}`, points: pts }));
 }
+
+// ─── Resize (pure) ────────────────────────────────────────────────────────────
+
+function applyResize(ann: Annotation, handleId: HandleId, x: number, y: number): Annotation {
+  if (ann.bounds) {
+    const b = ann.bounds;
+    const nx = b.w < 0 ? b.x + b.w : b.x, ny = b.h < 0 ? b.y + b.h : b.y;
+    const nw = Math.abs(b.w), nh = Math.abs(b.h);
+    let nb = { ...b };
+    switch (handleId) {
+      case 'tl': { const cx=Math.min(x,nx+nw-10), cy=Math.min(y,ny+nh-10); nb={x:cx,y:cy,w:b.w+(nx-cx),h:b.h+(ny-cy)}; break; }
+      case 'tr': { const cy=Math.min(y,ny+nh-10); nb={x:b.x,y:cy,w:Math.max(10,x-nx),h:b.h+(ny-cy)}; break; }
+      case 'bl': { const cx=Math.min(x,nx+nw-10); nb={x:cx,y:b.y,w:b.w+(nx-cx),h:Math.max(10,y-ny)}; break; }
+      case 'br': nb={x:b.x,y:b.y,w:Math.max(10,x-nx),h:Math.max(10,y-ny)}; break;
+      case 'lm': { const cx=Math.min(x,nx+nw-10); nb={x:cx,y:b.y,w:b.w+(nx-cx),h:b.h}; break; }
+      case 'rm': nb={x:b.x,y:b.y,w:Math.max(10,x-nx),h:b.h}; break;
+    }
+    return { ...ann, bounds: nb };
+  }
+  if (ann.points?.length) {
+    const bbox = getAnnotationBBox(ann);
+    if (bbox.w === 0 && bbox.h === 0) return ann;
+    let nb = { ...bbox };
+    switch (handleId) {
+      case 'tl': { const cx=Math.min(x,bbox.x+bbox.w-10), cy=Math.min(y,bbox.y+bbox.h-10); nb={x:cx,y:cy,w:bbox.w+(bbox.x-cx),h:bbox.h+(bbox.y-cy)}; break; }
+      case 'tr': { const cy=Math.min(y,bbox.y+bbox.h-10); nb={x:bbox.x,y:cy,w:Math.max(10,x-bbox.x),h:bbox.h+(bbox.y-cy)}; break; }
+      case 'bl': { const cx=Math.min(x,bbox.x+bbox.w-10); nb={x:cx,y:bbox.y,w:bbox.w+(bbox.x-cx),h:Math.max(10,y-bbox.y)}; break; }
+      case 'br': nb={x:bbox.x,y:bbox.y,w:Math.max(10,x-bbox.x),h:Math.max(10,y-bbox.y)}; break;
+      case 'lm': { const cx=Math.min(x,bbox.x+bbox.w-10); nb={x:cx,y:bbox.y,w:bbox.w+(bbox.x-cx),h:bbox.h}; break; }
+      case 'rm': nb={x:bbox.x,y:bbox.y,w:Math.max(10,x-bbox.x),h:bbox.h}; break;
+    }
+    const sx = bbox.w > 0 ? nb.w/bbox.w : 1, sy = bbox.h > 0 ? nb.h/bbox.h : 1;
+    return { ...ann, points: ann.points.map(p => ({ x: nb.x+(p.x-bbox.x)*sx, y: nb.y+(p.y-bbox.y)*sy })) };
+  }
+  return ann;
+}
+
+// ─── SVG coordinate conversion ────────────────────────────────────────────────
+
+function clientToSvg(svgEl: SVGSVGElement, clientX: number, clientY: number) {
+  const r = svgEl.getBoundingClientRect();
+  return { x: ((clientX - r.left) / r.width) * 1000, y: ((clientY - r.top) / r.height) * 1000 };
+}
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   const {
-    annotations,
-    onChange,
-    activeDrawTool,
-    setActiveDrawTool,
-    activeColor,
-    strokeWidth,
-    selectedAnnId,
-    setSelectedAnnId,
-
-    fontFamily,
-    fontSize,
-    fontWeight,
-    fontStyle,
-    textDecoration,
-    textAlign,
-    lineHeight,
-    letterSpacing,
-    doodleText,
-    doodleFontSize,
-    doodleFontFamily,
-    showDoodleGuide,
+    annotations, onChange, activeDrawTool, setActiveDrawTool,
+    activeColor, strokeWidth, selectedAnnId, setSelectedAnnId,
+    fontFamily, fontSize, fontWeight, fontStyle,
+    textDecoration, textAlign, lineHeight, letterSpacing,
+    doodleText, doodleFontSize, doodleFontFamily, showDoodleGuide,
   } = props;
   const activeOpacity = props.activeOpacity ?? 1;
 
-
-  const [currentAnn, setCurrentAnn] = useState<Annotation | null>(null);
-  const [dragMode, setDragMode] = useState<DragMode>('none');
+  const [currentAnn,   setCurrentAnn]   = useState<Annotation | null>(null);
+  const [dragMode,     setDragMode]     = useState<DragMode>('none');
   const [activeHandle, setActiveHandle] = useState<HandleId | null>(null);
-  const [lastPos, setLastPos] = useState({ x: 0, y: 0 });
   const [rotatingAnnId, setRotatingAnnId] = useState<string | null>(null);
-  const rotateStartRef = useRef<{ centerX: number; centerY: number; startRotation: number; startAngleRad: number } | null>(null);
 
-  const isDrawing = useRef(false);
-  const startPos = useRef({ x: 0, y: 0 });
-  const svgRef = useRef<SVGSVGElement>(null);
+  const isDrawing  = useRef(false);
+  const startPos   = useRef({ x: 0, y: 0 });
+  const svgRef     = useRef<SVGSVGElement>(null);
 
+  // Always-fresh props ref
   const propsRef = useRef(props);
   propsRef.current = props;
 
-  const currentAnnRef = useRef(currentAnn);
-  currentAnnRef.current = currentAnn;
+  const currentAnnRef       = useRef(currentAnn);
+  currentAnnRef.current     = currentAnn;
+  const dragModeRef         = useRef(dragMode);
+  dragModeRef.current       = dragMode;
+  const rotatingAnnIdRef    = useRef(rotatingAnnId);
+  rotatingAnnIdRef.current  = rotatingAnnId;
+  const activeHandleRef     = useRef(activeHandle);
+  activeHandleRef.current   = activeHandle;
+  const selectedAnnIdRef    = useRef(selectedAnnId);
+  selectedAnnIdRef.current  = selectedAnnId;
 
-  const dragModeRef = useRef(dragMode);
-  dragModeRef.current = dragMode;
+  // Native drag state (lives completely outside React)
+  const dragStartMouseRef = useRef({ x: 0, y: 0 });
+  const dragAnnIdRef      = useRef<string | null>(null);
+  const rotateStartRef    = useRef<{ centerX: number; centerY: number; startRotation: number; startAngleRad: number } | null>(null);
+  // ponytail: coalesce pointermove to 1 emit/frame; all transforms are absolute so dropping frames is lossless
+  const rafIdRef          = useRef<number | null>(null);
+  const pendingMoveRef    = useRef<{ clientX: number; clientY: number } | null>(null);
+  // ponytail: transient move — DOM nodes written directly during drag, React commits once on pointerup
+  const dragSvgNodesRef    = useRef<{ node: SVGGElement; base: string }[]>([]);
+  const dragHtmlNodeRef   = useRef<HTMLElement | null>(null);
+  const dragRectRef       = useRef<{ width: number; height: number } | null>(null);
 
-  const lastPosRef = useRef(lastPos);
-  lastPosRef.current = lastPos;
+  // cleanup on unmount
+  useEffect(() => () => { removeNativeListeners(); }, []);
 
-  const rotatingAnnIdRef = useRef(rotatingAnnId);
-  rotatingAnnIdRef.current = rotatingAnnId;
+  // ─── Native listener management ──────────────────────────────────────────
 
-  const activeHandleRef = useRef(activeHandle);
-  activeHandleRef.current = activeHandle;
+  function removeNativeListeners() {
+    window.removeEventListener('pointermove', onNativeMove);
+    window.removeEventListener('pointerup',   onNativeUp);
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    pendingMoveRef.current = null;
+  }
 
-  const selectedAnnIdRef = useRef(selectedAnnId);
-  selectedAnnIdRef.current = selectedAnnId;
+  // ─── Transient move (Excalidraw pattern: mutate view directly, commit state once) ──
 
-  const animationFrameRef = useRef<number | null>(null);
-  const latestPointerEventRef = useRef<{ clientX: number; clientY: number } | null>(null);
+  function beginTransientDrag(annId: string) {
+    const svg = svgRef.current;
+    dragSvgNodesRef.current = svg
+      ? (Array.from(svg.querySelectorAll(`[data-ann-id="${annId}"]`)) as SVGGElement[])
+          .map(node => ({ node, base: node.getAttribute('transform') ?? '' }))
+      : [];
+    dragHtmlNodeRef.current =
+      document.getElementById(`ann-layer-${annId}`) ?? document.getElementById(`text-layer-${annId}`);
+    const r = svg?.getBoundingClientRect();
+    dragRectRef.current = r && r.width > 0 ? { width: r.width, height: r.height } : null;
+  }
 
-  useEffect(() => {
-    return () => {
-      if (animationFrameRef.current !== null) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, []);
+  function applyTransientMove(dx: number, dy: number) {
+    // SVG user units (0-1000 space) — exact, no React involved; existing rotation preserved
+    for (const { node, base } of dragSvgNodesRef.current) {
+      node.setAttribute('transform', `translate(${dx} ${dy})${base ? ` ${base}` : ''}`);
+    }
+    const html = dragHtmlNodeRef.current;
+    const rect = dragRectRef.current;
+    if (html && rect) {
+      // CSS `translate` composes independently of the overlay's `rotate()` transform
+      html.style.translate = `${(dx / 1000) * rect.width}px ${(dy / 1000) * rect.height}px`;
+    }
+  }
 
-  const getCoordinates = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 1000;
-    const y = ((e.clientY - rect.top) / rect.height) * 1000;
-    return { x, y };
-  };
+  function clearTransientMove() {
+    for (const { node, base } of dragSvgNodesRef.current) {
+      if (base) node.setAttribute('transform', base);
+      else node.removeAttribute('transform');
+    }
+    const html = dragHtmlNodeRef.current;
+    if (html) html.style.translate = '';
+    dragSvgNodesRef.current = [];
+    dragHtmlNodeRef.current = null;
+    dragRectRef.current = null;
+  }
 
-  const getCoordinatesFromClient = (clientX: number, clientY: number) => {
-    if (!svgRef.current) return { x: 0, y: 0 };
-    const rect = svgRef.current.getBoundingClientRect();
-    const x = ((clientX - rect.left) / rect.width) * 1000;
-    const y = ((clientY - rect.top) / rect.height) * 1000;
-    return { x, y };
+  function commitMove(clientX: number, clientY: number) {
+    const svg = svgRef.current;
+    const startAnn = dragStartAnnRef.current;
+    const annId = dragAnnIdRef.current;
+    if (!svg || !startAnn || !annId) return;
+    const { x, y } = clientToSvg(svg, clientX, clientY);
+    const dx = x - dragStartMouseRef.current.x;
+    const dy = y - dragStartMouseRef.current.y;
+    clearTransientMove();
+    const anns = propsRef.current.annotations;
+    const emit = propsRef.current.onChange;
+    let next: Annotation;
+    if (startAnn.bounds) {
+      next = { ...startAnn, bounds: { ...startAnn.bounds, x: startAnn.bounds.x + dx, y: startAnn.bounds.y + dy } };
+    } else if (startAnn.points) {
+      next = { ...startAnn, points: startAnn.points.map(p => ({ x: p.x + dx, y: p.y + dy })) };
+    } else return;
+    emit(anns.map(a => a.id === annId ? next : a));
+  }
+
+  /**
+   * Native pointermove — coalesced to one emit per animation frame.
+   * Pointer events can fire faster than display refresh; without this each
+   * extra event is a full top-level setAnnotations + full-tree re-render.
+   * Move mode skips React entirely (transient DOM transform, see above).
+   */
+  function onNativeMove(e: PointerEvent) {
+    pendingMoveRef.current = { clientX: e.clientX, clientY: e.clientY };
+    if (rafIdRef.current !== null) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      const pending = pendingMoveRef.current;
+      pendingMoveRef.current = null;
+      if (pending) flushMove(pending.clientX, pending.clientY);
+    });
+  }
+
+  function flushMove(clientX: number, clientY: number) {
+    if (!svgRef.current) return;
+
+    const annId    = dragAnnIdRef.current;
+    const rotating = rotatingAnnIdRef.current;
+    const mode     = dragModeRef.current;
+    const handle   = activeHandleRef.current;
+    const anns     = propsRef.current.annotations;
+    const emit     = propsRef.current.onChange;
+
+    // ── Rotate ──
+    if (rotating && rotateStartRef.current) {
+      const { centerX, centerY, startRotation, startAngleRad } = rotateStartRef.current;
+      const angle = Math.atan2(clientY - centerY, clientX - centerX);
+      let rot = Math.round(startRotation + (angle - startAngleRad) * (180 / Math.PI));
+      rot = ((rot % 360) + 360) % 360;
+      emit(anns.map(a => a.id === rotating ? { ...a, rotation: rot } : a));
+      return;
+    }
+
+    if (!annId) return;
+    const { x, y } = clientToSvg(svgRef.current, clientX, clientY);
+    const ann = anns.find(a => a.id === annId);
+    if (!ann) return;
+
+    let next: Annotation;
+
+    if (mode === 'move') {
+      // Transient: write straight to the DOM — zero setState until pointerup
+      const startMouse = dragStartMouseRef.current;
+      const startAnn   = dragStartAnnRef.current;
+      if (!startAnn) return;
+      applyTransientMove(x - startMouse.x, y - startMouse.y);
+      return;
+    } else if (mode === 'resize-edge' && handle) {
+      next = applyResize(ann, handle, x, y);
+    } else if (mode === 'resize-endpoint' && handle && ann.points && ann.points.length >= 2) {
+      const pts = [...ann.points];
+      pts[handle === 'ep0' ? 0 : pts.length - 1] = { x, y };
+      next = { ...ann, points: pts };
+    } else return;
+
+    emit(anns.map(a => a.id === annId ? next : a));
+  }
+
+  function onNativeUp(e: PointerEvent) {
+    // Flush the last coalesced position so the drop point is exact.
+    // Move commits once (transient DOM transform → single state update).
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+    const pending = pendingMoveRef.current;
+    pendingMoveRef.current = null;
+    if (dragModeRef.current === 'move' && dragAnnIdRef.current) {
+      if (pending) commitMove(pending.clientX, pending.clientY);
+      else clearTransientMove();
+    } else if (pending) {
+      flushMove(pending.clientX, pending.clientY);
+    }
+    removeNativeListeners();
+    isDrawing.current   = false;
+    dragAnnIdRef.current = null;
+    dragStartAnnRef.current = null;
+    rotatingAnnIdRef.current = null;
+    rotateStartRef.current   = null;
+    dragModeRef.current      = 'none';
+    activeHandleRef.current  = null;
+
+    setDragMode('none');
+    setActiveHandle(null);
+    setRotatingAnnId(null);
+    propsRef.current.onEndGesture?.();
+  }
+
+  // Snapshot of annotation at drag start — for absolute-position move (no delta drift)
+  const dragStartAnnRef = useRef<Annotation | null>(null);
+
+  // ─── SVG event handlers ───────────────────────────────────────────────────
+
+  const getCoords = (e: React.PointerEvent<SVGSVGElement> | React.MouseEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * 1000, y: ((e.clientY - r.top) / r.height) * 1000 };
   };
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     propsRef.current.onStartGesture?.();
-    const { x, y } = getCoordinates(e);
+    const { x, y } = getCoords(e);
 
     if (activeDrawTool === 'select') {
-      const currentSelectedId = selectedAnnIdRef.current || selectedAnnId;
-      // 1. Check if clicking a handle on the currently selected annotation
-      if (currentSelectedId) {
-        const selAnn = annotations.find(a => a.id === currentSelectedId);
+      const curSelId = selectedAnnIdRef.current || selectedAnnId;
+
+      // Hit-test handle on currently selected annotation
+      if (curSelId) {
+        const selAnn = annotations.find(a => a.id === curSelId);
         if (selAnn) {
           const handleId = detectHandleClick(x, y, selAnn);
           if (handleId) {
-            const isEndpoint = handleId === 'ep0' || handleId === 'ep1';
-            const nextDragMode = isEndpoint ? 'resize-endpoint' : 'resize-edge';
-            setDragMode(nextDragMode);
-            dragModeRef.current = nextDragMode;
-            setActiveHandle(handleId);
-            activeHandleRef.current = handleId;
-            isDrawing.current = true;
-            setLastPos({ x, y });
-            lastPosRef.current = { x, y };
+            const nextMode = (handleId === 'ep0' || handleId === 'ep1') ? 'resize-endpoint' : 'resize-edge';
+            dragModeRef.current     = nextMode; setDragMode(nextMode);
+            activeHandleRef.current = handleId; setActiveHandle(handleId);
+            dragAnnIdRef.current    = selAnn.id;
+            dragStartAnnRef.current = selAnn;
+            isDrawing.current       = true;
             e.currentTarget.setPointerCapture(e.pointerId);
+            window.addEventListener('pointermove', onNativeMove);
+            window.addEventListener('pointerup',   onNativeUp);
             return;
           }
         }
       }
 
-      // 2. Check if clicking any annotation to select + move
-      const clickedAnn = [...annotations].reverse().find(
-        (ann) => getAnnotationDistance({ x, y }, ann) < 40
-      );
-
-      if (clickedAnn) {
-        selectedAnnIdRef.current = clickedAnn.id;
-        setSelectedAnnId?.(clickedAnn.id);
-        isDrawing.current = true;
-        setLastPos({ x, y });
-        lastPosRef.current = { x, y };
-        setDragMode('move');
-        dragModeRef.current = 'move';
-        setActiveHandle(null);
-        activeHandleRef.current = null;
+      // Hit-test any annotation
+      const clicked = [...annotations].reverse().find(ann => getAnnotationDistance({ x, y }, ann) < 40);
+      if (clicked) {
+        selectedAnnIdRef.current = clicked.id; setSelectedAnnId?.(clicked.id);
+        dragModeRef.current      = 'move';     setDragMode('move');
+        activeHandleRef.current  = null;       setActiveHandle(null);
+        dragAnnIdRef.current     = clicked.id;
+        dragStartAnnRef.current  = clicked;
+        dragStartMouseRef.current = { x, y };
+        isDrawing.current        = true;
+        beginTransientDrag(clicked.id);
         e.currentTarget.setPointerCapture(e.pointerId);
+        window.addEventListener('pointermove', onNativeMove);
+        window.addEventListener('pointerup',   onNativeUp);
         return;
-      } else {
-        selectedAnnIdRef.current = null;
-        setSelectedAnnId?.(null);
       }
+
+      selectedAnnIdRef.current = null; setSelectedAnnId?.(null);
       return;
     }
 
@@ -193,49 +349,21 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
     if (activeDrawTool === 'eraser') {
       isDrawing.current = true;
-      const eraseRadius = propsRef.current.eraserSize ?? 35;
-      const nextAnnotations: Annotation[] = [];
-      let changed = false;
-      for (const ann of annotations) {
-        const result = partialEraseAnnotation(ann, { x, y }, eraseRadius);
-        if (result.length !== 1 || result[0] !== ann) changed = true;
-        // For non-stroke shapes, delete entirely if centre is within radius
-        if (result.length === 1 && result[0] === ann) {
-          const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'];
-          if (!STROKE_TYPES.includes(ann.type) && getAnnotationDistance({ x, y }, ann) < eraseRadius) {
-            changed = true;
-            // drop it (don't push)
-            continue;
-          }
-        }
-        nextAnnotations.push(...result);
-      }
-      if (changed) onChange(nextAnnotations);
+      doErase({ x, y }, annotations, onChange, propsRef.current.eraserSize ?? 35);
+      window.addEventListener('pointermove', onNativeEraseMove);
+      window.addEventListener('pointerup',   onNativeEraseUp);
       return;
     }
 
     if (activeDrawTool === 'text') {
       const newAnn: Annotation = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        type: 'text',
-        color: activeColor,
-        strokeWidth: strokeWidth,
-        opacity: activeOpacity,
-        text: '',
-        fontFamily: fontFamily || 'Space Grotesk',
-        fontSize: fontSize || 36,
-        fontWeight: fontWeight || 'bold',
-        fontStyle: fontStyle || 'normal',
-        textDecoration: textDecoration || 'none',
-        textAlign: textAlign || 'center',
-        lineHeight: lineHeight || 1.2,
-        letterSpacing: letterSpacing || 0,
-        bounds: {
-          x: Math.max(0, x - 125),
-          y: Math.max(0, y - 50),
-          w: 250,
-          h: 100,
-        },
+        type: 'text', color: activeColor, strokeWidth, opacity: activeOpacity,
+        text: '', fontFamily: fontFamily || 'Space Grotesk', fontSize: fontSize || 36,
+        fontWeight: fontWeight || 'bold', fontStyle: fontStyle || 'normal',
+        textDecoration: textDecoration || 'none', textAlign: textAlign || 'center',
+        lineHeight: lineHeight || 1.2, letterSpacing: letterSpacing || 0,
+        bounds: { x: Math.max(0, x - 125), y: Math.max(0, y - 50), w: 250, h: 100 },
       };
       onChange([...annotations, newAnn]);
       setSelectedAnnId?.(newAnn.id);
@@ -243,422 +371,193 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       return;
     }
 
-    if (activeDrawTool === 'emoji') {
-      return;
-    }
+    if (activeDrawTool === 'emoji') return;
 
     isDrawing.current = true;
-    startPos.current = { x, y };
+    startPos.current  = { x, y };
 
-    const isPointShape = activeDrawTool === 'freehand' ||
-      activeDrawTool === 'arrow' ||
-      activeDrawTool === 'doubleArrow' ||
-      activeDrawTool === 'line' ||
-      activeDrawTool === 'highlighter' ||
-      activeDrawTool === 'textPath';
-
+    const isPointShape = ['freehand','arrow','doubleArrow','line','highlighter','textPath'].includes(activeDrawTool);
     const newAnn: Annotation = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: activeDrawTool,
       color: activeColor,
       opacity: activeDrawTool === 'highlighter' ? 0.4 : activeOpacity,
       strokeWidth: activeDrawTool === 'highlighter' ? strokeWidth * 2.5 : strokeWidth,
-      ...(isPointShape
-        ? { points: [{ x, y }] }
-        : { bounds: { x, y, w: 0, h: 0 } }),
-      ...(activeDrawTool === 'textPath' ? {
-        doodleText: doodleText || 'peace in the air',
-        fontSize: doodleFontSize || 18,
-        fontFamily: doodleFontFamily || 'Space Grotesk',
-        showGuidePath: showDoodleGuide !== false,
-      } : {}),
-      ...(activeDrawTool === 'freehand' ? {
-        penStyle: propsRef.current.penSettings?.style ?? 'solid',
-        closePath: propsRef.current.penSettings?.closeFill ?? false,
-        fillOpacity: propsRef.current.penSettings?.fillOpacity ?? 0.5,
-        arrowEnd: propsRef.current.penSettings?.arrowEnd ?? false,
-      } : {}),
+      ...(isPointShape ? { points: [{ x, y }] } : { bounds: { x, y, w: 0, h: 0 } }),
+      ...(activeDrawTool === 'textPath' ? { doodleText: doodleText||'peace in the air', fontSize: doodleFontSize||18, fontFamily: doodleFontFamily||'Space Grotesk', showGuidePath: showDoodleGuide !== false } : {}),
+      ...(activeDrawTool === 'freehand' ? { penStyle: propsRef.current.penSettings?.style??'solid', closePath: propsRef.current.penSettings?.closeFill??false, fillOpacity: propsRef.current.penSettings?.fillOpacity??0.5, arrowEnd: propsRef.current.penSettings?.arrowEnd??false } : {}),
     };
     currentAnnRef.current = newAnn;
     setCurrentAnn(newAnn);
   };
 
+  // ─── Drawing stroke handlers (SVG synthetic — fine for drawing) ───────────
+
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isDrawing.current) return;
-
-    latestPointerEventRef.current = {
-      clientX: e.clientX,
-      clientY: e.clientY,
-    };
-
-    if (animationFrameRef.current === null) {
-      animationFrameRef.current = requestAnimationFrame(() => {
-        animationFrameRef.current = null;
-        if (!latestPointerEventRef.current || !isDrawing.current) return;
-
-        const { clientX, clientY } = latestPointerEventRef.current;
-
-        const currentRotatingAnnId = rotatingAnnIdRef.current;
-        const currentActiveDrawTool = propsRef.current.activeDrawTool;
-        const currentSelectedAnnId = propsRef.current.selectedAnnId;
-        const currentDragMode = dragModeRef.current;
-        const currentLastPos = lastPosRef.current;
-        const currentActiveHandle = activeHandleRef.current;
-        const currentCurrentAnn = currentAnnRef.current;
-        const currentAnnotations = propsRef.current.annotations;
-        const currentOnChange = propsRef.current.onChange;
-
-        // Handle Text Box rotating using client coordinates
-        if (currentRotatingAnnId && rotateStartRef.current) {
-          const { centerX, centerY, startRotation, startAngleRad } = rotateStartRef.current;
-          const currentAngleRad = Math.atan2(clientY - centerY, clientX - centerX);
-          const angleDeltaRad = currentAngleRad - startAngleRad;
-          const angleDeltaDeg = angleDeltaRad * (180 / Math.PI);
-          
-          let nextRotation = Math.round(startRotation + angleDeltaDeg);
-          nextRotation = (nextRotation + 360) % 360;
-
-          currentOnChange(
-            currentAnnotations.map((ann) =>
-              ann.id === currentRotatingAnnId ? { ...ann, rotation: nextRotation } : ann
-            )
-          );
-          return;
-        }
-
-        const { x, y } = getCoordinatesFromClient(clientX, clientY);
-
-        const currentTargetAnnId = selectedAnnIdRef.current || currentSelectedAnnId;
-        if (currentActiveDrawTool === 'select' && currentTargetAnnId) {
-          const dx = x - currentLastPos.x;
-          const dy = y - currentLastPos.y;
-          setLastPos({ x, y });
-          lastPosRef.current = { x, y };
-
-          currentOnChange(currentAnnotations.map(ann => {
-            if (ann.id !== currentTargetAnnId) return ann;
-
-            if (currentDragMode === 'move') {
-              if (ann.bounds) {
-                return { ...ann, bounds: { ...ann.bounds, x: ann.bounds.x + dx, y: ann.bounds.y + dy } };
-              }
-              if (ann.points) {
-                return { ...ann, points: ann.points.map(p => ({ x: p.x + dx, y: p.y + dy })) };
-              }
-            }
-
-            if (currentDragMode === 'resize-edge' && currentActiveHandle) {
-              if (ann.bounds) {
-                const b = ann.bounds;
-                const nx = b.w < 0 ? b.x + b.w : b.x;
-                const ny = b.h < 0 ? b.y + b.h : b.y;
-                const nw = Math.abs(b.w);
-                const nh = Math.abs(b.h);
-
-                switch (currentActiveHandle) {
-                  case 'tl': {
-                    const clampedX = Math.min(x, nx + nw - 10);
-                    const clampedY = Math.min(y, ny + nh - 10);
-                    return { ...ann, bounds: { x: clampedX, y: clampedY, w: b.w + (nx - clampedX), h: b.h + (ny - clampedY) } };
-                  }
-                  case 'tr': {
-                    const newW = Math.max(10, x - nx);
-                    const clampedY = Math.min(y, ny + nh - 10);
-                    return { ...ann, bounds: { x: b.x, y: clampedY, w: newW, h: b.h + (ny - clampedY) } };
-                  }
-                  case 'bl': {
-                    const clampedX = Math.min(x, nx + nw - 10);
-                    const newH = Math.max(10, y - ny);
-                    return { ...ann, bounds: { x: clampedX, y: b.y, w: b.w + (nx - clampedX), h: newH } };
-                  }
-                  case 'br': {
-                    const newW = Math.max(10, x - nx);
-                    const newH = Math.max(10, y - ny);
-                    return { ...ann, bounds: { x: b.x, y: b.y, w: newW, h: newH } };
-                  }
-                  case 'lm': {
-                    const clampedX = Math.min(x, nx + nw - 10);
-                    return { ...ann, bounds: { x: clampedX, y: b.y, w: b.w + (nx - clampedX), h: b.h } };
-                  }
-                  case 'rm': {
-                    const newW = Math.max(10, x - nx);
-                    return { ...ann, bounds: { x: b.x, y: b.y, w: newW, h: b.h } };
-                  }
-                }
-              }
-
-              // Freehand/highlighter/textPath: scale points within bounding box
-              if (ann.points && ann.points.length > 0) {
-                const bbox = getAnnotationBBox(ann);
-                if (bbox.w === 0 && bbox.h === 0) return ann;
-
-                let newBBox = { ...bbox };
-
-                switch (currentActiveHandle) {
-                  case 'tl': {
-                    const clampedX = Math.min(x, bbox.x + bbox.w - 10);
-                    const clampedY = Math.min(y, bbox.y + bbox.h - 10);
-                    newBBox = { x: clampedX, y: clampedY, w: bbox.w + (bbox.x - clampedX), h: bbox.h + (bbox.y - clampedY) };
-                    break;
-                  }
-                  case 'tr': {
-                    const newW = Math.max(10, x - bbox.x);
-                    const clampedY = Math.min(y, bbox.y + bbox.h - 10);
-                    newBBox = { x: bbox.x, y: clampedY, w: newW, h: bbox.h + (bbox.y - clampedY) };
-                    break;
-                  }
-                  case 'bl': {
-                    const clampedX = Math.min(x, bbox.x + bbox.w - 10);
-                    const newH = Math.max(10, y - bbox.y);
-                    newBBox = { x: clampedX, y: bbox.y, w: bbox.w + (bbox.x - clampedX), h: newH };
-                    break;
-                  }
-                  case 'br': {
-                    const newW = Math.max(10, x - bbox.x);
-                    const newH = Math.max(10, y - bbox.y);
-                    newBBox = { x: bbox.x, y: bbox.y, w: newW, h: newH };
-                    break;
-                  }
-                  case 'lm': {
-                    const clampedX = Math.min(x, bbox.x + bbox.w - 10);
-                    newBBox = { x: clampedX, y: bbox.y, w: bbox.w + (bbox.x - clampedX), h: bbox.h };
-                    break;
-                  }
-                  case 'rm': {
-                    newBBox = { x: bbox.x, y: bbox.y, w: Math.max(10, x - bbox.x), h: bbox.h };
-                    break;
-                  }
-                }
-
-                const scaleX = bbox.w > 0 ? newBBox.w / bbox.w : 1;
-                const scaleY = bbox.h > 0 ? newBBox.h / bbox.h : 1;
-
-                const newPoints = ann.points.map(p => ({
-                  x: newBBox.x + (p.x - bbox.x) * scaleX,
-                  y: newBBox.y + (p.y - bbox.y) * scaleY,
-                }));
-
-                return { ...ann, points: newPoints };
-              }
-            }
-
-            if (currentDragMode === 'resize-endpoint' && currentActiveHandle && ann.points && ann.points.length >= 2) {
-              const points = [...ann.points];
-              const idx = currentActiveHandle === 'ep0' ? 0 : points.length - 1;
-              points[idx] = { x, y };
-              return { ...ann, points };
-            }
-
-            return ann;
-          }));
-          return;
-        }
-
-        if (currentActiveDrawTool === 'eraser') {
-          const eraseRadius = propsRef.current.eraserSize ?? 35;
-          const nextAnnotations: Annotation[] = [];
-          let changed = false;
-          for (const ann of currentAnnotations) {
-            const result = partialEraseAnnotation(ann, { x, y }, eraseRadius);
-            if (result.length !== 1 || result[0] !== ann) changed = true;
-            if (result.length === 1 && result[0] === ann) {
-              const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'];
-              if (!STROKE_TYPES.includes(ann.type) && getAnnotationDistance({ x, y }, ann) < eraseRadius) {
-                changed = true;
-                continue;
-              }
-            }
-            nextAnnotations.push(...result);
-          }
-          if (changed) currentOnChange(nextAnnotations);
-          return;
-        }
-
-        if (!currentCurrentAnn) return;
-
-        let updatedAnn: Annotation | null = null;
-        if ((currentCurrentAnn.type === 'freehand' || currentCurrentAnn.type === 'highlighter' || currentCurrentAnn.type === 'textPath') && currentCurrentAnn.points) {
-          updatedAnn = {
-            ...currentCurrentAnn,
-            points: [...currentCurrentAnn.points, { x, y }],
-          };
-        } else if ((currentCurrentAnn.type === 'arrow' || currentCurrentAnn.type === 'doubleArrow' || currentCurrentAnn.type === 'line') && currentCurrentAnn.points) {
-          updatedAnn = {
-            ...currentCurrentAnn,
-            points: [currentCurrentAnn.points[0], { x, y }],
-          };
-        } else if (currentCurrentAnn.bounds) {
-          updatedAnn = {
-            ...currentCurrentAnn,
-            bounds: {
-              x: startPos.current.x,
-              y: startPos.current.y,
-              w: x - startPos.current.x,
-              h: y - startPos.current.y,
-            },
-          };
-        }
-
-        if (updatedAnn) {
-          currentAnnRef.current = updatedAnn;
-          setCurrentAnn(updatedAnn);
-        }
-      });
+    if (dragModeRef.current !== 'none' || rotatingAnnIdRef.current) return; // handled natively
+    if (propsRef.current.activeDrawTool === 'eraser') return; // handled natively
+    if (propsRef.current.activeDrawTool !== 'select') {
+      const r = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width)  * 1000;
+      const y = ((e.clientY - r.top)  / r.height) * 1000;
+      const cur = currentAnnRef.current;
+      if (!cur) return;
+      let next: Annotation | null = null;
+      if ((cur.type==='freehand'||cur.type==='highlighter'||cur.type==='textPath') && cur.points) {
+        next = { ...cur, points: [...cur.points, { x, y }] };
+      } else if ((cur.type==='arrow'||cur.type==='doubleArrow'||cur.type==='line') && cur.points) {
+        next = { ...cur, points: [cur.points[0], { x, y }] };
+      } else if (cur.bounds) {
+        next = { ...cur, bounds: { x: startPos.current.x, y: startPos.current.y, w: x-startPos.current.x, h: y-startPos.current.y } };
+      }
+      if (next) { currentAnnRef.current = next; setCurrentAnn(next); }
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!isDrawing.current) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
-    isDrawing.current = false;
-    setDragMode('none');
-    dragModeRef.current = 'none';
-    setActiveHandle(null);
-    activeHandleRef.current = null;
-    setRotatingAnnId(null);
-    rotatingAnnIdRef.current = null;
-    rotateStartRef.current = null;
 
-    if (animationFrameRef.current !== null) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+    // Drag/rotate is cleaned up by onNativeUp — only handle drawing here
+    if (dragModeRef.current !== 'none' || rotatingAnnIdRef.current) return;
+    if (propsRef.current.activeDrawTool === 'eraser' || propsRef.current.activeDrawTool === 'select') {
+      isDrawing.current = false;
+      propsRef.current.onEndGesture?.();
+      return;
     }
-    latestPointerEventRef.current = null;
 
+    isDrawing.current = false;
     propsRef.current.onEndGesture?.();
 
-    if (activeDrawTool === 'eraser' || activeDrawTool === 'select') return;
-
-    const finalAnn = currentAnnRef.current || currentAnn;
+    const finalAnn = currentAnnRef.current ?? currentAnn;
     if (finalAnn) {
       let valid = true;
-      if (
-        (finalAnn.type === 'freehand' ||
-          finalAnn.type === 'highlighter' ||
-          finalAnn.type === 'arrow' ||
-          finalAnn.type === 'doubleArrow' ||
-          finalAnn.type === 'line' ||
-          finalAnn.type === 'textPath') &&
-        finalAnn.points &&
-        finalAnn.points.length < 2
-      ) {
-        valid = false;
-      }
-      if (
-        finalAnn.bounds &&
-        Math.abs(finalAnn.bounds.w) < 3 &&
-        Math.abs(finalAnn.bounds.h) < 3
-      ) {
-        valid = false;
-      }
-
+      if (['freehand','highlighter','arrow','doubleArrow','line','textPath'].includes(finalAnn.type) && finalAnn.points && finalAnn.points.length < 2) valid = false;
+      if (finalAnn.bounds && Math.abs(finalAnn.bounds.w) < 3 && Math.abs(finalAnn.bounds.h) < 3) valid = false;
       if (valid) onChange([...annotations, finalAnn]);
     }
     currentAnnRef.current = null;
     setCurrentAnn(null);
   };
 
-  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
-    e.preventDefault();
+  // ─── Native eraser handlers ───────────────────────────────────────────────
+
+  const onNativeEraseMove = (e: PointerEvent) => {
+    if (!svgRef.current) return;
+    const { x, y } = clientToSvg(svgRef.current, e.clientX, e.clientY);
+    doErase({ x, y }, propsRef.current.annotations, propsRef.current.onChange, propsRef.current.eraserSize ?? 35);
   };
 
-  const handleContextMenu = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.ctrlKey) {
-      e.preventDefault();
-      const { x, y } = getCoordinates(e as any);
-      const clickedAnn = [...annotations].reverse().find((ann) => getAnnotationDistance({ x, y }, ann) < 35);
-      if (clickedAnn) {
-        setSelectedAnnId?.(clickedAnn.id);
-        setActiveDrawTool?.('select');
-      }
-    }
+  const onNativeEraseUp = () => {
+    window.removeEventListener('pointermove', onNativeEraseMove);
+    window.removeEventListener('pointerup',   onNativeEraseUp);
+    isDrawing.current = false;
+    propsRef.current.onEndGesture?.();
   };
+
+  // ─── Transform handle starters ────────────────────────────────────────────
 
   const handleTextRotateStart = (e: React.PointerEvent, annId: string) => {
     propsRef.current.onStartGesture?.();
-    e.stopPropagation();
-    e.preventDefault();
-    const ann = annotations.find(a => a.id === annId);
+    e.stopPropagation(); e.preventDefault();
+    const ann = propsRef.current.annotations.find(a => a.id === annId);
     if (!ann) return;
 
+    let cX = 0, cY = 0;
     const el = document.getElementById(`text-layer-${annId}`) || document.getElementById(`ann-layer-${annId}`);
-    let cX = 0;
-    let cY = 0;
-    if (el) {
-      const rect = el.getBoundingClientRect();
-      cX = rect.left + rect.width / 2;
-      cY = rect.top + rect.height / 2;
-    } else if (svgRef.current) {
-      const svgRect = svgRef.current.getBoundingClientRect();
+    if (el) { const r = el.getBoundingClientRect(); cX = r.left + r.width/2; cY = r.top + r.height/2; }
+    else if (svgRef.current) {
+      const r = svgRef.current.getBoundingClientRect();
       const bbox = getAnnotationBBox(ann);
-      cX = svgRect.left + (bbox.x + bbox.w / 2) * (svgRect.width / 1000);
-      cY = svgRect.top + (bbox.y + bbox.h / 2) * (svgRect.height / 1000);
+      cX = r.left + (bbox.x + bbox.w/2) * (r.width/1000);
+      cY = r.top  + (bbox.y + bbox.h/2) * (r.height/1000);
     }
 
-    const startAngleRad = Math.atan2(e.clientY - cY, e.clientX - cX);
-    rotateStartRef.current = {
-      centerX: cX,
-      centerY: cY,
-      startRotation: ann.rotation || 0,
-      startAngleRad,
-    };
-    setRotatingAnnId(annId);
-    rotatingAnnIdRef.current = annId;
-    isDrawing.current = true;
-    
-    if (svgRef.current) {
-      svgRef.current.setPointerCapture(e.pointerId);
-    }
+    rotateStartRef.current     = { centerX: cX, centerY: cY, startRotation: ann.rotation||0, startAngleRad: Math.atan2(e.clientY-cY, e.clientX-cX) };
+    rotatingAnnIdRef.current   = annId; setRotatingAnnId(annId);
+    dragAnnIdRef.current       = annId;
+    isDrawing.current          = true;
+
+    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    window.addEventListener('pointermove', onNativeMove);
+    window.addEventListener('pointerup',   onNativeUp);
   };
 
   const handleTextResizeStart = (e: React.PointerEvent, handleId: HandleId, annId: string) => {
     propsRef.current.onStartGesture?.();
-    e.stopPropagation();
-    e.preventDefault();
-    
-    setDragMode('resize-edge');
-    setActiveHandle(handleId);
-    setSelectedAnnId?.(annId);
-    isDrawing.current = true;
-    
-    if (svgRef.current) {
-      const rect = svgRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 1000;
-      const y = ((e.clientY - rect.top) / rect.height) * 1000;
-      setLastPos({ x, y });
-      svgRef.current.setPointerCapture(e.pointerId);
-    }
+    e.stopPropagation(); e.preventDefault();
+    const ann = propsRef.current.annotations.find(a => a.id === annId);
+
+    dragModeRef.current      = 'resize-edge'; setDragMode('resize-edge');
+    activeHandleRef.current  = handleId;      setActiveHandle(handleId);
+    selectedAnnIdRef.current = annId;         setSelectedAnnId?.(annId);
+    dragAnnIdRef.current     = annId;
+    dragStartAnnRef.current  = ann ?? null;
+    isDrawing.current        = true;
+
+    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    window.addEventListener('pointermove', onNativeMove);
+    window.addEventListener('pointerup',   onNativeUp);
   };
 
   const handleTextMoveStart = (e: React.PointerEvent, annId: string) => {
     propsRef.current.onStartGesture?.();
-    e.stopPropagation();
-    e.preventDefault();
-    
-    setDragMode('move');
-    setActiveHandle(null);
-    setSelectedAnnId?.(annId);
-    isDrawing.current = true;
+    e.stopPropagation(); e.preventDefault();
+    if (!svgRef.current) return;
+    const ann = propsRef.current.annotations.find(a => a.id === annId);
+    const r   = svgRef.current.getBoundingClientRect();
+    const sx  = ((e.clientX - r.left) / r.width)  * 1000;
+    const sy  = ((e.clientY - r.top)  / r.height) * 1000;
 
-    if (svgRef.current) {
-      const rect = svgRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 1000;
-      const y = ((e.clientY - rect.top) / rect.height) * 1000;
-      setLastPos({ x, y });
-      svgRef.current.setPointerCapture(e.pointerId);
+    dragModeRef.current      = 'move'; setDragMode('move');
+    activeHandleRef.current  = null;   setActiveHandle(null);
+    selectedAnnIdRef.current = annId;  setSelectedAnnId?.(annId);
+    dragAnnIdRef.current     = annId;
+    dragStartAnnRef.current  = ann ?? null;
+    dragStartMouseRef.current = { x: sx, y: sy };
+    isDrawing.current        = true;
+    beginTransientDrag(annId);
+
+    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    window.addEventListener('pointermove', onNativeMove);
+    window.addEventListener('pointerup',   onNativeUp);
+  };
+
+  // ─── Misc ─────────────────────────────────────────────────────────────────
+
+  const handleDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => { e.preventDefault(); };
+
+  const handleContextMenu = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const r = e.currentTarget.getBoundingClientRect();
+      const x = ((e.clientX - r.left) / r.width)  * 1000;
+      const y = ((e.clientY - r.top)  / r.height) * 1000;
+      const hit = [...annotations].reverse().find(a => getAnnotationDistance({ x, y }, a) < 35);
+      if (hit) { setSelectedAnnId?.(hit.id); setActiveDrawTool?.('select'); }
     }
   };
 
   return {
-    currentAnn,
-    svgRef,
-    handlePointerDown,
-    handlePointerMove,
-    handlePointerUp,
-    handleDoubleClick,
-    handleContextMenu,
-    handleTextRotateStart,
-    handleTextResizeStart,
-    handleTextMoveStart,
+    currentAnn, svgRef,
+    handlePointerDown, handlePointerMove, handlePointerUp,
+    handleDoubleClick, handleContextMenu,
+    handleTextRotateStart, handleTextResizeStart, handleTextMoveStart,
   };
 };
+
+// ─── Eraser helper ────────────────────────────────────────────────────────────
+
+function doErase(pos: { x: number; y: number }, anns: Annotation[], emit: (n: Annotation[]) => void, radius: number) {
+  const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'];
+  const next: Annotation[] = [];
+  let changed = false;
+  for (const ann of anns) {
+    const result = partialEraseAnnotation(ann, pos, radius);
+    if (result.length !== 1 || result[0] !== ann) { changed = true; }
+    else if (!STROKE_TYPES.includes(ann.type) && getAnnotationDistance(pos, ann) < radius) { changed = true; continue; }
+    next.push(...result);
+  }
+  if (changed) emit(next);
+}

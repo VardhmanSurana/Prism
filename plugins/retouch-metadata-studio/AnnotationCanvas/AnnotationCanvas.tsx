@@ -130,12 +130,15 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     if (ann.type === 'text') {
       return null;
     }
+    let inner: React.ReactNode;
     switch (ann.type) {
-      case 'freehand': return <FreehandRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
-      case 'highlighter': return <HighlighterRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
-      case 'textPath': return <TextPathRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
-      default: return <VectorShapeRenderer key={ann.id} ann={ann} aspectRatio={aspectRatio} />;
+      case 'freehand': inner = <FreehandRenderer ann={ann} aspectRatio={aspectRatio} />; break;
+      case 'highlighter': inner = <HighlighterRenderer ann={ann} aspectRatio={aspectRatio} />; break;
+      case 'textPath': inner = <TextPathRenderer ann={ann} aspectRatio={aspectRatio} />; break;
+      default: inner = <VectorShapeRenderer ann={ann} aspectRatio={aspectRatio} />;
     }
+    // ponytail: stable hook for transient drag — move writes transform to this node directly, zero setState/frame
+    return <g key={ann.id} data-ann-id={ann.id}>{inner}</g>;
   };
 
   const handleDoubleClickWithEdit = React.useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -144,69 +147,144 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
   const renderTransformHandles = (ann: Annotation) => {
     const rotVal = ann.rotation || 0;
+
+    // All sizes scale with canvas height (1000-unit SVG viewBox → height/1000).
+    // Base values are 2× the editor's CanvasViewport values.
+    const cornerSize  = Math.round(24 * scale);   // px — white circles
+    const halfCorner  = Math.round(12 * scale);   // offset from corner
+    const pillW       = Math.round(12 * scale);   // side-pill width
+    const pillH       = Math.round(24 * scale);   // side-pill height
+    const halfPillH   = Math.round(12 * scale);
+    const btnSize     = Math.round(52 * scale);   // action button
+    const iconSize    = Math.round(22 * scale);   // icon inside button
+    const barOffset   = Math.round(88 * scale);   // distance below selection box
+    const barGap      = Math.round(8  * scale);
+    const barPx       = Math.round(12 * scale);
+    const barPy       = Math.round(6  * scale);
+    const barRadius   = Math.round(999 * scale);
+    const borderW     = Math.max(2, Math.round(2 * scale));
+
+    const cornerStyle = (cursor: string): React.CSSProperties => ({
+      position: 'absolute',
+      width:  cornerSize,
+      height: cornerSize,
+      background: '#ffffff',
+      border: `${borderW}px solid #22c55e`,
+      borderRadius: '50%',
+      cursor,
+      zIndex: 50,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.7)',
+    });
+
+    const pillStyle = (cursor: string): React.CSSProperties => ({
+      position: 'absolute',
+      width:  pillW,
+      height: pillH,
+      background: '#ffffff',
+      border: `${borderW}px solid #22c55e`,
+      borderRadius: pillH,
+      cursor,
+      zIndex: 50,
+      boxShadow: '0 1px 4px rgba(0,0,0,0.7)',
+    });
+
+    const btnStyle: React.CSSProperties = {
+      width:  btnSize,
+      height: btnSize,
+      borderRadius: '50%',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      cursor: 'alias',
+      background: '#18181b',
+      border: `${Math.max(1, Math.round(1 * scale))}px solid #3f3f46`,
+      color: '#a1a1aa',
+      flexShrink: 0,
+    };
+
     return (
       <>
+        {/* ── Corner handles ── */}
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
-          className="pointer-events-auto absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          style={{ ...cornerStyle('nwse-resize'), top: -halfCorner, left: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
-          className="pointer-events-auto absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          style={{ ...cornerStyle('nesw-resize'), top: -halfCorner, right: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
-          className="pointer-events-auto absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nesw-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          style={{ ...cornerStyle('nesw-resize'), bottom: -halfCorner, left: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
-          className="pointer-events-auto absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-[#22c55e] rounded-full cursor-nwse-resize z-50 shadow shadow-black/80 hover:scale-125 transition-transform"
+          style={{ ...cornerStyle('nwse-resize'), bottom: -halfCorner, right: -halfCorner }}
           title="Resize"
         />
+
+        {/* ── Side-pill handles ── */}
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
-          className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -left-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+          style={{ ...pillStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', left: -halfPillH }}
           title="Resize Width"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
-          className="pointer-events-auto absolute top-1/2 -translate-y-1/2 -right-1.5 w-2 h-3.5 bg-white border border-[#22c55e] rounded-full cursor-ew-resize z-50 shadow shadow-black/80 hover:scale-y-125 transition-transform"
+          style={{ ...pillStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', right: -halfPillH }}
           title="Resize Width"
         />
 
-        {/* Bottom Actions Bar (Rotate & Move) */}
+        {/* ── Bottom actions bar ── */}
         <div
-          className="pointer-events-auto absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2.5 px-3 py-1.5 bg-zinc-950/95 border border-zinc-800 rounded-full shadow-2xl z-50"
+          style={{
+            position: 'absolute',
+            bottom: -barOffset,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: barGap,
+            padding: `${barPy}px ${barPx}px`,
+            background: 'rgba(9,9,11,0.95)',
+            border: `${Math.max(1, Math.round(1 * scale))}px solid #27272a`,
+            borderRadius: barRadius,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+            zIndex: 50,
+            pointerEvents: 'auto',
+          }}
           onPointerDown={(e) => e.stopPropagation()}
         >
+          {/* Rotate */}
           <div
             onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-            className="w-9 h-9 rounded-full flex items-center justify-center cursor-alias transition active:scale-95 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+            style={btnStyle}
             title="Drag to Rotate"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
             </svg>
           </div>
+          {/* Move */}
           <div
             onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
-            className="w-9 h-9 rounded-full flex items-center justify-center cursor-move transition active:scale-90 shadow bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-[#22c55e] text-zinc-300 hover:text-[#22c55e]"
+            style={{ ...btnStyle, cursor: 'move' }}
             title="Drag to Move"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 12 19"></polyline>
-              <polyline points="15 3 12 5 9 3"></polyline>
-              <polyline points="3 15 5 12 3 9"></polyline>
-              <polyline points="15 21 12 19 9 21"></polyline>
-              <polyline points="21 15 19 12 21 9"></polyline>
+            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 12 19"/>
+              <polyline points="15 3 12 5 9 3"/>
+              <polyline points="3 15 5 12 3 9"/>
+              <polyline points="15 21 12 19 9 21"/>
+              <polyline points="21 15 19 12 21 9"/>
             </svg>
           </div>
           {rotVal !== 0 && (
-            <span className="text-[10px] font-mono text-zinc-400 pl-1 pr-1 font-semibold">
+            <span style={{ fontSize: Math.round(10 * scale), fontFamily: 'monospace', color: '#a1a1aa', paddingLeft: Math.round(4 * scale), paddingRight: Math.round(4 * scale), fontWeight: 600 }}>
               {rotVal}°
             </span>
           )}
@@ -266,7 +344,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             const transform = getAnnRotationTransform(selAnn, aspectRatio);
 
             return (
-              <g className="selection-handles" transform={transform} pointerEvents="none">
+              <g className="selection-handles" data-ann-id={selAnn.id} transform={transform} pointerEvents="none">
                 <circle
                   cx={p0.x}
                   cy={p0.y}

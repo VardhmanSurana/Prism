@@ -125,7 +125,10 @@ export const useAnnotationsState = () => {
   const [showDoodleGuide, setShowDoodleGuide] = useState<boolean>(true);
 
   // Synchronize sidebar state when selected annotation changes
+  // ponytail: skip during drag gesture — move only changes x/y, and this effect
+  // fires 8 setStates per frame otherwise
   useEffect(() => {
+    if (isGestureActiveRef.current) return;
     if (selectedAnnId) {
       const selected = annotations.find(a => a.id === selectedAnnId);
       if (selected && selected.type === 'text') {
