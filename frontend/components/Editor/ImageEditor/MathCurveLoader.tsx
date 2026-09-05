@@ -508,11 +508,11 @@ export const MathCurveLoader: React.FC<MathCurveLoaderProps> = ({
       </svg>
 
       {showBadge && (
-        <div className="mt-2 text-center space-y-0.5 animate-fade-in">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/10 text-[10px] font-mono text-white/80 shadow-sm">
+        <div className="mt-2 text-center space-y-1 animate-fade-in">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.06] border border-white/10 text-xs font-mono text-white/90 shadow-sm">
             <span>{curve.name}</span>
           </div>
-          <p className="text-[9px] font-mono text-white/30 tracking-tight">{curve.formula}</p>
+          <p className="text-[11px] font-mono text-white/40 tracking-tight">{curve.formula}</p>
         </div>
       )}
     </div>

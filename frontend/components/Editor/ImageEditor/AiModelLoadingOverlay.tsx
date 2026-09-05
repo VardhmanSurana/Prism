@@ -125,10 +125,10 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#090a0f]/80 backdrop-blur-md animate-fade-in select-none text-white p-6">
       {/* Top Floating Badge */}
-      <div className="absolute top-6 left-6 flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.05] border border-white/10 shadow-lg">
-        <Cpu size={14} className="text-cyan-400 animate-pulse" />
-        <span className="text-[11px] font-mono font-medium text-white/80">Local ONNX Engine</span>
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+      <div className="absolute top-6 left-6 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/10 shadow-lg backdrop-blur-sm">
+        <Cpu size={15} className="text-cyan-400 animate-pulse" />
+        <span className="text-xs font-mono font-medium text-white/90">Local ONNX Engine</span>
+        <span className="w-2 h-2 rounded-full bg-emerald-400" />
       </div>
 
       {onCancel && (
@@ -138,7 +138,7 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
           className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
           title="Cancel processing"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
       )}
 
@@ -147,25 +147,25 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
         <MathCurveLoader curveType={curveType} size={150} color="#ffffff" showBadge={false} />
 
         {/* Operation Title */}
-        <div className="mt-5 text-center space-y-1.5">
-          <div className="inline-flex items-center gap-2">
-            <Sparkles size={16} className="text-amber-400 animate-spin-slow" />
-            <h2 className="text-base font-bold tracking-wide text-white drop-shadow-md">
+        <div className="mt-6 text-center space-y-2">
+          <div className="inline-flex items-center gap-2.5">
+            <Sparkles size={20} className="text-amber-400 animate-spin-slow flex-shrink-0" />
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
               {operationName}
             </h2>
           </div>
 
           {/* Dynamic rotating UX message */}
-          <div className="h-6 flex items-center justify-center">
-            <p className="text-xs text-white/80 font-medium transition-all duration-300 animate-fade-in tracking-wide">
+          <div className="min-h-[28px] flex items-center justify-center max-w-lg px-4">
+            <p className="text-sm sm:text-base text-white/90 font-medium transition-all duration-300 animate-fade-in tracking-normal text-center">
               {detailMessage || messagePool[currentMessageIndex]}
             </p>
           </div>
 
           {/* Live Timer Counter */}
           <div className="pt-2">
-            <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-black/40 border border-white/10 text-[10px] font-mono text-white/50">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+            <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/40 border border-white/10 text-xs font-mono text-white/70 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
               <span>Elapsed: {elapsedSeconds.toFixed(1)}s</span>
             </span>
           </div>
@@ -173,9 +173,9 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
       </div>
 
       {/* Bottom Educational Tip Bar */}
-      <div className="absolute bottom-6 max-w-lg text-center px-4 py-2 rounded-2xl bg-white/[0.03] border border-white/5 shadow-inner">
-        <div className="flex items-center justify-center gap-1.5 text-[11px] text-white/40 font-medium">
-          <ShieldCheck size={13} className="text-emerald-400/80 flex-shrink-0" />
+      <div className="absolute bottom-6 max-w-lg text-center px-5 py-2.5 rounded-2xl bg-white/[0.04] border border-white/10 shadow-inner backdrop-blur-sm">
+        <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/60 font-medium">
+          <ShieldCheck size={16} className="text-emerald-400/90 flex-shrink-0" />
           <span className="transition-opacity duration-500">{ROTATING_TIPS[tipIndex]}</span>
         </div>
       </div>
