@@ -10,6 +10,8 @@ import {
   constructVariableWidthRibbon,
   findClosestSegmentIndex,
   getWidthAtParam,
+  clipSegmentWithEraser,
+  partialEraseAnnotation,
 } from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 
@@ -221,6 +223,96 @@ describe('Annotation Select Tool & Utils', () => {
     expect(wStart).toBeLessThan(wMid); // Entry is thinner than body
     expect(wMid).toBeGreaterThan(12); // Swell body
     expect(wEnd).toBeLessThan(wMid); // Exit tapers down
+  });
+
+  describe('Eraser precision & segment clipping', () => {
+    it('accurately clips a line segment intersecting an eraser circle without over-erasing', () => {
+      // Line from (0, 100) to (100, 100). Eraser at (50, 100) with radius 15.
+      // Entry point should be at (35, 100) [t = 0.35], exit point at (65, 100) [t = 0.65].
+      const p0 = { x: 0, y: 100 };
+      const p1 = { x: 100, y: 100 };
+      const center = { x: 50, y: 100 };
+      const radius = 15;
+
+      const { outsideIntervals } = clipSegmentWithEraser(p0, p1, center, radius);
+      expect(outsideIntervals).toHaveLength(2);
+      expect(outsideIntervals[0][0]).toBe(0);
+      expect(outsideIntervals[0][1]).toBeCloseTo(0.35, 2);
+      expect(outsideIntervals[1][0]).toBeCloseTo(0.65, 2);
+      expect(outsideIntervals[1][1]).toBe(1);
+    });
+
+    it('partially erases a freehand stroke and preserves surviving segments right to circle boundary', () => {
+      const strokeAnn: Annotation = {
+        id: 'stroke-1',
+        type: 'freehand',
+        color: '#ff0000',
+        strokeWidth: 4,
+        points: [
+          { x: 0, y: 100 },
+          { x: 40, y: 100 },
+          { x: 60, y: 100 },
+          { x: 100, y: 100 },
+        ],
+      };
+
+      // Erase at (50, 100) with radius 15 (covers x from 35 to 65)
+      const result = partialEraseAnnotation(strokeAnn, { x: 50, y: 100 }, 15);
+      expect(result).toHaveLength(2);
+
+      // First segment ends at circle entry (35, 100)
+      const seg1Pts = result[0].points!;
+      expect(seg1Pts[0]).toEqual({ x: 0, y: 100 });
+      const seg1End = seg1Pts[seg1Pts.length - 1];
+      expect(seg1End.x).toBeCloseTo(35, 1);
+      expect(seg1End.y).toBeCloseTo(100, 1);
+
+      // Second segment starts at circle exit (65, 100)
+      const seg2Pts = result[1].points!;
+      const seg2Start = seg2Pts[0];
+      expect(seg2Start.x).toBeCloseTo(65, 1);
+      expect(seg2Start.y).toBeCloseTo(100, 1);
+      expect(seg2Pts[seg2Pts.length - 1]).toEqual({ x: 100, y: 100 });
+    });
+
+    it('does not erase strokes that are completely outside the eraser radius', () => {
+      const strokeAnn: Annotation = {
+        id: 'stroke-2',
+        type: 'freehand',
+        color: '#00ff00',
+        strokeWidth: 2,
+        points: [
+          { x: 200, y: 200 },
+          { x: 250, y: 250 },
+        ],
+      };
+
+      // Eraser at (100, 100) with radius 20 is far away
+      const result = partialEraseAnnotation(strokeAnn, { x: 100, y: 100 }, 20);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toBe(strokeAnn); // Returns same reference unchanged
+    });
+
+    it('allows strokeOnly hit-testing for unfilled outline shapes so clicking inside does not erase them', () => {
+      const rectAnn: Annotation = {
+        id: 'rect-outline',
+        type: 'rect',
+        color: '#ffffff',
+        strokeWidth: 2,
+        fillShape: false,
+        bounds: { x: 100, y: 100, w: 200, h: 200 },
+      };
+
+      // Inside the empty outline box at (200, 200)
+      // Normal hit-testing (for selection) returns 0
+      expect(getAnnotationDistance({ x: 200, y: 200 }, rectAnn)).toBe(0);
+
+      // Stroke-only hit-testing (for eraser) returns distance to nearest border (100px away)
+      expect(getAnnotationDistance({ x: 200, y: 200 }, rectAnn, { strokeOnly: true })).toBe(100);
+
+      // Near the border at (102, 150) returns ~2px away
+      expect(getAnnotationDistance({ x: 102, y: 150 }, rectAnn, { strokeOnly: true })).toBeCloseTo(2, 1);
+    });
   });
 });
 

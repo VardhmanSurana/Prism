@@ -33,7 +33,11 @@ export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: n
   return { x: 0, y: 0, w: 0, h: 0 };
 };
 
-export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotation): number => {
+export const getAnnotationDistance = (
+  p: { x: number; y: number },
+  ann: Annotation,
+  options?: { strokeOnly?: boolean }
+): number => {
   if ((ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath') && ann.points) {
     let minDist = Infinity;
     for (let i = 0; i < ann.points.length; i++) {
@@ -78,7 +82,9 @@ export const getAnnotationDistance = (p: { x: number; y: number }, ann: Annotati
     const x1 = x0 + Math.abs(b.w);
     const y1 = y0 + Math.abs(b.h);
 
-    if (pt.x >= x0 && pt.x <= x1 && pt.y >= y0 && pt.y <= y1) return 0;
+    const isInside = pt.x >= x0 && pt.x <= x1 && pt.y >= y0 && pt.y <= y1;
+    const isFilled = !options?.strokeOnly && (ann.type === 'text' || (ann.fillShape && (ann.fillOpacity ?? 0.5) > 0.05));
+    if (isInside && (isFilled || !options?.strokeOnly)) return 0;
 
     const dLeft = distToSegment(pt, { x: x0, y: y0 }, { x: x0, y: y1 });
     const dRight = distToSegment(pt, { x: x1, y: y0 }, { x: x1, y: y1 });
@@ -538,5 +544,186 @@ export const doodleLinePoints = (
   }
   return pts;
 };
+
+/**
+ * Clips a line segment (p0 -> p1) against an eraser circle centered at `center` with radius `radius`.
+ * In normalized SVG space (0..1000), coordinates are scaled by `aspectRatio` in X so that the eraser acts
+ * as an isotropic circle on screen.
+ */
+export function clipSegmentWithEraser(
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  center: { x: number; y: number },
+  radius: number,
+  aspectRatio: number = 1
+): { outsideIntervals: [number, number][] } {
+  const ar = aspectRatio > 0 ? aspectRatio : 1;
+  const dx = (p1.x - p0.x) * ar;
+  const dy = p1.y - p0.y;
+  const a = dx * dx + dy * dy;
+
+  const fx = (p0.x - center.x) * ar;
+  const fy = p0.y - center.y;
+  const rSq = radius * radius;
+
+  if (a < 1e-9) {
+    // Zero-length segment (single point)
+    const distSq = fx * fx + fy * fy;
+    return { outsideIntervals: distSq < rSq ? [] : [[0, 1]] };
+  }
+
+  const b = 2 * (fx * dx + fy * dy);
+  const c = fx * fx + fy * fy - rSq;
+  const disc = b * b - 4 * a * c;
+
+  if (disc <= 0) {
+    // Line does not intersect circle (or tangent). Check if segment is inside
+    const midFx = fx + 0.5 * dx;
+    const midFy = fy + 0.5 * dy;
+    const midDistSq = midFx * midFx + midFy * midFy;
+    return { outsideIntervals: midDistSq < rSq ? [] : [[0, 1]] };
+  }
+
+  const sqrtDisc = Math.sqrt(disc);
+  const t1 = (-b - sqrtDisc) / (2 * a);
+  const t2 = (-b + sqrtDisc) / (2 * a);
+
+  // The interval (t1, t2) is inside the circle.
+  // The parts of [0, 1] outside (t1, t2):
+  const intervals: [number, number][] = [];
+  if (t1 > 0) {
+    intervals.push([0, Math.min(1, t1)]);
+  }
+  if (t2 < 1) {
+    intervals.push([Math.max(0, t2), 1]);
+  }
+  return { outsideIntervals: intervals };
+}
+
+/**
+ * Partially erases a freehand, highlighter, or textPath annotation by clipping its spline segments
+ * against the eraser circle. Only points/sub-segments lying strictly within the radius are removed.
+ * Surviving ends are precisely clipped to the circle circumference rather than throwing away adjacent points.
+ */
+export function partialEraseAnnotation(
+  ann: Annotation,
+  center: { x: number; y: number },
+  radius: number,
+  aspectRatio: number = 1
+): Annotation[] {
+  const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'] as const;
+  if (!(STROKE_TYPES as readonly string[]).includes(ann.type) || !ann.points?.length) return [ann];
+
+  const pts = ann.points;
+  const ar = aspectRatio > 0 ? aspectRatio : 1;
+
+  if (pts.length === 1) {
+    const d = Math.hypot((pts[0].x - center.x) * ar, pts[0].y - center.y);
+    return d < radius ? [] : [ann];
+  }
+
+  // Quick bounding box check: if eraser circle does not intersect the stroke bbox at all, return unchanged
+  const bbox = getAnnotationBBox(ann);
+  const closestX = Math.max(bbox.x, Math.min(center.x, bbox.x + bbox.w));
+  const closestY = Math.max(bbox.y, Math.min(center.y, bbox.y + bbox.h));
+  if (Math.hypot((closestX - center.x) * ar, closestY - center.y) > radius + 2) {
+    return [ann];
+  }
+
+  const segs: { x: number; y: number }[][] = [];
+  let currentRun: { x: number; y: number }[] = [];
+
+  const addPoint = (p: { x: number; y: number }) => {
+    if (currentRun.length === 0) {
+      currentRun.push(p);
+      return;
+    }
+    const last = currentRun[currentRun.length - 1];
+    if (Math.hypot(p.x - last.x, p.y - last.y) > 0.05) {
+      currentRun.push(p);
+    }
+  };
+
+  const finishRun = () => {
+    if (currentRun.length >= 2) {
+      segs.push(currentRun);
+    }
+    currentRun = [];
+  };
+
+  let wasClipped = false;
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    const { outsideIntervals } = clipSegmentWithEraser(p0, p1, center, radius, ar);
+
+    if (outsideIntervals.length === 0) {
+      // The whole segment is erased
+      wasClipped = true;
+      finishRun();
+      continue;
+    }
+
+    if (outsideIntervals.length === 1) {
+      const [u0, u1] = outsideIntervals[0];
+      if (u0 === 0 && u1 === 1) {
+        // Whole segment outside
+        addPoint(p0);
+        addPoint(p1);
+      } else {
+        wasClipped = true;
+        const ptA = u0 === 0 ? p0 : { x: p0.x + u0 * (p1.x - p0.x), y: p0.y + u0 * (p1.y - p0.y) };
+        const ptB = u1 === 1 ? p1 : { x: p0.x + u1 * (p1.x - p0.x), y: p0.y + u1 * (p1.y - p0.y) };
+        if (u0 > 0) {
+          // Exited circle
+          finishRun();
+          addPoint(ptA);
+          addPoint(ptB);
+        } else {
+          // Entered circle
+          addPoint(ptA);
+          addPoint(ptB);
+          finishRun();
+        }
+      }
+    } else {
+      // Two intervals: segment enters and exits circle in the middle
+      wasClipped = true;
+      const [u0, u1] = outsideIntervals[0];
+      const [v0, v1] = outsideIntervals[1];
+
+      const pt0A = u0 === 0 ? p0 : { x: p0.x + u0 * (p1.x - p0.x), y: p0.y + u0 * (p1.y - p0.y) };
+      const pt0B = { x: p0.x + u1 * (p1.x - p0.x), y: p0.y + u1 * (p1.y - p0.y) };
+      addPoint(pt0A);
+      addPoint(pt0B);
+      finishRun();
+
+      const pt1A = { x: p0.x + v0 * (p1.x - p0.x), y: p0.y + v0 * (p1.y - p0.y) };
+      const pt1B = v1 === 1 ? p1 : { x: p0.x + v1 * (p1.x - p0.x), y: p0.y + v1 * (p1.y - p0.y) };
+      addPoint(pt1A);
+      addPoint(pt1B);
+    }
+  }
+
+  finishRun();
+
+  if (!wasClipped) {
+    return [ann];
+  }
+
+  if (segs.length === 0) {
+    return [];
+  }
+
+  return segs.map((ptsSeg, idx) => ({
+    ...ann,
+    id: idx === 0 ? ann.id : `${ann.id}-seg${idx}-${Date.now()}`,
+    points: ptsSeg,
+    closePath: false,
+    arrowEnd: ann.arrowEnd && idx === segs.length - 1,
+  }));
+}
+
 
 

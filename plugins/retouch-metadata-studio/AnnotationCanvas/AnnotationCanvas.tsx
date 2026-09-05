@@ -30,17 +30,21 @@ const hexToRgba = (hex: string, opacity: number): string => {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 };
 
-const makeBrushCursor = (size: number): string => {
-  // Map SVG eraser radius (10-100) to a sensible pixel diameter (14-56px)
-  const px = Math.round(Math.max(14, Math.min(56, size * 0.56)));
-  const r = px / 2 - 1;
+const makeBrushCursor = (size: number, scale: number = 1): string => {
+  // In SVG coordinates (0..1000), `size` represents the nominal brush diameter.
+  // When scaled to the screen via `scale = height / 1000`, the screen pixel diameter is `size * scale`.
+  const effScale = scale > 0 ? scale : 1;
+  const px = Math.round(Math.max(10, Math.min(128, size * effScale)));
+  const r = Math.max(1, px / 2 - 1);
+  const center = px / 2;
   const svg = [
     `<svg xmlns='http://www.w3.org/2000/svg' width='${px}' height='${px}' viewBox='0 0 ${px} ${px}'>`,
-    `<circle cx='${px / 2}' cy='${px / 2}' r='${r}' fill='none' stroke='black' stroke-width='2'/>`,
-    `<circle cx='${px / 2}' cy='${px / 2}' r='${r}' fill='none' stroke='white' stroke-width='1'/>`,
+    `<circle cx='${center}' cy='${center}' r='${r}' fill='rgba(255,255,255,0.08)' stroke='black' stroke-width='2'/>`,
+    `<circle cx='${center}' cy='${center}' r='${r}' fill='none' stroke='white' stroke-width='1' stroke-dasharray='3,3'/>`,
+    `<circle cx='${center}' cy='${center}' r='1.5' fill='white' stroke='black' stroke-width='0.5'/>`,
     `</svg>`,
   ].join('');
-  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${px / 2} ${px / 2}, auto`;
+  return `url("data:image/svg+xml;utf8,${encodeURIComponent(svg)}") ${center} ${center}, crosshair`;
 };
 
 const PEN_CURSOR = 'crosshair';
@@ -344,7 +348,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               case 'select':
                 return 'default';
               case 'eraser':
-                return makeBrushCursor(eraserSize);
+                return makeBrushCursor(eraserSize, scale);
               case 'freehand':
               case 'highlighter':
                 return PEN_CURSOR;

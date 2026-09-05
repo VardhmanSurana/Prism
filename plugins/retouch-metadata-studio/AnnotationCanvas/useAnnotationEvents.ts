@@ -20,26 +20,8 @@ import {
   pointDistance,
   smoothPath,
   doodleLinePoints,
+  partialEraseAnnotation,
 } from './utils';
-
-// ─── Partial erase ────────────────────────────────────────────────────────────
-
-function partialEraseAnnotation(ann: Annotation, center: { x: number; y: number }, radius: number): Annotation[] {
-  const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'] as const;
-  if (!(STROKE_TYPES as readonly string[]).includes(ann.type) || !ann.points?.length) return [ann];
-
-  const tagged = ann.points.map(p => ({ ...p, erase: Math.hypot(p.x - center.x, p.y - center.y) < radius }));
-  if (!tagged.some(p => p.erase)) return [ann];
-
-  const segs: { x: number; y: number }[][] = [];
-  let run: { x: number; y: number }[] = [];
-  for (const p of tagged) {
-    if (!p.erase) run.push({ x: p.x, y: p.y });
-    else { if (run.length >= 2) segs.push(run); run = []; }
-  }
-  if (run.length >= 2) segs.push(run);
-  return segs.map((pts, i) => ({ ...ann, id: i === 0 ? ann.id : `${ann.id}-seg${i}-${Date.now()}`, points: pts }));
-}
 
 // ─── Resize (pure) ────────────────────────────────────────────────────────────
 
@@ -617,7 +599,10 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
     if (activeDrawTool === 'eraser') {
       isDrawing.current = true;
-      doErase({ x, y }, annotations, onChange, propsRef.current.eraserSize ?? 35);
+      const r = svgRef.current?.getBoundingClientRect();
+      const currentAspect = r && r.width > 0 && r.height > 0 ? r.width / r.height : 1;
+      const eraseRadius = (propsRef.current.eraserSize ?? 35) / 2;
+      doErase({ x, y }, annotations, onChange, eraseRadius, currentAspect);
       window.addEventListener('pointermove', onNativeEraseMove);
       window.addEventListener('pointerup',   onNativeEraseUp);
       return;
@@ -758,8 +743,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
   const onNativeEraseMove = (e: PointerEvent) => {
     if (!svgRef.current) return;
+    const r = svgRef.current.getBoundingClientRect();
+    const currentAspect = r.width > 0 && r.height > 0 ? r.width / r.height : 1;
     const { x, y } = clientToSvg(svgRef.current, e.clientX, e.clientY);
-    doErase({ x, y }, propsRef.current.annotations, propsRef.current.onChange, propsRef.current.eraserSize ?? 35);
+    const eraseRadius = (propsRef.current.eraserSize ?? 35) / 2;
+    doErase({ x, y }, propsRef.current.annotations, propsRef.current.onChange, eraseRadius, currentAspect);
   };
 
   const onNativeEraseUp = () => {
@@ -893,14 +881,30 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
 // ─── Eraser helper ────────────────────────────────────────────────────────────
 
-function doErase(pos: { x: number; y: number }, anns: Annotation[], emit: (n: Annotation[]) => void, radius: number) {
+function doErase(
+  pos: { x: number; y: number },
+  anns: Annotation[],
+  emit: (n: Annotation[]) => void,
+  radius: number,
+  aspectRatio: number = 1
+) {
   const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'];
   const next: Annotation[] = [];
   let changed = false;
+  const ar = aspectRatio > 0 ? aspectRatio : 1;
+
   for (const ann of anns) {
-    const result = partialEraseAnnotation(ann, pos, radius);
-    if (result.length !== 1 || result[0] !== ann) { changed = true; }
-    else if (!STROKE_TYPES.includes(ann.type) && getAnnotationDistance(pos, ann) < radius) { changed = true; continue; }
+    const result = partialEraseAnnotation(ann, pos, radius, ar);
+    if (result.length !== 1 || result[0] !== ann) {
+      changed = true;
+    } else if (!STROKE_TYPES.includes(ann.type)) {
+      const isUnfilledShape = ann.bounds && (!ann.fillShape || (ann.fillOpacity ?? 0) <= 0.05) && ann.type !== 'text';
+      const dist = getAnnotationDistance(pos, ann, { strokeOnly: isUnfilledShape });
+      if (dist < radius) {
+        changed = true;
+        continue;
+      }
+    }
     next.push(...result);
   }
   if (changed) emit(next);
