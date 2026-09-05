@@ -612,7 +612,13 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                           <button
                             key={preset.id}
                             type="button"
-                            onClick={() => onUpdateTextProps?.({ tailPos: preset.getPos(selectedAnn.bounds!) })}
+                            // ponytail: tail position derives from EACH bubble's own bounds,
+                            // not the primary's — a broadcast patch would misplace the rest
+                            onClick={() => onChange(annotations.map(a =>
+                              effectiveSelectedIds.includes(a.id) && a.bounds
+                                ? { ...a, tailPos: preset.getPos(a.bounds) }
+                                : a
+                            ))}
                             className="px-2 py-1.5 rounded-lg border text-[9px] font-semibold bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition-all text-center"
                           >
                             {preset.label}
@@ -940,7 +946,9 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                         const midY = (pA.y + pB.y) / 2 + ny * Math.min(45, Math.max(25, len * 0.25));
                         const newPts = [...pts];
                         newPts.splice(bestSeg + 1, 0, { x: midX, y: midY });
-                        onUpdateTextProps?.({ points: newPts });
+                        // ponytail: geometry belongs to the primary only — broadcasting
+                        // one line's points onto a multi-selection would corrupt the rest
+                        onChange(annotations.map(a => a.id === selectedAnn.id ? { ...a, points: newPts } : a));
                       }}
                       className="flex items-center justify-center gap-1.5 h-7 px-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.08] border border-white/10 hover:border-white/20 text-white/90 hover:text-white text-[10.5px] font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer"
                     >
@@ -953,7 +961,8 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                       onClick={() => {
                         const pts = selectedAnn.points ?? [];
                         if (pts.length <= 2) return;
-                        onUpdateTextProps?.({ points: [pts[0], pts[pts.length - 1]] });
+                        // ponytail: primary-only, see Add Point above
+                        onChange(annotations.map(a => a.id === selectedAnn.id ? { ...a, points: [pts[0], pts[pts.length - 1]] } : a));
                       }}
                       className={`flex items-center justify-center gap-1.5 h-7 px-2 rounded-lg border text-[10.5px] font-medium transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer ${
                         selectedAnn.points && selectedAnn.points.length > 2

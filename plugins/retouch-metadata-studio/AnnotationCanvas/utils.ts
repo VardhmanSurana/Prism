@@ -108,6 +108,13 @@ export const detectHandleClick = (x: number, y: number, ann: Annotation): Handle
     }
     return null;
   }
+  // ponytail: strokes get endpoint dots only — a bbox box dwarfs thin
+  // scribbles and its corner pills float in empty space
+  if ((ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath') && ann.points && ann.points.length >= 2) {
+    if (pointDistance({ x, y }, ann.points[0]) < HANDLE_THRESHOLD) return 'ep0';
+    if (pointDistance({ x, y }, ann.points[ann.points.length - 1]) < HANDLE_THRESHOLD) return 'ep1';
+    return null;
+  }
 
   const bbox = getAnnotationBBox(ann);
   if (bbox.w === 0 && bbox.h === 0) return null;

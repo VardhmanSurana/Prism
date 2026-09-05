@@ -157,9 +157,87 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     handleDoubleClick(e);
   }, [handleDoubleClick]);
 
-  const renderTransformHandles = (ann: Annotation) => {
-    const rotVal = ann.rotation || 0;
+  // ponytail: shared chrome sizes (used by both the box handles and the bare action bar)
+  const btnSize     = Math.round(52 * scale);   // action button
+  const iconSize    = Math.round(22 * scale);   // icon inside button
+  const barOffset   = Math.round(88 * scale);   // distance below selection box
+  const barGap      = Math.round(8  * scale);
+  const barPx       = Math.round(12 * scale);
+  const barPy       = Math.round(6  * scale);
+  const barRadius   = Math.round(999 * scale);
 
+  const btnStyle: React.CSSProperties = {
+    width:  btnSize,
+    height: btnSize,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'alias',
+    background: '#18181b',
+    border: `${Math.max(1, Math.round(1 * scale))}px solid #3f3f46`,
+    color: '#a1a1aa',
+    flexShrink: 0,
+  };
+
+  // ponytail: rotate/move bar shared by the box chrome and the bare stroke bar below
+  const renderActionBar = (ann: Annotation) => {
+    const rotVal = ann.rotation || 0;
+    return (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: -barOffset,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: barGap,
+            padding: `${barPy}px ${barPx}px`,
+            background: 'rgba(9,9,11,0.95)',
+            border: `${Math.max(1, Math.round(1 * scale))}px solid #27272a`,
+            borderRadius: barRadius,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
+            zIndex: 50,
+            pointerEvents: 'auto',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {/* Rotate */}
+          <div
+            onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
+            style={btnStyle}
+            title="Drag to Rotate"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
+            </svg>
+          </div>
+          {/* Move */}
+          <div
+            onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
+            style={{ ...btnStyle, cursor: 'move' }}
+            title="Drag to Move"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 12 19"/>
+              <polyline points="15 3 12 5 9 3"/>
+              <polyline points="3 15 5 12 3 9"/>
+              <polyline points="15 21 12 19 9 21"/>
+              <polyline points="21 15 19 12 21 9"/>
+            </svg>
+          </div>
+          {rotVal !== 0 && (
+            <span style={{ fontSize: Math.round(10 * scale), fontFamily: 'monospace', color: '#a1a1aa', paddingLeft: Math.round(4 * scale), paddingRight: Math.round(4 * scale), fontWeight: 600 }}>
+              {rotVal}°
+            </span>
+          )}
+        </div>
+    );
+  };
+
+  const renderTransformHandles = (ann: Annotation) => {
     // All sizes scale with canvas height (1000-unit SVG viewBox → height/1000).
     // Base values are 2× the editor's CanvasViewport values.
     const cornerSize  = Math.round(28 * scale);   // px — L-bracket arm length
@@ -168,13 +246,6 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     const pillT       = Math.max(3, Math.round(4 * scale)); // side bars match the L stroke
     const pillLen     = Math.round(28 * scale);   // side bar length
     const halfPill    = Math.round(14 * scale);
-    const btnSize     = Math.round(52 * scale);   // action button
-    const iconSize    = Math.round(22 * scale);   // icon inside button
-    const barOffset   = Math.round(88 * scale);   // distance below selection box
-    const barGap      = Math.round(8  * scale);
-    const barPx       = Math.round(12 * scale);
-    const barPy       = Math.round(6  * scale);
-    const barRadius   = Math.round(999 * scale);
 
     // ponytail: crop-style L-bracket corners (two white borders) instead of dots
     const cornerStyle = (cursor: string, corner: 'tl' | 'tr' | 'bl' | 'br'): React.CSSProperties => {
@@ -279,57 +350,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           title="Resize Height"
         />
 
-        {/* ── Bottom actions bar ── */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: -barOffset,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: barGap,
-            padding: `${barPy}px ${barPx}px`,
-            background: 'rgba(9,9,11,0.95)',
-            border: `${Math.max(1, Math.round(1 * scale))}px solid #27272a`,
-            borderRadius: barRadius,
-            boxShadow: '0 4px 24px rgba(0,0,0,0.5)',
-            zIndex: 50,
-            pointerEvents: 'auto',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          {/* Rotate */}
-          <div
-            onPointerDown={(e) => handleTextRotateStart(e, ann.id)}
-            style={btnStyle}
-            title="Drag to Rotate"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.5 2v6h-6m-9 10a9 9 0 1 1 12.36-4"/>
-            </svg>
-          </div>
-          {/* Move */}
-          <div
-            onPointerDown={(e) => handleTextMoveStart(e, ann.id)}
-            style={{ ...btnStyle, cursor: 'move' }}
-            title="Drag to Move"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"/>
-              <polyline points="12 5 12 19"/>
-              <polyline points="15 3 12 5 9 3"/>
-              <polyline points="3 15 5 12 3 9"/>
-              <polyline points="15 21 12 19 9 21"/>
-              <polyline points="21 15 19 12 21 9"/>
-            </svg>
-          </div>
-          {rotVal !== 0 && (
-            <span style={{ fontSize: Math.round(10 * scale), fontFamily: 'monospace', color: '#a1a1aa', paddingLeft: Math.round(4 * scale), paddingRight: Math.round(4 * scale), fontWeight: 600 }}>
-              {rotVal}°
-            </span>
-          )}
-        </div>
+        {renderActionBar(ann)}
       </>
     );
   };
@@ -374,18 +395,23 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
         {annotations.map((ann) => renderAnnotation(ann))}
         {currentAnn && renderAnnotation(currentAnn)}
 
-        {/* ── SVG Selection Highlights for Lines/Arrows ── */}
+        {/* ── SVG Selection Highlights for Lines/Arrows/Strokes ── */}
         {!readOnly && activeDrawTool === 'select' && effectiveSelectedIds.length > 0 && effectiveSelectedIds.map((id) => {
           const selAnn = annotations.find(a => a.id === id);
           if (!selAnn || selAnn.visible === false || selAnn.type === 'text') return null;
 
-          // Point-based annotations (lines, arrows)
-          if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
+          // Point-based annotations (lines, arrows, strokes) — endpoint dots only.
+          // Strokes render first/last only: a dot per scribble point would flood the canvas.
+          const isStroke = selAnn.type === 'freehand' || selAnn.type === 'highlighter' || selAnn.type === 'textPath';
+          if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow' || isStroke) && selAnn.points && selAnn.points.length >= 2) {
             const transform = getAnnRotationTransform(selAnn, aspectRatio);
+            const dots = isStroke
+              ? [{ pt: selAnn.points[0], i: 0 }, { pt: selAnn.points[selAnn.points.length - 1], i: selAnn.points.length - 1 }]
+              : selAnn.points.map((pt, i) => ({ pt, i }));
 
             return (
               <g key={`handles-${selAnn.id}`} className="selection-handles" data-ann-id={selAnn.id} transform={transform} pointerEvents="none">
-                {selAnn.points.map((pt, i) => {
+                {dots.map(({ pt, i }) => {
                   const isStart = i === 0;
                   const isEnd = i === selAnn.points!.length - 1;
                   const strokeColor = isStart ? '#38bdf8' : isEnd ? '#22c55e' : '#f59e0b';
@@ -531,8 +557,35 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           );
         }
 
-        // 2. Selected Vector Shape / Stroke Overlay (with Rotate & Resize handles)
-        if (isSelected) {
+        // 2a. Selected stroke or point-based shape — floating action bar only (endpoint dots are
+        // rendered in SVG above; a bbox box would dwarf thin scribbles/lines)
+        const isPointShape = ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath'
+          || ann.type === 'line' || ann.type === 'arrow' || ann.type === 'doubleArrow';
+
+        if (isSelected && isPointShape) {
+          const bbox = getAnnotationBBox(ann);
+          if (bbox.w === 0 && bbox.h === 0) return null;
+          return (
+            <div
+              id={`stroke-bar-${ann.id}`}
+              key={`stroke-bar-${ann.id}`}
+              style={{
+                position: 'absolute',
+                left: `${(bbox.x + bbox.w / 2) / 10}%`,
+                top: `${(bbox.y + bbox.h) / 10}%`,
+                width: 0,
+                height: 0,
+                zIndex: 50,
+                pointerEvents: 'none',
+              }}
+            >
+              {renderActionBar(ann)}
+            </div>
+          );
+        }
+
+        // 2b. Selected Vector Shape Overlay (bounded shapes only)
+        if (isSelected && !isPointShape) {
           const bbox = getAnnotationBBox(ann);
           if (bbox.w === 0 && bbox.h === 0) return null;
           const rotVal = ann.rotation || 0;

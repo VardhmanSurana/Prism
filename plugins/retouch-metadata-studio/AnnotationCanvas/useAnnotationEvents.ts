@@ -109,7 +109,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   // Native drag state (lives completely outside React)
   const dragStartMouseRef = useRef({ x: 0, y: 0 });
   const dragAnnIdRef      = useRef<string | null>(null);
-  const rotateStartRef    = useRef<{ centerX: number; centerY: number; startRotation: number; startAngleRad: number; cx: number; cy: number; aspect: number } | null>(null);
+  const rotateStartRef    = useRef<{ centerX: number; centerY: number; startRotation: number; startAngleRad: number; cx: number; cy: number; aspect: number; ax: number; ay: number } | null>(null);
   // ponytail: coalesce pointermove to 1 emit/frame; all transforms are absolute so dropping frames is lossless
   const rafIdRef          = useRef<number | null>(null);
   const pendingMoveRef    = useRef<{ clientX: number; clientY: number } | null>(null);
@@ -121,6 +121,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   // clobbered back to committed values by any mid-drag re-render.
   const dragSvgNodesRef    = useRef<{ node: SVGGElement; base: string }[]>([]);
   const dragHtmlNodeRef   = useRef<HTMLElement | null>(null);
+  const dragBarOnlyRef    = useRef(false);
   const dragRectRef       = useRef<{ width: number; height: number } | null>(null);
   // ponytail: original normalized bbox for resize — scale-about-fixed-corner reproduces applyResize exactly
   const dragObRef         = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
@@ -152,8 +153,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       ? (Array.from(svg.querySelectorAll(`[data-ann-id="${annId}"]`)) as SVGGElement[])
           .map(node => ({ node, base: node.getAttribute('transform') ?? '' }))
       : [];
+    // ponytail: strokes/lines expose a bare floating bar (no box overlay) — it rides the same transient path
     dragHtmlNodeRef.current =
-      document.getElementById(`ann-layer-${annId}`) ?? document.getElementById(`text-layer-${annId}`);
+      document.getElementById(`stroke-bar-${annId}`) ?? document.getElementById(`ann-layer-${annId}`)
+        ?? document.getElementById(`text-layer-${annId}`);
+    dragBarOnlyRef.current = (dragHtmlNodeRef.current?.id ?? '').startsWith('stroke-bar-');
     const startAnn = dragStartAnnRef.current;
     dragObRef.current = startAnn ? getAnnotationBBox(startAnn) : null;
     const r = svg?.getBoundingClientRect();
@@ -165,11 +169,37 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     for (const { node, base } of dragSvgNodesRef.current) {
       node.setAttribute('transform', `translate(${dx} ${dy})${base ? ` ${base}` : ''}`);
     }
-    const html = dragHtmlNodeRef.current;
-    const rect = dragRectRef.current;
+    let html = dragHtmlNodeRef.current;
+    if (!html) {
+      const annId = dragAnnIdRef.current;
+      if (annId) {
+        html = document.getElementById(`stroke-bar-${annId}`)
+          ?? document.getElementById(`ann-layer-${annId}`)
+          ?? document.getElementById(`text-layer-${annId}`);
+        dragHtmlNodeRef.current = html;
+        dragBarOnlyRef.current = (html?.id ?? '').startsWith('stroke-bar-');
+      }
+    }
+    let rect = dragRectRef.current;
+    if (!rect && svgRef.current) {
+      const r = svgRef.current.getBoundingClientRect();
+      if (r && r.width > 0) {
+        rect = { width: r.width, height: r.height };
+        dragRectRef.current = rect;
+      }
+    }
     if (html && rect) {
-      // CSS `translate` composes independently of the overlay's `rotate()` transform
-      html.style.translate = `${(dx / 1000) * rect.width}px ${(dy / 1000) * rect.height}px`;
+      const pxX = (dx / 1000) * rect.width;
+      const pxY = (dy / 1000) * rect.height;
+      // CSS `translate` and `transform` fallback — ensures immediate real-time tracking across all engines
+      html.style.translate = `${pxX}px ${pxY}px`;
+      if (dragBarOnlyRef.current) {
+        html.style.transform = `translate(${pxX}px, ${pxY}px)`;
+      } else {
+        const startAnn = dragStartAnnRef.current;
+        const rotVal = startAnn?.rotation || 0;
+        html.style.transform = `translate(${pxX}px, ${pxY}px) rotate(${rotVal}deg)`;
+      }
     }
   }
 
@@ -177,16 +207,31 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     for (const { node, base } of dragSvgNodesRef.current) {
       if (base) node.setAttribute('transform', base);
       else node.removeAttribute('transform');
+      if (node.classList.contains('selection-handles')) {
+        node.querySelectorAll('circle').forEach(c => {
+          const orig = c.getAttribute('data-orig-r');
+          if (orig !== null) {
+            if (orig) c.setAttribute('r', orig);
+            else c.removeAttribute('r');
+            c.removeAttribute('data-orig-r');
+          }
+        });
+      }
     }
     const html = dragHtmlNodeRef.current;
     if (html) {
       html.style.translate = '';
+      html.style.transform = '';
       html.style.scale = '';
       html.style.rotate = '';
       html.style.transformOrigin = '';
+      for (const child of Array.from(html.children)) {
+        (child as HTMLElement).style.scale = '';
+      }
     }
     dragSvgNodesRef.current = [];
     dragHtmlNodeRef.current = null;
+    dragBarOnlyRef.current = false;
     dragRectRef.current = null;
     dragObRef.current = null;
   }
@@ -209,8 +254,32 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       else node.removeAttribute('transform');
     }
     // Overlay: individual `rotate` DELTA composes with (not clobbered by) the committed transform
-    const html = dragHtmlNodeRef.current;
-    if (html) html.style.rotate = `${rot - rs.startRotation}deg`;
+    let html = dragHtmlNodeRef.current;
+    if (!html) {
+      const annId = dragAnnIdRef.current;
+      if (annId) {
+        html = document.getElementById(`stroke-bar-${annId}`)
+          ?? document.getElementById(`ann-layer-${annId}`)
+          ?? document.getElementById(`text-layer-${annId}`);
+        dragHtmlNodeRef.current = html;
+        dragBarOnlyRef.current = (html?.id ?? '').startsWith('stroke-bar-');
+      }
+    }
+    if (!html) return;
+    if (dragBarOnlyRef.current) {
+      // ponytail: bare bar has no box to rotate — track its anchor orbiting the bbox center
+      const rect = dragRectRef.current;
+      if (!rect || rect.width === 0) return;
+      const dRad = ((rot - rs.startRotation) * Math.PI) / 180;
+      const cos = Math.cos(dRad), sin = Math.sin(dRad);
+      const relX = rs.ax - rs.cx, relY = rs.ay - rs.cy;
+      const dx = (relX * cos - relY * sin - relX) / 1000 * rect.width;
+      const dy = (relX * sin + relY * cos - relY) / 1000 * rect.height;
+      html.style.translate = `${dx}px ${dy}px`;
+      html.style.transform = `translate(${dx}px, ${dy}px)`;
+      return;
+    }
+    html.style.rotate = `${rot - rs.startRotation}deg`;
   }
 
   function commitRotate(clientX: number, clientY: number) {
@@ -264,6 +333,22 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       html.style.transformOrigin = '0 0';
       html.style.translate = `${nbPxX - obPxX}px ${nbPxY - obPxY}px`;
       html.style.scale = `${sx} ${sy}`;
+      // ponytail: chrome (brackets, pills, action bar) counter-scales so only
+      // the box follows the shape — handles keep constant screen size
+      const inv = `${1 / sx} ${1 / sy}`;
+      for (const child of Array.from(html.children)) {
+        (child as HTMLElement).style.scale = inv;
+      }
+    }
+    // Endpoint dots keep constant radius under the box scale
+    const avg = Math.max(sx, sy);
+    for (const { node } of dragSvgNodesRef.current) {
+      if (node.classList.contains('selection-handles')) {
+        node.querySelectorAll('circle').forEach(c => {
+          if (!c.hasAttribute('data-orig-r')) c.setAttribute('data-orig-r', c.getAttribute('r') ?? '');
+          c.setAttribute('r', `${(parseFloat(c.getAttribute('data-orig-r') || '8')) / avg}`);
+        });
+      }
     }
   }
 
@@ -373,8 +458,10 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     }
     if (handles) {
       const circles = handles.querySelectorAll('circle');
-      circles[ptIndex]?.setAttribute('cx', `${x}`);
-      circles[ptIndex]?.setAttribute('cy', `${y}`);
+      // ponytail: strokes render first/last dots only — clamp multi-point indices
+      const ci = ptIndex >= circles.length ? circles.length - 1 : ptIndex;
+      circles[ci]?.setAttribute('cx', `${x}`);
+      circles[ci]?.setAttribute('cy', `${y}`);
     }
   }
 
@@ -827,7 +914,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       cY = r.top  + (bbox.y + bbox.h/2) * (r.height/1000);
     }
 
-    rotateStartRef.current     = { centerX: cX, centerY: cY, startRotation: ann.rotation||0, startAngleRad: Math.atan2(e.clientY-cY, e.clientX-cX), cx: 0, cy: 0, aspect: 1 };
+    rotateStartRef.current     = { centerX: cX, centerY: cY, startRotation: ann.rotation||0, startAngleRad: Math.atan2(e.clientY-cY, e.clientX-cX), cx: 0, cy: 0, aspect: 1, ax: 0, ay: 0 };
     // Cache bbox center (SVG units) + aspect for the exact transient rotation matrix
     if (svgRef.current) {
       const r = svgRef.current.getBoundingClientRect();
@@ -835,6 +922,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       rotateStartRef.current.cx = bbox.x + bbox.w / 2;
       rotateStartRef.current.cy = bbox.y + bbox.h / 2;
       rotateStartRef.current.aspect = r.width > 0 && r.height > 0 ? r.width / r.height : 1;
+      // ponytail: bare stroke-bar anchor (bbox bottom-center) for rotate tracking
+      rotateStartRef.current.ax = bbox.x + bbox.w / 2;
+      rotateStartRef.current.ay = bbox.y + bbox.h;
     }
     const curSelIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
       ? propsRef.current.selectedAnnIds
@@ -846,9 +936,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     rotatingAnnIdRef.current   = annId; setRotatingAnnId(annId);
     dragAnnIdRef.current       = annId;
     isDrawing.current          = true;
-    beginTransientDrag(annId);
-
-    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    } catch {}
+    try {
+      if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    } catch {}
     window.addEventListener('pointermove', onNativeMove);
     window.addEventListener('pointerup',   onNativeUp);
   };
@@ -874,7 +967,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     isDrawing.current        = true;
     beginTransientDrag(annId);
 
-    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    } catch {}
+    try {
+      if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    } catch {}
     window.addEventListener('pointermove', onNativeMove);
     window.addEventListener('pointerup',   onNativeUp);
   };
@@ -905,7 +1003,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     isDrawing.current        = true;
     beginTransientDrag(annId);
 
-    if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    try {
+      (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
+    } catch {}
+    try {
+      if (svgRef.current) svgRef.current.setPointerCapture(e.pointerId);
+    } catch {}
     window.addEventListener('pointermove', onNativeMove);
     window.addEventListener('pointerup',   onNativeUp);
   };

@@ -91,6 +91,26 @@ describe('Annotation Select Tool & Utils', () => {
     expect(detectHandleClick(250, 250, arrowAnn)).toBeNull();
   });
 
+  it('detects endpoint-only handles for strokes (no bbox box)', () => {
+    const strokeAnn: Annotation = {
+      id: 'stroke-1',
+      type: 'freehand',
+      color: '#ef4444',
+      strokeWidth: 4,
+      points: [
+        { x: 100, y: 100 },
+        { x: 150, y: 300 },
+        { x: 120, y: 500 },
+      ],
+    };
+
+    // Endpoints expose drag handles
+    expect(detectHandleClick(105, 98, strokeAnn)).toBe('ep0');
+    expect(detectHandleClick(118, 502, strokeAnn)).toBe('ep1');
+    // Body exposes nothing (move tool handles the body)
+    expect(detectHandleClick(150, 300, strokeAnn)).toBeNull();
+  });
+
   it('detects corner and edge handles for bounded shapes with rotation', () => {
     const rectAnn: Annotation = {
       id: 'rect-1',
