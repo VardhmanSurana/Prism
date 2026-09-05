@@ -444,6 +444,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
             eraserSize={brushSize}
             selectedAnnId={ann.selectedAnnId}
             setSelectedAnnId={ann.setSelectedAnnId}
+            selectedAnnIds={ann.selectedAnnIds}
+            setSelectedAnnIds={ann.setSelectedAnnIds}
             userChangedStyleRef={userChangedStyleRef}
 
             fontFamily={ann.fontFamily}

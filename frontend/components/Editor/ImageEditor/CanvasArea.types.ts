@@ -38,6 +38,8 @@ export interface CanvasAreaProps {
   eraserSize?: number;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
+  selectedAnnIds?: string[];
+  setSelectedAnnIds?: (ids: string[]) => void;
   userChangedStyleRef?: React.MutableRefObject<boolean>;
   onStartGesture?: () => void;
   onEndGesture?: () => void;

@@ -231,6 +231,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
             eraserSize={p.eraserSize ?? 35}
             selectedAnnId={p.selectedAnnId ?? null}
             setSelectedAnnId={p.setSelectedAnnId as ((id: string | null) => void) | undefined}
+            selectedAnnIds={p.selectedAnnIds}
+            setSelectedAnnIds={p.setSelectedAnnIds}
             userChangedStyleRef={p.userChangedStyleRef ?? { current: false }}
             fontFamily={p.fontFamily}
             setFontFamily={p.setFontFamily}

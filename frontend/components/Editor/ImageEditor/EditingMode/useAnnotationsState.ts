@@ -106,7 +106,34 @@ export const useAnnotationsState = () => {
     };
   }, []);
 
-  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  const [selectedAnnId, setSelectedAnnIdState] = useState<string | null>(null);
+  const [selectedAnnIds, setSelectedAnnIdsState] = useState<string[]>([]);
+
+  const setSelectedAnnId = useCallback((id: string | null) => {
+    setSelectedAnnIdState(id);
+    setSelectedAnnIdsState(id ? [id] : []);
+  }, []);
+
+  const setSelectedAnnIds = useCallback((ids: string[]) => {
+    setSelectedAnnIdsState(ids);
+    setSelectedAnnIdState(ids.length > 0 ? ids[0] : null);
+  }, []);
+
+  // Prune deleted IDs when annotations change
+  useEffect(() => {
+    if (selectedAnnIds.length > 0) {
+      const existing = new Set(annotations.map(a => a.id));
+      const valid = selectedAnnIds.filter(id => existing.has(id));
+      if (valid.length !== selectedAnnIds.length) {
+        setSelectedAnnIdsState(valid);
+        if (selectedAnnId && !existing.has(selectedAnnId)) {
+          setSelectedAnnIdState(valid[0] ?? null);
+        }
+      }
+    } else if (selectedAnnId && !annotations.some(a => a.id === selectedAnnId)) {
+      setSelectedAnnIdState(null);
+    }
+  }, [annotations, selectedAnnIds, selectedAnnId]);
   
   // Text layer settings state
   const [fontFamily, setFontFamily] = useState<string>('Space Grotesk');
@@ -138,20 +165,21 @@ export const useAnnotationsState = () => {
         setStyle(selected.fontStyle || 'normal');
         setDecoration(selected.textDecoration || 'none');
         setTextAlign(selected.textAlign || 'center');
-        setLineHeight(selected.lineHeight || 1.2);
-        setLetterSpacing(selected.letterSpacing || 0);
+        lineHeight !== undefined && setLineHeight(selected.lineHeight || 1.2);
+        letterSpacing !== undefined && setLetterSpacing(selected.letterSpacing || 0);
       }
     }
   }, [selectedAnnId, annotations]);
 
   const onUpdateTextProps = useCallback((updatedProps: Partial<Annotation>) => {
-    if (!selectedAnnId) return;
+    const targetIds = selectedAnnIds.length > 0 ? selectedAnnIds : (selectedAnnId ? [selectedAnnId] : []);
+    if (targetIds.length === 0) return;
     updateAnnotations(prev =>
       prev.map(ann =>
-        ann.id === selectedAnnId ? { ...ann, ...updatedProps } : ann
+        targetIds.includes(ann.id) ? { ...ann, ...updatedProps } : ann
       )
     );
-  }, [selectedAnnId, updateAnnotations]);
+  }, [selectedAnnId, selectedAnnIds, updateAnnotations]);
 
   return {
     annotations,
@@ -162,6 +190,8 @@ export const useAnnotationsState = () => {
     setAnnotationsHistoryFuture,
     selectedAnnId,
     setSelectedAnnId,
+    selectedAnnIds,
+    setSelectedAnnIds,
     fontFamily,
     setFontFamily,
     fontSize,

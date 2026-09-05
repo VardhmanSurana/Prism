@@ -18,6 +18,8 @@ export interface AnnotationCanvasProps {
   setStrokeWidth?: (width: number) => void;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
+  selectedAnnIds?: string[];
+  setSelectedAnnIds?: (ids: string[]) => void;
   eraserSize?: number;
   readOnly?: boolean;
   userChangedStyleRef?: React.MutableRefObject<boolean>;

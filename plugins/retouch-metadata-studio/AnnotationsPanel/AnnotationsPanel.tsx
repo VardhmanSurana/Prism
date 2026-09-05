@@ -4,7 +4,7 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { RotateCcw, ChevronDown, Pen, Palette, Square, Type, AlignLeft, Layers, Pipette, Plus, Sparkles, Info } from 'lucide-react';
+import { RotateCcw, ChevronDown, Pen, Palette, Square, Type, AlignLeft, Layers, Pipette, Plus, Sparkles, Info, CheckSquare, Trash2 } from 'lucide-react';
 import { ColorPicker, ColorService, useColor } from 'react-color-palette';
 import { Annotation, DrawToolId, DoodleLineStyle, LineTexture, LineTaper } from './types';
 import { ToolsGrid } from './ToolsGrid';
@@ -18,6 +18,34 @@ import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
 import { isBoundedShape } from '../AnnotationCanvas/shapeUtils';
 import { DEFAULT_PEN_SETTINGS, PenSettings } from './types';
 
+const TOOL_LABELS: Record<string, string> = {
+  select: 'Select',
+  freehand: 'Pen',
+  arrow: 'Arrow',
+  doubleArrow: 'Double Arrow',
+  line: 'Line',
+  rect: 'Rectangle',
+  roundedRect: 'Rounded Rect',
+  circle: 'Circle / Oval',
+  triangle: 'Triangle',
+  rightTriangle: 'Right Triangle',
+  diamond: 'Diamond',
+  pentagon: 'Pentagon',
+  hexagon: 'Hexagon',
+  star: '5-Point Star',
+  fourPointStar: '4-Point Star',
+  heart: 'Heart',
+  lightning: 'Lightning',
+  speechBubble: 'Speech Bubble',
+  cloud: 'Cloud',
+  highlighter: 'Highlight',
+  text: 'Text',
+  textPath: 'Text Doodle',
+  eraser: 'Eraser',
+};
+
+const getToolLabel = (type: string) => TOOL_LABELS[type] || type;
+
 export interface AnnotationsPanelProps {
   annotations: Annotation[];
   onChange: (annotations: Annotation[]) => void;
@@ -29,6 +57,8 @@ export interface AnnotationsPanelProps {
   setStrokeWidth: (width: number) => void;
   selectedAnnId?: string | null;
   setSelectedAnnId?: (id: string | null) => void;
+  selectedAnnIds?: string[];
+  setSelectedAnnIds?: (ids: string[]) => void;
   setActiveOpacity?: (opacity: number) => void;
   markStyleChanged?: () => void;
   brushSize?: number;
@@ -78,6 +108,9 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
   strokeWidth,
   setStrokeWidth,
   selectedAnnId,
+  setSelectedAnnId,
+  selectedAnnIds = [],
+  setSelectedAnnIds,
   setActiveOpacity,
   markStyleChanged,
   
@@ -114,9 +147,103 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
 }) => {
   const isDefault = useMemo(() => annotations.length === 0, [annotations]);
 
+  const effectiveSelectedIds = useMemo(() => {
+    return selectedAnnIds.length > 0
+      ? selectedAnnIds
+      : (selectedAnnId ? [selectedAnnId] : []);
+  }, [selectedAnnIds, selectedAnnId]);
+
+  const selectedAnnotations = useMemo(() => {
+    return annotations.filter(a => effectiveSelectedIds.includes(a.id));
+  }, [annotations, effectiveSelectedIds]);
+
   const selectedAnn = useMemo(() => {
-    return annotations.find(a => a.id === selectedAnnId) || null;
-  }, [annotations, selectedAnnId]);
+    return annotations.find(a => a.id === selectedAnnId) || selectedAnnotations[0] || null;
+  }, [annotations, selectedAnnId, selectedAnnotations]);
+
+  const countsByType = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const ann of annotations) {
+      counts[ann.type] = (counts[ann.type] || 0) + 1;
+    }
+    return counts;
+  }, [annotations]);
+
+  const presentTypes = useMemo(() => {
+    return Object.keys(countsByType);
+  }, [countsByType]);
+
+  const isAllSameType = useMemo(() => {
+    if (selectedAnnotations.length === 0) return false;
+    const first = selectedAnnotations[0].type;
+    return selectedAnnotations.every(a => a.type === first);
+  }, [selectedAnnotations]);
+
+  const isAllBoundedShapes = useMemo(() => {
+    if (selectedAnnotations.length === 0) return false;
+    return selectedAnnotations.every(a => isBoundedShape(a.type));
+  }, [selectedAnnotations]);
+
+  const isAllFreehand = useMemo(() => {
+    if (selectedAnnotations.length === 0) return false;
+    return selectedAnnotations.every(a => a.type === 'freehand');
+  }, [selectedAnnotations]);
+
+  const isAllText = useMemo(() => {
+    if (selectedAnnotations.length === 0) return false;
+    return selectedAnnotations.every(a => a.type === 'text');
+  }, [selectedAnnotations]);
+
+  const isAllLines = useMemo(() => {
+    if (selectedAnnotations.length === 0) return false;
+    return selectedAnnotations.every(a => a.type === 'line' || a.type === 'arrow' || a.type === 'doubleArrow');
+  }, [selectedAnnotations]);
+
+  const handleSelectType = (type: string, e?: React.MouseEvent) => {
+    setActiveDrawTool('select');
+    const matchingIds = annotations.filter(a => a.type === type).map(a => a.id);
+    if (e?.shiftKey) {
+      const allIn = matchingIds.every(id => effectiveSelectedIds.includes(id));
+      const next = allIn
+        ? effectiveSelectedIds.filter(id => !matchingIds.includes(id))
+        : Array.from(new Set([...effectiveSelectedIds, ...matchingIds]));
+      setSelectedAnnIds?.(next);
+      setSelectedAnnId?.(next[0] ?? null);
+    } else {
+      const isExactMatch = matchingIds.length === effectiveSelectedIds.length &&
+        matchingIds.every(id => effectiveSelectedIds.includes(id));
+      if (isExactMatch) {
+        setSelectedAnnIds?.([]);
+        setSelectedAnnId?.(null);
+      } else {
+        setSelectedAnnIds?.(matchingIds);
+        setSelectedAnnId?.(matchingIds[0] ?? null);
+      }
+    }
+  };
+
+  const handleSelectAll = () => {
+    setActiveDrawTool('select');
+    if (effectiveSelectedIds.length === annotations.length && annotations.length > 0) {
+      setSelectedAnnIds?.([]);
+      setSelectedAnnId?.(null);
+    } else {
+      const allIds = annotations.map(a => a.id);
+      setSelectedAnnIds?.(allIds);
+      setSelectedAnnId?.(allIds[0] ?? null);
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedAnnIds?.([]);
+    setSelectedAnnId?.(null);
+  };
+
+  const handleDeleteSelected = () => {
+    onChange(annotations.filter(a => !effectiveSelectedIds.includes(a.id)));
+    setSelectedAnnIds?.([]);
+    setSelectedAnnId?.(null);
+  };
 
   // Same custom picker as the Color tab — seeded from the selected shape's fill
   const [showFillPicker, setShowFillPicker] = useState(false);
@@ -202,6 +329,111 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                 setActiveDrawTool={setActiveDrawTool}
               />
 
+              {/* ── Multi-Selection Status Banner ── */}
+              {effectiveSelectedIds.length > 0 && (
+                <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-wider">
+                      <CheckSquare size={13} className="text-primary" />
+                      <span>
+                        {effectiveSelectedIds.length} {effectiveSelectedIds.length === 1 ? 'Markup' : isAllSameType ? `${getToolLabel(selectedAnnotations[0].type)}s` : 'Markups'} Selected
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleDeselectAll}
+                        className="text-[9px] font-semibold text-white/60 hover:text-white px-1.5 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        Deselect
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteSelected}
+                        className="flex items-center gap-1 text-[9px] font-bold text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2 py-0.5 rounded transition-colors cursor-pointer"
+                      >
+                        <Trash2 size={10} /> Delete ({effectiveSelectedIds.length})
+                      </button>
+                    </div>
+                  </div>
+                  {effectiveSelectedIds.length > 1 && (
+                    <div className="text-[9px] text-white/50 leading-tight">
+                      Editing toolbar controls updates all selected markups. Drag any markup on canvas to move it individually.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Select Same Markup / Quick Multi-Select ── */}
+              {activeDrawTool === 'select' && annotations.length > 0 && (
+                <div className="p-2.5 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-white/50">
+                      Select by Type
+                    </span>
+                    <span className="text-[9px] text-white/40 font-mono">
+                      Shift+Click to multi-select
+                    </span>
+                  </div>
+
+                  {/* Primary quick action: Select all of current markup type */}
+                  {selectedAnn && countsByType[selectedAnn.type] > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectType(selectedAnn.type)}
+                      className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-white/90 hover:text-primary transition-all text-[10px] font-semibold cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={11} className="text-primary group-hover:scale-110 transition-transform" />
+                        <span>Select All {getToolLabel(selectedAnn.type)}s</span>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono">
+                        {countsByType[selectedAnn.type]}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Type Filter Chips */}
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={handleSelectAll}
+                      className={`text-[9px] px-2 py-1 rounded-md font-semibold border transition-all cursor-pointer ${
+                        effectiveSelectedIds.length === annotations.length && annotations.length > 0
+                          ? 'bg-primary/20 border-primary/50 text-primary'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      All ({annotations.length})
+                    </button>
+                    {presentTypes.map(t => {
+                      const count = countsByType[t];
+                      const matchingIds = annotations.filter(a => a.type === t).map(a => a.id);
+                      const isFullySelected = matchingIds.length > 0 && matchingIds.every(id => effectiveSelectedIds.includes(id));
+                      const isPartiallySelected = !isFullySelected && matchingIds.some(id => effectiveSelectedIds.includes(id));
+                      return (
+                        <button
+                          key={t}
+                          type="button"
+                          onClick={(e) => handleSelectType(t, e)}
+                          title={`Select all ${getToolLabel(t)}s (${count})`}
+                          className={`text-[9px] px-2 py-1 rounded-md font-medium border transition-all cursor-pointer flex items-center gap-1 ${
+                            isFullySelected
+                              ? 'bg-primary/20 border-primary/50 text-primary font-bold shadow-sm'
+                              : isPartiallySelected
+                                ? 'bg-primary/10 border-primary/25 text-white/80'
+                                : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <span>{getToolLabel(t)}</span>
+                          <span className="text-[8px] opacity-70 font-mono">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Emoji Picker */}
               {activeDrawTool === 'emoji' && (
                 <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
@@ -215,18 +447,29 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
               {/* Stroke Width */}
               {activeDrawTool !== 'eraser' && (
                 <EditorSlider
-                  label="Stroke Width"
+                  label={effectiveSelectedIds.length > 1 ? `Stroke Width (${effectiveSelectedIds.length} items)` : 'Stroke Width'}
                   value={strokeWidth}
-                  onChange={val => { setStrokeWidth(val); markStyleChanged?.(); }}
+                  onChange={val => {
+                    setStrokeWidth(val);
+                    markStyleChanged?.();
+                    if (effectiveSelectedIds.length > 0) {
+                      onUpdateTextProps?.({ strokeWidth: val });
+                    }
+                  }}
                   min={1} max={20} defaultValue={4} unit=" px"
                 />
               )}
 
               {/* Pen options */}
-              {(activeDrawTool === 'freehand' || (selectedAnn && selectedAnn.type === 'freehand')) && (
+              {(activeDrawTool === 'freehand' || isAllFreehand || (selectedAnn && selectedAnn.type === 'freehand')) && (
                 <PenSettingsSection
                   settings={penSettings}
-                  onChange={(patch) => setPenSettings?.({ ...penSettings, ...patch })}
+                  onChange={(patch) => {
+                    setPenSettings?.({ ...penSettings, ...patch });
+                    if (effectiveSelectedIds.length > 0) {
+                      onUpdateTextProps?.(patch as any);
+                    }
+                  }}
                   selectedFreehand={selectedAnn && selectedAnn.type === 'freehand' ? selectedAnn : null}
                   onUpdateSelected={onUpdateTextProps}
                 />
@@ -243,10 +486,10 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
               )}
 
               {/* Layer Opacity */}
-              {selectedAnn && (
+              {effectiveSelectedIds.length > 0 && (
                 <EditorSlider
-                  label="Layer Opacity"
-                  value={Math.round((selectedAnn.opacity ?? 1) * 100)}
+                  label={effectiveSelectedIds.length > 1 ? `Layer Opacity (${effectiveSelectedIds.length} items)` : 'Layer Opacity'}
+                  value={Math.round((selectedAnn?.opacity ?? 1) * 100)}
                   onChange={val => {
                     const nextOpacity = val / 100;
                     setActiveOpacity?.(nextOpacity);
@@ -282,8 +525,8 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
           )}
         </div>
 
-        {/* ── 3. Shape Fill & Style Card — only when a bounded shape is selected ── */}
-        {selectedAnn && isBoundedShape(selectedAnn.type) && (() => {
+        {/* ── 3. Shape Fill & Style Card — only when bounded shape(s) are selected ── */}
+        {selectedAnn && (isBoundedShape(selectedAnn.type) || isAllBoundedShapes) && (() => {
           const isRect = selectedAnn.type === 'rect' || selectedAnn.type === 'roundedRect';
           const isStar = selectedAnn.type === 'star' || selectedAnn.type === 'fourPointStar';
           const isPolygon = selectedAnn.type === 'pentagon' || selectedAnn.type === 'hexagon';
@@ -893,8 +1136,8 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
           </div>
         )}
 
-        {/* ── 5. Text Properties Card — only when a text annotation is selected ── */}
-        {selectedAnn && selectedAnn.type === 'text' && (
+        {/* ── 5. Text Properties Card — only when text annotation(s) are selected ── */}
+        {selectedAnn && (selectedAnn.type === 'text' || isAllText) && (
           <div className="bg-[#12141a] rounded-xl border border-white/5 p-3 space-y-3">
             <div
               onClick={() => toggle('textProps')}
@@ -949,6 +1192,11 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
               <LayersListSection
                 annotations={annotations}
                 onChange={onChange}
+                selectedAnnId={selectedAnnId}
+                setSelectedAnnId={setSelectedAnnId}
+                selectedAnnIds={selectedAnnIds}
+                setSelectedAnnIds={setSelectedAnnIds}
+                setActiveDrawTool={setActiveDrawTool}
               />
             </div>
           )}

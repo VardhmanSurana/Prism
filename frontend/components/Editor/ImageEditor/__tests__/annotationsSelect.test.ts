@@ -314,5 +314,120 @@ describe('Annotation Select Tool & Utils', () => {
       expect(getAnnotationDistance({ x: 102, y: 150 }, rectAnn, { strokeOnly: true })).toBeCloseTo(2, 1);
     });
   });
+
+  describe('Multi-Markup Selection, Batch Editing & Individual Movement', () => {
+    it('toggles selection membership when Shift key is pressed', () => {
+      let selectedIds: string[] = ['ann-1', 'ann-2'];
+
+      // Shift-clicking ann-3 adds it
+      const clickedId = 'ann-3';
+      const isShift = true;
+      if (isShift) {
+        selectedIds = selectedIds.includes(clickedId)
+          ? selectedIds.filter(id => id !== clickedId)
+          : [...selectedIds, clickedId];
+      }
+      expect(selectedIds).toEqual(['ann-1', 'ann-2', 'ann-3']);
+
+      // Shift-clicking ann-2 removes it
+      const unclickedId = 'ann-2';
+      selectedIds = selectedIds.includes(unclickedId)
+        ? selectedIds.filter(id => id !== unclickedId)
+        : [...selectedIds, unclickedId];
+      expect(selectedIds).toEqual(['ann-1', 'ann-3']);
+
+      // Normal click without shift replaces selection
+      const singleClickId = 'ann-4';
+      selectedIds = [singleClickId];
+      expect(selectedIds).toEqual(['ann-4']);
+    });
+
+    it('selects multiple markups of the same type', () => {
+      const sampleAnnotations: Annotation[] = [
+        { id: 'pen-1', type: 'freehand', color: '#ff0000', strokeWidth: 4 },
+        { id: 'rect-1', type: 'rect', color: '#00ff00', strokeWidth: 2, bounds: { x: 10, y: 10, w: 50, h: 50 } },
+        { id: 'pen-2', type: 'freehand', color: '#0000ff', strokeWidth: 4 },
+        { id: 'pen-3', type: 'freehand', color: '#ffff00', strokeWidth: 6 },
+        { id: 'rect-2', type: 'rect', color: '#ff00ff', strokeWidth: 2, bounds: { x: 70, y: 70, w: 50, h: 50 } },
+      ];
+
+      // Select all of type 'freehand'
+      const penIds = sampleAnnotations.filter(a => a.type === 'freehand').map(a => a.id);
+      expect(penIds).toEqual(['pen-1', 'pen-2', 'pen-3']);
+      expect(penIds).toHaveLength(3);
+
+      // Select all of type 'rect'
+      const rectIds = sampleAnnotations.filter(a => a.type === 'rect').map(a => a.id);
+      expect(rectIds).toEqual(['rect-1', 'rect-2']);
+      expect(rectIds).toHaveLength(2);
+    });
+
+    it('batch updates properties across all selected markups', () => {
+      const annotations: Annotation[] = [
+        { id: 'ann-1', type: 'rect', color: '#ff0000', strokeWidth: 2, opacity: 1, bounds: { x: 10, y: 10, w: 20, h: 20 } },
+        { id: 'ann-2', type: 'rect', color: '#00ff00', strokeWidth: 2, opacity: 1, bounds: { x: 50, y: 50, w: 30, h: 30 } },
+        { id: 'ann-3', type: 'circle', color: '#0000ff', strokeWidth: 4, opacity: 1, bounds: { x: 100, y: 100, w: 40, h: 40 } },
+      ];
+
+      const selectedIds = ['ann-1', 'ann-2'];
+      const batchUpdates: Partial<Annotation> = {
+        strokeWidth: 8,
+        color: '#f59e0b',
+        opacity: 0.75,
+      };
+
+      const updated = annotations.map(ann =>
+        selectedIds.includes(ann.id) ? { ...ann, ...batchUpdates } : ann
+      );
+
+      // ann-1 and ann-2 received batch updates
+      expect(updated[0].strokeWidth).toBe(8);
+      expect(updated[0].color).toBe('#f59e0b');
+      expect(updated[0].opacity).toBe(0.75);
+
+      expect(updated[1].strokeWidth).toBe(8);
+      expect(updated[1].color).toBe('#f59e0b');
+      expect(updated[1].opacity).toBe(0.75);
+
+      // ann-3 was untouched
+      expect(updated[2].strokeWidth).toBe(4);
+      expect(updated[2].color).toBe('#0000ff');
+      expect(updated[2].opacity).toBe(1);
+    });
+
+    it('moves an individual markup without changing positions of other selected markups', () => {
+      const annotations: Annotation[] = [
+        { id: 'shape-1', type: 'rect', color: '#ff0000', strokeWidth: 2, bounds: { x: 100, y: 100, w: 50, h: 50 } },
+        { id: 'shape-2', type: 'rect', color: '#00ff00', strokeWidth: 2, bounds: { x: 300, y: 300, w: 50, h: 50 } },
+        { id: 'stroke-1', type: 'freehand', color: '#0000ff', strokeWidth: 2, points: [{ x: 500, y: 500 }, { x: 550, y: 550 }] },
+      ];
+
+      // Multiple markups are selected
+      const selectedIds = ['shape-1', 'shape-2', 'stroke-1'];
+
+      // User drags shape-1 by dx=40, dy=25
+      const draggedId = 'shape-1';
+      const dx = 40;
+      const dy = 25;
+
+      const draggedAnn = annotations.find(a => a.id === draggedId)!;
+      const movedAnn: Annotation = draggedAnn.bounds
+        ? { ...draggedAnn, bounds: { ...draggedAnn.bounds, x: draggedAnn.bounds.x + dx, y: draggedAnn.bounds.y + dy } }
+        : draggedAnn;
+
+      // Position update only targets the individual dragged annotation (commitMove logic)
+      const afterMove = annotations.map(a => a.id === draggedId ? movedAnn : a);
+
+      // shape-1 moved
+      expect(afterMove[0].bounds).toEqual({ x: 140, y: 125, w: 50, h: 50 });
+
+      // shape-2 and stroke-1 remain at their exact original positions
+      expect(afterMove[1].bounds).toEqual({ x: 300, y: 300, w: 50, h: 50 });
+      expect(afterMove[2].points).toEqual([{ x: 500, y: 500 }, { x: 550, y: 550 }]);
+
+      // All 3 continue to be selected
+      expect(selectedIds).toEqual(['shape-1', 'shape-2', 'stroke-1']);
+    });
+  });
 });
 

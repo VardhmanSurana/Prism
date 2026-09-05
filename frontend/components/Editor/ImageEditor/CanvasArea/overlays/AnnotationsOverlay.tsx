@@ -20,6 +20,8 @@ export interface AnnotationsOverlayProps {
   eraserSize: number;
   selectedAnnId: string | null;
   setSelectedAnnId?: (id: string | null) => void;
+  selectedAnnIds?: string[];
+  setSelectedAnnIds?: (ids: string[]) => void;
   userChangedStyleRef: React.MutableRefObject<boolean>;
   fontFamily?: string;
   setFontFamily?: (f: string) => void;
@@ -73,6 +75,8 @@ export const AnnotationsOverlay: React.FC<AnnotationsOverlayProps> = (p) => {
         readOnly={readOnly}
         selectedAnnId={isActive ? p.selectedAnnId : null}
         setSelectedAnnId={isActive ? p.setSelectedAnnId : undefined}
+        selectedAnnIds={isActive ? p.selectedAnnIds : undefined}
+        setSelectedAnnIds={isActive ? p.setSelectedAnnIds : undefined}
         userChangedStyleRef={isActive ? p.userChangedStyleRef : undefined}
         fontFamily={isActive ? p.fontFamily : undefined}
         setFontFamily={isActive ? p.setFontFamily : undefined}

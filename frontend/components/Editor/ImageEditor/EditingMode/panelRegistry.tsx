@@ -329,6 +329,8 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
       setStrokeWidth={c.setStrokeWidth}
       selectedAnnId={c.ann.selectedAnnId}
       setSelectedAnnId={c.ann.setSelectedAnnId}
+      selectedAnnIds={c.ann.selectedAnnIds}
+      setSelectedAnnIds={c.ann.setSelectedAnnIds}
       setActiveOpacity={c.setActiveOpacity}
       markStyleChanged={() => { c.userChangedStyleRef.current = true; }}
       brushSize={c.brushSize}

@@ -59,10 +59,16 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     eraserSize = 35,
     selectedAnnId = null,
     setSelectedAnnId = () => {},
+    selectedAnnIds = [],
+    setSelectedAnnIds = () => {},
     readOnly = false,
     userChangedStyleRef,
     onUpdateTextProps,
   } = props;
+
+  const effectiveSelectedIds = (selectedAnnIds && selectedAnnIds.length > 0)
+    ? selectedAnnIds
+    : (selectedAnnId ? [selectedAnnId] : []);
 
   const [scale, setScale] = useState(1);
   const [aspectRatio, setAspectRatio] = useState(1);
@@ -96,13 +102,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     handleTextMoveStart,
   } = useAnnotationEvents(props);
 
-  // Update selected annotation only when user explicitly changes color or strokeWidth
+  // Update selected annotations only when user explicitly changes color or strokeWidth
   useEffect(() => {
-    if (selectedAnnId && activeDrawTool === 'select' && userChangedStyleRef?.current) {
+    if (effectiveSelectedIds.length > 0 && activeDrawTool === 'select' && userChangedStyleRef?.current) {
       userChangedStyleRef.current = false;
       onChange(
         annotations.map((ann) => {
-          if (ann.id !== selectedAnnId) return ann;
+          if (!effectiveSelectedIds.includes(ann.id)) return ann;
           const updates: Partial<Annotation> = {};
           if (ann.color !== activeColor) updates.color = activeColor;
           if (ann.strokeWidth !== strokeWidth) updates.strokeWidth = strokeWidth;
@@ -111,22 +117,23 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
       );
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeColor, strokeWidth, selectedAnnId, activeDrawTool]);
+  }, [activeColor, strokeWidth, effectiveSelectedIds, activeDrawTool]);
 
   // Keyboard deletion
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnId) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && effectiveSelectedIds.length > 0) {
         const target = e.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
 
-        onChange(annotations.filter(a => a.id !== selectedAnnId));
+        onChange(annotations.filter(a => !effectiveSelectedIds.includes(a.id)));
         setSelectedAnnId(null);
+        setSelectedAnnIds([]);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedAnnId, annotations, onChange, setSelectedAnnId]);
+  }, [effectiveSelectedIds, annotations, onChange, setSelectedAnnId, setSelectedAnnIds]);
 
   const renderAnnotation = (ann: Annotation) => {
     if (ann.visible === false) {
@@ -368,8 +375,8 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
         {currentAnn && renderAnnotation(currentAnn)}
 
         {/* ── SVG Selection Highlights for Lines/Arrows ── */}
-        {!readOnly && activeDrawTool === 'select' && selectedAnnId && (() => {
-          const selAnn = annotations.find(a => a.id === selectedAnnId);
+        {!readOnly && activeDrawTool === 'select' && effectiveSelectedIds.length > 0 && effectiveSelectedIds.map((id) => {
+          const selAnn = annotations.find(a => a.id === id);
           if (!selAnn || selAnn.visible === false || selAnn.type === 'text') return null;
 
           // Point-based annotations (lines, arrows)
@@ -377,7 +384,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             const transform = getAnnRotationTransform(selAnn, aspectRatio);
 
             return (
-              <g className="selection-handles" data-ann-id={selAnn.id} transform={transform} pointerEvents="none">
+              <g key={`handles-${selAnn.id}`} className="selection-handles" data-ann-id={selAnn.id} transform={transform} pointerEvents="none">
                 {selAnn.points.map((pt, i) => {
                   const isStart = i === 0;
                   const isEnd = i === selAnn.points!.length - 1;
@@ -402,13 +409,13 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           }
 
           return null;
-        })()}
+        })}
       </svg>
 
       {/* ── HTML Overlay for Text Annotations & Selected Shape Transform Controls ── */}
       {annotations.map((ann) => {
         if (ann.visible === false) return null;
-        const isSelected = !readOnly && selectedAnnId === ann.id && activeDrawTool === 'select';
+        const isSelected = !readOnly && effectiveSelectedIds.includes(ann.id) && activeDrawTool === 'select';
         
         // 1. Text Annotation Overlay
         if (ann.type === 'text') {
@@ -519,9 +526,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
                 zIndex: 50,
                 pointerEvents: 'none',
               }}
-              // ponytail: no selection box — the dashed border sat exactly on the shape stroke;
-              // corner/side handles + action bar are the entire selection chrome
-              className="select-none rounded border-2 border-transparent"
+              // ponytail: no selection box on single item — corner/side handles + action bar are the chrome.
+              // On multi-selection, render a delicate primary border so all selected shapes are instantly identifiable.
+              className={`select-none rounded border-2 ${effectiveSelectedIds.length > 1 ? 'border-primary/40' : 'border-transparent'}`}
             >
               {renderTransformHandles(ann)}
             </div>

@@ -124,6 +124,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   const dragRectRef       = useRef<{ width: number; height: number } | null>(null);
   // ponytail: original normalized bbox for resize — scale-about-fixed-corner reproduces applyResize exactly
   const dragObRef         = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  const hasMovedRef       = useRef(false);
 
   // cleanup on unmount
   useEffect(() => () => { removeNativeListeners(); }, []);
@@ -145,6 +146,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
   function beginTransientDrag(annId: string) {
     lastPosRef.current = null;
+    hasMovedRef.current = false;
     const svg = svgRef.current;
     dragSvgNodesRef.current = svg
       ? (Array.from(svg.querySelectorAll(`[data-ann-id="${annId}"]`)) as SVGGElement[])
@@ -430,6 +432,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
   function flushMove(clientX: number, clientY: number) {
     if (!svgRef.current) return;
+    hasMovedRef.current = true;
 
     const rotating = rotatingAnnIdRef.current;
     const mode     = dragModeRef.current;
@@ -494,6 +497,15 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     } else if (pending) {
       flushMove(pending.clientX, pending.clientY);
     }
+    if (!hasMovedRef.current && !e.shiftKey && dragAnnIdRef.current) {
+      const curIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
+        ? propsRef.current.selectedAnnIds
+        : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
+      if (curIds.length > 1 && curIds.includes(dragAnnIdRef.current)) {
+        propsRef.current.setSelectedAnnIds?.([dragAnnIdRef.current]);
+        propsRef.current.setSelectedAnnId?.(dragAnnIdRef.current);
+      }
+    }
     removeNativeListeners();
     isDrawing.current   = false;
     dragAnnIdRef.current = null;
@@ -524,11 +536,13 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const { x, y } = getCoords(e);
 
     if (activeDrawTool === 'select') {
-      const curSelId = selectedAnnIdRef.current || selectedAnnId;
+      const curSelIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
+        ? propsRef.current.selectedAnnIds
+        : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
 
-      // Hit-test handle on currently selected annotation
-      if (curSelId) {
-        const selAnn = annotations.find(a => a.id === curSelId);
+      // 1. Hit-test handle on any currently selected annotation
+      for (const selId of curSelIds) {
+        const selAnn = annotations.find(a => a.id === selId);
         if (selAnn) {
           const handleId = detectHandleClick(x, y, selAnn);
           if (handleId) {
@@ -574,16 +588,61 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
         }
       }
 
-      // Hit-test any annotation
+      // 2. Hit-test any annotation on canvas
       const clicked = [...annotations].reverse().find(ann => getAnnotationDistance({ x, y }, ann) < 40);
       if (clicked) {
-        selectedAnnIdRef.current = clicked.id; setSelectedAnnId?.(clicked.id);
-        dragModeRef.current      = 'move';     setDragMode('move');
-        activeHandleRef.current  = null;       setActiveHandle(null);
-        dragAnnIdRef.current     = clicked.id;
-        dragStartAnnRef.current  = clicked;
+        if (e.shiftKey) {
+          // Toggle clicked annotation in multi-selection
+          const alreadySelected = curSelIds.includes(clicked.id);
+          const nextSelected = alreadySelected
+            ? curSelIds.filter(id => id !== clicked.id)
+            : [...curSelIds, clicked.id];
+
+          propsRef.current.setSelectedAnnIds?.(nextSelected);
+          propsRef.current.setSelectedAnnId?.(nextSelected.length > 0 ? nextSelected[nextSelected.length - 1] : null);
+
+          // If toggled ON, allow dragging it individually right away
+          if (!alreadySelected) {
+            dragModeRef.current       = 'move'; setDragMode('move');
+            activeHandleRef.current   = null;   setActiveHandle(null);
+            dragAnnIdRef.current      = clicked.id;
+            dragStartAnnRef.current   = clicked;
+            dragStartMouseRef.current = { x, y };
+            isDrawing.current         = true;
+            beginTransientDrag(clicked.id);
+            e.currentTarget.setPointerCapture(e.pointerId);
+            window.addEventListener('pointermove', onNativeMove);
+            window.addEventListener('pointerup',   onNativeUp);
+          }
+          return;
+        }
+
+        // Without shift:
+        // If clicking an item that's already part of the current multi-selection, keep selection and allow moving
+        if (curSelIds.includes(clicked.id)) {
+          propsRef.current.setSelectedAnnId?.(clicked.id);
+          dragModeRef.current       = 'move'; setDragMode('move');
+          activeHandleRef.current   = null;   setActiveHandle(null);
+          dragAnnIdRef.current      = clicked.id;
+          dragStartAnnRef.current   = clicked;
+          dragStartMouseRef.current = { x, y };
+          isDrawing.current         = true;
+          beginTransientDrag(clicked.id);
+          e.currentTarget.setPointerCapture(e.pointerId);
+          window.addEventListener('pointermove', onNativeMove);
+          window.addEventListener('pointerup',   onNativeUp);
+          return;
+        }
+
+        // Not already in selection: select only this item
+        propsRef.current.setSelectedAnnIds?.([clicked.id]);
+        propsRef.current.setSelectedAnnId?.(clicked.id);
+        dragModeRef.current       = 'move'; setDragMode('move');
+        activeHandleRef.current   = null;   setActiveHandle(null);
+        dragAnnIdRef.current      = clicked.id;
+        dragStartAnnRef.current   = clicked;
         dragStartMouseRef.current = { x, y };
-        isDrawing.current        = true;
+        isDrawing.current         = true;
         beginTransientDrag(clicked.id);
         e.currentTarget.setPointerCapture(e.pointerId);
         window.addEventListener('pointermove', onNativeMove);
@@ -591,7 +650,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
         return;
       }
 
-      selectedAnnIdRef.current = null; setSelectedAnnId?.(null);
+      // 3. Clicked empty canvas
+      if (!e.shiftKey) {
+        propsRef.current.setSelectedAnnIds?.([]);
+        propsRef.current.setSelectedAnnId?.(null);
+      }
       return;
     }
 
@@ -784,6 +847,13 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       rotateStartRef.current.cy = bbox.y + bbox.h / 2;
       rotateStartRef.current.aspect = r.width > 0 && r.height > 0 ? r.width / r.height : 1;
     }
+    const curSelIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
+      ? propsRef.current.selectedAnnIds
+      : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
+    if (!curSelIds.includes(annId)) {
+      propsRef.current.setSelectedAnnIds?.([annId]);
+    }
+    selectedAnnIdRef.current = annId; propsRef.current.setSelectedAnnId?.(annId);
     rotatingAnnIdRef.current   = annId; setRotatingAnnId(annId);
     dragAnnIdRef.current       = annId;
     isDrawing.current          = true;
@@ -799,9 +869,16 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     e.stopPropagation(); e.preventDefault();
     const ann = propsRef.current.annotations.find(a => a.id === annId);
 
+    const curSelIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
+      ? propsRef.current.selectedAnnIds
+      : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
+    if (!curSelIds.includes(annId)) {
+      propsRef.current.setSelectedAnnIds?.([annId]);
+    }
+    selectedAnnIdRef.current = annId; propsRef.current.setSelectedAnnId?.(annId);
+
     dragModeRef.current      = 'resize-edge'; setDragMode('resize-edge');
     activeHandleRef.current  = handleId;      setActiveHandle(handleId);
-    selectedAnnIdRef.current = annId;         setSelectedAnnId?.(annId);
     dragAnnIdRef.current     = annId;
     dragStartAnnRef.current  = ann ?? null;
     isDrawing.current        = true;
@@ -821,9 +898,16 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const sx  = ((e.clientX - r.left) / r.width)  * 1000;
     const sy  = ((e.clientY - r.top)  / r.height) * 1000;
 
+    const curSelIds = (propsRef.current.selectedAnnIds && propsRef.current.selectedAnnIds.length > 0)
+      ? propsRef.current.selectedAnnIds
+      : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
+    if (!curSelIds.includes(annId)) {
+      propsRef.current.setSelectedAnnIds?.([annId]);
+    }
+    selectedAnnIdRef.current = annId; propsRef.current.setSelectedAnnId?.(annId);
+
     dragModeRef.current      = 'move'; setDragMode('move');
     activeHandleRef.current  = null;   setActiveHandle(null);
-    selectedAnnIdRef.current = annId;  setSelectedAnnId?.(annId);
     dragAnnIdRef.current     = annId;
     dragStartAnnRef.current  = ann ?? null;
     dragStartMouseRef.current = { x: sx, y: sy };
