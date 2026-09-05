@@ -2,12 +2,12 @@
  * PenSettingsSection.tsx
  * Comprehensive settings section for the Freehand Pen tool:
  * Stroke style (solid/dashed/dotted), calligraphic taper profiles, tactile textures (chalk, crayon, drybrush),
- * doodle wave patterns, directional arrowhead toggle, and close-path fill.
+ * directional arrowhead toggle, and close-path fill.
  */
 
 import React from 'react';
 import { Pen, CircleDot, Slash, ArrowRight } from 'lucide-react';
-import { Annotation, PenSettings, PenStrokeStyle, LineTaper, LineTexture, DoodleLineStyle } from './types';
+import { Annotation, PenSettings, PenStrokeStyle, LineTaper, LineTexture } from './types';
 import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
 
 interface PenSettingsSectionProps {
@@ -33,7 +33,6 @@ export const PenSettingsSection: React.FC<PenSettingsSectionProps> = ({
   const curStyle = selectedFreehand ? (selectedFreehand.penStyle ?? 'solid') : settings.style;
   const curTaper = selectedFreehand ? (selectedFreehand.lineTaper ?? 'none') : (settings.taper ?? 'none');
   const curTexture = selectedFreehand ? (selectedFreehand.lineTexture ?? 'none') : (settings.texture ?? 'none');
-  const curDoodle = selectedFreehand ? selectedFreehand.doodleLineStyle : settings.doodleStyle;
   const curArrowEnd = selectedFreehand ? (selectedFreehand.arrowEnd ?? false) : settings.arrowEnd;
   const curCloseFill = selectedFreehand ? (selectedFreehand.closePath ?? false) : settings.closeFill;
   const curFillOpacity = selectedFreehand ? Math.round((selectedFreehand.fillOpacity ?? 0.5) * 100) : Math.round(settings.fillOpacity * 100);
@@ -201,46 +200,7 @@ export const PenSettingsSection: React.FC<PenSettingsSectionProps> = ({
         </div>
       </div>
 
-      {/* 4. Pattern Overlays */}
-      <div className="space-y-1">
-        <div className="text-[10px] font-medium text-white/50">Pattern Wave</div>
-        <div role="radiogroup" aria-label="Pattern Wave" className="grid grid-cols-4 gap-1">
-          {[
-            { id: undefined, label: 'None', path: 'M3 7 H21' },
-            { id: 'wave' as DoodleLineStyle, label: 'Wave', path: 'M3 7 Q6 3 9 7 T15 7 T21 7' },
-            { id: 'zigzag' as DoodleLineStyle, label: 'Zigzag', path: 'M3 7 L6 3 L10 11 L14 3 L18 11 L21 7' },
-            { id: 'sketch' as DoodleLineStyle, label: 'Sketch', path: 'M3 7 Q6 5 10 8 T16 6 T21 7' },
-            { id: 'ripple' as DoodleLineStyle, label: 'Ripple', path: 'M3 7 Q6 5 8 7 T13 7 T18 7 T21 7' },
-            { id: 'arc' as DoodleLineStyle, label: 'Arc', path: 'M3 9 Q12 2 21 9' },
-            { id: 'sCurve' as DoodleLineStyle, label: 'S-Curve', path: 'M3 9 Q7 4 12 7 T21 5' },
-            { id: 'loop' as DoodleLineStyle, label: 'Loop', path: 'M3 7 C6 2 9 2 9 7 C9 12 12 12 15 7 C17 3 19 5 21 7' },
-          ].map((s) => {
-            const isActive = curDoodle === s.id;
-            return (
-              <button
-                key={s.label}
-                type="button"
-                role="radio"
-                aria-checked={isActive}
-                title={s.label}
-                onClick={() => apply({ doodleStyle: s.id })}
-                className={`flex flex-col items-center justify-center h-11 py-1 px-0.5 rounded-lg border transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer ${
-                  isActive
-                    ? 'bg-primary/20 border-primary text-primary font-bold shadow-sm'
-                    : 'bg-white/[0.02] border-white/5 text-white/60 hover:text-white hover:bg-white/[0.05] hover:border-white/10'
-                }`}
-              >
-                <svg width="24" height="12" viewBox="0 0 24 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-                  <path d={s.path} />
-                </svg>
-                <span className="text-[9px] font-medium tracking-tight mt-0.5 whitespace-nowrap truncate max-w-full px-0.5">{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 5. Closed Shape & Fill */}
+      {/* 4. Closed Shape & Fill */}
       <div className="space-y-2 pt-1 border-t border-white/5">
         <div className="flex items-center justify-between">
           <label htmlFor="penCloseFillCheck" className="text-[11px] font-medium text-white/60 select-none cursor-pointer">
