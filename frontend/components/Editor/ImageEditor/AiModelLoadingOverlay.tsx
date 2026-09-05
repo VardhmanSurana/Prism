@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Sparkles, Cpu, ShieldCheck, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { MathCurveLoader, MathCurveType } from './MathCurveLoader';
 
 export interface AiModelLoadingOverlayProps {
@@ -63,13 +63,6 @@ const OPERATION_SPECIFIC_MESSAGES: Record<string, string[]> = {
   ],
 };
 
-const ROTATING_TIPS = [
-  'Prism runs all AI models 100% locally on your machine — zero cloud uploads.',
-  'Tip: Double exposure and blend modes can be stacked non-destructively in the Layer Stack.',
-  'Tip: Hold the \\ key anywhere in the editor to compare before/after in real-time.',
-  'Tip: MobileSAM allows point-and-click selection of complex objects with sub-pixel accuracy.',
-];
-
 export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
   isLoading,
   operationName = 'AI Neural Processing',
@@ -78,7 +71,6 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
   onCancel,
 }) => {
   const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [tipIndex, setTipIndex] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   // Pick suitable message pool based on operation
@@ -109,14 +101,9 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
       setCurrentMessageIndex((prev) => (prev + 1) % messagePool.length);
     }, 2400);
 
-    const tipInterval = setInterval(() => {
-      setTipIndex((prev) => (prev + 1) % ROTATING_TIPS.length);
-    }, 6000);
-
     return () => {
       clearInterval(timerInterval);
       clearInterval(messageInterval);
-      clearInterval(tipInterval);
     };
   }, [isLoading, messagePool.length]);
 
@@ -124,13 +111,6 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
 
   return (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#090a0f]/80 backdrop-blur-md animate-fade-in select-none text-white p-6">
-      {/* Top Floating Badge */}
-      <div className="absolute top-6 left-6 flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.06] border border-white/10 shadow-lg backdrop-blur-sm">
-        <Cpu size={15} className="text-cyan-400 animate-pulse" />
-        <span className="text-xs font-mono font-medium text-white/90">Local ONNX Engine</span>
-        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-      </div>
-
       {onCancel && (
         <button
           type="button"
@@ -148,12 +128,9 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
 
         {/* Operation Title */}
         <div className="mt-6 text-center space-y-2">
-          <div className="inline-flex items-center gap-2.5">
-            <Sparkles size={20} className="text-amber-400 animate-spin-slow flex-shrink-0" />
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
-              {operationName}
-            </h2>
-          </div>
+          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
+            {operationName}
+          </h2>
 
           {/* Dynamic rotating UX message */}
           <div className="min-h-[28px] flex items-center justify-center max-w-lg px-4">
@@ -171,15 +148,8 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
           </div>
         </div>
       </div>
-
-      {/* Bottom Educational Tip Bar */}
-      <div className="absolute bottom-6 max-w-lg text-center px-5 py-2.5 rounded-2xl bg-white/[0.04] border border-white/10 shadow-inner backdrop-blur-sm">
-        <div className="flex items-center justify-center gap-2 text-xs sm:text-sm text-white/60 font-medium">
-          <ShieldCheck size={16} className="text-emerald-400/90 flex-shrink-0" />
-          <span className="transition-opacity duration-500">{ROTATING_TIPS[tipIndex]}</span>
-        </div>
-      </div>
     </div>
   );
 };
+
 
