@@ -3,10 +3,21 @@
  * White balance preset dropdown + temperature, tint, vibrance, saturation, hue rotation.
  */
 import React from 'react';
-import { ChevronDown, RotateCcw } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { Adjustments } from '../filterEngine';
 import { EditorSlider } from '../ui/EditorSlider';
+import { Dropdown } from '@/components/ui/Dropdown';
 import { WbOption } from './bands';
+
+const WB_PRESETS: { value: WbOption; label: string }[] = [
+  { value: 'as_shot', label: 'As Shot (Neutral)' },
+  { value: 'daylight', label: 'Daylight (5500K)' },
+  { value: 'cloudy', label: 'Cloudy (6500K)' },
+  { value: 'shade', label: 'Shade (7500K)' },
+  { value: 'tungsten', label: 'Tungsten (2800K)' },
+  { value: 'fluorescent', label: 'Fluorescent (3800K)' },
+  { value: 'custom', label: 'Custom' },
+];
 
 export interface HslBasicTabProps {
   adjustments: Adjustments;
@@ -31,22 +42,12 @@ export const HslBasicTab: React.FC<HslBasicTabProps> = (p) => (
           </button>
         )}
       </div>
-      <div className="relative">
-        <select
-          value={p.wbOption}
-          onChange={e => p.onWbPresetChange(e.target.value as WbOption)}
-          className="w-full bg-[#13151a] hover:bg-[#1a1c22] border border-white/10 text-[11px] font-medium text-white/90 rounded-lg py-2 px-3 outline-none cursor-pointer appearance-none transition-colors"
-        >
-          <option value="as_shot">As Shot (Neutral)</option>
-          <option value="daylight">Daylight (5500K)</option>
-          <option value="cloudy">Cloudy (6500K)</option>
-          <option value="shade">Shade (7500K)</option>
-          <option value="tungsten">Tungsten (2800K)</option>
-          <option value="fluorescent">Fluorescent (3800K)</option>
-          <option value="custom">Custom</option>
-        </select>
-        <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40" />
-      </div>
+      <Dropdown
+        value={p.wbOption}
+        onChange={p.onWbPresetChange}
+        options={WB_PRESETS}
+        className="w-full"
+      />
     </div>
 
     <EditorSlider

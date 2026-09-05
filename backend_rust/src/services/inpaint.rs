@@ -15,7 +15,7 @@ pub static INPAINT_ENGINE: OnceLock<MagicEraserEngine> = OnceLock::new();
 
 /// LaMa ONNX session (Carve/LaMa-ONNX `lama_fp32.onnx`).
 /// Inputs:  "image" [1,3,512,512] f32 RGB in [0,1]; "mask" [1,1,512,512] f32 in [0,1] (1 = hole)
-/// Output:  "image" [1,3,512,512] f32 RGB in [0,1]
+/// Output:  "output" [1,3,512,512] f32 RGB in [0,255] (or [0,1] depending on export)
 struct LamaSession {
     session: Mutex<ort::session::Session>,
     input_img_name: String,
@@ -79,6 +79,7 @@ impl MagicEraserEngine {
     }
 
     /// Decode a base64 PNG mask into a grayscale image.
+    /// Supports grayscale masks, white-on-transparent RGBA masks, and alpha masks.
     fn decode_mask(mask_b64: &str) -> Result<image::GrayImage, String> {
         // Tolerate data-URI prefixes
         let raw = mask_b64
@@ -90,7 +91,20 @@ impl MagicEraserEngine {
             .map_err(|e| format!("Invalid base64 mask: {}", e))?;
         let img = image::load_from_memory(&bytes)
             .map_err(|e| format!("Invalid mask image: {}", e))?;
-        Ok(img.to_luma8())
+        let rgba = img.to_rgba8();
+        let (w, h) = rgba.dimensions();
+        let mut gray = image::GrayImage::new(w, h);
+        for (x, y, p) in rgba.enumerate_pixels() {
+            let luma = (0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32).round() as u8;
+            // Active if RGB has brightness or alpha indicates a mask stroke
+            let val = if p[3] > 25 && (luma > 30 || p[3] > 128) {
+                luma.max(p[3])
+            } else {
+                luma
+            };
+            gray.put_pixel(x, y, image::Luma([val]));
+        }
+        Ok(gray)
     }
 
     /// LaMa / Neural Eraser object removal — async entry point.
@@ -166,13 +180,74 @@ impl MagicEraserEngine {
             );
         }
 
+        // ── Analyze mask bounding box for localized high-res inpainting ──
+        let mut min_x = orig_w;
+        let mut max_x = 0;
+        let mut min_y = orig_h;
+        let mut max_y = 0;
+        let mut mask_count = 0usize;
+
+        for (x, y, p) in mask_img.enumerate_pixels() {
+            if p[0] > 25 {
+                mask_count += 1;
+                min_x = min_x.min(x);
+                max_x = max_x.max(x);
+                min_y = min_y.min(y);
+                max_y = max_y.max(y);
+            }
+        }
+
+        // If no masked pixels, return original image immediately
+        if mask_count == 0 {
+            info!("Magic Eraser called with empty mask, returning untouched image");
+            let mut png_bytes = std::io::Cursor::new(Vec::new());
+            source
+                .write_to(&mut png_bytes, image::ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode result PNG: {}", e))?;
+            let b64 = base64::engine::general_purpose::STANDARD.encode(png_bytes.into_inner());
+            return Ok(serde_json::json!({
+                "success": true,
+                "result": format!("data:image/png;base64,{}", b64),
+                "path": photo_path_or_data,
+                "width": orig_w,
+                "height": orig_h,
+                "model": "lama_fp32",
+            }));
+        }
+
+        let mask_w = max_x.saturating_sub(min_x) + 1;
+        let mask_h = max_y.saturating_sub(min_y) + 1;
+        let total_pixels = (orig_w as u64) * (orig_h as u64);
+        let mask_box_pixels = (mask_w as u64) * (mask_h as u64);
+
+        // Localized high-res crop: if the image is large (> 512 in either dimension)
+        // and mask covers < 80% of image, crop around the mask with context margin.
+        let use_crop = (orig_w > 512 || orig_h > 512)
+            && ((mask_box_pixels as f64 / total_pixels as f64) < 0.80);
+
+        let (crop_x, crop_y, crop_w, crop_h, crop_src, crop_mask) = if use_crop {
+            let margin = ((mask_w.max(mask_h) as f32) * 0.40).max(64.0) as u32;
+            let side = (mask_w.max(mask_h) + margin * 2).min(orig_w).min(orig_h);
+
+            let center_x = min_x + mask_w / 2;
+            let center_y = min_y + mask_h / 2;
+            let cx = center_x.saturating_sub(side / 2).min(orig_w.saturating_sub(side));
+            let cy = center_y.saturating_sub(side / 2).min(orig_h.saturating_sub(side));
+
+            let c_src = source.crop_imm(cx, cy, side, side);
+            let c_mask = image::imageops::crop_imm(&mask_img, cx, cy, side, side).to_image();
+            (cx, cy, side, side, c_src, c_mask)
+        } else {
+            (0, 0, orig_w, orig_h, source.clone(), mask_img.clone())
+        };
+
         // ── Prepare model inputs at 512x512 ──────────────────────────────
         const IN: usize = 512;
         let resized_src =
-            source.resize_exact(IN as u32, IN as u32, image::imageops::FilterType::Triangle);
+            crop_src.resize_exact(IN as u32, IN as u32, image::imageops::FilterType::Triangle);
         let rgb = resized_src.to_rgb8();
         let mask_small = image::imageops::resize(
-            &mask_img,
+            &crop_mask,
             IN as u32,
             IN as u32,
             image::imageops::FilterType::Triangle,
@@ -186,7 +261,7 @@ impl MagicEraserEngine {
         }
         let mut mask_arr = ndarray::Array4::<f32>::zeros((1, 1, IN, IN));
         for (px, py, p) in mask_small.enumerate_pixels() {
-            mask_arr[[0, 0, py as usize, px as usize]] = if p[0] > 127 { 1.0 } else { 0.0 };
+            mask_arr[[0, 0, py as usize, px as usize]] = if p[0] > 25 { 1.0 } else { 0.0 };
         }
 
         let img_tensor = ort::value::Value::from_array(img_arr).map_err(|e| e.to_string())?;
@@ -213,61 +288,73 @@ impl MagicEraserEngine {
         );
         let plane = oh * ow;
 
-        // Model output → RGBA image at model resolution
+        // Model output → RGBA image at model resolution.
+        // Carve/LaMa ONNX outputs in [0, 255] range; handle both [0, 255] and [0, 1] scales.
+        let is_255_scale = out_data.iter().any(|&v| v > 1.5);
         let mut out_rgba = image::RgbaImage::new(ow as u32, oh as u32);
         for y in 0..oh {
             for x in 0..ow {
                 let idx = y * ow + x;
-                // Layout is [1, 3, H, W]: channel-major planes.
-                let r = out_data[idx].clamp(0.0, 1.0);
-                let g = out_data[plane + idx].clamp(0.0, 1.0);
-                let b = out_data[2 * plane + idx].clamp(0.0, 1.0);
-                let _ = och; // channels asserted == 3 above
-                out_rgba.put_pixel(
-                    x as u32,
-                    y as u32,
-                    image::Rgba([
-                        (r * 255.0) as u8,
-                        (g * 255.0) as u8,
-                        (b * 255.0) as u8,
-                        255,
-                    ]),
-                );
+                let (r, g, b) = if is_255_scale {
+                    (
+                        out_data[idx].clamp(0.0, 255.0).round() as u8,
+                        out_data[plane + idx].clamp(0.0, 255.0).round() as u8,
+                        out_data[2 * plane + idx].clamp(0.0, 255.0).round() as u8,
+                    )
+                } else {
+                    (
+                        (out_data[idx] * 255.0).clamp(0.0, 255.0).round() as u8,
+                        (out_data[plane + idx] * 255.0).clamp(0.0, 255.0).round() as u8,
+                        (out_data[2 * plane + idx] * 255.0).clamp(0.0, 255.0).round() as u8,
+                    )
+                };
+                let _ = och;
+                out_rgba.put_pixel(x as u32, y as u32, image::Rgba([r, g, b, 255]));
             }
         }
 
-        // Scale the filled region back to original resolution
+        // Scale the filled region back to crop's original resolution
         let upscaled = image::DynamicImage::ImageRgba8(out_rgba)
-            .resize_exact(orig_w, orig_h, image::imageops::FilterType::Triangle)
+            .resize_exact(crop_w, crop_h, image::imageops::FilterType::Triangle)
             .to_rgba8();
 
-        // Blend: only replace pixels under the (original-resolution) mask,
-        // with a feather band for a seamless seam.
-        let src_rgba = source.to_rgba8();
-        let mut blended = image::RgbaImage::new(orig_w, orig_h);
-        for (x, y, sp) in src_rgba.enumerate_pixels() {
-            let mut px = *sp;
-            if x < orig_w && y < orig_h {
-                let m = mask_img.get_pixel(x.min(mask_img.width() - 1), y.min(mask_img.height() - 1))[0];
-                let strength: f32 = if m >= 200 {
-                    1.0
-                } else if m > 55 {
-                    (m - 55) as f32 / 145.0
-                } else {
-                    0.0
-                };
-                if strength > 0.0 {
-                    let op = upscaled.get_pixel(x, y);
-                    for c in 0..3 {
-                        px[c] = (px[c] as f32 * (1.0 - strength) + op[c] as f32 * strength)
-                            .round()
-                            .clamp(0.0, 255.0) as u8;
+        // Blend: inject into the full-resolution source image with Hermite smoothstep feathering
+        let mut src_rgba = source.to_rgba8();
+        for ly in 0..crop_h {
+            for lx in 0..crop_w {
+                let gx = crop_x + lx;
+                let gy = crop_y + ly;
+                if gx < orig_w && gy < orig_h {
+                    let m = crop_mask.get_pixel(lx, ly)[0];
+                    let strength: f32 = if m >= 200 {
+                        1.0
+                    } else if m > 25 {
+                        let t = (m - 25) as f32 / 175.0;
+                        t * t * (3.0 - 2.0 * t) // Hermite smoothstep
+                    } else {
+                        0.0
+                    };
+                    if strength > 0.0 {
+                        let orig_p = src_rgba.get_pixel(gx, gy);
+                        let fill_p = upscaled.get_pixel(lx, ly);
+                        let blended_p = image::Rgba([
+                            (orig_p[0] as f32 * (1.0 - strength) + fill_p[0] as f32 * strength)
+                                .round()
+                                .clamp(0.0, 255.0) as u8,
+                            (orig_p[1] as f32 * (1.0 - strength) + fill_p[1] as f32 * strength)
+                                .round()
+                                .clamp(0.0, 255.0) as u8,
+                            (orig_p[2] as f32 * (1.0 - strength) + fill_p[2] as f32 * strength)
+                                .round()
+                                .clamp(0.0, 255.0) as u8,
+                            orig_p[3],
+                        ]);
+                        src_rgba.put_pixel(gx, gy, blended_p);
                     }
                 }
             }
-            blended.put_pixel(x, y, px);
         }
-        source = image::DynamicImage::ImageRgba8(blended);
+        source = image::DynamicImage::ImageRgba8(src_rgba);
 
         // If a file on disk was passed, save back in original format
         if !is_data_uri && Path::new(photo_path_or_data).exists() {
@@ -315,7 +402,10 @@ mod tests {
             std::fs::create_dir_all(&dir).unwrap();
             let photo_path = dir.join("test_inpaint.png");
 
-            let img = image::RgbaImage::new(256, 256);
+            let mut img = image::RgbaImage::new(256, 256);
+            for (x, y, p) in img.enumerate_pixels_mut() {
+                *p = image::Rgba([(x % 150) as u8, (y % 150) as u8, 160, 255]);
+            }
             let mut mask = image::GrayImage::new(256, 256);
             for y in 100..150 {
                 for x in 100..150 {
@@ -331,7 +421,14 @@ mod tests {
             let res = MagicEraserEngine::get()
                 .process_inpaint(photo_path.to_str().unwrap(), &mask_b64, "erase", None, 7.5, 20);
             assert!(res.is_ok(), "LaMa inpainting failed: {:?}", res.err());
-            eprintln!("[test] LaMa inpainting OK");
+
+            let result_img = image::open(&photo_path).expect("Inpainted image should exist").to_rgba8();
+            let center_px = *result_img.get_pixel(125, 125);
+            assert!(
+                !(center_px[0] > 250 && center_px[1] > 250 && center_px[2] > 250),
+                "Inpainted area must not be pure white: {:?}", center_px
+            );
+            eprintln!("[test] LaMa inpainting OK, center pixel: {:?}", center_px);
         } else {
             eprintln!("skip: lama model not downloaded");
         }

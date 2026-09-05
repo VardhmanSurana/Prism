@@ -8,8 +8,8 @@ import { ImageRect, overlayStyle } from '../imageRect';
 
 export interface AnnotationsOverlayProps {
   rect: ImageRect;
-  activeTool: string;
-  annotations: Annotation[];
+  containerRef?: React.Ref<HTMLDivElement>;
+  activeTool: string;  annotations: Annotation[];
   onAnnotationsChange: (a: Annotation[]) => void;
   onStartGesture?: () => void;
   onEndGesture?: () => void;
@@ -56,6 +56,7 @@ export const AnnotationsOverlay: React.FC<AnnotationsOverlayProps> = (p) => {
 
   return (
     <div
+      ref={p.containerRef}
       className={`absolute ${isActive ? '' : 'pointer-events-none'}`}
       style={overlayStyle(p.rect, { pointerEvents: isActive ? 'auto' : 'none', zIndex: isActive ? 30 : 20 })}
     >

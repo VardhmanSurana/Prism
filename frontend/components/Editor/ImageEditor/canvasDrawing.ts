@@ -243,7 +243,7 @@ export function drawFilteredImageToCanvas(
       const border = Math.max(w, h) * (frame.thickness / 100) * 0.6;
 
       if (frame.style === 'polaroid') {
-        ctx2.fillStyle = '#f8f8f6';
+        ctx2.fillStyle = frame.color || '#f8f8f6';
         ctx2.fillRect(0, 0, w, border);
         ctx2.fillRect(0, h - border * 3.5, w, border * 3.5);
         ctx2.fillRect(0, 0, border, h);

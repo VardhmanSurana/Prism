@@ -5,7 +5,7 @@
  */
 import React from 'react';
 import { ToolId } from '../Sidebar';
-import { Adjustments, DEFAULT_BACKGROUND_ADJUSTMENTS, DEFAULT_DEPTH_TEXT_SETTINGS } from '../filterEngine';
+import { Adjustments, DEFAULT_BACKGROUND_ADJUSTMENTS } from '../filterEngine';
 import { AdjustPanel } from '../AdjustPanel';
 import { DetailPanel } from '../DetailPanel';
 import { TransformPanel } from '../TransformPanel';
@@ -29,9 +29,6 @@ import { LassoState } from '../lassoEngine';
 
 const BackgroundPanelLazy = React.lazy(() =>
   import('@plugins/ai-vision-studio/BackgroundPanel').then((m) => ({ default: m.BackgroundPanel })),
-);
-const DepthTextPanelLazy = React.lazy(() =>
-  import('@plugins/ai-vision-studio/DepthTextPanel').then((m) => ({ default: m.DepthTextPanel })),
 );
 const MagicEraserPanelLazy = React.lazy(() =>
   import('@plugins/ai-vision-studio/MagicEraserPanel').then((m) => ({ default: m.MagicEraserPanel })),
@@ -142,6 +139,7 @@ export interface PanelCtx {
     captionText: string | null;
     isCaptionLoading: boolean;
     samCanSegment: boolean;
+    samPointsCount?: number;
     isSamSegmenting: boolean;
     handleUpscale: () => void;
     handleFaceRestore: () => void;
@@ -194,15 +192,6 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
       adjustments={c.adjustments}
       onChange={c.handleAdjChange}
       onResetTool={() => c.handleAdjChange({ ...c.adjustments, background: { ...DEFAULT_BACKGROUND_ADJUSTMENTS } })}
-    />
-  )],
-  ['depthText', (c) => (
-    <DepthTextPanelLazy
-      photoId={c.photoId || ''}
-      photoUrl={c.currentImageSrc}
-      adjustments={c.adjustments}
-      onChange={c.handleAdjChange}
-      onResetTool={() => c.handleAdjChange({ ...c.adjustments, depthText: { ...DEFAULT_DEPTH_TEXT_SETTINGS } })}
     />
   )],
   ['transform', (c) => (
@@ -393,6 +382,7 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
       onGenerateSegmentMask={c.ai.handleGenerateSegmentMask}
       canSegment={c.ai.samCanSegment}
       onClearSegmentPoints={c.ai.handleClearSegmentPoints}
+      interactivePointsCount={c.ai.samPointsCount}
     />
   )],
   ['depth', (c) => (
@@ -413,11 +403,8 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
       onUpscale={c.ai.handleUpscale}
       onFaceRestore={c.ai.handleFaceRestore}
       onDenoise={c.ai.handleDenoise}
-      onCaption={c.ai.handleCaption}
-      isProcessing={c.ai.isEnhanceProcessing || c.ai.isCaptionLoading}
+      isProcessing={c.ai.isEnhanceProcessing}
       activeAction={c.ai.activeEnhanceAction}
-      caption={c.ai.captionText}
-      captionLoading={c.ai.isCaptionLoading}
     />
   )],
 ];

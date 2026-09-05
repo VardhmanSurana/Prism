@@ -23,6 +23,7 @@ export interface CanvasAreaProps {
   inpaintCanvasRef?: React.Ref<InpaintCanvasHandle>;
   inpaintMask?: string | null;
   brushSize?: number;
+  brushHardness?: number;
   onInpaintMaskChange?: (maskDataUrl: string) => void;
   onInpaintStrokeComplete?: (maskDataUrl: string) => void;
   onInteractivePointsChange?: (points: Array<{ x: number; y: number; positive: boolean }>) => void;

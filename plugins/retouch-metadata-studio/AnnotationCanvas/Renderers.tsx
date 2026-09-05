@@ -1,12 +1,97 @@
 import React from 'react';
-import { Annotation } from '../AnnotationsPanel';
-import { smoothPath, getAnnRotationTransform } from './utils';
+import { Annotation, DoodleLineStyle, LineTexture, LineTaper } from '../AnnotationsPanel';
+import {
+  smoothPath,
+  doodleLinePoints,
+  getAnnRotationTransform,
+  generateSmoothSpline,
+  constructVariableWidthRibbon,
+} from './utils';
 import {
   VectorShapeType,
   getPolygonPoints,
   getShapePathString,
   normalizeBounds,
 } from './shapeUtils';
+
+export const AnnotationDefs = React.memo(() => (
+  <defs>
+    {/* Chalk texture filter — porous paper grain and rough chalk crumb edges */}
+    <filter id="chalk-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.2" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feColorMatrix in="noise" type="matrix" values="
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        1 0 0 0 -0.22" result="maskNoise" />
+      <feComposite in="displaced" in2="maskNoise" operator="in" />
+    </filter>
+
+    {/* Crayon texture filter — rough wax tooth */}
+    <filter id="crayon-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feTurbulence type="turbulence" baseFrequency="0.45" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="5.5" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feColorMatrix in="noise" type="matrix" values="
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        1 1 0 0 -0.35" result="maskNoise" />
+      <feComposite in="displaced" in2="maskNoise" operator="in" />
+    </filter>
+
+    {/* Drybrush texture filter — directional bristle grain */}
+    <filter id="drybrush-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feTurbulence type="fractalNoise" baseFrequency="0.82 0.08" numOctaves="3" result="grain" />
+      <feDisplacementMap in="SourceGraphic" in2="grain" scale="3" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feColorMatrix in="grain" type="matrix" values="
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        1.2 0 0 0 -0.28" result="grainMask" />
+      <feComposite in="displaced" in2="grainMask" operator="in" />
+    </filter>
+
+    {/* Neon glow filter — luminous bloom */}
+    <filter id="neon-glow-filter" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="coloredBlur" />
+      <feMerge>
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="coloredBlur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    {/* Gradients for shape fills */}
+    <linearGradient id="grad-sunset" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#f43f5e" />
+      <stop offset="100%" stopColor="#f59e0b" />
+    </linearGradient>
+    <linearGradient id="grad-cyber" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#06b6d4" />
+      <stop offset="100%" stopColor="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#10b981" />
+      <stop offset="100%" stopColor="#064e3b" />
+    </linearGradient>
+    <linearGradient id="grad-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#fbbf24" />
+      <stop offset="100%" stopColor="#d97706" />
+    </linearGradient>
+    <linearGradient id="grad-noir" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#4b5563" />
+      <stop offset="100%" stopColor="#111827" />
+    </linearGradient>
+  </defs>
+));
+
+export const getTextureFilter = (texture?: LineTexture): string | undefined => {
+  if (texture === 'chalk') return 'url(#chalk-filter)';
+  if (texture === 'crayon') return 'url(#crayon-filter)';
+  if (texture === 'drybrush') return 'url(#drybrush-filter)';
+  return undefined;
+};
 
 interface RendererProps {
   ann: Annotation;
@@ -24,38 +109,50 @@ const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
 
 export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
-  const start = ann.points[0];
-  const end = ann.points[ann.points.length - 1];
-  const angle = Math.atan2(end.y - start.y, end.x - start.x);
-
+  const transform = getAnnRotationTransform(ann, aspectRatio);
+  const filter = getTextureFilter(ann.lineTexture);
+  const stroke = ann.color;
+  const strokeWidth = ann.strokeWidth * 1.5;
   const headLength = Math.max(20, ann.strokeWidth * 4);
 
-  const xTip = end.x;
-  const yTip = end.y;
-  const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
-  const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
-  const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
-  const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
+  let spine: { x: number; y: number }[];
+  if (ann.points.length > 2) {
+    spine = generateSmoothSpline(ann.points, 24);
+  } else if (ann.doodleLineStyle) {
+    spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+  } else {
+    spine = ann.points;
+  }
 
-  const xBase = end.x - headLength * Math.cos(angle) * 0.8;
-  const yBase = end.y - headLength * Math.sin(angle) * 0.8;
+  const tip = spine[spine.length - 1];
+  const prev = spine[Math.max(0, spine.length - 3)];
+  const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
 
-  const transform = getAnnRotationTransform(ann, aspectRatio);
+  const xLeft = tip.x - headLength * Math.cos(ang - Math.PI / 6);
+  const yLeft = tip.y - headLength * Math.sin(ang - Math.PI / 6);
+  const xRight = tip.x - headLength * Math.cos(ang + Math.PI / 6);
+  const yRight = tip.y - headLength * Math.sin(ang + Math.PI / 6);
+
+  let shaft: React.ReactNode;
+  if (ann.lineTaper && ann.lineTaper !== 'none') {
+    const ribbonD = constructVariableWidthRibbon(spine, strokeWidth, ann.lineTaper, ann.doodleLineStyle);
+    shaft = <path d={ribbonD} fill={stroke} filter={filter} />;
+  } else if (spine.length > 2) {
+    const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+    shaft = <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" filter={filter} />;
+  } else {
+    const xBase = tip.x - headLength * Math.cos(ang) * 0.8;
+    const yBase = tip.y - headLength * Math.sin(ang) * 0.8;
+    shaft = <line x1={spine[0].x} y1={spine[0].y} x2={xBase} y2={yBase} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" filter={filter} />;
+  }
 
   return (
     <g transform={transform} opacity={ann.opacity ?? 1}>
-      <line
-        x1={start.x}
-        y1={start.y}
-        x2={xBase}
-        y2={yBase}
-        stroke={ann.color}
-        strokeWidth={ann.strokeWidth * 1.5}
-        strokeLinecap="round"
-      />
+      {shaft}
       <polygon
-        points={`${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}`}
-        fill={ann.color}
+        points={`${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${xLeft.toFixed(1)},${yLeft.toFixed(1)} ${xRight.toFixed(1)},${yRight.toFixed(1)}`}
+        fill={stroke}
+        filter={filter}
       />
     </g>
   );
@@ -64,12 +161,9 @@ export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps
 export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
-  let pathData = smoothed
-    .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-    .join(' ');
-  if (ann.closePath && smoothed.length > 2) pathData += ' Z';
-
+  const filter = getTextureFilter(ann.lineTexture);
   const sw = ann.strokeWidth * 1.5;
+
   const dashArray =
     ann.penStyle === 'dashed'
       ? `${sw * 2.5} ${sw * 2}`
@@ -93,8 +187,24 @@ export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
 
   const transform = getAnnRotationTransform(ann, aspectRatio);
 
-  return (
-    <g transform={transform}>
+  let mainStroke: React.ReactNode;
+  if (ann.lineTaper && ann.lineTaper !== 'none' && smoothed.length >= 2) {
+    const ribbonD = constructVariableWidthRibbon(smoothed, sw, ann.lineTaper, ann.doodleLineStyle);
+    mainStroke = (
+      <path
+        d={ribbonD}
+        fill={ann.color}
+        fillOpacity={1}
+        filter={filter}
+      />
+    );
+  } else {
+    let pathData = smoothed
+      .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+      .join(' ');
+    if (ann.closePath && smoothed.length > 2) pathData += ' Z';
+
+    mainStroke = (
       <path
         d={pathData}
         fill={ann.closePath ? ann.color : 'none'}
@@ -104,9 +214,15 @@ export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
         strokeDasharray={dashArray}
         strokeLinecap="round"
         strokeLinejoin="round"
-        opacity={ann.opacity ?? 1}
+        filter={filter}
       />
-      {arrowHead && <polygon points={arrowHead} fill={ann.color} opacity={ann.opacity ?? 1} />}
+    );
+  }
+
+  return (
+    <g transform={transform} opacity={ann.opacity ?? 1}>
+      {mainStroke}
+      {arrowHead && <polygon points={arrowHead} fill={ann.color} filter={filter} />}
     </g>
   );
 }, arePropsEqual);
@@ -137,17 +253,45 @@ export const HighlighterRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
 }, arePropsEqual);
 
 export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
-  const fill = ann.fillShape ? ann.color : 'none';
+  const fill = ann.fillShape ? (ann.fillColor ?? ann.color) : 'none';
   const fillOpacity = ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined;
   const stroke = ann.color;
   const strokeWidth = ann.strokeWidth * 1.5;
   const opacity = ann.opacity ?? 1;
 
   if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
-    const start = ann.points[0];
-    const end = ann.points[ann.points.length - 1];
     const transform = getAnnRotationTransform(ann, aspectRatio);
+    const filter = getTextureFilter(ann.lineTexture);
 
+    if (ann.points.length > 2 || (ann.lineTaper && ann.lineTaper !== 'none') || ann.doodleLineStyle) {
+      let spine: { x: number; y: number }[];
+      if (ann.points.length > 2) {
+        spine = generateSmoothSpline(ann.points, 24);
+      } else if (ann.doodleLineStyle) {
+        spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+      } else {
+        spine = generateSmoothSpline(ann.points, 24);
+      }
+
+      if (ann.lineTaper && ann.lineTaper !== 'none') {
+        const ribbonD = constructVariableWidthRibbon(spine, strokeWidth, ann.lineTaper, ann.doodleLineStyle);
+        return (
+          <g transform={transform} opacity={opacity}>
+            <path d={ribbonD} fill={stroke} filter={filter} />
+          </g>
+        );
+      }
+
+      const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      return (
+        <g transform={transform} opacity={opacity}>
+          <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" filter={filter} />
+        </g>
+      );
+    }
+
+    const start = ann.points[0];
+    const end = ann.points[1];
     return (
       <g transform={transform} opacity={opacity}>
         <line
@@ -158,93 +302,119 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
           stroke={stroke}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
+          filter={filter}
         />
       </g>
     );
   }
 
   if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
-    const start = ann.points[0];
-    const end = ann.points[ann.points.length - 1];
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const transform = getAnnRotationTransform(ann, aspectRatio);
+    const filter = getTextureFilter(ann.lineTexture);
     const headLength = Math.max(20, ann.strokeWidth * 4);
 
-    const xTip = end.x;
-    const yTip = end.y;
-    const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
-    const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
-    const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
-    const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
-    const xBase = end.x - headLength * Math.cos(angle) * 0.8;
-    const yBase = end.y - headLength * Math.sin(angle) * 0.8;
+    let spine: { x: number; y: number }[];
+    if (ann.points.length > 2) {
+      spine = generateSmoothSpline(ann.points, 24);
+    } else if (ann.doodleLineStyle) {
+      spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+    } else {
+      spine = ann.points;
+    }
 
-    const transform = getAnnRotationTransform(ann, aspectRatio);
+    const tip = spine[spine.length - 1];
+    const prev = spine[Math.max(0, spine.length - 3)];
+    const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+
+    const xLeft = tip.x - headLength * Math.cos(ang - Math.PI / 6);
+    const yLeft = tip.y - headLength * Math.sin(ang - Math.PI / 6);
+    const xRight = tip.x - headLength * Math.cos(ang + Math.PI / 6);
+    const yRight = tip.y - headLength * Math.sin(ang + Math.PI / 6);
+
+    let shaft: React.ReactNode;
+    if (ann.lineTaper && ann.lineTaper !== 'none') {
+      const ribbonD = constructVariableWidthRibbon(spine, strokeWidth, ann.lineTaper, ann.doodleLineStyle);
+      shaft = <path d={ribbonD} fill={stroke} filter={filter} />;
+    } else if (spine.length > 2) {
+      const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      shaft = <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" filter={filter} />;
+    } else {
+      const xBase = tip.x - headLength * Math.cos(ang) * 0.8;
+      const yBase = tip.y - headLength * Math.sin(ang) * 0.8;
+      shaft = <line x1={spine[0].x} y1={spine[0].y} x2={xBase} y2={yBase} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" filter={filter} />;
+    }
 
     return (
       <g transform={transform} opacity={opacity}>
-        <line
-          x1={start.x}
-          y1={start.y}
-          x2={xBase}
-          y2={yBase}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
+        {shaft}
         <polygon
-          points={`${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}`}
+          points={`${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${xLeft.toFixed(1)},${yLeft.toFixed(1)} ${xRight.toFixed(1)},${yRight.toFixed(1)}`}
           fill={stroke}
+          filter={filter}
         />
       </g>
     );
   }
 
   if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
-    const start = ann.points[0];
-    const end = ann.points[ann.points.length - 1];
-    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+    const transform = getAnnRotationTransform(ann, aspectRatio);
+    const filter = getTextureFilter(ann.lineTexture);
     const headLength = Math.max(20, ann.strokeWidth * 4);
 
+    let spine: { x: number; y: number }[];
+    if (ann.points.length > 2) {
+      spine = generateSmoothSpline(ann.points, 24);
+    } else if (ann.doodleLineStyle) {
+      spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+    } else {
+      spine = ann.points;
+    }
+
     // End arrowhead
-    const xTip1 = end.x;
-    const yTip1 = end.y;
-    const xLeft1 = end.x - headLength * Math.cos(angle - Math.PI / 6);
-    const yLeft1 = end.y - headLength * Math.sin(angle - Math.PI / 6);
-    const xRight1 = end.x - headLength * Math.cos(angle + Math.PI / 6);
-    const yRight1 = end.y - headLength * Math.sin(angle + Math.PI / 6);
-    const xBase1 = end.x - headLength * Math.cos(angle) * 0.8;
-    const yBase1 = end.y - headLength * Math.sin(angle) * 0.8;
+    const tip1 = spine[spine.length - 1];
+    const prev1 = spine[Math.max(0, spine.length - 3)];
+    const a1 = Math.atan2(tip1.y - prev1.y, tip1.x - prev1.x);
+    const xLeft1 = tip1.x - headLength * Math.cos(a1 - Math.PI / 6);
+    const yLeft1 = tip1.y - headLength * Math.sin(a1 - Math.PI / 6);
+    const xRight1 = tip1.x - headLength * Math.cos(a1 + Math.PI / 6);
+    const yRight1 = tip1.y - headLength * Math.sin(a1 + Math.PI / 6);
 
     // Start arrowhead
-    const xTip0 = start.x;
-    const yTip0 = start.y;
-    const xLeft0 = start.x + headLength * Math.cos(angle - Math.PI / 6);
-    const yLeft0 = start.y + headLength * Math.sin(angle - Math.PI / 6);
-    const xRight0 = start.x + headLength * Math.cos(angle + Math.PI / 6);
-    const yRight0 = start.y + headLength * Math.sin(angle + Math.PI / 6);
-    const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
-    const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
+    const tip0 = spine[0];
+    const next0 = spine[Math.min(spine.length - 1, 2)];
+    const a0 = Math.atan2(tip0.y - next0.y, tip0.x - next0.x);
+    const xLeft0 = tip0.x - headLength * Math.cos(a0 - Math.PI / 6);
+    const yLeft0 = tip0.y - headLength * Math.sin(a0 - Math.PI / 6);
+    const xRight0 = tip0.x - headLength * Math.cos(a0 + Math.PI / 6);
+    const yRight0 = tip0.y - headLength * Math.sin(a0 + Math.PI / 6);
 
-    const transform = getAnnRotationTransform(ann, aspectRatio);
+    let shaftDA: React.ReactNode;
+    if (ann.lineTaper && ann.lineTaper !== 'none') {
+      const ribbonD = constructVariableWidthRibbon(spine, strokeWidth, ann.lineTaper, ann.doodleLineStyle);
+      shaftDA = <path d={ribbonD} fill={stroke} filter={filter} />;
+    } else if (spine.length > 2) {
+      const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+      shaftDA = <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" filter={filter} />;
+    } else {
+      const xBase1 = tip1.x - headLength * Math.cos(a1) * 0.8;
+      const yBase1 = tip1.y - headLength * Math.sin(a1) * 0.8;
+      const xBase0 = tip0.x + headLength * Math.cos(a0) * 0.8;
+      const yBase0 = tip0.y + headLength * Math.sin(a0) * 0.8;
+      shaftDA = <line x1={xBase0} y1={yBase0} x2={xBase1} y2={yBase1} stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" filter={filter} />;
+    }
 
     return (
       <g transform={transform} opacity={opacity}>
-        <line
-          x1={xBase0}
-          y1={yBase0}
-          x2={xBase1}
-          y2={yBase1}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
+        {shaftDA}
+        <polygon
+          points={`${tip1.x.toFixed(1)},${tip1.y.toFixed(1)} ${xLeft1.toFixed(1)},${yLeft1.toFixed(1)} ${xRight1.toFixed(1)},${yRight1.toFixed(1)}`}
+          fill={stroke}
+          filter={filter}
         />
         <polygon
-          points={`${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}`}
+          points={`${tip0.x.toFixed(1)},${tip0.y.toFixed(1)} ${xLeft0.toFixed(1)},${yLeft0.toFixed(1)} ${xRight0.toFixed(1)},${yRight0.toFixed(1)}`}
           fill={stroke}
-        />
-        <polygon
-          points={`${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}`}
-          fill={stroke}
+          filter={filter}
         />
       </g>
     );
@@ -254,101 +424,128 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   const { x, y, w, h } = normalizeBounds(ann.bounds);
   const transform = getAnnRotationTransform(ann, aspectRatio);
 
-  if (ann.type === 'rect') {
-    return (
-      <g transform={transform}>
-        <rect
-          x={x}
-          y={y}
-          width={w}
-          height={h}
-          fill={fill}
-          fillOpacity={fillOpacity}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          opacity={opacity}
-        />
-      </g>
-    );
-  }
+  const isGradient = ann.gradientFill && ann.gradientFill !== 'none';
+  const shapeFill = isGradient
+    ? `url(#grad-${ann.gradientFill})`
+    : ann.fillShape
+      ? (ann.fillColor ?? ann.color)
+      : 'none';
+  const shapeFillOpacity = isGradient ? 1 : ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined;
+  const shapeFilter = ann.shapeEffect === 'glow' ? 'url(#neon-glow-filter)' : getTextureFilter(ann.lineTexture);
+  const shapeDash =
+    ann.shapeStrokeStyle === 'dashed'
+      ? `${strokeWidth * 3} ${strokeWidth * 2}`
+      : ann.shapeStrokeStyle === 'dotted'
+        ? `0.1 ${strokeWidth * 2}`
+        : undefined;
 
-  if (ann.type === 'roundedRect') {
-    const r = Math.min(w, h) * 0.15;
-    return (
-      <g transform={transform}>
-        <rect
-          x={x}
-          y={y}
-          width={w}
-          height={h}
-          rx={r}
-          ry={r}
-          fill={fill}
-          fillOpacity={fillOpacity}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          opacity={opacity}
-        />
-      </g>
-    );
-  }
+  let shapeElement: React.ReactNode = null;
 
-  if (ann.type === 'circle') {
-    return (
-      <g transform={transform}>
-        <ellipse
-          cx={x + w / 2}
-          cy={y + h / 2}
-          rx={w / 2}
-          ry={h / 2}
-          fill={fill}
-          fillOpacity={fillOpacity}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          opacity={opacity}
-        />
-      </g>
+  if (ann.type === 'rect' || ann.type === 'roundedRect') {
+    const defaultR = ann.type === 'roundedRect' ? Math.min(w, h) * 0.15 : 0;
+    const r = ann.cornerRadius ?? defaultR;
+    shapeElement = (
+      <rect
+        x={x}
+        y={y}
+        width={w}
+        height={h}
+        rx={r}
+        ry={r}
+        fill={shapeFill}
+        fillOpacity={shapeFillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={shapeDash}
+        filter={shapeFilter}
+        opacity={opacity}
+      />
     );
-  }
-
-  // Geometric regular polygon shapes
-  const polyPoints = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
-  if (polyPoints) {
-    return (
-      <g transform={transform}>
+  } else if (ann.type === 'circle') {
+    shapeElement = (
+      <ellipse
+        cx={x + w / 2}
+        cy={y + h / 2}
+        rx={w / 2}
+        ry={h / 2}
+        fill={shapeFill}
+        fillOpacity={shapeFillOpacity}
+        stroke={stroke}
+        strokeWidth={strokeWidth}
+        strokeDasharray={shapeDash}
+        filter={shapeFilter}
+        opacity={opacity}
+      />
+    );
+  } else {
+    // Geometric regular polygon shapes (triangle, rightTriangle, diamond, pentagon, hexagon, star, fourPointStar, lightning)
+    const polyPoints = getPolygonPoints(ann.type as VectorShapeType, ann.bounds, {
+      polygonSides: ann.polygonSides,
+      starPoints: ann.starPoints,
+      starSpikiness: ann.starSpikiness,
+    });
+    if (polyPoints) {
+      shapeElement = (
         <polygon
           points={polyPoints}
-          fill={fill}
-          fillOpacity={fillOpacity}
+          fill={shapeFill}
+          fillOpacity={shapeFillOpacity}
           stroke={stroke}
           strokeWidth={strokeWidth}
+          strokeDasharray={shapeDash}
           strokeLinejoin="round"
+          filter={shapeFilter}
           opacity={opacity}
         />
-      </g>
-    );
+      );
+    } else {
+      // Path-based shapes (heart, speechBubble, cloud)
+      const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds, {
+        tailPos: ann.tailPos,
+        cornerRadius: ann.cornerRadius,
+      });
+      if (pathD) {
+        shapeElement = (
+          <path
+            d={pathD}
+            fill={shapeFill}
+            fillOpacity={shapeFillOpacity}
+            stroke={stroke}
+            strokeWidth={strokeWidth}
+            strokeDasharray={shapeDash}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            filter={shapeFilter}
+            opacity={opacity}
+          />
+        );
+      }
+    }
   }
 
-  // Path-based shapes (heart, speechBubble, cloud, lightning, stars, etc.)
-  const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
-  if (pathD) {
-    return (
-      <g transform={transform}>
-        <path
-          d={pathD}
-          fill={fill}
-          fillOpacity={fillOpacity}
-          stroke={stroke}
-          strokeWidth={strokeWidth}
-          strokeLinejoin="round"
-          strokeLinecap="round"
-          opacity={opacity}
-        />
-      </g>
-    );
-  }
+  // Embedded Badge Text
+  const badge = ann.badgeText ? (
+    <text
+      x={x + w / 2}
+      y={y + h / 2}
+      dominantBaseline="middle"
+      textAnchor="middle"
+      fill={ann.color}
+      fontSize={Math.min(28, Math.max(10, Math.min(w, h) * 0.22))}
+      fontWeight="600"
+      fontFamily="Space Grotesk, system-ui, sans-serif"
+      pointerEvents="none"
+    >
+      {ann.badgeText}
+    </text>
+  ) : null;
 
-  return null;
+  return (
+    <g transform={transform}>
+      {shapeElement}
+      {badge}
+    </g>
+  );
 }, arePropsEqual);
 
 export const RectRenderer = VectorShapeRenderer;

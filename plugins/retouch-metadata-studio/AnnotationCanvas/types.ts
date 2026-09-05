@@ -1,7 +1,7 @@
 import { Annotation } from '../AnnotationsPanel';
 import { DrawToolId, PenSettings } from '../AnnotationsPanel';
 
-export type HandleId = 'ep0' | 'ep1' | 'tl' | 'tr' | 'bl' | 'br' | 'lm' | 'rm';
+export type HandleId = `ep${number}` | 'tl' | 'tr' | 'bl' | 'br' | 'lm' | 'rm' | 'tm' | 'bm';
 
 export type DragMode = 'none' | 'move' | 'resize-edge' | 'resize-endpoint';
 

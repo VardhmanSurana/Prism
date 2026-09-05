@@ -4,6 +4,6 @@
  */
 
 export { AnnotationsPanel } from './AnnotationsPanel';
-export type { Annotation, DrawToolId, VectorShapeType, PenSettings, PenStrokeStyle } from './types';
+export type { Annotation, DrawToolId, VectorShapeType, PenSettings, PenStrokeStyle, DoodleLineStyle, LineTexture, LineTaper } from './types';
 export { DEFAULT_PEN_SETTINGS } from './types';
 export type { AnnotationsPanelProps } from './AnnotationsPanel';

@@ -41,6 +41,7 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
   const [isCaptionLoading, setIsCaptionLoading] = useState(false);
 
   const [samCanSegment, setSamCanSegment] = useState(false);
+  const [samPointsCount, setSamPointsCount] = useState(0);
   const [isSamSegmenting, setIsSamSegmenting] = useState(false);
   const samPointsRef = useRef<Array<{ x: number; y: number; positive: boolean }>>([]);
 
@@ -173,6 +174,7 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
     (pts: Array<{ x: number; y: number; positive: boolean }>) => {
       samPointsRef.current = pts;
       setSamCanSegment(pts.length > 0);
+      setSamPointsCount(pts.length);
     },
     [],
   );
@@ -212,6 +214,7 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
   const handleClearSegmentPoints = useCallback(() => {
     samPointsRef.current = [];
     setSamCanSegment(false);
+    setSamPointsCount(0);
     p.inpaintCanvasRef.current?.clearMask();
   }, [p.inpaintCanvasRef]);
 
@@ -232,6 +235,7 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
     captionText,
     isCaptionLoading,
     samCanSegment,
+    samPointsCount,
     isSamSegmenting,
     samPointsRef,
     handleDepthProcess,

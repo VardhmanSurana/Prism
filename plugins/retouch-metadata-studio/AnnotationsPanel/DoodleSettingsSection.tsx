@@ -6,6 +6,18 @@
 import React from 'react';
 import { Sparkles } from 'lucide-react';
 import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
+import { Dropdown } from '@/components/ui/Dropdown';
+
+const DOODLE_FONTS = [
+  'Space Grotesk',
+  'Montserrat',
+  'Pacifico',
+  'Caveat',
+  'Satisfy',
+  'Bebas Neue',
+  'Helvetica',
+  'JetBrains Mono',
+];
 
 interface DoodleSettingsSectionProps {
   doodleText?: string;
@@ -68,24 +80,16 @@ export const DoodleSettingsSection: React.FC<DoodleSettingsSectionProps> = ({
 
       {/* Font Family select */}
       <div className="space-y-1">
-        <label htmlFor="doodle-font-family-select" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">
+        <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">
           Font Style
-        </label>
-        <select
-          id="doodle-font-family-select"
+        </span>
+        <Dropdown
           value={doodleFontFamily || 'Space Grotesk'}
-          onChange={(e) => setDoodleFontFamily?.(e.target.value)}
-          className="w-full bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs tracking-wide text-white focus:outline-none cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-        >
-          <option value="Space Grotesk">Space Grotesk</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Pacifico">Pacifico</option>
-          <option value="Caveat">Caveat</option>
-          <option value="Satisfy">Satisfy</option>
-          <option value="Bebas Neue">Bebas Neue</option>
-          <option value="Helvetica">Arial / Sans</option>
-          <option value="JetBrains Mono">JetBrains Mono</option>
-        </select>
+          onChange={(v) => setDoodleFontFamily?.(v)}
+          options={DOODLE_FONTS.map((f) => ({ value: f, label: f === 'Helvetica' ? 'Arial / Sans' : f }))}
+          optionStyle={(v) => ({ fontFamily: `"${v}", system-ui, sans-serif` })}
+          className="w-full"
+        />
       </div>
 
       {/* Show outline path guide */}

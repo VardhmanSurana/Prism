@@ -41,6 +41,12 @@ export interface PenSettings {
   fillOpacity: number;
   /** Draw an arrowhead at the end of the stroke */
   arrowEnd: boolean;
+  /** Calligraphic stroke taper mode */
+  taper?: LineTaper;
+  /** Artistic texture effect (chalk, crayon, drybrush) */
+  texture?: LineTexture;
+  /** Doodle line wave/sketch pattern */
+  doodleStyle?: DoodleLineStyle;
 }
 
 export const DEFAULT_PEN_SETTINGS: PenSettings = {
@@ -48,6 +54,9 @@ export const DEFAULT_PEN_SETTINGS: PenSettings = {
   closeFill: false,
   fillOpacity: 0.5,
   arrowEnd: false,
+  taper: 'none',
+  texture: 'none',
+  doodleStyle: undefined,
 };
 
 export interface Annotation {
@@ -87,10 +96,40 @@ export interface Annotation {
   doodleText?: string;
   showGuidePath?: boolean;
 
-  // Shape fill properties
+  // Shape fill and creative styling properties
   fillShape?: boolean;
+  fillColor?: string;
   fillOpacity?: number;
+  shapeStrokeStyle?: 'solid' | 'dashed' | 'dotted';
+  shapeEffect?: 'none' | 'glow' | 'glass';
+  gradientFill?: 'none' | 'sunset' | 'cyber' | 'emerald' | 'gold' | 'noir';
+  cornerRadius?: number;
+  starPoints?: number;
+  starSpikiness?: number;
+  polygonSides?: number;
+  tailPos?: { x: number; y: number };
+  badgeText?: string;
+
+  // Doodle line style for line/arrow/doubleArrow ('straight' = unset)
+  doodleLineStyle?: DoodleLineStyle;
+  lineTexture?: LineTexture;
+  lineTaper?: LineTaper;
+  lineRoughness?: number;
 }
+
+export type DoodleLineStyle =
+  | 'wave'
+  | 'zigzag'
+  | 'ripple'
+  | 'loop'
+  | 'sketch'
+  | 'arc'
+  | 'sCurve'
+  | 'dashed';
+
+export type LineTexture = 'chalk' | 'crayon' | 'drybrush' | 'none';
+
+export type LineTaper = 'hand' | 'taperStart' | 'taperBoth' | 'dynamic' | 'none';
 
 export type DrawToolId =
   | AnnotationToolType

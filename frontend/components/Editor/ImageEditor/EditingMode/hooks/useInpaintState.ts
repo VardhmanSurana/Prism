@@ -4,11 +4,12 @@
  * local mask undo/redo, process pipeline, and SAM-aware info messages.
  */
 import { MutableRefObject, useCallback, useRef, useState } from 'react';
-import type {
-  InpaintMode,
-  InpaintOperation,
-  InpaintSettings,
-  InpaintCanvasHandle,
+import {
+  type InpaintMode,
+  type InpaintOperation,
+  type InpaintSettings,
+  type InpaintCanvasHandle,
+  eraseImageLocally,
 } from '@plugins/ai-vision-studio';
 import { API_BASE, resolveUrl } from '@/constants';
 import { createInpaintPayload } from '../../utils/inpaintPayload';
@@ -51,45 +52,72 @@ export function useInpaintState(p: UseInpaintStateParams) {
     setIsInpainting(true);
 
     try {
-      const imageData = await createInpaintPayload(resolveUrl(p.currentImageSrc));
+      let resultBlobUrl: string | null = null;
+      let usedLocalFallback = false;
 
-      const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_data: imageData,
-          mask_data: inpaintMask,
-          operation: inpaintOperation,
-          model: inpaintSettings.model,
-          prompt: inpaintSettings.prompt,
-          guidance_scale: inpaintSettings.guidance,
-          num_inference_steps: inpaintSettings.steps,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok || result.success === false || !result.result) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+      // 1. If user explicitly chose the Instant Local engine, bypass backend
+      if (inpaintSettings.model === 'client_telea') {
+        const localDataUrl = await eraseImageLocally(p.currentImageSrc, inpaintMask);
+        const res = await fetch(localDataUrl);
+        const blob = await res.blob();
+        resultBlobUrl = URL.createObjectURL(blob);
+      } else {
+        // 2. Attempt neural model on backend with auto-fallback to client engine
+        try {
+          const imageData = await createInpaintPayload(resolveUrl(p.currentImageSrc));
+
+          const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              image_data: imageData,
+              mask_data: inpaintMask,
+              operation: inpaintOperation,
+              model: inpaintSettings.model,
+              prompt: inpaintSettings.prompt,
+              guidance_scale: inpaintSettings.guidance,
+              num_inference_steps: inpaintSettings.steps,
+            }),
+          });
+          const result = await response.json();
+          if (!response.ok || result.success === false || !result.result) {
+            throw new Error(result.error || `HTTP ${response.status}`);
+          }
+          const resultUrl: string = result.result;
+
+          const res = await fetch(resultUrl);
+          const blob = await res.blob();
+          resultBlobUrl = URL.createObjectURL(blob);
+        } catch (backendErr) {
+          console.warn('Backend neural inpainting unavailable, executing client-side Telea inpainter fallback:', backendErr);
+          usedLocalFallback = true;
+          const localDataUrl = await eraseImageLocally(p.currentImageSrc, inpaintMask);
+          const res = await fetch(localDataUrl);
+          const blob = await res.blob();
+          resultBlobUrl = URL.createObjectURL(blob);
+        }
       }
-      const resultUrl: string = result.result;
 
-      const res = await fetch(resultUrl);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      p.history.createdUrlRef.current = blobUrl;
+      if (resultBlobUrl) {
+        p.history.createdUrlRef.current = resultBlobUrl;
+        p.setCurrentImageSrc(resultBlobUrl);
+        setInpaintMask(null);
 
-      p.setCurrentImageSrc(blobUrl);
-      setInpaintMask(null);
+        p.history.addHistoryEntry(
+          'inpaint' as HistoryActionType,
+          `Applied ${inpaintOperation === 'remove' ? 'Object Removal' : 'Inpaint'}${usedLocalFallback ? ' (Local Engine)' : ''}`,
+          undefined,
+          resultBlobUrl,
+        );
 
-      p.history.addHistoryEntry(
-        'inpaint' as HistoryActionType,
-        `Applied ${inpaintOperation === 'remove' ? 'Object Removal' : 'Inpaint'}`,
-        undefined,
-        blobUrl,
-      );
+        p.inpaintCanvasRef.current?.clearMask();
 
-      p.inpaintCanvasRef.current?.clearMask();
-
-      p.showToast(inpaintOperation === 'remove' ? 'Object removed successfully' : 'Inpainting applied');
+        p.showToast(
+          usedLocalFallback
+            ? 'Neural model unavailable — erased using Local Engine'
+            : (inpaintOperation === 'remove' ? 'Object removed successfully' : 'Inpainting applied')
+        );
+      }
     } catch (error) {
       console.error('Inpainting error:', error);
       p.showToast('Failed to apply inpainting');

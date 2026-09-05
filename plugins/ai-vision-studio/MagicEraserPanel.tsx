@@ -60,12 +60,15 @@ export interface MagicEraserPanelProps {
   canSegment?: boolean;
   /** Interactive mode: clear the placed prompt points. */
   onClearSegmentPoints?: () => void;
+  /** Number of interactive points placed. */
+  interactivePointsCount?: number;
 }
 
 export type InpaintPanelProps = MagicEraserPanelProps;
 
 const ERASER_MODELS = [
-  { id: 'lama', name: 'LaMa (Fast Object Removal)', type: 'erase' },
+  { id: 'lama', name: 'LaMa (Neural AI Removal)', type: 'erase' },
+  { id: 'client_telea', name: 'Instant Local (CPU / Offline)', type: 'erase' },
   { id: 'sd15', name: 'Stable Diffusion (Neural Replace)', type: 'diffusion' },
 ];
 
@@ -88,6 +91,7 @@ export const MagicEraserPanel: React.FC<MagicEraserPanelProps> = ({
   onGenerateSegmentMask,
   canSegment,
   onClearSegmentPoints,
+  interactivePointsCount,
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -398,23 +402,30 @@ export const MagicEraserPanel: React.FC<MagicEraserPanelProps> = ({
         </button>
 
         {mode === 'interactive' && (
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={onGenerateSegmentMask}
-              disabled={!canSegment || isProcessing}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium transition-all border border-white/10 text-white/70 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles size={12} />
-              Generate Mask from Points
-            </button>
-            <button
-              onClick={onClearSegmentPoints}
-              disabled={!canSegment || isProcessing}
-              className="flex items-center justify-center p-2.5 rounded-lg text-xs font-medium transition-all border border-white/10 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Clear Points"
-            >
-              <Trash2 size={12} />
-            </button>
+          <div className="mt-2 space-y-1.5">
+            <div className="flex gap-2">
+              <button
+                onClick={onGenerateSegmentMask}
+                disabled={!canSegment || isProcessing}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-medium transition-all border border-white/10 text-white/70 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Sparkles size={12} />
+                Generate Mask from Points
+              </button>
+              <button
+                onClick={onClearSegmentPoints}
+                disabled={!canSegment || isProcessing}
+                className="flex items-center justify-center p-2.5 rounded-lg text-xs font-medium transition-all border border-white/10 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Clear Points"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+            {canSegment && (
+              <div className="text-center text-[10px] text-emerald-400 font-medium">
+                {interactivePointsCount ? `${interactivePointsCount} prompt points placed` : 'Points placed — click Generate Mask'}
+              </div>
+            )}
           </div>
         )}
       </div>

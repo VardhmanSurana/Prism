@@ -13,7 +13,7 @@ import {
   FlipVertical,
   Grid,
 } from 'lucide-react';
-import { Adjustments, DEFAULT_FRAME } from '@/components/Editor/ImageEditor/filterEngine';
+import { Adjustments, DEFAULT_FRAME, FrameAdjustments } from '@/components/Editor/ImageEditor/filterEngine';
 import { resolveUrl } from '@/constants';
 import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
 
@@ -57,25 +57,33 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
   flipV,
   imageSrc,
 }) => {
-  const frame = adjustments.frame ?? { ...DEFAULT_FRAME };
+  const adjustmentsRef = useRef(adjustments);
+  adjustmentsRef.current = adjustments;
 
-  const { value: thicknessUI, setRafValue: setThicknessUI } = useRafThrottledValue<number>(frame.thickness);
+  const frame = {
+    ...DEFAULT_FRAME,
+    ...(adjustments.frame || {}),
+  };
+  const frameStyle = (frame.style || 'none') as FrameAdjustments['style'];
+  const frameColor = frame.color || DEFAULT_FRAME.color || '#ffffff';
+  const frameThickness = typeof frame.thickness === 'number' && !isNaN(frame.thickness) ? frame.thickness : (DEFAULT_FRAME.thickness ?? 5);
 
-  const lastCommitRef = useRef({
-    thickness: frame.thickness,
-  });
-
-  if (lastCommitRef.current.thickness !== frame.thickness) {
-    lastCommitRef.current.thickness = frame.thickness;
-    setThicknessUI(frame.thickness);
-  }
+  const { value: thicknessUI, setRafValue: setThicknessUI } = useRafThrottledValue<number>(frameThickness);
 
   const commitThickness = useCallback((next: number) => {
+    const curr = adjustmentsRef.current;
+    const currFrame = {
+      ...DEFAULT_FRAME,
+      ...(curr.frame || {}),
+    };
     onChange({
-      ...adjustments,
-      frame: { ...frame, thickness: next },
+      ...curr,
+      frame: {
+        ...currFrame,
+        thickness: next,
+      },
     });
-  }, [onChange, adjustments, frame]);
+  }, [onChange]);
 
   const previewUrl = useMemo(() => {
     if (!imageSrc) return '';
@@ -88,38 +96,51 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
   }, [imageSrc]);
 
   const isDefault = useMemo(() => {
-    return frame.style === 'none';
-  }, [frame]);
+    return frameStyle === 'none';
+  }, [frameStyle]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
+    const curr = adjustmentsRef.current;
     onChange({
-      ...adjustments,
+      ...curr,
       frame: { ...DEFAULT_FRAME },
     });
-  };
+  }, [onChange]);
 
-  const handleFrameStyleSelect = (styleId: any) => {
+  const handleFrameStyleSelect = useCallback((styleId: FrameAdjustments['style']) => {
+    const curr = adjustmentsRef.current;
+    const currFrame = {
+      ...DEFAULT_FRAME,
+      ...(curr.frame || {}),
+    };
     onChange({
-      ...adjustments,
+      ...curr,
       frame: {
-        ...frame,
+        thickness: currFrame.thickness ?? DEFAULT_FRAME.thickness ?? 5,
+        color: currFrame.color ?? DEFAULT_FRAME.color ?? '#ffffff',
         style: styleId,
       },
     });
-  };
+  }, [onChange]);
 
-  const handleColorChange = (hex: string) => {
+  const handleColorChange = useCallback((hex: string) => {
+    const curr = adjustmentsRef.current;
+    const currFrame = {
+      ...DEFAULT_FRAME,
+      ...(curr.frame || {}),
+    };
     onChange({
-      ...adjustments,
+      ...curr,
       frame: {
-        ...frame,
+        thickness: currFrame.thickness ?? DEFAULT_FRAME.thickness ?? 5,
         color: hex,
+        style: currFrame.style ?? 'none',
       },
     });
-  };
+  }, [onChange]);
 
-  const showThicknessSlider = ['matte', 'rounded', 'thinline', 'shadowbox'].includes(frame.style);
-  const showColorPicker = ['matte', 'rounded', 'thinline', 'shadowbox', 'polaroid'].includes(frame.style);
+  const showThicknessSlider = ['matte', 'rounded', 'thinline', 'shadowbox', 'polaroid'].includes(frameStyle);
+  const showColorPicker = ['matte', 'rounded', 'thinline', 'shadowbox', 'polaroid'].includes(frameStyle);
 
   return (
     <div className="flex-1 w-full overflow-y-auto overflow-x-hidden custom-scrollbar text-white pb-6 select-none">
@@ -204,12 +225,12 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
 
         <div className="grid grid-cols-2 gap-2">
           {FRAME_TYPES.map(f => {
-            const isActive = frame.style === f.id;
+            const isActive = frameStyle === f.id;
             return (
               <button
                 key={f.id}
                 type="button"
-                onClick={() => handleFrameStyleSelect(f.id)}
+                onClick={() => handleFrameStyleSelect(f.id as FrameAdjustments['style'])}
                 className={`group/frame relative rounded-xl border p-2 flex flex-col gap-2 transition-all duration-200 cursor-pointer text-left ${
                   isActive
                     ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/30 shadow-md shadow-blue-500/10'
@@ -310,7 +331,7 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
         </div>
 
         {/* Frame Customization (Thickness & Color) */}
-        {frame.style !== 'none' && (
+        {frameStyle !== 'none' && (
           <div className="mt-4 space-y-4 pt-1 animate-in fade-in duration-200">
             {/* Thickness Slider */}
             {showThicknessSlider && (
@@ -323,7 +344,7 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
                 }}
                 min={1}
                 max={20}
-                defaultValue={5}
+                defaultValue={DEFAULT_FRAME.thickness ?? 5}
                 unit="%"
               />
             )}
@@ -336,7 +357,7 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
                 </label>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   {PRESET_COLORS.map(color => {
-                    const isColorActive = frame.color.toLowerCase() === color.hex.toLowerCase();
+                    const isColorActive = frameColor.toLowerCase() === color.hex.toLowerCase();
                     return (
                       <button
                         key={color.hex}
@@ -359,14 +380,14 @@ export const FramesPanel: React.FC<FramesPanelProps> = ({
                   <div className="relative w-6 h-6 rounded-full overflow-hidden border border-white/20 flex items-center justify-center bg-white/5 hover:scale-105 transition-transform duration-200">
                     <input
                       type="color"
-                      value={frame.color}
+                      value={frameColor.startsWith('#') && frameColor.length === 7 ? frameColor : '#ffffff'}
                       onChange={e => handleColorChange(e.target.value)}
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                       title="Custom color"
                     />
                     <div
                       className="w-4 h-4 rounded-full border border-white/20"
-                      style={{ backgroundColor: frame.color, borderRadius: '9999px' }}
+                      style={{ backgroundColor: frameColor, borderRadius: '9999px' }}
                     />
                   </div>
                 </div>

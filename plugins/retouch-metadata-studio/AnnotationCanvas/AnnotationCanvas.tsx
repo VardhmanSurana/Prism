@@ -10,6 +10,7 @@ import {
   CircleRenderer,
   TextPathRenderer,
   VectorShapeRenderer,
+  AnnotationDefs,
 } from './Renderers';
 import { getAnnotationBBox, getAnnRotationTransform } from './utils';
 
@@ -150,11 +151,12 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
     // All sizes scale with canvas height (1000-unit SVG viewBox → height/1000).
     // Base values are 2× the editor's CanvasViewport values.
-    const cornerSize  = Math.round(24 * scale);   // px — white circles
-    const halfCorner  = Math.round(12 * scale);   // offset from corner
-    const pillW       = Math.round(12 * scale);   // side-pill width
-    const pillH       = Math.round(24 * scale);   // side-pill height
-    const halfPillH   = Math.round(12 * scale);
+    const cornerSize  = Math.round(28 * scale);   // px — L-bracket arm length
+    const halfCorner  = Math.round(14 * scale);   // offset so the L straddles the corner
+    const bracketW    = Math.max(3, Math.round(4 * scale)); // L stroke thickness
+    const pillT       = Math.max(3, Math.round(4 * scale)); // side bars match the L stroke
+    const pillLen     = Math.round(28 * scale);   // side bar length
+    const halfPill    = Math.round(14 * scale);
     const btnSize     = Math.round(52 * scale);   // action button
     const iconSize    = Math.round(22 * scale);   // icon inside button
     const barOffset   = Math.round(88 * scale);   // distance below selection box
@@ -162,27 +164,45 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     const barPx       = Math.round(12 * scale);
     const barPy       = Math.round(6  * scale);
     const barRadius   = Math.round(999 * scale);
-    const borderW     = Math.max(2, Math.round(2 * scale));
 
-    const cornerStyle = (cursor: string): React.CSSProperties => ({
+    // ponytail: crop-style L-bracket corners (two white borders) instead of dots
+    const cornerStyle = (cursor: string, corner: 'tl' | 'tr' | 'bl' | 'br'): React.CSSProperties => {
+      const b = `${bracketW}px solid #ffffff`;
+      const radius = `${Math.round(6 * scale)}px`;
+      const sides: React.CSSProperties =
+        corner === 'tl' ? { borderTop: b, borderLeft: b, borderTopLeftRadius: radius } :
+        corner === 'tr' ? { borderTop: b, borderRight: b, borderTopRightRadius: radius } :
+        corner === 'bl' ? { borderBottom: b, borderLeft: b, borderBottomLeftRadius: radius } :
+                          { borderBottom: b, borderRight: b, borderBottomRightRadius: radius };
+      return {
+        position: 'absolute',
+        width: cornerSize,
+        height: cornerSize,
+        background: 'transparent',
+        cursor,
+        zIndex: 50,
+        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+        ...sides,
+      };
+    };
+
+    const pillVStyle = (cursor: string): React.CSSProperties => ({
       position: 'absolute',
-      width:  cornerSize,
-      height: cornerSize,
+      width: pillT,
+      height: pillLen,
       background: '#ffffff',
-      border: `${borderW}px solid #22c55e`,
-      borderRadius: '50%',
+      borderRadius: pillT,
       cursor,
       zIndex: 50,
       boxShadow: '0 1px 4px rgba(0,0,0,0.7)',
     });
 
-    const pillStyle = (cursor: string): React.CSSProperties => ({
+    const pillHStyle = (cursor: string): React.CSSProperties => ({
       position: 'absolute',
-      width:  pillW,
-      height: pillH,
+      width: pillLen,
+      height: pillT,
       background: '#ffffff',
-      border: `${borderW}px solid #22c55e`,
-      borderRadius: pillH,
+      borderRadius: pillT,
       cursor,
       zIndex: 50,
       boxShadow: '0 1px 4px rgba(0,0,0,0.7)',
@@ -207,35 +227,45 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
         {/* ── Corner handles ── */}
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'tl', ann.id)}
-          style={{ ...cornerStyle('nwse-resize'), top: -halfCorner, left: -halfCorner }}
+          style={{ ...cornerStyle('nwse-resize', 'tl'), top: -halfCorner, left: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'tr', ann.id)}
-          style={{ ...cornerStyle('nesw-resize'), top: -halfCorner, right: -halfCorner }}
+          style={{ ...cornerStyle('nesw-resize', 'tr'), top: -halfCorner, right: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'bl', ann.id)}
-          style={{ ...cornerStyle('nesw-resize'), bottom: -halfCorner, left: -halfCorner }}
+          style={{ ...cornerStyle('nesw-resize', 'bl'), bottom: -halfCorner, left: -halfCorner }}
           title="Resize"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'br', ann.id)}
-          style={{ ...cornerStyle('nwse-resize'), bottom: -halfCorner, right: -halfCorner }}
+          style={{ ...cornerStyle('nwse-resize', 'br'), bottom: -halfCorner, right: -halfCorner }}
           title="Resize"
         />
 
-        {/* ── Side-pill handles ── */}
+        {/* ── Side handles ── */}
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'lm', ann.id)}
-          style={{ ...pillStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', left: -halfPillH }}
+          style={{ ...pillVStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', left: -halfPill }}
           title="Resize Width"
         />
         <div
           onPointerDown={(e) => handleTextResizeStart(e, 'rm', ann.id)}
-          style={{ ...pillStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', right: -halfPillH }}
+          style={{ ...pillVStyle('ew-resize'), top: '50%', transform: 'translateY(-50%)', right: -halfPill }}
           title="Resize Width"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'tm', ann.id)}
+          style={{ ...pillHStyle('ns-resize'), left: '50%', transform: 'translateX(-50%)', top: -halfPill }}
+          title="Resize Height"
+        />
+        <div
+          onPointerDown={(e) => handleTextResizeStart(e, 'bm', ann.id)}
+          style={{ ...pillHStyle('ns-resize'), left: '50%', transform: 'translateX(-50%)', bottom: -halfPill }}
+          title="Resize Height"
         />
 
         {/* ── Bottom actions bar ── */}
@@ -312,7 +342,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             if (readOnly) return 'default';
             switch (activeDrawTool) {
               case 'select':
-                return 'move';
+                return 'default';
               case 'eraser':
                 return makeBrushCursor(eraserSize);
               case 'freehand':
@@ -329,6 +359,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
           zIndex: readOnly ? 20 : 30,
         }}
       >
+        <AnnotationDefs />
         {annotations.map((ann) => renderAnnotation(ann))}
         {currentAnn && renderAnnotation(currentAnn)}
 
@@ -339,28 +370,29 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
           // Point-based annotations (lines, arrows)
           if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
-            const p0 = selAnn.points[0];
-            const p1 = selAnn.points[selAnn.points.length - 1];
             const transform = getAnnRotationTransform(selAnn, aspectRatio);
 
             return (
               <g className="selection-handles" data-ann-id={selAnn.id} transform={transform} pointerEvents="none">
-                <circle
-                  cx={p0.x}
-                  cy={p0.y}
-                  r={8}
-                  fill="#ffffff"
-                  stroke="#22c55e"
-                  strokeWidth={2.5}
-                />
-                <circle
-                  cx={p1.x}
-                  cy={p1.y}
-                  r={8}
-                  fill="#ffffff"
-                  stroke="#22c55e"
-                  strokeWidth={2.5}
-                />
+                {selAnn.points.map((pt, i) => {
+                  const isStart = i === 0;
+                  const isEnd = i === selAnn.points!.length - 1;
+                  const strokeColor = isStart ? '#38bdf8' : isEnd ? '#22c55e' : '#f59e0b';
+                  const fillColor = isStart ? '#ffffff' : isEnd ? '#ffffff' : '#fbbf24';
+                  const r = isStart || isEnd ? 8 : 6.5;
+
+                  return (
+                    <circle
+                      key={i}
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={r}
+                      fill={fillColor}
+                      stroke={strokeColor}
+                      strokeWidth={2.5}
+                    />
+                  );
+                })}
               </g>
             );
           }
@@ -483,7 +515,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
                 zIndex: 50,
                 pointerEvents: 'none',
               }}
-              className="select-none rounded border-2 border-dashed border-[#22c55e] shadow-lg shadow-black/40"
+              // ponytail: no selection box — the dashed border sat exactly on the shape stroke;
+              // corner/side handles + action bar are the entire selection chrome
+              className="select-none rounded border-2 border-transparent"
             >
               {renderTransformHandles(ann)}
             </div>

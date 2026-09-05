@@ -14,6 +14,23 @@ import {
 } from 'lucide-react';
 import { Annotation } from './types';
 import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
+import { Dropdown } from '@/components/ui/Dropdown';
+
+const FONT_OPTIONS = [
+  'Arial',
+  'Space Grotesk',
+  'Bebas Neue',
+  'Pacifico',
+  'Caveat',
+  'Playfair Display',
+  'Montserrat',
+  'Cinzel',
+  'Satisfy',
+  'Anton',
+  'JetBrains Mono',
+  'Times New Roman',
+  'Courier New',
+];
 
 interface TextPropertiesSectionProps {
   fontFamily?: string;
@@ -63,32 +80,19 @@ export const TextPropertiesSection: React.FC<TextPropertiesSectionProps> = ({
         </span>
       </div>
 
-      {/* Font Family Dropdown */}
+      {/* Font Family Dropdown — triggered menu, each font previewed in its own typeface */}
       <div className="space-y-1">
-        <label htmlFor="text-font-family-select" className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">FONT FAMILY</label>
-        <select
-          id="text-font-family-select"
+        <span className="text-[9px] text-zinc-400 font-semibold uppercase tracking-wider block">FONT FAMILY</span>
+        <Dropdown
           value={fontFamily || 'Space Grotesk'}
-          onChange={(e) => {
-            setFontFamily?.(e.target.value);
-            onUpdateTextProps?.({ fontFamily: e.target.value });
+          onChange={(v) => {
+            setFontFamily?.(v);
+            onUpdateTextProps?.({ fontFamily: v });
           }}
-          className="w-full bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs tracking-wide text-white focus:outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary cursor-pointer"
-        >
-          <option value="Arial">Arial</option>
-          <option value="Space Grotesk">Space Grotesk</option>
-          <option value="Bebas Neue">Bebas Neue</option>
-          <option value="Pacifico">Pacifico</option>
-          <option value="Caveat">Caveat</option>
-          <option value="Playfair Display">Playfair Display</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Cinzel">Cinzel</option>
-          <option value="Satisfy">Satisfy</option>
-          <option value="Anton">Anton</option>
-          <option value="JetBrains Mono">JetBrains Mono</option>
-          <option value="Times New Roman">Times New Roman</option>
-          <option value="Courier New">Courier New</option>
-        </select>
+          options={FONT_OPTIONS.map((f) => ({ value: f, label: f }))}
+          optionStyle={(v) => ({ fontFamily: `"${v}", system-ui, sans-serif` })}
+          className="w-full"
+        />
       </div>
 
       {/* Font Size slider */}

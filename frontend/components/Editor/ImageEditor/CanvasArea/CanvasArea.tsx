@@ -218,6 +218,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
         {showAnnotations && effectiveImageRect && (
           <AnnotationsOverlay
             rect={effectiveImageRect}
+            containerRef={annotationsContainerRef}
             activeTool={p.activeTool as string}
             annotations={p.annotations ?? []}
             onAnnotationsChange={p.onAnnotationsChange ?? (() => {})}
@@ -266,6 +267,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
             imageUrl={p.currentImageSrc}
             mode={p.inpaintMode ?? 'brush'}
             brushSize={p.brushSize ?? 50}
+            brushHardness={p.brushHardness ?? 80}
             canvasRef={p.inpaintCanvasRef as React.Ref<InpaintCanvasHandle>}
             onMaskChange={p.onInpaintMaskChange ?? (() => {})}
             onStrokeComplete={p.onInpaintStrokeComplete}

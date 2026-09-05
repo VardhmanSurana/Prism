@@ -21,23 +21,28 @@ export const SelectionHighlight: React.FC<SelectionHighlightProps> = ({ annotati
 
   const renderEndpointHandles = () => {
     if (!annotation.points || annotation.points.length < 2) return null;
-    const p0 = annotation.points[0];
-    const p1 = annotation.points[annotation.points.length - 1];
 
     return (
       <>
-        <circle
-          cx={p0.x} cy={p0.y} r={HANDLE_R}
-          fill="white" stroke="#22c55e" strokeWidth={2}
-          style={{ cursor: 'grab' }}
-          onPointerDown={handleMouseDown('ep0')}
-        />
-        <circle
-          cx={p1.x} cy={p1.y} r={HANDLE_R}
-          fill="white" stroke="#22c55e" strokeWidth={2}
-          style={{ cursor: 'grab' }}
-          onPointerDown={handleMouseDown('ep1')}
-        />
+        {annotation.points.map((pt, i) => {
+          const isStart = i === 0;
+          const isEnd = i === annotation.points!.length - 1;
+          const stroke = isStart ? '#38bdf8' : isEnd ? '#22c55e' : '#f59e0b';
+          const fill = isStart || isEnd ? 'white' : '#fbbf24';
+          return (
+            <circle
+              key={i}
+              cx={pt.x}
+              cy={pt.y}
+              r={HANDLE_R}
+              fill={fill}
+              stroke={stroke}
+              strokeWidth={2}
+              style={{ cursor: 'grab' }}
+              onPointerDown={handleMouseDown(`ep${i}` as HandleId)}
+            />
+          );
+        })}
       </>
     );
   };

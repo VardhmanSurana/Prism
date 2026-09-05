@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { EditorSlider } from './ui/EditorSlider';
+import { Dropdown } from '@/components/ui/Dropdown';
 
 interface LayersPanelProps {
   layers: Layer[];
@@ -162,18 +163,13 @@ export const LayersPanel: React.FC<LayersPanelProps> = ({
             <div className="space-y-3 pt-1">
               {/* Blend Mode Selector */}
               <div className="space-y-1">
-                <label className="text-[10px] font-medium text-white/60">Blend Mode</label>
-                <select
+                <span className="text-[10px] font-medium text-white/60 block">Blend Mode</span>
+                <Dropdown
                   value={activeLayer.blendMode}
-                  onChange={e => updateActiveLayer({ blendMode: e.target.value as GlobalCompositeOperation })}
-                  className="w-full bg-[#181a22] border border-white/10 text-xs text-white rounded-lg p-2 outline-none cursor-pointer focus:border-primary/50"
-                >
-                  {BLEND_MODES.map(b => (
-                    <option key={b.value} value={b.value} className="bg-[#181a22]">
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={v => updateActiveLayer({ blendMode: v })}
+                  options={BLEND_MODES}
+                  className="w-full"
+                />
               </div>
 
               {/* Layer Opacity */}

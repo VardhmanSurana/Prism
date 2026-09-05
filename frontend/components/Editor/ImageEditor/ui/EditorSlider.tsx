@@ -100,6 +100,7 @@ export const EditorSlider: React.FC<EditorSliderProps> = ({
         {/* Range input */}
         <input
           type="range"
+          aria-label={label}
           min={min}
           max={max}
           step={step}

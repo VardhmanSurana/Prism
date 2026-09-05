@@ -186,7 +186,7 @@ export const applyFrame = (canvas: HTMLCanvasElement, adjustments: Adjustments) 
 
   if (frame.style === 'polaroid') {
     const border = Math.max(w, h) * (frame.thickness / 100);
-    ctx.fillStyle = '#f8f8f6';
+    ctx.fillStyle = frame.color || '#f8f8f6';
     ctx.fillRect(0, 0, newW, newH);
 
     ctx.shadowColor = 'rgba(0,0,0,0.15)';

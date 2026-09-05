@@ -94,12 +94,41 @@ export const normalizeBounds = (b: { x: number; y: number; w: number; h: number 
 /**
  * Returns polygon points string for geometric regular shapes
  */
-export const getPolygonPoints = (type: VectorShapeType, bounds: { x: number; y: number; w: number; h: number }): string => {
+export const getPolygonPoints = (
+  type: VectorShapeType,
+  bounds: { x: number; y: number; w: number; h: number },
+  options?: { polygonSides?: number; starPoints?: number; starSpikiness?: number }
+): string => {
   const { x, y, w, h } = normalizeBounds(bounds);
   const cx = x + w / 2;
   const cy = y + h / 2;
   const rx = w / 2;
   const ry = h / 2;
+
+  // Custom regular polygon if polygonSides is provided (pentagon/hexagon)
+  if (options?.polygonSides && options.polygonSides >= 3 && (type === 'pentagon' || type === 'hexagon')) {
+    const sides = options.polygonSides;
+    const pts: string[] = [];
+    for (let i = 0; i < sides; i++) {
+      const angle = -Math.PI / 2 + (2 * Math.PI * i) / sides;
+      pts.push(`${(cx + rx * Math.cos(angle)).toFixed(1)},${(cy + ry * Math.sin(angle)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
+
+  // Dynamic star points & spikiness
+  if (type === 'star' || type === 'fourPointStar') {
+    const pointsCount = options?.starPoints ?? (type === 'star' ? 5 : 4);
+    const spikiness = options?.starSpikiness ?? (type === 'star' ? 0.42 : 0.3);
+    const totalVertices = pointsCount * 2;
+    const pts: string[] = [];
+    for (let i = 0; i < totalVertices; i++) {
+      const rScale = i % 2 === 0 ? 1 : spikiness;
+      const angle = -Math.PI / 2 + (2 * Math.PI * i) / totalVertices;
+      pts.push(`${(cx + rx * rScale * Math.cos(angle)).toFixed(1)},${(cy + ry * rScale * Math.sin(angle)).toFixed(1)}`);
+    }
+    return pts.join(' ');
+  }
 
   switch (type) {
     case 'triangle':
@@ -129,26 +158,6 @@ export const getPolygonPoints = (type: VectorShapeType, bounds: { x: number; y: 
       return pts.join(' ');
     }
 
-    case 'star': {
-      const pts: string[] = [];
-      for (let i = 0; i < 10; i++) {
-        const rScale = i % 2 === 0 ? 1 : 0.42;
-        const angle = -Math.PI / 2 + (2 * Math.PI * i) / 10;
-        pts.push(`${cx + rx * rScale * Math.cos(angle)},${cy + ry * rScale * Math.sin(angle)}`);
-      }
-      return pts.join(' ');
-    }
-
-    case 'fourPointStar': {
-      const pts: string[] = [];
-      for (let i = 0; i < 8; i++) {
-        const rScale = i % 2 === 0 ? 1 : 0.3;
-        const angle = -Math.PI / 2 + (2 * Math.PI * i) / 8;
-        pts.push(`${cx + rx * rScale * Math.cos(angle)},${cy + ry * rScale * Math.sin(angle)}`);
-      }
-      return pts.join(' ');
-    }
-
     case 'lightning': {
       return `${x + w * 0.58},${y} ${x + w * 0.15},${y + h * 0.55} ${x + w * 0.48},${y + h * 0.55} ${x + w * 0.35},${y + h} ${x + w * 0.85},${y + h * 0.4} ${x + w * 0.52},${y + h * 0.4}`;
     }
@@ -161,7 +170,11 @@ export const getPolygonPoints = (type: VectorShapeType, bounds: { x: number; y: 
 /**
  * Returns SVG path string for curved shapes (heart, speechBubble, cloud)
  */
-export const getShapePathString = (type: VectorShapeType, bounds: { x: number; y: number; w: number; h: number }): string => {
+export const getShapePathString = (
+  type: VectorShapeType,
+  bounds: { x: number; y: number; w: number; h: number },
+  options?: { tailPos?: { x: number; y: number }; cornerRadius?: number }
+): string => {
   const { x, y, w, h } = normalizeBounds(bounds);
 
   switch (type) {
@@ -171,10 +184,21 @@ export const getShapePathString = (type: VectorShapeType, bounds: { x: number; y
     }
 
     case 'speechBubble': {
-      const r = Math.min(w, h) * 0.12;
+      const r = options?.cornerRadius ?? (Math.min(w, h) * 0.12);
       const bw = w;
       const bh = h * 0.78;
-      return `M ${x + r} ${y} H ${x + bw - r} A ${r} ${r} 0 0 1 ${x + bw} ${y + r} V ${y + bh - r} A ${r} ${r} 0 0 1 ${x + bw - r} ${y + bh} H ${x + w * 0.42} L ${x + w * 0.18} ${y + h} L ${x + w * 0.26} ${y + bh} H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + bh - r} V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
+
+      let tipX = x + w * 0.18;
+      let tipY = y + h;
+      if (options?.tailPos) {
+        tipX = options.tailPos.x;
+        tipY = options.tailPos.y;
+      }
+
+      const tailBase1X = x + Math.min(w * 0.45, Math.max(w * 0.18, (tipX - x) * 0.7));
+      const tailBase2X = tailBase1X - Math.min(25, w * 0.18);
+
+      return `M ${x + r} ${y} H ${x + bw - r} A ${r} ${r} 0 0 1 ${x + bw} ${y + r} V ${y + bh - r} A ${r} ${r} 0 0 1 ${x + bw - r} ${y + bh} H ${tailBase1X.toFixed(1)} L ${tipX.toFixed(1)} ${tipY.toFixed(1)} L ${tailBase2X.toFixed(1)} ${y + bh} H ${x + r} A ${r} ${r} 0 0 1 ${x} ${y + bh - r} V ${y + r} A ${r} ${r} 0 0 1 ${x + r} ${y} Z`;
     }
 
     case 'cloud': {

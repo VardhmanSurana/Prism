@@ -11,6 +11,7 @@ export interface InpaintOverlayProps {
   imageUrl: string;
   mode: InpaintMode;
   brushSize: number;
+  brushHardness?: number;
   canvasRef: React.Ref<InpaintCanvasHandle>;
   onMaskChange: (mask: string) => void;
   onStrokeComplete?: (mask: string) => void;
@@ -21,12 +22,13 @@ export interface InpaintOverlayProps {
 }
 
 export const InpaintOverlay: React.FC<InpaintOverlayProps> = (p) => (
-  <div ref={p.containerRef} className="absolute z-20" style={overlayStyle(p.rect, { pointerEvents: 'auto' })}>
+  <div ref={p.containerRef} className="absolute z-30" style={overlayStyle(p.rect, { pointerEvents: 'auto' })}>
     <InpaintCanvas
       ref={p.canvasRef}
       imageUrl={p.imageUrl}
       mode={p.mode}
       brushSize={p.brushSize}
+      brushHardness={p.brushHardness}
       onMaskChange={p.onMaskChange}
       onStrokeComplete={p.onStrokeComplete}
       onInteractivePointsChange={p.onInteractivePointsChange}

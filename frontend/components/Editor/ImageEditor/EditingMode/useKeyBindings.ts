@@ -21,6 +21,10 @@ interface UseKeyBindingsProps {
   setInpaintSettings: React.Dispatch<React.SetStateAction<InpaintSettings>>;
   onAutoEnhance?: () => void;
   onToggleHistory?: () => void;
+  inpaintCanUndo?: boolean;
+  inpaintCanRedo?: boolean;
+  onInpaintUndo?: () => void;
+  onInpaintRedo?: () => void;
 }
 
 export const useKeyBindings = ({
@@ -35,6 +39,10 @@ export const useKeyBindings = ({
   setInpaintSettings,
   onAutoEnhance,
   onToggleHistory,
+  inpaintCanUndo,
+  inpaintCanRedo,
+  onInpaintUndo,
+  onInpaintRedo,
 }: UseKeyBindingsProps) => {
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -43,6 +51,8 @@ export const useKeyBindings = ({
         e.preventDefault();
         if (activeTool === 'annotations') {
           undoAnnotations();
+        } else if (activeTool === 'inpaint' && inpaintCanUndo) {
+          onInpaintUndo?.();
         } else {
           handleUndo();
         }
@@ -52,6 +62,8 @@ export const useKeyBindings = ({
         e.preventDefault();
         if (activeTool === 'annotations') {
           redoAnnotations();
+        } else if (activeTool === 'inpaint' && inpaintCanRedo) {
+          onInpaintRedo?.();
         } else {
           handleRedo();
         }
@@ -138,5 +150,9 @@ export const useKeyBindings = ({
     setInpaintSettings,
     onAutoEnhance,
     onToggleHistory,
+    inpaintCanUndo,
+    inpaintCanRedo,
+    onInpaintUndo,
+    onInpaintRedo,
   ]);
 };

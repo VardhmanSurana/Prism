@@ -3,14 +3,27 @@
  * Annotation rendering stage: converts vector annotations to SVG and composites onto canvas.
  */
 
-import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
-import { smoothPath, getRotationAttr } from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
+import type { Annotation, LineTexture, LineTaper, DoodleLineStyle } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import {
+  smoothPath,
+  getRotationAttr,
+  doodleLinePoints,
+  generateSmoothSpline,
+  constructVariableWidthRibbon,
+} from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
 import {
   getPolygonPoints,
   getShapePathString,
   normalizeBounds,
   VectorShapeType,
 } from '@plugins/retouch-metadata-studio/AnnotationCanvas/shapeUtils';
+
+const getTextureFilterAttr = (texture?: LineTexture): string => {
+  if (texture === 'chalk') return ' filter="url(#chalk-filter)"';
+  if (texture === 'crayon') return ' filter="url(#crayon-filter)"';
+  if (texture === 'drybrush') return ' filter="url(#drybrush-filter)"';
+  return '';
+};
 
 export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annotation[]): Promise<HTMLCanvasElement> => {
   if (!annotations || annotations.length === 0) return Promise.resolve(canvas);
@@ -29,19 +42,29 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
 
       if (ann.type === 'freehand' && ann.points) {
         const smoothed = smoothPath(ann.points);
-        let d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
-        if (ann.closePath && smoothed.length > 2) d += ' Z';
+        const filterAttr = getTextureFilterAttr(ann.lineTexture);
         const sw = ann.strokeWidth * 1.5;
-        const dash =
-          ann.penStyle === 'dashed'
-            ? ` stroke-dasharray="${(sw * 2.5).toFixed(1)} ${(sw * 2).toFixed(1)}"`
-            : ann.penStyle === 'dotted'
-              ? ` stroke-dasharray="0.1 ${(sw * 1.6).toFixed(1)}"`
-              : '';
-        const fillAttrs = ann.closePath
-          ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"`
-          : ' fill="none"';
-        svgContent += `<g${rotAttr}${opacityAttr}><path d="${d}"${fillAttrs} stroke="${ann.color}" stroke-width="${sw}"${dash} stroke-linecap="round" stroke-linejoin="round" />`;
+        let strokeSvg = '';
+
+        if (ann.lineTaper && ann.lineTaper !== 'none' && smoothed.length >= 2) {
+          const ribbonD = constructVariableWidthRibbon(smoothed, sw, ann.lineTaper, ann.doodleLineStyle);
+          strokeSvg = `<path d="${ribbonD}" fill="${ann.color}"${filterAttr} />`;
+        } else {
+          let d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+          if (ann.closePath && smoothed.length > 2) d += ' Z';
+          const dash =
+            ann.penStyle === 'dashed'
+              ? ` stroke-dasharray="${(sw * 2.5).toFixed(1)} ${(sw * 2).toFixed(1)}"`
+              : ann.penStyle === 'dotted'
+                ? ` stroke-dasharray="0.1 ${(sw * 1.6).toFixed(1)}"`
+                : '';
+          const fillAttrs = ann.closePath
+            ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"`
+            : ' fill="none"';
+          strokeSvg = `<path d="${d}"${fillAttrs} stroke="${ann.color}" stroke-width="${sw}"${dash} stroke-linecap="round" stroke-linejoin="round"${filterAttr} />`;
+        }
+
+        let arrowHeadSvg = '';
         if (ann.arrowEnd && smoothed.length >= 2) {
           const end = smoothed[smoothed.length - 1];
           const prev = smoothed[smoothed.length - 2];
@@ -51,85 +74,185 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
           const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
           const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
           const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
-          svgContent += `<polygon points="${end.x},${end.y} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" />`;
+          arrowHeadSvg = `<polygon points="${end.x},${end.y} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}"${filterAttr} />`;
         }
-        svgContent += `</g>`;
+        svgContent += `<g${rotAttr}${opacityAttr}>${strokeSvg}${arrowHeadSvg}</g>`;
       } else if (ann.type === 'highlighter' && ann.points) {
         const smoothed = smoothPath(ann.points);
         const d = smoothed.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
         const hOpacity = ann.opacity ?? 0.4;
         svgContent += `<g${rotAttr} opacity="${hOpacity}"><path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${ann.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" style="mix-blend-mode: multiply" /></g>`;
       } else if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
-        const start = ann.points[0];
-        const end = ann.points[ann.points.length - 1];
-        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /></g>`;
+        const filterAttr = getTextureFilterAttr(ann.lineTexture);
+        const sw = ann.strokeWidth * 1.5;
+        if (ann.points.length > 2 || (ann.lineTaper && ann.lineTaper !== 'none') || ann.doodleLineStyle) {
+          let spine: { x: number; y: number }[];
+          if (ann.points.length > 2) {
+            spine = generateSmoothSpline(ann.points, 24);
+          } else if (ann.doodleLineStyle) {
+            spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+          } else {
+            spine = generateSmoothSpline(ann.points, 24);
+          }
+
+          if (ann.lineTaper && ann.lineTaper !== 'none') {
+            const ribbonD = constructVariableWidthRibbon(spine, sw, ann.lineTaper, ann.doodleLineStyle);
+            svgContent += `<g${rotAttr}${opacityAttr}><path d="${ribbonD}" fill="${ann.color}"${filterAttr} /></g>`;
+          } else {
+            const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+            svgContent += `<g${rotAttr}${opacityAttr}><path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${filterAttr} /></g>`;
+          }
+        } else {
+          const start = ann.points[0];
+          const end = ann.points[1];
+          svgContent += `<g${rotAttr}${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round"${filterAttr} /></g>`;
+        }
       } else if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
-        const start = ann.points[0];
-        const end = ann.points[ann.points.length - 1];
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const filterAttr = getTextureFilterAttr(ann.lineTexture);
+        const sw = ann.strokeWidth * 1.5;
         const headLength = Math.max(20, ann.strokeWidth * 3.5);
-        const xTip = end.x;
-        const yTip = end.y;
-        const xLeft = end.x - headLength * Math.cos(angle - Math.PI / 6);
-        const yLeft = end.y - headLength * Math.sin(angle - Math.PI / 6);
-        const xRight = end.x - headLength * Math.cos(angle + Math.PI / 6);
-        const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
-        const xBase = end.x - headLength * Math.cos(angle) * 0.8;
-        const yBase = end.y - headLength * Math.sin(angle) * 0.8;
 
-        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${start.x}" y1="${start.y}" x2="${xBase}" y2="${yBase}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip},${yTip} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}" /></g>`;
+        let spine: { x: number; y: number }[];
+        if (ann.points.length > 2) {
+          spine = generateSmoothSpline(ann.points, 24);
+        } else if (ann.doodleLineStyle) {
+          spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+        } else {
+          spine = ann.points;
+        }
+
+        const tip = spine[spine.length - 1];
+        const prev = spine[Math.max(0, spine.length - 3)];
+        const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+
+        const xLeft = tip.x - headLength * Math.cos(ang - Math.PI / 6);
+        const yLeft = tip.y - headLength * Math.sin(ang - Math.PI / 6);
+        const xRight = tip.x - headLength * Math.cos(ang + Math.PI / 6);
+        const yRight = tip.y - headLength * Math.sin(ang + Math.PI / 6);
+
+        let shaftSvg: string;
+        if (ann.lineTaper && ann.lineTaper !== 'none') {
+          const ribbonD = constructVariableWidthRibbon(spine, sw, ann.lineTaper, ann.doodleLineStyle);
+          shaftSvg = `<path d="${ribbonD}" fill="${ann.color}"${filterAttr} />`;
+        } else if (spine.length > 2) {
+          const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+          shaftSvg = `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${filterAttr} />`;
+        } else {
+          const xBase = tip.x - headLength * Math.cos(ang) * 0.8;
+          const yBase = tip.y - headLength * Math.sin(ang) * 0.8;
+          shaftSvg = `<line x1="${spine[0].x}" y1="${spine[0].y}" x2="${xBase}" y2="${yBase}" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round"${filterAttr} />`;
+        }
+
+        svgContent += `<g${rotAttr}${opacityAttr}>${shaftSvg}<polygon points="${tip.x},${tip.y} ${xLeft},${yLeft} ${xRight},${yRight}" fill="${ann.color}"${filterAttr} /></g>`;
       } else if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
-        const start = ann.points[0];
-        const end = ann.points[ann.points.length - 1];
-        const angle = Math.atan2(end.y - start.y, end.x - start.x);
+        const filterAttr = getTextureFilterAttr(ann.lineTexture);
+        const sw = ann.strokeWidth * 1.5;
         const headLength = Math.max(20, ann.strokeWidth * 3.5);
 
-        const xTip1 = end.x;
-        const yTip1 = end.y;
-        const xLeft1 = end.x - headLength * Math.cos(angle - Math.PI / 6);
-        const yLeft1 = end.y - headLength * Math.sin(angle - Math.PI / 6);
-        const xRight1 = end.x - headLength * Math.cos(angle + Math.PI / 6);
-        const yRight1 = end.y - headLength * Math.sin(angle + Math.PI / 6);
-        const xBase1 = end.x - headLength * Math.cos(angle) * 0.8;
-        const yBase1 = end.y - headLength * Math.sin(angle) * 0.8;
+        let spine: { x: number; y: number }[];
+        if (ann.points.length > 2) {
+          spine = generateSmoothSpline(ann.points, 24);
+        } else if (ann.doodleLineStyle) {
+          spine = smoothPath(doodleLinePoints(ann.points[0], ann.points[1], ann.doodleLineStyle));
+        } else {
+          spine = ann.points;
+        }
 
-        const xTip0 = start.x;
-        const yTip0 = start.y;
-        const xLeft0 = start.x + headLength * Math.cos(angle - Math.PI / 6);
-        const yLeft0 = start.y + headLength * Math.sin(angle - Math.PI / 6);
-        const xRight0 = start.x + headLength * Math.cos(angle + Math.PI / 6);
-        const yRight0 = start.y + headLength * Math.sin(angle + Math.PI / 6);
-        const xBase0 = start.x + headLength * Math.cos(angle) * 0.8;
-        const yBase0 = start.y + headLength * Math.sin(angle) * 0.8;
+        // End arrowhead
+        const tip1 = spine[spine.length - 1];
+        const prev1 = spine[Math.max(0, spine.length - 3)];
+        const a1 = Math.atan2(tip1.y - prev1.y, tip1.x - prev1.x);
+        const xLeft1 = tip1.x - headLength * Math.cos(a1 - Math.PI / 6);
+        const yLeft1 = tip1.y - headLength * Math.sin(a1 - Math.PI / 6);
+        const xRight1 = tip1.x - headLength * Math.cos(a1 + Math.PI / 6);
+        const yRight1 = tip1.y - headLength * Math.sin(a1 + Math.PI / 6);
 
-        svgContent += `<g${rotAttr}${opacityAttr}><line x1="${xBase0}" y1="${yBase0}" x2="${xBase1}" y2="${yBase1}" stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}" stroke-linecap="round" /><polygon points="${xTip1},${yTip1} ${xLeft1},${yLeft1} ${xRight1},${yRight1}" fill="${ann.color}" /><polygon points="${xTip0},${yTip0} ${xLeft0},${yLeft0} ${xRight0},${yRight0}" fill="${ann.color}" /></g>`;
+        // Start arrowhead
+        const tip0 = spine[0];
+        const next0 = spine[Math.min(spine.length - 1, 2)];
+        const a0 = Math.atan2(tip0.y - next0.y, tip0.x - next0.x);
+        const xLeft0 = tip0.x - headLength * Math.cos(a0 - Math.PI / 6);
+        const yLeft0 = tip0.y - headLength * Math.sin(a0 - Math.PI / 6);
+        const xRight0 = tip0.x - headLength * Math.cos(a0 + Math.PI / 6);
+        const yRight0 = tip0.y - headLength * Math.sin(a0 + Math.PI / 6);
+
+        let shaftSvg: string;
+        if (ann.lineTaper && ann.lineTaper !== 'none') {
+          const ribbonD = constructVariableWidthRibbon(spine, sw, ann.lineTaper, ann.doodleLineStyle);
+          shaftSvg = `<path d="${ribbonD}" fill="${ann.color}"${filterAttr} />`;
+        } else if (spine.length > 2) {
+          const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+          shaftSvg = `<path d="${d}" fill="none" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"${filterAttr} />`;
+        } else {
+          const xBase1 = tip1.x - headLength * Math.cos(a1) * 0.8;
+          const yBase1 = tip1.y - headLength * Math.sin(a1) * 0.8;
+          const xBase0 = tip0.x + headLength * Math.cos(a0) * 0.8;
+          const yBase0 = tip0.y + headLength * Math.sin(a0) * 0.8;
+          shaftSvg = `<line x1="${xBase0}" y1="${yBase0}" x2="${xBase1}" y2="${yBase1}" stroke="${ann.color}" stroke-width="${sw}" stroke-linecap="round"${filterAttr} />`;
+        }
+
+        svgContent += `<g${rotAttr}${opacityAttr}>${shaftSvg}<polygon points="${tip1.x},${tip1.y} ${xLeft1},${yLeft1} ${xRight1},${yRight1}" fill="${ann.color}"${filterAttr} /><polygon points="${tip0.x},${tip0.y} ${xLeft0},${yLeft0} ${xRight0},${yRight0}" fill="${ann.color}"${filterAttr} /></g>`;
       } else if (ann.bounds && ann.type !== 'text') {
         const { x, y, w, h } = normalizeBounds(ann.bounds);
-        const fillAttr = ann.fillShape ? ` fill="${ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"` : ' fill="none"';
-        const strokeAttr = ` stroke="${ann.color}" stroke-width="${ann.strokeWidth * 1.5}"`;
+        const isGradient = ann.gradientFill && ann.gradientFill !== 'none';
+        const fillAttr = isGradient
+          ? ` fill="url(#grad-${ann.gradientFill})"`
+          : ann.fillShape
+            ? ` fill="${ann.fillColor ?? ann.color}" fill-opacity="${ann.fillOpacity ?? 0.5}"`
+            : ' fill="none"';
+        const strokeWidth = ann.strokeWidth * 1.5;
+        const strokeDash =
+          ann.shapeStrokeStyle === 'dashed'
+            ? ` stroke-dasharray="${(strokeWidth * 3).toFixed(1)} ${(strokeWidth * 2).toFixed(1)}"`
+            : ann.shapeStrokeStyle === 'dotted'
+              ? ` stroke-dasharray="0.1 ${(strokeWidth * 2).toFixed(1)}"`
+              : '';
+        const filterAttr = ann.shapeEffect === 'glow' ? ' filter="url(#neon-glow-filter)"' : getTextureFilterAttr(ann.lineTexture);
+        const strokeAttr = ` stroke="${ann.color}" stroke-width="${strokeWidth}"${strokeDash}${filterAttr}`;
 
         let shapeSvg = '';
         if (ann.type === 'rect') {
-          shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}"${fillAttr}${strokeAttr} />`;
+          const r = ann.cornerRadius ?? 0;
+          shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}"${fillAttr}${strokeAttr} />`;
         } else if (ann.type === 'roundedRect') {
-          const r = Math.min(w, h) * 0.15;
+          const r = ann.cornerRadius ?? (Math.min(w, h) * 0.15);
           shapeSvg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" ry="${r}"${fillAttr}${strokeAttr} />`;
         } else if (ann.type === 'circle') {
           const rx = w / 2;
           const ry = h / 2;
           shapeSvg = `<ellipse cx="${x + w / 2}" cy="${y + h / 2}" rx="${rx}" ry="${ry}"${fillAttr}${strokeAttr} />`;
         } else {
-          const polyPts = getPolygonPoints(ann.type as VectorShapeType, ann.bounds);
+          const polyPts = getPolygonPoints(ann.type as VectorShapeType, ann.bounds, {
+            polygonSides: ann.polygonSides,
+            starPoints: ann.starPoints,
+            starSpikiness: ann.starSpikiness,
+          });
           if (polyPts) {
             shapeSvg = `<polygon points="${polyPts}"${fillAttr}${strokeAttr} stroke-linejoin="round" />`;
           } else {
-            const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds);
+            const pathD = getShapePathString(ann.type as VectorShapeType, ann.bounds, {
+              tailPos: ann.tailPos,
+              cornerRadius: ann.cornerRadius,
+            });
             if (pathD) {
               shapeSvg = `<path d="${pathD}"${fillAttr}${strokeAttr} stroke-linejoin="round" stroke-linecap="round" />`;
             }
           }
         }
-        svgContent += `<g${rotAttr}${opacityAttr}>${shapeSvg}</g>`;
+
+        let badgeSvg = '';
+        if (ann.badgeText) {
+          const fontSize = Math.min(28, Math.max(10, Math.min(w, h) * 0.22));
+          const escapedBadge = ann.badgeText
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+          badgeSvg = `<text x="${x + w / 2}" y="${y + h / 2}" dominant-baseline="middle" text-anchor="middle" fill="${ann.color}" font-size="${fontSize}" font-weight="600" font-family="Space Grotesk, system-ui, sans-serif">${escapedBadge}</text>`;
+        }
+
+        svgContent += `<g${rotAttr}${opacityAttr}>${shapeSvg}${badgeSvg}</g>`;
       } else if (ann.type === 'textPath' && ann.points && ann.points.length >= 2) {
         const pathId = `path-${ann.id}`;
         const smoothed = smoothPath(ann.points);
@@ -170,7 +293,7 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
         const textX = alignment === 'center' ? x + b.w / 2 : alignment === 'right' ? x + b.w : x;
         const textY = y + fontSize * 0.8;
 
-        let textStyle = `font-family: ${fontFamily}; font-weight: ${ann.fontWeight || 'normal'}; font-style: ${ann.fontStyle || 'normal'}; text-decoration: ${ann.textDecoration || 'none'};`;
+        let textStyle = `font-family: ${fontFamily}; font-weight: ${ann.fontWeight || 'normal'}; font-style: ${ann.fontStyle || 'normal'}; text-decoration: ${ann.textDecoration || 'none'}; letter-spacing: ${ann.letterSpacing ?? 0}px;`;
         if (ann.textStroke && ann.textStroke !== 'none') {
           textStyle += ` -webkit-text-stroke: ${ann.textStroke};`;
         }
@@ -208,7 +331,73 @@ export const applyAnnotations = (canvas: HTMLCanvasElement, annotations?: Annota
 
     const renderSvgAndResolve = () => {
       if (svgContent) {
-        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="${w}" height="${h}" preserveAspectRatio="none">${svgContent}</svg>`;
+        const svgFilters = `
+          <defs>
+            <filter id="chalk-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+              <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.2" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+              <feColorMatrix in="noise" type="matrix" values="
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                1 0 0 0 -0.22" result="maskNoise" />
+              <feComposite in="displaced" in2="maskNoise" operator="in" />
+            </filter>
+            <filter id="crayon-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+              <feTurbulence type="turbulence" baseFrequency="0.45" numOctaves="3" result="noise" />
+              <feDisplacementMap in="SourceGraphic" in2="noise" scale="5.5" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+              <feColorMatrix in="noise" type="matrix" values="
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                1 1 0 0 -0.35" result="maskNoise" />
+              <feComposite in="displaced" in2="maskNoise" operator="in" />
+            </filter>
+            <filter id="drybrush-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+              <feTurbulence type="fractalNoise" baseFrequency="0.82 0.08" numOctaves="3" result="grain" />
+              <feDisplacementMap in="SourceGraphic" in2="grain" scale="3" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+              <feColorMatrix in="grain" type="matrix" values="
+                0 0 0 0 0
+                0 0 0 0 0
+                0 0 0 0 0
+                1.2 0 0 0 -0.28" result="grainMask" />
+              <feComposite in="displaced" in2="grainMask" operator="in" />
+            </filter>
+
+            {/* Neon glow filter — luminous bloom */}
+            <filter id="neon-glow-filter" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3.5" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            {/* Linear Gradients for shape fills */}
+            <linearGradient id="grad-sunset" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#f43f5e" />
+              <stop offset="100%" stop-color="#f59e0b" />
+            </linearGradient>
+            <linearGradient id="grad-cyber" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#06b6d4" />
+              <stop offset="100%" stop-color="#8b5cf6" />
+            </linearGradient>
+            <linearGradient id="grad-emerald" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#10b981" />
+              <stop offset="100%" stop-color="#064e3b" />
+            </linearGradient>
+            <linearGradient id="grad-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#fbbf24" />
+              <stop offset="100%" stop-color="#d97706" />
+            </linearGradient>
+            <linearGradient id="grad-noir" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#4b5563" />
+              <stop offset="100%" stop-color="#111827" />
+            </linearGradient>
+          </defs>
+        `;
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" width="${w}" height="${h}" preserveAspectRatio="none">${svgFilters}${svgContent}</svg>`;
         const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
         const reader = new FileReader();
         reader.onload = () => {

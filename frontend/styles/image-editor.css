@@ -206,6 +206,140 @@ div:has(> [type="range"]) > div.pointer-events-none {
   display: none !important;
 }
 
+/* ── Modern Viewfinder Crop Selector Theme ── */
+/* Darkened backdrop outside crop selection */
+.cropper-modal {
+  background-color: #000000 !important;
+  opacity: 0.65 !important;
+}
+
+/* Clear un-tinted area inside crop box */
+.cropper-face {
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Crisp 1px white viewbox outline with subtle shadow */
+.cropper-view-box {
+  outline: 1px solid rgba(255, 255, 255, 0.65) !important;
+  outline-color: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* Subtle solid rule-of-thirds grid lines (replacing dashed lines) */
+.cropper-dashed {
+  border: 0 solid rgba(255, 255, 255, 0.32) !important;
+  opacity: 1 !important;
+}
+.cropper-dashed.dashed-h {
+  border-top-width: 1px !important;
+  border-bottom-width: 1px !important;
+}
+.cropper-dashed.dashed-v {
+  border-left-width: 1px !important;
+  border-right-width: 1px !important;
+}
+
+/* Hide center crosshair */
+.cropper-center {
+  display: none !important;
+}
+
+/* Transparent edge lines with generous hit areas */
+.cropper-line {
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+.cropper-line.line-e { width: 12px !important; right: -6px !important; cursor: ew-resize !important; }
+.cropper-line.line-w { width: 12px !important; left: -6px !important; cursor: ew-resize !important; }
+.cropper-line.line-n { height: 12px !important; top: -6px !important; cursor: ns-resize !important; }
+.cropper-line.line-s { height: 12px !important; bottom: -6px !important; cursor: ns-resize !important; }
+
+/* Hide mid-edge blue point dots, keep transparent hit targets */
+.cropper-point.point-e,
+.cropper-point.point-n,
+.cropper-point.point-w,
+.cropper-point.point-s {
+  opacity: 0 !important;
+  background: transparent !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+.cropper-point.point-e { right: -8px !important; cursor: ew-resize !important; }
+.cropper-point.point-w { left: -8px !important; cursor: ew-resize !important; }
+.cropper-point.point-n { top: -8px !important; cursor: ns-resize !important; }
+.cropper-point.point-s { bottom: -8px !important; cursor: ns-resize !important; }
+
+/* Bold white L-bracket corners (┌ ┐ └ ┘) */
+.cropper-point.point-nw,
+.cropper-point.point-ne,
+.cropper-point.point-sw,
+.cropper-point.point-se {
+  width: 22px !important;
+  height: 22px !important;
+  background: transparent !important;
+  opacity: 1 !important;
+  box-sizing: border-box !important;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
+  z-index: 10 !important;
+}
+
+/* Generous hit target on corner brackets */
+.cropper-point.point-nw::before,
+.cropper-point.point-ne::before,
+.cropper-point.point-sw::before,
+.cropper-point.point-se::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  cursor: inherit;
+}
+
+/* Top-Left: ┌ */
+.cropper-point.point-nw {
+  top: -2px !important;
+  left: -2px !important;
+  border-top: 3.5px solid #ffffff !important;
+  border-left: 3.5px solid #ffffff !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  cursor: nwse-resize !important;
+}
+
+/* Top-Right: ┐ */
+.cropper-point.point-ne {
+  top: -2px !important;
+  right: -2px !important;
+  border-top: 3.5px solid #ffffff !important;
+  border-right: 3.5px solid #ffffff !important;
+  border-left: none !important;
+  border-bottom: none !important;
+  cursor: nesw-resize !important;
+}
+
+/* Bottom-Left: └ */
+.cropper-point.point-sw {
+  bottom: -2px !important;
+  left: -2px !important;
+  border-bottom: 3.5px solid #ffffff !important;
+  border-left: 3.5px solid #ffffff !important;
+  border-top: none !important;
+  border-right: none !important;
+  cursor: nesw-resize !important;
+}
+
+/* Bottom-Right: ┘ */
+.cropper-point.point-se {
+  bottom: -2px !important;
+  right: -2px !important;
+  border-bottom: 3.5px solid #ffffff !important;
+  border-right: 3.5px solid #ffffff !important;
+  border-top: none !important;
+  border-left: none !important;
+  cursor: nwse-resize !important;
+}
+
 /* Apply CSS filter to images inside the Cropper */
 .cropper-container img {
   filter: var(--cropper-filter, none);

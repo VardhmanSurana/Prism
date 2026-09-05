@@ -6,6 +6,7 @@ interface DropdownProps<T> {
   options: { value: T; label: string }[];
   className?: string;
   style?: React.CSSProperties;
+  optionStyle?: (value: T) => React.CSSProperties;
 }
 
 export function Dropdown<T extends string | number>({
@@ -14,6 +15,7 @@ export function Dropdown<T extends string | number>({
   options,
   className,
   style,
+  optionStyle,
 }: DropdownProps<T>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -37,9 +39,9 @@ export function Dropdown<T extends string | number>({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-2 bg-[#1a1a1a] hover:bg-[#252525] text-[#ccc] text-xs rounded px-2.5 py-1.5 border border-[#2a2a2a] cursor-pointer transition-colors outline-none focus:border-[#3b82f6]/50"
+        className="w-full flex items-center justify-between gap-2 bg-[#1a1a1a] hover:bg-[#252525] text-[#ccc] text-xs rounded px-2.5 py-1.5 border border-[#2a2a2a] cursor-pointer transition-colors outline-none focus:border-white/30"
       >
-        <span className="truncate select-none">{selectedOption?.label ?? String(value)}</span>
+        <span className="truncate select-none" style={optionStyle?.(value)}>{selectedOption?.label ?? String(value)}</span>
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -81,18 +83,18 @@ export function Dropdown<T extends string | number>({
                 }}
                 className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between cursor-pointer transition-colors select-none ${
                   isSelected
-                    ? 'bg-[#3b82f6]/10 text-blue-400 font-medium'
+                    ? 'bg-white/10 text-white font-medium'
                     : 'text-[#aaa] hover:bg-[#222] hover:text-white'
                 }`}
               >
-                <span className="truncate">{opt.label}</span>
+                <span className="truncate" style={optionStyle?.(opt.value)}>{opt.label}</span>
                 {isSelected && (
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth={2.5}
-                    className="w-3.5 h-3.5 text-blue-500 shrink-0 ml-1.5"
+                    className="w-3.5 h-3.5 text-white shrink-0 ml-1.5"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>

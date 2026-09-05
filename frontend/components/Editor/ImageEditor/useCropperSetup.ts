@@ -38,6 +38,8 @@ export function useCropperSetup({
   const onCropperReady = React.useCallback(() => {
     const cropper = cropperRef.current;
     if (cropper) {
+      (cropper as any).limited = true;
+      (cropper as any).options.viewMode = 1;
       const containerData = cropper.getContainerData();
       const imageData = cropper.getImageData();
       if (
@@ -67,7 +69,7 @@ export function useCropperSetup({
 
     const isTransform = activeTool === 'transform';
     const cropper = new Cropper(img, {
-      viewMode: isTransform ? 1 : 0,
+      viewMode: 1, // Constrain crop box to never exceed canvas (image) bounds
       dragMode: isTransform ? 'crop' : 'none',
       background: false,
       responsive: true,
@@ -79,6 +81,9 @@ export function useCropperSetup({
       zoomOnWheel: false,
       zoomOnTouch: false,
       toggleDragModeOnDblclick: false,
+      guides: true,
+      center: false,
+      highlight: false,
       crop() {
         onCropCbRef.current();
       },
@@ -89,6 +94,12 @@ export function useCropperSetup({
 
     if (cropperRef && typeof cropperRef !== 'function') {
       (cropperRef as React.MutableRefObject<any>).current = cropper;
+    }
+
+    // Fresh instances start enabled — lock immediately unless transforming
+    // (the tool-change effect early-returns when activeTool didn't change)
+    if (activeTool !== 'transform') {
+      cropper.disable();
     }
 
     // Ensure onCropperReady runs even if image was already decoded or cached during HMR/fast-load
@@ -138,33 +149,40 @@ export function useCropperSetup({
     };
   }, [updateImageRect, cropperRef, containerRef]);
 
+  const prevToolRef = React.useRef<ToolId | null>(null);
+  const updateImageRectRef = React.useRef(updateImageRect);
+  updateImageRectRef.current = updateImageRect;
+  const syncZoomRef = React.useRef(syncZoom);
+  syncZoomRef.current = syncZoom;
+
   // Handle tool changes and cropper state
   React.useEffect(() => {
     const cropper = cropperRef.current;
     if (!cropper) return;
 
-    const frame = window.requestAnimationFrame(() => {
-      try {
-        (cropper as any).resize();
-      } catch {}
+    if (prevToolRef.current === activeTool) return;
+    prevToolRef.current = activeTool;
 
-      if (activeTool === 'transform') {
-        (cropper as any).options.viewMode = 1;
-        cropper.enable();
-        cropper.setDragMode('crop');
-        cropper.crop();
-        syncZoom();
-        updateImageRect();
-      } else {
-        (cropper as any).options.viewMode = 0;
-        cropper.enable();
-        cropper.setDragMode('none');
-        cropper.clear();
-        updateImageRect();
-        syncZoom();
-      }
-    });
+    (cropper as any).limited = true;
+    (cropper as any).options.viewMode = 1;
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [activeTool, cropperRef, updateImageRect, syncZoom]);
+    if (activeTool === 'transform') {
+      cropper.enable();
+      cropper.setDragMode('crop');
+      cropper.crop();
+      syncZoomRef.current();
+      updateImageRectRef.current();
+    } else {
+      cropper.enable();
+      cropper.setDragMode('none');
+      cropper.clear();
+      // ponytail: lock event-driven canvas moves while annotating — programmatic
+      // move()/zoom() used by pan/zoom controls ignore `disabled`, only pointer
+      // entry points (drag, dblclick-toggle, wheel) are blocked, so pen strokes
+      // can never drag the image no matter which element receives the event
+      cropper.disable();
+      updateImageRectRef.current();
+      syncZoomRef.current();
+    }
+  }, [activeTool, cropperRef]);
 }

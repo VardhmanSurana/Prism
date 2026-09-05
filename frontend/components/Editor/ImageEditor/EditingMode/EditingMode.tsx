@@ -122,7 +122,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
   });
   useEffect(() => {
     transform.setActiveTool(activeTool);
-  }, [activeTool, transform]);
+  }, [activeTool, transform.setActiveTool]);
 
   // ── Inpaint ───────────────────────────────────────────────────────────────
   const inpaint = useInpaintState({
@@ -268,6 +268,10 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
     handleUndo, handleRedo, setIsComparing, cropperRef,
     inpaintMode: inpaint.inpaintMode,
     setInpaintSettings: inpaint.setInpaintSettings,
+    inpaintCanUndo: inpaint.inpaintCanUndo,
+    inpaintCanRedo: inpaint.inpaintCanRedo,
+    onInpaintUndo: inpaint.handleInpaintUndo,
+    onInpaintRedo: inpaint.handleInpaintRedo,
     onAutoEnhance: handleAutoEnhance,
     onToggleHistory: () => setIsHistoryOpen(prev => !prev),
   });
@@ -340,6 +344,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
       captionText: ai.captionText,
       isCaptionLoading: ai.isCaptionLoading,
       samCanSegment: ai.samCanSegment,
+      samPointsCount: ai.samPointsCount,
       isSamSegmenting: ai.isSamSegmenting,
       handleUpscale: ai.handleUpscale,
       handleFaceRestore: ai.handleFaceRestore,
@@ -421,6 +426,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
           inpaintCanvasRef={inpaintCanvasRef}
           inpaintMask={inpaint.inpaintMask}
           brushSize={inpaint.inpaintSettings.brushSize}
+          brushHardness={inpaint.inpaintSettings.brushHardness}
           onInpaintMaskChange={inpaint.setInpaintMask}
           onInpaintStrokeComplete={inpaint.handleInpaintStrokeComplete}
           onInteractivePointsChange={ai.handleInteractivePointsChange}

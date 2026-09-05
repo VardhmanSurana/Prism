@@ -124,30 +124,49 @@ export function useTransformControls(p: UseTransformControlsParams) {
     const newWidth = displayW * scale;
     const newHeight = displayH * scale;
 
+    const newLeft = (containerData.width - newWidth) / 2;
+    const newTop = (containerData.height - newHeight) / 2;
+
     cropper.setCanvasData({
       width: newWidth,
       height: newHeight,
-      left: (containerData.width - newWidth) / 2,
-      top: (containerData.height - newHeight) / 2,
+      left: newLeft,
+      top: newTop,
     });
+
+    (cropper as any).limited = true;
+    (cropper as any).options.viewMode = 1;
 
     if (!isNaN(currentRatio)) {
       const newRatio = 1 / currentRatio;
       setCurrentRatio(newRatio);
       cropper.setAspectRatio(newRatio);
-    } else {
+    } else if (activeToolRef.current === 'transform') {
       cropper.crop();
+      cropper.setCropBoxData({
+        left: newLeft,
+        top: newTop,
+        width: newWidth,
+        height: newHeight,
+      });
     }
   }, [p, currentRatio]);
 
   const handleSetAspectRatio = useCallback((ratio: number) => {
     setCurrentRatio(ratio);
-    p.cropperRef.current?.setAspectRatio(ratio);
+    const cropper = p.cropperRef.current;
+    if (!cropper) return;
+    (cropper as any).limited = true;
+    (cropper as any).options.viewMode = 1;
+    cropper.setAspectRatio(ratio);
   }, [p.cropperRef]);
 
   const handleReady = useCallback(() => {
     const cropper = p.cropperRef.current;
     if (!cropper) return;
+
+    (cropper as any).limited = true;
+    (cropper as any).options.viewMode = 1;
 
     const containerData = cropper.getContainerData();
     const canvasData = cropper.getCanvasData();
@@ -161,8 +180,12 @@ export function useTransformControls(p: UseTransformControlsParams) {
     const newHeight = canvasData.height * scale;
     const newLeft = (containerData.width - newWidth) / 2;
     const newTop = (containerData.height - newHeight) / 2;
-    cropper.setCropBoxData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
+
     cropper.setCanvasData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
+
+    if (activeToolRef.current === 'transform') {
+      cropper.setCropBoxData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
+    }
 
     cropper.scaleX(p.flipH ? -1 : 1);
     cropper.scaleY(p.flipV ? -1 : 1);
@@ -196,21 +219,51 @@ export function useTransformControls(p: UseTransformControlsParams) {
 
   // Sync cropper drag-mode with the active tool from the parent.
   const setActiveTool = useCallback((tool: string | null) => {
+    if (activeToolRef.current === tool) {
+      return;
+    }
     activeToolRef.current = tool;
     const cropper = p.cropperRef.current;
     if (!cropper) return;
 
+    (cropper as any).limited = true;
+    (cropper as any).options.viewMode = 1;
+
     if (tool !== 'transform') {
       const cropBoxData = cropper.getCropBoxData();
-      savedCropBoxRef.current = cropBoxData;
+      if (cropBoxData && cropBoxData.width > 0 && cropBoxData.height > 0) {
+        savedCropBoxRef.current = cropBoxData;
+      }
 
       cropper.clear();
       cropper.setDragMode('none');
     } else {
       cropper.setDragMode('crop');
       cropper.crop();
-      if (savedCropBoxRef.current) {
-        cropper.setCropBoxData(savedCropBoxRef.current);
+
+      const canvasData = cropper.getCanvasData();
+      if (
+        savedCropBoxRef.current &&
+        savedCropBoxRef.current.width > 0 &&
+        savedCropBoxRef.current.height > 0 &&
+        canvasData &&
+        canvasData.width > 0 &&
+        canvasData.height > 0
+      ) {
+        const width = Math.min(savedCropBoxRef.current.width, canvasData.width);
+        const height = Math.min(savedCropBoxRef.current.height, canvasData.height);
+        const maxLeft = canvasData.left + canvasData.width - width;
+        const maxTop = canvasData.top + canvasData.height - height;
+        const left = Math.max(canvasData.left, Math.min(savedCropBoxRef.current.left, maxLeft));
+        const top = Math.max(canvasData.top, Math.min(savedCropBoxRef.current.top, maxTop));
+        cropper.setCropBoxData({ left, top, width, height });
+      } else if (canvasData && canvasData.width > 0 && canvasData.height > 0) {
+        cropper.setCropBoxData({
+          left: canvasData.left,
+          top: canvasData.top,
+          width: canvasData.width,
+          height: canvasData.height,
+        });
       }
     }
   }, [p.cropperRef]);

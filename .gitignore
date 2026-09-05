@@ -73,3 +73,5 @@ settings.json
 # Rust CLI build artifacts
 cli/target/
 backend_rust/test_artifacts/*
+frontend/public/sample_images/ai_multimodal_sample.jpg
+frontend/public/sample_images/ai_benchmark_sample_edited_1788455443.jpg
