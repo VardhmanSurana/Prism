@@ -7,8 +7,10 @@
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { MathCurveLoader, MathCurveType } from './MathCurveLoader';
+import { BlurReveal, SlideUpText } from './textAnimations';
 
 export interface AiModelLoadingOverlayProps {
   isLoading: boolean;
@@ -107,48 +109,76 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
     };
   }, [isLoading, messagePool.length]);
 
-  if (!isLoading) return null;
-
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#090a0f]/80 backdrop-blur-md animate-fade-in select-none text-white p-6">
-      {onCancel && (
-        <button
-          type="button"
-          onClick={onCancel}
-          className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
-          title="Cancel processing"
+    <AnimatePresence>
+      {isLoading && (
+        <motion.div
+          key="ai-model-loading-overlay-root"
+          initial={{ y: '-100%', opacity: 0 }}
+          animate={{ y: '0%', opacity: 1 }}
+          exit={{ y: '100%', opacity: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#090a0f]/85 backdrop-blur-md select-none text-white p-6 overflow-hidden"
         >
-          <X size={18} />
-        </button>
+          {onCancel && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              type="button"
+              onClick={onCancel}
+              className="absolute top-6 right-6 p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-colors cursor-pointer"
+              title="Cancel processing"
+            >
+              <X size={18} />
+            </motion.button>
+          )}
+
+          {/* Center Math Curve Animation */}
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0, y: -16 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.06 }}
+            className="relative flex flex-col items-center"
+          >
+            <MathCurveLoader curveType={curveType} size={150} color="#ffffff" showBadge={false} />
+
+            {/* Operation Title with Spell UI BlurReveal */}
+            <div className="mt-6 text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
+                <BlurReveal key={operationName} text={operationName} />
+              </h2>
+
+              {/* Dynamic rotating UX message with Spell UI SlideUpText */}
+              <div className="min-h-[28px] flex items-center justify-center max-w-lg px-4">
+                <SlideUpText
+                  textKey={detailMessage || messagePool[currentMessageIndex]}
+                  className="text-center"
+                >
+                  <p className="text-sm sm:text-base text-white/90 font-medium tracking-normal text-center">
+                    {detailMessage || messagePool[currentMessageIndex]}
+                  </p>
+                </SlideUpText>
+              </div>
+
+              {/* Live Timer Counter */}
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.16, ease: [0.16, 1, 0.3, 1] }}
+                className="pt-2"
+              >
+                <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/40 border border-white/10 text-xs font-mono text-white/70 shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
+                  <span>Elapsed: {elapsedSeconds.toFixed(1)}s</span>
+                </span>
+              </motion.div>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
-
-      {/* Center Math Curve Animation */}
-      <div className="relative flex flex-col items-center">
-        <MathCurveLoader curveType={curveType} size={150} color="#ffffff" showBadge={false} />
-
-        {/* Operation Title */}
-        <div className="mt-6 text-center space-y-2">
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
-            {operationName}
-          </h2>
-
-          {/* Dynamic rotating UX message */}
-          <div className="min-h-[28px] flex items-center justify-center max-w-lg px-4">
-            <p className="text-sm sm:text-base text-white/90 font-medium transition-all duration-300 animate-fade-in tracking-normal text-center">
-              {detailMessage || messagePool[currentMessageIndex]}
-            </p>
-          </div>
-
-          {/* Live Timer Counter */}
-          <div className="pt-2">
-            <span className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/40 border border-white/10 text-xs font-mono text-white/70 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-              <span>Elapsed: {elapsedSeconds.toFixed(1)}s</span>
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    </AnimatePresence>
   );
 };
 
