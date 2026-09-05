@@ -191,15 +191,8 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     if (html && rect) {
       const pxX = (dx / 1000) * rect.width;
       const pxY = (dy / 1000) * rect.height;
-      // CSS `translate` and `transform` fallback — ensures immediate real-time tracking across all engines
+      // CSS `translate` moves the layer by the exact pixel delta without doubling or clobbering inline transforms
       html.style.translate = `${pxX}px ${pxY}px`;
-      if (dragBarOnlyRef.current) {
-        html.style.transform = `translate(${pxX}px, ${pxY}px)`;
-      } else {
-        const startAnn = dragStartAnnRef.current;
-        const rotVal = startAnn?.rotation || 0;
-        html.style.transform = `translate(${pxX}px, ${pxY}px) rotate(${rotVal}deg)`;
-      }
     }
   }
 
@@ -221,7 +214,6 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const html = dragHtmlNodeRef.current;
     if (html) {
       html.style.translate = '';
-      html.style.transform = '';
       html.style.scale = '';
       html.style.rotate = '';
       html.style.transformOrigin = '';
@@ -276,7 +268,6 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       const dx = (relX * cos - relY * sin - relX) / 1000 * rect.width;
       const dy = (relX * sin + relY * cos - relY) / 1000 * rect.height;
       html.style.translate = `${dx}px ${dy}px`;
-      html.style.transform = `translate(${dx}px, ${dy}px)`;
       return;
     }
     html.style.rotate = `${rot - rs.startRotation}deg`;
