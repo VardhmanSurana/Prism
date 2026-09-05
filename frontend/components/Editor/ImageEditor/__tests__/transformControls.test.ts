@@ -45,6 +45,7 @@ describe('useTransformControls crop boundary clamping', () => {
     return renderHook(() =>
       useTransformControls({
         src: 'test.jpg',
+        currentImageSrc: 'test.jpg',
         cropperRef,
         flipH: false,
         setFlipH: vi.fn(),

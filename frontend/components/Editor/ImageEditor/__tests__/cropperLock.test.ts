@@ -34,6 +34,7 @@ describe('useCropperSetup canvas lock', () => {
       disable: vi.fn(),
       clear: vi.fn(),
       crop: vi.fn(),
+      replace: vi.fn(),
       destroy: vi.fn(),
       zoomTo: vi.fn(),
     };

@@ -8,9 +8,12 @@ import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'reac
 import Cropper from 'cropperjs';
 import { HistoryActionType } from '../../history';
 import { useEditingHistory } from '../useEditingHistory';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { remapAnnotationToCrop } from '../../editedPreviewHelper';
 
 export interface UseTransformControlsParams {
   src: string;
+  currentImageSrc: string;
   cropperRef: MutableRefObject<Cropper | null>;
   flipH: boolean;
   setFlipH: (v: boolean) => void;
@@ -22,6 +25,8 @@ export interface UseTransformControlsParams {
   setStraightenAngle: (n: number) => void;
   setCurrentImageSrc: (s: string) => void;
   history: ReturnType<typeof useEditingHistory>;
+  annotations?: Annotation[];
+  onAnnotationsChange?: (annotations: Annotation[]) => void;
 }
 
 export function useTransformControls(p: UseTransformControlsParams) {
@@ -65,27 +70,68 @@ export function useTransformControls(p: UseTransformControlsParams) {
     if (!cropper) return;
 
     try {
-      const croppedCanvas = cropper.getCroppedCanvas({
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-      });
+      // Capture crop coordinates and dimensions before changing anything
+      const cropData = cropper.getData();
+      const imgData = cropper.getImageData();
 
-      croppedCanvas.toBlob((blob) => {
-        if (!blob) return;
+      // Ensure cropped canvas is generated from the clean base image so active adjustments remain non-destructive
+      const prevImg = (cropper as any).image;
+      const baseSrc = p.currentImageSrc || p.src;
 
-        const newUrl = URL.createObjectURL(blob);
-        p.history.createdUrlRef.current = newUrl;
+      const finishCrop = (canvas: HTMLCanvasElement) => {
+        canvas.toBlob((blob) => {
+          if (!blob) return;
 
-        p.setCurrentImageSrc(newUrl);
-        setHasCropSelection(false);
+          const newUrl = URL.createObjectURL(blob);
+          p.history.createdUrlRef.current = newUrl;
 
-        p.setTotalRotation(0);
-        p.setStraightenAngle(0);
-        p.setFlipH(false);
-        p.setFlipV(false);
+          // Remap annotations if present
+          if (p.annotations && p.onAnnotationsChange && cropData.width > 0 && cropData.height > 0 && imgData.naturalWidth > 0) {
+            const nextAnns = p.annotations.map(a =>
+              remapAnnotationToCrop(a, cropData.x, cropData.y, cropData.width, cropData.height, imgData.naturalWidth, imgData.naturalHeight)
+            );
+            p.onAnnotationsChange(nextAnns);
+          }
 
-        p.history.addHistoryEntry('crop' as HistoryActionType, 'Applied crop', undefined, newUrl);
-      }, 'image/jpeg', 0.95);
+          p.setCurrentImageSrc(newUrl);
+          setHasCropSelection(false);
+
+          p.setTotalRotation(0);
+          p.setStraightenAngle(0);
+          p.setFlipH(false);
+          p.setFlipV(false);
+
+          p.history.addHistoryEntry('crop' as HistoryActionType, 'Applied crop', undefined, newUrl);
+        }, 'image/jpeg', 0.95);
+      };
+
+      if (baseSrc && prevImg && prevImg.src !== baseSrc) {
+        const baseImg = new Image();
+        baseImg.crossOrigin = 'anonymous';
+        baseImg.onload = () => {
+          (cropper as any).image = baseImg;
+          const croppedCanvas = cropper.getCroppedCanvas({
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+          });
+          (cropper as any).image = prevImg;
+          if (croppedCanvas) finishCrop(croppedCanvas);
+        };
+        baseImg.onerror = () => {
+          const croppedCanvas = cropper.getCroppedCanvas({
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high',
+          });
+          if (croppedCanvas) finishCrop(croppedCanvas);
+        };
+        baseImg.src = baseSrc;
+      } else {
+        const croppedCanvas = cropper.getCroppedCanvas({
+          imageSmoothingEnabled: true,
+          imageSmoothingQuality: 'high',
+        });
+        if (croppedCanvas) finishCrop(croppedCanvas);
+      }
     } catch (e) {
       console.error('Failed to apply crop in-place:', e);
     }

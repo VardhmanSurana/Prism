@@ -104,6 +104,9 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
     handleReady: p.handleReady,
     updateImageRect,
     syncZoom,
+    liveCanvasRef,
+    healingCanvasRef: p.healingCanvasRef,
+    annotations: p.annotations,
   });
 
   useEffectLatestComparePercent(comparePercent, latestComparePercentRef);
@@ -160,10 +163,10 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
     !p.isComparing &&
     (p.activeTool === 'portrait' || p.activeTool === 'liquify' || p.activeTool === 'adjust');
 
-  const effectiveFilter = p.isComparing ? 'none' : p.filterString;
+  const effectiveFilter = (p.isComparing || p.activeTool === 'transform') ? 'none' : p.filterString;
   const isTransparentBg =
     p.adjustments.background?.enabled && p.adjustments.background?.backdrop === 'transparent';
-  const vignetteOpacity = p.isComparing ? 0 : Math.min(0.9, Math.abs((p.adjustments.vignette || 0) / 100));
+  const vignetteOpacity = (p.isComparing || p.activeTool === 'transform') ? 0 : Math.min(0.9, Math.abs((p.adjustments.vignette || 0) / 100));
   const vignetteColor = (p.adjustments.vignette ?? 0) < 0 ? '0, 0, 0' : '255, 255, 255';
   const vignetteBlend = (p.adjustments.vignette ?? 0) < 0 ? 'multiply' : 'normal';
 

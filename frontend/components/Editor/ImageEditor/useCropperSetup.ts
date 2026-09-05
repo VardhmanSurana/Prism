@@ -7,6 +7,9 @@
 import React from 'react';
 import Cropper from 'cropperjs';
 import type { ToolId } from './Sidebar';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import type { HealingCanvasRef } from './HealingCanvas';
+import { getEditedPreviewUrl } from './editedPreviewHelper';
 
 interface UseCropperSetupOptions {
   imgRef: React.RefObject<HTMLImageElement | null>;
@@ -18,6 +21,9 @@ interface UseCropperSetupOptions {
   handleReady: () => void;
   updateImageRect: () => void;
   syncZoom: () => void;
+  liveCanvasRef?: React.RefObject<HTMLCanvasElement | null>;
+  healingCanvasRef?: React.Ref<HealingCanvasRef>;
+  annotations?: Annotation[];
 }
 
 export function useCropperSetup({
@@ -30,6 +36,9 @@ export function useCropperSetup({
   handleReady,
   updateImageRect,
   syncZoom,
+  liveCanvasRef,
+  healingCanvasRef,
+  annotations,
 }: UseCropperSetupOptions): void {
   // Initialize cropperjs on the <img> element
   const onCropCbRef = React.useRef(handleCropEvent);
@@ -160,7 +169,7 @@ export function useCropperSetup({
     const cropper = cropperRef.current;
     if (!cropper) return;
 
-    if (prevToolRef.current === activeTool) return;
+    const wasTransform = prevToolRef.current === 'transform';
     prevToolRef.current = activeTool;
 
     (cropper as any).limited = true;
@@ -168,11 +177,25 @@ export function useCropperSetup({
 
     if (activeTool === 'transform') {
       cropper.enable();
+      const liveCanvas = liveCanvasRef?.current;
+      if (liveCanvas && liveCanvas.width > 0 && liveCanvas.height > 0) {
+        const healingCanvas = (healingCanvasRef && typeof healingCanvasRef === 'object' && 'current' in healingCanvasRef)
+          ? healingCanvasRef.current?.getWorkCanvas() || null
+          : null;
+        void getEditedPreviewUrl(liveCanvas, healingCanvas, annotations).then((url) => {
+          if (url && cropperRef.current && typeof cropperRef.current.replace === 'function' && prevToolRef.current === 'transform') {
+            cropperRef.current.replace(url, true);
+          }
+        });
+      }
       cropper.setDragMode('crop');
       cropper.crop();
       syncZoomRef.current();
       updateImageRectRef.current();
     } else {
+      if (wasTransform && cropperRef.current && typeof cropperRef.current.replace === 'function') {
+        cropperRef.current.replace(currentImageSrc, true);
+      }
       cropper.enable();
       cropper.setDragMode('none');
       cropper.clear();
@@ -184,5 +207,5 @@ export function useCropperSetup({
       updateImageRectRef.current();
       syncZoomRef.current();
     }
-  }, [activeTool, cropperRef]);
+  }, [activeTool, cropperRef, currentImageSrc, liveCanvasRef, healingCanvasRef, annotations]);
 }

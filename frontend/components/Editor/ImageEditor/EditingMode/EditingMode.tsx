@@ -21,6 +21,7 @@ import {
   DEFAULT_PEN_SETTINGS,
   PenSettings,
   DrawToolId,
+  Annotation,
 } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { InpaintCanvasHandle } from '@plugins/ai-vision-studio';
 import { useEditStore } from '@/store/editStore';
@@ -96,7 +97,10 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
   // ── Core hooks ────────────────────────────────────────────────────────────
   const { toastMessage, showToast } = useToast();
   const faces = useFacesLoader(photoId);
-  const ann = useAnnotationsState();
+  // ponytail: ref indirection — ann is created before history, so the commit
+  // callback can't close over addHistoryEntry directly
+  const annCommitRef = useRef<(prev: Annotation[], next: Annotation[]) => void>(() => {});
+  const ann = useAnnotationsState((prev, next) => annCommitRef.current(prev, next));
   const history = useEditingHistory({
     src,
     cropperRef,
@@ -114,11 +118,25 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
     canUndo, canRedo, handleUndo, handleRedo, addHistoryEntry,
   } = history;
 
+  // Annotation commits (stroke drawn / moved / deleted) become timeline snapshots
+  useEffect(() => {
+    annCommitRef.current = (prev, next) => {
+      const label = next.length > prev.length ? 'Added annotation'
+        : next.length < prev.length ? 'Deleted annotation' : 'Edited annotation';
+      addHistoryEntry('annotations', label, undefined, undefined, next, {
+        toolId: 'annotations',
+        isSnapshot: true,
+      });
+    };
+  }, [addHistoryEntry]);
+
   // ── Transform / crop ──────────────────────────────────────────────────────
   const transform = useTransformControls({
-    src, cropperRef, flipH, setFlipH, flipV, setFlipV,
+    src, currentImageSrc, cropperRef, flipH, setFlipH, flipV, setFlipV,
     totalRotation, setTotalRotation, straightenAngle, setStraightenAngle,
     setCurrentImageSrc, history,
+    annotations: ann.annotations,
+    onAnnotationsChange: ann.updateAnnotations,
   });
   useEffect(() => {
     transform.setActiveTool(activeTool);
@@ -383,8 +401,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
     <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden bg-[var(--bg-primary)]">
       <TopBarSection
         onClose={exit.handleRequestClose}
-        onReset={draft.discardDraft}
-        isDirty={draft.isDirty}
         isSaving={exporter.isSaving}
         handleSave={exporter.handleSave}
         handleCopy={exporter.handleCopy}
