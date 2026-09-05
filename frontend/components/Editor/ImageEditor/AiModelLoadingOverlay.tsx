@@ -144,7 +144,7 @@ export const AiModelLoadingOverlay: React.FC<AiModelLoadingOverlayProps> = ({
 
       {/* Center Math Curve Animation */}
       <div className="relative flex flex-col items-center">
-        <MathCurveLoader curveType={curveType} size={220} color="#38bdf8" showBadge={true} />
+        <MathCurveLoader curveType={curveType} size={150} color="#ffffff" showBadge={false} />
 
         {/* Operation Title */}
         <div className="mt-5 text-center space-y-1.5">
