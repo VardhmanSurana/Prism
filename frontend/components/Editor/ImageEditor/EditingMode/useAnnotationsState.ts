@@ -109,14 +109,24 @@ export const useAnnotationsState = () => {
   const [selectedAnnId, setSelectedAnnIdState] = useState<string | null>(null);
   const [selectedAnnIds, setSelectedAnnIdsState] = useState<string[]>([]);
 
-  const setSelectedAnnId = useCallback((id: string | null) => {
-    setSelectedAnnIdState(id);
-    setSelectedAnnIdsState(id ? [id] : []);
+  const setSelectedAnnIds = useCallback((idsOrUpdater: string[] | ((prev: string[]) => string[])) => {
+    setSelectedAnnIdsState(prev => {
+      const next = typeof idsOrUpdater === 'function' ? idsOrUpdater(prev) : idsOrUpdater;
+      setSelectedAnnIdState(cur => (next.length > 0 ? (cur && next.includes(cur) ? cur : next[next.length - 1]) : null));
+      return next;
+    });
   }, []);
 
-  const setSelectedAnnIds = useCallback((ids: string[]) => {
-    setSelectedAnnIdsState(ids);
-    setSelectedAnnIdState(ids.length > 0 ? ids[0] : null);
+  const setSelectedAnnId = useCallback((idOrFn: string | null | ((prev: string | null) => string | null)) => {
+    setSelectedAnnIdState(prev => {
+      const next = typeof idOrFn === 'function' ? idOrFn(prev) : idOrFn;
+      setSelectedAnnIdsState(prevIds => {
+        if (!next) return [];
+        if (prevIds.includes(next)) return prevIds;
+        return [next];
+      });
+      return next;
+    });
   }, []);
 
   // Prune deleted IDs when annotations change

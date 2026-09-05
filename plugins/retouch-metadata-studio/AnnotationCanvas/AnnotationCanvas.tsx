@@ -439,6 +439,18 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
             <div
               id={`text-layer-${ann.id}`}
               key={ann.id}
+              onPointerDown={isSelected ? (e) => {
+                if (e.shiftKey) {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  const alreadySelected = effectiveSelectedIds.includes(ann.id);
+                  const next = alreadySelected
+                    ? effectiveSelectedIds.filter(id => id !== ann.id)
+                    : [...effectiveSelectedIds, ann.id];
+                  setSelectedAnnIds(next);
+                  setSelectedAnnId(next.length > 0 ? next[next.length - 1] : null);
+                }
+              } : undefined}
               style={{
                 position: 'absolute',
                 left: `${bounds.x / 10}%`,
@@ -467,7 +479,20 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
                   const nextText = e.target.value;
                   onUpdateTextProps?.({ text: nextText });
                 } : undefined}
-                onPointerDown={isSelected ? (e) => e.stopPropagation() : undefined}
+                onPointerDown={isSelected ? (e) => {
+                  if (e.shiftKey) {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    const alreadySelected = effectiveSelectedIds.includes(ann.id);
+                    const next = alreadySelected
+                      ? effectiveSelectedIds.filter(id => id !== ann.id)
+                      : [...effectiveSelectedIds, ann.id];
+                    setSelectedAnnIds(next);
+                    setSelectedAnnId(next.length > 0 ? next[next.length - 1] : null);
+                    return;
+                  }
+                  e.stopPropagation();
+                } : undefined}
                 onKeyDown={isSelected ? (e) => e.stopPropagation() : undefined}
                 readOnly={!isSelected}
                 tabIndex={isSelected ? 0 : -1}

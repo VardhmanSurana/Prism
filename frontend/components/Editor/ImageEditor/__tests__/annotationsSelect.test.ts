@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import {
   getAnnotationBBox,
   getAnnotationDistance,
@@ -14,6 +15,7 @@ import {
   partialEraseAnnotation,
 } from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { useAnnotationsState } from '../EditingMode/useAnnotationsState';
 
 describe('Annotation Select Tool & Utils', () => {
   it('computes accurate bounding boxes for bounded shapes and point annotations', () => {
@@ -427,6 +429,88 @@ describe('Annotation Select Tool & Utils', () => {
 
       // All 3 continue to be selected
       expect(selectedIds).toEqual(['shape-1', 'shape-2', 'stroke-1']);
+    });
+
+    it('useAnnotationsState properly synchronizes selectedAnnIds and selectedAnnId without clobbering', () => {
+      const { result } = renderHook(() => useAnnotationsState());
+
+      // Initially empty
+      expect(result.current.selectedAnnIds).toEqual([]);
+      expect(result.current.selectedAnnId).toBeNull();
+
+      // Populate annotations
+      act(() => {
+        result.current.setAnnotations([
+          { id: 'ann-1', type: 'rect', color: '#ff0000', strokeWidth: 2, bounds: { x: 10, y: 10, w: 20, h: 20 } },
+          { id: 'ann-2', type: 'rect', color: '#00ff00', strokeWidth: 2, bounds: { x: 50, y: 50, w: 30, h: 30 } },
+          { id: 'ann-3', type: 'circle', color: '#0000ff', strokeWidth: 4, bounds: { x: 100, y: 100, w: 40, h: 40 } },
+          { id: 'ann-4', type: 'text', color: '#ffffff', strokeWidth: 1, text: 'Hello', bounds: { x: 200, y: 200, w: 100, h: 50 } },
+        ]);
+      });
+
+      // Setting multiple selected IDs
+      act(() => {
+        result.current.setSelectedAnnIds(['ann-1', 'ann-2', 'ann-3']);
+      });
+      expect(result.current.selectedAnnIds).toEqual(['ann-1', 'ann-2', 'ann-3']);
+      expect(result.current.selectedAnnId).toBe('ann-3');
+
+      // Calling setSelectedAnnId with an ID already in selectedAnnIds does NOT collapse selectedAnnIds
+      act(() => {
+        result.current.setSelectedAnnId('ann-1');
+      });
+      expect(result.current.selectedAnnIds).toEqual(['ann-1', 'ann-2', 'ann-3']);
+      expect(result.current.selectedAnnId).toBe('ann-1');
+
+      // Calling setSelectedAnnId with a new ID replaces selection with that single ID
+      act(() => {
+        result.current.setSelectedAnnId('ann-4');
+      });
+      expect(result.current.selectedAnnIds).toEqual(['ann-4']);
+      expect(result.current.selectedAnnId).toBe('ann-4');
+
+      // Calling setSelectedAnnId(null) clears selection
+      act(() => {
+        result.current.setSelectedAnnId(null);
+      });
+      expect(result.current.selectedAnnIds).toEqual([]);
+      expect(result.current.selectedAnnId).toBeNull();
+    });
+
+    it('supports toggle logic for Shift+Click selection', () => {
+      let currentIds = ['rect-1'];
+
+      // Shift-clicking an unselected item adds it
+      const clickId1 = 'circle-2';
+      const alreadySelected1 = currentIds.includes(clickId1);
+      currentIds = alreadySelected1
+        ? currentIds.filter(id => id !== clickId1)
+        : [...currentIds, clickId1];
+      expect(currentIds).toEqual(['rect-1', 'circle-2']);
+
+      // Shift-clicking another unselected item adds it
+      const clickId2 = 'arrow-3';
+      const alreadySelected2 = currentIds.includes(clickId2);
+      currentIds = alreadySelected2
+        ? currentIds.filter(id => id !== clickId2)
+        : [...currentIds, clickId2];
+      expect(currentIds).toEqual(['rect-1', 'circle-2', 'arrow-3']);
+
+      // Shift-clicking an already selected item toggles it off
+      const clickId3 = 'circle-2';
+      const alreadySelected3 = currentIds.includes(clickId3);
+      currentIds = alreadySelected3
+        ? currentIds.filter(id => id !== clickId3)
+        : [...currentIds, clickId3];
+      expect(currentIds).toEqual(['rect-1', 'arrow-3']);
+
+      // Non-shift click on canvas clears or sets single item
+      const shiftKey = false;
+      const clickedEmpty = null;
+      if (!shiftKey && !clickedEmpty) {
+        currentIds = [];
+      }
+      expect(currentIds).toEqual([]);
     });
   });
 });

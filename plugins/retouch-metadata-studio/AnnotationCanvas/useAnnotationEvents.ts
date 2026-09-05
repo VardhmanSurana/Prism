@@ -540,49 +540,51 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
         ? propsRef.current.selectedAnnIds
         : (propsRef.current.selectedAnnId ? [propsRef.current.selectedAnnId] : []);
 
-      // 1. Hit-test handle on any currently selected annotation
-      for (const selId of curSelIds) {
-        const selAnn = annotations.find(a => a.id === selId);
-        if (selAnn) {
-          const handleId = detectHandleClick(x, y, selAnn);
-          if (handleId) {
-            const nextMode = handleId.startsWith('ep') ? 'resize-endpoint' : 'resize-edge';
-            dragModeRef.current     = nextMode; setDragMode(nextMode);
-            activeHandleRef.current = handleId; setActiveHandle(handleId);
-            dragAnnIdRef.current    = selAnn.id;
-            dragStartAnnRef.current = selAnn;
-            isDrawing.current       = true;
-            beginTransientDrag(selAnn.id);
-            e.currentTarget.setPointerCapture(e.pointerId);
-            window.addEventListener('pointermove', onNativeMove);
-            window.addEventListener('pointerup',   onNativeUp);
-            return;
-          }
-
-          // If the selected annotation is a line or arrow, and user clicks on its body:
-          // Insert a new control point at (x, y) and start dragging it!
-          if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
-            const dist = getAnnotationDistance({ x, y }, selAnn);
-            if (dist < 28) {
-              const segIdx = findClosestSegmentIndex({ x, y }, selAnn.points);
-              const insertIdx = segIdx + 1;
-              const newPts = [...selAnn.points];
-              newPts.splice(insertIdx, 0, { x, y });
-              const updatedAnn = { ...selAnn, points: newPts };
-
-              propsRef.current.onChange(annotations.map(a => a.id === selAnn.id ? updatedAnn : a));
-
-              const newHandleId = `ep${insertIdx}` as HandleId;
-              dragModeRef.current     = 'resize-endpoint'; setDragMode('resize-endpoint');
-              activeHandleRef.current = newHandleId;       setActiveHandle(newHandleId);
+      // 1. Hit-test handle on any currently selected annotation (only when not shift-clicking)
+      if (!e.shiftKey) {
+        for (const selId of curSelIds) {
+          const selAnn = annotations.find(a => a.id === selId);
+          if (selAnn) {
+            const handleId = detectHandleClick(x, y, selAnn);
+            if (handleId) {
+              const nextMode = handleId.startsWith('ep') ? 'resize-endpoint' : 'resize-edge';
+              dragModeRef.current     = nextMode; setDragMode(nextMode);
+              activeHandleRef.current = handleId; setActiveHandle(handleId);
               dragAnnIdRef.current    = selAnn.id;
-              dragStartAnnRef.current = updatedAnn;
+              dragStartAnnRef.current = selAnn;
               isDrawing.current       = true;
               beginTransientDrag(selAnn.id);
               e.currentTarget.setPointerCapture(e.pointerId);
               window.addEventListener('pointermove', onNativeMove);
               window.addEventListener('pointerup',   onNativeUp);
               return;
+            }
+
+            // If the selected annotation is a line or arrow, and user clicks on its body:
+            // Insert a new control point at (x, y) and start dragging it!
+            if ((selAnn.type === 'line' || selAnn.type === 'arrow' || selAnn.type === 'doubleArrow') && selAnn.points && selAnn.points.length >= 2) {
+              const dist = getAnnotationDistance({ x, y }, selAnn);
+              if (dist < 28) {
+                const segIdx = findClosestSegmentIndex({ x, y }, selAnn.points);
+                const insertIdx = segIdx + 1;
+                const newPts = [...selAnn.points];
+                newPts.splice(insertIdx, 0, { x, y });
+                const updatedAnn = { ...selAnn, points: newPts };
+
+                propsRef.current.onChange(annotations.map(a => a.id === selAnn.id ? updatedAnn : a));
+
+                const newHandleId = `ep${insertIdx}` as HandleId;
+                dragModeRef.current     = 'resize-endpoint'; setDragMode('resize-endpoint');
+                activeHandleRef.current = newHandleId;       setActiveHandle(newHandleId);
+                dragAnnIdRef.current    = selAnn.id;
+                dragStartAnnRef.current = updatedAnn;
+                isDrawing.current       = true;
+                beginTransientDrag(selAnn.id);
+                e.currentTarget.setPointerCapture(e.pointerId);
+                window.addEventListener('pointermove', onNativeMove);
+                window.addEventListener('pointerup',   onNativeUp);
+                return;
+              }
             }
           }
         }
@@ -592,7 +594,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       const clicked = [...annotations].reverse().find(ann => getAnnotationDistance({ x, y }, ann) < 40);
       if (clicked) {
         if (e.shiftKey) {
-          // Toggle clicked annotation in multi-selection
+          // Toggle clicked annotation in multi-selection (pure selection toggle, no dragging)
           const alreadySelected = curSelIds.includes(clicked.id);
           const nextSelected = alreadySelected
             ? curSelIds.filter(id => id !== clicked.id)
@@ -600,20 +602,6 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
           propsRef.current.setSelectedAnnIds?.(nextSelected);
           propsRef.current.setSelectedAnnId?.(nextSelected.length > 0 ? nextSelected[nextSelected.length - 1] : null);
-
-          // If toggled ON, allow dragging it individually right away
-          if (!alreadySelected) {
-            dragModeRef.current       = 'move'; setDragMode('move');
-            activeHandleRef.current   = null;   setActiveHandle(null);
-            dragAnnIdRef.current      = clicked.id;
-            dragStartAnnRef.current   = clicked;
-            dragStartMouseRef.current = { x, y };
-            isDrawing.current         = true;
-            beginTransientDrag(clicked.id);
-            e.currentTarget.setPointerCapture(e.pointerId);
-            window.addEventListener('pointermove', onNativeMove);
-            window.addEventListener('pointerup',   onNativeUp);
-          }
           return;
         }
 
@@ -823,6 +811,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   // ─── Transform handle starters ────────────────────────────────────────────
 
   const handleTextRotateStart = (e: React.PointerEvent, annId: string) => {
+    if (e.shiftKey) return;
     propsRef.current.onStartGesture?.();
     e.stopPropagation(); e.preventDefault();
     const ann = propsRef.current.annotations.find(a => a.id === annId);
@@ -865,6 +854,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   };
 
   const handleTextResizeStart = (e: React.PointerEvent, handleId: HandleId, annId: string) => {
+    if (e.shiftKey) return;
     propsRef.current.onStartGesture?.();
     e.stopPropagation(); e.preventDefault();
     const ann = propsRef.current.annotations.find(a => a.id === annId);
@@ -890,6 +880,7 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   };
 
   const handleTextMoveStart = (e: React.PointerEvent, annId: string) => {
+    if (e.shiftKey) return;
     propsRef.current.onStartGesture?.();
     e.stopPropagation(); e.preventDefault();
     if (!svgRef.current) return;
