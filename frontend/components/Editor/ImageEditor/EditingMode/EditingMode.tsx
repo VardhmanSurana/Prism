@@ -411,81 +411,90 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
           ctx={panelCtx}
         />
 
-        <CanvasArea
-          currentImageSrc={currentImageSrc}
-          filterString={filterString}
-          cropperRef={cropperRef}
-          handleCropEvent={transform.handleCropEvent}
-          handleReady={transform.handleReady}
-          activeTool={activeTool}
-          adjustments={adjustments}
-          isSaving={exporter.isSaving}
-          curvesTable={curvesTable}
-          isComparing={isComparing}
-          inpaintMode={inpaint.inpaintMode}
-          inpaintCanvasRef={inpaintCanvasRef}
-          inpaintMask={inpaint.inpaintMask}
-          brushSize={inpaint.inpaintSettings.brushSize}
-          brushHardness={inpaint.inpaintSettings.brushHardness}
-          onInpaintMaskChange={inpaint.setInpaintMask}
-          onInpaintStrokeComplete={inpaint.handleInpaintStrokeComplete}
-          onInteractivePointsChange={ai.handleInteractivePointsChange}
-          showMaskPreview={inpaint.inpaintSettings.showMask}
-          maskOpacity={inpaint.inpaintSettings.maskOpacity}
-          annotations={ann.annotations}
-          onAnnotationsChange={ann.updateAnnotations}
-          onStartGesture={ann.onStartGesture}
-          onEndGesture={ann.onEndGesture}
-          activeDrawTool={activeDrawTool}
-          setActiveDrawTool={setActiveDrawTool}
-          activeColor={activeColor}
-          strokeWidth={strokeWidth}
-          eraserSize={brushSize}
-          selectedAnnId={ann.selectedAnnId}
-          setSelectedAnnId={ann.setSelectedAnnId}
-          userChangedStyleRef={userChangedStyleRef}
+        <div className="relative flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          <CanvasArea
+            currentImageSrc={currentImageSrc}
+            filterString={filterString}
+            cropperRef={cropperRef}
+            handleCropEvent={transform.handleCropEvent}
+            handleReady={transform.handleReady}
+            activeTool={activeTool}
+            adjustments={adjustments}
+            isSaving={exporter.isSaving}
+            curvesTable={curvesTable}
+            isComparing={isComparing}
+            inpaintMode={inpaint.inpaintMode}
+            inpaintCanvasRef={inpaintCanvasRef}
+            inpaintMask={inpaint.inpaintMask}
+            brushSize={inpaint.inpaintSettings.brushSize}
+            brushHardness={inpaint.inpaintSettings.brushHardness}
+            onInpaintMaskChange={inpaint.setInpaintMask}
+            onInpaintStrokeComplete={inpaint.handleInpaintStrokeComplete}
+            onInteractivePointsChange={ai.handleInteractivePointsChange}
+            showMaskPreview={inpaint.inpaintSettings.showMask}
+            maskOpacity={inpaint.inpaintSettings.maskOpacity}
+            annotations={ann.annotations}
+            onAnnotationsChange={ann.updateAnnotations}
+            onStartGesture={ann.onStartGesture}
+            onEndGesture={ann.onEndGesture}
+            activeDrawTool={activeDrawTool}
+            setActiveDrawTool={setActiveDrawTool}
+            activeColor={activeColor}
+            strokeWidth={strokeWidth}
+            eraserSize={brushSize}
+            selectedAnnId={ann.selectedAnnId}
+            setSelectedAnnId={ann.setSelectedAnnId}
+            userChangedStyleRef={userChangedStyleRef}
 
-          fontFamily={ann.fontFamily}
-          setFontFamily={ann.setFontFamily}
-          fontSize={ann.fontSize}
-          setFontSize={ann.setFontSize}
-          fontWeight={ann.fontWeight}
-          setWeight={ann.setWeight}
-          fontStyle={ann.fontStyle}
-          setStyle={ann.setStyle}
-          textDecoration={ann.textDecoration}
-          setDecoration={ann.setDecoration}
-          textAlign={ann.textAlign}
-          setTextAlign={ann.setTextAlign}
-          lineHeight={ann.lineHeight}
-          setLineHeight={ann.setLineHeight}
-          letterSpacing={ann.letterSpacing}
-          setLetterSpacing={ann.setLetterSpacing}
-          onUpdateTextProps={ann.onUpdateTextProps}
+            fontFamily={ann.fontFamily}
+            setFontFamily={ann.setFontFamily}
+            fontSize={ann.fontSize}
+            setFontSize={ann.setFontSize}
+            fontWeight={ann.fontWeight}
+            setWeight={ann.setWeight}
+            fontStyle={ann.fontStyle}
+            setStyle={ann.setStyle}
+            textDecoration={ann.textDecoration}
+            setDecoration={ann.setDecoration}
+            textAlign={ann.textAlign}
+            setTextAlign={ann.setTextAlign}
+            lineHeight={ann.lineHeight}
+            setLineHeight={ann.setLineHeight}
+            letterSpacing={ann.letterSpacing}
+            setLetterSpacing={ann.setLetterSpacing}
+            onUpdateTextProps={ann.onUpdateTextProps}
 
-          doodleText={ann.doodleText}
-          setDoodleText={ann.setDoodleText}
-          doodleFontSize={ann.doodleFontSize}
-          setDoodleFontSize={ann.setDoodleFontSize}
-          doodleFontFamily={ann.doodleFontFamily}
-          setDoodleFontFamily={ann.setDoodleFontFamily}
-          showDoodleGuide={ann.showDoodleGuide}
-          setShowDoodleGuide={ann.setShowDoodleGuide}
-          penSettings={penSettings}
-          healingSettings={healingSettings}
-          healingCanvasRef={healingCanvasRef}
-          onHealingStrokeComplete={() => setHealingHasStrokes(true)}
-          lassoState={lassoState}
-          onLassoStateChange={setLassoState}
-          palettePickingIndex={palettePickingIndex}
-          onPaletteColorPicked={handlePaletteColorPicked}
-          onCancelPalettePicking={() => setPalettePickingIndex(null)}
-          faces={faces.faces}
-          selectedFaceIndex={faces.selectedFaceIndex}
-          onSelectFace={faces.setSelectedFaceIndex}
-          liquifySettings={liquifySettings}
-          liquifyCanvasRef={liquifyCanvasRef}
-        />
+            doodleText={ann.doodleText}
+            setDoodleText={ann.setDoodleText}
+            doodleFontSize={ann.doodleFontSize}
+            setDoodleFontSize={ann.setDoodleFontSize}
+            doodleFontFamily={ann.doodleFontFamily}
+            setDoodleFontFamily={ann.setDoodleFontFamily}
+            showDoodleGuide={ann.showDoodleGuide}
+            setShowDoodleGuide={ann.setShowDoodleGuide}
+            penSettings={penSettings}
+            healingSettings={healingSettings}
+            healingCanvasRef={healingCanvasRef}
+            onHealingStrokeComplete={() => setHealingHasStrokes(true)}
+            lassoState={lassoState}
+            onLassoStateChange={setLassoState}
+            palettePickingIndex={palettePickingIndex}
+            onPaletteColorPicked={handlePaletteColorPicked}
+            onCancelPalettePicking={() => setPalettePickingIndex(null)}
+            faces={faces.faces}
+            selectedFaceIndex={faces.selectedFaceIndex}
+            onSelectFace={faces.setSelectedFaceIndex}
+            liquifySettings={liquifySettings}
+            liquifyCanvasRef={liquifyCanvasRef}
+          />
+
+          <AiModelLoadingOverlay
+            isLoading={isAnyAiProcessing}
+            operationName={currentOperationName}
+            detailMessage={aiStore.detailMessage}
+            curveType={aiStore.curveType}
+          />
+        </div>
 
         <HistoryOverlay
           open={isHistoryOpen}
@@ -506,13 +515,6 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
         onKeep={exit.handleKeepDraftAndClose}
         onDiscard={exit.handleDiscardAndClose}
         onCancel={() => exit.setShowExitConfirm(false)}
-      />
-
-      <AiModelLoadingOverlay
-        isLoading={isAnyAiProcessing}
-        operationName={currentOperationName}
-        detailMessage={aiStore.detailMessage}
-        curveType={aiStore.curveType}
       />
     </div>
   );
