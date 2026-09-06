@@ -2,171 +2,106 @@ import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { useTransformControls } from '../EditingMode/hooks/useTransformControls';
 
-describe('useTransformControls crop boundary clamping', () => {
-  function createMockCropper(canvasData = { left: 100, top: 50, width: 400, height: 300 }) {
-    let cropBoxData = { left: 100, top: 50, width: 400, height: 300 };
-    let cropped = false;
-
-    const cropper: any = {
-      limited: false,
-      options: { viewMode: 0 },
-      getContainerData: vi.fn(() => ({ width: 600, height: 400 })),
-      getCanvasData: vi.fn(() => ({ ...canvasData })),
-      getCropBoxData: vi.fn(() => (cropped ? { ...cropBoxData } : {})),
-      setCropBoxData: vi.fn((data: any) => {
-        cropBoxData = { ...cropBoxData, ...data };
-      }),
-      setCanvasData: vi.fn(),
-      setAspectRatio: vi.fn(),
-      setDragMode: vi.fn(),
-      crop: vi.fn(() => {
-        cropped = true;
-      }),
-      clear: vi.fn(() => {
-        cropped = false;
-      }),
-      rotate: vi.fn(),
-      scaleX: vi.fn(),
-      scaleY: vi.fn(),
-      getImageData: vi.fn(() => ({ naturalWidth: 800, naturalHeight: 600 })),
-    };
-
-    return { cropper, getCropBox: () => cropBoxData };
-  }
-
-  function setupHook(mockCropper: any) {
-    const cropperRef = { current: mockCropper };
+describe('useTransformControls native crop and transform', () => {
+  function setupHook() {
     const history = {
       isRestoringHistory: { current: false },
       createdUrlRef: { current: null },
       addHistoryEntry: vi.fn(),
     };
 
-    return renderHook(() =>
+    const setFlipH = vi.fn();
+    const setFlipV = vi.fn();
+    const setTotalRotation = vi.fn();
+    const setStraightenAngle = vi.fn();
+    const setCurrentImageSrc = vi.fn();
+
+    const hook = renderHook(() =>
       useTransformControls({
         src: 'test.jpg',
         currentImageSrc: 'test.jpg',
-        cropperRef,
         flipH: false,
-        setFlipH: vi.fn(),
+        setFlipH,
         flipV: false,
-        setFlipV: vi.fn(),
+        setFlipV,
         totalRotation: 0,
-        setTotalRotation: vi.fn(),
+        setTotalRotation,
         straightenAngle: 0,
-        setStraightenAngle: vi.fn(),
-        setCurrentImageSrc: vi.fn(),
+        setStraightenAngle,
+        setCurrentImageSrc,
         history: history as any,
       })
     );
+
+    return { hook, setFlipH, setFlipV, setTotalRotation, setStraightenAngle, setCurrentImageSrc, history };
   }
 
-  it('enforces viewMode: 1 and limited: true and defaults crop box to canvas bounds', () => {
-    const { cropper, getCropBox } = createMockCropper({ left: 50, top: 40, width: 500, height: 320 });
-    const { result } = setupHook(cropper);
-
-    act(() => {
-      result.current.setActiveTool('transform');
-    });
-
-    expect(cropper.limited).toBe(true);
-    expect(cropper.options.viewMode).toBe(1);
-    expect(cropper.setDragMode).toHaveBeenCalledWith('crop');
-    expect(cropper.crop).toHaveBeenCalled();
-
-    const cropBox = getCropBox();
-    expect(cropBox.left).toBe(50);
-    expect(cropBox.top).toBe(40);
-    expect(cropBox.width).toBe(500);
-    expect(cropBox.height).toBe(320);
+  it('initializes with default full crop rect and no selection', () => {
+    const { hook } = setupHook();
+    expect(hook.result.current.cropRect).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+    expect(hook.result.current.hasCropSelection).toBe(false);
   });
 
-  it('clamps out-of-bounds saved crop box to within image canvas bounds', () => {
-    const { cropper, getCropBox } = createMockCropper({ left: 100, top: 50, width: 400, height: 300 });
-    const { result } = setupHook(cropper);
+  it('updates crop rect and marks hasCropSelection when cropped', () => {
+    const { hook } = setupHook();
 
-    // Enter transform
     act(() => {
-      result.current.setActiveTool('transform');
+      hook.result.current.onCropChange({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
     });
 
-    // Simulate switching away while crop box was larger than canvas
-    cropper.getCropBoxData.mockReturnValue({ left: 0, top: 0, width: 600, height: 400 });
-    act(() => {
-      result.current.setActiveTool('adjust');
-    });
-
-    // Switch back to transform
-    act(() => {
-      result.current.setActiveTool('transform');
-    });
-
-    const cropBox = getCropBox();
-    // Must be clamped inside canvas (left >= 100, top >= 50, width <= 400, height <= 300)
-    expect(cropBox.left).toBeGreaterThanOrEqual(100);
-    expect(cropBox.top).toBeGreaterThanOrEqual(50);
-    expect(cropBox.width).toBeLessThanOrEqual(400);
-    expect(cropBox.height).toBeLessThanOrEqual(300);
-    expect(cropBox.left + cropBox.width).toBeLessThanOrEqual(500);
-    expect(cropBox.top + cropBox.height).toBeLessThanOrEqual(350);
+    expect(hook.result.current.cropRect).toEqual({ x: 0.1, y: 0.1, width: 0.8, height: 0.8 });
+    expect(hook.result.current.hasCropSelection).toBe(true);
   });
 
-  it('enforces viewMode 1 and limited true when aspect ratio is set', () => {
-    const { cropper } = createMockCropper();
-    const { result } = setupHook(cropper);
+  it('adjusts crop rect to aspect ratio when set', () => {
+    const { hook } = setupHook();
 
     act(() => {
-      result.current.handleSetAspectRatio(1);
+      hook.result.current.handleSetAspectRatio(1); // 1:1
     });
 
-    expect(cropper.limited).toBe(true);
-    expect(cropper.options.viewMode).toBe(1);
-    expect(cropper.setAspectRatio).toHaveBeenCalledWith(1);
+    expect(hook.result.current.currentRatio).toBe(1);
+    expect(hook.result.current.cropRect.width).toBe(1);
+    expect(hook.result.current.cropRect.height).toBe(1);
+    expect(hook.result.current.hasCropSelection).toBe(true);
   });
 
-  it('calls setCanvasData before setCropBoxData in handleReady', () => {
-    const { cropper } = createMockCropper({ left: 0, top: 0, width: 400, height: 300 });
-    const { result } = setupHook(cropper);
+  it('handles rotation and flips correctly', () => {
+    const { hook, setTotalRotation, setFlipH, setFlipV, setStraightenAngle } = setupHook();
 
     act(() => {
-      result.current.setActiveTool('transform');
+      hook.result.current.handleRotate(90);
     });
-
-    const callOrder: string[] = [];
-    cropper.setCanvasData.mockImplementation(() => callOrder.push('setCanvasData'));
-    cropper.setCropBoxData.mockImplementation(() => callOrder.push('setCropBoxData'));
+    expect(setTotalRotation).toHaveBeenCalledWith(90);
 
     act(() => {
-      result.current.handleReady();
+      hook.result.current.handleFlipH();
     });
+    expect(setFlipH).toHaveBeenCalledWith(true);
 
-    expect(cropper.limited).toBe(true);
-    expect(cropper.options.viewMode).toBe(1);
-    expect(callOrder.indexOf('setCanvasData')).toBeLessThan(callOrder.indexOf('setCropBoxData'));
-    expect(callOrder.indexOf('setCanvasData')).not.toBe(-1);
-    expect(callOrder.indexOf('setCropBoxData')).not.toBe(-1);
+    act(() => {
+      hook.result.current.handleFlipV();
+    });
+    expect(setFlipV).toHaveBeenCalledWith(true);
+
+    act(() => {
+      hook.result.current.handleStraighten(12);
+    });
+    expect(setStraightenAngle).toHaveBeenCalledWith(12);
   });
 
-  it('does not reset crop box when setActiveTool is called repeatedly with transform', () => {
-    const { cropper, getCropBox } = createMockCropper({ left: 100, top: 50, width: 400, height: 300 });
-    const { result } = setupHook(cropper);
+  it('resets crop and transform on handleResetCrop', () => {
+    const { hook, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV } = setupHook();
 
     act(() => {
-      result.current.setActiveTool('transform');
+      hook.result.current.handleResetCrop();
     });
 
-    // Simulate user resizing crop box inwards
-    cropper.setCropBoxData({ left: 150, top: 80, width: 250, height: 180 });
-
-    // Calling setActiveTool('transform') again should be a no-op and NOT reset to 400x300
-    act(() => {
-      result.current.setActiveTool('transform');
-    });
-
-    const cropBox = getCropBox();
-    expect(cropBox.left).toBe(150);
-    expect(cropBox.top).toBe(80);
-    expect(cropBox.width).toBe(250);
-    expect(cropBox.height).toBe(180);
+    expect(setCurrentImageSrc).toHaveBeenCalledWith('test.jpg');
+    expect(setTotalRotation).toHaveBeenCalledWith(0);
+    expect(setStraightenAngle).toHaveBeenCalledWith(0);
+    expect(setFlipH).toHaveBeenCalledWith(false);
+    expect(setFlipV).toHaveBeenCalledWith(false);
+    expect(hook.result.current.hasCropSelection).toBe(false);
   });
 });

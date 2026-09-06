@@ -14,3 +14,4 @@ export { LivePreviewCanvas } from './overlays/LivePreviewCanvas';
 export { CanvasFilters } from './overlays/CanvasFilters';
 export { CanvasSavingOverlay } from './overlays/CanvasSavingOverlay';
 export { ZoomControlsHost } from './overlays/ZoomControlsHost';
+export { CropOverlay, type CropNormalizedRect } from './overlays/CropOverlay';

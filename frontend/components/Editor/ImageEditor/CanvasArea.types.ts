@@ -1,5 +1,4 @@
 import type React from 'react';
-import type Cropper from 'cropperjs';
 import type { ToolId } from './Sidebar';
 import type { Adjustments } from './filterEngine';
 import type { InpaintMode, InpaintCanvasHandle } from '@plugins/ai-vision-studio';
@@ -7,13 +6,17 @@ import type { Annotation, DrawToolId, PenSettings } from '@plugins/retouch-metad
 import type { HealingSettings } from './HealingPanel';
 import type { HealingCanvasRef } from './HealingCanvas';
 import type { LassoState } from './lassoEngine';
+import type { CropNormalizedRect } from './CanvasArea';
 
 export interface CanvasAreaProps {
   currentImageSrc: string;
   filterString: string;
-  cropperRef: React.RefObject<Cropper | null>;
-  handleCropEvent: () => void;
-  handleReady: () => void;
+  cropperRef?: React.RefObject<any>;
+  cropRect?: CropNormalizedRect;
+  onCropChange?: (crop: CropNormalizedRect) => void;
+  aspectRatio?: number;
+  handleCropEvent?: () => void;
+  handleReady?: () => void;
   activeTool: ToolId | null;
   adjustments: Adjustments;
   isSaving: boolean;

@@ -4,7 +4,6 @@
  * cropper setup) and mounts the overlay sub-components over the cropper viewport.
  */
 import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import 'cropperjs/dist/cropper.css';
 import { ToolId } from '../Sidebar';
 import { Adjustments } from '../filterEngine';
 import type { InpaintCanvasHandle } from '@plugins/ai-vision-studio';
@@ -16,13 +15,13 @@ import { useCanvasZoom } from '../useCanvasZoom';
 import { useCtrlPan } from '../useCtrlPan';
 import { useCompareSlider } from '../useCompareSlider';
 import { useImageLoader } from '../useImageLoader';
-import { useCropperSetup } from '../useCropperSetup';
 import {
   AnnotationsOverlay,
   BeforeImageLayer,
   CanvasFilters,
   CanvasSavingOverlay,
   CompareOverlay,
+  CropOverlay,
   FaceBBoxOverlayHost,
   HealingOverlay,
   InpaintOverlay,
@@ -42,6 +41,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
   const imgRef = useRef<HTMLImageElement>(null);
   const [canvasDrawKey, setCanvasDrawKey] = useState(0);
   const [hasDrawnCanvas, setHasDrawnCanvas] = useState(false);
+  const [panOffset, setPanOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // Overlay container refs
   const liveCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -60,7 +60,18 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
 
   const handleCanvasRedrawRequest = useCallback(() => setCanvasDrawKey(k => k + 1), []);
 
+  const { sourceImg, blendImg, backgroundMaskImg, customBackdropImg, portraitMasksRef } = useImageLoader({
+    currentImageSrc: p.currentImageSrc,
+    adjustments: p.adjustments,
+  });
+
+  const [zoomPercent, setZoomPercent] = useState(100);
+
   const { updateImageRect, imageRect, isDraggingSliderRef } = useImageRectSync({
+    containerRef,
+    sourceImg,
+    zoomPercent,
+    panOffset,
     cropperRef: p.cropperRef,
     currentImageSrc: p.currentImageSrc,
     overlays: {
@@ -73,40 +84,24 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
     onCanvasRedrawRequest: handleCanvasRedrawRequest,
   });
 
-  const { sourceImg, blendImg, backgroundMaskImg, customBackdropImg, portraitMasksRef } = useImageLoader({
-    currentImageSrc: p.currentImageSrc,
-    adjustments: p.adjustments,
+  const { handleZoomIn, handleZoomOut, handleZoomReset, handleZoomToPercent } = useCanvasZoom({
+    updateImageRect,
+    onZoomChange: setZoomPercent,
   });
 
-  const { zoomPercent, handleZoomIn, handleZoomOut, handleZoomReset, handleZoomToPercent, syncZoom } = useCanvasZoom({
-    cropperRef: p.cropperRef,
-    updateImageRect,
-  });
+  const handlePan = useCallback((dx: number, dy: number) => {
+    setPanOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+  }, []);
 
   const { isCtrlPressed, isDragging } = useCtrlPan({
-    cropperRef: p.cropperRef,
     containerRef,
     updateImageRect,
+    onPan: handlePan,
   });
 
   const { comparePercent, handleComparePointerDown, handleComparePointerMove, handleComparePointerUp } = useCompareSlider({
     containerRef,
     latestImageRectRef: { current: imageRect } as React.MutableRefObject<ImageRect | null>,
-  });
-
-  useCropperSetup({
-    imgRef,
-    containerRef,
-    cropperRef: p.cropperRef,
-    currentImageSrc: p.currentImageSrc,
-    activeTool: p.activeTool,
-    handleCropEvent: p.handleCropEvent,
-    handleReady: p.handleReady,
-    updateImageRect,
-    syncZoom,
-    liveCanvasRef,
-    healingCanvasRef: p.healingCanvasRef,
-    annotations: p.annotations,
   });
 
   useEffectLatestComparePercent(comparePercent, latestComparePercentRef);
@@ -175,10 +170,6 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
       <div
         ref={containerRef}
         className={`flex-1 min-w-0 relative bg-[var(--bg-primary)] overflow-hidden ${
-          p.activeTool !== 'transform' ? 'hide-crop-ui' : ''
-        } ${
-          (p.activeTool !== 'transform' && hasDrawnCanvas && !p.isComparing) ? 'hide-cropper-image' : ''
-        } ${
           isCtrlPressed ? (isDragging ? 'ctrl-grabbing-active' : 'ctrl-grab-active') : ''
         }`}
         style={{
@@ -192,9 +183,8 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
           ref={imgRef}
           src={p.currentImageSrc}
           alt=""
-          style={{ maxWidth: '100%', maxHeight: '100%', display: 'block', opacity: 0 }}
+          style={{ display: 'none' }}
           crossOrigin="anonymous"
-          className={p.adjustments.vignette !== 0 && !p.isComparing ? 'with-vignette' : ''}
         />
 
         {p.isComparing && effectiveImageRect && (
@@ -206,7 +196,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
           />
         )}
 
-        {p.activeTool !== 'transform' && effectiveImageRect && sourceImg && (
+        {effectiveImageRect && sourceImg && (
           <LivePreviewCanvas
             rect={effectiveImageRect}
             sourceWidth={sourceImg.naturalWidth}
@@ -215,6 +205,18 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
             hasDrawn={hasDrawnCanvas}
             comparePercent={p.isComparing ? comparePercent : null}
             canvasRef={liveCanvasRef}
+          />
+        )}
+
+        {p.activeTool === 'transform' && effectiveImageRect && p.cropRect && p.onCropChange && (
+          <CropOverlay
+            rect={effectiveImageRect}
+            cropRect={p.cropRect}
+            onCropChange={p.onCropChange}
+            aspectRatio={p.aspectRatio}
+            visible={true}
+            naturalWidth={sourceImg?.naturalWidth}
+            naturalHeight={sourceImg?.naturalHeight}
           />
         )}
 
@@ -274,6 +276,7 @@ export const CanvasArea: React.FC<CanvasAreaProps> = (p) => {
             brushSize={p.brushSize ?? 50}
             brushHardness={p.brushHardness ?? 80}
             canvasRef={p.inpaintCanvasRef as React.Ref<InpaintCanvasHandle>}
+            initialMask={p.inpaintMask}
             onMaskChange={p.onInpaintMaskChange ?? (() => {})}
             onStrokeComplete={p.onInpaintStrokeComplete}
             onInteractivePointsChange={p.onInteractivePointsChange}
@@ -415,7 +418,7 @@ interface UseEffectRedrawParams {
 function useEffectRedrawCanvas(p: UseEffectRedrawParams) {
   useLayoutEffect(() => {
     const canvas = p.liveCanvasRef.current;
-    if (!canvas || !p.sourceImg || p.activeTool === 'transform') return;
+    if (!canvas || !p.sourceImg) return;
     drawFilteredImageToCanvas(
       canvas,
       p.sourceImg,

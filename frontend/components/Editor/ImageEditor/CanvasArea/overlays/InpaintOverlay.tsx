@@ -13,6 +13,7 @@ export interface InpaintOverlayProps {
   brushSize: number;
   brushHardness?: number;
   canvasRef: React.Ref<InpaintCanvasHandle>;
+  initialMask?: string | null;
   onMaskChange: (mask: string) => void;
   onStrokeComplete?: (mask: string) => void;
   onInteractivePointsChange?: (pts: Array<{ x: number; y: number; positive: boolean }>) => void;
@@ -29,6 +30,7 @@ export const InpaintOverlay: React.FC<InpaintOverlayProps> = (p) => (
       mode={p.mode}
       brushSize={p.brushSize}
       brushHardness={p.brushHardness}
+      initialMask={p.initialMask || undefined}
       onMaskChange={p.onMaskChange}
       onStrokeComplete={p.onStrokeComplete}
       onInteractivePointsChange={p.onInteractivePointsChange}

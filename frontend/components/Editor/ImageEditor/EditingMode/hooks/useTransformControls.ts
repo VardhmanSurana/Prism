@@ -1,20 +1,20 @@
 /**
  * useTransformControls.ts
- * Cropper-backed transform state and handlers: rotate, flip, straighten,
- * aspect ratio, in-place crop apply/reset, drag-mode sync, and the
- * `setActiveTool` callback that toggles cropper drag-mode.
+ * Native in-app transform state and handlers: rotate, flip, straighten,
+ * aspect ratio, in-place crop apply/reset, and active tool synchronization.
+ * Completely replaces legacy Cropper.js implementation.
  */
 import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
-import Cropper from 'cropperjs';
 import { HistoryActionType } from '../../history';
 import { useEditingHistory } from '../useEditingHistory';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { remapAnnotationToCrop } from '../../editedPreviewHelper';
+import type { CropNormalizedRect } from '../../CanvasArea/overlays/CropOverlay';
 
 export interface UseTransformControlsParams {
   src: string;
   currentImageSrc: string;
-  cropperRef: MutableRefObject<Cropper | null>;
+  cropperRef?: MutableRefObject<any>; // Retained for backward compatibility
   flipH: boolean;
   setFlipH: (v: boolean) => void;
   flipV: boolean;
@@ -31,54 +31,60 @@ export interface UseTransformControlsParams {
 
 export function useTransformControls(p: UseTransformControlsParams) {
   const [currentRatio, setCurrentRatio] = useState<number>(NaN);
+  const [cropRect, setCropRect] = useState<CropNormalizedRect>({
+    x: 0,
+    y: 0,
+    width: 1,
+    height: 1,
+  });
   const [hasCropSelection, setHasCropSelection] = useState<boolean>(false);
-  const savedCropBoxRef = useRef<Cropper.CropBoxData | null>(null);
   const activeToolRef = useRef<string | null>(null);
 
   useEffect(() => {
     setHasCropSelection(false);
-  }, [p.src]);
+    setCropRect({ x: 0, y: 0, width: 1, height: 1 });
+  }, [p.src, p.currentImageSrc]);
+
+  const handleCropChange = useCallback((crop: CropNormalizedRect) => {
+    setCropRect(crop);
+    const isSub =
+      crop.width < 0.985 ||
+      crop.height < 0.985 ||
+      crop.x > 0.015 ||
+      crop.y > 0.015;
+    setHasCropSelection(isSub);
+  }, []);
 
   const handleCropEvent = useCallback(() => {
-    if (activeToolRef.current !== 'transform') {
-      setHasCropSelection(false);
-      return;
-    }
-
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-
-    const cropBoxData = cropper.getCropBoxData();
-    const canvasData = cropper.getCanvasData();
-
-    if (!cropBoxData || !canvasData) return;
-
-    const isSub =
-      cropBoxData.width > 0 && cropBoxData.height > 0 &&
-      (
-        cropBoxData.width < canvasData.width * 0.985 ||
-        cropBoxData.height < canvasData.height * 0.985 ||
-        cropBoxData.left > canvasData.left + 3 ||
-        cropBoxData.top > canvasData.top + 3
-      );
-
-    setHasCropSelection(prev => (prev !== isSub ? isSub : prev));
-  }, [p.cropperRef]);
+    // Kept for backward compatibility
+  }, []);
 
   const handleApplyCrop = useCallback(() => {
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-
     try {
-      // Capture crop coordinates and dimensions before changing anything
-      const cropData = cropper.getData();
-      const imgData = cropper.getImageData();
-
-      // Ensure cropped canvas is generated from the clean base image so active adjustments remain non-destructive
-      const prevImg = (cropper as any).image;
       const baseSrc = p.currentImageSrc || p.src;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
 
-      const finishCrop = (canvas: HTMLCanvasElement) => {
+      img.onload = () => {
+        const natW = img.naturalWidth;
+        const natH = img.naturalHeight;
+        if (natW <= 0 || natH <= 0) return;
+
+        const sx = Math.max(0, Math.round(cropRect.x * natW));
+        const sy = Math.max(0, Math.round(cropRect.y * natH));
+        const sw = Math.min(natW - sx, Math.max(1, Math.round(cropRect.width * natW)));
+        const sh = Math.min(natH - sy, Math.max(1, Math.round(cropRect.height * natH)));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = sw;
+        canvas.height = sh;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+
         canvas.toBlob((blob) => {
           if (!blob) return;
 
@@ -86,15 +92,16 @@ export function useTransformControls(p: UseTransformControlsParams) {
           p.history.createdUrlRef.current = newUrl;
 
           // Remap annotations if present
-          if (p.annotations && p.onAnnotationsChange && cropData.width > 0 && cropData.height > 0 && imgData.naturalWidth > 0) {
+          if (p.annotations && p.onAnnotationsChange && sw > 0 && sh > 0 && natW > 0) {
             const nextAnns = p.annotations.map(a =>
-              remapAnnotationToCrop(a, cropData.x, cropData.y, cropData.width, cropData.height, imgData.naturalWidth, imgData.naturalHeight)
+              remapAnnotationToCrop(a, sx, sy, sw, sh, natW, natH)
             );
             p.onAnnotationsChange(nextAnns);
           }
 
           p.setCurrentImageSrc(newUrl);
           setHasCropSelection(false);
+          setCropRect({ x: 0, y: 0, width: 1, height: 1 });
 
           p.setTotalRotation(0);
           p.setStraightenAngle(0);
@@ -108,41 +115,16 @@ export function useTransformControls(p: UseTransformControlsParams) {
         }, 'image/jpeg', 0.95);
       };
 
-      if (baseSrc && prevImg && prevImg.src !== baseSrc) {
-        const baseImg = new Image();
-        baseImg.crossOrigin = 'anonymous';
-        baseImg.onload = () => {
-          (cropper as any).image = baseImg;
-          const croppedCanvas = cropper.getCroppedCanvas({
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high',
-          });
-          (cropper as any).image = prevImg;
-          if (croppedCanvas) finishCrop(croppedCanvas);
-        };
-        baseImg.onerror = () => {
-          const croppedCanvas = cropper.getCroppedCanvas({
-            imageSmoothingEnabled: true,
-            imageSmoothingQuality: 'high',
-          });
-          if (croppedCanvas) finishCrop(croppedCanvas);
-        };
-        baseImg.src = baseSrc;
-      } else {
-        const croppedCanvas = cropper.getCroppedCanvas({
-          imageSmoothingEnabled: true,
-          imageSmoothingQuality: 'high',
-        });
-        if (croppedCanvas) finishCrop(croppedCanvas);
-      }
+      img.src = baseSrc;
     } catch (e) {
       console.error('Failed to apply crop in-place:', e);
     }
-  }, [p]);
+  }, [p, cropRect]);
 
   const handleResetCrop = useCallback(() => {
     p.setCurrentImageSrc(p.src);
     setHasCropSelection(false);
+    setCropRect({ x: 0, y: 0, width: 1, height: 1 });
 
     p.setTotalRotation(0);
     p.setStraightenAngle(0);
@@ -151,175 +133,58 @@ export function useTransformControls(p: UseTransformControlsParams) {
   }, [p]);
 
   const handleRotate = useCallback((degree: number) => {
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-
     const newTotal = ((p.totalRotation + degree) % 360 + 360) % 360;
     p.setTotalRotation(newTotal);
 
-    cropper.clear();
-    cropper.rotate(degree);
-
-    const containerData = cropper.getContainerData();
-    const imageData = cropper.getImageData();
-    const isSideways = newTotal === 90 || newTotal === 270;
-    const displayW = isSideways ? imageData.naturalHeight : imageData.naturalWidth;
-    const displayH = isSideways ? imageData.naturalWidth : imageData.naturalHeight;
-
-    const scale = Math.min(
-      (containerData.width * 0.95) / displayW,
-      (containerData.height * 0.95) / displayH,
-    );
-    const newWidth = displayW * scale;
-    const newHeight = displayH * scale;
-
-    const newLeft = (containerData.width - newWidth) / 2;
-    const newTop = (containerData.height - newHeight) / 2;
-
-    cropper.setCanvasData({
-      width: newWidth,
-      height: newHeight,
-      left: newLeft,
-      top: newTop,
-    });
-
-    (cropper as any).limited = true;
-    (cropper as any).options.viewMode = 1;
-
-    if (!isNaN(currentRatio)) {
-      const newRatio = 1 / currentRatio;
-      setCurrentRatio(newRatio);
-      cropper.setAspectRatio(newRatio);
-    } else if (activeToolRef.current === 'transform') {
-      cropper.crop();
-      cropper.setCropBoxData({
-        left: newLeft,
-        top: newTop,
-        width: newWidth,
-        height: newHeight,
-      });
+    if (!isNaN(currentRatio) && currentRatio > 0) {
+      setCurrentRatio(1 / currentRatio);
     }
   }, [p, currentRatio]);
 
   const handleSetAspectRatio = useCallback((ratio: number) => {
     setCurrentRatio(ratio);
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-    (cropper as any).limited = true;
-    (cropper as any).options.viewMode = 1;
-    cropper.setAspectRatio(ratio);
-  }, [p.cropperRef]);
+    if (!isNaN(ratio) && ratio > 0) {
+      // Adjust current crop rect to match aspect ratio centered
+      setCropRect((prev) => {
+        let newW = prev.width;
+        let newH = newW / ratio;
+        if (newH > 1) {
+          newH = 1;
+          newW = newH * ratio;
+        }
+        const newX = Math.max(0, (1 - newW) / 2);
+        const newY = Math.max(0, (1 - newH) / 2);
+        return { x: newX, y: newY, width: newW, height: newH };
+      });
+      setHasCropSelection(true);
+    }
+  }, []);
 
   const handleReady = useCallback(() => {
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-
-    (cropper as any).limited = true;
-    (cropper as any).options.viewMode = 1;
-
-    const containerData = cropper.getContainerData();
-    const canvasData = cropper.getCanvasData();
-
-    const scale = Math.min(
-      (containerData.width * 0.95) / canvasData.width,
-      (containerData.height * 0.95) / canvasData.height,
-    );
-
-    const newWidth = canvasData.width * scale;
-    const newHeight = canvasData.height * scale;
-    const newLeft = (containerData.width - newWidth) / 2;
-    const newTop = (containerData.height - newHeight) / 2;
-
-    cropper.setCanvasData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
-
-    if (activeToolRef.current === 'transform') {
-      cropper.setCropBoxData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
-    }
-
-    cropper.scaleX(p.flipH ? -1 : 1);
-    cropper.scaleY(p.flipV ? -1 : 1);
-    if (typeof (cropper as any).rotateTo === 'function') {
-      (cropper as any).rotateTo(p.totalRotation);
-    } else {
-      cropper.rotate(p.totalRotation);
-    }
-    p.history.isRestoringHistory.current = false;
-  }, [p.flipH, p.flipV, p.totalRotation, p.cropperRef, p.history.isRestoringHistory]);
+    // Transform system ready
+  }, []);
 
   const handleFlipH = useCallback(() => {
-    const next = !p.flipH;
-    p.setFlipH(next);
-    p.cropperRef.current?.scaleX(next ? -1 : 1);
-  }, [p.flipH, p.setFlipH, p.cropperRef]);
+    p.setFlipH(!p.flipH);
+  }, [p.flipH, p.setFlipH]);
 
   const handleFlipV = useCallback(() => {
-    const next = !p.flipV;
-    p.setFlipV(next);
-    p.cropperRef.current?.scaleY(next ? -1 : 1);
-  }, [p.flipV, p.setFlipV, p.cropperRef]);
+    p.setFlipV(!p.flipV);
+  }, [p.flipV, p.setFlipV]);
 
   const handleStraighten = useCallback((angle: number) => {
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-    const delta = angle - p.straightenAngle;
     p.setStraightenAngle(angle);
-    cropper.rotate(delta);
-  }, [p.straightenAngle, p.setStraightenAngle, p.cropperRef]);
+  }, [p.setStraightenAngle]);
 
-  // Sync cropper drag-mode with the active tool from the parent.
   const setActiveTool = useCallback((tool: string | null) => {
-    if (activeToolRef.current === tool) {
-      return;
-    }
     activeToolRef.current = tool;
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-
-    (cropper as any).limited = true;
-    (cropper as any).options.viewMode = 1;
-
-    if (tool !== 'transform') {
-      const cropBoxData = cropper.getCropBoxData();
-      if (cropBoxData && cropBoxData.width > 0 && cropBoxData.height > 0) {
-        savedCropBoxRef.current = cropBoxData;
-      }
-
-      cropper.clear();
-      cropper.setDragMode('none');
-    } else {
-      cropper.setDragMode('crop');
-      cropper.crop();
-
-      const canvasData = cropper.getCanvasData();
-      if (
-        savedCropBoxRef.current &&
-        savedCropBoxRef.current.width > 0 &&
-        savedCropBoxRef.current.height > 0 &&
-        canvasData &&
-        canvasData.width > 0 &&
-        canvasData.height > 0
-      ) {
-        const width = Math.min(savedCropBoxRef.current.width, canvasData.width);
-        const height = Math.min(savedCropBoxRef.current.height, canvasData.height);
-        const maxLeft = canvasData.left + canvasData.width - width;
-        const maxTop = canvasData.top + canvasData.height - height;
-        const left = Math.max(canvasData.left, Math.min(savedCropBoxRef.current.left, maxLeft));
-        const top = Math.max(canvasData.top, Math.min(savedCropBoxRef.current.top, maxTop));
-        cropper.setCropBoxData({ left, top, width, height });
-      } else if (canvasData && canvasData.width > 0 && canvasData.height > 0) {
-        cropper.setCropBoxData({
-          left: canvasData.left,
-          top: canvasData.top,
-          width: canvasData.width,
-          height: canvasData.height,
-        });
-      }
-    }
-  }, [p.cropperRef]);
+  }, []);
 
   return {
     currentRatio,
     hasCropSelection,
+    cropRect,
+    onCropChange: handleCropChange,
     straightenAngle: p.straightenAngle,
     setActiveTool,
     handleCropEvent,

@@ -1,15 +1,15 @@
 /**
  * useCtrlPan.ts
- * Custom hook encapsulating Ctrl+drag canvas panning logic.
+ * Custom hook encapsulating Ctrl+drag canvas panning logic without Cropper.js.
  */
 
 import React from 'react';
-import type Cropper from 'cropperjs';
 
 interface UseCtrlPanOptions {
-  cropperRef: React.RefObject<Cropper | null>;
   containerRef: React.RefObject<HTMLDivElement | null>;
   updateImageRect: () => void;
+  onPan?: (dx: number, dy: number) => void;
+  cropperRef?: React.RefObject<any>; // Optional for backward compatibility
 }
 
 interface UseCtrlPanReturn {
@@ -18,9 +18,9 @@ interface UseCtrlPanReturn {
 }
 
 export function useCtrlPan({
-  cropperRef,
   containerRef,
   updateImageRect,
+  onPan,
 }: UseCtrlPanOptions): UseCtrlPanReturn {
   const [isCtrlPressed, setIsCtrlPressed] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
@@ -76,7 +76,7 @@ export function useCtrlPan({
     if (!container) return;
 
     const handleMouseDownCapture = (e: MouseEvent) => {
-      if (e.ctrlKey && (e.button === 0 || e.button === 2)) {
+      if (e.ctrlKey && (e.button === 0 || e.button === 1 || e.button === 2)) {
         e.preventDefault();
         e.stopPropagation();
 
@@ -96,17 +96,14 @@ export function useCtrlPan({
     if (!isDragging) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!dragStartRef.current || !cropperRef.current) return;
+      if (!dragStartRef.current) return;
 
       const dx = e.clientX - dragStartRef.current.x;
       const dy = e.clientY - dragStartRef.current.y;
       dragStartRef.current = { x: e.clientX, y: e.clientY };
 
-      const cropper = cropperRef.current;
-      if (cropper) {
-        cropper.move(dx, dy);
-        updateImageRect();
-      }
+      onPan?.(dx, dy);
+      updateImageRect();
     };
 
     const handleMouseUp = () => {
@@ -122,7 +119,7 @@ export function useCtrlPan({
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('blur', handleMouseUp);
     };
-  }, [isDragging, cropperRef, updateImageRect]);
+  }, [isDragging, onPan, updateImageRect]);
 
   return { isCtrlPressed, isDragging };
 }

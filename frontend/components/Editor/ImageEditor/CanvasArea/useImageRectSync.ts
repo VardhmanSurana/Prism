@@ -1,11 +1,10 @@
 /**
  * useImageRectSync.ts
- * Bridges the cropper canvas data with React state and with all overlay
- * container refs that need to follow the cropper in zero-lag lockstep.
+ * Bridges the image viewport geometry with React state and with all overlay
+ * container refs that need to follow the image canvas in zero-lag lockstep.
  * Also owns the slider-drag fast-path trigger for re-renders.
  */
 import { MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
-import Cropper from 'cropperjs';
 import { ImageRect } from './imageRect';
 
 export interface OverlayRefs {
@@ -24,7 +23,11 @@ export interface OverlayRefs {
 }
 
 export interface UseImageRectSyncParams {
-  cropperRef: MutableRefObject<Cropper | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  sourceImg: HTMLImageElement | null;
+  zoomPercent: number;
+  panOffset: { x: number; y: number };
+  cropperRef?: MutableRefObject<any>;
   currentImageSrc: string;
   overlays: OverlayRefs;
   latestComparePercentRef: MutableRefObject<number>;
@@ -81,10 +84,33 @@ export function useImageRectSync(p: UseImageRectSyncParams): UseImageRectSyncApi
   }, [p]);
 
   const updateImageRect = useCallback(() => {
-    const cropper = p.cropperRef.current;
-    if (!cropper) return;
-    const canvasData = cropper.getCanvasData();
-    if (!canvasData || !canvasData.width || !canvasData.height || canvasData.width <= 0 || canvasData.height <= 0) return;
+    let canvasData: { left: number; top: number; width: number; height: number } | null = null;
+
+    if (p.containerRef.current && p.sourceImg) {
+      const container = p.containerRef.current;
+      const cW = container.clientWidth;
+      const cH = container.clientHeight;
+      const natW = p.sourceImg.naturalWidth;
+      const natH = p.sourceImg.naturalHeight;
+
+      if (cW > 0 && cH > 0 && natW > 0 && natH > 0) {
+        const baseScale = Math.min((cW * 0.95) / natW, (cH * 0.95) / natH);
+        const zoom = (p.zoomPercent || 100) / 100;
+        const width = Math.round(natW * baseScale * zoom);
+        const height = Math.round(natH * baseScale * zoom);
+        const left = Math.round((cW - width) / 2 + (p.panOffset?.x || 0));
+        const top = Math.round((cH - height) / 2 + (p.panOffset?.y || 0));
+        canvasData = { left, top, width, height };
+      }
+    }
+
+    if (!canvasData && p.cropperRef?.current?.getCanvasData) {
+      canvasData = p.cropperRef.current.getCanvasData();
+    }
+
+    if (!canvasData || !canvasData.width || !canvasData.height || canvasData.width <= 0 || canvasData.height <= 0) {
+      return;
+    }
 
     const elementsToSync: (HTMLElement | null)[] = [
       p.overlays.liveCanvasRef.current,
@@ -141,25 +167,36 @@ export function useImageRectSync(p: UseImageRectSyncParams): UseImageRectSyncApi
         clearTimeout(debounceTimerRef.current);
       }
       debounceTimerRef.current = setTimeout(() => {
+        if (!canvasData) return;
         setImageRect({
           left: canvasData.left,
           top: canvasData.top,
           width: canvasData.width,
           height: canvasData.height,
         });
-      }, 100);
+        p.onCanvasRedrawRequest();
+      }, 30);
     }
   }, [p]);
 
-  // Reset on src change
   useEffect(() => {
-    setImageRect(null);
-  }, [p.currentImageSrc]);
+    updateImageRect();
+  }, [updateImageRect, p.sourceImg, p.zoomPercent, p.panOffset]);
 
-  return {
-    imageRect,
-    setImageRect,
-    isDraggingSliderRef,
-    updateImageRect,
-  };
+  useEffect(() => {
+    const handleResize = () => updateImageRect();
+    window.addEventListener('resize', handleResize);
+    const container = p.containerRef.current;
+    let observer: ResizeObserver | null = null;
+    if (container && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(() => updateImageRect());
+      observer.observe(container);
+    }
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      observer?.disconnect();
+    };
+  }, [updateImageRect, p.containerRef]);
+
+  return { imageRect, setImageRect, isDraggingSliderRef, updateImageRect };
 }
