@@ -63,11 +63,14 @@ export function useCropperSetup({
         );
         cropper.zoomTo(scale);
       }
+      if (activeTool !== 'transform') {
+        cropper.disable();
+      }
     }
     handleReady();
     updateImageRect();
     syncZoom();
-  }, [handleReady, updateImageRect, syncZoom, cropperRef]);
+  }, [handleReady, updateImageRect, syncZoom, cropperRef, activeTool]);
 
   const onReadyCbRef = React.useRef(onCropperReady);
   React.useEffect(() => { onReadyCbRef.current = onCropperReady; }, [onCropperReady]);

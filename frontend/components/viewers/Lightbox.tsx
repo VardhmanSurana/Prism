@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { Photo } from '@/types';
-import { API_BASE } from '@/constants';
+import { API_BASE, resolveUrl } from '@/constants';
 import { eventService } from '@/services/EventService';
 import { customConfirm } from '@/services/ConfirmService';
 
@@ -322,7 +322,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const handleCopyImageToClipboard = useCallback(async () => {
     logAction('Lightbox', 'copy_to_clipboard', { photoId: photo.id });
     try {
-      const imgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || `${API_BASE}/api/v1/photos/${photo.id}/file`;
+      const rawImgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `${API_BASE}/api/v1/photos/${photo.id}/file`);
+      const imgUrl = resolveUrl(rawImgUrl);
       const res = await fetch(imgUrl);
       const blob = await res.blob();
       await navigator.clipboard.write([
@@ -434,12 +435,13 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }), [aspect, slideshowActive]);
 
   const editingSrc = useMemo(() => {
-    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `/api/v1/photos/${photo.id}/file`);
-    if (!baseSrc) return '';
-    if (baseSrc.startsWith('blob:') || baseSrc.startsWith('data:')) return baseSrc;
-    const sep = baseSrc.includes('?') ? '&' : '?';
-    return `${baseSrc}${sep}nocache=${photo.id}-${highRes.highResStatus}`;
-  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
+    const raw = editedPhotoUrl || highRes.currentHighResUrl || (photo.path ? `local://${photo.path}` : photo.url) || `/api/v1/photos/${photo.id}/file`;
+    if (!raw) return '';
+    if (raw.startsWith('blob:') || raw.startsWith('data:')) return raw;
+    const resolved = resolveUrl(raw);
+    const sep = resolved.includes('?') ? '&' : '?';
+    return `${resolved}${sep}nocache=${photo.id}`;
+  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl]);
 
   const variants = slideVariants[slideshowTransition] ?? slideVariants.fade;
   const useKenBurns =

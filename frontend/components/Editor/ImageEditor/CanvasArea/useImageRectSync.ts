@@ -84,6 +84,7 @@ export function useImageRectSync(p: UseImageRectSyncParams): UseImageRectSyncApi
     const cropper = p.cropperRef.current;
     if (!cropper) return;
     const canvasData = cropper.getCanvasData();
+    if (!canvasData || !canvasData.width || !canvasData.height || canvasData.width <= 0 || canvasData.height <= 0) return;
 
     const elementsToSync: (HTMLElement | null)[] = [
       p.overlays.liveCanvasRef.current,

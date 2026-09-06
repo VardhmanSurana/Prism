@@ -47,6 +47,7 @@ export function useImageLoader({
       if (active) setSourceImg(img);
     };
     img.onerror = () => {
+      console.warn('[useImageLoader] Failed to load source image:', currentImageSrc);
       if (active) setSourceImg(null);
     };
     img.src = currentImageSrc;
@@ -58,12 +59,10 @@ export function useImageLoader({
     };
   }, [currentImageSrc]);
 
-  // Load background mask image (used by Cutout & BG and Depth Typography)
+  // Load background mask image (used by Cutout & BG)
   React.useEffect(() => {
     let maskUrl: string | null = null;
-    if (adjustments.depthText?.enabled) {
-      maskUrl = adjustments.depthText.maskData || adjustments.depthText.maskUrl || adjustments.background?.maskUrl || null;
-    } else if (adjustments.background?.enabled) {
+    if (adjustments.background?.enabled) {
       maskUrl = adjustments.background.maskUrl || null;
     }
 
@@ -98,9 +97,6 @@ export function useImageLoader({
   }, [
     adjustments.background?.enabled,
     adjustments.background?.maskUrl,
-    adjustments.depthText?.enabled,
-    adjustments.depthText?.maskData,
-    adjustments.depthText?.maskUrl,
   ]);
 
   // Load custom backdrop image

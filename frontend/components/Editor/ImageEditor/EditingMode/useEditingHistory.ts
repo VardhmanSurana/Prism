@@ -131,6 +131,8 @@ export const useEditingHistory = ({
   const lastPhotoIdRef = useRef<string | null>(null);
   const initRunIdRef = useRef(0);
   const initialAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
+  const latestSrcRef = useRef(src);
+  latestSrcRef.current = src;
 
   const stateRef = useRef({
     currentImageSrc,
@@ -288,10 +290,11 @@ export const useEditingHistory = ({
 
         initialAdjustmentsRef.current = initialAdjustments;
 
+        const effectiveSrc = latestSrcRef.current;
         const initialEntry = createHistoryEntry(
           'initial',
           'Original image',
-          src,
+          effectiveSrc,
           initialAdjustments,
           0,
           false,
@@ -302,7 +305,7 @@ export const useEditingHistory = ({
         isRestoringHistory.current = true;
         setHistory([initialEntry]);
         setCurrentHistoryIndex(0);
-        setCurrentImageSrc(src);
+        setCurrentImageSrc(prev => prev.startsWith('blob:') ? prev : effectiveSrc);
         setAdjustments(initialAdjustments);
         setCustomVariables({});
 
@@ -332,11 +335,9 @@ export const useEditingHistory = ({
         return newHistory;
       });
 
-      if (!currentImageSrc.startsWith('blob:')) {
-        setCurrentImageSrc(src);
-      }
+      setCurrentImageSrc(prev => prev.startsWith('blob:') ? prev : src);
     }
-  }, [src, photoId, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture, currentImageSrc]);
+  }, [src, photoId, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture]);
 
   // Track adjustments and changes
   const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
