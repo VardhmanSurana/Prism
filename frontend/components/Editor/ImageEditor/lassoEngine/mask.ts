@@ -213,3 +213,82 @@ export function createSelectAllMask(width: number, height: number): HTMLCanvasEl
   }
   return canvas;
 }
+
+/**
+ * Scales a mask canvas or polygon points to target high-res dimensions (e.g. naturalWidth x naturalHeight).
+ */
+export function generateScaledMaskCanvas(
+  points: Point2D[],
+  closedPaths: Point2D[][],
+  existingMaskCanvas: HTMLCanvasElement | null,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): HTMLCanvasElement {
+  const targetCanvas = createEmptyMaskCanvas(targetWidth, targetHeight);
+  const tCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
+  if (!tCtx) return targetCanvas;
+
+  const scaleX = sourceWidth > 0 ? targetWidth / sourceWidth : 1;
+  const scaleY = sourceHeight > 0 ? targetHeight / sourceHeight : 1;
+
+  // If we have an existing composite raster mask canvas, scale it up with smooth interpolation
+  if (existingMaskCanvas && existingMaskCanvas.width > 0 && existingMaskCanvas.height > 0) {
+    tCtx.imageSmoothingEnabled = true;
+    tCtx.imageSmoothingQuality = 'high';
+    tCtx.drawImage(existingMaskCanvas, 0, 0, targetWidth, targetHeight);
+    return targetCanvas;
+  }
+
+  // Otherwise, scale the vector points directly to full resolution for crisp edges
+  const allPaths: Point2D[][] = [];
+  if (closedPaths && closedPaths.length > 0) {
+    allPaths.push(...closedPaths);
+  } else if (points && points.length >= 3) {
+    allPaths.push(points);
+  }
+
+  if (allPaths.length === 0) return targetCanvas;
+
+  tCtx.fillStyle = '#ffffff';
+  for (const path of allPaths) {
+    if (path.length < 3) continue;
+    tCtx.beginPath();
+    tCtx.moveTo(path[0].x * scaleX, path[0].y * scaleY);
+    for (let i = 1; i < path.length; i++) {
+      tCtx.lineTo(path[i].x * scaleX, path[i].y * scaleY);
+    }
+    tCtx.closePath();
+    tCtx.fill();
+  }
+
+  return targetCanvas;
+}
+
+/**
+ * Converts a grayscale mask (white on black) to an alpha mask (white on transparent),
+ * matching the exact format expected by Magic Eraser and inpainting pipelines.
+ */
+export function convertMaskToTransparentAlpha(maskCanvas: HTMLCanvasElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = maskCanvas.width;
+  c.height = maskCanvas.height;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  if (!ctx) return maskCanvas;
+
+  ctx.drawImage(maskCanvas, 0, 0);
+  const imgData = ctx.getImageData(0, 0, c.width, c.height);
+  const data = imgData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = data[i]; // Luminance from grayscale mask (0 = black, 255 = white)
+    data[i] = 255;
+    data[i + 1] = 255;
+    data[i + 2] = 255;
+    data[i + 3] = lum; // Map luminance to alpha channel
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return c;
+}

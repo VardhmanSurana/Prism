@@ -16,6 +16,8 @@ export {
   renderBoundaryMarchingAnts,
   invertMask,
   createSelectAllMask,
+  generateScaledMaskCanvas,
+  convertMaskToTransparentAlpha,
 } from './mask';
 export { applyRefineEdgeToMask } from './refineEdge';
 export { renderLassoPathToMask } from './renderLassoPathToMask';

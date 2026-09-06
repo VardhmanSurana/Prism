@@ -4,7 +4,7 @@
  * closed paths, the in-progress path, anchor dots, and the magnetic snap circle.
  */
 import { useEffect, useRef } from 'react';
-import { LassoState, Point2D } from '../lassoEngine';
+import { LassoState, Point2D, renderBoundaryMarchingAnts } from '../lassoEngine';
 
 export interface LassoCanvasViewProps {
   canvasRef: React.MutableRefObject<HTMLCanvasElement | null>;
@@ -15,6 +15,8 @@ export interface LassoCanvasViewProps {
   cursorPos: Point2D | null;
   isNearStart: boolean;
   isSpacePressed: boolean;
+  maskCanvasRef?: React.MutableRefObject<HTMLCanvasElement | null>;
+  maskBoundaryRef?: React.MutableRefObject<{ width: number; height: number; boundary: Uint8Array } | null>;
   onPointerDown: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerMove: (e: React.PointerEvent<HTMLCanvasElement>) => void;
   onPointerUp: () => void;
@@ -35,35 +37,62 @@ export const LassoCanvasView: React.FC<LassoCanvasViewProps> = (p) => {
 
     // 1. Active Mask Overlays (Rubylith Red, B&W)
     if (p.state.hasActiveMask) {
-      const maskCanvas = p.state.activeMaskDataUrl
-        ? null
-        : null;
-      // The actual mask render is delegated to the caller via a stable ref.
-      // Here we just visualize the preview modes when caller has set activeMaskDataUrl.
-      void maskCanvas;
+      const maskCanvas = p.maskCanvasRef?.current;
+      if (maskCanvas && maskCanvas.width > 0 && maskCanvas.height > 0) {
+        if (p.state.previewMode === 'overlay') {
+          // Classic Rubylith Crimson Red tint on selected area
+          ctx.save();
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = p.width;
+          tempCanvas.height = p.height;
+          const tCtx = tempCanvas.getContext('2d');
+          if (tCtx) {
+            tCtx.drawImage(maskCanvas, 0, 0, p.width, p.height);
+            tCtx.globalCompositeOperation = 'source-in';
+            tCtx.fillStyle = 'rgba(239, 68, 68, 0.45)';
+            tCtx.fillRect(0, 0, p.width, p.height);
+            ctx.drawImage(tempCanvas, 0, 0);
+          }
+          ctx.restore();
+        } else if (p.state.previewMode === 'bw') {
+          // High-contrast Black & White silhouette mask
+          ctx.save();
+          ctx.drawImage(maskCanvas, 0, 0, p.width, p.height);
+          ctx.restore();
+        }
+      }
     }
 
-    // 2. Persistent Marching Ants on Closed Paths
-    if (p.state.closedPaths && p.state.closedPaths.length > 0 && p.state.hasActiveMask) {
-      for (const closedPath of p.state.closedPaths) {
-        if (closedPath.length < 3) continue;
+    // 2. Persistent Marching Ants on Closed Paths & Compound Boundaries
+    if (p.state.hasActiveMask && p.state.previewMode === 'ants') {
+      const isCompound = p.state.operation === 'subtract' || p.state.operation === 'intersect';
+      const boundaryData = p.maskBoundaryRef?.current;
 
-        ctx.save();
-        ctx.lineWidth = 1.6;
-        ctx.strokeStyle = '#000000';
-        ctx.beginPath();
-        ctx.moveTo(closedPath[0].x, closedPath[0].y);
-        for (let i = 1; i < closedPath.length; i++) {
-          ctx.lineTo(closedPath[i].x, closedPath[i].y);
+      if (isCompound && boundaryData && boundaryData.boundary.length > 0) {
+        // Draw exact raster boundary marching ants for subtract/intersect compound masks
+        renderBoundaryMarchingAnts(ctx, boundaryData, p.dashOffset);
+      } else if (p.state.closedPaths && p.state.closedPaths.length > 0) {
+        // Fast hardware-accelerated vector marching ants for standard paths
+        for (const closedPath of p.state.closedPaths) {
+          if (closedPath.length < 3) continue;
+
+          ctx.save();
+          ctx.lineWidth = 1.6;
+          ctx.strokeStyle = '#000000';
+          ctx.beginPath();
+          ctx.moveTo(closedPath[0].x, closedPath[0].y);
+          for (let i = 1; i < closedPath.length; i++) {
+            ctx.lineTo(closedPath[i].x, closedPath[i].y);
+          }
+          ctx.closePath();
+          ctx.stroke();
+
+          ctx.strokeStyle = '#ffffff';
+          ctx.setLineDash([5, 5]);
+          ctx.lineDashOffset = p.dashOffset;
+          ctx.stroke();
+          ctx.restore();
         }
-        ctx.closePath();
-        ctx.stroke();
-
-        ctx.strokeStyle = '#ffffff';
-        ctx.setLineDash([5, 5]);
-        ctx.lineDashOffset = p.dashOffset;
-        ctx.stroke();
-        ctx.restore();
       }
     }
 
