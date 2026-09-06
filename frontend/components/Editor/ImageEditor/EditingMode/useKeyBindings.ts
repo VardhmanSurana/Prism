@@ -1,25 +1,30 @@
 /**
  * useKeyBindings.ts
- * Custom React hook establishing global keydown/keyup event listeners for image editor shortcuts (Undo/Redo, Hold-to-Compare, Zooming, and Brush resizing).
+ * Custom React hook establishing global keydown/keyup event listeners for image editor shortcuts
+ * (Undo/Redo, Hold-to-Compare, Zooming, and Brush resizing).
+ * ponytail: simplified by routing directly to handleUndo / handleRedo.
  */
 
 import { useEffect } from 'react';
 import { ToolId } from '../Sidebar';
-import { HistoryEntry } from '../history';
-import { InpaintMode, InpaintSettings } from '../InpaintPanel';
+import type { InpaintMode, InpaintSettings } from '@plugins/ai-vision-studio';
 
 interface UseKeyBindingsProps {
   activeTool: ToolId | null;
   undoAnnotations: () => void;
   redoAnnotations: () => void;
-  currentHistoryIndex: number;
-  history: HistoryEntry[];
-  handleJumpToHistory: (index: number) => void;
+  handleUndo: () => void;
+  handleRedo: () => void;
   setIsComparing: (compare: boolean | ((prev: boolean) => boolean)) => void;
   cropperRef: React.RefObject<any>;
   inpaintMode: InpaintMode;
   setInpaintSettings: React.Dispatch<React.SetStateAction<InpaintSettings>>;
   onAutoEnhance?: () => void;
+  onToggleHistory?: () => void;
+  inpaintCanUndo?: boolean;
+  inpaintCanRedo?: boolean;
+  onInpaintUndo?: () => void;
+  onInpaintRedo?: () => void;
 }
 
 /**
@@ -29,14 +34,18 @@ export const useKeyBindings = ({
   activeTool,
   undoAnnotations,
   redoAnnotations,
-  currentHistoryIndex,
-  history,
-  handleJumpToHistory,
+  handleUndo,
+  handleRedo,
   setIsComparing,
   cropperRef,
   inpaintMode,
   setInpaintSettings,
   onAutoEnhance,
+  onToggleHistory,
+  inpaintCanUndo,
+  inpaintCanRedo,
+  onInpaintUndo,
+  onInpaintRedo,
 }: UseKeyBindingsProps) => {
   useEffect(() => {
     /**
@@ -48,29 +57,21 @@ export const useKeyBindings = ({
         e.preventDefault();
         if (activeTool === 'annotations') {
           undoAnnotations();
+        } else if (activeTool === 'inpaint' && inpaintCanUndo) {
+          onInpaintUndo?.();
         } else {
-          const prevIndex = currentHistoryIndex - 1;
-          if (prevIndex >= 0) handleJumpToHistory(prevIndex);
+          handleUndo();
         }
         return;
       }
-      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey) || e.key === 'y')) {
         e.preventDefault();
         if (activeTool === 'annotations') {
           redoAnnotations();
+        } else if (activeTool === 'inpaint' && inpaintCanRedo) {
+          onInpaintRedo?.();
         } else {
-          const nextIndex = currentHistoryIndex + 1;
-          if (nextIndex < history.length) handleJumpToHistory(nextIndex);
-        }
-        return;
-      }
-      if ((e.metaKey || e.ctrlKey) && e.key === 'y') {
-        e.preventDefault();
-        if (activeTool === 'annotations') {
-          redoAnnotations();
-        } else {
-          const nextIndex = currentHistoryIndex + 1;
-          if (nextIndex < history.length) handleJumpToHistory(nextIndex);
+          handleRedo();
         }
         return;
       }
@@ -91,69 +92,73 @@ export const useKeyBindings = ({
       // ── Ctrl+= / Ctrl+- / Ctrl+0: Zoom ─────────────────────────────────
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        cropperRef.current?.zoom(0.1);
+        cropperRef.current?.zoom?.(0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '-') {
         e.preventDefault();
-        cropperRef.current?.zoom(-0.1);
+        cropperRef.current?.zoom?.(-0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
         const cropper = cropperRef.current;
-        if (cropper) {
+        if (cropper && typeof cropper.getContainerData === 'function') {
           const containerData = cropper.getContainerData();
-          const imageData     = cropper.getImageData();
+          const imageData = cropper.getImageData();
           const scale = Math.min(
-            (containerData.width  * 0.95) / imageData.naturalWidth,
-            (containerData.height * 0.95) / imageData.naturalHeight,
+            (containerData.width * 0.95) / imageData.naturalWidth,
+            (containerData.height * 0.95) / imageData.naturalHeight
           );
-          cropper.zoomTo(scale);
+          cropper.zoomTo?.(scale);
         }
+        return;
+      }
+
+      // ── H: Toggle History Panel ─────────────────────────────────────────
+      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = targetTag === 'input' || targetTag === 'textarea' || (e.target as HTMLElement)?.isContentEditable;
+      if (!isInput && (e.key === 'h' || e.key === 'H') && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        onToggleHistory?.();
         return;
       }
 
       // ── Brush size shortcuts (inpaint) ───────────────────────────────────
       if (activeTool === 'inpaint' && (inpaintMode === 'brush' || inpaintMode === 'erase')) {
         if (e.key === '[') {
-          setInpaintSettings(prev => ({
+          setInpaintSettings((prev: InpaintSettings) => ({
             ...prev,
-            brushSize: Math.max(5, prev.brushSize - 5)
+            brushSize: Math.max(5, prev.brushSize - 5),
           }));
         } else if (e.key === ']') {
-          setInpaintSettings(prev => ({
+          setInpaintSettings((prev: InpaintSettings) => ({
             ...prev,
-            brushSize: Math.min(200, prev.brushSize + 5)
+            brushSize: Math.min(200, prev.brushSize + 5),
           }));
         }
       }
     };
 
-    /**
-     * handleGlobalKeyUp - Handles global key up.
-     */
-    const handleGlobalKeyUp = (_e: KeyboardEvent) => {
-      // Backslash is now a toggle — no keyup action needed
-    };
-
     window.addEventListener('keydown', handleGlobalKeyDown);
-    window.addEventListener('keyup', handleGlobalKeyUp);
     return () => {
       window.removeEventListener('keydown', handleGlobalKeyDown);
-      window.removeEventListener('keyup', handleGlobalKeyUp);
     };
   }, [
     activeTool,
     inpaintMode,
-    currentHistoryIndex,
-    history,
-    handleJumpToHistory,
+    handleUndo,
+    handleRedo,
     undoAnnotations,
     redoAnnotations,
     setIsComparing,
     cropperRef,
     setInpaintSettings,
     onAutoEnhance,
+    onToggleHistory,
+    inpaintCanUndo,
+    inpaintCanRedo,
+    onInpaintUndo,
+    onInpaintRedo,
   ]);
 };

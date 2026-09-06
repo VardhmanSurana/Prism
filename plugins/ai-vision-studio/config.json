@@ -1,0 +1,17 @@
+{
+  "enabled": true,
+  "installed_at": "2026-08-25T10:00:00Z",
+  "updated_at": "2026-08-25T06:09:56.234463983+00:00",
+  "settings": {
+    "auto_feather": 2,
+    "default_inpaint_model": "lama",
+    "default_matting_model": "isnet-general-use",
+    "depth_aperture": 2.8,
+    "features": {
+      "depth-bokeh": false,
+      "inpaint": false,
+      "super-resolution": false
+    },
+    "super_res_scale": 4
+  }
+}

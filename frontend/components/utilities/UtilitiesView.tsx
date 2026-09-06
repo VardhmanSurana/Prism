@@ -13,7 +13,8 @@ import {
   ShieldAlert,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Package
 } from 'lucide-react';
 
 import { SyncSettings } from './SyncSettings';
@@ -26,12 +27,14 @@ import { StorageCleanup } from './storageCleanup';
 import { DiagnosticsLogs } from './DiagnosticsLogs';
 import { PrivacyDashboard } from './PrivacyDashboard';
 import { ModelManager } from './ModelManager';
+import { PluginManager } from './PluginManager';
 
 interface UtilitiesViewProps {
   onResetSuccess?: () => void;
 }
 
 const TABS = [
+  { id: 'plugins' as const, label: 'Plugins', displayLabel: 'Plugin Management', icon: Package },
   { id: 'models' as const, label: 'AI Models', displayLabel: 'AI Model Management', icon: Sparkles },
   { id: 'engine' as const, label: 'Engine Configuration', displayLabel: 'Engine Configuration', icon: Cpu },
   { id: 'storage' as const, label: 'Storage Cleanup', displayLabel: 'Storage Cleanup', icon: HardDrive },
@@ -43,7 +46,7 @@ const TABS = [
  * Top-level utilities container with tab navigation (models, engine, storage, privacy, diagnostics).
  */
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('models');
+  const [activeTab, setActiveTab] = useState<'plugins' | 'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('plugins');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hostCacheSize, setHostCacheSize] = useState<string | null>(null);
 
@@ -136,15 +139,15 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                   role="tab"
                   id={`mobile-tab-${tab.id}`}
                   aria-selected={isActive}
-                  aria-controls={`tabpanel-${tab.id}`}
+                  aria-controls={isActive ? `tabpanel-${tab.id}` : undefined}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => {
                     setActiveTab(tab.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`flex items-center gap-2 px-3 py-2 rounded text-xs font-mono transition-colors 150ms ease, background-color 150ms ease, border-color 150ms ease min-h-[44px] ${
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-mono transition-all duration-200 min-h-[44px] ${
                     isActive
-                      ? 'bg-[var(--cr-accent)]/10 text-[var(--cr-accent)] border border-[var(--cr-accent)]/30 font-bold'
+                      ? 'bg-[#FCBC00] text-black shadow-[0_0_14px_rgba(252,188,0,0.45)] font-bold'
                       : 'text-[var(--cr-text-muted)] hover:text-[var(--cr-text-primary)] border border-transparent'
                   }`}
                 >
@@ -185,7 +188,7 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                   role="tab"
                   id={`tab-${tab.id}`}
                   aria-selected={isActive}
-                  aria-controls={`tabpanel-${tab.id}`}
+                  aria-controls={isActive ? `tabpanel-${tab.id}` : undefined}
                   tabIndex={isActive ? 0 : -1}
                   onClick={() => setActiveTab(tab.id)}
                   className={`cr-nav-item w-full text-left flex items-center gap-2.5 min-h-[44px] ${isActive ? 'active' : ''}`}
@@ -271,6 +274,12 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
           </div>
 
           {/* Active Tab Views */}
+          {activeTab === 'plugins' && (
+            <div>
+              <PluginManager />
+            </div>
+          )}
+
           {activeTab === 'models' && (
             <div>
               <ModelManager />

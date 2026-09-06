@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { Photo } from '@/types';
-import { API_BASE } from '@/constants';
+import { API_BASE, resolveUrl } from '@/constants';
 import { eventService } from '@/services/EventService';
 import { customConfirm } from '@/services/ConfirmService';
 
@@ -21,6 +21,7 @@ import { Filmstrip } from './lightbox/Filmstrip';
 import { VideoPlayer } from './lightbox/VideoPlayer';
 import { SlideshowControls } from './lightbox/SlideshowControls';
 import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
+import { TextActionsOverlay } from './lightbox/TextActionsOverlay';
 import { ComparisonView } from './lightbox/ComparisonView';
 import { AskAIPanel } from './lightbox/AskAIPanel';
 import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
@@ -28,6 +29,7 @@ import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
 import { MobileEditor } from '@/components/Editor/mobile/MobileEditor';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
 import { usePlatform } from '@/hooks/usePlatform';
+import { useSearchParams } from 'react-router-dom';
 
 interface LightboxProps {
   photo: Photo;
@@ -77,10 +79,21 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [showInfo, setShowInfo] = useState(false);
   const [metadata, setMetadata] = useState<Photo | null>(null);
   const [lastNavDir, setLastNavDir] = useState<'prev' | 'next' | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const isEditing = searchParams.get('mode') === 'edit';
+
+  const setIsEditing = useCallback((editing: boolean) => {
+    const photoKey = photo.uuid || photo.id;
+    if (editing) {
+      setSearchParams({ photo: String(photoKey), mode: 'edit' });
+    } else {
+      setSearchParams({ photo: String(photoKey) });
+    }
+  }, [photo.uuid, photo.id, setSearchParams]);
   const [isNLEOpen, setIsNLEOpen] = useState(false);
   const [editedPhotoUrl, setEditedPhotoUrl] = useState<string | null>(null);
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
+  const [isOcrActive, setIsOcrActive] = useState(false);
   const [hasFaces, setHasFaces] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -229,6 +242,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     setEditedPhotoUrl(null);
     setMetadata(null);
     setIsFaceTaggingActive(false);
+    setIsOcrActive(false);
   }, [photo.id, resetInteraction]);
 
   // Check if photo has detected faces
@@ -347,7 +361,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const handleCopyImageToClipboard = useCallback(async () => {
     logAction('Lightbox', 'copy_to_clipboard', { photoId: photo.id });
     try {
-      const imgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || `${API_BASE}/api/v1/photos/${photo.id}/file`;
+      const rawImgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `${API_BASE}/api/v1/photos/${photo.id}/file`);
+      const imgUrl = resolveUrl(rawImgUrl);
       const res = await fetch(imgUrl);
       const blob = await res.blob();
       await navigator.clipboard.write([
@@ -402,6 +417,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
       }
 
       if (e.key === 'Escape') {
+        if (isOcrActive) {
+          setIsOcrActive(false);
+          return;
+        }
         if (isFaceTaggingActive) {
           setIsFaceTaggingActive(false);
           return;
@@ -421,17 +440,20 @@ export const Lightbox: React.FC<LightboxProps> = ({
         handleStartSlideshow();
         return;
       }
+      if ((e.key === 't' || e.key === 'T') && !isVideo && !isEditing && !isNLEOpen) {
+        e.preventDefault();
+        setIsOcrActive(prev => !prev);
+        return;
+      }
       if (!isVideo && zoomScale === 1) {
         if (e.key === 'ArrowRight') handleNext();
         if (e.key === 'ArrowLeft') handlePrev();
       }
     };
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [
-    onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
+    return () => window.removeEventListener('keydown', handleKey);  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
     slideshowActive, toggleSlideshowPlay, handleStopSlideshow, handleStartSlideshow,
-    canStartSlideshow, isFaceTaggingActive, isComparisonOpen, isAskAIOpen,
+    canStartSlideshow, isFaceTaggingActive, isOcrActive, isComparisonOpen, isAskAIOpen,
   ]);
 
   // Stop slideshow when entering editor
@@ -461,12 +483,13 @@ export const Lightbox: React.FC<LightboxProps> = ({
    * editingSrc - Performs editing src.
    */
   const editingSrc = useMemo(() => {
-    const baseSrc = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `/api/v1/photos/${photo.id}/file`);
-    if (!baseSrc) return '';
-    if (baseSrc.startsWith('blob:') || baseSrc.startsWith('data:')) return baseSrc;
-    const sep = baseSrc.includes('?') ? '&' : '?';
-    return `${baseSrc}${sep}nocache=${photo.id}-${highRes.highResStatus}`;
-  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl, highRes.highResStatus]);
+    const raw = editedPhotoUrl || highRes.currentHighResUrl || (photo.path ? `local://${photo.path}` : photo.url) || `/api/v1/photos/${photo.id}/file`;
+    if (!raw) return '';
+    if (raw.startsWith('blob:') || raw.startsWith('data:')) return raw;
+    const resolved = resolveUrl(raw);
+    const sep = resolved.includes('?') ? '&' : '?';
+    return `${resolved}${sep}nocache=${photo.id}`;
+  }, [photo.id, photo.url, photo.path, editedPhotoUrl, highRes.currentHighResUrl]);
 
   const variants = slideVariants[slideshowTransition] ?? slideVariants.fade;
   const useKenBurns =
@@ -497,6 +520,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           slideshowActive={slideshowActive}
           canStartSlideshow={canStartSlideshow}
           faceTaggingActive={isFaceTaggingActive}
+          ocrActive={isOcrActive}
           onClose={onClose}
           onSetZoomScale={setZoomScale}
           onResetInteraction={resetInteraction}
@@ -516,6 +540,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onSetAsCover={onSetAsCover}
           onStartSlideshow={handleStartSlideshow}
           onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
+          onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
           onOpenComparison={() => { logAction('Lightbox', 'open_comparison', { photoId: photo.id }); setIsComparisonOpen(true); }}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyImageToClipboard}
@@ -577,12 +602,26 @@ export const Lightbox: React.FC<LightboxProps> = ({
                 />
               )}
 
+              {/* Text Actions Overlay */}
+              {isOcrActive && !isVideo && (
+                <TextActionsOverlay
+                  photo={photo}
+                  onClose={() => setIsOcrActive(false)}
+                  containerRef={containerRef}
+                  zoomScale={zoomScale}
+                  offset={offset}
+                />
+              )}
+
               {/* Face Tagging Overlay */}
               {isFaceTaggingActive && !isVideo && (
                 <FaceTaggingOverlay
                   photo={photo}
                   onClose={() => setIsFaceTaggingActive(false)}
                   onTagUpdated={fetchMetadata}
+                  containerRef={containerRef}
+                  zoomScale={zoomScale}
+                  offset={offset}
                 />
               )}
             </motion.div>
@@ -740,9 +779,18 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
               if (res.ok) {
                 const updatedPhotoData = await res.json();
-                setEditedPhotoUrl(URL.createObjectURL(blob));
+                const blobUrl = URL.createObjectURL(blob);
+                setEditedPhotoUrl(blobUrl);
                 setIsEditing(false);
                 unloadInpaintModels();
+                if (onPhotoSelect) {
+                  onPhotoSelect({
+                    ...photo,
+                    ...updatedPhotoData,
+                    hash: updatedPhotoData.hash || String(Date.now()),
+                    url: `${updatedPhotoData.url || `/api/v1/photos/${updatedPhotoData.id}/thumbnail`}?h=${Date.now()}`
+                  });
+                }
                 eventService.emit('photo_updated', { type: 'photo_updated', photo: updatedPhotoData });
               } else {
                 console.error("Failed to save photo", await res.text());

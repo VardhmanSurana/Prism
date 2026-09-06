@@ -306,7 +306,7 @@ pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> 
             "siglip": true
         },
         "features_enabled": {
-            "inpainting": true,
+            "magic_eraser": true,
             "face": true,
             "clip": true,
             "rembg": true
@@ -757,17 +757,17 @@ pub async fn fused_search(
         .unwrap_or(20);
 
     if query.is_empty() {
-        let results = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
-            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption
+        let results = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
              FROM photos ORDER BY date_taken DESC LIMIT ?"
         )
         .bind(limit as i64)
         .fetch_all(&state.db)
         .await
-        .map(|rows| rows.into_iter().map(|(id, uuid, filename, path, date_taken, city, state_val, country, caption)| {
+        .map(|rows| rows.into_iter().map(|(id, uuid, filename, path, date_taken, city, state_val, country, caption, ai_summary)| {
             json!({ "id": id, "uuid": uuid, "filename": filename, "path": path,
                     "date_taken": date_taken, "city": city, "state": state_val,
-                    "country": country, "caption": caption })
+                    "country": country, "caption": caption, "ai_summary": ai_summary })
         }).collect::<Vec<_>>())
         .unwrap_or_default();
 
@@ -784,8 +784,8 @@ pub async fn fused_search(
     // Fetch photos
     let mut results = Vec::new();
     for id in similar_ids {
-        if let Ok(row) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
-            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption
+        if let Ok(row) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
+            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
              FROM photos WHERE id = ?"
         )
         .bind(id)
@@ -794,51 +794,73 @@ pub async fn fused_search(
             results.push(json!({
                 "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
                 "date_taken": row.4, "city": row.5, "state": row.6,
-                "country": row.7, "caption": row.8
+                "country": row.7, "caption": row.8, "ai_summary": row.9
             }));
+        }
+    }
+
+    // Text-based fallback: if semantic search returned few results, supplement
+    // with keyword matching against ai_summary, caption, and auto_tags
+    if results.len() < limit {
+        let terms: Vec<&str> = query.split_whitespace().collect();
+        if !terms.is_empty() {
+            let term_filters: Vec<String> = terms.iter().map(|t| {
+                format!("(ai_summary LIKE '%{}%' OR caption LIKE '%{}%' OR auto_tags LIKE '%{}%' OR ocr_text LIKE '%{}%')", t, t, t, t)
+            }).collect();
+            let exclude_ids = if results.is_empty() {
+                "0".to_string()
+            } else {
+                results.iter().map(|r| r["id"].to_string()).collect::<Vec<_>>().join(", ")
+            };
+            let text_sql = format!(
+                "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
+                 FROM photos WHERE is_trash = 0 AND is_locked = 0 AND ({})
+                 AND id NOT IN ({}) ORDER BY date_taken DESC LIMIT {}",
+                term_filters.join(" OR "), exclude_ids, limit - results.len()
+            );
+            if let Ok(text_rows) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(&text_sql)
+                .fetch_all(&state.db)
+                .await
+            {
+                for row in text_rows {
+                    results.push(json!({
+                        "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
+                        "date_taken": row.4, "city": row.5, "state": row.6,
+                        "country": row.7, "caption": row.8, "ai_summary": row.9,
+                        "match_type": "text"
+                    }));
+                }
+            }
         }
     }
 
     Json(json!({ "results": results, "total": results.len() }))
 }
 
-#[derive(Deserialize)]
-pub struct PurgeTrashRequest {
-    #[serde(default = "default_days")]
-    pub older_than_days: i32,
-}
-
-/// default_days - Performs default days.
-fn default_days() -> i32 { 30 }
-
-/// POST /api/v1/utilities/purge-trash — Purge trashed photos older than N days.
-pub async fn purge_trash(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<PurgeTrashRequest>,
-) -> Json<Value> {
-    let older_than_days = payload.older_than_days;
-    let cutoff = chrono::Utc::now() - chrono::Duration::days(older_than_days.into());
-
-    // ponytail: find photos in trash older than cutoff, delete files + rows
+/// POST /api/v1/utilities/purge-trash — Permanently removes ALL trashed items'
+/// app-side data (DB rows + derived thumbnail files). Media files on disk are
+/// NEVER touched.
+pub async fn purge_trash(State(state): State<Arc<AppState>>) -> Json<Value> {
     let trashed = sqlx::query_as::<_, crate::models::Photo>(
-        "SELECT * FROM photos WHERE is_trash = 1 AND date <= ?"
+        "SELECT * FROM photos WHERE is_trash = 1"
     )
-    .bind(cutoff)
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
 
-    let count = trashed.len();
+    let mut purged: i64 = 0;
     for photo in &trashed {
-        let _ = std::fs::remove_file(&photo.path);
-        let _ = std::fs::remove_file(format!("{}.xmp", photo.path));
+        if crate::routes::photos::purge_photo_app_data(
+            &state.db,
+            &state.config.thumbnails_dir,
+            photo.id,
+        )
+        .await
+        .is_ok()
+        {
+            purged += 1;
+        }
     }
 
-    sqlx::query("DELETE FROM photos WHERE is_trash = 1 AND date <= ?")
-        .bind(cutoff)
-        .execute(&state.db)
-        .await
-        .ok();
-
-    Json(json!({ "status": "success", "purged": count, "older_than_days": older_than_days }))
+    Json(json!({ "status": "success", "purged": purged }))
 }

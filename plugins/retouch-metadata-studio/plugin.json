@@ -1,0 +1,26 @@
+{
+  "id": "retouch-metadata-studio",
+  "name": "Retouching, Metadata & Security Studio",
+  "version": "1.0.0",
+  "author": "Prism Vision & Security Labs",
+  "description": "Professional frequency-separation skin smoothing, facial feature enhancement (iris, teeth, lips), Reinhard perceptual shot color matching, technical vector markup & rulers, offline EXIF reverse geocoding, and C2PA cryptographic provenance credentials.",
+  "category": "Image Editor",
+  "icon": "User",
+  "homepage": "https://github.com/VardhmanSurana/prism-plugin-retouch-metadata-studio",
+  "capabilities": [
+    "portrait",
+    "skin-smoothing",
+    "frequency-separation",
+    "colormatch",
+    "color-transfer",
+    "reinhard",
+    "annotations",
+    "vector",
+    "exif",
+    "geotag",
+    "c2pa",
+    "provenance"
+  ],
+  "entrypoint": "entrypoint.js",
+  "min_app_version": "0.1.0"
+}

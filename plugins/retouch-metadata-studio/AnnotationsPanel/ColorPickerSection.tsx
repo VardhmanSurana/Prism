@@ -1,0 +1,374 @@
+/**
+ * ColorPickerSection.tsx
+ * Renders the color palette selector, swatches grid, custom hexadecimal color picker, and pinned colors interface for markup tools.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { Grid3X3, Pipette, X } from 'lucide-react';
+import { HexColorPicker } from 'react-colorful';
+interface ColorPickerSectionProps {
+  activeColor: string;
+  setActiveColor: (color: string) => void;
+  markStyleChanged?: () => void;
+}
+
+const PRESET_COLORS = [
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#14b8a6',
+  '#06b6d4',
+  '#3b82f6',
+  '#8b5cf6',
+  '#d946ef',
+  '#f43f5e',
+  '#ffffff',
+  '#000000',
+];
+
+const SWATCH_GRID: string[][] = [
+  ['#991b1b', '#b91c1c', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2'],
+  ['#9a3412', '#c2410c', '#ea580c', '#f97316', '#fb923c', '#fdba74', '#fed7aa', '#ffedd5'],
+  ['#92400e', '#b45309', '#d97706', '#f59e0b', '#fbbf24', '#fcd34d', '#fde68a', '#fef3c7'],
+  ['#854d0e', '#a16207', '#ca8a04', '#eab308', '#facc15', '#fde047', '#fef08a', '#fef9c3'],
+  ['#3f6212', '#4d7c0f', '#65a30d', '#84cc16', '#a3e635', '#bef264', '#d9f99d', '#ecfccb'],
+  ['#166534', '#15803d', '#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7'],
+  ['#115e59', '#0f766e', '#0d9488', '#14b8a6', '#2dd4bf', '#5eead4', '#99f6e4', '#ccfbf1'],
+  ['#164e63', '#0e7490', '#0891b2', '#06b6d4', '#22d3ee', '#67e8f9', '#a5f3fc', '#cffafe'],
+  ['#0c4a6e', '#0369a1', '#0284c7', '#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd', '#e0f2fe'],
+  ['#1e3a5f', '#1e40af', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd', '#bfdbfe', '#dbeafe'],
+  ['#312e81', '#3730a3', '#4f46e5', '#6366f1', '#818cf8', '#a5b4fc', '#c7d2fe', '#e0e7ff'],
+  ['#4c1d95', '#5b21b6', '#7c3aed', '#8b5cf6', '#a78bfa', '#c4b5fd', '#ddd6fe', '#ede9fe'],
+  ['#581c87', '#6b21a8', '#9333ea', '#a855f7', '#c084fc', '#d8b4fe', '#e9d5ff', '#f3e8ff'],
+  ['#701a75', '#86198f', '#c026d3', '#d946ef', '#e879f9', '#f0abfc', '#f5d0fe', '#fae8ff'],
+  ['#9d174d', '#be185d', '#db2777', '#ec4899', '#f472b6', '#f9a8d4', '#fbcfe8', '#fce7f3'],
+  ['#9f1239', '#be123c', '#e11d48', '#f43f5e', '#fb7185', '#fda4af', '#fecdd3', '#fff1f2'],
+  ['#171717', '#262626', '#404040', '#525252', '#737373', '#a3a3a3', '#d4d4d4', '#f5f5f5'],
+  ['#1c1917', '#292524', '#44403c', '#57534e', '#78716c', '#a8a29e', '#d6d3d1', '#f5f5f4'],
+];
+
+export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
+  activeColor,
+  setActiveColor,
+  markStyleChanged,
+}) => {
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showSwatchGrid, setShowSwatchGrid] = useState(false);
+  const [customColor, setCustomColor] = useState<string>(activeColor || '#ef4444');
+  const [recentColors, setRecentColors] = useState<string[]>([]);
+  const [pinnedColors, setPinnedColors] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('prism_pinned_colors');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length >= 2) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return ['#000000', '#ffffff'];
+  });
+
+  // Sync customColor state if activeColor changes externally
+  useEffect(() => {
+    if (activeColor && activeColor.toLowerCase() !== customColor.toLowerCase()) {
+      setCustomColor(activeColor);
+    }
+  }, [activeColor]);
+
+  const [hoveredPinColor, setHoveredPinColor] = useState<string | null>(null);
+
+  const pinColor = (color: string) => {
+    if (!color) return;
+    const normalized = color.toLowerCase();
+    setPinnedColors(prev => {
+      if (prev.map(c => c.toLowerCase()).includes(normalized)) return prev;
+      const next = [...prev, color];
+      try {
+        localStorage.setItem('prism_pinned_colors', JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const unpinColor = (color: string) => {
+    setPinnedColors(prev => {
+      const next = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
+      try {
+        localStorage.setItem('prism_pinned_colors', JSON.stringify(next));
+      } catch (e) {
+        console.error(e);
+      }
+      return next;
+    });
+  };
+
+  const pushRecentColor = (color: string) => {
+    setRecentColors(prev => {
+      const filtered = prev.filter(c => c.toLowerCase() !== color.toLowerCase());
+      return [color, ...filtered].slice(0, 6);
+    });
+  };
+
+  const handlePickColor = (color: string) => {
+    setActiveColor(color);
+    pushRecentColor(color);
+    markStyleChanged?.();
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40 mb-2.5">
+          Color
+        </p>
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Preset Colors"
+        >
+          {PRESET_COLORS.map(color => {
+            const isActive = activeColor.toLowerCase() === color.toLowerCase();
+            return (
+              <button
+                key={color}
+                type="button"
+                onClick={() => handlePickColor(color)}
+                className={`w-full rounded-full transition-all duration-200 cursor-pointer border ${
+                  color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                } ${
+                  isActive
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
+                }`}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1', borderRadius: '9999px' }}
+                role="radio"
+                aria-checked={isActive}
+                aria-label={`Preset color ${color}`}
+                title={color}
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40">
+            Pinned
+          </p>
+          <button
+            type="button"
+            onClick={() => pinColor(activeColor)}
+            className="text-[9px] font-bold uppercase text-blue-400 hover:text-blue-300 transition-colors cursor-pointer bg-white/5 px-2 py-0.5 rounded border border-white/10 hover:border-white/20"
+            title="Pin active color"
+          >
+            + Pin Active
+          </button>
+        </div>
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Pinned Colors"
+        >
+          {pinnedColors.map(color => {
+            const isActive = activeColor.toLowerCase() === color.toLowerCase();
+            const isHovered = hoveredPinColor?.toLowerCase() === color.toLowerCase();
+            return (
+              <div
+                key={color}
+                className="relative group w-full"
+                style={{ aspectRatio: '1 / 1' }}
+                onMouseEnter={() => setHoveredPinColor(color)}
+                onMouseLeave={() => setHoveredPinColor(null)}
+              >
+                <button
+                  type="button"
+                  onClick={() => handlePickColor(color)}
+                  className={`w-full h-full rounded-full transition-all duration-200 cursor-pointer border ${
+                    color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                  } ${
+                    isActive
+                      ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
+                      : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
+                  }`}
+                  style={{ backgroundColor: color, borderRadius: '9999px' }}
+                  role="radio"
+                  aria-checked={isActive}
+                  aria-label={`Pinned color ${color}`}
+                  title={color}
+                />
+
+                {/* Outlined/tonal remove button (visible only on hover) */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    unpinColor(color);
+                  }}
+                  className={`absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#12141a]/95 border border-red-500/70 hover:border-red-400 hover:bg-red-500/20 text-red-400 hover:text-red-300 flex items-center justify-center shadow-lg cursor-pointer z-30 transition-all duration-150 ${
+                    isHovered
+                      ? 'opacity-100 scale-100 pointer-events-auto'
+                      : 'opacity-0 scale-75 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto'
+                  }`}
+                  title={`Unpin ${color}`}
+                  aria-label={`Unpin ${color}`}
+                >
+                  <X size={8.5} strokeWidth={2.5} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/40">
+          Recent
+        </p>
+        <div
+          className="grid grid-cols-6 gap-2"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(6, minmax(0, 1fr))', gap: '8px' }}
+          role="radiogroup"
+          aria-label="Recent Colors"
+        >
+          {recentColors.length > 0 ? recentColors.map(color => {
+            const isActive = activeColor.toLowerCase() === color.toLowerCase();
+            return (
+              <button
+                key={color}
+                type="button"
+                onClick={() => handlePickColor(color)}
+                className={`w-full rounded-full transition-all duration-200 cursor-pointer border ${
+                  color.toLowerCase() === '#ffffff' ? 'border-white/30' : 'border-white/10'
+                } ${
+                  isActive
+                    ? 'ring-2 ring-blue-500 ring-offset-2 ring-offset-[#0d0f14] scale-105 shadow-md shadow-black/50'
+                    : 'hover:scale-105 hover:ring-1 hover:ring-white/20'
+                }`}
+                style={{ backgroundColor: color, aspectRatio: '1 / 1', borderRadius: '9999px' }}
+                role="radio"
+                aria-checked={isActive}
+                aria-label={`Recent color ${color}`}
+              />
+            );
+          }) : (
+            <p className="col-span-6 text-[9px] text-white/30 italic">No colors used yet</p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <button
+          type="button"
+          onClick={() => {
+            setShowSwatchGrid(prev => !prev);
+            setShowColorPicker(false);
+          }}
+          className={`flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+            showSwatchGrid
+              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          aria-expanded={showSwatchGrid}
+          aria-label="Toggle palette swatches"
+        >
+          <Grid3X3 size={13} />
+          <span>Palette</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            handlePickColor(customColor);
+            setShowColorPicker(prev => !prev);
+            setShowSwatchGrid(false);
+          }}
+          className={`flex items-center justify-center gap-1.5 w-full py-2 px-3 rounded-xl text-xs font-semibold border transition-all duration-200 cursor-pointer ${
+            showColorPicker
+              ? 'bg-blue-500/20 border-blue-500/40 text-blue-400'
+              : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          aria-expanded={showColorPicker}
+          aria-label="Toggle custom color picker"
+        >
+          <Pipette size={13} />
+          <span>Custom Color</span>
+        </button>
+      </div>
+
+      {showSwatchGrid && (
+        <div className="mt-3 rounded-xl border border-white/10 p-2.5 bg-black/40 space-y-1" role="radiogroup" aria-label="Palette Grid">
+          {SWATCH_GRID.map((row, ri) => (
+            <div key={ri} className="grid grid-cols-8 gap-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(0, 1fr))', gap: '4px' }}>
+              {row.map((hex) => {
+                const isActive = activeColor.toLowerCase() === hex.toLowerCase();
+                return (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => handlePickColor(hex)}
+                    className={`w-full rounded-full border border-white/5 transition-all duration-150 cursor-pointer ${
+                      isActive
+                        ? 'ring-2 ring-blue-500 ring-offset-1 ring-offset-[#0a0a0a] scale-110 shadow-md'
+                        : 'hover:scale-110 hover:ring-1 hover:ring-white/20'
+                    }`}
+                    style={{ backgroundColor: hex, aspectRatio: '1 / 1', borderRadius: '9999px' }}
+                    title={hex}
+                    role="radio"
+                    aria-checked={isActive}
+                    aria-label={`Color ${hex}`}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showColorPicker && (
+        <div className="mt-3 rounded-xl border border-white/10 p-3 bg-black/40 flex flex-col items-center gap-3">
+          <HexColorPicker
+            color={customColor}
+            onChange={(hex) => {
+              setCustomColor(hex);
+              handlePickColor(hex);
+            }}
+          />
+          <div className="flex items-center gap-2 w-full">
+            <span className="text-xs text-white/50 font-mono">#</span>
+            <input
+              type="text"
+              value={customColor.replace(/^#/, '')}
+              onChange={(e) => {
+                const val = '#' + e.target.value;
+                setCustomColor(val);
+                if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                  handlePickColor(val);
+                }
+              }}
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500"
+              maxLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                handlePickColor(customColor);
+                setShowColorPicker(false);
+              }}
+              className="py-1 px-3 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

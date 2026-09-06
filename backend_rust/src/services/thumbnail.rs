@@ -10,9 +10,13 @@ pub struct ImageInfo {
     pub aspect_ratio: f64,
 }
 
-/// get_image_info - Retrieves image info.
+fn load_image_sniffed(path: &Path) -> Result<image::DynamicImage, String> {
+    let bytes = fs::read(path).map_err(|e| e.to_string())?;
+    image::load_from_memory(&bytes).map_err(|e| e.to_string())
+}
+
 pub fn get_image_info(path: &Path) -> Result<ImageInfo, String> {
-    let img = image::open(path).map_err(|e| e.to_string())?;
+    let img = load_image_sniffed(path)?;
     let (width, height) = img.dimensions();
     let aspect_ratio = if height > 0 {
         width as f64 / height as f64
@@ -47,7 +51,7 @@ pub fn generate_thumbnail(
         return Ok(thumb_path);
     }
 
-    let img = image::open(source_path).map_err(|e| e.to_string())?;
+    let img = load_image_sniffed(source_path)?;
     let resized = img.thumbnail(max_dim, max_dim);
     resized.save(&thumb_path).map_err(|e| e.to_string())?;
 

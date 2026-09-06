@@ -1,13 +1,21 @@
 /**
  * useEditingHistory.ts
- * Custom React hook encapsulating adjustments state, cropper values, full edit history list, entry deletion, hiding/unhiding, and restoration mechanisms.
+ * Custom React hook encapsulating adjustments state, custom variables,
+ * crop, rotation, non-destructive timeline, and undo/redo history.
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { HistoryEntry, HistoryActionType, createHistoryEntry } from '../history';
+import { HistoryEntry, HistoryActionType, appendBoundedHistory, createHistoryEntry } from '../history';
+import { recomputeActiveEditorState } from '../historyUtils';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
-import { Annotation } from '../AnnotationsPanel';
-import { API_BASE } from '@/constants';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import {
+  inferToolId,
+  commitAdjustmentChange,
+  useInitialAdjustmentsLoader,
+} from './history';
+
+export { inferToolId };
 
 interface UseEditingHistoryProps {
   src: string;
@@ -19,69 +27,13 @@ interface UseEditingHistoryProps {
   photoId?: number | string;
 }
 
-/**
- * Chronologically recomposes the active image adjustments, rotation, flip, and crop source
- * starting from the original state by applying only active (non-hidden) history entries.
- */
-const recomposeHistoryState = (history: HistoryEntry[], currentIndex: number) => {
-  const initialEntry = history[0];
-  const state = {
-    imageSrc: initialEntry ? initialEntry.imageSrc : '',
-    adjustments: { ...DEFAULT_ADJUSTMENTS },
-    rotation: 0,
-    flipH: false,
-    flipV: false,
-    straightenAngle: 0,
-    annotations: [] as Annotation[],
-  };
-
-  // Process chronological entries up to the current index
-  for (let i = 1; i <= currentIndex; i++) {
-    const entry = history[i];
-    if (!entry || entry.hidden) continue;
-
-    if (entry.type === 'crop') {
-      state.imageSrc = entry.imageSrc;
-    } else if (entry.type === 'rotate') {
-      state.rotation = (state.rotation + (entry.value || 0)) % 360;
-    } else if (entry.type === 'flip') {
-      if (entry.description.toLowerCase().includes('horizontally')) {
-        state.flipH = !state.flipH;
-      } else if (entry.description.toLowerCase().includes('vertically')) {
-        state.flipV = !state.flipV;
-      }
-    } else if (entry.type === 'straighten') {
-      state.straightenAngle = entry.value || 0;
-    } else if (entry.type === 'curves') {
-      state.adjustments.curves = entry.adjustments.curves;
-    } else if (entry.type === 'regions' || (typeof entry.type === 'string' && entry.type.startsWith('regions'))) {
-      state.adjustments.regions = entry.adjustments.regions;
-    } else if (entry.type === 'annotations') {
-      state.annotations = entry.annotations ? [...entry.annotations] : [];
-    } else {
-      const key = entry.type as keyof Adjustments;
-      if (key in state.adjustments) {
-        if (key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift' || key === 'hsl') {
-          state.adjustments[key] = { ...entry.adjustments[key] } as any;
-        } else {
-          (state.adjustments as unknown as Record<string, any>)[key] = entry.value !== undefined ? entry.value : 0;
-        }
-      }
-    }
-  }
-
-  return state;
-};
-
-/**
- * restoreCropperState - Performs restore cropper state.
- */
 function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boolean; rotation: number }) {
-  cropper.scaleX(state.flipH ? -1 : 1);
-  cropper.scaleY(state.flipV ? -1 : 1);
+  if (!cropper) return;
+  cropper.scaleX?.(state.flipH ? -1 : 1);
+  cropper.scaleY?.(state.flipV ? -1 : 1);
   if (typeof cropper.rotateTo === 'function') {
     cropper.rotateTo(state.rotation);
-  } else {
+  } else if (typeof cropper.rotate === 'function') {
     cropper.rotate(state.rotation);
   }
 }
@@ -100,6 +52,7 @@ export const useEditingHistory = ({
 }: UseEditingHistoryProps) => {
   const [currentImageSrc, setCurrentImageSrc] = useState<string>(src);
   const [adjustments, setAdjustments] = useState<Adjustments>(DEFAULT_ADJUSTMENTS);
+  const [customVariables, setCustomVariables] = useState<Record<string, any>>({});
   const [flipH, setFlipH] = useState<boolean>(false);
   const [flipV, setFlipV] = useState<boolean>(false);
   const [straightenAngle, setStraightenAngle] = useState<number>(0);
@@ -107,14 +60,14 @@ export const useEditingHistory = ({
 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState<number>(-1);
-  
+
   const isRestoringHistory = useRef(false);
   const createdUrlRef = useRef<string | null>(null);
-  const lastPhotoIdRef = useRef<string | null>(null);
 
   const stateRef = useRef({
     currentImageSrc,
     adjustments,
+    customVariables,
     totalRotation,
     flipH,
     flipV,
@@ -126,6 +79,7 @@ export const useEditingHistory = ({
   stateRef.current = {
     currentImageSrc,
     adjustments,
+    customVariables,
     totalRotation,
     flipH,
     flipV,
@@ -135,9 +89,13 @@ export const useEditingHistory = ({
     annotations,
   };
 
-  /**
-   * revokeLocalUrl - Performs revoke local url.
-   */
+  const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
+  const previousRotationRef = useRef<number>(0);
+  const previousStraightenRef = useRef<number>(0);
+  const previousFlipHRef = useRef<boolean>(false);
+  const previousFlipVRef = useRef<boolean>(false);
+  const pendingChangesRef = useRef<Map<keyof Adjustments, any>>(new Map());
+
   const revokeLocalUrl = useCallback(() => {
     if (createdUrlRef.current) {
       URL.revokeObjectURL(createdUrlRef.current);
@@ -145,227 +103,157 @@ export const useEditingHistory = ({
     }
   }, []);
 
-  const addHistoryEntry = useCallback((
-    type: HistoryActionType,
-    description: string,
-    value?: number,
-    overrideImageSrc?: string,
-    overrideAnnotations?: Annotation[]
-  ) => {
-    if (isRestoringHistory.current) return;
-
-    const s = stateRef.current;
-    const entry = createHistoryEntry(
-      type,
-      description,
-      overrideImageSrc || s.currentImageSrc,
-      s.adjustments,
-      s.totalRotation,
-      s.flipH,
-      s.flipV,
-      s.straightenAngle,
-      value,
-      overrideAnnotations || s.annotations
-    );
-
-    const isCollapsible = type !== 'initial' && type !== 'crop' && type !== 'inpaint' && type !== 'rotate' && type !== 'flip' && type !== 'annotations';
-
-    setHistory(prev => {
-      let newHistory = prev.slice(0, s.currentHistoryIndex + 1);
-      if (isCollapsible) {
-        newHistory = newHistory.filter(h => h.type !== type);
+  const addHistoryEntry = useCallback(
+    (
+      type: HistoryActionType,
+      description: string,
+      value?: any,
+      overrideImageSrc?: string,
+      overrideAnnotations?: Annotation[],
+      options?: {
+        customVariables?: Record<string, any>;
+        hidden?: boolean;
+        isSnapshot?: boolean;
+        toolId?: string;
+        propertyKey?: string;
       }
-      return [...newHistory, entry];
-    });
+    ) => {
+      if (isRestoringHistory.current) return;
 
-    setCurrentHistoryIndex(() => {
-      let newHistory = s.history.slice(0, s.currentHistoryIndex + 1);
-      if (isCollapsible) {
-        newHistory = newHistory.filter(h => h.type !== type);
-      }
-      return newHistory.length;
-    });
-  }, []);
-
-  // Initialize history on mount or if photo changes
-  useEffect(() => {
-    const parsedIdMatch = src.match(/nocache=([^&-]+)/);
-    const parsedId = parsedIdMatch ? parsedIdMatch[1] : src;
-
-    if (lastPhotoIdRef.current !== parsedId) {
-      /**
-       * fetchInitialAdjustments - Retrieves fetch initial adjustments.
-       */
-      const fetchInitialAdjustments = async () => {
-        let initialAdjustments = DEFAULT_ADJUSTMENTS;
-        const activePhotoId = photoId || parsedId;
-        if (activePhotoId && !isNaN(Number(activePhotoId))) {
-          try {
-            const res = await fetch(`${API_BASE}/api/v1/photos/${activePhotoId}/metadata`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data.adjustments) {
-                initialAdjustments = data.adjustments;
-              }
-            }
-          } catch (e) {
-            console.error('Failed to fetch initial photo adjustments:', e);
-          }
+      const s = stateRef.current;
+      const entry = createHistoryEntry(
+        type,
+        description,
+        overrideImageSrc || s.currentImageSrc,
+        s.adjustments,
+        s.totalRotation,
+        s.flipH,
+        s.flipV,
+        s.straightenAngle,
+        value,
+        overrideAnnotations || s.annotations,
+        {
+          customVariables: options?.customVariables || s.customVariables,
+          hidden: options?.hidden,
+          isSnapshot: options?.isSnapshot,
+          toolId: options?.toolId || (options?.propertyKey ? inferToolId(options.propertyKey) : undefined),
+          propertyKey: options?.propertyKey,
         }
+      );
 
-        const initialEntry = createHistoryEntry(
-          'initial',
-          'Original image',
-          src,
-          initialAdjustments,
-          0,
-          false,
-          false,
-          0
-        );
+      const isCollapsible =
+        !options?.isSnapshot &&
+        type !== 'initial' &&
+        type !== 'crop' &&
+        type !== 'inpaint' &&
+        type !== 'depth' &&
+        type !== 'enhance' &&
+        type !== 'colormatch' &&
+        type !== 'rotate' &&
+        type !== 'flip' &&
+        type !== 'annotations';
 
-        isRestoringHistory.current = true;
-        setHistory([initialEntry]);
-        setCurrentHistoryIndex(0);
-        setCurrentImageSrc(src);
-        setAdjustments(initialAdjustments);
-        
-        previousAdjustmentsRef.current = { ...initialAdjustments };
-        previousRotationRef.current = 0;
-        previousStraightenRef.current = 0;
-        previousFlipHRef.current = false;
-        previousFlipVRef.current = false;
-        setAnnotations([]);
-        setAnnotationsHistoryPast([]);
-        setAnnotationsHistoryFuture([]);
-        
-        lastPhotoIdRef.current = parsedId;
-        isRestoringHistory.current = false;
+      const appendEntry = (historyEntries: HistoryEntry[]) => {
+        const activeHistory = historyEntries.slice(0, s.currentHistoryIndex + 1);
+        let newHistory = activeHistory;
+        let collapsed: HistoryEntry[] = [];
+        if (isCollapsible) {
+          collapsed = activeHistory.filter(h => h.type === type && h.propertyKey === options?.propertyKey);
+          newHistory = newHistory.filter(h => !(h.type === type && h.propertyKey === options?.propertyKey));
+        }
+        const result = appendBoundedHistory(newHistory, newHistory.length - 1, entry);
+        return { ...result, evicted: [...collapsed, ...result.evicted] };
       };
 
-      fetchInitialAdjustments();
-    } else {
       setHistory(prev => {
-        if (prev.length === 0) return prev;
-        const newHistory = [...prev];
-        if (newHistory[0].type === 'initial') {
-          newHistory[0] = { ...newHistory[0], imageSrc: src };
+        const result = appendEntry(prev);
+        for (const evicted of result.evicted) {
+          if (evicted.imageSrc.startsWith('blob:') && !result.history.some(h => h.imageSrc === evicted.imageSrc)) {
+            URL.revokeObjectURL(evicted.imageSrc);
+          }
         }
-        return newHistory;
+        return result.history;
       });
 
-      if (!currentImageSrc.startsWith('blob:')) {
-        setCurrentImageSrc(src);
-      }
-    }
-  }, [src, photoId, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture, currentImageSrc]);
+      setCurrentHistoryIndex(() => {
+        return appendEntry(s.history).currentHistoryIndex;
+      });
+    },
+    []
+  );
+
+  // Initialize history on mount or if photo changes
+  const { initialAdjustmentsRef } = useInitialAdjustmentsLoader({
+    src,
+    photoId,
+    stateRef,
+    setHistory,
+    setCurrentHistoryIndex,
+    setCurrentImageSrc,
+    setAdjustments,
+    setCustomVariables,
+    setAnnotations,
+    setAnnotationsHistoryPast,
+    setAnnotationsHistoryFuture,
+    isRestoringHistory,
+    previousAdjustmentsRef,
+    previousRotationRef,
+    previousStraightenRef,
+    previousFlipHRef,
+    previousFlipVRef,
+  });
 
   // Track adjustments and changes
-  const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
-  const previousRotationRef = useRef<number>(0);
-  const previousStraightenRef = useRef<number>(0);
-  const previousFlipHRef = useRef<boolean>(false);
-  const previousFlipVRef = useRef<boolean>(false);
-
   useEffect(() => {
     if (isRestoringHistory.current) return;
-    
+
     const prev = previousAdjustmentsRef.current;
     const curr = adjustments;
-    const changes: Array<{ key: keyof Adjustments; value: number | string }> = [];
-    
+
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
-      if (key === 'curves' || key === 'regions' || key === 'hsl' || key === 'splitToning' || key === 'grain' || key === 'lightLeak' || key === 'frame' || key === 'blend' || key === 'tiltShift') {
+      if (
+        key === 'curves' ||
+        key === 'specializedCurves' ||
+        key === 'hsl' ||
+        key === 'colorWheels' ||
+        key === 'splitToning' ||
+        key === 'portrait' ||
+        key === 'grain' ||
+        key === 'lightLeak' ||
+        key === 'frame' ||
+        key === 'blend' ||
+        key === 'tiltShift' ||
+        key === 'layers' ||
+        key === 'lut' ||
+        key === 'background' ||
+        key === 'raw'
+      ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
-          changes.push({ key, value: 'modified' });
+          pendingChangesRef.current.set(key, curr[key]);
         }
       } else if (prev[key] !== curr[key]) {
         const val = curr[key];
         if (typeof val === 'number') {
-          changes.push({ key, value: val });
+          pendingChangesRef.current.set(key, val);
         }
       }
     });
-    
-    if (changes.length > 0) {
+
+    if (pendingChangesRef.current.size > 0) {
       previousAdjustmentsRef.current = { ...curr };
 
       /**
        * timer - Performs timer.
        */
       const timer = setTimeout(() => {
-        changes.forEach(({ key, value }) => {
-          const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-          const numValue = typeof value === 'number' ? value : undefined;
-          
-          if (key === 'curves') {
-            addHistoryEntry(key as HistoryActionType, `Adjusted ${label}`);
-          } else if (key === 'regions') {
-            /**
-             * regionChanges - Performs region changes.
-             */
-            const regionChanges = curr.regions.filter((r, i) => {
-              const p = prev.regions[i];
-              return !p || JSON.stringify(p.adjustments) !== JSON.stringify(r.adjustments);
-            });
-            
-            regionChanges.forEach(region => {
-              /**
-               * prevRegion - Performs prev region.
-               */
-              const prevRegion = prev.regions?.find(pr => pr.id === region.id);
-              const regionName = region.type === 'face' ? 'Face Skin' : 
-                                region.type === 'background' ? 'Background' : 
-                                'Region';
-              
-              if (prevRegion) {
-                const adjKeys = Object.keys(region.adjustments) as Array<keyof typeof region.adjustments>;
-                /**
-                 * changedKey - Performs changed key.
-                 */
-                const changedKey = adjKeys.find(k => region.adjustments[k] !== prevRegion.adjustments[k]);
-                
-                if (changedKey) {
-                  const keyStr = changedKey as string;
-                  const val = region.adjustments[changedKey] || 0;
-                  const label = keyStr.charAt(0).toUpperCase() + keyStr.slice(1);
-                  const formattedValue = val > 0 ? `+${val}` : val;
-                  
-                  addHistoryEntry(
-                    `regions_${region.id}_${keyStr}` as HistoryActionType,
-                    `${regionName} ${label} ${formattedValue}`,
-                    val
-                  );
-                  return;
-                }
-              }
-              addHistoryEntry('regions', `Adjusted ${regionName}`);
-            });
-          } else if (key === 'hsl') {
-            addHistoryEntry('hsl' as HistoryActionType, 'Adjusted Color Mixer');
-          } else if (key === 'splitToning') {
-            addHistoryEntry('splitToning' as HistoryActionType, 'Adjusted Split Toning');
-          } else if (key === 'grain') {
-            addHistoryEntry('grain' as HistoryActionType, `Film Grain: ${curr.grain.amount}% (${curr.grain.size})`);
-          } else if (key === 'lightLeak') {
-            const presetName = curr.lightLeak.preset ? curr.lightLeak.preset.replace('-', ' ') : '';
-            addHistoryEntry('lightLeak' as HistoryActionType, curr.lightLeak.preset ? `Light Leak: ${presetName}` : 'Removed Light Leak');
-          } else if (key === 'frame') {
-            addHistoryEntry('frame' as HistoryActionType, curr.frame.style !== 'none' ? `Frame: ${curr.frame.style}` : 'Removed Frame');
-          } else if (key === 'blend') {
-            addHistoryEntry('blend' as HistoryActionType, curr.blend.blendImageSrc ? 'Double Exposure Blended' : 'Removed Double Exposure');
-          } else if (key === 'tiltShift') {
-            addHistoryEntry('tiltShift' as HistoryActionType, curr.tiltShift.enabled ? `Tilt-Shift: ${curr.tiltShift.mode}` : 'Disabled Tilt-Shift');
-          } else {
-            addHistoryEntry(
-              key as HistoryActionType, 
-              `${label} ${numValue !== undefined ? (numValue > 0 ? '+' : '') + numValue : 'adjusted'}`,
-              numValue
-            );
-          }
+        const changesToCommit = Array.from(pendingChangesRef.current.entries());
+        pendingChangesRef.current.clear();
+
+        changesToCommit.forEach(([key, value]) => {
+          commitAdjustmentChange(key, value, curr, addHistoryEntry);
         });
       }, 500);
-      
+
       return () => clearTimeout(timer);
     }
   }, [adjustments, addHistoryEntry]);
@@ -379,7 +267,9 @@ export const useEditingHistory = ({
        */
       const timer = setTimeout(() => {
         const degrees = totalRotation - previousRotationRef.current;
-        addHistoryEntry('rotate', `Rotated ${degrees > 0 ? '+' : ''}${degrees}°`, degrees);
+        addHistoryEntry('rotate', `Rotated ${degrees > 0 ? '+' : ''}${degrees}°`, degrees, undefined, undefined, {
+          toolId: 'transform',
+        });
         previousRotationRef.current = totalRotation;
       }, 300);
       return () => clearTimeout(timer);
@@ -394,7 +284,9 @@ export const useEditingHistory = ({
        * timer - Performs timer.
        */
       const timer = setTimeout(() => {
-        addHistoryEntry('straighten', `Straighten ${straightenAngle > 0 ? '+' : ''}${straightenAngle}°`, straightenAngle);
+        addHistoryEntry('straighten', `Straighten ${straightenAngle > 0 ? '+' : ''}${straightenAngle}°`, straightenAngle, undefined, undefined, {
+          toolId: 'transform',
+        });
         previousStraightenRef.current = straightenAngle;
       }, 300);
       return () => clearTimeout(timer);
@@ -405,199 +297,176 @@ export const useEditingHistory = ({
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (flipH !== previousFlipHRef.current) {
-      addHistoryEntry('flip', flipH ? 'Flipped horizontally' : 'Un-flipped horizontally');
+      addHistoryEntry('flip', flipH ? 'Flipped horizontally' : 'Un-flipped horizontally', flipH, undefined, undefined, {
+        toolId: 'transform',
+      });
       previousFlipHRef.current = flipH;
     }
   }, [flipH, addHistoryEntry]);
-  
+
   useEffect(() => {
     if (isRestoringHistory.current) return;
     if (flipV !== previousFlipVRef.current) {
-      addHistoryEntry('flip', flipV ? 'Flipped vertically' : 'Un-flipped vertically');
+      addHistoryEntry('flip', flipV ? 'Flipped vertically' : 'Un-flipped vertically', flipV, undefined, undefined, {
+        toolId: 'transform',
+      });
       previousFlipVRef.current = flipV;
     }
   }, [flipV, addHistoryEntry]);
 
-  /**
-   * handleJumpToHistory - Handles jump to history.
-   */
-  const handleJumpToHistory = useCallback((index: number) => {
-    if (index < 0 || index >= history.length || index === currentHistoryIndex) return;
+  const applyEntry = useCallback(
+    (entry: HistoryEntry, index: number) => {
+      isRestoringHistory.current = true;
 
-    const recomposed = recomposeHistoryState(history, index);
-    const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
+      setCurrentImageSrc(entry.imageSrc);
+      setAdjustments({ ...entry.adjustments });
+      setCustomVariables(entry.customVariables ? { ...entry.customVariables } : {});
+      setTotalRotation(entry.rotation);
+      setStraightenAngle(entry.straightenAngle);
+      setFlipH(entry.flipH);
+      setFlipV(entry.flipV);
+      if (entry.annotations) {
+        setAnnotations([...entry.annotations]);
+      }
 
-    isRestoringHistory.current = true;
+      previousAdjustmentsRef.current = { ...entry.adjustments };
+      previousRotationRef.current = entry.rotation;
+      previousStraightenRef.current = entry.straightenAngle;
+      previousFlipHRef.current = entry.flipH;
+      previousFlipVRef.current = entry.flipV;
+      setCurrentHistoryIndex(index);
 
-    revokeLocalUrl();
-    setCurrentImageSrc(recomposed.imageSrc);
-    setAdjustments(recomposed.adjustments);
-    
-    previousAdjustmentsRef.current = { ...recomposed.adjustments };
-    previousRotationRef.current = recomposed.rotation;
-    previousStraightenRef.current = recomposed.straightenAngle;
-    previousFlipHRef.current = recomposed.flipH;
-    previousFlipVRef.current = recomposed.flipV;
-    
-    setTotalRotation(recomposed.rotation);
-    setFlipH(recomposed.flipH);
-    setFlipV(recomposed.flipV);
-    setStraightenAngle(recomposed.straightenAngle);
-    setCurrentHistoryIndex(index);
+      const cropper = cropperRef.current;
+      if (cropper) {
+        restoreCropperState(cropper, entry);
+      }
+      isRestoringHistory.current = false;
+    },
+    [cropperRef, setAnnotations]
+  );
 
-    if (!imageSrcChanged) {
-      setTimeout(() => {
-        const cropper = cropperRef.current;
-        if (cropper) {
-          restoreCropperState(cropper, recomposed);
-        } else {
-          isRestoringHistory.current = false;
+  const toggleHideHistoryEntry = useCallback(
+    (id: string) => {
+      setHistory(prev => {
+        const updated = prev.map(entry => (entry.id === id ? { ...entry, hidden: !entry.hidden } : entry));
+        const recomputed = recomputeActiveEditorState(updated, initialAdjustmentsRef.current);
+        isRestoringHistory.current = true;
+        setAdjustments(recomputed.adjustments);
+        setCustomVariables(recomputed.customVariables);
+        previousAdjustmentsRef.current = { ...recomputed.adjustments };
+        isRestoringHistory.current = false;
+        return updated;
+      });
+    },
+    [initialAdjustmentsRef]
+  );
+
+  const deleteHistoryEntry = useCallback(
+    (id: string) => {
+      setHistory(prev => {
+        const target = prev.find(e => e.id === id);
+        if (target?.type === 'initial') return prev; // Do not delete root initial state
+
+        const updated = prev.filter(e => e.id !== id);
+        if (target?.imageSrc.startsWith('blob:') && !updated.some(h => h.imageSrc === target.imageSrc)) {
+          URL.revokeObjectURL(target.imageSrc);
         }
-      }, 50);
-    }
-  }, [history, currentHistoryIndex, cropperRef, revokeLocalUrl]);
 
-  /**
-   * handleToggleHideHistoryEntry - Handles toggle hide history entry.
-   */
-  const handleToggleHideHistoryEntry = useCallback((index: number) => {
-    setHistory(prev => {
-      /**
-       * newHistory - Performs new history.
-       */
-      const newHistory = prev.map((entry, idx) => {
-        if (idx === index) {
-          return { ...entry, hidden: !entry.hidden };
-        }
-        return entry;
+        const recomputed = recomputeActiveEditorState(updated, initialAdjustmentsRef.current);
+        isRestoringHistory.current = true;
+        setAdjustments(recomputed.adjustments);
+        setCustomVariables(recomputed.customVariables);
+        previousAdjustmentsRef.current = { ...recomputed.adjustments };
+        isRestoringHistory.current = false;
+        return updated;
       });
 
-      const recomposed = recomposeHistoryState(newHistory, currentHistoryIndex);
-      const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
-      
-      isRestoringHistory.current = true;
-      setCurrentImageSrc(recomposed.imageSrc);
-      setAdjustments(recomposed.adjustments);
-      previousAdjustmentsRef.current = { ...recomposed.adjustments };
-      previousRotationRef.current = recomposed.rotation;
-      previousStraightenRef.current = recomposed.straightenAngle;
-      previousFlipHRef.current = recomposed.flipH;
-      previousFlipVRef.current = recomposed.flipV;
-      setTotalRotation(recomposed.rotation);
-      setFlipH(recomposed.flipH);
-      setFlipV(recomposed.flipV);
-      setStraightenAngle(recomposed.straightenAngle);
+      setCurrentHistoryIndex(prev => Math.max(0, prev - 1));
+    },
+    [initialAdjustmentsRef]
+  );
 
-      if (!imageSrcChanged) {
-        setTimeout(() => {
-          const cropper = cropperRef.current;
-          if (cropper) {
-            restoreCropperState(cropper, recomposed);
-          } else {
-            isRestoringHistory.current = false;
+  const jumpToHistoryEntry = useCallback(
+    (index: number) => {
+      const target = history[index];
+      if (target) {
+        applyEntry(target, index);
+      }
+    },
+    [history, applyEntry]
+  );
+
+  const setCustomVariable = useCallback(
+    (key: string, value: any, options?: { label?: string; toolId?: string }) => {
+      setCustomVariables(prev => {
+        const next = { ...prev, [key]: value };
+        addHistoryEntry(
+          `customVar:${key}`,
+          options?.label || `Set ${key}: ${typeof value === 'object' ? 'custom' : value}`,
+          value,
+          undefined,
+          undefined,
+          {
+            toolId: options?.toolId,
+            propertyKey: `customVariables.${key}`,
+            customVariables: next,
           }
-        }, 50);
-      }
-
-      return newHistory;
-    });
-  }, [currentHistoryIndex, cropperRef]);
-
-  /**
-   * handleDeleteHistoryEntry - Handles delete history entry.
-   */
-  const handleDeleteHistoryEntry = useCallback((index: number) => {
-    setHistory(prev => {
-      if (index <= 0 || index >= prev.length) return prev;
-
-      /**
-       * newHistory - Performs new history.
-       */
-      const newHistory = prev.filter((_, idx) => idx !== index);
-      
-      let newIndex = currentHistoryIndex;
-      if (index === currentHistoryIndex) {
-        newIndex = index - 1;
-      } else if (index < currentHistoryIndex) {
-        newIndex = currentHistoryIndex - 1;
-      }
-
-      const recomposed = recomposeHistoryState(newHistory, newIndex);
-      const imageSrcChanged = recomposed.imageSrc !== stateRef.current.currentImageSrc;
-      
-      isRestoringHistory.current = true;
-      setCurrentImageSrc(recomposed.imageSrc);
-      setAdjustments(recomposed.adjustments);
-      previousAdjustmentsRef.current = { ...recomposed.adjustments };
-      previousRotationRef.current = recomposed.rotation;
-      previousStraightenRef.current = recomposed.straightenAngle;
-      previousFlipHRef.current = recomposed.flipH;
-      previousFlipVRef.current = recomposed.flipV;
-      setTotalRotation(recomposed.rotation);
-      setFlipH(recomposed.flipH);
-      setFlipV(recomposed.flipV);
-      setStraightenAngle(recomposed.straightenAngle);
-      setCurrentHistoryIndex(newIndex);
-
-      if (!imageSrcChanged) {
-        setTimeout(() => {
-          const cropper = cropperRef.current;
-          if (cropper) {
-            restoreCropperState(cropper, recomposed);
-          } else {
-            isRestoringHistory.current = false;
-          }
-        }, 50);
-      }
-
-      return newHistory;
-    });
-  }, [currentHistoryIndex, cropperRef]);
-
-  /**
-   * handleClearHistory - Handles clear history.
-   */
-  const handleClearHistory = useCallback(() => {
-    const currentEntry = history[currentHistoryIndex];
-    if (currentEntry) {
-      setHistory([currentEntry]);
-      setCurrentHistoryIndex(0);
-    }
-  }, [history, currentHistoryIndex]);
+        );
+        return next;
+      });
+    },
+    [addHistoryEntry]
+  );
 
   /**
    * handleUndo - Handles undo.
    */
   const handleUndo = useCallback(() => {
     if (currentHistoryIndex > 0) {
-      handleJumpToHistory(currentHistoryIndex - 1);
+      const targetIndex = currentHistoryIndex - 1;
+      const targetEntry = history[targetIndex];
+      if (targetEntry) {
+        applyEntry(targetEntry, targetIndex);
+      }
     }
-  }, [currentHistoryIndex, handleJumpToHistory]);
+  }, [currentHistoryIndex, history, applyEntry]);
 
   /**
    * handleRedo - Handles redo.
    */
   const handleRedo = useCallback(() => {
     if (currentHistoryIndex < history.length - 1) {
-      handleJumpToHistory(currentHistoryIndex + 1);
+      const targetIndex = currentHistoryIndex + 1;
+      const targetEntry = history[targetIndex];
+      if (targetEntry) {
+        applyEntry(targetEntry, targetIndex);
+      }
     }
-  }, [currentHistoryIndex, history.length, handleJumpToHistory]);
+  }, [currentHistoryIndex, history, applyEntry]);
 
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
 
-  // Clean up object URL on unmount
+  // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      revokeLocalUrl();
+      const urls = new Set(
+        stateRef.current.history
+          .map(entry => entry.imageSrc)
+          .filter(source => source.startsWith('blob:'))
+      );
+      urls.forEach(url => URL.revokeObjectURL(url));
     };
-  }, [revokeLocalUrl]);
+  }, []);
 
   return {
     currentImageSrc,
     setCurrentImageSrc,
     adjustments,
     setAdjustments,
+    customVariables,
+    setCustomVariables,
+    setCustomVariable,
     flipH,
     setFlipH,
     flipV,
@@ -614,10 +483,9 @@ export const useEditingHistory = ({
     createdUrlRef,
     revokeLocalUrl,
     addHistoryEntry,
-    handleJumpToHistory,
-    handleToggleHideHistoryEntry,
-    handleDeleteHistoryEntry,
-    handleClearHistory,
+    toggleHideHistoryEntry,
+    deleteHistoryEntry,
+    jumpToHistoryEntry,
     handleUndo,
     handleRedo,
     canUndo,

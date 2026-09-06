@@ -4,12 +4,9 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Annotation } from '../AnnotationsPanel';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 
-/**
- * useAnnotationsState - Hook managing annotations state state.
- */
-export const useAnnotationsState = () => {
+export const useAnnotationsState = (onCommit?: (prev: Annotation[], next: Annotation[]) => void) => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationsHistoryPast, setAnnotationsHistoryPast] = useState<Annotation[][]>([]);
   const [annotationsHistoryFuture, setAnnotationsHistoryFuture] = useState<Annotation[][]>([]);
@@ -55,10 +52,11 @@ export const useAnnotationsState = () => {
       const current = latestAnnotationsRef.current;
       if (JSON.stringify(start) !== JSON.stringify(current)) {
         pushToAnnotationsHistory(start);
+        onCommit?.(start, current);
       }
       annotationsStartRef.current = null;
     }
-  }, [pushToAnnotationsHistory]);
+  }, [pushToAnnotationsHistory, onCommit]);
 
   const updateAnnotations = useCallback((
     value: Annotation[] | ((prev: Annotation[]) => Annotation[])
@@ -80,6 +78,7 @@ export const useAnnotationsState = () => {
           const current = latestAnnotationsRef.current;
           if (JSON.stringify(start) !== JSON.stringify(current)) {
             pushToAnnotationsHistory(start);
+            onCommit?.(start, current);
           }
           annotationsStartRef.current = null;
         }
@@ -87,7 +86,7 @@ export const useAnnotationsState = () => {
     }
 
     setAnnotations(next);
-  }, [pushToAnnotationsHistory]);
+  }, [pushToAnnotationsHistory, onCommit]);
 
   /**
    * undoAnnotations - Performs undo annotations.
@@ -124,7 +123,44 @@ export const useAnnotationsState = () => {
     };
   }, []);
 
-  const [selectedAnnId, setSelectedAnnId] = useState<string | null>(null);
+  const [selectedAnnId, setSelectedAnnIdState] = useState<string | null>(null);
+  const [selectedAnnIds, setSelectedAnnIdsState] = useState<string[]>([]);
+
+  const setSelectedAnnIds = useCallback((idsOrUpdater: string[] | ((prev: string[]) => string[])) => {
+    setSelectedAnnIdsState(prev => {
+      const next = typeof idsOrUpdater === 'function' ? idsOrUpdater(prev) : idsOrUpdater;
+      setSelectedAnnIdState(cur => (next.length > 0 ? (cur && next.includes(cur) ? cur : next[next.length - 1]) : null));
+      return next;
+    });
+  }, []);
+
+  const setSelectedAnnId = useCallback((idOrFn: string | null | ((prev: string | null) => string | null)) => {
+    setSelectedAnnIdState(prev => {
+      const next = typeof idOrFn === 'function' ? idOrFn(prev) : idOrFn;
+      setSelectedAnnIdsState(prevIds => {
+        if (!next) return [];
+        if (prevIds.includes(next)) return prevIds;
+        return [next];
+      });
+      return next;
+    });
+  }, []);
+
+  // Prune deleted IDs when annotations change
+  useEffect(() => {
+    if (selectedAnnIds.length > 0) {
+      const existing = new Set(annotations.map(a => a.id));
+      const valid = selectedAnnIds.filter(id => existing.has(id));
+      if (valid.length !== selectedAnnIds.length) {
+        setSelectedAnnIdsState(valid);
+        if (selectedAnnId && !existing.has(selectedAnnId)) {
+          setSelectedAnnIdState(valid[0] ?? null);
+        }
+      }
+    } else if (selectedAnnId && !annotations.some(a => a.id === selectedAnnId)) {
+      setSelectedAnnIdState(null);
+    }
+  }, [annotations, selectedAnnIds, selectedAnnId]);
   
   // Text layer settings state
   const [fontFamily, setFontFamily] = useState<string>('Space Grotesk');
@@ -143,7 +179,10 @@ export const useAnnotationsState = () => {
   const [showDoodleGuide, setShowDoodleGuide] = useState<boolean>(true);
 
   // Synchronize sidebar state when selected annotation changes
+  // ponytail: skip during drag gesture — move only changes x/y, and this effect
+  // fires 8 setStates per frame otherwise
   useEffect(() => {
+    if (isGestureActiveRef.current) return;
     if (selectedAnnId) {
       /**
        * selected - Performs selected.
@@ -156,8 +195,12 @@ export const useAnnotationsState = () => {
         setStyle(selected.fontStyle || 'normal');
         setDecoration(selected.textDecoration || 'none');
         setTextAlign(selected.textAlign || 'center');
-        setLineHeight(selected.lineHeight || 1.2);
-        setLetterSpacing(selected.letterSpacing || 0);
+        if (lineHeight !== undefined) {
+          setLineHeight(selected.lineHeight || 1.2);
+        }
+        if (letterSpacing !== undefined) {
+          setLetterSpacing(selected.letterSpacing || 0);
+        }
       }
     }
   }, [selectedAnnId, annotations]);
@@ -166,13 +209,14 @@ export const useAnnotationsState = () => {
    * onUpdateTextProps - Performs on update text props.
    */
   const onUpdateTextProps = useCallback((updatedProps: Partial<Annotation>) => {
-    if (!selectedAnnId) return;
+    const targetIds = selectedAnnIds.length > 0 ? selectedAnnIds : (selectedAnnId ? [selectedAnnId] : []);
+    if (targetIds.length === 0) return;
     updateAnnotations(prev =>
       prev.map(ann =>
-        ann.id === selectedAnnId ? { ...ann, ...updatedProps } : ann
+        targetIds.includes(ann.id) ? { ...ann, ...updatedProps } : ann
       )
     );
-  }, [selectedAnnId, updateAnnotations]);
+  }, [selectedAnnId, selectedAnnIds, updateAnnotations]);
 
   return {
     annotations,
@@ -183,6 +227,8 @@ export const useAnnotationsState = () => {
     setAnnotationsHistoryFuture,
     selectedAnnId,
     setSelectedAnnId,
+    selectedAnnIds,
+    setSelectedAnnIds,
     fontFamily,
     setFontFamily,
     fontSize,

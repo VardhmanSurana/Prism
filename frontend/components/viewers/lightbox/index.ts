@@ -6,6 +6,7 @@ export * from './Toolbar';
 export * from './Filmstrip';
 export * from './SlideshowControls';
 export * from './FaceTaggingOverlay';
+export * from './TextActionsOverlay';
 export * from './ComparisonView';
 export * from './KeyboardShortcutsModal';
 export * from './AskAIPanel';

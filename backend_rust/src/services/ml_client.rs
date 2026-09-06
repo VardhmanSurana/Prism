@@ -39,7 +39,7 @@ impl MlClient {
         MlClient { llm }
     }
 
-    /// Vision caption + tags via local llama-server (Gemma E2B :9091).
+    /// Vision caption + tags via local llama-server (Gemma E4B :9091).
     pub async fn get_vision_caption(&self, photo_path: &str) -> Result<VisionResponse, String> {
         info!("Sending Vision caption request for path: {}", photo_path);
 

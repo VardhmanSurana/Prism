@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, History, ClipboardCopy, ClipboardPaste } from 'lucide-react';
+import { X, Check, ChevronDown, Save, Loader2, SplitSquareHorizontal, Copy, Undo2, Redo2, ClipboardCopy, ClipboardPaste, History } from 'lucide-react';
+import { EditorSlider } from './ui/EditorSlider';
 
 interface TopBarProps {
   onClose: () => void;
@@ -12,8 +13,8 @@ interface TopBarProps {
   handleRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
-  showHistory?: boolean;
-  setShowHistory?: (show: boolean) => void;
+  onToggleHistory?: () => void;
+  isHistoryOpen?: boolean;
   historyCount?: number;
   exportProgress?: { step: string; current: number; total: number } | null;
   onCopyEdits?: () => void;
@@ -35,9 +36,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   handleRedo,
   canUndo = false,
   canRedo = false,
-  showHistory = false,
-  setShowHistory,
-  historyCount = 0,
+  onToggleHistory,
+  isHistoryOpen = false,
+  historyCount,
   exportProgress,
   onCopyEdits,
   hasCopiedEdits,
@@ -105,7 +106,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   return (
     <div className="h-16 flex items-center justify-between px-8 bg-[var(--bg-primary)] border-b border-white/5 shrink-0 z-50">
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-4">
         <button
           onClick={onClose}
           disabled={isSaving}
@@ -118,8 +119,8 @@ export const TopBar: React.FC<TopBarProps> = ({
         </button>
       </div>
 
-      {/* Center Row: Undo, Redo, History Counter, Compare */}
-      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4">
+      {/* Center Row: Undo, Redo, Compare */}
+      <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
         {/* Undo Button */}
         <button
           onClick={handleUndo}
@@ -142,40 +143,33 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         <div className="h-4 w-px bg-white/10" />
 
-        {/* History Toggle Button */}
-        <button
-          onClick={() => setShowHistory?.(!showHistory)}
-          title="Toggle Edit History"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
-            showHistory
-              ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(255,255,255,0.1)]'
-              : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
-          }`}
-        >
-          <History size={12} strokeWidth={2.5} />
-          <span>History</span>
-          {historyCount && historyCount > 1 ? (
-            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-white/60 font-mono">
-              {historyCount - 1}
-            </span>
-          ) : null}
-        </button>
-
-        <div className="h-4 w-px bg-white/10" />
-
         {/* Before/After Compare button — click-toggle for persistent split view */}
         <button
           onClick={onCompareToggle}
           title="Toggle before/after split view (\\)"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
-            isComparing
-              ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_12px_rgba(245,158,11,0.3)]'
-              : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
-          }`}
+          className={`editor-btn editor-card-btn ${
+            isComparing ? 'active' : ''
+          } flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest`}
         >
           <SplitSquareHorizontal size={12} strokeWidth={2} />
           {isComparing ? 'Hide Original' : 'Compare'}
         </button>
+
+        {/* History Toggle Button */}
+        {onToggleHistory && (
+          <button
+            onClick={onToggleHistory}
+            title="Toggle Edit History Timeline (H)"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all select-none cursor-pointer ${
+              isHistoryOpen
+                ? 'bg-white text-black shadow-[0_0_12px_rgba(255,255,255,0.18)]'
+                : 'bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08]'
+            }`}
+          >
+            <History size={12} strokeWidth={2} />
+            History{historyCount !== undefined && historyCount > 0 ? ` (${historyCount})` : ''}
+          </button>
+        )}
 
         <div className="h-4 w-px bg-white/10" />
 
@@ -184,10 +178,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onCopyEdits}
           disabled={isSaving}
           title="Copy current edits to clipboard"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, box-shadow 150ms ease select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all select-none cursor-pointer ${
             hasCopiedEdits
-              ? 'bg-primary/20 border-primary/40 text-primary shadow-[0_0_12px_rgba(var(--color-primary),0.15)]'
-              : 'bg-[var(--bg-secondary)] border-white/8 text-white/40 hover:text-white/80 hover:bg-white/5'
+              ? 'bg-primary/20 text-primary shadow-[0_0_12px_rgba(var(--color-primary),0.15)]'
+              : 'bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08]'
           } disabled:opacity-20 disabled:pointer-events-none`}
         >
           <ClipboardCopy size={12} strokeWidth={2.5} />
@@ -199,10 +193,10 @@ export const TopBar: React.FC<TopBarProps> = ({
           onClick={onPasteEdits}
           disabled={isSaving || !hasCopiedEdits}
           title="Paste copied edits onto this photo (Batch Sync)"
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease select-none cursor-pointer ${
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all select-none cursor-pointer ${
             hasCopiedEdits
-              ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 shadow-[0_0_8px_rgba(52,211,153,0.1)]'
-              : 'bg-[var(--bg-secondary)] border-white/5 text-white/15 cursor-default'
+              ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 shadow-[0_0_8px_rgba(52,211,153,0.1)]'
+              : 'bg-white/[0.02] text-white/20 cursor-default'
           } disabled:cursor-default`}
         >
           <ClipboardPaste size={12} strokeWidth={2.5} />
@@ -259,18 +253,15 @@ export const TopBar: React.FC<TopBarProps> = ({
                   ))}
                 </div>
                 {exportFormat !== 'png' && (
-                  <div>
-                    <div className="flex justify-between items-baseline mb-1.5">
-                      <span className="text-[10px] text-white/40">Quality</span>
-                      <span className="text-[10px] text-primary font-mono font-bold">{exportQuality}%</span>
-                    </div>
-                    <input
-                      type="range"
+                  <div className="pt-1">
+                    <EditorSlider
+                      label="Quality"
+                      value={exportQuality}
+                      onChange={setExportQuality}
                       min={50}
                       max={100}
-                      value={exportQuality}
-                      onChange={e => setExportQuality(Number(e.target.value))}
-                      className="adjustment-slider w-full"
+                      defaultValue={90}
+                      unit="%"
                     />
                   </div>
                 )}
@@ -300,7 +291,9 @@ export const TopBar: React.FC<TopBarProps> = ({
                   <Copy size={14} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-bold text-white/80 group-hover:text-white">Copy to Clipboard</div>
+                  <div className="text-xs font-bold text-white/80 group-hover:text-white flex items-center justify-between">
+                    <span>Copy to Clipboard</span>
+                  </div>
                   <div className="text-[10px] text-white/20 group-hover:text-white/40 mt-1 leading-tight">
                     Copy image to system clipboard
                   </div>

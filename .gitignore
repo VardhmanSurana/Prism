@@ -32,6 +32,8 @@ dist-ssr
 backend_rust/models/*
 backend_rust/thumbnails/*
 backend_rust/face_crops/*
+backend_rust/luts/*
+luts/
 
 # Ignore media and generated files
 models/
@@ -70,3 +72,6 @@ settings.json
 
 # Rust CLI build artifacts
 cli/target/
+backend_rust/test_artifacts/*
+frontend/public/sample_images/ai_multimodal_sample.jpg
+frontend/public/sample_images/ai_benchmark_sample_edited_1788455443.jpg

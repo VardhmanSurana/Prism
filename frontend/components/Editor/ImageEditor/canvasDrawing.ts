@@ -2,7 +2,7 @@ import { Adjustments, HslBand, toFilterString } from './filterEngine';
 import { isIdentityCurve } from './curves';
 import { applyHslToImageData, applySpecializedCurvesToImageData } from './hslEngine';
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
-import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
+import { applyLutToImageData, getBuiltinLutData } from '@plugins/creative-color-studio/lutEngine';
 import {
   applySplitToning,
   applyGrain,
@@ -15,8 +15,13 @@ import {
   applyBlur,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
 } from './exportPipeline';
-import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows } from './filterFallback';
+import { isCtxFilterSupported, applyBaseFiltersToImageData, applyNonLinearHighlightsAndShadows, applyTemperatureAndTintToImageData } from './filterFallback';
+import { applyRawProcessingToImageData } from './rawEngine';
+import { applyPortraitToImageData, LoadedPortraitMasks } from './portraitEngine';
+import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
+import type { Layer } from './layersEngine';
 
 /**
  * drawFilteredImageToCanvas - Performs draw filtered image to canvas.
@@ -26,16 +31,24 @@ export function drawFilteredImageToCanvas(
   sourceImg: HTMLImageElement,
   blendImg: HTMLImageElement | null,
   adjustments: Adjustments,
-  isComparing: boolean,
   curvesTable: { r: string; g: string; b: string },
-  isDraggingSlider: boolean
+  isDraggingSlider: boolean,
+  portraitMasks?: LoadedPortraitMasks,
+  backgroundMaskImg?: HTMLImageElement | null,
+  customBackdropImg?: HTMLImageElement | null,
+  layers?: Layer[] | null,
 ) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return;
 
-  // 1. Calculate internal resolution (max bounding size of 1000px for speed)
-  // Reduce resolution to 450px during active slider drag for 60fps real-time preview.
-  const maxDim = isDraggingSlider ? 450 : 1000;
+  if (!sourceImg || sourceImg.naturalWidth <= 0 || sourceImg.naturalHeight <= 0) {
+    return;
+  }
+
+  // 1. Full native image resolution for 100% pixel-perfect sharpness
+  // (Proxy-scale to 1200px only during active 60fps slider dragging for responsiveness)
+  const maxDim = isDraggingSlider ? 1200 : Math.max(sourceImg.naturalWidth, sourceImg.naturalHeight);
+
   let drawW = sourceImg.naturalWidth;
   let drawH = sourceImg.naturalHeight;
   if (drawW > maxDim || drawH > maxDim) {
@@ -48,11 +61,15 @@ export function drawFilteredImageToCanvas(
     }
   }
 
+  if (drawW <= 0 || drawH <= 0) return;
+
   if (canvas.width !== drawW || canvas.height !== drawH) {
     canvas.width = drawW;
     canvas.height = drawH;
   }
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   ctx.clearRect(0, 0, drawW, drawH);
 
   // 2. Build a canvas-safe filter string with guarded adjustments.
@@ -67,20 +84,22 @@ export function drawFilteredImageToCanvas(
     sharpness: effectiveSharp,
   };
 
-  const localFilterString = isComparing ? 'none' : toFilterString(effectiveAdj);
+  const localFilterString = toFilterString(effectiveAdj);
   const canvasSafeFilter = localFilterString
     .replace(/url\([^)]+\)/g, '')
     .replace(/\s+/g, ' ')
     .trim() || 'none';
 
   // 3. Draw base image with CSS filters.
-  if (isComparing || canvasSafeFilter === 'none') {
+  if (canvasSafeFilter === 'none') {
     ctx.drawImage(sourceImg, 0, 0, drawW, drawH);
   } else if (isCtxFilterSupported()) {
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = drawW;
     tempCanvas.height = drawH;
     const tempCtx = tempCanvas.getContext('2d')!;
+    tempCtx.imageSmoothingEnabled = true;
+    tempCtx.imageSmoothingQuality = 'high';
     tempCtx.filter = canvasSafeFilter;
     tempCtx.drawImage(sourceImg, 0, 0, drawW, drawH);
     tempCtx.filter = 'none';
@@ -92,14 +111,31 @@ export function drawFilteredImageToCanvas(
     ctx.putImageData(imgData, 0, 0);
   }
 
-  if (isComparing) {
-    return; // Show original only — skip all effects
+  // 3.3. Apply True Color Temperature & Tint (Warmth/Coolness without hue distortion)
+  if (isCtxFilterSupported() && ((adjustments.temperature ?? 0) !== 0 || (adjustments.tint ?? 0) !== 0)) {
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    applyTemperatureAndTintToImageData(imgData, adjustments.temperature, adjustments.tint);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // 3.4. Apply Camera RAW Development (Kelvin White Balance, Tint, EV Exposure, Highlight Recovery, Wavelet Denoise)
+  if (adjustments.raw) {
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    applyRawProcessingToImageData(imgData, adjustments.raw);
+    ctx.putImageData(imgData, 0, 0);
   }
 
   // 3.5. Apply Non-linear Highlights and Shadows
   if (adjustments.highlights !== 0 || adjustments.shadows !== 0) {
     const imgData = ctx.getImageData(0, 0, drawW, drawH);
     applyNonLinearHighlightsAndShadows(imgData, adjustments.highlights, adjustments.shadows);
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  // 3.6. AI Portrait Retouching Studio (Skin, Eyes, Teeth, Lips, Eyebrows)
+  if (adjustments.portrait && portraitMasks) {
+    const imgData = ctx.getImageData(0, 0, drawW, drawH);
+    applyPortraitToImageData(imgData, adjustments.portrait, portraitMasks);
     ctx.putImageData(imgData, 0, 0);
   }
 
@@ -170,7 +206,10 @@ export function drawFilteredImageToCanvas(
   applyGrain(canvas, adjustments);
 
   // 10. Light Leaks
-  applyLightLeak(canvas, adjustments);
+  // 10.5. AI Background Cutout & Backdrop Replacement
+  if (adjustments.background?.enabled && backgroundMaskImg) {
+    applyBackgroundReplacementToCanvas(canvas, adjustments.background, backgroundMaskImg, customBackdropImg);
+  }
 
   // 11. Double Exposure
   if (adjustments.blend && blendImg) {
@@ -189,6 +228,11 @@ export function drawFilteredImageToCanvas(
   }
 
   // 14. Frame border preview
+  // ── Layer stack (under the frame overlay) ──
+  if (!isLayerStackEmpty(layers)) {
+    compositeLayersToCanvas(layers, canvas, canvas);
+  }
+
   const frame = adjustments.frame;
   if (frame && frame.style !== 'none') {
     const ctx2 = canvas.getContext('2d');
@@ -199,7 +243,7 @@ export function drawFilteredImageToCanvas(
       const border = Math.max(w, h) * (frame.thickness / 100) * 0.6;
 
       if (frame.style === 'polaroid') {
-        ctx2.fillStyle = '#f8f8f6';
+        ctx2.fillStyle = frame.color || '#f8f8f6';
         ctx2.fillRect(0, 0, w, border);
         ctx2.fillRect(0, h - border * 3.5, w, border * 3.5);
         ctx2.fillRect(0, 0, border, h);

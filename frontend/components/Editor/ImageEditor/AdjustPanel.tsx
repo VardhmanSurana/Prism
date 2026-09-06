@@ -5,18 +5,17 @@
  */
 
 import React, { useCallback, useMemo, useState } from 'react';
-import { RotateCcw, Sparkles, Loader2, ChevronDown, ChevronUp, Sun, Pipette } from 'lucide-react';
-import { Adjustments, ColorWheelsAdjustments } from './filterEngine';
+import { RotateCcw, Sparkles, Loader2, ChevronDown, ChevronUp, Sun } from 'lucide-react';
+import { Adjustments } from './filterEngine';
 import { apiClient } from '@/services/apiClient';
 import { CurveEditor } from './CurveEditor';
 import { CurveState, DEFAULT_CURVE, isIdentityCurve } from './curves';
-import { ColorWheelsPanel } from './ColorWheelsPanel';
+import { EditorSlider } from './ui/EditorSlider';
 
 export type AdjustSliderKey =
   | 'brightness' | 'contrast'   | 'exposure'
   | 'highlights' | 'shadows'    | 'whites'    | 'blacks'
-  | 'vibrance'   | 'saturation' | 'hue'       | 'temperature'
-  | 'tint'       | 'ambiance'   | 'dehaze';
+  | 'ambiance'   | 'dehaze';
 
 export interface AdjItem {
   key:   AdjustSliderKey;
@@ -26,7 +25,7 @@ export interface AdjItem {
   step?: number;
 }
 
-export const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
+const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
   brightness:  0,
   contrast:    0,
   exposure:    0,
@@ -34,11 +33,6 @@ export const DEFAULT_ADJUST_SLIDERS: Pick<Adjustments, AdjustSliderKey> = {
   shadows:     0,
   whites:      0,
   blacks:      0,
-  vibrance:    0,
-  saturation:  0,
-  hue:         0,
-  temperature: 0,
-  tint:        0,
   ambiance:    0,
   dehaze:      0,
 };
@@ -63,20 +57,14 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   // Collapsible Accordion states
   const [lightOpen, setLightOpen] = useState(true);
   const [curvesOpen, setCurvesOpen] = useState(true);
-  const [colorOpen, setColorOpen] = useState(true);
 
   // Sub-collapsible sections for extra controls (keeps primary list matching screenshot)
   const [showExtraLight, setShowExtraLight] = useState(false);
 
-  const [wbOption, setWbOption] = useState<'as_shot' | 'daylight' | 'cloudy' | 'shade' | 'tungsten' | 'fluorescent' | 'custom'>('as_shot');
-
-  /**
-   * isDefault - Performs is default.
-   */
   const isDefault = useMemo(() => {
-    const keys: (keyof typeof DEFAULT_ADJUST_SLIDERS)[] = [
+    const keys: AdjustSliderKey[] = [
       'brightness', 'contrast', 'exposure', 'highlights', 'shadows', 'whites', 'blacks',
-      'vibrance', 'saturation', 'hue', 'temperature', 'tint', 'ambiance', 'dehaze'
+      'ambiance', 'dehaze'
     ];
     return keys.every(k => adjustments[k] === DEFAULT_ADJUST_SLIDERS[k]) && isIdentityCurve(adjustments.curves);
   }, [adjustments]);
@@ -86,7 +74,6 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
    */
   const handleReset = useCallback(() => {
     onChange({ ...adjustments, ...DEFAULT_ADJUST_SLIDERS, curves: DEFAULT_CURVE });
-    setWbOption('as_shot');
   }, [onChange, adjustments]);
 
   /**
@@ -123,55 +110,9 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   const handleChange = useCallback(
     (key: keyof Adjustments, value: number) => {
       onChange({ ...adjustments, [key]: value });
-      if (key === 'temperature' || key === 'tint') {
-        setWbOption('custom');
-      }
     },
     [adjustments, onChange],
   );
-
-  /**
-   * handleWbChange - Handles wb change.
-   */
-  const handleWbChange = useCallback((val: typeof wbOption) => {
-    setWbOption(val);
-    let newTemp = adjustments.temperature;
-    let newTint = adjustments.tint;
-
-    switch (val) {
-      case 'daylight':
-        newTemp = 0; // 5500K equivalent
-        newTint = 0;
-        break;
-      case 'cloudy':
-        newTemp = 20; // ~6500K
-        newTint = 8;
-        break;
-      case 'shade':
-        newTemp = 40; // ~7500K
-        newTint = 15;
-        break;
-      case 'tungsten':
-        newTemp = -60; // ~2800K
-        newTint = -10;
-        break;
-      case 'fluorescent':
-        newTemp = -35; // ~3800K
-        newTint = -25;
-        break;
-      case 'as_shot':
-      default:
-        newTemp = 0;
-        newTint = 0;
-        break;
-    }
-
-    onChange({
-      ...adjustments,
-      temperature: newTemp,
-      tint: newTint,
-    });
-  }, [adjustments, onChange]);
 
   // Sliders display helpers
   /**
@@ -183,23 +124,6 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
     return dec.toFixed(2);
   };
 
-  /**
-   * formatTemperature - Formats format temperature.
-   */
-  const formatTemperature = (val: number) => {
-    // Map [-100, 100] to Kelvin [2000, 20000] centered at 5500K
-    let k = 5500;
-    if (val < 0) {
-      k = Math.round(5500 + (val / 100) * 3500); // -100 -> 2000K
-    } else {
-      k = Math.round(5500 + (val / 100) * 14500); // 100 -> 20000K
-    }
-    return `${k}K`;
-  };
-
-  /**
-   * formatGeneric - Formats format generic.
-   */
   const formatGeneric = (val: number) => {
     if (val > 0) return `+${val}`;
     return String(val);
@@ -209,7 +133,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   const hasActiveCurves = !isIdentityCurve(adjustments.curves);
 
   return (
-    <div className="flex-1 overflow-y-auto custom-scrollbar bg-[#090a0d] text-white">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white">
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-2 flex gap-2">
         <button
@@ -249,7 +173,7 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
         </button>
 
         {lightOpen && (
-          <div className="px-4 pb-4 pt-2 space-y-4">
+          <div className="px-4 pb-4 pt-2 space-y-3.5">
             {([
               { key: 'exposure', label: 'Exposure', min: -100, max: 100, formatter: formatExposure },
               { key: 'contrast', label: 'Contrast', min: -100, max: 100, formatter: formatGeneric },
@@ -257,45 +181,19 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
               { key: 'shadows', label: 'Shadows', min: -100, max: 100, formatter: formatGeneric },
               { key: 'whites', label: 'Whites', min: -100, max: 100, formatter: formatGeneric },
               { key: 'blacks', label: 'Blacks', min: -100, max: 100, formatter: formatGeneric },
-            ] as const).map(item => {
-              const val = adjustments[item.key] ?? 0;
-              const pct = ((val + 100) / 200) * 100;
-              const fillLeft = `${Math.min(50, pct)}%`;
-              const fillWidth = `${Math.abs(pct - 50)}%`;
-              const isChanged = val !== 0;
-
-              return (
-                <div key={item.key} className="group/item">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <label htmlFor={`adj-${item.key}`} className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                      {item.label}
-                    </label>
-                    <span className={`text-[11px] font-mono tabular-nums leading-none ${isChanged ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                      {item.formatter(val)}
-                    </span>
-                  </div>
-                  <div className="relative h-4 flex items-center">
-                    <div className="absolute w-full h-[2px] bg-white/10 rounded-full" />
-                    <div
-                      className="absolute h-[2px] bg-white/70 rounded-full pointer-events-none"
-                      style={{
-                        left: fillLeft,
-                        width: fillWidth,
-                      }}
-                    />
-                    <input
-                      id={`adj-${item.key}`}
-                      type="range"
-                      min={item.min}
-                      max={item.max}
-                      value={val}
-                      onChange={e => handleChange(item.key, Number(e.target.value))}
-                      className="premium-editor-slider"
-                    />
-                  </div>
-                </div>
-              );
-            })}
+            ] as const).map(item => (
+              <EditorSlider
+                key={item.key}
+                label={item.label}
+                value={adjustments[item.key] ?? 0}
+                onChange={val => handleChange(item.key, val)}
+                min={item.min}
+                max={item.max}
+                defaultValue={0}
+                formatValue={item.formatter}
+                bipolar
+              />
+            ))}
 
             {/* Sub-collapsible extra options for other Tone adjusters */}
             <div className="pt-1">
@@ -307,50 +205,24 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
               </button>
               
               {showExtraLight && (
-                <div className="mt-4 space-y-4 border-t border-white/5 pt-4">
+                <div className="mt-3.5 space-y-3.5 border-t border-white/5 pt-3.5">
                   {([
                     { key: 'brightness', label: 'Brightness', min: -100, max: 100, formatter: formatGeneric },
                     { key: 'ambiance', label: 'Ambiance', min: -100, max: 100, formatter: formatGeneric },
                     { key: 'dehaze', label: 'Dehaze', min: -100, max: 100, formatter: formatGeneric },
-                  ] as const).map(item => {
-                    const val = adjustments[item.key] ?? 0;
-                    const pct = ((val + 100) / 200) * 100;
-                    const fillLeft = `${Math.min(50, pct)}%`;
-                    const fillWidth = `${Math.abs(pct - 50)}%`;
-                    const isChanged = val !== 0;
-
-                    return (
-                      <div key={item.key} className="group/item">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <label htmlFor={`adj-${item.key}`} className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                            {item.label}
-                          </label>
-                          <span className={`text-[11px] font-mono tabular-nums leading-none ${isChanged ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                            {item.formatter(val)}
-                          </span>
-                        </div>
-                        <div className="relative h-4 flex items-center">
-                          <div className="absolute w-full h-[2px] bg-white/10 rounded-full" />
-                          <div
-                            className="absolute h-[2px] bg-white/70 rounded-full pointer-events-none"
-                            style={{
-                              left: fillLeft,
-                              width: fillWidth,
-                            }}
-                          />
-                          <input
-                            id={`adj-${item.key}`}
-                            type="range"
-                            min={item.min}
-                            max={item.max}
-                            value={val}
-                            onChange={e => handleChange(item.key, Number(e.target.value))}
-                            className="premium-editor-slider"
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
+                  ] as const).map(item => (
+                    <EditorSlider
+                      key={item.key}
+                      label={item.label}
+                      value={adjustments[item.key] ?? 0}
+                      onChange={val => handleChange(item.key, val)}
+                      min={item.min}
+                      max={item.max}
+                      defaultValue={0}
+                      formatValue={item.formatter}
+                      bipolar
+                    />
+                  ))}
                 </div>
               )}
             </div>
@@ -384,195 +256,6 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
               imageSrc={imageSrc}
               filterString={filterString}
             />
-          </div>
-        )}
-      </div>
-
-      {/* ── 2.5 COLOR WHEELS (3-WAY & LOG) ACCORDION ── */}
-      <div className="border-b border-white/5">
-        <div className="px-4 py-3">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-white/75 mb-3 block">Color Wheels</span>
-          <ColorWheelsPanel
-            value={adjustments.colorWheels}
-            onChange={(cw) => onChange({ ...adjustments, colorWheels: cw })}
-          />
-        </div>
-      </div>
-
-      {/* ── 3. COLOR ACCORDION ── */}
-      <div className="border-b border-white/5">
-        <button
-          onClick={() => setColorOpen(!colorOpen)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-3.5 h-3.5 rounded-full border border-white/20 bg-gradient-to-tr from-[#ef4444] via-[#22c55e] to-[#3b82f6] opacity-60" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/75">Color</span>
-          </div>
-          {colorOpen ? <ChevronUp size={14} className="text-white/30" /> : <ChevronDown size={14} className="text-white/30" />}
-        </button>
-
-        {colorOpen && (
-          <div className="px-4 pb-6 pt-2 space-y-4">
-            
-            {/* White Balance Select */}
-            <div>
-              <div className="flex justify-between items-baseline mb-2">
-                <label className="text-[11px] font-medium text-white/50 select-none">White Balance</label>
-                <div className="flex items-center gap-2">
-                  <button className="text-white/40 hover:text-white/80 transition-colors p-0.5 cursor-pointer">
-                    <Pipette size={12} />
-                  </button>
-                </div>
-              </div>
-              <div className="relative">
-                <select
-                  value={wbOption}
-                  onChange={e => handleWbChange(e.target.value as any)}
-                  className="w-full bg-[#13151a] hover:bg-[#1a1c22] border border-white/5 text-[11px] text-white/80 rounded py-1.5 px-2.5 outline-none cursor-pointer appearance-none transition-colors"
-                >
-                  <option value="as_shot">As Shot</option>
-                  <option value="daylight">Daylight (5500K)</option>
-                  <option value="cloudy">Cloudy (~6500K)</option>
-                  <option value="shade">Shade (~7500K)</option>
-                  <option value="tungsten">Tungsten (~2800K)</option>
-                  <option value="fluorescent">Fluorescent (~3800K)</option>
-                  <option value="custom">Custom</option>
-                </select>
-                <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/40" />
-              </div>
-            </div>
-
-            {/* Temperature Slider with blue-yellow gradient track */}
-            <div className="group/item">
-              <div className="flex justify-between items-baseline mb-1">
-                <label htmlFor="adj-temp" className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                  Temperature
-                </label>
-                <span className={`text-[11px] font-mono tabular-nums leading-none ${adjustments.temperature !== 0 ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                  {formatTemperature(adjustments.temperature ?? 0)}
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  id="adj-temp"
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={adjustments.temperature ?? 0}
-                  onChange={e => handleChange('temperature', Number(e.target.value))}
-                  className="premium-editor-slider"
-                  style={{
-                    background: 'linear-gradient(to right, #4075c0 0%, #4b5563 50%, #d4b545 100%)',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Tint Slider with green-magenta gradient track */}
-            <div className="group/item">
-              <div className="flex justify-between items-baseline mb-1">
-                <label htmlFor="adj-tint" className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                  Tint
-                </label>
-                <span className={`text-[11px] font-mono tabular-nums leading-none ${adjustments.tint !== 0 ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                  {formatGeneric(adjustments.tint ?? 0)}
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  id="adj-tint"
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={adjustments.tint ?? 0}
-                  onChange={e => handleChange('tint', Number(e.target.value))}
-                  className="premium-editor-slider"
-                  style={{
-                    background: 'linear-gradient(to right, #389e5a 0%, #4b5563 50%, #c440a2 100%)',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Vibrance Slider with grey-color gradient track */}
-            <div className="group/item">
-              <div className="flex justify-between items-baseline mb-1">
-                <label htmlFor="adj-vibrance" className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                  Vibrance
-                </label>
-                <span className={`text-[11px] font-mono tabular-nums leading-none ${adjustments.vibrance !== 0 ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                  {formatGeneric(adjustments.vibrance ?? 0)}
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  id="adj-vibrance"
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={adjustments.vibrance ?? 0}
-                  onChange={e => handleChange('vibrance', Number(e.target.value))}
-                  className="premium-editor-slider"
-                  style={{
-                    background: 'linear-gradient(to right, #3c4048 0%, #4d7cc8 50%, #db4545 100%)',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Saturation Slider with grey-color gradient track */}
-            <div className="group/item">
-              <div className="flex justify-between items-baseline mb-1">
-                <label htmlFor="adj-sat" className="text-[11px] font-medium text-white/50 group-hover/item:text-white/80 cursor-pointer select-none">
-                  Saturation
-                </label>
-                <span className={`text-[11px] font-mono tabular-nums leading-none ${adjustments.saturation !== 0 ? 'text-white/95 font-bold' : 'text-white/20'}`}>
-                  {formatGeneric(adjustments.saturation ?? 0)}
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  id="adj-sat"
-                  type="range"
-                  min="-100"
-                  max="100"
-                  value={adjustments.saturation ?? 0}
-                  onChange={e => handleChange('saturation', Number(e.target.value))}
-                  className="premium-editor-slider"
-                  style={{
-                    background: 'linear-gradient(to right, #3c4048 0%, #4d7cc8 50%, #db4545 100%)',
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Extra Color sliders (Hue) */}
-            <div className="group/item pt-1">
-              <div className="flex justify-between items-baseline mb-1">
-                <label htmlFor="adj-hue" className="text-[11px] font-medium text-white/40 cursor-pointer select-none">
-                  Hue Rotate
-                </label>
-                <span className={`text-[11px] font-mono tabular-nums leading-none ${adjustments.hue !== 0 ? 'text-white/95 font-bold' : 'text-white/10'}`}>
-                  {adjustments.hue > 0 ? `+${adjustments.hue}` : adjustments.hue}°
-                </span>
-              </div>
-              <div className="relative h-4 flex items-center">
-                <input
-                  id="adj-hue"
-                  type="range"
-                  min="-180"
-                  max="180"
-                  value={adjustments.hue ?? 0}
-                  onChange={e => handleChange('hue', Number(e.target.value))}
-                  className="premium-editor-slider"
-                  style={{
-                    background: 'linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)',
-                  }}
-                />
-              </div>
-            </div>
-
           </div>
         )}
       </div>

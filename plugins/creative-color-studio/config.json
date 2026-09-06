@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "installed_at": "2026-08-25T10:00:00Z",
+  "updated_at": "2026-08-25T10:00:00Z",
+  "settings": {
+    "default_lut": "vivid_dusk_1",
+    "grain_size": "medium",
+    "grain_intensity": 25,
+    "enable_halation": true,
+    "default_frame": "polaroid_classic"
+  }
+}

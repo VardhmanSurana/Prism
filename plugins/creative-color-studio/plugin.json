@@ -1,0 +1,23 @@
+{
+  "id": "creative-color-studio",
+  "name": "Creative, Color & Film Emulation Studio",
+  "version": "1.0.0",
+  "author": "Prism Creative Labs",
+  "description": "Professional 3D LUT color grading (Kodak 2383, Fuji Eterna, Teal & Orange), 35mm/120mm analog film grain synthesis, red halation glow, vintage instant Polaroid frames, and camera metadata watermark badges.",
+  "category": "Creative & Filters",
+  "icon": "Clapperboard",
+  "homepage": "https://github.com/VardhmanSurana/prism-plugin-creative-color-studio",
+  "capabilities": [
+    "lut",
+    "color-grading",
+    "film-emulation",
+    "film-grain",
+    "halation",
+    "frames",
+    "borders",
+    "watermark",
+    "camera-badge"
+  ],
+  "entrypoint": "entrypoint.js",
+  "min_app_version": "0.1.0"
+}

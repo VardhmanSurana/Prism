@@ -11,6 +11,8 @@ pub struct Config {
     pub api_key: Option<String>,
     pub gpu_mode: String,
     pub models_dir: PathBuf,
+    pub packs_dir: PathBuf,
+    pub plugins_dir: PathBuf,
 }
 
 impl Config {
@@ -58,6 +60,22 @@ impl Config {
                     .join("models")
             });
 
+        let packs_dir = env::var("PACKS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| models_dir.join("packs"));
+
+        let plugins_dir = env::var("PLUGINS_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                let cur = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+                let root_plugins = cur.join("../plugins");
+                if root_plugins.exists() {
+                    root_plugins
+                } else {
+                    cur.join("plugins")
+                }
+            });
+
         Config {
             port,
             host,
@@ -67,6 +85,8 @@ impl Config {
             api_key,
             gpu_mode,
             models_dir,
+            packs_dir,
+            plugins_dir,
         }
     }
 }

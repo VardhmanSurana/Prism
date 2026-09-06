@@ -1,6 +1,5 @@
 use std::sync::{Arc, OnceLock};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
 use tokenizers::Tokenizer;
 use image::imageops::FilterType;
@@ -31,18 +30,10 @@ pub fn get_engine() -> Result<Arc<SiglipEngine>, String> {
         return Err("SigLIP models or tokenizer not found. Ensure siglip2_image.onnx, siglip2_text.onnx, and tokenizer.json are in models/llm.".into());
     }
 
-    let vision_session = Session::builder()
-        .map_err(|e| format!("Failed to build ONNX session: {}", e))?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| format!("Failed to set opt level: {}", e))?
-        .commit_from_file(&vision_model_path)
+    let vision_session = crate::services::onnx_helper::build_session(&vision_model_path, "SigLIP-Vision")
         .map_err(|e| format!("Failed to load vision model: {}", e))?;
 
-    let text_session = Session::builder()
-        .map_err(|e| format!("Failed to build ONNX session: {}", e))?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| format!("Failed to set opt level: {}", e))?
-        .commit_from_file(&text_model_path)
+    let text_session = crate::services::onnx_helper::build_session(&text_model_path, "SigLIP-Text")
         .map_err(|e| format!("Failed to load text model: {}", e))?;
 
     let tokenizer = Tokenizer::from_file(&tokenizer_path)

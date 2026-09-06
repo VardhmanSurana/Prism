@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, UNIX_EPOCH};
@@ -11,6 +11,8 @@ pub struct ModelFileDef {
     pub url: String,
     pub rel_path: String,
     pub expected_size_bytes: u64,
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -21,6 +23,12 @@ pub struct ModelDefinition {
     pub description: String,
     pub total_size_bytes: u64,
     pub desktop_only: bool,
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub gated: bool,
+    #[serde(default)]
+    pub ack_required: bool,
     pub files: Vec<ModelFileDef>,
 }
 
@@ -48,6 +56,10 @@ pub struct ModelInfoResponse {
     pub desktop_only: bool,
     pub is_downloaded: bool,
     pub disk_size_bytes: u64,
+    pub license: Option<String>,
+    pub gated: bool,
+    pub ack_required: bool,
+    pub license_acknowledged: bool,
     pub progress: Option<ModelProgress>,
 }
 
@@ -56,6 +68,7 @@ pub struct ModelManager {
     models: Vec<ModelDefinition>,
     active_progress: Arc<RwLock<HashMap<String, ModelProgress>>>,
     abort_handles: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
+    acknowledged_licenses: Arc<RwLock<HashSet<String>>>,
 }
 
 impl ModelManager {
@@ -67,6 +80,7 @@ impl ModelManager {
             models,
             active_progress: Arc::new(RwLock::new(HashMap::new())),
             abort_handles: Arc::new(Mutex::new(HashMap::new())),
+            acknowledged_licenses: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
@@ -78,23 +92,29 @@ impl ModelManager {
                 name: "SigLIP 2 Vision & Text".to_string(),
                 category: "Vision & Natural Language Search".to_string(),
                 description: "Deep semantic search model enabling free-form natural language queries for photos.".to_string(),
-                total_size_bytes: 452_000_000,
+                total_size_bytes: 970_900_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
-                        url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/onnx/model.onnx".to_string(),
+                        url: "https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/vision_model.onnx".to_string(),
                         rel_path: "llm/siglip2_image.onnx".to_string(),
-                        expected_size_bytes: 350_000_000,
+                        expected_size_bytes: 371_800_000,
+                        sha256: None,
                     },
                     ModelFileDef {
-                        url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/onnx/text_model.onnx".to_string(),
+                        url: "https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/text_model_q4.onnx".to_string(),
                         rel_path: "llm/siglip2_text.onnx".to_string(),
-                        expected_size_bytes: 100_000_000,
+                        expected_size_bytes: 564_800_000,
+                        sha256: None,
                     },
                     ModelFileDef {
-                        url: "https://huggingface.co/google/siglip2-base-patch16-224/resolve/main/tokenizer.json".to_string(),
+                        url: "https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/tokenizer.json".to_string(),
                         rel_path: "llm/tokenizer.json".to_string(),
-                        expected_size_bytes: 2_000_000,
+                        expected_size_bytes: 34_300_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -103,18 +123,23 @@ impl ModelManager {
                 name: "Face Recognition & Clustering".to_string(),
                 category: "People & Biometrics".to_string(),
                 description: "SCRFD detector + ArcFace embedding model for automatic face grouping and people tagging.".to_string(),
-                total_size_bytes: 200_000_000,
+                total_size_bytes: 191_300_000,
                 desktop_only: false,
+                license: Some("MIT / DeepInsight Non-Commercial".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
-                        url: "https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/scrfd_500m_kps.onnx".to_string(),
+                        url: "https://huggingface.co/deepghs/insightface/resolve/main/buffalo_l/det_10g.onnx".to_string(),
                         rel_path: "face/scrfd_500m_kps.onnx".to_string(),
-                        expected_size_bytes: 15_000_000,
+                        expected_size_bytes: 16_923_827,
+                        sha256: None,
                     },
                     ModelFileDef {
-                        url: "https://huggingface.co/deepinsight/insightface/resolve/main/models/buffalo_l/w600k_mbf.onnx".to_string(),
+                        url: "https://huggingface.co/deepghs/insightface/resolve/main/buffalo_l/w600k_r50.onnx".to_string(),
                         rel_path: "face/w600k_mbf.onnx".to_string(),
-                        expected_size_bytes: 185_000_000,
+                        expected_size_bytes: 174_383_860,
+                        sha256: None,
                     },
                 ],
             },
@@ -123,13 +148,17 @@ impl ModelManager {
                 name: "YOLOv8 Object Detection".to_string(),
                 category: "Object & Scene Tags".to_string(),
                 description: "Classifies and locates 80+ categories of objects, pets, vehicles, and scenes.".to_string(),
-                total_size_bytes: 25_000_000,
+                total_size_bytes: 12_850_000,
                 desktop_only: false,
+                license: Some("AGPL-3.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
-                        url: "https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov8n.onnx".to_string(),
+                        url: "https://huggingface.co/Kalray/yolov8/resolve/main/yolov8n.onnx".to_string(),
                         rel_path: "objects/yolov8n.onnx".to_string(),
-                        expected_size_bytes: 25_000_000,
+                        expected_size_bytes: 12_834_838,
+                        sha256: None,
                     },
                 ],
             },
@@ -137,14 +166,24 @@ impl ModelManager {
                 id: "mobile_sam".to_string(),
                 name: "Segment Anything (MobileSAM)".to_string(),
                 category: "Smart Cutout & Segmentation".to_string(),
-                description: "Ultra-fast interactive foreground extraction and precise mask segmentation.".to_string(),
-                total_size_bytes: 40_000_000,
+                description: "Click-to-select any object with point prompts; feeds the Magic Eraser and cutout pipelines.".to_string(),
+                total_size_bytes: 45_000_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
-                        url: "https://github.com/ChaoningZhang/MobileSAM/raw/master/weights/mobile_sam.onnx".to_string(),
-                        rel_path: "sam/mobile_sam.onnx".to_string(),
-                        expected_size_bytes: 40_000_000,
+                        url: "https://huggingface.co/Acly/MobileSAM/resolve/main/mobile_sam_image_encoder.onnx".to_string(),
+                        rel_path: "SAM/image_encoder.onnx".to_string(),
+                        expected_size_bytes: 28_200_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/Acly/MobileSAM/resolve/main/sam_mask_decoder_single.onnx".to_string(),
+                        rel_path: "SAM/mask_decoder.onnx".to_string(),
+                        expected_size_bytes: 16_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -155,16 +194,222 @@ impl ModelManager {
                 description: "Lightweight neural text detection & recognition for receipts, documents, and signs.".to_string(),
                 total_size_bytes: 14_000_000,
                 desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
                 files: vec![
                     ModelFileDef {
-                        url: "https://github.com/RapidAI/RapidOCR/releases/download/v1.1.0/ch_PP-OCRv4_det_infer.onnx".to_string(),
+                        url: "https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_det_infer.onnx".to_string(),
                         rel_path: "ocr/ch_PP-OCRv4_det_infer.onnx".to_string(),
-                        expected_size_bytes: 4_500_000,
+                        expected_size_bytes: 4_750_000,
+                        sha256: None,
                     },
                     ModelFileDef {
-                        url: "https://github.com/RapidAI/RapidOCR/releases/download/v1.1.0/ch_PP-OCRv4_rec_infer.onnx".to_string(),
+                        url: "https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_rec_infer.onnx".to_string(),
                         rel_path: "ocr/ch_PP-OCRv4_rec_infer.onnx".to_string(),
-                        expected_size_bytes: 9_500_000,
+                        expected_size_bytes: 10_800_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "lama_inpaint".to_string(),
+                name: "LaMa Inpainting (Object Removal)".to_string(),
+                category: "Smart Cutout & Segmentation".to_string(),
+                description: "LaMa Fourier-convolution inpainting for content-aware object removal — the default Magic Eraser engine, sized to fit small-VRAM GPUs.".to_string(),
+                total_size_bytes: 200_000_000,
+                desktop_only: false,
+                license: Some("Apache-2.0 (SAIC-AI)".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx".to_string(),
+                        rel_path: "inpainting/lama_fp32.onnx".to_string(),
+                        expected_size_bytes: 196_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "depth_anything_v2_small".to_string(),
+                name: "Depth Anything V2 Small (Monocular Depth)".to_string(),
+                category: "Smart Cutout & Segmentation".to_string(),
+                description: "Compact monocular depth estimation for background blur, bokeh, relighting hints and depth map export.".to_string(),
+                total_size_bytes: 100_000_000,
+                desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx".to_string(),
+                        rel_path: "depth/depth_anything_v2_small.onnx".to_string(),
+                        expected_size_bytes: 99_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "gfpgan_face_restore".to_string(),
+                name: "GFPGAN v1.4 (Face Restoration)".to_string(),
+                category: "People & Biometrics".to_string(),
+                description: "Blind face restoration for old/damaged portraits; pairs with SCRFD face detection for per-face enhancement.".to_string(),
+                total_size_bytes: 340_256_686,
+                desktop_only: false,
+                license: Some("Apache-2.0 / Tencent Non-Commercial".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/hacksider/deep-live-cam/resolve/main/GFPGANv1.4.onnx".to_string(),
+                        rel_path: "face_restore/gfpgan_v14.onnx".to_string(),
+                        expected_size_bytes: 340_256_686,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "real_esrgan_x4".to_string(),
+                name: "Real-ESRGAN x4plus (Super Resolution)".to_string(),
+                category: "Smart Cutout & Segmentation".to_string(),
+                description: "4x photo super-resolution using tiled inference so large images stay within small VRAM budgets.".to_string(),
+                total_size_bytes: 70_000_000,
+                desktop_only: false,
+                license: Some("BSD-3-Clause".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/SceneWorks/real-esrgan-onnx/resolve/main/real_esrgan_x4.onnx".to_string(),
+                        rel_path: "upscale/real_esrgan_x4.onnx".to_string(),
+                        expected_size_bytes: 67_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "scunet_denoise".to_string(),
+                name: "SCUNet Blind Denoise".to_string(),
+                category: "Image Cleanup".to_string(),
+                description: "Blind real-world denoising — removes Gaussian, JPEG, and sensor noise without knowing the noise level. Tiled inference for large images.".to_string(),
+                total_size_bytes: 77_000_000,
+                desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx".to_string(),
+                        rel_path: "denoise/scunet_color_real_psnr.onnx".to_string(),
+                        expected_size_bytes: 3_800_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data".to_string(),
+                        rel_path: "denoise/scunet_color_real_psnr.onnx.data".to_string(),
+                        expected_size_bytes: 73_100_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "florence2_caption".to_string(),
+                name: "Florence-2 Image Captioning".to_string(),
+                category: "Vision & Natural Language Search".to_string(),
+                description: "Microsoft Florence-2 vision-language model for automatic image captioning with short, detailed, and more-detailed output modes.".to_string(),
+                total_size_bytes: 580_000_000,
+                desktop_only: false,
+                license: Some("MIT".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/vision_encoder_q4f16.onnx".to_string(),
+                        rel_path: "florence2/vision_encoder_q4f16.onnx".to_string(),
+                        expected_size_bytes: 60_000_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/embed_tokens_q4f16.onnx".to_string(),
+                        rel_path: "florence2/embed_tokens_q4f16.onnx".to_string(),
+                        expected_size_bytes: 76_000_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/encoder_model_q4f16.onnx".to_string(),
+                        rel_path: "florence2/encoder_model_q4f16.onnx".to_string(),
+                        expected_size_bytes: 25_000_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/Florence-2-base-ft/resolve/main/onnx/decoder_model_merged.onnx".to_string(),
+                        rel_path: "florence2/decoder_model_merged.onnx".to_string(),
+                        expected_size_bytes: 388_000_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://huggingface.co/microsoft/Florence-2-base/resolve/main/tokenizer.json".to_string(),
+                        rel_path: "florence2/tokenizer/tokenizer.json".to_string(),
+                        expected_size_bytes: 1_400_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "isnet-general-use".to_string(),
+                name: "ISNet (High Quality Universal)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "Highly accurate 1024px dichotomic segmentation model for universal portrait & object cutout.".to_string(),
+                total_size_bytes: 178_648_008,
+                desktop_only: false,
+                license: Some("Apache-2.0".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx".to_string(),
+                        rel_path: "packs/background-removal/isnet_general_use.onnx".to_string(),
+                        expected_size_bytes: 178_648_008,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "birefnet".to_string(),
+                name: "BiRefNet (Bilateral Reference High-Res)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "State-of-the-art bilateral reference model with extreme edge and hair detail resolution.".to_string(),
+                total_size_bytes: 450_000_000,
+                desktop_only: false,
+                license: Some("MIT".to_string()),
+                gated: false,
+                ack_required: false,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model.onnx".to_string(),
+                        rel_path: "packs/background-removal/birefnet.onnx".to_string(),
+                        expected_size_bytes: 450_000_000,
+                        sha256: None,
+                    },
+                ],
+            },
+            ModelDefinition {
+                id: "rmbg-1.4".to_string(),
+                name: "RMBG-1.4 (BRIA Studio Matting)".to_string(),
+                category: "Capability Pack: Background Removal Studio".to_string(),
+                description: "Commercial-grade image matting by BRIA AI. Gated under non-commercial creative license.".to_string(),
+                total_size_bytes: 176_000_000,
+                desktop_only: false,
+                license: Some("Non-Commercial (BRIA)".to_string()),
+                gated: true,
+                ack_required: true,
+                files: vec![
+                    ModelFileDef {
+                        url: "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx".to_string(),
+                        rel_path: "packs/background-removal/rmbg_1_4.onnx".to_string(),
+                        expected_size_bytes: 176_000_000,
+                        sha256: None,
                     },
                 ],
             },
@@ -177,9 +422,28 @@ impl ModelManager {
         let mut total_disk_size = 0u64;
 
         for file_def in &model.files {
-            let path = self.models_dir.join(&file_def.rel_path);
-            if path.exists() {
-                if let Ok(meta) = std::fs::metadata(&path) {
+            let primary_path = self.models_dir.join(&file_def.rel_path);
+            let file_name = std::path::Path::new(&file_def.rel_path)
+                .file_name()
+                .unwrap_or_default();
+            let alt_matting_path = self.models_dir.join("matting").join(file_name);
+            let alt_pack_path = self.models_dir.join("packs/background-removal").join(file_name);
+            let plugin_path = std::path::Path::new("plugins/ai-vision-studio/models").join(file_name);
+
+            let effective_path = if primary_path.exists() {
+                primary_path
+            } else if alt_matting_path.exists() {
+                alt_matting_path
+            } else if alt_pack_path.exists() {
+                alt_pack_path
+            } else if plugin_path.exists() {
+                plugin_path
+            } else {
+                primary_path
+            };
+
+            if effective_path.exists() {
+                if let Ok(meta) = std::fs::metadata(&effective_path) {
                     total_disk_size += meta.len();
                 } else {
                     all_exist = false;
@@ -192,14 +456,29 @@ impl ModelManager {
         (all_exist && !model.files.is_empty(), total_disk_size)
     }
 
-    /// list_models - Performs list models.
+    pub fn register_dynamic(&mut self, defs: Vec<ModelDefinition>) {
+        for def in defs {
+            if let Some(existing) = self.models.iter_mut().find(|m| m.id == def.id) {
+                *existing = def;
+            } else {
+                self.models.push(def);
+            }
+        }
+    }
+
+    pub async fn acknowledge_license(&self, model_id: &str) {
+        self.acknowledged_licenses.write().await.insert(model_id.to_string());
+    }
+
     pub async fn list_models(&self) -> Vec<ModelInfoResponse> {
         let progress_guard = self.active_progress.read().await;
+        let ack_guard = self.acknowledged_licenses.read().await;
         let mut responses = Vec::new();
 
         for model in &self.models {
             let (is_downloaded, disk_size) = self.check_model_on_disk(model);
             let progress = progress_guard.get(&model.id).cloned();
+            let is_acknowledged = !model.ack_required || ack_guard.contains(&model.id);
 
             responses.push(ModelInfoResponse {
                 id: model.id.clone(),
@@ -210,6 +489,10 @@ impl ModelManager {
                 desktop_only: model.desktop_only,
                 is_downloaded,
                 disk_size_bytes: disk_size,
+                license: model.license.clone(),
+                gated: model.gated,
+                ack_required: model.ack_required,
+                license_acknowledged: is_acknowledged,
                 progress,
             });
         }
@@ -270,6 +553,7 @@ impl ModelManager {
         let task = tokio::spawn(async move {
             info!("[ModelManager] Starting download for model: {}", model.id);
             let client = reqwest::Client::builder()
+                .user_agent("Prism/1.0 (Desktop; Linux/x86_64)")
                 .timeout(Duration::from_secs(3600))
                 .build()
                 .unwrap_or_default();
@@ -382,6 +666,24 @@ impl ModelManager {
 
                 file.flush().await.ok();
                 drop(file);
+
+                // Verify SHA256 if specified
+                if let Some(ref expected_hash) = file_def.sha256 {
+                    use sha2::{Digest, Sha256};
+                    if let Ok(mut f) = std::fs::File::open(&part_path) {
+                        let mut hasher = Sha256::new();
+                        if std::io::copy(&mut f, &mut hasher).is_ok() {
+                            let computed = format!("{:x}", hasher.finalize());
+                            if !computed.eq_ignore_ascii_case(expected_hash) {
+                                let err_msg = format!("Checksum mismatch for {:?}. Expected: {}, Got: {}", file_def.rel_path, expected_hash, computed);
+                                error!("[ModelManager] {}", err_msg);
+                                tokio::fs::remove_file(&part_path).await.ok();
+                                Self::set_error(&active_progress, &model.id, &err_msg).await;
+                                return;
+                            }
+                        }
+                    }
+                }
 
                 // Rename part file to final target file
                 if let Err(e) = tokio::fs::rename(&part_path, &target_path).await {

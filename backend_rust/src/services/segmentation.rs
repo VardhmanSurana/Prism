@@ -1,7 +1,6 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use image::{DynamicImage, GrayImage, Luma};
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
 use serde::{Deserialize, Serialize};
 
@@ -73,98 +72,288 @@ pub struct PortraitMasksResponse {
 // ─── Engine ──────────────────────────────────────────────────────────────────
 
 pub struct SegmentationEngine {
-    u2netp:       Mutex<Session>,
-    semantic:     Mutex<Session>,
-    face_parsing: Option<Mutex<Session>>,
+    u2netp:       Mutex<Option<Session>>,
+    semantic:     Mutex<Option<Session>>,
+    face_parsing: Mutex<Option<Session>>,
+    matte_sessions: Mutex<std::collections::HashMap<String, (Session, std::time::Instant)>>,
 }
 
-pub static SEGMENTATION_ENGINE: OnceLock<SegmentationEngine> = OnceLock::new();
+pub static SEGMENTATION_ENGINE: OnceLock<Mutex<Option<Arc<SegmentationEngine>>>> = OnceLock::new();
+
+fn segmentation_cache() -> &'static Mutex<Option<Arc<SegmentationEngine>>> {
+    SEGMENTATION_ENGINE.get_or_init(|| Mutex::new(None))
+}
+
+fn load_image_sniffed(path: &str) -> Result<DynamicImage, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("Failed to read {}: {}", path, e))?;
+    image::load_from_memory(&bytes).map_err(|e| format!("Failed to decode {}: {}", path, e))
+}
 
 impl SegmentationEngine {
-    /// get - Performs get.
-    pub fn get() -> &'static Self {
-        SEGMENTATION_ENGINE.get_or_init(|| {
-            let base      = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation");
-            let face_base = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face");
+    pub fn get() -> Arc<Self> {
+        let mut cache = segmentation_cache().lock().expect("segmentation model cache lock poisoned");
+        if let Some(engine) = cache.as_ref() {
+            return Arc::clone(engine);
+        }
 
-            let u2netp = Session::builder()
-                .expect("ort builder")
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .expect("opt level")
-                .commit_from_file(base.join("u2netp.onnx"))
-                .expect("load u2netp.onnx");
-
-            let semantic = Session::builder()
-                .expect("ort builder")
-                .with_optimization_level(GraphOptimizationLevel::Level3)
-                .expect("opt level")
-                .commit_from_file(base.join("semantic.onnx"))
-                .expect("load semantic.onnx");
-
-            let face_parsing = Session::builder()
-                .ok()
-                .and_then(|b| b.with_optimization_level(GraphOptimizationLevel::Level3).ok())
-                .and_then(|mut b| b.commit_from_file(face_base.join("face_parsing.onnx")).ok());
-
+        let engine = Arc::new({
             SegmentationEngine {
-                u2netp:       Mutex::new(u2netp),
-                semantic:     Mutex::new(semantic),
-                face_parsing: face_parsing.map(Mutex::new),
+                // Loading all three models for a single background-mask click
+                // caused avoidable RAM/VRAM spikes. Each is loaded on demand.
+                u2netp:       Mutex::new(None),
+                semantic:     Mutex::new(None),
+                face_parsing: Mutex::new(None),
+                matte_sessions: Mutex::new(std::collections::HashMap::new()),
             }
-        })
+        });
+        *cache = Some(Arc::clone(&engine));
+        engine
     }
 
-    // ── Background mask (U²-Net-p) ───────────────────────────────────────────
-    /// get_background_mask - Retrieves background mask.
+    /// Releases built-in and capability-pack segmentation sessions.
+    pub fn unload() -> bool {
+        segmentation_cache()
+            .lock()
+            .map(|mut cache| cache.take().is_some())
+            .unwrap_or(false)
+    }
+
+    // ── Background mask (Generic Matting + U²-Net-p fallback) ───────────────────
     pub fn get_background_mask(
         &self,
         photo_path: &str,
         photo_id:   i64,
         masks_dir:  &std::path::Path,
+        model_id:   Option<&str>,
+        pack_manager: Option<&crate::services::packs::PackManager>,
     ) -> Result<BackgroundMaskResponse, String> {
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
-        let (orig_w, orig_h) = (img.width(), img.height());
-        let (h, w) = (320usize, 320usize);
+        let req_model = model_id.unwrap_or("builtin-u2netp");
+        let is_builtin = req_model == "builtin-u2netp" || req_model == "u2netp";
 
-        let resized = img.resize_exact(w as u32, h as u32, image::imageops::FilterType::Triangle);
-        let rgb     = resized.to_rgb8();
+        std::fs::create_dir_all(masks_dir).map_err(|e| e.to_string())?;
+        let filename = if is_builtin {
+            format!("mask_{}_background.png", photo_id)
+        } else {
+            format!("mask_{}_background_{}.png", photo_id, req_model)
+        };
+        let out_path = masks_dir.join(&filename);
 
-        // Build flat [1,3,320,320] tensor in NCHW order, normalised [0,1]
-        let mut data = vec![0.0f32; 3 * h * w];
-        for (x, y, p) in rgb.enumerate_pixels() {
-            let idx = y as usize * w + x as usize;
-            data[0 * h * w + idx] = p[0] as f32 / 255.0;
-            data[1 * h * w + idx] = p[1] as f32 / 255.0;
-            data[2 * h * w + idx] = p[2] as f32 / 255.0;
+        // If mask already generated on disk, return cached URL directly
+        if out_path.exists() {
+            return Ok(BackgroundMaskResponse { mask_url: format!("/thumbnails/masks/{}", filename) });
         }
 
-        let tensor = Value::from_array(([1usize, 3, h, w], data))
-            .map_err(|e| e.to_string())?;
-        let inputs  = ort::inputs!["input.1" => tensor];
-        let mut session_guard = self.u2netp.lock().unwrap();
-        let outputs = session_guard.run(inputs)
-            .map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
+        let (orig_w, orig_h) = (img.width(), img.height());
 
-        // Output "1959" is [1,1,320,320] — grab the data flat
-        let (_, mask_cow) = outputs["1959"]
-            .try_extract_tensor::<f32>()
-            .map_err(|e| e.to_string())?;
-        let mask_flat: Vec<f32> = mask_cow.iter().copied().collect();
+        if is_builtin {
+            // Builtin U2Netp execution
+            let (h, w) = (320usize, 320usize);
+            let resized = img.resize_exact(w as u32, h as u32, image::imageops::FilterType::Triangle);
+            let rgb = resized.to_rgb8();
 
-        // Build 320×320 grayscale, then resize back to original
-        let mut gray = GrayImage::new(w as u32, h as u32);
-        for py in 0..h {
-            for px in 0..w {
-                let v = (mask_flat[py * w + px].clamp(0.0, 1.0) * 255.0) as u8;
-                gray.put_pixel(px as u32, py as u32, Luma([v]));
+            let mut data = vec![0.0f32; 3 * h * w];
+            for (x, y, p) in rgb.enumerate_pixels() {
+                let idx = y as usize * w + x as usize;
+                data[0 * h * w + idx] = p[0] as f32 / 255.0;
+                data[1 * h * w + idx] = p[1] as f32 / 255.0;
+                data[2 * h * w + idx] = p[2] as f32 / 255.0;
+            }
+
+            let tensor = Value::from_array(([1usize, 3, h, w], data))
+                .map_err(|e| e.to_string())?;
+            let inputs = ort::inputs!["input.1" => tensor];
+            let mut session_guard = self.u2netp.lock().unwrap();
+            if session_guard.is_none() {
+                *session_guard = Some(crate::services::onnx_helper::build_tier1_session(
+                    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation/u2netp.onnx"),
+                    "U2NetP",
+                ).map_err(|e| format!("Failed to load U2NetP model: {}", e))?);
+            }
+            let session = session_guard.as_mut().ok_or("U2Netp model session not loaded on this system")?;
+            let outputs = session.run(inputs).map_err(|e| e.to_string())?;
+
+            let (_, mask_cow) = outputs["1959"]
+                .try_extract_tensor::<f32>()
+                .map_err(|e| e.to_string())?;
+            let mask_flat: Vec<f32> = mask_cow.iter().copied().collect();
+
+            let mut gray = GrayImage::new(w as u32, h as u32);
+            for py in 0..h {
+                for px in 0..w {
+                    let v = (mask_flat[py * w + px].clamp(0.0, 1.0) * 255.0) as u8;
+                    gray.put_pixel(px as u32, py as u32, Luma([v]));
+                }
+            }
+            let out = DynamicImage::ImageLuma8(gray)
+                .resize_exact(orig_w, orig_h, image::imageops::FilterType::Triangle);
+
+            out.save(&out_path).map_err(|e| e.to_string())?;
+            return Ok(BackgroundMaskResponse { mask_url: format!("/thumbnails/masks/{}", filename) });
+        }
+
+        // Generic Capability Pack Model Execution
+        let pm = pack_manager.ok_or("Capability pack manager not available")?;
+        let (_pack, model_def, model_path) = pm
+            .get_model_def(req_model)
+            .ok_or_else(|| format!("Model '{}' not found in capability packs", req_model))?;
+
+        if !model_path.exists() {
+            return Err(format!("Model '{}' weights not installed at {:?}", req_model, model_path));
+        }
+
+        // Ensure ONNX session is in LRU cache
+        let mut cache_guard = self.matte_sessions.lock().unwrap();
+        if !cache_guard.contains_key(req_model) {
+            // Evict oldest if capacity >= 2
+            if cache_guard.len() >= 2 {
+                if let Some((oldest_key, _)) = cache_guard.iter()
+                    .min_by_key(|(_, (_, time))| *time)
+                    .map(|(k, _)| (k.clone(), ())) {
+                    tracing::info!("[SegmentationEngine] Evicting matting session '{}' from RAM", oldest_key);
+                    cache_guard.remove(&oldest_key);
+                }
+            }
+
+            tracing::info!("[SegmentationEngine] Loading matting model '{}' from {:?}", req_model, model_path);
+            let session = crate::services::onnx_helper::build_session(&model_path, req_model)
+                .map_err(|e| format!("Failed to load ONNX file {:?}: {}", model_path, e))?;
+
+            cache_guard.insert(req_model.to_string(), (session, std::time::Instant::now()));
+        }
+
+        let (session, last_used) = cache_guard.get_mut(req_model).unwrap();
+        *last_used = std::time::Instant::now();
+
+        // 1. Preprocess according to pack model input definition
+        let in_w = model_def.input.size[0] as usize;
+        let in_h = model_def.input.size[1] as usize;
+        let mean = model_def.input.mean;
+        let std = model_def.input.std;
+
+        let resized = img.resize_exact(in_w as u32, in_h as u32, image::imageops::FilterType::Triangle);
+        let rgb = resized.to_rgb8();
+
+        let mut data = vec![0.0f32; 3 * in_h * in_w];
+        if model_def.input.layout.eq_ignore_ascii_case("NCHW") {
+            for (x, y, p) in rgb.enumerate_pixels() {
+                let idx = y as usize * in_w + x as usize;
+                data[0 * in_h * in_w + idx] = ((p[0] as f32 / 255.0) - mean[0]) / std[0];
+                data[1 * in_h * in_w + idx] = ((p[1] as f32 / 255.0) - mean[1]) / std[1];
+                data[2 * in_h * in_w + idx] = ((p[2] as f32 / 255.0) - mean[2]) / std[2];
+            }
+        } else {
+            // NHWC layout
+            for (x, y, p) in rgb.enumerate_pixels() {
+                let idx = (y as usize * in_w + x as usize) * 3;
+                data[idx] = ((p[0] as f32 / 255.0) - mean[0]) / std[0];
+                data[idx + 1] = ((p[1] as f32 / 255.0) - mean[1]) / std[1];
+                data[idx + 2] = ((p[2] as f32 / 255.0) - mean[2]) / std[2];
             }
         }
+
+        let tensor_shape = if model_def.input.layout.eq_ignore_ascii_case("NCHW") {
+            vec![1usize, 3, in_h, in_w]
+        } else {
+            vec![1usize, in_h, in_w, 3]
+        };
+
+        let tensor = Value::from_array((tensor_shape, data))
+            .map_err(|e| format!("Failed to create input tensor: {}", e))?;
+
+        let dynamic_input_name = session
+            .inputs()
+            .first()
+            .map(|i| i.name().to_string());
+        let effective_input_name = dynamic_input_name
+            .as_deref()
+            .unwrap_or(model_def.input.name.as_str());
+
+        let mut inputs_map = std::collections::HashMap::new();
+        inputs_map.insert(effective_input_name, tensor);
+
+        let outputs = session.run(inputs_map)
+            .map_err(|e| format!("ORT matting inference failed: {}", e))?;
+
+        // 2. Extract output tensor
+        let raw_flat: Vec<f32> = if let Some(ref out_name) = model_def.output.output_name {
+            if let Some(out_tensor) = outputs.get(out_name.as_str()) {
+                let (_, cow) = out_tensor
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| format!("Extract output error for '{}': {}", out_name, e))?;
+                cow.iter().copied().collect()
+            } else {
+                let (_, cow) = outputs[0]
+                    .try_extract_tensor::<f32>()
+                    .map_err(|e| format!("Extract output error: {}", e))?;
+                cow.iter().copied().collect()
+            }
+        } else {
+            let out_idx = model_def.output.output_index.unwrap_or(0);
+            let (_, cow) = outputs[out_idx]
+                .try_extract_tensor::<f32>()
+                .map_err(|e| format!("Extract output error: {}", e))?;
+            cow.iter().copied().collect()
+        };
+
+        // 3. Postprocess and scale to 8-bit alpha matte
+        // NOTE: "minmax" is used for pack models (ISNet/BiRefNet/RMBG) whose ONNX
+        // exports already include the final sigmoid — their raw outputs just need
+        // min-max normalization (same as rembg). Applying another sigmoid on top
+        // squashes everything into [128,186] and produces a garbage mid-gray mask.
+        let postprocess = model_def.output.postprocess.to_lowercase();
+        let threshold = model_def.output.threshold;
+
+        let total_pixels = in_w * in_h;
+        let slice = if raw_flat.len() >= total_pixels {
+            &raw_flat[..total_pixels]
+        } else {
+            &raw_flat[..]
+        };
+
+        let values: Vec<f32> = if postprocess == "minmax" {
+            let mut min = f32::INFINITY;
+            let mut max = f32::NEG_INFINITY;
+            for &v in slice {
+                if v < min { min = v; }
+                if v > max { max = v; }
+            }
+            let range = max - min;
+            if range > f32::EPSILON {
+                slice.iter().map(|v| (*v - min) / range).collect()
+            } else {
+                vec![0.0; slice.len()]
+            }
+        } else {
+            slice.to_vec()
+        };
+
+        let mut gray = GrayImage::new(in_w as u32, in_h as u32);
+        for py in 0..in_h {
+            for px in 0..in_w {
+                let idx = py * in_w + px;
+                if idx < values.len() {
+                    let mut val = values[idx];
+                    if postprocess == "sigmoid" {
+                        val = 1.0 / (1.0 + (-val).exp());
+                    } else if postprocess == "clamp" {
+                        val = val.clamp(0.0, 1.0);
+                    }
+
+                    if let Some(th) = threshold {
+                        val = if val >= th { 1.0 } else { 0.0 };
+                    }
+
+                    let byte_val = (val.clamp(0.0, 1.0) * 255.0).round() as u8;
+                    gray.put_pixel(px as u32, py as u32, Luma([byte_val]));
+                }
+            }
+        }
+
         let out = DynamicImage::ImageLuma8(gray)
             .resize_exact(orig_w, orig_h, image::imageops::FilterType::Triangle);
 
-        std::fs::create_dir_all(masks_dir).map_err(|e| e.to_string())?;
-        let filename = format!("mask_{}_background.png", photo_id);
-        out.save(masks_dir.join(&filename)).map_err(|e| e.to_string())?;
+        out.save(&out_path).map_err(|e| e.to_string())?;
 
         Ok(BackgroundMaskResponse { mask_url: format!("/thumbnails/masks/{}", filename) })
     }
@@ -177,7 +366,7 @@ impl SegmentationEngine {
         photo_id:   i64,
         masks_dir:  &std::path::Path,
     ) -> Result<SemanticMasksResponse, String> {
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
         let (orig_w, orig_h) = (img.width(), img.height());
         let (h, w) = (512usize, 512usize);
 
@@ -195,7 +384,14 @@ impl SegmentationEngine {
         let tensor  = Value::from_array(([1usize, 3, h, w], data)).map_err(|e| e.to_string())?;
         let inputs  = ort::inputs!["pixel_values" => tensor];
         let mut session_guard = self.semantic.lock().unwrap();
-        let outputs = session_guard.run(inputs).map_err(|e| e.to_string())?;
+        if session_guard.is_none() {
+            *session_guard = Some(crate::services::onnx_helper::build_session(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/segmentation/semantic.onnx"),
+                "Semantic-Seg",
+            ).map_err(|e| format!("Failed to load semantic segmentation model: {}", e))?);
+        }
+        let session = session_guard.as_mut().ok_or("Semantic segmentation model session not loaded on this system")?;
+        let outputs = session.run(inputs).map_err(|e| e.to_string())?;
 
         // logits: [1, 150, lh, lw]
         let (logits_shape, logits_cow) = outputs["logits"]
@@ -259,12 +455,19 @@ impl SegmentationEngine {
         photo_id:   i64,
         masks_dir:  &std::path::Path,
     ) -> Result<PortraitMasksResponse, String> {
-        let fp_mutex = match &self.face_parsing {
-            Some(m) => m,
-            None    => return Ok(PortraitMasksResponse { faces: vec![] }),
+        let mut fp_guard = self.face_parsing.lock().unwrap();
+        if fp_guard.is_none() {
+            *fp_guard = Some(crate::services::onnx_helper::build_tier1_session(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("models/face/face_parsing.onnx"),
+                "Face-Parsing",
+            ).map_err(|e| format!("Failed to load face parsing model: {}", e))?);
+        }
+        let session = match fp_guard.as_mut() {
+            Some(s) => s,
+            None => return Ok(PortraitMasksResponse { faces: vec![] }),
         };
 
-        let img = image::open(photo_path).map_err(|e| e.to_string())?;
+        let img = load_image_sniffed(photo_path)?;
         let (orig_w, orig_h) = (img.width(), img.height());
         let (h, w) = (512usize, 512usize);
 
@@ -281,8 +484,7 @@ impl SegmentationEngine {
 
         let tensor  = Value::from_array(([1usize, 3, h, w], data)).map_err(|e| e.to_string())?;
         let inputs  = ort::inputs!["input" => tensor];
-        let mut session_guard = fp_mutex.lock().unwrap();
-        let outputs = session_guard.run(inputs).map_err(|e| e.to_string())?;
+        let outputs = session.run(inputs).map_err(|e| e.to_string())?;
 
         // First output is [1, num_classes, lh, lw]
         let (out_shape, out_cow) = outputs[0usize]
@@ -341,5 +543,126 @@ impl SegmentationEngine {
         Ok(PortraitMasksResponse {
             faces: vec![FaceMask { id: format!("face_0-{}", photo_id), masks: masks_map }],
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn segmentation_on_sample_image() {
+        let dir = std::env::temp_dir().join("prism_segmentation_test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let photo_path = dir.join("test_seg.png");
+
+        let img = image::RgbaImage::new(256, 256);
+        img.save(&photo_path).unwrap();
+
+        // Force the inference path rather than returning a mask generated by
+        // an earlier test invocation.
+        std::fs::remove_file(dir.join("mask_1_background.png")).ok();
+
+        let engine = SegmentationEngine::get();
+        let mask_res = engine.get_background_mask(photo_path.to_str().unwrap(), 1, &dir, None, None);
+        if engine.u2netp.lock().unwrap().is_some() {
+            assert!(mask_res.is_ok(), "Segmentation background mask failed: {:?}", mask_res.err());
+            eprintln!("[test] Segmentation U2NetP OK");
+        } else {
+            eprintln!("skip: u2netp model not present");
+        }
+    }
+
+    #[test]
+    fn test_bg_removal_on_woman_sample() {
+        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
+        let artifact_dir = Path::new("/home/chotaxdon/.gemini/antigravity/brain/f8fee3f8-2ef0-45f9-8207-61e475632392");
+        if !Path::new(woman_path).exists() {
+            eprintln!("skip: woman.png not found at {}", woman_path);
+            return;
+        }
+
+        let engine = SegmentationEngine::get();
+        let mask_dir = artifact_dir.join("masks_test");
+        let _ = std::fs::create_dir_all(&mask_dir);
+
+        let t0 = std::time::Instant::now();
+        let _res = engine.get_background_mask(woman_path, 9999, &mask_dir, None, None)
+            .expect("Failed to run background removal on woman.png");
+        let duration = t0.elapsed();
+        eprintln!("[test] Background mask generated in {:.2?}", duration);
+
+        // Load original and mask
+        let orig = load_image_sniffed(woman_path).expect("Failed to open original woman.png").to_rgba8();
+        let mask_path = mask_dir.join("mask_9999_background.png");
+        let mask = load_image_sniffed(mask_path.to_str().unwrap()).expect("Failed to open generated mask").to_luma8();
+
+        let (w, h) = (orig.width(), orig.height());
+
+        // 1. Save original to artifact directory
+        let orig_art = artifact_dir.join("woman_original.png");
+        orig.save_with_format(&orig_art, image::ImageFormat::Png).unwrap();
+
+        // 2. Save mask to artifact directory
+        let mask_art = artifact_dir.join("woman_bg_mask.png");
+        mask.save_with_format(&mask_art, image::ImageFormat::Png).unwrap();
+
+        // 3. Create transparent RGBA cutout
+        let mut cutout = image::RgbaImage::new(w, h);
+        for y in 0..h {
+            for x in 0..w {
+                let p = orig.get_pixel(x, y);
+                let alpha = mask.get_pixel(x, y)[0];
+                cutout.put_pixel(x, y, image::Rgba([p[0], p[1], p[2], alpha]));
+            }
+        }
+        let cutout_art = artifact_dir.join("woman_cutout_transparent.png");
+        cutout.save_with_format(&cutout_art, image::ImageFormat::Png).unwrap();
+
+        // 4. Create Side-by-Side (Left: Original, Right: Cutout on subtle checkerboard pattern)
+        let mut side_by_side = image::RgbaImage::new(w * 2, h);
+        for y in 0..h {
+            for x in 0..w {
+                // Left: original
+                side_by_side.put_pixel(x, y, *orig.get_pixel(x, y));
+
+                // Right: cutout over light checkerboard pattern
+                let check = if (x / 20 + y / 20) % 2 == 0 { 240u8 } else { 200u8 };
+                let alpha = mask.get_pixel(x, y)[0] as f32 / 255.0;
+                let orig_p = orig.get_pixel(x, y);
+                let r = (orig_p[0] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+                let g = (orig_p[1] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+                let b = (orig_p[2] as f32 * alpha + check as f32 * (1.0 - alpha)) as u8;
+
+                side_by_side.put_pixel(w + x, y, image::Rgba([r, g, b, 255]));
+            }
+            // 2px center divider line
+            side_by_side.put_pixel(w, y, image::Rgba([255, 255, 255, 255]));
+            side_by_side.put_pixel(w + 1, y, image::Rgba([255, 255, 255, 255]));
+        }
+
+        let comp_art = artifact_dir.join("woman_bg_removal_comparison.png");
+        side_by_side.save_with_format(&comp_art, image::ImageFormat::Png).unwrap();
+        eprintln!("[test] All visual artifacts generated and saved to {:?}", artifact_dir);
+    }
+
+    #[tokio::test]
+    async fn test_isnet_matting_on_woman_sample() {
+        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
+        let pack_manager = crate::services::packs::PackManager::new(
+            std::path::PathBuf::from("models/packs"),
+            std::path::PathBuf::from("models"),
+        );
+        pack_manager.refresh().await;
+
+        let engine = SegmentationEngine::get();
+        let dir = std::env::temp_dir().join("prism_isnet_test");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let t0 = std::time::Instant::now();
+        let res = engine.get_background_mask(woman_path, 8888, &dir, Some("isnet-general-use"), Some(&pack_manager));
+        eprintln!("[test] isnet result: {:?} in {:.2?}", res, t0.elapsed());
+        assert!(res.is_ok());
     }
 }

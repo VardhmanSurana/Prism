@@ -1,0 +1,480 @@
+/* ── 1. Image Editor Unified Design Tokens ────────────────────────────────── */
+:root {
+  /* Sliders: Global Design Tokens (Edit here to change all sliders everywhere) */
+  --ie-slider-track-height: 2px;
+  --ie-slider-track-bg: rgba(255, 255, 255, 0.12);
+  --ie-slider-track-radius: 9999px;
+  
+  --ie-slider-thumb-size: 13px;
+  --ie-slider-thumb-bg: #ffffff;
+  --ie-slider-thumb-border: none;
+  --ie-slider-thumb-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  
+  --ie-slider-thumb-hover-scale: 1.2;
+  --ie-slider-thumb-hover-bg: #ffffff;
+  --ie-slider-thumb-hover-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  
+  --ie-slider-thumb-active-scale: 1.1;
+  --ie-slider-thumb-active-bg: #ffffff;
+  --ie-slider-thumb-active-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+
+  --ie-slider-highlight-bg: rgba(255, 255, 255, 0.8);
+}
+
+/* ── 2. Unified Slider Base Rules ─────────────────────────────────────────── */
+.editor-slider,
+.adjustment-slider,
+.premium-editor-slider,
+.lut-slider,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider),
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider) {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: var(--ie-slider-track-height);
+  background: var(--ie-slider-track-bg);
+  border-radius: var(--ie-slider-track-radius);
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  transition: opacity 0.15s ease;
+}
+
+.editor-slider::-webkit-slider-thumb,
+.adjustment-slider::-webkit-slider-thumb,
+.premium-editor-slider::-webkit-slider-thumb,
+.lut-slider::-webkit-slider-thumb,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider)::-webkit-slider-thumb,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider)::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--ie-slider-thumb-size);
+  height: var(--ie-slider-thumb-size);
+  border-radius: 50%;
+  background: var(--ie-slider-thumb-bg);
+  cursor: grab;
+  border: var(--ie-slider-thumb-border);
+  box-shadow: var(--ie-slider-thumb-shadow);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.12s ease, box-shadow 0.12s ease;
+  position: relative;
+  z-index: 10;
+}
+
+.editor-slider::-webkit-slider-thumb:hover,
+.adjustment-slider::-webkit-slider-thumb:hover,
+.premium-editor-slider::-webkit-slider-thumb:hover,
+.lut-slider::-webkit-slider-thumb:hover,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider)::-webkit-slider-thumb:hover,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider)::-webkit-slider-thumb:hover {
+  transform: scale(var(--ie-slider-thumb-hover-scale));
+  background: var(--ie-slider-thumb-hover-bg);
+  box-shadow: var(--ie-slider-thumb-hover-shadow);
+}
+
+.editor-slider:active::-webkit-slider-thumb,
+.adjustment-slider:active::-webkit-slider-thumb,
+.premium-editor-slider:active::-webkit-slider-thumb,
+.lut-slider:active::-webkit-slider-thumb,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider):active::-webkit-slider-thumb,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider):active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(var(--ie-slider-thumb-active-scale));
+  background: var(--ie-slider-thumb-active-bg);
+  box-shadow: var(--ie-slider-thumb-active-shadow);
+}
+
+.editor-slider::-moz-range-thumb,
+.adjustment-slider::-moz-range-thumb,
+.premium-editor-slider::-moz-range-thumb,
+.lut-slider::-moz-range-thumb,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider)::-moz-range-thumb,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider)::-moz-range-thumb {
+  width: var(--ie-slider-thumb-size);
+  height: var(--ie-slider-thumb-size);
+  border-radius: 50%;
+  background: var(--ie-slider-thumb-bg);
+  cursor: grab;
+  border: var(--ie-slider-thumb-border);
+  box-shadow: var(--ie-slider-thumb-shadow);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.editor-slider::-moz-range-thumb:hover,
+.adjustment-slider::-moz-range-thumb:hover,
+.premium-editor-slider::-moz-range-thumb:hover,
+.lut-slider::-moz-range-thumb:hover,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider)::-moz-range-thumb:hover,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider)::-moz-range-thumb:hover {
+  transform: scale(var(--ie-slider-thumb-hover-scale));
+  background: var(--ie-slider-thumb-hover-bg);
+  box-shadow: var(--ie-slider-thumb-hover-shadow);
+}
+
+.editor-slider::-moz-range-track,
+.adjustment-slider::-moz-range-track,
+.premium-editor-slider::-moz-range-track,
+.lut-slider::-moz-range-track,
+.image-editor-studio input[type="range"]:not(.raw-gradient-slider)::-moz-range-track,
+.custom-scrollbar input[type="range"]:not(.raw-gradient-slider)::-moz-range-track {
+  height: var(--ie-slider-track-height);
+  background: var(--ie-slider-track-bg);
+  border-radius: var(--ie-slider-track-radius);
+}
+
+/* ── 3. RAW Engine Gradient Sliders (Kelvin & Tint) ────────────────────────── */
+.raw-gradient-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  outline: none;
+  cursor: pointer;
+  position: relative;
+  display: block;
+}
+
+.raw-gradient-slider::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.raw-gradient-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ie-slider-thumb-bg);
+  cursor: grab;
+  margin-top: -5px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.75), 0 0 0 2px rgba(255, 255, 255, 0.9);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
+}
+
+.raw-gradient-slider::-webkit-slider-thumb:hover {
+  transform: scale(var(--ie-slider-thumb-hover-scale));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.85), 0 0 0 3px #ffffff;
+}
+
+.raw-gradient-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+  transform: scale(var(--ie-slider-thumb-active-scale));
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.95), 0 0 0 4px #ffffff;
+}
+
+.raw-gradient-slider::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  background: transparent;
+  border-radius: 9999px;
+}
+
+.raw-gradient-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ie-slider-thumb-bg);
+  cursor: grab;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.75);
+  transition: transform 0.12s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.12s ease;
+}
+
+.raw-gradient-slider::-moz-range-thumb:hover {
+  transform: scale(var(--ie-slider-thumb-hover-scale));
+}
+
+/* Zero-lag slider fill highlight bar sync */
+div:has(> .adjustment-slider) > div.pointer-events-none,
+div:has(> .premium-editor-slider) > div.pointer-events-none,
+div:has(> [type="range"]) > div.pointer-events-none {
+  transition: none !important;
+}
+
+/* ── 4. Cropper JS & Canvas Overrides ─────────────────────────────────────── */
+.hide-crop-ui .cropper-drag-box,
+.hide-crop-ui .cropper-view-box,
+.hide-crop-ui .cropper-dashed,
+.hide-crop-ui .cropper-point,
+.hide-crop-ui .cropper-line,
+.hide-crop-ui .cropper-face,
+.hide-crop-ui .cropper-center,
+.hide-crop-ui .cropper-modal {
+  display: none !important;
+}
+
+/* ── Modern Viewfinder Crop Selector Theme ── */
+/* Darkened backdrop outside crop selection */
+.cropper-modal {
+  background-color: #000000 !important;
+  opacity: 0.65 !important;
+}
+
+/* Clear un-tinted area inside crop box */
+.cropper-face {
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+
+/* Crisp 1px white viewbox outline with subtle shadow */
+.cropper-view-box {
+  outline: 1px solid rgba(255, 255, 255, 0.65) !important;
+  outline-color: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* Subtle solid rule-of-thirds grid lines (replacing dashed lines) */
+.cropper-dashed {
+  border: 0 solid rgba(255, 255, 255, 0.32) !important;
+  opacity: 1 !important;
+}
+.cropper-dashed.dashed-h {
+  border-top-width: 1px !important;
+  border-bottom-width: 1px !important;
+}
+.cropper-dashed.dashed-v {
+  border-left-width: 1px !important;
+  border-right-width: 1px !important;
+}
+
+/* Hide center crosshair */
+.cropper-center {
+  display: none !important;
+}
+
+/* Transparent edge lines with generous hit areas */
+.cropper-line {
+  background-color: transparent !important;
+  opacity: 0 !important;
+}
+.cropper-line.line-e { width: 12px !important; right: -6px !important; cursor: ew-resize !important; }
+.cropper-line.line-w { width: 12px !important; left: -6px !important; cursor: ew-resize !important; }
+.cropper-line.line-n { height: 12px !important; top: -6px !important; cursor: ns-resize !important; }
+.cropper-line.line-s { height: 12px !important; bottom: -6px !important; cursor: ns-resize !important; }
+
+/* Hide mid-edge blue point dots, keep transparent hit targets */
+.cropper-point.point-e,
+.cropper-point.point-n,
+.cropper-point.point-w,
+.cropper-point.point-s {
+  opacity: 0 !important;
+  background: transparent !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+.cropper-point.point-e { right: -8px !important; cursor: ew-resize !important; }
+.cropper-point.point-w { left: -8px !important; cursor: ew-resize !important; }
+.cropper-point.point-n { top: -8px !important; cursor: ns-resize !important; }
+.cropper-point.point-s { bottom: -8px !important; cursor: ns-resize !important; }
+
+/* Bold white L-bracket corners (┌ ┐ └ ┘) */
+.cropper-point.point-nw,
+.cropper-point.point-ne,
+.cropper-point.point-sw,
+.cropper-point.point-se {
+  width: 22px !important;
+  height: 22px !important;
+  background: transparent !important;
+  opacity: 1 !important;
+  box-sizing: border-box !important;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.75));
+  z-index: 10 !important;
+}
+
+/* Generous hit target on corner brackets */
+.cropper-point.point-nw::before,
+.cropper-point.point-ne::before,
+.cropper-point.point-sw::before,
+.cropper-point.point-se::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  cursor: inherit;
+}
+
+/* Top-Left: ┌ */
+.cropper-point.point-nw {
+  top: -2px !important;
+  left: -2px !important;
+  border-top: 3.5px solid #ffffff !important;
+  border-left: 3.5px solid #ffffff !important;
+  border-right: none !important;
+  border-bottom: none !important;
+  cursor: nwse-resize !important;
+}
+
+/* Top-Right: ┐ */
+.cropper-point.point-ne {
+  top: -2px !important;
+  right: -2px !important;
+  border-top: 3.5px solid #ffffff !important;
+  border-right: 3.5px solid #ffffff !important;
+  border-left: none !important;
+  border-bottom: none !important;
+  cursor: nesw-resize !important;
+}
+
+/* Bottom-Left: └ */
+.cropper-point.point-sw {
+  bottom: -2px !important;
+  left: -2px !important;
+  border-bottom: 3.5px solid #ffffff !important;
+  border-left: 3.5px solid #ffffff !important;
+  border-top: none !important;
+  border-right: none !important;
+  cursor: nesw-resize !important;
+}
+
+/* Bottom-Right: ┘ */
+.cropper-point.point-se {
+  bottom: -2px !important;
+  right: -2px !important;
+  border-bottom: 3.5px solid #ffffff !important;
+  border-right: 3.5px solid #ffffff !important;
+  border-top: none !important;
+  border-left: none !important;
+  cursor: nwse-resize !important;
+}
+
+/* Apply CSS filter to images inside the Cropper */
+.cropper-container img {
+  filter: var(--cropper-filter, none);
+}
+
+.hide-cropper-image .cropper-canvas img,
+.hide-cropper-image .cropper-view-box img {
+  opacity: 0 !important;
+}
+
+/* Vignette effect overlay */
+.with-vignette .cropper-canvas {
+  position: relative;
+}
+
+.with-vignette .cropper-canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 60% at center, transparent 0%, rgba(var(--vignette-color, 0, 0, 0), var(--vignette-opacity, 0.9)) 100%);
+  mix-blend-mode: var(--vignette-blend-mode, multiply);
+  filter: blur(2px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── 5. Canvas Panning / Grab States ──────────────────────────────────────── */
+.ctrl-grab-active,
+.ctrl-grab-active * {
+  cursor: grab !important;
+}
+
+.ctrl-grabbing-active,
+.ctrl-grabbing-active * {
+  cursor: grabbing !important;
+}
+
+/* ── 6. Pixelated High-DPI Loupe Rendering ────────────────────────────────── */
+.pixel-canvas-crisp {
+  image-rendering: -moz-crisp-edges;
+  image-rendering: -webkit-crisp-edges;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+
+
+/* ── 8. Unified Image Editor Button Design System ─────────────────────────── */
+:root {
+  /* Active Button Styles - Modify here to change active button color across the entire editor */
+  --ie-btn-active-bg: #ffffff;
+  --ie-btn-active-text: #000000;
+  --ie-btn-active-border: #ffffff;
+  --ie-btn-active-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  
+  /* Inactive Button Styles */
+  --ie-btn-inactive-bg: rgba(255, 255, 255, 0.03);
+  --ie-btn-inactive-text: rgba(255, 255, 255, 0.5);
+  --ie-btn-inactive-border: rgba(255, 255, 255, 0.06);
+  
+  /* Hover Button Styles */
+  --ie-btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --ie-btn-hover-text: #ffffff;
+  --ie-btn-hover-border: rgba(255, 255, 255, 0.15);
+
+  /* Radius tokens */
+  --ie-btn-radius-sm: 6px;
+  --ie-btn-radius-md: 8px;
+  --ie-btn-radius-lg: 12px;
+  --ie-btn-radius-full: 9999px;
+}
+
+/* Base Image Editor Button (handles inactive, hover, active transitions globally) */
+.editor-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+  cursor: pointer;
+  user-select: none;
+  border-width: 1px;
+  border-style: solid;
+}
+
+/* Inactive state */
+.editor-btn:not(.active):not([data-active="true"]) {
+  background-color: var(--ie-btn-inactive-bg);
+  color: var(--ie-btn-inactive-text);
+  border-color: var(--ie-btn-inactive-border);
+}
+
+.editor-btn:not(.active):not([data-active="true"]):hover {
+  background-color: var(--ie-btn-hover-bg);
+  color: var(--ie-btn-hover-text);
+  border-color: var(--ie-btn-hover-border);
+}
+
+/* Active / Selected state */
+.editor-btn.active,
+.editor-btn[data-active="true"] {
+  background-color: var(--ie-btn-active-bg) !important;
+  color: var(--ie-btn-active-text) !important;
+  border-color: var(--ie-btn-active-border) !important;
+  box-shadow: var(--ie-btn-active-shadow);
+  font-weight: 700;
+}
+
+/* Ensure child text and icons adapt cleanly when active */
+.editor-btn.active *,
+.editor-btn[data-active="true"] * {
+  color: var(--ie-btn-active-text) !important;
+}
+
+/* Sub-variants */
+.editor-pill-btn {
+  border-radius: var(--ie-btn-radius-full);
+}
+
+.editor-chip-btn {
+  border-radius: var(--ie-btn-radius-md);
+}
+
+.editor-card-btn {
+  border-radius: var(--ie-btn-radius-lg);
+}
+
+/* Transparency Checkerboard Pattern for Cutout Background */
+.transparency-checkerboard {
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.1) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.1) 75%);
+  background-size: 24px 24px;
+  background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
+  background-color: #121216;
+}
+

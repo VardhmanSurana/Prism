@@ -1,11 +1,5 @@
 import { ColorWheelsAdjustments, ColorWheelVal } from './filterEngine';
-
-/**
- * clamp - Performs clamp.
- */
-function clamp(v: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, v));
-}
+import { clamp } from './utils/imageUtils';
 
 /**
  * smoothstep - Performs smoothstep.

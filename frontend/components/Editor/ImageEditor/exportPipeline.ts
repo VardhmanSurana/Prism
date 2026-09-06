@@ -1,25 +1,28 @@
 import { Adjustments } from './filterEngine';
-import { Annotation } from './AnnotationsPanel';
+import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 import { applyHslToCanvas } from './hslEngine';
-import { applyNonLinearHighlightsAndShadows } from './filterFallback';
-import { applyLutToImageData, getBuiltinLutData } from './lutEngine';
+import { applyNonLinearHighlightsAndShadows, applyTemperatureAndTintToImageData } from './filterFallback';
+import { applyLutToImageData, getBuiltinLutData } from '@plugins/creative-color-studio/lutEngine';
 import { canvasToBlob } from './exportPipeline/canvas';
-import { injectC2paHeader } from './c2paEngine';
+import { applyRawProcessingToImageData } from './rawEngine';
 import {
   clamp,
   getPreviewBaseFilter,
   hasGlobalPreviewAdjustments,
   cloneCanvas,
+  compositeCanvasLayer,
 } from './exportPipeline/helpers';
 import { applyColorWheelsToImageData } from './colorWheelsEngine';
 import { applySpecializedCurvesToImageData } from './hslEngine';
+import { applyPortraitToImageData, loadMaskBuffer } from './portraitEngine';
+import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
 import {
-  applyRegionalAdjustments,
   applyBlur,
   applyUnsharpMask,
   applyVignette,
   applyCurveLutsToCanvas,
   applySplitToning,
+  applySplitToningToImageData,
   applyGrain,
   applyLightLeak,
   applyBlendOverlay,
@@ -30,6 +33,8 @@ import {
   renderCanvasWithFilter,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
+  loadImageAsync,
 } from './exportPipeline/stages';
 
 const DEFAULT_EXPORT_MIME = 'image/jpeg';
@@ -41,11 +46,14 @@ interface ExportEditedCanvasOptions {
   mimeType?: string;
   quality?: number;
   annotations?: Annotation[];
+  healingCanvas?: HTMLCanvasElement | null;
+  liquifyCanvas?: HTMLCanvasElement | null;
   onProgress?: (step: string, current: number, total: number) => void;
 }
 
 export {
   applySplitToning,
+  applySplitToningToImageData,
   applyGrain,
   applyLightLeak,
   applyTiltShift,
@@ -56,6 +64,8 @@ export {
   applyBlur,
   applyLensCorrection,
   applyDefringeAndOpticalVignetting,
+  applyBackgroundReplacementToCanvas,
+  loadImageAsync,
 } from './exportPipeline/stages';
 
 /**
@@ -67,6 +77,8 @@ export const exportEditedCanvas = async ({
   mimeType = DEFAULT_EXPORT_MIME,
   quality = DEFAULT_EXPORT_QUALITY,
   annotations,
+  healingCanvas,
+  liquifyCanvas,
   onProgress,
 }: ExportEditedCanvasOptions): Promise<Blob> => {
   /**
@@ -77,6 +89,12 @@ export const exportEditedCanvas = async ({
 
   let preparedCanvas = cloneCanvas(sourceCanvas).canvas;
   report('Preparing canvas', 1, TOTAL_STEPS);
+
+  // Composite liquify mesh deformation if present
+  compositeCanvasLayer(preparedCanvas, liquifyCanvas, 'liquifyCanvas');
+
+  // Composite healing & clone strokes if present
+  compositeCanvasLayer(preparedCanvas, healingCanvas, 'healingCanvas');
 
   const noise = adjustments.noiseReduction || 0;
   const sharp = adjustments.sharpness || 0;
@@ -92,6 +110,34 @@ export const exportEditedCanvas = async ({
   if (hasGlobalPreviewAdjustments(effectiveAdj)) {
     report('Applying tone adjustments', 2, TOTAL_STEPS);
     preparedCanvas = renderCanvasWithFilter(preparedCanvas, getPreviewBaseFilter(effectiveAdj), effectiveAdj);
+  }
+
+  // Non-destructive layer stack (fill + adjustment layers over the base render)
+  if (!isLayerStackEmpty(adjustments.layers)) {
+    report('Compositing layer stack', 2.2, TOTAL_STEPS);
+    preparedCanvas = compositeLayersToCanvas(adjustments.layers, preparedCanvas, preparedCanvas);
+  }
+
+  // Color Temperature & Tint (Chromatic Balance)
+  if ((adjustments.temperature ?? 0) !== 0 || (adjustments.tint ?? 0) !== 0) {
+    report('Applying color temperature & tint', 2.3, TOTAL_STEPS);
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      applyTemperatureAndTintToImageData(imgData, adjustments.temperature, adjustments.tint);
+      ctx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  // Camera RAW Development Stage
+  if (adjustments.raw) {
+    report('Developing Camera RAW parameters', 2.5, TOTAL_STEPS);
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, preparedCanvas.width, preparedCanvas.height);
+      applyRawProcessingToImageData(imgData, adjustments.raw);
+      ctx.putImageData(imgData, 0, 0);
+    }
   }
 
   report('Applying highlights & shadows', 3, TOTAL_STEPS);
@@ -128,6 +174,59 @@ export const exportEditedCanvas = async ({
         imgData.data[i + 1] = clamp(Math.round(g * 255), 0, 255);
         imgData.data[i + 2] = clamp(Math.round(b * 255), 0, 255);
       }
+      ctx.putImageData(imgData, 0, 0);
+    }
+  }
+
+  // AI Portrait Retouching
+  if (adjustments.portrait && (adjustments.portrait.masks || adjustments.portrait.faces)) {
+    report('Applying AI portrait retouching', 4.5, TOTAL_STEPS);
+    const pW = preparedCanvas.width;
+    const pH = preparedCanvas.height;
+    const portrait = adjustments.portrait;
+    const facesObj = portrait.faces || {};
+    const faceKeys = Object.keys(facesObj);
+
+    let loadedMasks: import('./portraitEngine').LoadedPortraitMasks = {};
+
+    if (faceKeys.length > 0) {
+      const loadedFaces: Record<string, import('./portraitEngine').SingleFaceMasks> = {};
+      for (const fId of faceKeys) {
+        const fm = facesObj[fId]?.masks;
+        if (fm) {
+          const [skin, eyes, lips, teeth, eyebrows] = await Promise.all([
+            fm.skin ? loadMaskBuffer(fm.skin) : null,
+            fm.eyes ? loadMaskBuffer(fm.eyes) : null,
+            fm.lips ? loadMaskBuffer(fm.lips) : null,
+            fm.teeth ? loadMaskBuffer(fm.teeth) : null,
+            fm.eyebrows ? loadMaskBuffer(fm.eyebrows) : null,
+          ]);
+          loadedFaces[fId] = { skin, eyes, lips, teeth, eyebrows };
+        }
+      }
+      loadedMasks = { faces: loadedFaces };
+    } else if (portrait.masks) {
+      const pMasks = portrait.masks;
+      const [skinBuf, eyesBuf, lipsBuf, teethBuf, browBuf] = await Promise.all([
+        pMasks.skin ? loadMaskBuffer(pMasks.skin) : null,
+        pMasks.eyes ? loadMaskBuffer(pMasks.eyes) : null,
+        pMasks.lips ? loadMaskBuffer(pMasks.lips) : null,
+        pMasks.teeth ? loadMaskBuffer(pMasks.teeth) : null,
+        pMasks.eyebrows ? loadMaskBuffer(pMasks.eyebrows) : null,
+      ]);
+      loadedMasks = {
+        skin: skinBuf,
+        eyes: eyesBuf,
+        lips: lipsBuf,
+        teeth: teethBuf,
+        eyebrows: browBuf,
+      };
+    }
+
+    const ctx = preparedCanvas.getContext('2d', { willReadFrequently: true });
+    if (ctx) {
+      const imgData = ctx.getImageData(0, 0, pW, pH);
+      applyPortraitToImageData(imgData, portrait, loadedMasks);
       ctx.putImageData(imgData, 0, 0);
     }
   }
@@ -184,9 +283,6 @@ export const exportEditedCanvas = async ({
     }
   }
 
-  report('Applying regional adjustments', 10, TOTAL_STEPS);
-  await applyRegionalAdjustments(preparedCanvas, effectiveAdj);
-
   report('Applying split toning', 11, TOTAL_STEPS);
   applySplitToning(preparedCanvas, effectiveAdj);
 
@@ -198,6 +294,20 @@ export const exportEditedCanvas = async ({
 
   report('Applying double exposure', 14, TOTAL_STEPS);
   await applyBlendOverlay(preparedCanvas, adjustments);
+
+  // Background Cutout & Replacement Stage
+  if (adjustments.background?.enabled && adjustments.background?.maskUrl) {
+    report('Applying background cutout & backdrop', 14.5, TOTAL_STEPS);
+    try {
+      const maskImg = await loadImageAsync(adjustments.background.maskUrl);
+      const customBackdropImg = adjustments.background.backdrop === 'custom' && adjustments.background.customImageSrc
+        ? await loadImageAsync(adjustments.background.customImageSrc)
+        : null;
+      applyBackgroundReplacementToCanvas(preparedCanvas, adjustments.background, maskImg, customBackdropImg);
+    } catch (err) {
+      console.warn('Failed to apply background replacement during export:', err);
+    }
+  }
 
   report('Applying tilt-shift', 15, TOTAL_STEPS);
   applyTiltShift(preparedCanvas, adjustments);
@@ -220,7 +330,5 @@ export const exportEditedCanvas = async ({
   report('Encoding final image', TOTAL_STEPS, TOTAL_STEPS);
 
   const rawBlob = await canvasToBlob(preparedCanvas, mimeType, quality);
-
-  // Inject C2PA Content Authenticity Manifest Header
-  return await injectC2paHeader(rawBlob);
+  return rawBlob;
 };

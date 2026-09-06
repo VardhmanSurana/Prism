@@ -33,62 +33,8 @@ const BAND_DEFS: Record<HslBand, BandDefinition> = {
   pinks:   { center: 330, halfWidth: 25, blendWidth: 20 },
 };
 
-// ── RGB ↔ HSL conversion ─────────────────────────────────────────────────────
-
-/**
- * rgbToHsl - Performs rgb to hsl.
- */
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-  const rn = r / 255, gn = g / 255, bn = b / 255;
-  const max = Math.max(rn, gn, bn);
-  const min = Math.min(rn, gn, bn);
-  const l = (max + min) / 2;
-
-  if (max === min) return [0, 0, l];
-
-  const d = max - min;
-  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-  let h: number;
-  if (max === rn) {
-    h = (gn - bn) / d + (gn < bn ? 6 : 0);
-  } else if (max === gn) {
-    h = (bn - rn) / d + 2;
-  } else {
-    h = (rn - gn) / d + 4;
-  }
-  h = (h / 6) * 360;
-  return [h, s, l];
-}
-
-/**
- * hueToRgb - Performs hue to rgb.
- */
-function hueToRgb(p: number, q: number, t: number): number {
-  if (t < 0) t += 1;
-  if (t > 1) t -= 1;
-  if (t < 1 / 6) return p + (q - p) * 6 * t;
-  if (t < 1 / 2) return q;
-  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-  return p;
-}
-
-/**
- * hslToRgb - Performs hsl to rgb.
- */
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
-  const hn = h / 360;
-  if (s === 0) {
-    const v = Math.round(l * 255);
-    return [v, v, v];
-  }
-  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-  const p = 2 * l - q;
-  return [
-    Math.round(hueToRgb(p, q, hn + 1 / 3) * 255),
-    Math.round(hueToRgb(p, q, hn) * 255),
-    Math.round(hueToRgb(p, q, hn - 1 / 3) * 255),
-  ];
-}
+import { rgbToHsl, hslToRgb } from './utils/colorUtils';
+export { rgbToHsl, hslToRgb };
 
 // ── Band influence weight ────────────────────────────────────────────────────
 // Returns 0–1: how much influence the given band has on a pixel with hue `hue`.
@@ -138,10 +84,9 @@ export function applyHslToImageData(
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Skip near-greys — they have negligible saturation so HSL barely helps
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
-    if (max - min < 8) continue;
+    if (max === min) continue; // Skip true monochrome/neutral greys
 
     const [h, s, l] = rgbToHsl(r, g, b);
 
@@ -159,8 +104,8 @@ export function applyHslToImageData(
     if (dh === 0 && ds === 0 && dl === 0) continue;
 
     const newH = ((h + dh) % 360 + 360) % 360;
-    const newS = Math.max(0, Math.min(1, s + ds));
-    const newL = Math.max(0, Math.min(1, l + dl * 0.5)); // scale dl to avoid clipping
+    const newS = Math.max(0, Math.min(1, ds >= 0 ? s + ds * (1 - s) : s * (1 + ds)));
+    const newL = Math.max(0, Math.min(1, dl >= 0 ? l + dl * 0.7 * (1 - l) : l * (1 + dl * 0.7)));
 
     const [nr, ng, nb] = hslToRgb(newH, newS, newL);
     data[i]     = nr;
@@ -196,8 +141,6 @@ export async function renderHslPreview(
     img.src = imageSrc;
   });
 }
-
-export { rgbToHsl, hslToRgb };
 
 import { SpecializedCurvesState, isIdentitySpecializedCurves } from './curves';
 import { createMonotoneCubicSpline, generateLUT } from './spline';

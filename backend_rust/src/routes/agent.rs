@@ -207,7 +207,10 @@ pub async fn preload_model(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     match state.ml_client.llm.preload_agent().await {
         Ok(_) => Ok(Json(json!({ "status": "preloaded", "model": "gemma-4b" }))),
-        Err(e) => Err((StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to preload: {}", e))),
+        Err(e) => {
+            tracing::warn!("[Agent] Preload model notice: {}", e);
+            Ok(Json(json!({ "status": "unavailable", "model": "gemma-4b", "error": e })))
+        }
     }
 }
 
@@ -299,7 +302,7 @@ pub async fn chat(
         let mut text_parts: Vec<String> = Vec::new();
         text_parts.push(format!("Single-Image Analysis for `{}`:\n", img_ref));
 
-        match crate::services::interrogate::run_interrogate(img_ref, Some(&query), &state.ml_client.llm).await {
+        match crate::services::interrogate::run_interrogate(img_ref, Some(&query), &state.ml_client.llm, &state.db).await {
             Ok(result) => {
                 let data = serde_json::to_value(result).unwrap_or(serde_json::json!({}));
                 if let Some(exif) = data.get("exif").and_then(|v| v.as_object()) {
@@ -412,7 +415,7 @@ pub async fn chat(
         let mut term_filters = Vec::new();
         for t in &clean_terms {
             term_filters.push(format!(
-                "(caption LIKE '%{t}%' OR location LIKE '%{t}%' OR city LIKE '%{t}%' OR auto_tags LIKE '%{t}%' OR ocr_text LIKE '%{t}%')"
+                "(caption LIKE '%{t}%' OR ai_summary LIKE '%{t}%' OR location LIKE '%{t}%' OR city LIKE '%{t}%' OR auto_tags LIKE '%{t}%' OR ocr_text LIKE '%{t}%')"
             ));
         }
         sql.push_str(&format!(" AND ({})", term_filters.join(" OR ")));

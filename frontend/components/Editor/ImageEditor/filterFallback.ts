@@ -19,12 +19,20 @@ export function isCtxFilterSupported(): boolean {
   }
   try {
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
+    canvas.width = 4;
+    canvas.height = 4;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx || !('filter' in ctx)) {
       isFilterSupportedCache = false;
       return false;
     }
-    isFilterSupportedCache = 'filter' in ctx;
+    // Test if ctx.filter actually alters rendered pixels
+    ctx.filter = 'brightness(200%)';
+    ctx.fillStyle = 'rgb(64, 64, 64)';
+    ctx.fillRect(0, 0, 4, 4);
+    const pixel = ctx.getImageData(0, 0, 1, 1).data;
+    // With brightness(200%), 64 becomes ~128 (> 90). If filter is unsupported/ignored, it stays 64.
+    isFilterSupportedCache = pixel[0] > 90;
     return isFilterSupportedCache;
   } catch {
     isFilterSupportedCache = false;
@@ -32,12 +40,7 @@ export function isCtxFilterSupported(): boolean {
   }
 }
 
-/**
- * Helper to clamp values between 0 and 255.
- */
-function clamp(val: number): number {
-  return Math.min(255, Math.max(0, val));
-}
+import { clamp } from './utils/imageUtils';
 
 /**
  * Applies CSS-equivalent filters (brightness, contrast, saturate, hue-rotate)
@@ -51,31 +54,43 @@ export function applyBaseFiltersToImageData(
   const len = data.length;
 
   // 1. Calculate factors (matching filterEngine.ts)
+  const dehazeF = (adj.dehaze || 0) / 100;
   const br = Math.max(0.05,
-    1
+    (1
     + adj.brightness  / 100 * 0.55
     + adj.exposure    / 100 * 0.50
     + adj.whites      / 100 * 0.15
-    + adj.blacks      / 100 * 0.13
+    + adj.blacks      / 100 * 0.13)
+    * (1 + dehazeF * 0.1)
   );
 
   const ct = Math.max(0.05,
-    1
+    (1
     + adj.contrast  / 100 * 0.65
     - adj.blacks    / 100 * 0.22
     + adj.ambiance  / 100 * 0.42
-    + (adj.clarity || 0)   / 100 * 0.38
+    + (adj.clarity || 0)   / 100 * 0.38)
+    * (1 + dehazeF * 0.5)
   );
 
   const sat = Math.max(0,
-    1
+    (1
     + adj.saturation / 100 * 0.60
     + adj.vibrance   / 100 * 0.38
-    + adj.ambiance   / 100 * 0.24
+    + adj.ambiance   / 100 * 0.24)
+    * (1 + dehazeF * 0.3)
   );
 
-  const hueRotDeg = adj.hue + (adj.temperature || 0) * 0.65 + (adj.tint || 0) * 0.45;
+  const hueRotDeg = adj.hue || 0;
   const hasHueRot = Math.abs(hueRotDeg % 360) > 0.01;
+
+  // Temperature & Tint multipliers
+  const tempFactor = (adj.temperature || 0) / 100;
+  const tintFactor = (adj.tint || 0) / 100;
+  const hasTempOrTint = tempFactor !== 0 || tintFactor !== 0;
+  const rMul = 1 + tempFactor * 0.28 + tintFactor * 0.12;
+  const gMul = 1 + (tempFactor > 0 ? tempFactor * 0.05 : 0) - tintFactor * 0.16;
+  const bMul = 1 - tempFactor * 0.28 + tintFactor * 0.12;
 
   // 2. Precompute hue-rotate matrix coefficients if needed
   let m00 = 1, m01 = 0, m02 = 0;
@@ -101,7 +116,7 @@ export function applyBaseFiltersToImageData(
   }
 
   // 3. Fast pixel-processing loop
-  // Order of operations matching CSS: Brightness -> Contrast -> Saturate -> HueRotate
+  // Order of operations matching CSS: Brightness -> Contrast -> Saturate -> HueRotate -> Temperature/Tint
   for (let i = 0; i < len; i += 4) {
     let r = data[i];
     let g = data[i + 1];
@@ -133,9 +148,40 @@ export function applyBaseFiltersToImageData(
       b = bx;
     }
 
+    // E. Temperature & Tint
+    if (hasTempOrTint) {
+      r = r * rMul;
+      g = g * gMul;
+      b = b * bMul;
+    }
+
     data[i]     = clamp(r);
     data[i + 1] = clamp(g);
     data[i + 2] = clamp(b);
+  }
+}
+
+/**
+ * Applies standalone true color temperature and tint chromatic balance to ImageData.
+ */
+export function applyTemperatureAndTintToImageData(
+  imageData: ImageData,
+  temperature: number = 0,
+  tint: number = 0,
+): void {
+  if (temperature === 0 && tint === 0) return;
+  const { data } = imageData;
+  const tempFactor = temperature / 100;
+  const tintFactor = tint / 100;
+
+  const rMul = 1 + tempFactor * 0.28 + tintFactor * 0.12;
+  const gMul = 1 + (tempFactor > 0 ? tempFactor * 0.05 : 0) - tintFactor * 0.16;
+  const bMul = 1 - tempFactor * 0.28 + tintFactor * 0.12;
+
+  for (let i = 0; i < data.length; i += 4) {
+    data[i]     = clamp(data[i] * rMul);
+    data[i + 1] = clamp(data[i + 1] * gMul);
+    data[i + 2] = clamp(data[i + 2] * bMul);
   }
 }
 

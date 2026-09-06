@@ -1,12 +1,13 @@
 use image::DynamicImage;
 use ndarray::Array4;
 use ort::session::Session;
-use ort::session::builder::GraphOptimizationLevel;
 use ort::value::Value;
 use std::sync::{Arc, Mutex, OnceLock};
 
 pub struct ObjectDetector {
     session: Mutex<Session>,
+    input_name: String,
+    output_name: String,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -24,17 +25,36 @@ pub fn get_detector() -> Result<Arc<ObjectDetector>, String> {
         return Ok(detector.clone());
     }
 
-    let model_path = "models/detection/yolov8n.onnx";
+    let candidates = [
+        "models/objects/yolov8n.onnx",
+        "models/detection/yolov8n.onnx",
+        "../models/objects/yolov8n.onnx",
+        "../models/detection/yolov8n.onnx",
+    ];
+    let model_path = candidates
+        .iter()
+        .find(|p| std::path::Path::new(p).exists())
+        .copied()
+        .unwrap_or("models/objects/yolov8n.onnx");
     
-    let session = Session::builder()
-        .map_err(|e| e.to_string())?
-        .with_optimization_level(GraphOptimizationLevel::Level3)
-        .map_err(|e| e.to_string())?
-        .commit_from_file(model_path)
-        .map_err(|e| format!("Failed to load YOLO model: {}", e))?;
+    let session = crate::services::onnx_helper::build_tier1_session(model_path, "YOLOv8")
+        .map_err(|e| format!("Failed to load YOLO model from {}: {}", model_path, e))?;
+
+    let input_name = session
+        .inputs()
+        .first()
+        .map(|i| i.name().to_string())
+        .unwrap_or_else(|| "images".to_string());
+    let output_name = session
+        .outputs()
+        .first()
+        .map(|o| o.name().to_string())
+        .unwrap_or_else(|| "output0".to_string());
 
     let detector = Arc::new(ObjectDetector {
         session: Mutex::new(session),
+        input_name,
+        output_name,
     });
 
     let _ = DETECTOR.set(detector.clone());
@@ -74,13 +94,11 @@ impl ObjectDetector {
         let tensor = Value::from_array(input_array).map_err(|e| e.to_string())?;
         
         let mut guard = self.session.lock().unwrap();
-        // The input name in YOLOv8 ONNX is typically "images"
-        let inputs = ort::inputs!["images" => tensor];
+        let inputs = ort::inputs![self.input_name.as_str() => tensor];
         
         let outputs = guard.run(inputs).map_err(|e| e.to_string())?;
         
-        // The output name is typically "output0", shape [1, 84, 8400]
-        let (shape, data) = outputs["output0"].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
+        let (shape, data) = outputs[self.output_name.as_str()].try_extract_tensor::<f32>().map_err(|e| e.to_string())?;
         
         let num_boxes = shape[2] as usize;
         let num_classes = (shape[1] - 4) as usize;
@@ -156,4 +174,22 @@ fn bbox_iou(box1: &[f32; 4], box2: &[f32; 4]) -> f32 {
     
     let union = area1 + area2 - intersection;
     if union <= 0.0 { 0.0 } else { intersection / union }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn object_detector_on_sample_image() {
+        let detector_res = get_detector();
+        if let Ok(detector) = detector_res {
+            let img = DynamicImage::ImageRgb8(image::RgbImage::new(640, 640));
+            let det_res = detector.detect(&img);
+            assert!(det_res.is_ok(), "YOLO detection failed: {:?}", det_res.err());
+            eprintln!("[test] YOLOv8 detection OK");
+        } else {
+            eprintln!("skip: yolov8 model not present");
+        }
+    }
 }

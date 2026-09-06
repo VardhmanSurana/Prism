@@ -1,0 +1,19 @@
+{
+  "name": "@prism-plugins/ai-vision-studio",
+  "version": "1.0.0",
+  "description": "Comprehensive neural vision suite for Prism: Subject Cutout & Matting, Object Inpainting, Neural Super-Resolution, and Optical Depth Bokeh simulation.",
+  "main": "index.ts",
+  "author": "Prism AI Vision Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VardhmanSurana/prism-plugin-ai-vision-studio.git"
+  },
+  "keywords": [
+    "prism",
+    "prism-plugin",
+    "photo-editor",
+    "ai-&-machine-learning"
+  ],
+  "types": "index.ts"
+}

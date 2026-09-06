@@ -277,6 +277,100 @@ prism diagnostics
 └──────────────────────┴───────────────┘
 ```
 
+### plugins
+Manage modular Prism plugins and extensions installed in the `plugins/` directory. For a guide on creating custom plugins, see [Plugin Development Guide](PLUGINS.md).
+
+```bash
+# List installed plugins
+prism plugins list
+# (or simply: prism plugins)
+
+# View available plugins in the official catalog
+prism plugins catalog
+
+# Install a plugin from the catalog
+prism plugins install background-removal
+# (shortcut: prism install background-removal)
+
+# View detailed plugin manifest and metadata
+prism plugins info background-removal
+
+# Enable or disable an installed plugin
+prism plugins toggle background-removal --enabled false
+prism plugins toggle background-removal --enabled true
+
+# Uninstall a plugin and remove its files from plugins/
+prism plugins uninstall background-removal
+# (shortcut: prism uninstall background-removal)
+```
+
+**Catalog Output:**
+```
+┌────────────────────┬──────────────────────────────┬─────────┬──────────────────────┬──────────┬──────────────────────┐
+│ ID                 │ Name                         │ Version │ Category             │ Size     │ Status               │
+├────────────────────┼──────────────────────────────┼─────────┼──────────────────────┼──────────┼──────────────────────┤
+│ background-removal │ AI Background Removal Studio │ v1.2.0  │ AI & Machine Learn...│ ~170 MB  │ Installed (Active) ✅│
+│ portrait-enhancer  │ AI Portrait & Face Retouching│ v1.0.0  │ Image Editor         │ ~85 MB   │ Available for Install│
+│ cinematic-luts     │ Cinematic Color Grade & 3D...│ v2.1.0  │ Creative & Filters   │ ~12 MB   │ Available for Install│
+│ exif-geotagger     │ Smart EXIF & Location Enha...│ v1.1.0  │ Metadata & Geotagg...│ ~45 MB   │ Available for Install│
+└────────────────────┴──────────────────────────────┴─────────┴──────────────────────┴──────────┴──────────────────────┘
+```
+
+### install
+Install a plugin from a manifest JSON file, local directory, or catalog ID into `plugins/<id>/`.
+
+```bash
+prism install <SOURCE>
+```
+
+**Supported `<SOURCE>` Formats:**
+
+1. **Manifest JSON File** (catalog manifest stem or local file path):
+   ```bash
+   prism install background-removal.json
+   prism install /path/to/my-plugin/plugin.json
+   ```
+2. **Local Plugin Directory** (containing `plugin.json` and optional `index.js`):
+   ```bash
+   prism install ./custom-plugins/portrait-studio/
+   ```
+3. **Direct Manifest URL** (raw HTTP/GitHub JSON link):
+   ```bash
+   prism install https://raw.githubusercontent.com/owner/repo/main/plugin.json
+   ```
+4. **Built-in Catalog ID**:
+   ```bash
+   prism install background-removal
+   ```
+
+**Output:**
+```
+Installing plugin from 'background-removal.json'...
+✅ Successfully installed plugin 'background-removal' into plugins/background-removal!
+  Name        : AI Background Removal Studio (v1.2.0)
+  Category    : AI & Machine Learning
+  Author      : Prism Core & Open Source AI
+  Description : Deep learning matting pack supporting ISNet Universal, BiRefNet High-Resolution, and RMBG-1.4.
+```
+
+### uninstall
+Shortcut to uninstall a plugin and delete its directory from `plugins/`.
+
+```bash
+prism uninstall <plugin_id>
+```
+
+**Example:**
+```bash
+prism uninstall background-removal
+```
+
+**Example:**
+```bash
+prism uninstall background-removal
+```
+
+
 ## JSON Output
 
 All commands support `--json` flag for machine-readable output:

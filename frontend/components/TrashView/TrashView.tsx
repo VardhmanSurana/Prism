@@ -57,6 +57,7 @@ export const TrashView: React.FC<TrashViewProps> = ({
     async (e: React.MouseEvent, photoId: string | number) => {
       e.stopPropagation();
       const idStr = String(photoId);
+      const target = photos.find((p) => String(p.id) === idStr);
       logAction('TrashView', 'restore_single', { photoId: idStr });
 
       // Optimistic update
@@ -67,7 +68,13 @@ export const TrashView: React.FC<TrashViewProps> = ({
       );
 
       try {
-        await fetch(`${API_BASE}/api/v1/photos/${idStr}/trash`, { method: 'POST' });
+        // Use the dedicated restore endpoint (idempotent) rather than the
+        // trash-toggle endpoint, so stale local state can't re-trash a photo.
+        const res = await fetch(
+          `${API_BASE}/api/v1/photos/${target?.uuid ?? target?.id}/restore`,
+          { method: 'POST' }
+        );
+        if (!res.ok) throw new Error(`Restore failed with status ${res.status}`);
       } catch (err) {
         console.error('Failed to restore photo:', err);
         logError('TrashView', 'restore_single_failed', err, { photoId: idStr });
@@ -79,14 +86,17 @@ export const TrashView: React.FC<TrashViewProps> = ({
         );
       }
     },
-    [onUpdatePhotos, logAction, logError]
+    [photos, onUpdatePhotos, logAction, logError]
   );
 
-  // Permanently remove a single photo from local state
+  // Permanently remove a single photo: purges ALL app-side data (DB row,
+  // thumbnails, faces, albums) via the backend. The media file on disk is
+  // never touched.
   const handleDeleteSingle = useCallback(
     async (e: React.MouseEvent, photoId: string | number) => {
       e.stopPropagation();
       const idStr = String(photoId);
+      const target = photos.find((p) => String(p.id) === idStr);
 
       if (
         !(await customConfirm(
@@ -98,9 +108,28 @@ export const TrashView: React.FC<TrashViewProps> = ({
       }
 
       logAction('TrashView', 'delete_permanent_single', { photoId: idStr });
-      onUpdatePhotos?.((prev) => prev.filter((p) => String(p.id) !== idStr));
+
+      // Snapshot for rollback
+      let snapshot: Photo[] = [];
+      onUpdatePhotos?.((prev) => {
+        snapshot = prev;
+        return prev.filter((p) => String(p.id) !== idStr);
+      });
+
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/v1/photos/${target?.uuid ?? target?.id}/purge`,
+          { method: 'DELETE' }
+        );
+        if (!res.ok) throw new Error(`Purge failed with status ${res.status}`);
+      } catch (err) {
+        console.error('Failed to permanently delete photo:', err);
+        logError('TrashView', 'delete_permanent_single_failed', err, { photoId: idStr });
+        // Rollback
+        if (snapshot.length > 0) onUpdatePhotos?.(() => snapshot);
+      }
     },
-    [onUpdatePhotos, logAction]
+    [photos, onUpdatePhotos, logAction, logError]
   );
 
   // Restore all trashed photos
@@ -133,11 +162,38 @@ export const TrashView: React.FC<TrashViewProps> = ({
     );
 
     try {
-      await Promise.all(
-        ids.map((id) =>
-          fetch(`${API_BASE}/api/v1/photos/${id}/trash`, { method: 'POST' })
+      // Idempotent /restore endpoint instead of trash-toggle, so stale local
+      // state can't re-trash a photo; per-item failures are rolled back.
+      const results = await Promise.allSettled(
+        trashedPhotos.map((p) =>
+          fetch(`${API_BASE}/api/v1/photos/${p.uuid ?? p.id}/restore`, {
+            method: 'POST',
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Restore failed with status ${res.status}`);
+          })
         )
       );
+
+      const failedIds = new Set<string>();
+      results.forEach((r, idx) => {
+        if (r.status === 'rejected') failedIds.add(ids[idx]);
+      });
+
+      if (failedIds.size > 0) {
+        console.error(`Failed to restore ${failedIds.size} item(s)`);
+        logError(
+          'TrashView',
+          'restore_all_partial_failure',
+          new Error(`${failedIds.size} item(s) failed to restore`),
+          { count: failedIds.size }
+        );
+        // Rollback only the failed ones back into trash state
+        onUpdatePhotos?.((prev) =>
+          prev.map((p) =>
+            failedIds.has(String(p.id)) ? { ...p, isTrash: true, is_trash: true } : p
+          )
+        );
+      }
     } catch (err) {
       console.error('Failed to restore all photos:', err);
       logError('TrashView', 'restore_all_failed', err, { count: ids.length });
@@ -163,15 +219,53 @@ export const TrashView: React.FC<TrashViewProps> = ({
 
     logAction('TrashView', 'empty_trash', { count: trashedPhotos.length });
     setIsProcessing(true);
-    /**
-     * ids - Performs ids.
-     */
-    const ids = new Set(trashedPhotos.map((p) => String(p.id)));
+    const itemsToPurge = [...trashedPhotos];
+    const purgeIds = new Set(itemsToPurge.map((p) => String(p.id)));
 
-    // Optimistic removal
-    onUpdatePhotos?.((prev) => prev.filter((p) => !ids.has(String(p.id))));
-    setIsProcessing(false);
-  }, [trashedPhotos, onUpdatePhotos, logAction]);
+    // Snapshot for rollback
+    let snapshot: Photo[] = [];
+    onUpdatePhotos?.((prev) => {
+      snapshot = prev;
+      return prev.filter((p) => !purgeIds.has(String(p.id)));
+    });
+
+    try {
+      // Purge ALL app-side data per item; media files are never touched.
+      const results = await Promise.allSettled(
+        itemsToPurge.map((p) =>
+          fetch(`${API_BASE}/api/v1/photos/${p.uuid ?? p.id}/purge`, {
+            method: 'DELETE',
+          }).then((res) => {
+            if (!res.ok) throw new Error(`Purge failed with status ${res.status}`);
+          })
+        )
+      );
+
+      const failedIds = new Set<string>();
+      results.forEach((r, idx) => {
+        if (r.status === 'rejected') failedIds.add(String(itemsToPurge[idx].id));
+      });
+
+      if (failedIds.size > 0) {
+        console.error(`Failed to purge ${failedIds.size} item(s) from trash`);
+        logError(
+          'TrashView',
+          'empty_trash_partial_failure',
+          new Error(`${failedIds.size} item(s) failed to purge`),
+          { count: failedIds.size }
+        );
+        // Rollback: re-insert only the items whose purge failed
+        const failedPhotos = snapshot.filter((p) => failedIds.has(String(p.id)));
+        onUpdatePhotos?.((prev) => [...failedPhotos, ...prev]);
+      }
+    } catch (err) {
+      console.error('Failed to empty trash:', err);
+      logError('TrashView', 'empty_trash_failed', err);
+      if (snapshot.length > 0) onUpdatePhotos?.(() => snapshot);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [trashedPhotos, onUpdatePhotos, logAction, logError]);
 
   // Select all / deselect all in Trash
   const allSelected = useMemo(

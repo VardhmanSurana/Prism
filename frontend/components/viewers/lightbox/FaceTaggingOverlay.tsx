@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { UserCheck, X, Check } from 'lucide-react';
 import { API_BASE } from '@/constants';
 import { Photo } from '@/types';
 import { useTelemetry } from '../../../hooks/useTelemetry';
+import { useImageBounds } from './useImageBounds';
 
 interface FaceData {
   photo_id: number;
@@ -16,18 +17,31 @@ interface FaceTaggingOverlayProps {
   photo: Photo;
   onClose: () => void;
   onTagUpdated?: () => void;
+  zoomScale?: number;
+  offset?: { x: number; y: number };
+  containerRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 /**
  * Overlay that fetches detected faces for the photo and lets the user
  * assign person names via bounding-box popovers aligned to the image bounds.
  */
-export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, onClose, onTagUpdated }) => {
+export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({
+  photo,
+  onClose,
+  onTagUpdated,
+  zoomScale = 1,
+  offset = { x: 0, y: 0 },
+  containerRef,
+}) => {
   const { logAction } = useTelemetry();
   const [faces, setFaces] = useState<FaceData[]>([]);
   const [activeFaceIndex, setActiveFaceIndex] = useState<number | null>(null);
   const [nameInput, setNameInput] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const imageBounds = useImageBounds(photo, containerRef, rootRef, zoomScale, offset);
 
   useEffect(() => {
     let isCurrent = true;
@@ -98,83 +112,93 @@ export const FaceTaggingOverlay: React.FC<FaceTaggingOverlayProps> = ({ photo, o
   };
 
   return (
-    <div className="absolute inset-0 z-30 pointer-events-auto flex items-center justify-center">
+    <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center" ref={rootRef}>
       {/* Top Banner indicating Face Tagging mode */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-black/85 backdrop-blur-md border border-white/20 text-xs text-white font-medium flex items-center gap-2 shadow-xl">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-full bg-black/85 backdrop-blur-md border border-white/20 text-xs text-white font-medium flex items-center gap-2 shadow-xl pointer-events-auto">
         <UserCheck size={14} className="text-primary" />
         <span>Face Tagging Mode — Click any face box to assign a name</span>
         <button
           onClick={onClose}
-          className="ml-2 p-1 rounded-full hover:bg-white/20 text-gray-400 hover:text-white transition-colors"
+          className="ml-2 p-1 rounded-full hover:bg-white/20 text-gray-400 hover:text-white transition-colors cursor-pointer"
         >
           <X size={14} />
         </button>
       </div>
 
-      {/* Render Face Bounding Boxes */}
+      {/* Render Face Bounding Boxes inside Image Frame */}
       {faces.length === 0 ? (
-        <div className="p-4 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 text-center text-xs text-gray-300">
+        <div className="p-4 rounded-xl bg-black/75 backdrop-blur-md border border-white/10 text-center text-xs text-gray-300 pointer-events-auto">
           No detected face boxes found for this photo.
         </div>
       ) : (
-        faces.map((face, idx) => {
-          const box = parseBox(face.face_box);
-          const leftPct = `${box.x * 100}%`;
-          const topPct = `${box.y * 100}%`;
-          const widthPct = `${box.w * 100}%`;
-          const heightPct = `${box.h * 100}%`;
-          const isSelected = activeFaceIndex === idx;
+        <div
+          className="absolute pointer-events-auto"
+          style={{
+            left: `${imageBounds.left}px`,
+            top: `${imageBounds.top}px`,
+            width: `${imageBounds.width}px`,
+            height: `${imageBounds.height}px`,
+          }}
+        >
+          {faces.map((face, idx) => {
+            const box = parseBox(face.face_box);
+            const leftPct = `${box.x * 100}%`;
+            const topPct = `${box.y * 100}%`;
+            const widthPct = `${box.w * 100}%`;
+            const heightPct = `${box.h * 100}%`;
+            const isSelected = activeFaceIndex === idx;
 
-          return (
-            <div
-              key={idx}
-              style={{ left: leftPct, top: topPct, width: widthPct, height: heightPct }}
-              className="absolute border-2 border-primary/90 rounded-lg hover:border-white transition-colors 150ms ease, border-color 150ms ease cursor-pointer shadow-lg group"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveFaceIndex(idx);
-                setNameInput(face.person_name === 'Unknown' ? '' : face.person_name);
-              }}
-            >
-              {/* Face Name Label */}
-              <div className="absolute -top-7 left-0 px-2 py-0.5 rounded bg-primary text-black font-semibold text-[11px] whitespace-nowrap shadow-md flex items-center gap-1">
-                <UserCheck size={11} />
-                <span>{face.person_name || 'Tag Person'}</span>
-              </div>
-
-              {/* Edit Tag Popover */}
-              {isSelected && (
-                <div
-                  className="absolute top-full left-0 mt-2 z-50 p-3 rounded-xl bg-surface border border-white/20 shadow-2xl min-w-[200px]"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <p className="text-[11px] text-gray-400 mb-2 font-medium">Tag Person Name</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      placeholder="Enter name..."
-                      className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-xs text-white focus:outline-none focus:border-primary"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void handleSaveTag(face);
-                        if (e.key === 'Escape') setActiveFaceIndex(null);
-                      }}
-                    />
-                    <button
-                      onClick={() => handleSaveTag(face)}
-                      disabled={isSaving}
-                      className="p-1.5 rounded-lg bg-primary text-black hover:bg-primary/90 transition-colors"
-                    >
-                      <Check size={14} />
-                    </button>
-                  </div>
+            return (
+              <div
+                key={idx}
+                style={{ left: leftPct, top: topPct, width: widthPct, height: heightPct }}
+                className="absolute border-2 border-primary/90 rounded-lg hover:border-white transition-colors cursor-pointer shadow-lg group"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveFaceIndex(idx);
+                  setNameInput(face.person_name === 'Unknown' ? '' : face.person_name);
+                }}
+              >
+                {/* Face Name Label */}
+                <div className="absolute -top-7 left-0 px-2 py-0.5 rounded bg-primary text-black font-semibold text-[11px] whitespace-nowrap shadow-md flex items-center gap-1">
+                  <UserCheck size={11} />
+                  <span>{face.person_name || 'Tag Person'}</span>
                 </div>
-              )}
-            </div>
-          );
-        })
+
+                {/* Edit Tag Popover */}
+                {isSelected && (
+                  <div
+                    className="absolute top-full left-0 mt-2 z-50 p-3 rounded-xl bg-surface border border-white/20 shadow-2xl min-w-[200px]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-[11px] text-gray-400 mb-2 font-medium">Tag Person Name</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => setNameInput(e.target.value)}
+                        placeholder="Enter name..."
+                        className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/10 border border-white/20 text-xs text-white focus:outline-none focus:border-primary"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') void handleSaveTag(face);
+                          if (e.key === 'Escape') setActiveFaceIndex(null);
+                        }}
+                      />
+                      <button
+                        onClick={() => handleSaveTag(face)}
+                        disabled={isSaving}
+                        className="p-1.5 rounded-lg bg-primary text-black hover:bg-primary/90 transition-colors cursor-pointer"
+                      >
+                        <Check size={14} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

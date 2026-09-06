@@ -1,1035 +1,574 @@
 /**
  * EditingMode.tsx
- * Logic, state management, and UI layer for the image editor.
+ * Top-level orchestrator. Owns no JSX beyond layout; wires hooks to sub-components.
  */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import React, { useRef, useState, useMemo, useCallback, useEffect } from 'react';
-// @ts-ignore -- react-color-palette css side-effect import lacks types
-import 'react-color-palette/css';
-import Cropper from 'cropperjs';
-import 'cropperjs/dist/cropper.css';
-import { AdjustPanel } from '../AdjustPanel';
-import { DetailPanel } from '../DetailPanel';
-import { TransformPanel } from '../TransformPanel';
-import { TopBar } from '../TopBar';
-import { Sidebar, ToolId } from '../Sidebar';
 import { CanvasArea } from '../CanvasArea';
-import { HistoryPanel } from '../HistoryPanel';
-import { Adjustments, DEFAULT_ADJUSTMENTS, toFilterString } from '../filterEngine';
+import { useEditDraftAutoSave } from '@/hooks/useEditDraftAutoSave';
+import { Adjustments, toFilterString } from '../filterEngine';
 import { DEFAULT_CURVE, getCurvesTableValues } from '../curves';
-import { PortraitPanel } from '../PortraitPanel';
-import { SelectivePanel } from '../SelectivePanel';
-import { InpaintPanel, InpaintMode, InpaintOperation, InpaintSettings } from '../InpaintPanel';
-import { HslPanel } from '../HslPanel';
-import { PresetsPanel } from '../PresetsPanel';
-import { TexturePanel } from '../TexturePanel';
-import { FramesPanel } from '../FramesPanel';
-import { PalettePanel } from '../PalettePanel';
-import { AnnotationsPanel, DrawToolId } from '../AnnotationsPanel';
-import { LutPanel } from '../LutPanel';
-import { HealingPanel, HealingSettings, DEFAULT_HEALING_SETTINGS } from '../HealingPanel';
-import { LayersPanel } from '../LayersPanel';
-import { RawEnginePanel } from '../RawEnginePanel';
-import { LiquifyPanel, DEFAULT_LIQUIFY_SETTINGS } from '../LiquifyPanel';
-import { ColorMatchPanel } from '../ColorMatchPanel';
-import { LassoPanel } from '../LassoPanel';
-import { LassoCanvas } from '../LassoCanvas';
+import { HealingSettings, DEFAULT_HEALING_SETTINGS } from '../healingEngine';
+import { LiquifyCanvasRef } from '../LiquifyCanvas';
+import { HealingCanvasRef } from '../HealingCanvas';
+import { DEFAULT_LIQUIFY_SETTINGS } from '../liquifyEngine';
 import { DEFAULT_LASSO_STATE, LassoState } from '../lassoEngine';
-import { Layer, createDefaultBaseLayer } from '../layersEngine';
 import { RawSettings, DEFAULT_RAW_SETTINGS } from '../rawEngine';
-import { applyColorMatch } from '../colorMatchEngine';
-
-import { HistoryActionType } from '../history';
-import { API_BASE, resolveUrl } from '@/constants';
+import {
+  DEFAULT_PEN_SETTINGS,
+  PenSettings,
+  DrawToolId,
+  Annotation,
+} from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { InpaintCanvasHandle } from '@plugins/ai-vision-studio';
+import { useEditStore } from '@/store/editStore';
+import { matchColorBetweenImages } from '@plugins/retouch-metadata-studio';
 
 import { useAnnotationsState } from './useAnnotationsState';
 import { useEditingHistory } from './useEditingHistory';
 import { useKeyBindings } from './useKeyBindings';
-import { useEditStore } from '@/store/editStore';
+import { useTransformControls } from './hooks/useTransformControls';
+import { useInpaintState } from './hooks/useInpaintState';
+import { useAiEnhance } from './hooks/useAiEnhance';
+import { useExportSave } from './hooks/useExportSave';
+import { useToast } from './hooks/useToast';
+import { useFacesLoader } from './hooks/useFacesLoader';
+import { useExitGuard } from './hooks/useExitGuard';
 
-declare global {
-  interface Window {
-    __clearInpaintMask?: () => void;
-  }
-}
+import { TopBarSection } from './components/TopBarSection';
+import { ToolsSidebar } from './components/ToolsSidebar';
+import { HistoryOverlay } from './components/HistoryOverlay';
+import { ToastNotification } from './components/ToastNotification';
+import { ExitConfirmDialog } from './components/ExitConfirmDialog';
+import { AiModelLoadingOverlay } from '../AiModelLoadingOverlay';
+import { useAiLoadingStore } from '@/store/aiLoadingStore';
+import { PanelCtx } from './panelRegistry';
+import { ToolId } from '../Sidebar';
+import { HistoryActionType } from '../history';
 
 interface EditingModeProps {
-  src:     string;
+  src: string;
   onClose: () => void;
-  onSave:  (file: Blob, isSaveAs: boolean) => void;
+  onSave: (file: Blob, isSaveAs: boolean) => void;
   photoId?: number | string;
 }
 
-/**
- * EditingMode - Renders editing mode.
- */
-export const EditingMode: React.FC<EditingModeProps> = ({
-  src,
-  onClose,
-  onSave,
-  photoId,
-}) => {
-  // Refs / state
-  const cropperRef = useRef<Cropper | null>(null);
-  const [currentRatio, setCurrentRatio] = useState<number>(NaN);
-  const [activeTool, setActiveTool] = useState<ToolId | null>('presets');
-  
-  // Annotations state (via hook)
-  const annState = useAnnotationsState();
+export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, photoId }) => {
+  // ── Refs ──────────────────────────────────────────────────────────────────
+  const cropperRef = useRef<any>(null);
+  const inpaintCanvasRef = useRef<InpaintCanvasHandle | null>(null);
+  const healingCanvasRef = useRef<HealingCanvasRef | null>(null);
+  const liquifyCanvasRef = useRef<LiquifyCanvasRef | null>(null);
+  const userChangedStyleRef = useRef(false);
 
-  // Draw tools and styles local to the drawing mode
+  // ── UI state ──────────────────────────────────────────────────────────────
+  const [activeTool, setActiveTool] = useState<ToolId | null>('templates');
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [isComparing, setIsComparing] = useState<boolean>(false);
+
+  // ── Drawing-mode state ────────────────────────────────────────────────────
   const [activeDrawTool, setActiveDrawTool] = useState<DrawToolId>('freehand');
   const [activeColor, setActiveColor] = useState<string>('#ef4444');
   const [activeOpacity, setActiveOpacity] = useState<number>(1);
   const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [brushSize, setBrushSize] = useState<number>(35);
-  const userChangedStyleRef = useRef(false);
+  const [penSettings, setPenSettings] = useState<PenSettings>(DEFAULT_PEN_SETTINGS);
 
-  // History and adjustments state (via hook)
-  const historyState = useEditingHistory({
+  // ── Tool-specific local state ─────────────────────────────────────────────
+  const [healingSettings, setHealingSettings] = useState<HealingSettings>(DEFAULT_HEALING_SETTINGS);
+  const [healingHasStrokes, setHealingHasStrokes] = useState<boolean>(false);
+  const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
+  const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
+  const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
+  const [activeLayerId, setActiveLayerId] = useState<string | null>('layer-base');
+
+  // ── Palette swatches ──────────────────────────────────────────────────────
+  const [paletteSwatches, setPaletteSwatches] = useState<string[]>([
+    '#808080', '#808080', '#808080', '#808080', '#808080', '#808080',
+  ]);
+  const [paletteLocked, setPaletteLocked] = useState<boolean[]>([
+    false, false, false, false, false, false,
+  ]);
+  const [palettePickingIndex, setPalettePickingIndex] = useState<number | null>(null);
+
+  // ── Core hooks ────────────────────────────────────────────────────────────
+  const { toastMessage, showToast } = useToast();
+  const faces = useFacesLoader(photoId);
+  // ponytail: ref indirection — ann is created before history, so the commit
+  // callback can't close over addHistoryEntry directly
+  const annCommitRef = useRef<(prev: Annotation[], next: Annotation[]) => void>(() => {});
+  const ann = useAnnotationsState((prev, next) => annCommitRef.current(prev, next));
+  const history = useEditingHistory({
     src,
     cropperRef,
-    annotations: annState.annotations,
-    setAnnotations: annState.setAnnotations,
-    setAnnotationsHistoryPast: annState.setAnnotationsHistoryPast,
-    setAnnotationsHistoryFuture: annState.setAnnotationsHistoryFuture,
+    annotations: ann.annotations,
+    setAnnotations: ann.setAnnotations,
+    setAnnotationsHistoryPast: ann.setAnnotationsHistoryPast,
+    setAnnotationsHistoryFuture: ann.setAnnotationsHistoryFuture,
     photoId,
   });
 
   const {
-    currentImageSrc,
-    setCurrentImageSrc,
-    adjustments,
-    setAdjustments,
-    flipH,
-    setFlipH,
-    flipV,
-    setFlipV,
-    straightenAngle,
-    setStraightenAngle,
-    totalRotation,
-    setTotalRotation,
-    history,
-    currentHistoryIndex,
-    isRestoringHistory,
-    revokeLocalUrl,
-    addHistoryEntry,
-    handleJumpToHistory,
-    handleToggleHideHistoryEntry,
-    handleDeleteHistoryEntry,
-    handleClearHistory,
-    handleUndo,
-    handleRedo,
-    canUndo,
-    canRedo,
-  } = historyState;
+    currentImageSrc, setCurrentImageSrc, adjustments, setAdjustments,
+    flipH, setFlipH, flipV, setFlipV,
+    straightenAngle, setStraightenAngle, totalRotation, setTotalRotation,
+    canUndo, canRedo, handleUndo, handleRedo, addHistoryEntry,
+  } = history;
 
-  // Collapsible History Panel State
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const autoOpenedHistoryRef = useRef<boolean>(false);
-
+  // ── Image natural dimensions ──────────────────────────────────────────────
+  const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   useEffect(() => {
-    if (history.length >= 4 && !autoOpenedHistoryRef.current) {
-      setShowHistory(true);
-      autoOpenedHistoryRef.current = true;
-    }
-  }, [history.length]);
+    if (!currentImageSrc) return;
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setNaturalDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+      }
+    };
+    img.src = currentImageSrc;
+  }, [currentImageSrc]);
 
-  // Inpaint state
-  const [inpaintMode, setInpaintMode] = useState<InpaintMode>('brush');
-  const [inpaintOperation, setInpaintOperation] = useState<InpaintOperation>('remove');
-  const [inpaintSettings, setInpaintSettings] = useState<InpaintSettings>({
-    brushSize: 50,
-    brushHardness: 80,
-    model: 'lama',
-    guidance: 7.5,
-    steps: 50,
-    maskOpacity: 60,
-    showMask: true,
+  // Annotation commits (stroke drawn / moved / deleted) become timeline snapshots
+  useEffect(() => {
+    annCommitRef.current = (prev, next) => {
+      const label = next.length > prev.length ? 'Added annotation'
+        : next.length < prev.length ? 'Deleted annotation' : 'Edited annotation';
+      addHistoryEntry('annotations', label, undefined, undefined, next, {
+        toolId: 'annotations',
+        isSnapshot: true,
+      });
+    };
+  }, [addHistoryEntry]);
+
+  // ── Transform / crop ──────────────────────────────────────────────────────
+  const transform = useTransformControls({
+    src, currentImageSrc, cropperRef, flipH, setFlipH, flipV, setFlipV,
+    totalRotation, setTotalRotation, straightenAngle, setStraightenAngle,
+    setCurrentImageSrc, history,
+    annotations: ann.annotations,
+    onAnnotationsChange: ann.updateAnnotations,
   });
-  const [inpaintMask, setInpaintMask] = useState<string | null>(null);
-  const [isInpainting, setIsInpainting] = useState<boolean>(false);
-  const inpaintHistoryRef = useRef<string[]>([]);
-  const inpaintHistoryIndexRef = useRef<number>(-1);
-  const [inpaintCanUndo, setInpaintCanUndo] = useState(false);
-  const [inpaintCanRedo, setInpaintCanRedo] = useState(false);
-  const [inpaintInfoMessage, setInpaintInfoMessage] = useState<string | null>(null);
+  useEffect(() => {
+    transform.setActiveTool(activeTool);
+  }, [activeTool, transform.setActiveTool]);
 
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const savedCropBoxRef = useRef<Cropper.CropBoxData | null>(null);
+  // ── Inpaint ───────────────────────────────────────────────────────────────
+  const inpaint = useInpaintState({
+    photoId, currentImageSrc, inpaintCanvasRef, setCurrentImageSrc, history, showToast,
+  });
 
-  // Before/After compare state
-  const [isComparing, setIsComparing] = useState<boolean>(false);
+  // ── AI enhance (depth / enhance / caption / SAM) ──────────────────────────
+  const ai = useAiEnhance({
+    photoId, setCurrentImageSrc, inpaintCanvasRef,
+    setInpaintMask: inpaint.setInpaintMask,
+    handleInpaintStrokeComplete: inpaint.handleInpaintStrokeComplete,
+    history, showToast,
+  });
 
-  // Healing brush / clone stamp state
-  const [healingSettings, setHealingSettings] = useState<HealingSettings>(DEFAULT_HEALING_SETTINGS);
-  const [healingHasStrokes, setHealingHasStrokes] = useState<boolean>(false);
-  const healingCanvasRef = useRef<import('../HealingCanvas').HealingCanvasRef | null>(null);
+  // ── Export / save / copy / auto-enhance ───────────────────────────────────
+  const exporter = useExportSave({
+    photoId, src, currentImageSrc, cropRect: transform.cropRect,
+    cropperRef, adjustments, annotations: ann.annotations,
+    healingCanvasRef, liquifyCanvasRef, onSave, showToast,
+  });
 
-  // New Professional Tools State
-  const [layers, setLayers] = useState<Layer[]>([createDefaultBaseLayer()]);
-  const [activeLayerId, setActiveLayerId] = useState<string | null>('layer-base');
-  const [rawSettings, setRawSettings] = useState<RawSettings>(DEFAULT_RAW_SETTINGS);
-  const [liquifySettings, setLiquifySettings] = useState(DEFAULT_LIQUIFY_SETTINGS);
-  const [lassoState, setLassoState] = useState<LassoState>(DEFAULT_LASSO_STATE);
+  // ── Auto-save / draft ─────────────────────────────────────────────────────
+  const draft = useEditDraftAutoSave({
+    photoId, adjustments, setAdjustments, totalRotation, setTotalRotation,
+    straightenAngle, setStraightenAngle, flipH, setFlipH, flipV, setFlipV,
+    annotations: ann.annotations, setAnnotations: ann.setAnnotations,
+    cropperRef, rawSettings, liquifySettings, isSaving: exporter.isSaving,
+  });
 
-  /**
-   * handleApplyColorMatch - Handles apply color match.
-   */
+  // ── Exit guard ────────────────────────────────────────────────────────────
+  const exit = useExitGuard({ isDirty: draft.isDirty, onClose, discardDraft: draft.discardDraft });
+
+  // ── Color match ───────────────────────────────────────────────────────────
+  const [isColorMatching, setIsColorMatching] = useState(false);
   const handleApplyColorMatch = useCallback(async (refSrc: string, strength: number) => {
+    if (isColorMatching || !refSrc) return;
+    setIsColorMatching(true);
+
     try {
-      const refImg = new Image();
-      refImg.crossOrigin = 'anonymous';
-      refImg.onload = () => {
-        const refCanvas = document.createElement('canvas');
-        refCanvas.width = refImg.naturalWidth;
-        refCanvas.height = refImg.naturalHeight;
-        const rCtx = refCanvas.getContext('2d', { willReadFrequently: true });
-        if (!rCtx) return;
-        rCtx.drawImage(refImg, 0, 0);
-        const refData = rCtx.getImageData(0, 0, refCanvas.width, refCanvas.height);
+      const blobUrl = await matchColorBetweenImages(currentImageSrc, refSrc, strength);
+      history.createdUrlRef.current = blobUrl;
 
-        const targetImg = new Image();
-        targetImg.crossOrigin = 'anonymous';
-        targetImg.onload = () => {
-          const targetCanvas = document.createElement('canvas');
-          targetCanvas.width = targetImg.naturalWidth;
-          targetCanvas.height = targetImg.naturalHeight;
-          const tCtx = targetCanvas.getContext('2d', { willReadFrequently: true });
-          if (!tCtx) return;
-          tCtx.drawImage(targetImg, 0, 0);
-          const targetData = tCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height);
-
-          applyColorMatch(targetData, refData, strength);
-          tCtx.putImageData(targetData, 0, 0);
-
-          const matchedUrl = targetCanvas.toDataURL('image/png');
-          setCurrentImageSrc(matchedUrl);
-        };
-        targetImg.src = currentImageSrc;
-      };
-      refImg.src = refSrc;
+      setCurrentImageSrc(blobUrl);
+      addHistoryEntry(
+        'colormatch' as HistoryActionType,
+        `Applied Shot Matcher (${strength}%)`,
+        undefined,
+        blobUrl,
+        undefined,
+        {
+          toolId: 'colormatch',
+          isSnapshot: true,
+        },
+      );
+      showToast('Color palette matched successfully');
     } catch (e) {
       console.error('Color match failed:', e);
+      showToast('Failed to apply color match', true);
+    } finally {
+      setIsColorMatching(false);
     }
-  }, [currentImageSrc, setCurrentImageSrc]);
+  }, [isColorMatching, currentImageSrc, history, setCurrentImageSrc, addHistoryEntry, showToast]);
 
-  // Export progress state
-  const [exportProgress, setExportProgress] = useState<{ step: string; current: number; total: number } | null>(null);
+  // ── Global AI Processing Overlay State ────────────────────────────────────
+  const aiStore = useAiLoadingStore();
+  const isAnyAiProcessing =
+    aiStore.isLoading ||
+    inpaint.isInpainting ||
+    ai.isSamSegmenting ||
+    ai.isDepthProcessing ||
+    ai.isEnhanceProcessing ||
+    ai.isCaptionLoading ||
+    isColorMatching;
 
-  // In-place Crop management
-  const [hasCropSelection, setHasCropSelection] = useState<boolean>(false);
-  const isImageCropped = currentImageSrc !== src;
+  const currentOperationName = useMemo(() => {
+    if (aiStore.isLoading && aiStore.operationName) return aiStore.operationName;
+    if (inpaint.isInpainting) return 'Magic Eraser Inpainting';
+    if (ai.isSamSegmenting) return 'MobileSAM Subject Segmentation';
+    if (ai.isDepthProcessing) return 'Monocular Depth & Bokeh';
+    if (ai.isEnhanceProcessing) return 'AI Super-Resolution & Restore';
+    if (ai.isCaptionLoading) return 'Florence-2 Vision Analysis';
+    if (isColorMatching) return 'Shot Matcher 3D Color Transfer';
+    return 'AI Model Inference';
+  }, [
+    aiStore.isLoading,
+    aiStore.operationName,
+    inpaint.isInpainting,
+    ai.isSamSegmenting,
+    ai.isDepthProcessing,
+    ai.isEnhanceProcessing,
+    ai.isCaptionLoading,
+    isColorMatching,
+  ]);
 
-  // Sync state if navigation or prop source changes
-  useEffect(() => {
-    setHasCropSelection(false);
-  }, [src]);
-
-  // Track activeTool with ref to keep handleCropEvent stable
-  const activeToolRef = useRef(activeTool);
-  useEffect(() => {
-    activeToolRef.current = activeTool;
-  }, [activeTool]);
-
-  /**
-   * handleCropEvent - Handles crop event.
-   */
-  const handleCropEvent = useCallback(() => {
-    if (activeToolRef.current !== 'transform') {
-      setHasCropSelection(false);
-      return;
-    }
-
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    const cropBoxData = cropper.getCropBoxData();
-    const canvasData  = cropper.getCanvasData();
-
-    if (!cropBoxData || !canvasData) return;
-
-    // Detect if selection is smaller than full image
-    const isSub =
-      cropBoxData.width > 0 && cropBoxData.height > 0 &&
-      (
-        cropBoxData.width  < canvasData.width  * 0.985 ||
-        cropBoxData.height < canvasData.height * 0.985 ||
-        cropBoxData.left   > canvasData.left   + 3 ||
-        cropBoxData.top    > canvasData.top    + 3
-      );
-
-    setHasCropSelection(prev => {
-      if (prev !== isSub) return isSub;
-      return prev;
-    });
-  }, []);
-
-  /**
-   * handleApplyCrop - Handles apply crop.
-   */
-  const handleApplyCrop = useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    try {
-      const croppedCanvas = cropper.getCroppedCanvas({
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-      });
-
-      croppedCanvas.toBlob((blob) => {
-        if (!blob) return;
-
-        revokeLocalUrl();
-
-        const newUrl = URL.createObjectURL(blob);
-        historyState.createdUrlRef.current = newUrl;
-
-        setCurrentImageSrc(newUrl);
-        setHasCropSelection(false);
-
-        // Reset transform values (they are baked into the new cropped canvas)
-        setTotalRotation(0);
-        setStraightenAngle(0);
-        setFlipH(false);
-        setFlipV(false);
-
-        // Add to history
-        addHistoryEntry('crop', 'Applied crop', undefined, newUrl);
-      }, 'image/jpeg', 0.95);
-    } catch (e) {
-      console.error('Failed to apply crop in-place:', e);
-    }
-  }, [addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV, historyState.createdUrlRef]);
-
-  /**
-   * handleResetCrop - Handles reset crop.
-   */
-  const handleResetCrop = useCallback(() => {
-    revokeLocalUrl();
-    setCurrentImageSrc(src);
-    setHasCropSelection(false);
-
-    setTotalRotation(0);
-    setStraightenAngle(0);
-    setFlipH(false);
-    setFlipV(false);
-  }, [src, revokeLocalUrl, setCurrentImageSrc, setTotalRotation, setStraightenAngle, setFlipH, setFlipV]);
-
-  /**
-   * filterString - Performs filter string.
-   */
-  const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
-  const deferredAdjustments = React.useDeferredValue(adjustments);
-  /**
-   * deferredFilterString - Performs deferred filter string.
-   */
-  const deferredFilterString = useMemo(() => toFilterString(deferredAdjustments), [deferredAdjustments]);
-
-  useEffect(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    if (activeTool !== 'transform') {
-      const cropBoxData = cropper.getCropBoxData();
-      savedCropBoxRef.current = cropBoxData;
-
-      cropper.clear();
-      cropper.setDragMode('none');
-    } else {
-      cropper.setDragMode('crop');
-      cropper.crop();
-      if (savedCropBoxRef.current) {
-        cropper.setCropBoxData(savedCropBoxRef.current);
-      }
-    }
-  }, [activeTool]);
-
-  /**
-   * handleRotate - Handles rotate.
-   */
-  const handleRotate = useCallback((degree: number) => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    const newTotal = ((totalRotation + degree) % 360 + 360) % 360;
-    setTotalRotation(newTotal);
-
-    cropper.clear();
-    cropper.rotate(degree);
-
-    const containerData = cropper.getContainerData();
-    const imageData     = cropper.getImageData();
-    const isSideways    = newTotal === 90 || newTotal === 270;
-    const displayW      = isSideways ? imageData.naturalHeight : imageData.naturalWidth;
-    const displayH      = isSideways ? imageData.naturalWidth  : imageData.naturalHeight;
-
-    const scale    = Math.min(
-      (containerData.width  * 0.95) / displayW,
-      (containerData.height * 0.95) / displayH,
-    );
-    const newWidth  = displayW * scale;
-    const newHeight = displayH * scale;
-
-    cropper.setCanvasData({
-      width:  newWidth,
-      height: newHeight,
-      left:   (containerData.width  - newWidth)  / 2,
-      top:    (containerData.height - newHeight) / 2,
-    });
-
-    if (!isNaN(currentRatio)) {
-      const newRatio = 1 / currentRatio;
-      setCurrentRatio(newRatio);
-      cropper.setAspectRatio(newRatio);
-    } else {
-      cropper.crop();
-    }
-  }, [totalRotation, currentRatio, setTotalRotation]);
-
-  /**
-   * handleSetAspectRatio - Handles set aspect ratio.
-   */
-  const handleSetAspectRatio = useCallback((ratio: number) => {
-    setCurrentRatio(ratio);
-    cropperRef.current?.setAspectRatio(ratio);
-  }, []);
-
-  /**
-   * handleReady - Handles ready.
-   */
-  const handleReady = useCallback(() => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    const containerData = cropper.getContainerData();
-    const canvasData    = cropper.getCanvasData();
-
-    const scale = Math.min(
-      (containerData.width  * 0.95) / canvasData.width,
-      (containerData.height * 0.95) / canvasData.height,
-    );
-
-    const newWidth  = canvasData.width  * scale;
-    const newHeight = canvasData.height * scale;
-    const newLeft   = (containerData.width  - newWidth)  / 2;
-    const newTop    = (containerData.height - newHeight) / 2;
-    cropper.setCropBoxData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
-    cropper.setCanvasData({ left: newLeft, top: newTop, width: newWidth, height: newHeight });
-
-    cropper.scaleX(flipH ? -1 : 1);
-    cropper.scaleY(flipV ? -1 : 1);
-    if (typeof (cropper as any).rotateTo === 'function') {
-      (cropper as any).rotateTo(totalRotation);
-    } else {
-      cropper.rotate(totalRotation);
-    }
-    isRestoringHistory.current = false;
-  }, [flipH, flipV, totalRotation, isRestoringHistory]);
-
-  /**
-   * handleFlipH - Handles flip h.
-   */
-  const handleFlipH = useCallback(() => {
-    const next = !flipH;
-    setFlipH(next);
-    cropperRef.current?.scaleX(next ? -1 : 1);
-  }, [flipH, setFlipH]);
-
-  /**
-   * handleFlipV - Handles flip v.
-   */
-  const handleFlipV = useCallback(() => {
-    const next = !flipV;
-    setFlipV(next);
-    cropperRef.current?.scaleY(next ? -1 : 1);
-  }, [flipV, setFlipV]);
-
-  /**
-   * handleStraighten - Handles straighten.
-   */
-  const handleStraighten = useCallback((angle: number) => {
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-    const delta = angle - straightenAngle;
-    setStraightenAngle(angle);
-    cropper.rotate(delta);
-  }, [straightenAngle, setStraightenAngle]);
-
-  /**
-   * handleAdjChange - Handles adj change.
-   */
-  const handleAdjChange = useCallback((adj: Adjustments) => {
-    setAdjustments(adj);
+  // ── Raw settings change → adjustments merge ───────────────────────────────
+  const handleRawSettingsChange = useCallback((raw: RawSettings) => {
+    setRawSettings(raw);
+    setAdjustments((prev: Adjustments) => ({ ...prev, raw }));
   }, [setAdjustments]);
 
-  /**
-   * handleCopyEdits - Handles copy edits.
-   */
+  // ── Adjustments & edit clipboard ──────────────────────────────────────────
+  const handleAdjChange = useCallback((a: Adjustments) => setAdjustments(a), [setAdjustments]);
+
   const handleCopyEdits = useCallback(() => {
-    const { copyAdjustments } = useEditStore.getState();
-    copyAdjustments(adjustments);
-  }, [adjustments]);
+    useEditStore.getState().copyAdjustments(adjustments);
+    showToast('Edits copied to clipboard');
+  }, [adjustments, showToast]);
 
   /**
    * handlePasteEdits - Handles paste edits.
    */
   const handlePasteEdits = useCallback(() => {
-    const { copiedAdjustments } = useEditStore.getState();
-    if (!copiedAdjustments) return;
-    setAdjustments(prev => ({ ...prev, ...copiedAdjustments }));
-  }, [setAdjustments]);
+    const copied = useEditStore.getState().copiedAdjustments;
+    if (!copied) return;
+    setAdjustments(prev => ({ ...prev, ...copied }));
+    showToast('Edits applied to photo');
+  }, [setAdjustments, showToast]);
 
-  const [isAutoEnhancing, setIsAutoEnhancing] = useState<boolean>(false);
-  /**
-   * handleAutoEnhance - Handles auto enhance.
-   */
   const handleAutoEnhance = useCallback(async () => {
-    if (!photoId || isAutoEnhancing) return;
-    setIsAutoEnhancing(true);
-    try {
-      const { apiClient } = await import('@/services/apiClient');
-      const params = await apiClient.post<Partial<Adjustments>>(`/api/v1/photos/auto-enhance/${photoId}`, {});
-      setAdjustments(prev => ({ ...prev, ...params }));
-    } catch (e) {
-      console.error('Auto enhance failed', e);
-    } finally {
-      setIsAutoEnhancing(false);
-    }
-  }, [photoId, isAutoEnhancing, setAdjustments]);
+    if (!photoId) return;
+    const partial = await exporter.handleAutoEnhance();
+    if (partial) setAdjustments(prev => ({ ...prev, ...partial }));
+  }, [photoId, exporter, setAdjustments]);
 
-  /**
-   * handleInpaintProcess - Handles inpaint process.
-   */
-  const handleInpaintProcess = useCallback(async () => {
-    if (!inpaintMask || isInpainting) return;
-    
-    setIsInpainting(true);
-    
-    try {
-      // Helper to convert any image source to Base64
-      /**
-       * getBase64FromUrl - Retrieves get base64from url.
-       */
-      const getBase64FromUrl = async (url: string): Promise<string> => {
-        const response = await fetch(url);
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-      };
-
-      // Ensure we are sending actual data, not just a URL
-      const imageData = currentImageSrc.startsWith('data:') 
-        ? currentImageSrc 
-        : await getBase64FromUrl(resolveUrl(currentImageSrc));
-
-      const response = await fetch(`${API_BASE}/api/v1/photos/inpaint/process`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          image_data: imageData,
-          mask_data: inpaintMask,
-          operation: inpaintOperation,
-          model: inpaintSettings.model,
-          prompt: inpaintSettings.prompt,
-          guidance_scale: inpaintSettings.guidance,
-          num_inference_steps: inpaintSettings.steps,
-        }),
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        
-        // Create blob URL for the result
-        revokeLocalUrl();
-        const newUrl = result.result; // This is already a data URL
-        
-        // Convert data URL to blob URL for consistency
-        const res = await fetch(newUrl);
-        const blob = await res.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        historyState.createdUrlRef.current = blobUrl;
-        
-        setCurrentImageSrc(blobUrl);
-        setInpaintMask(null);
-        
-        // Add to history
-        addHistoryEntry('inpaint' as HistoryActionType, `Applied ${result.model} ${result.operation}`, undefined, blobUrl);
-        
-        // Clear the canvas mask
-        if (window.__clearInpaintMask) {
-          window.__clearInpaintMask();
-        }
-      } else {
-        const errorText = await response.text();
-        console.error('Inpainting failed:', errorText);
-      }
-    } catch (error) {
-      console.error('Inpainting error:', error);
-    } finally {
-      setIsInpainting(false);
-    }
-  }, [inpaintMask, isInpainting, currentImageSrc, inpaintOperation, inpaintSettings, addHistoryEntry, revokeLocalUrl, setCurrentImageSrc, historyState.createdUrlRef]);
-
-  /**
-   * handleInpaintStrokeComplete - Handles inpaint stroke complete.
-   */
-  const handleInpaintStrokeComplete = useCallback((maskDataUrl: string) => {
-    const idx = inpaintHistoryIndexRef.current;
-    inpaintHistoryRef.current = inpaintHistoryRef.current.slice(0, idx + 1);
-    inpaintHistoryRef.current.push(maskDataUrl);
-    inpaintHistoryIndexRef.current = inpaintHistoryRef.current.length - 1;
-    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
-    setInpaintCanRedo(false);
+  // ── Palette eyedropper ────────────────────────────────────────────────────
+  const handlePaletteColorPicked = useCallback((hex: string, targetIdx: number) => {
+    setPaletteSwatches(prev => {
+      const next = [...prev];
+      next[targetIdx] = hex;
+      return next;
+    });
+    setPaletteLocked(prev => {
+      const next = [...prev];
+      next[targetIdx] = true;
+      return next;
+    });
+    setPalettePickingIndex(null);
   }, []);
 
-  /**
-   * handleInpaintUndo - Handles inpaint undo.
-   */
-  const handleInpaintUndo = useCallback(() => {
-    const idx = inpaintHistoryIndexRef.current;
-    if (idx <= 0) {
-      inpaintHistoryIndexRef.current = -1;
-      setInpaintMask(null);
-      if (window.__clearInpaintMask) window.__clearInpaintMask();
-    } else {
-      const newIdx = idx - 1;
-      inpaintHistoryIndexRef.current = newIdx;
-      const dataUrl = inpaintHistoryRef.current[newIdx];
-      setInpaintMask(dataUrl);
-      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
-    }
-    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
-    setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
-  }, []);
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const filterString = useMemo(() => toFilterString(adjustments), [adjustments]);
+  const curvesTable = useMemo(
+    () => getCurvesTableValues(adjustments.curves || DEFAULT_CURVE),
+    [adjustments.curves],
+  );
 
-  /**
-   * handleInpaintRedo - Handles inpaint redo.
-   */
-  const handleInpaintRedo = useCallback(() => {
-    const idx = inpaintHistoryIndexRef.current;
-    if (idx < inpaintHistoryRef.current.length - 1) {
-      const newIdx = idx + 1;
-      inpaintHistoryIndexRef.current = newIdx;
-      const dataUrl = inpaintHistoryRef.current[newIdx];
-      setInpaintMask(dataUrl);
-      if (window.__restoreInpaintMask) window.__restoreInpaintMask(dataUrl);
-    }
-    setInpaintCanUndo(inpaintHistoryIndexRef.current > 0);
-    setInpaintCanRedo(inpaintHistoryIndexRef.current < inpaintHistoryRef.current.length - 1);
-  }, []);
-
-  /**
-   * handleInpaintModeChange - Handles inpaint mode change.
-   */
-  const handleInpaintModeChange = useCallback((mode: InpaintMode) => {
-    setInpaintMode(mode);
-    if (mode === 'interactive') {
-      setInpaintInfoMessage('Interactive segmentation requires AI features to be enabled. Points placed will not be processed without a backend SAM model.');
-    } else if (mode === 'auto') {
-      setInpaintInfoMessage('Auto-detect requires AI features to be enabled. Enable ENABLE_AI_FACE or similar flag in backend config.');
-    } else {
-      setInpaintInfoMessage(null);
-    }
-  }, []);
-
-  /**
-   * handleSave - Handles save.
-   */
-  const handleSave = useCallback((isSaveAs: boolean, format?: string, quality?: number) => {
-    if (isSaving) return;
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    setIsSaving(true);
-
-    setTimeout(() => {
-      try {
-        const cropped = cropper.getCroppedCanvas({
-          imageSmoothingEnabled: true,
-          imageSmoothingQuality: 'high',
-        });
-
-        void import('../exportPipeline')
-          .then(({ exportEditedCanvas }) => exportEditedCanvas({
-            sourceCanvas: cropped,
-            adjustments,
-            mimeType: format || 'image/jpeg',
-            quality: quality ?? 0.95,
-            annotations: annState.annotations,
-            onProgress: (step, current, total) => setExportProgress({ step, current, total }),
-          }))
-          .then(async (blob) => {
-            if (photoId) {
-              try {
-                await fetch(`${API_BASE}/api/v1/photos/${photoId}/adjustments`, {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ adjustments }),
-                });
-              } catch (e) {
-                console.error('Failed to save non-destructive adjustments:', e);
-              }
-            }
-            setExportProgress(null);
-            onSave(blob, isSaveAs);
-            setIsSaving(false);
-          })
-          .catch((error) => {
-            setExportProgress(null);
-            console.error('Save failed:', error);
-            setIsSaving(false);
-          });
-      } catch (err) {
-        setExportProgress(null);
-        console.error('Save failed:', err);
-        setIsSaving(false);
-      }
-    }, 50);
-  }, [adjustments, isSaving, onSave, annState.annotations]);
-
-  /**
-   * handleCopy - Handles copy.
-   */
-  const handleCopy = useCallback(() => {
-    if (isSaving) return;
-    const cropper = cropperRef.current;
-    if (!cropper) return;
-
-    setIsSaving(true);
-
-    setTimeout(() => {
-      try {
-        const cropped = cropper.getCroppedCanvas({
-          imageSmoothingEnabled: true,
-          imageSmoothingQuality: 'high',
-        });
-
-        void import('../exportPipeline')
-          .then(({ exportEditedCanvas }) => exportEditedCanvas({
-            sourceCanvas: cropped,
-            adjustments,
-            mimeType: 'image/png', // Must be PNG for Clipboard API
-            quality: 1.0,
-            annotations: annState.annotations,
-          }))
-          .then(async (blob) => {
-            try {
-              const data = [new ClipboardItem({ [blob.type]: blob })];
-              await navigator.clipboard.write(data);
-            } catch (err) {
-              console.error('Clipboard write failed, using fallback download:', err);
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'clipboard-fallback.png';
-              a.click();
-              URL.revokeObjectURL(url);
-            }
-            setIsSaving(false);
-          })
-          .catch((error) => {
-            console.error('Copy failed:', error);
-            setIsSaving(false);
-          });
-      } catch (err) {
-        console.error('Copy failed:', err);
-        setIsSaving(false);
-      }
-    }, 50);
-  }, [adjustments, isSaving, annState.annotations]);
-
-  // Keyboard bindings hook integration
+  // ── Keyboard bindings ─────────────────────────────────────────────────────
   useKeyBindings({
     activeTool,
-    undoAnnotations: annState.undoAnnotations,
-    redoAnnotations: annState.redoAnnotations,
-    currentHistoryIndex,
-    history,
-    handleJumpToHistory,
-    setIsComparing,
-    cropperRef,
-    inpaintMode,
-    setInpaintSettings,
+    undoAnnotations: ann.undoAnnotations,
+    redoAnnotations: ann.redoAnnotations,
+    handleUndo, handleRedo, setIsComparing, cropperRef,
+    inpaintMode: inpaint.inpaintMode,
+    setInpaintSettings: inpaint.setInpaintSettings,
+    inpaintCanUndo: inpaint.inpaintCanUndo,
+    inpaintCanRedo: inpaint.inpaintCanRedo,
+    onInpaintUndo: inpaint.handleInpaintUndo,
+    onInpaintRedo: inpaint.handleInpaintRedo,
     onAutoEnhance: handleAutoEnhance,
+    onToggleHistory: () => setIsHistoryOpen(prev => !prev),
   });
 
-  const deferredCurvesTable = useMemo(
-    () => getCurvesTableValues(deferredAdjustments.curves || DEFAULT_CURVE),
-    [deferredAdjustments.curves],
-  );
+  // ── Panel context (typed as PanelCtx; cast through unknown for `any` slots) ─
+  const panelCtx: PanelCtx = {
+    photoId, src, currentImageSrc, filterString, adjustments, ann,
+    activeDrawTool, setActiveDrawTool, activeColor, setActiveColor,
+    setActiveOpacity, strokeWidth, setStrokeWidth,
+    brushSize, setBrushSize, penSettings, setPenSettings, userChangedStyleRef,
+    healing: {
+      settings: healingSettings, setSettings: setHealingSettings,
+      canvasRef: healingCanvasRef,
+      onClearStrokes: () => {
+        healingCanvasRef.current?.clearStrokes();
+        setHealingHasStrokes(false);
+      },
+      hasStrokes: healingHasStrokes,
+    },
+    liquify: {
+      settings: liquifySettings, setSettings: setLiquifySettings,
+      canvasRef: liquifyCanvasRef,
+      onResetMesh: () => {
+        setLiquifySettings(DEFAULT_LIQUIFY_SETTINGS);
+        liquifyCanvasRef.current?.resetMesh();
+      },
+    },
+    lasso: {
+      state: lassoState,
+      setState: setLassoState,
+      naturalWidth: naturalDimensions.width,
+      naturalHeight: naturalDimensions.height,
+      onConvertToInpaintMask: (maskUrl: string) => {
+        inpaint.setInpaintMask(maskUrl);
+        setActiveTool('inpaint');
+      },
+      onAddHistoryEntry: (toolId: string, description: string) => {
+        addHistoryEntry(
+          toolId as HistoryActionType,
+          description,
+          undefined,
+          undefined,
+          undefined,
+          { isSnapshot: true },
+        );
+      },
+    },
+    layers: { activeLayerId, setActiveLayerId },
+    palette: {
+      swatches: paletteSwatches, locked: paletteLocked,
+      setSwatches: setPaletteSwatches, setLocked: setPaletteLocked,
+      pickingIndex: palettePickingIndex, onStartPicking: setPalettePickingIndex,
+    },
+    inpaint: {
+      inpaintMode: inpaint.inpaintMode,
+      inpaintOperation: inpaint.inpaintOperation,
+      inpaintSettings: inpaint.inpaintSettings,
+      inpaintCanUndo: inpaint.inpaintCanUndo,
+      inpaintCanRedo: inpaint.inpaintCanRedo,
+      inpaintInfoMessage: inpaint.inpaintInfoMessage,
+      isInpainting: inpaint.isInpainting,
+      setInpaintOperation: inpaint.setInpaintOperation,
+      setInpaintSettings: inpaint.setInpaintSettings,
+      setInpaintInfoMessage: inpaint.setInpaintInfoMessage,
+      handleInpaintModeChange: inpaint.handleInpaintModeChange,
+      handleInpaintUndo: inpaint.handleInpaintUndo,
+      handleInpaintRedo: inpaint.handleInpaintRedo,
+      handleInpaintClear: inpaint.handleInpaintClear,
+      handleInpaintProcess: inpaint.handleInpaintProcess,
+    },
+    ai: {
+      depthMode: ai.depthMode,
+      depthSettings: ai.depthSettings,
+      depthMapData: ai.depthMapData,
+      isDepthProcessing: ai.isDepthProcessing,
+      setDepthMode: ai.setDepthMode,
+      setDepthSettings: ai.setDepthSettings,
+      handleDepthProcess: ai.handleDepthProcess,
+      enhanceSettings: ai.enhanceSettings,
+      setEnhanceSettings: ai.setEnhanceSettings,
+      isEnhanceProcessing: ai.isEnhanceProcessing,
+      activeEnhanceAction: ai.activeEnhanceAction,
+      captionText: ai.captionText,
+      isCaptionLoading: ai.isCaptionLoading,
+      samCanSegment: ai.samCanSegment,
+      samPointsCount: ai.samPointsCount,
+      isSamSegmenting: ai.isSamSegmenting,
+      handleUpscale: ai.handleUpscale,
+      handleFaceRestore: ai.handleFaceRestore,
+      handleDenoise: ai.handleDenoise,
+      handleCaption: ai.handleCaption,
+      handleGenerateSegmentMask: ai.handleGenerateSegmentMask,
+      handleClearSegmentPoints: ai.handleClearSegmentPoints,
+    },
+    transform: {
+      currentRatio: transform.currentRatio,
+      hasCropSelection: transform.hasCropSelection,
+      straightenAngle: transform.straightenAngle,
+      handleCropEvent: transform.handleCropEvent,
+      handleApplyCrop: transform.handleApplyCrop,
+      handleResetCrop: transform.handleResetCrop,
+      handleRotate: transform.handleRotate,
+      handleSetAspectRatio: transform.handleSetAspectRatio,
+      handleReady: transform.handleReady,
+      handleFlipH: transform.handleFlipH,
+      handleFlipV: transform.handleFlipV,
+      handleStraighten: transform.handleStraighten,
+    },
+    raw: { settings: rawSettings, onChange: handleRawSettingsChange },
+    isColorMatching, isAutoEnhancing: exporter.isAutoEnhancing,
+    handleAdjChange, handleRawSettingsChange,
+    handleApplyColorMatch, handleAutoEnhance,
+    setInpaintMask: inpaint.setInpaintMask, setActiveTool,
+    flipH, flipV, setFlipH, setFlipV,
+    faces: faces.faces,
+    selectedFaceIndex: faces.selectedFaceIndex,
+    setSelectedFaceIndex: faces.setSelectedFaceIndex,
+    activeTool,
+  } as unknown as PanelCtx;
 
   return (
     <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden bg-[var(--bg-primary)]">
-      <TopBar
-        onClose={onClose}
-        isSaving={isSaving}
-        handleSave={handleSave}
-        handleCopy={handleCopy}
+      <TopBarSection
+        onClose={exit.handleRequestClose}
+        isSaving={exporter.isSaving}
+        handleSave={exporter.handleSave}
+        handleCopy={exporter.handleCopy}
         isComparing={isComparing}
         onCompareToggle={() => setIsComparing(c => !c)}
         handleUndo={handleUndo}
         handleRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
-        showHistory={showHistory}
-        setShowHistory={setShowHistory}
-        historyCount={history.length}
-        exportProgress={exportProgress}
+        onToggleHistory={() => setIsHistoryOpen(prev => !prev)}
+        isHistoryOpen={isHistoryOpen}
+        historyCount={history.history.filter(e => e.type !== 'initial').length}
+        exportProgress={exporter.exportProgress}
         onCopyEdits={handleCopyEdits}
         onPasteEdits={handlePasteEdits}
-        hasCopiedEdits={useEditStore((s) => s.copiedAdjustments !== null)}
+        hasCopiedEdits={useEditStore(s => s.copiedAdjustments !== null)}
+        draft={draft}
       />
 
       <div className="flex-1 flex min-w-0 overflow-hidden relative isolate">
-        <Sidebar activeTool={activeTool} setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}>
-          {([
-            ['transform', <TransformPanel
-              key="transform"
-              hasCropSelection={hasCropSelection}
-              isImageCropped={isImageCropped}
-              handleApplyCrop={handleApplyCrop}
-              handleResetCrop={handleResetCrop}
-              currentRatio={currentRatio}
-              handleSetAspectRatio={handleSetAspectRatio}
-              handleRotate={handleRotate}
-              straightenAngle={straightenAngle}
-              handleStraighten={handleStraighten}
-              flipH={flipH}
-              flipV={flipV}
-              handleFlipH={handleFlipH}
-              handleFlipV={handleFlipV}
-              adjustments={adjustments}
-              onAdjustmentsChange={handleAdjChange}
-            />],
-            ['adjust', <AdjustPanel
-              key="adjust"
-              adjustments={adjustments}
-              onChange={handleAdjChange}
-              photoId={photoId}
-              imageSrc={currentImageSrc}
-              filterString={filterString}
-              onAutoEnhance={handleAutoEnhance}
-              isAutoEnhancing={isAutoEnhancing}
-            />],
-            ['detail', <DetailPanel key="detail" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['portrait', <PortraitPanel key="portrait" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
-            ['selective', <SelectivePanel key="selective" adjustments={adjustments} onChange={handleAdjChange} photoId={photoId} />],
-            ['hsl', <HslPanel key="hsl" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['presets', <PresetsPanel key="presets" adjustments={adjustments} onChange={handleAdjChange} imageSrc={currentImageSrc} />],
-            ['texture', <TexturePanel key="texture" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['lut', <LutPanel key="lut" adjustments={adjustments} onChange={handleAdjChange} />],
-            ['healing', <HealingPanel
-              key="healing"
-              settings={healingSettings}
-              onSettingsChange={setHealingSettings}
-              onClearStrokes={() => {
-                healingCanvasRef.current?.clearStrokes();
-                setHealingHasStrokes(false);
-              }}
-              hasStrokes={healingHasStrokes}
-            />],
-            ['layers', <LayersPanel
-              key="layers"
-              layers={layers}
-              onChange={setLayers}
-              activeLayerId={activeLayerId}
-              setActiveLayerId={setActiveLayerId}
-            />],
-            ['raw', <RawEnginePanel
-              key="raw"
-              settings={rawSettings}
-              onChange={setRawSettings}
-            />],
-            ['liquify', <LiquifyPanel
-              key="liquify"
-              settings={liquifySettings}
-              onChange={setLiquifySettings}
-              onResetMesh={() => setLiquifySettings(DEFAULT_LIQUIFY_SETTINGS)}
-            />],
-            ['colormatch', <ColorMatchPanel
-              key="colormatch"
-              onApplyColorMatch={handleApplyColorMatch}
-            />],
-            ['lasso', <LassoPanel
-              key="lasso"
-              state={lassoState}
-              onChange={setLassoState}
-              adjustments={adjustments}
-              onAdjustmentsChange={handleAdjChange}
-              onConvertToInpaintMask={(maskUrl) => {
-                setInpaintMask(maskUrl);
-                setActiveTool('inpaint');
-              }}
-            />],
-            ['frame', <FramesPanel key="frame" adjustments={adjustments} onChange={handleAdjChange} handleRotate={handleRotate} handleFlipH={handleFlipH} handleFlipV={handleFlipV} flipH={flipH} flipV={flipV} imageSrc={currentImageSrc} />],
-            ['palette', <PalettePanel key="palette" imageSrc={currentImageSrc} />],
-            ['annotations', <AnnotationsPanel key="annotations"
-              annotations={annState.annotations}
-              onChange={annState.updateAnnotations}
-              activeDrawTool={activeDrawTool}
-              setActiveDrawTool={setActiveDrawTool}
-              activeColor={activeColor}
-              setActiveColor={setActiveColor}
-              strokeWidth={strokeWidth}
-              setStrokeWidth={setStrokeWidth}
-              selectedAnnId={annState.selectedAnnId}
-              setSelectedAnnId={annState.setSelectedAnnId}
-              setActiveOpacity={setActiveOpacity}
-              markStyleChanged={() => { userChangedStyleRef.current = true; }}
-              brushSize={brushSize}
-              setBrushSize={setBrushSize}
-              fontFamily={annState.fontFamily}
-              setFontFamily={annState.setFontFamily}
-              fontSize={annState.fontSize}
-              setFontSize={annState.setFontSize}
-              fontWeight={annState.fontWeight}
-              setWeight={annState.setWeight}
-              fontStyle={annState.fontStyle}
-              setStyle={annState.setStyle}
-              textDecoration={annState.textDecoration}
-              setDecoration={annState.setDecoration}
-              textAlign={annState.textAlign}
-              setTextAlign={annState.setTextAlign}
-              lineHeight={annState.lineHeight}
-              setLineHeight={annState.setLineHeight}
-              letterSpacing={annState.letterSpacing}
-              setLetterSpacing={annState.setLetterSpacing}
-              onUpdateTextProps={annState.onUpdateTextProps}
-              doodleText={annState.doodleText}
-              setDoodleText={annState.setDoodleText}
-              doodleFontSize={annState.doodleFontSize}
-              setDoodleFontSize={annState.setDoodleFontSize}
-              doodleFontFamily={annState.doodleFontFamily}
-              setDoodleFontFamily={annState.setDoodleFontFamily}
-              showDoodleGuide={annState.showDoodleGuide}
-              setShowDoodleGuide={annState.setShowDoodleGuide}
-            />],
-            ['inpaint', <InpaintPanel key="inpaint"
-              mode={inpaintMode}
-              operation={inpaintOperation}
-              settings={inpaintSettings}
-              onModeChange={handleInpaintModeChange}
-              onOperationChange={setInpaintOperation}
-              onSettingsChange={setInpaintSettings}
-              onUndo={handleInpaintUndo}
-              onRedo={handleInpaintRedo}
-              onClearMask={() => {
-                setInpaintMask(null);
-                inpaintHistoryRef.current = [];
-                inpaintHistoryIndexRef.current = -1;
-                setInpaintCanUndo(false);
-                setInpaintCanRedo(false);
-                if (window.__clearInpaintMask) {
-                  window.__clearInpaintMask();
-                }
-              }}
-              onProcess={handleInpaintProcess}
-              canUndo={inpaintCanUndo}
-              canRedo={inpaintCanRedo}
-              isProcessing={isInpainting}
-              infoMessage={inpaintInfoMessage}
-              onClearInfoMessage={() => setInpaintInfoMessage(null)}
-            />],
-          ] as const).map(([toolId, panel]) => (
-            <div
-              key={toolId}
-              style={activeTool === toolId ? undefined : { visibility: 'hidden', position: 'absolute', pointerEvents: 'none' }}
-              className="flex-1 min-h-0 flex flex-col"
-            >
-              {panel}
-            </div>
-          ))}
-        </Sidebar>
-
-        <CanvasArea
-          currentImageSrc={currentImageSrc}
-          filterString={deferredFilterString}
-          cropperRef={cropperRef}
-          handleCropEvent={handleCropEvent}
-          handleReady={handleReady}
+        <ToolsSidebar
           activeTool={activeTool}
-          adjustments={deferredAdjustments}
-          isSaving={isSaving}
-          curvesTable={deferredCurvesTable}
-          isComparing={isComparing}
-          inpaintMode={inpaintMode}
-          brushSize={inpaintSettings.brushSize}
-          onInpaintMaskChange={setInpaintMask}
-          onInpaintStrokeComplete={handleInpaintStrokeComplete}
-          showMaskPreview={inpaintSettings.showMask}
-          maskOpacity={inpaintSettings.maskOpacity}
-          annotations={annState.annotations}
-          onAnnotationsChange={annState.updateAnnotations}
-          onStartGesture={annState.onStartGesture}
-          onEndGesture={annState.onEndGesture}
-          activeDrawTool={activeDrawTool}
-          setActiveDrawTool={setActiveDrawTool}
-          activeColor={activeColor}
-          strokeWidth={strokeWidth}
-          eraserSize={brushSize}
-          selectedAnnId={annState.selectedAnnId}
-          setSelectedAnnId={annState.setSelectedAnnId}
-          userChangedStyleRef={userChangedStyleRef}
-
-          fontFamily={annState.fontFamily}
-          setFontFamily={annState.setFontFamily}
-          fontSize={annState.fontSize}
-          setFontSize={annState.setFontSize}
-          fontWeight={annState.fontWeight}
-          setWeight={annState.setWeight}
-          fontStyle={annState.fontStyle}
-          setStyle={annState.setStyle}
-          textDecoration={annState.textDecoration}
-          setDecoration={annState.setDecoration}
-          textAlign={annState.textAlign}
-          setTextAlign={annState.setTextAlign}
-          lineHeight={annState.lineHeight}
-          setLineHeight={annState.setLineHeight}
-          letterSpacing={annState.letterSpacing}
-          setLetterSpacing={annState.setLetterSpacing}
-          onUpdateTextProps={annState.onUpdateTextProps}
-
-          doodleText={annState.doodleText}
-          setDoodleText={annState.setDoodleText}
-          doodleFontSize={annState.doodleFontSize}
-          setDoodleFontSize={annState.setDoodleFontSize}
-          doodleFontFamily={annState.doodleFontFamily}
-          setDoodleFontFamily={annState.setDoodleFontFamily}
-          showDoodleGuide={annState.showDoodleGuide}
-          setShowDoodleGuide={annState.setShowDoodleGuide}
-          healingSettings={healingSettings}
-          healingCanvasRef={healingCanvasRef}
-          onHealingStrokeComplete={() => setHealingHasStrokes(true)}
+          setActiveTool={setActiveTool as React.Dispatch<React.SetStateAction<ToolId | null>>}
+          ctx={panelCtx}
         />
 
-        {activeTool === 'lasso' && (
-          <LassoCanvas
-            width={1920}
-            height={1080}
-            imageSrc={currentImageSrc}
-            state={lassoState}
-            onChange={setLassoState}
-          />
-        )}
+        <div className="relative flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+          <CanvasArea
+            currentImageSrc={currentImageSrc}
+            filterString={filterString}
+            cropperRef={cropperRef}
+            cropRect={transform.cropRect}
+            onCropChange={transform.onCropChange}
+            aspectRatio={transform.currentRatio}
+            handleCropEvent={transform.handleCropEvent}
+            handleReady={transform.handleReady}
+            activeTool={activeTool}
+            adjustments={adjustments}
+            isSaving={exporter.isSaving}
+            curvesTable={curvesTable}
+            isComparing={isComparing}
+            inpaintMode={inpaint.inpaintMode}
+            inpaintCanvasRef={inpaintCanvasRef}
+            inpaintMask={inpaint.inpaintMask}
+            brushSize={inpaint.inpaintSettings.brushSize}
+            brushHardness={inpaint.inpaintSettings.brushHardness}
+            onInpaintMaskChange={inpaint.setInpaintMask}
+            onInpaintStrokeComplete={inpaint.handleInpaintStrokeComplete}
+            onInteractivePointsChange={ai.handleInteractivePointsChange}
+            showMaskPreview={inpaint.inpaintSettings.showMask}
+            maskOpacity={inpaint.inpaintSettings.maskOpacity}
+            annotations={ann.annotations}
+            onAnnotationsChange={ann.updateAnnotations}
+            onStartGesture={ann.onStartGesture}
+            onEndGesture={ann.onEndGesture}
+            activeDrawTool={activeDrawTool}
+            setActiveDrawTool={setActiveDrawTool}
+            activeColor={activeColor}
+            strokeWidth={strokeWidth}
+            eraserSize={brushSize}
+            selectedAnnId={ann.selectedAnnId}
+            setSelectedAnnId={ann.setSelectedAnnId}
+            selectedAnnIds={ann.selectedAnnIds}
+            setSelectedAnnIds={ann.setSelectedAnnIds}
+            userChangedStyleRef={userChangedStyleRef}
 
-        {showHistory && (
-          <HistoryPanel
-            history={history}
-            currentIndex={currentHistoryIndex}
-            onJumpTo={handleJumpToHistory}
-            onClear={handleClearHistory}
-            onToggleHide={handleToggleHideHistoryEntry}
-            onDeleteEntry={handleDeleteHistoryEntry}
-            onClose={() => setShowHistory(false)}
+            fontFamily={ann.fontFamily}
+            setFontFamily={ann.setFontFamily}
+            fontSize={ann.fontSize}
+            setFontSize={ann.setFontSize}
+            fontWeight={ann.fontWeight}
+            setWeight={ann.setWeight}
+            fontStyle={ann.fontStyle}
+            setStyle={ann.setStyle}
+            textDecoration={ann.textDecoration}
+            setDecoration={ann.setDecoration}
+            textAlign={ann.textAlign}
+            setTextAlign={ann.setTextAlign}
+            lineHeight={ann.lineHeight}
+            setLineHeight={ann.setLineHeight}
+            letterSpacing={ann.letterSpacing}
+            setLetterSpacing={ann.setLetterSpacing}
+            onUpdateTextProps={ann.onUpdateTextProps}
+
+            doodleText={ann.doodleText}
+            setDoodleText={ann.setDoodleText}
+            doodleFontSize={ann.doodleFontSize}
+            setDoodleFontSize={ann.setDoodleFontSize}
+            doodleFontFamily={ann.doodleFontFamily}
+            setDoodleFontFamily={ann.setDoodleFontFamily}
+            showDoodleGuide={ann.showDoodleGuide}
+            setShowDoodleGuide={ann.setShowDoodleGuide}
+            penSettings={penSettings}
+            healingSettings={healingSettings}
+            healingCanvasRef={healingCanvasRef}
+            onHealingStrokeComplete={() => setHealingHasStrokes(true)}
+            lassoState={lassoState}
+            onLassoStateChange={setLassoState}
+            palettePickingIndex={palettePickingIndex}
+            onPaletteColorPicked={handlePaletteColorPicked}
+            onCancelPalettePicking={() => setPalettePickingIndex(null)}
+            faces={faces.faces}
+            selectedFaceIndex={faces.selectedFaceIndex}
+            onSelectFace={faces.setSelectedFaceIndex}
+            liquifySettings={liquifySettings}
+            liquifyCanvasRef={liquifyCanvasRef}
           />
-        )}
+
+          <AiModelLoadingOverlay
+            isLoading={isAnyAiProcessing}
+            operationName={currentOperationName}
+            detailMessage={aiStore.detailMessage}
+            curveType={aiStore.curveType}
+          />
+        </div>
+
+        <HistoryOverlay
+          open={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          history={history.history}
+          currentHistoryIndex={history.currentHistoryIndex}
+          onToggleHide={history.toggleHideHistoryEntry}
+          onDelete={history.deleteHistoryEntry}
+          onJump={history.jumpToHistoryEntry}
+          onResetAll={() => history.jumpToHistoryEntry(0)}
+          setActiveTool={setActiveTool}
+        />
       </div>
+
+      <ToastNotification message={toastMessage} />
+      <ExitConfirmDialog
+        open={exit.showExitConfirm}
+        onKeep={exit.handleKeepDraftAndClose}
+        onDiscard={exit.handleDiscardAndClose}
+        onCancel={() => exit.setShowExitConfirm(false)}
+      />
     </div>
   );
 };

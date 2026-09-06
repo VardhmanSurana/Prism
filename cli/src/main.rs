@@ -87,6 +87,52 @@ enum Command {
     PurgeTrash,
     /// Fetch system diagnostics and metrics
     Diagnostics,
+    /// Manage Prism plugins and extensions
+    Plugins {
+        #[command(subcommand)]
+        cmd: Option<PluginsCommand>,
+    },
+    /// Install a plugin from a manifest JSON file (e.g. background-removal.json), local directory, or catalog ID
+    Install {
+        /// Manifest JSON file (e.g. background-removal.json or /path/to/plugin.json), local folder, or catalog ID
+        source: String,
+    },
+    /// Uninstall a plugin and remove its directory from plugins/
+    Uninstall {
+        /// Plugin ID to uninstall
+        id: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum PluginsCommand {
+    /// List installed plugins in the plugins/ directory
+    List,
+    /// List available plugins in the catalog
+    Catalog,
+    /// Install a plugin from a manifest JSON file (e.g. background-removal.json), local directory, or catalog ID
+    Install {
+        /// Manifest JSON file, local folder, or catalog ID
+        source: String,
+    },
+    /// Uninstall a plugin and remove its directory from plugins/
+    Uninstall {
+        /// Plugin ID to uninstall
+        id: String,
+    },
+    /// Enable or disable an installed plugin
+    Toggle {
+        /// Plugin ID
+        id: String,
+        /// Set enabled state (true or false)
+        #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+        enabled: bool,
+    },
+    /// View detailed information and manifest for an installed plugin
+    Info {
+        /// Plugin ID
+        id: String,
+    },
 }
 
 // ─── Response shapes (mirror the Rust backend models) ────────────────────────
@@ -165,6 +211,70 @@ struct Album {
 #[derive(Debug, Deserialize, Serialize)]
 struct FusedSearchResult {
     results: Vec<serde_json::Value>,
+    total: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginManifest {
+    id: String,
+    name: String,
+    version: String,
+    author: String,
+    description: String,
+    category: String,
+    #[serde(default)]
+    capabilities: Vec<String>,
+    #[serde(default)]
+    entrypoint: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginConfig {
+    enabled: bool,
+    #[serde(default)]
+    installed_at: String,
+    #[serde(default)]
+    updated_at: String,
+    #[serde(default)]
+    settings: serde_json::Value,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct InstalledPlugin {
+    id: String,
+    manifest: PluginManifest,
+    config: PluginConfig,
+    path: String,
+    is_active: bool,
+    has_models: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginListResponse {
+    plugins: Vec<InstalledPlugin>,
+    plugins_dir: String,
+    total: usize,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginCatalogItem {
+    id: String,
+    name: String,
+    version: String,
+    author: String,
+    description: String,
+    category: String,
+    icon: String,
+    is_installed: bool,
+    is_active: bool,
+    size_display: String,
+    tags: Vec<String>,
+    manifest: PluginManifest,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct PluginCatalogResponse {
+    catalog: Vec<PluginCatalogItem>,
     total: usize,
 }
 
@@ -276,6 +386,9 @@ async fn main() -> Result<()> {
         }
         Command::PurgeTrash => cmd_purge_trash(&client, cli.json).await,
         Command::Diagnostics => cmd_diagnostics(&client, cli.json).await,
+        Command::Plugins { cmd } => cmd_plugins(&client, cmd.as_ref(), cli.json).await,
+        Command::Install { source } => cmd_plugins_install(&client, source, cli.json).await,
+        Command::Uninstall { id } => cmd_plugins_uninstall(&client, id, cli.json).await,
     }
 }
 
@@ -621,6 +734,249 @@ async fn cmd_diagnostics(c: &PrismClient, json: bool) -> Result<()> {
     Ok(())
 }
 
+async fn cmd_plugins(c: &PrismClient, cmd: Option<&PluginsCommand>, json: bool) -> Result<()> {
+    match cmd {
+        None | Some(PluginsCommand::List) => cmd_plugins_list(c, json).await,
+        Some(PluginsCommand::Catalog) => cmd_plugins_catalog(c, json).await,
+        Some(PluginsCommand::Install { source }) => cmd_plugins_install(c, source, json).await,
+        Some(PluginsCommand::Uninstall { id }) => cmd_plugins_uninstall(c, id, json).await,
+        Some(PluginsCommand::Toggle { id, enabled }) => cmd_plugins_toggle(c, id, *enabled, json).await,
+        Some(PluginsCommand::Info { id }) => cmd_plugins_info(c, id, json).await,
+    }
+}
+
+async fn cmd_plugins_list(c: &PrismClient, json: bool) -> Result<()> {
+    let res: PluginListResponse = c.get_json("/api/v1/plugins").await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    if res.plugins.is_empty() {
+        println!("No plugins installed in '{}'.", res.plugins_dir);
+        println!("Use `prism plugins catalog` to discover available plugins, or `prism install <source>`.");
+        return Ok(());
+    }
+
+    let mut t = Table::new();
+    t.set_header(vec![
+        "ID".to_string(),
+        "Name".to_string(),
+        "Version".to_string(),
+        "Category".to_string(),
+        "Status".to_string(),
+        "Directory".to_string(),
+    ]);
+
+    for p in &res.plugins {
+        let status = if p.is_active { "Active ✅".to_string() } else { "Disabled ⏸".to_string() };
+        t.add_row(vec![
+            p.id.clone(),
+            p.manifest.name.clone(),
+            format!("v{}", p.manifest.version),
+            p.manifest.category.clone(),
+            status,
+            format!("{}/{}", res.plugins_dir, p.id),
+        ]);
+    }
+    println!("{t}");
+    println!("\n{} plugin(s) installed (in {}).", res.total, res.plugins_dir);
+    Ok(())
+}
+
+async fn cmd_plugins_catalog(c: &PrismClient, json: bool) -> Result<()> {
+    let res: PluginCatalogResponse = c.get_json("/api/v1/plugins/catalog").await?;
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    let mut t = Table::new();
+    t.set_header(vec![
+        "ID".to_string(),
+        "Name".to_string(),
+        "Version".to_string(),
+        "Category".to_string(),
+        "Size".to_string(),
+        "Status".to_string(),
+    ]);
+
+    for item in &res.catalog {
+        let status = if item.is_installed {
+            if item.is_active { "Installed (Active) ✅" } else { "Installed (Disabled)" }
+        } else {
+            "Available for Install"
+        };
+
+        t.add_row(vec![
+            item.id.clone(),
+            item.name.clone(),
+            format!("v{}", item.version),
+            item.category.clone(),
+            item.size_display.clone(),
+            status.to_string(),
+        ]);
+    }
+    println!("{t}");
+    println!("\n{} plugin(s) available in catalog.", res.total);
+    println!("Run `prism install <source>` or `prism plugins install <source>` to download and install.");
+    Ok(())
+}
+
+async fn cmd_plugins_install(c: &PrismClient, source: &str, json: bool) -> Result<()> {
+    println!("Installing plugin from '{source}'...");
+
+    // Check if source is a local file or local directory on the client machine
+    let local_path = std::path::Path::new(source);
+    let payload = if local_path.exists() {
+        if local_path.is_dir() {
+            let manifest_file = local_path.join("plugin.json");
+            let content = std::fs::read_to_string(&manifest_file)
+                .with_context(|| format!("Failed to read manifest {:?}", manifest_file))?;
+            let manifest: PluginManifest = serde_json::from_str(&content)
+                .with_context(|| format!("Invalid plugin.json in {:?}", local_path))?;
+
+            let entrypoint = manifest.entrypoint.as_deref().unwrap_or("index.js");
+            let code_path = local_path.join(entrypoint);
+            let code = if code_path.exists() {
+                std::fs::read_to_string(&code_path).ok()
+            } else {
+                None
+            };
+            serde_json::json!({
+                "source": source,
+                "manifest": manifest,
+                "bundled_code": code
+            })
+        } else {
+            // Local JSON file (e.g. background-removal.json or /path/to/plugin.json)
+            let content = std::fs::read_to_string(local_path)
+                .with_context(|| format!("Failed to read JSON manifest {:?}", local_path))?;
+            let manifest: PluginManifest = serde_json::from_str(&content)
+                .with_context(|| format!("Invalid plugin manifest JSON in {:?}", local_path))?;
+
+            let parent = local_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+            let entrypoint = manifest.entrypoint.as_deref().unwrap_or("index.js");
+            let code_path = parent.join(entrypoint);
+            let code = if code_path.exists() {
+                std::fs::read_to_string(&code_path).ok()
+            } else {
+                None
+            };
+            serde_json::json!({
+                "source": source,
+                "manifest": manifest,
+                "bundled_code": code
+            })
+        }
+    } else {
+        // Source is a catalog ID, GitHub repo URL, or raw URL
+        serde_json::json!({
+            "source": source
+        })
+    };
+
+    let res: serde_json::Value = c
+        .post_json("/api/v1/plugins/install", &payload)
+        .await
+        .with_context(|| format!("failed to install plugin '{source}'"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    if let Some(plugin) = res.get("plugin") {
+        let plugin_id = plugin.get("id").and_then(|v| v.as_str()).unwrap_or(source);
+        println!("✅ Successfully installed plugin '{plugin_id}' into plugins/{plugin_id}!");
+        if let Some(manifest) = plugin.get("manifest") {
+            let name = manifest.get("name").and_then(|v| v.as_str()).unwrap_or(plugin_id);
+            let version = manifest.get("version").and_then(|v| v.as_str()).unwrap_or("1.0.0");
+            let author = manifest.get("author").and_then(|v| v.as_str()).unwrap_or("");
+            let category = manifest.get("category").and_then(|v| v.as_str()).unwrap_or("");
+            let desc = manifest.get("description").and_then(|v| v.as_str()).unwrap_or("");
+            println!("  Name        : {name} (v{version})");
+            if !category.is_empty() {
+                println!("  Category    : {category}");
+            }
+            if !author.is_empty() {
+                println!("  Author      : {author}");
+            }
+            if !desc.is_empty() {
+                println!("  Description : {desc}");
+            }
+        }
+    } else {
+        println!("✅ Installation complete.");
+    }
+    Ok(())
+}
+
+async fn cmd_plugins_uninstall(c: &PrismClient, id: &str, json: bool) -> Result<()> {
+    let empty_body = serde_json::json!({});
+    let res: serde_json::Value = c
+        .post_json(&format!("/api/v1/plugins/uninstall/{id}"), &empty_body)
+        .await
+        .with_context(|| format!("failed to uninstall plugin '{id}'"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    println!("✅ Successfully uninstalled plugin '{id}' and removed its folder from plugins/.");
+    Ok(())
+}
+
+async fn cmd_plugins_toggle(c: &PrismClient, id: &str, enabled: bool, json: bool) -> Result<()> {
+    let body = serde_json::json!({ "enabled": enabled });
+    let res: serde_json::Value = c
+        .post_json(&format!("/api/v1/plugins/toggle/{id}"), &body)
+        .await
+        .with_context(|| format!("failed to toggle plugin '{id}'"))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&res)?);
+        return Ok(());
+    }
+
+    let state_str = if enabled { "Active ✅" } else { "Disabled ⏸" };
+    println!("✅ Plugin '{id}' state updated to: {state_str}");
+    Ok(())
+}
+
+async fn cmd_plugins_info(c: &PrismClient, id: &str, json: bool) -> Result<()> {
+    let res: PluginListResponse = c.get_json("/api/v1/plugins").await?;
+    let plugin = res
+        .plugins
+        .into_iter()
+        .find(|p| p.id == id)
+        .ok_or_else(|| anyhow::anyhow!("Plugin '{id}' is not currently installed."))?;
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&plugin)?);
+        return Ok(());
+    }
+
+    let mut t = Table::new();
+    t.set_header(vec!["Field".to_string(), "Value".to_string()]);
+    t.add_row(vec!["ID".to_string(), plugin.id.clone()]);
+    t.add_row(vec!["Name".to_string(), plugin.manifest.name.clone()]);
+    t.add_row(vec!["Version".to_string(), format!("v{}", plugin.manifest.version)]);
+    t.add_row(vec!["Author".to_string(), plugin.manifest.author.clone()]);
+    t.add_row(vec!["Category".to_string(), plugin.manifest.category.clone()]);
+    t.add_row(vec!["Description".to_string(), plugin.manifest.description.clone()]);
+    t.add_row(vec!["Status".to_string(), if plugin.is_active { "Active ✅".to_string() } else { "Disabled ⏸".to_string() }]);
+    t.add_row(vec!["Path on Disk".to_string(), plugin.path.clone()]);
+    t.add_row(vec!["Capabilities".to_string(), plugin.manifest.capabilities.join(", ")]);
+    if let Some(ep) = plugin.manifest.entrypoint {
+        t.add_row(vec!["Entrypoint".to_string(), ep]);
+    }
+    t.add_row(vec!["Installed At".to_string(), plugin.config.installed_at]);
+    println!("{t}");
+    Ok(())
+}
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 /// print_photos_table - Prints photos table to stdout.
@@ -767,3 +1123,64 @@ fn paint_status(s: &str) -> String {
         _ => format!("{s} ●"),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_plugin_command_parsing() {
+        // Test `prism install background-removal.json`
+        let parsed = Cli::try_parse_from(["prism", "install", "background-removal.json"]).unwrap();
+        match parsed.command {
+            Command::Install { source } => assert_eq!(source, "background-removal.json"),
+            _ => panic!("Expected Command::Install"),
+        }
+
+        // Test `prism install /tmp/my-custom-plugin.json`
+        let parsed = Cli::try_parse_from(["prism", "install", "/tmp/my-custom-plugin.json"]).unwrap();
+        match parsed.command {
+            Command::Install { source } => assert_eq!(source, "/tmp/my-custom-plugin.json"),
+            _ => panic!("Expected Command::Install"),
+        }
+
+        // Test `prism install ./local-plugins/portrait-enhancer/`
+        let parsed = Cli::try_parse_from(["prism", "install", "./local-plugins/portrait-enhancer/"]).unwrap();
+        match parsed.command {
+            Command::Install { source } => assert_eq!(source, "./local-plugins/portrait-enhancer/"),
+            _ => panic!("Expected Command::Install"),
+        }
+
+        // Test `prism uninstall background-removal`
+        let parsed = Cli::try_parse_from(["prism", "uninstall", "background-removal"]).unwrap();
+        match parsed.command {
+            Command::Uninstall { id } => assert_eq!(id, "background-removal"),
+            _ => panic!("Expected Command::Uninstall"),
+        }
+
+        // Test `prism plugins catalog`
+        let parsed = Cli::try_parse_from(["prism", "plugins", "catalog"]).unwrap();
+        match parsed.command {
+            Command::Plugins { cmd: Some(PluginsCommand::Catalog) } => (),
+            _ => panic!("Expected PluginsCommand::Catalog"),
+        }
+
+        // Test `prism plugins list`
+        let parsed = Cli::try_parse_from(["prism", "plugins", "list"]).unwrap();
+        match parsed.command {
+            Command::Plugins { cmd: Some(PluginsCommand::List) } => (),
+            _ => panic!("Expected PluginsCommand::List"),
+        }
+
+        // Test `prism plugins toggle background-removal --enabled true`
+        let parsed = Cli::try_parse_from(["prism", "plugins", "toggle", "background-removal", "--enabled", "true"]).unwrap();
+        match parsed.command {
+            Command::Plugins { cmd: Some(PluginsCommand::Toggle { id, enabled }) } => {
+                assert_eq!(id, "background-removal");
+                assert_eq!(enabled, true);
+            }
+            _ => panic!("Expected PluginsCommand::Toggle"),
+        }
+    }
+}
+
