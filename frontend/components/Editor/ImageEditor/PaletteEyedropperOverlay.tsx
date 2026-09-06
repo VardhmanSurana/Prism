@@ -31,18 +31,6 @@ export const PaletteEyedropperOverlay: React.FC<PaletteEyedropperOverlayProps> =
   const [hoverRgb, setHoverRgb] = useState<{ r: number; g: number; b: number }>({ r: 255, g: 255, b: 255 });
   const [pixelGrid, setPixelGrid] = useState<string[][]>([]);
 
-  // Load fallback image if sourceImage is missing or detached
-  useEffect(() => {
-    if (!imageSrc) return;
-    let isMounted = true;
-    loadCanvasImage(imageSrc).then(img => {
-      if (!isMounted) return;
-      fallbackImgRef.current = img;
-      initSampleCanvas(img);
-    }).catch(() => {});
-    return () => { isMounted = false; };
-  }, [imageSrc]);
-
   // Render full source image onto offscreen sampling canvas
   const initSampleCanvas = useCallback((img: HTMLImageElement) => {
     if (img.naturalWidth === 0 || img.naturalHeight === 0) return;
@@ -55,6 +43,18 @@ export const PaletteEyedropperOverlay: React.FC<PaletteEyedropperOverlayProps> =
       sampleCanvasRef.current = canvas;
     }
   }, [width, height]);
+
+  // Load fallback image if sourceImage is missing or detached
+  useEffect(() => {
+    if (!imageSrc) return;
+    let isMounted = true;
+    loadCanvasImage(imageSrc).then(img => {
+      if (!isMounted) return;
+      fallbackImgRef.current = img;
+      initSampleCanvas(img);
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [imageSrc, initSampleCanvas]);
 
   useEffect(() => {
     if (sourceImage && sourceImage.naturalWidth > 0) {
