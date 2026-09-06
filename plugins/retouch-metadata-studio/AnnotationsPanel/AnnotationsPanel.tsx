@@ -5,14 +5,16 @@
 
 import React, { useMemo, useState } from 'react';
 import { RotateCcw, ChevronDown, Pen, Palette, Square, Type, AlignLeft, Layers, Pipette, Plus, Sparkles, Info, CheckSquare, Trash2 } from 'lucide-react';
-import { ColorPicker, ColorService, useColor } from 'react-color-palette';
-import { Annotation, DrawToolId, DoodleLineStyle, LineTexture, LineTaper } from './types';
+import { HexColorPicker } from 'react-colorful';
+import { Annotation, DrawToolId, DoodleLineStyle, LineTexture, LineTaper, BrushType } from './types';
 import { ToolsGrid } from './ToolsGrid';
 import { ColorPickerSection } from './ColorPickerSection';
 import { TextPropertiesSection } from './TextPropertiesSection';
 import { DoodleSettingsSection } from './DoodleSettingsSection';
 import { LayersListSection } from './LayersListSection';
 import { PenSettingsSection } from './PenSettingsSection';
+import { StrokeSizeSelector } from './StrokeSizeSelector';
+import { SpraySettingsSection } from './SpraySettingsSection';
 import { EmojiPicker } from '@/components/Editor/ImageEditor/EmojiPicker';
 import { EditorSlider } from '@/components/Editor/ImageEditor/ui/EditorSlider';
 import { isBoundedShape } from '../AnnotationCanvas/shapeUtils';
@@ -247,7 +249,7 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
 
   // Same custom picker as the Color tab — seeded from the selected shape's fill
   const [showFillPicker, setShowFillPicker] = useState(false);
-  const [fillCustomColor, setFillCustomColor] = useColor('#22c55e');
+  const [fillCustomColor, setFillCustomColor] = useState<string>('#22c55e');
 
   const handleReset = () => {
     onChange([]);
@@ -327,6 +329,25 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
               <ToolsGrid
                 activeDrawTool={activeDrawTool}
                 setActiveDrawTool={setActiveDrawTool}
+                activeBrush={
+                  selectedAnn && selectedAnn.type === 'freehand' && selectedAnn.brushType
+                    ? selectedAnn.brushType
+                    : (penSettings.brushType || 'brush')
+                }
+                setActiveBrush={(b) => {
+                  setPenSettings?.({ ...penSettings, brushType: b });
+                  if (effectiveSelectedIds.length > 0) {
+                    onUpdateTextProps?.({ brushType: b });
+                  }
+                }}
+                onSelectBrushItem={(item) => {
+                  if (effectiveSelectedIds.length > 0) {
+                    onUpdateTextProps?.({ brushType: item.id });
+                  } else {
+                    setStrokeWidth(item.defaultSize);
+                  }
+                  markStyleChanged?.();
+                }}
               />
 
               {/* ── Multi-Selection Status Banner ── */}
@@ -444,10 +465,10 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                 </div>
               )}
 
-              {/* Stroke Width */}
+              {/* Stroke Size Selector (MS Paint-style presets + slider) */}
               {activeDrawTool !== 'eraser' && (
-                <EditorSlider
-                  label={effectiveSelectedIds.length > 1 ? `Stroke Width (${effectiveSelectedIds.length} items)` : 'Stroke Width'}
+                <StrokeSizeSelector
+                  label={effectiveSelectedIds.length > 1 ? `Stroke Size (${effectiveSelectedIds.length} items)` : 'Stroke Size'}
                   value={strokeWidth}
                   onChange={val => {
                     setStrokeWidth(val);
@@ -456,12 +477,28 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                       onUpdateTextProps?.({ strokeWidth: val });
                     }
                   }}
-                  min={1} max={20} defaultValue={4} unit=" px"
+                  min={1}
+                  max={80}
                 />
               )}
 
-              {/* Pen options */}
-              {(activeDrawTool === 'freehand' || isAllFreehand || (selectedAnn && selectedAnn.type === 'freehand')) && (
+              {/* Spray Paint Options */}
+              {((activeDrawTool === 'freehand' && penSettings.brushType === 'spray') || (selectedAnn && selectedAnn.brushType === 'spray')) && (
+                <SpraySettingsSection
+                  settings={penSettings}
+                  onChange={(patch) => {
+                    setPenSettings?.({ ...penSettings, ...patch });
+                    if (effectiveSelectedIds.length > 0) {
+                      onUpdateTextProps?.(patch as any);
+                    }
+                  }}
+                  selectedAnnotation={selectedAnn}
+                  onUpdateSelected={onUpdateTextProps}
+                />
+              )}
+
+              {/* Pen / Brush options */}
+              {((activeDrawTool === 'freehand' && penSettings.brushType !== 'spray') || (isAllFreehand && selectedAnn?.brushType !== 'spray') || (selectedAnn && selectedAnn.type === 'freehand' && selectedAnn.brushType !== 'spray')) && (
                 <PenSettingsSection
                   settings={penSettings}
                   onChange={(patch) => {
@@ -787,7 +824,7 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                           <button
                             type="button"
                             onClick={() => {
-                              setFillCustomColor(ColorService.convert('hex', selectedAnn.fillColor ?? selectedAnn.color));
+                              setFillCustomColor(selectedAnn.fillColor ?? selectedAnn.color ?? '#22c55e');
                               setShowFillPicker(prev => !prev);
                             }}
                             className={`flex items-center gap-1 px-2 h-5 rounded-full text-[9px] font-semibold border transition-all cursor-pointer ${
@@ -803,21 +840,20 @@ export const AnnotationsPanel: React.FC<AnnotationsPanelProps> = ({
                           </button>
                         </div>
                         {showFillPicker && (
-                          <div className="rounded-xl overflow-hidden border border-white/10">
-                            <ColorPicker
+                          <div className="rounded-xl border border-white/10 p-3 bg-black/40 flex flex-col items-center gap-3">
+                            <HexColorPicker
                               color={fillCustomColor}
-                              onChange={setFillCustomColor}
-                              hideInput={false}
+                              onChange={(hex) => {
+                                setFillCustomColor(hex);
+                                onUpdateTextProps?.({ fillColor: hex, fillShape: true, gradientFill: 'none' });
+                              }}
                             />
                             <button
                               type="button"
-                              onClick={() => {
-                                onUpdateTextProps?.({ fillColor: fillCustomColor.hex, fillShape: true, gradientFill: 'none' });
-                                setShowFillPicker(false);
-                              }}
-                              className="w-full py-2 bg-primary text-black text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
+                              onClick={() => setShowFillPicker(false)}
+                              className="w-full py-1.5 bg-blue-500 text-white text-xs font-semibold rounded-lg hover:bg-blue-600 transition-colors cursor-pointer"
                             >
-                              Apply
+                              Done
                             </button>
                           </div>
                         )}

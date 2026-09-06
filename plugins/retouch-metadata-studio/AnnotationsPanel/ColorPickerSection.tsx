@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Grid3X3, Pipette, X } from 'lucide-react';
-import { ColorPicker, useColor } from 'react-color-palette';
+import { HexColorPicker } from 'react-colorful';
 interface ColorPickerSectionProps {
   activeColor: string;
   setActiveColor: (color: string) => void;
@@ -55,7 +55,7 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
 }) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showSwatchGrid, setShowSwatchGrid] = useState(false);
-  const [customColor, setCustomColor] = useColor(activeColor || '#ef4444');
+  const [customColor, setCustomColor] = useState<string>(activeColor || '#ef4444');
   const [recentColors, setRecentColors] = useState<string[]>([]);
   const [pinnedColors, setPinnedColors] = useState<string[]>(() => {
     try {
@@ -74,11 +74,8 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
 
   // Sync customColor state if activeColor changes externally
   useEffect(() => {
-    if (activeColor && activeColor !== customColor.hex) {
-      // Create a dummy IColor object or let useColor handle it.
-      // A safe way is to setCustomColor via hex.
-      // Custom color package allows setCustomColor({ hex: activeColor, ... })
-      // Let's just update active state color
+    if (activeColor && activeColor.toLowerCase() !== customColor.toLowerCase()) {
+      setCustomColor(activeColor);
     }
   }, [activeColor]);
 
@@ -289,7 +286,7 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
         <button
           type="button"
           onClick={() => {
-            handlePickColor(customColor.hex);
+            handlePickColor(customColor);
             setShowColorPicker(prev => !prev);
             setShowSwatchGrid(false);
           }}
@@ -336,21 +333,40 @@ export const ColorPickerSection: React.FC<ColorPickerSectionProps> = ({
       )}
 
       {showColorPicker && (
-        <div className="mt-3 rounded-xl overflow-hidden border border-white/10">
-          <ColorPicker
+        <div className="mt-3 rounded-xl border border-white/10 p-3 bg-black/40 flex flex-col items-center gap-3">
+          <HexColorPicker
             color={customColor}
-            onChange={setCustomColor}
-            hideInput={false}
-          />
-          <button
-            onClick={() => {
-              handlePickColor(customColor.hex);
-              setShowColorPicker(false);
+            onChange={(hex) => {
+              setCustomColor(hex);
+              handlePickColor(hex);
             }}
-            className="w-full py-2 bg-primary text-black text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-focus"
-          >
-            Apply
-          </button>
+          />
+          <div className="flex items-center gap-2 w-full">
+            <span className="text-xs text-white/50 font-mono">#</span>
+            <input
+              type="text"
+              value={customColor.replace(/^#/, '')}
+              onChange={(e) => {
+                const val = '#' + e.target.value;
+                setCustomColor(val);
+                if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                  handlePickColor(val);
+                }
+              }}
+              className="flex-1 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white font-mono uppercase focus:outline-none focus:border-blue-500"
+              maxLength={6}
+            />
+            <button
+              type="button"
+              onClick={() => {
+                handlePickColor(customColor);
+                setShowColorPicker(false);
+              }}
+              className="py-1 px-3 bg-blue-500 text-white rounded-lg text-xs font-semibold hover:bg-blue-600 transition-colors cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>

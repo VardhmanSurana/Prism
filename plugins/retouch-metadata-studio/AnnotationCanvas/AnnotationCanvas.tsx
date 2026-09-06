@@ -64,6 +64,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
     readOnly = false,
     userChangedStyleRef,
     onUpdateTextProps,
+    penSettings,
   } = props;
 
   const effectiveSelectedIds = (selectedAnnIds && selectedAnnIds.length > 0)
@@ -389,6 +390,11 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               case 'eraser':
                 return makeBrushCursor(eraserSize, scale);
               case 'freehand':
+                if (penSettings?.brushType === 'spray') {
+                  const sRadius = penSettings.sprayRadius ?? Math.max(15, strokeWidth * 2.5);
+                  return makeBrushCursor(sRadius * 2, scale);
+                }
+                return PEN_CURSOR;
               case 'highlighter':
                 return PEN_CURSOR;
               case 'text':

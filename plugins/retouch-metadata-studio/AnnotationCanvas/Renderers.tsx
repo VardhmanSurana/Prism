@@ -1,10 +1,20 @@
 import React from 'react';
 import { Annotation, DoodleLineStyle, LineTexture, LineTaper } from '../AnnotationsPanel';
 import {
+  getChalkFilterValues,
+  getCrayonFilterValues,
+  getDrybrushFilterValues,
+  getWatercolorFilterValues,
+  getCalligraphyNibValues,
+  getDashArrayString,
+} from '../AnnotationsPanel/brushUtils';
+import {
   smoothPath,
   doodleLinePoints,
   generateSmoothSpline,
   constructVariableWidthRibbon,
+  constructCalligraphyRibbon,
+  generateSprayDots,
 } from './utils';
 import {
   VectorShapeType,
@@ -15,6 +25,17 @@ import {
 
 export const AnnotationDefs = React.memo(() => (
   <defs>
+    {/* Watercolor texture filter — soft bleeding feathered edge */}
+    <filter id="watercolor-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+      <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.5" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feGaussianBlur in="displaced" stdDeviation="0.8" result="blurred" />
+      <feMerge>
+        <feMergeNode in="blurred" />
+        <feMergeNode in="displaced" />
+      </feMerge>
+    </filter>
+
     {/* Chalk texture filter — porous paper grain and rough chalk crumb edges */}
     <filter id="chalk-filter" x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
       <feTurbulence type="fractalNoise" baseFrequency="0.68" numOctaves="4" result="noise" />
@@ -85,10 +106,11 @@ export const AnnotationDefs = React.memo(() => (
   </defs>
 ));
 
-export const getTextureFilter = (texture?: LineTexture): string | undefined => {
+export const getTextureFilter = (texture?: LineTexture | 'watercolor'): string | undefined => {
   if (texture === 'chalk') return 'url(#chalk-filter)';
   if (texture === 'crayon') return 'url(#crayon-filter)';
   if (texture === 'drybrush') return 'url(#drybrush-filter)';
+  if (texture === 'watercolor') return 'url(#watercolor-filter)';
   return undefined;
 };
 
@@ -105,6 +127,19 @@ const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
     prev.aspectRatio === next.aspectRatio
   );
 };
+
+export const SprayRenderer = React.memo(({ ann }: RendererProps) => {
+  if (!ann.sprayDots || ann.sprayDots.length === 0) return null;
+  const pathD = ann.sprayDots
+    .map(d => `M ${(d.x - d.r).toFixed(1)} ${d.y.toFixed(1)} a ${d.r} ${d.r} 0 1 0 ${(d.r * 2).toFixed(1)} 0 a ${d.r} ${d.r} 0 1 0 ${(-d.r * 2).toFixed(1)} 0`)
+    .join(' ');
+
+  return (
+    <g opacity={ann.opacity ?? 1}>
+      <path d={pathD} fill={ann.color} />
+    </g>
+  );
+}, arePropsEqual);
 
 export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
@@ -157,17 +192,169 @@ export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
 }, arePropsEqual);
 
 export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
+  // If this annotation is a spray stroke, delegate directly to SprayRenderer
+  if (ann.brushType === 'spray' || (ann.sprayDots && ann.sprayDots.length > 0)) {
+    let effectiveAnn = ann;
+    if ((!ann.sprayDots || ann.sprayDots.length === 0) && ann.points && ann.points.length > 0) {
+      const radius = ann.sprayRadius ?? 25;
+      const density = ann.sprayDensity ?? 14;
+      const dots: Array<{ x: number; y: number; r: number }> = [];
+      for (const pt of ann.points) {
+        dots.push(...generateSprayDots(pt.x, pt.y, radius, Math.max(2, Math.round(density / 3))));
+      }
+      effectiveAnn = { ...ann, sprayDots: dots };
+    }
+    return <SprayRenderer ann={effectiveAnn} />;
+  }
+
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
-  const filter = getTextureFilter(ann.lineTexture);
-  const sw = ann.strokeWidth * 1.5;
 
-  const dashArray =
-    ann.penStyle === 'dashed'
-      ? `${sw * 2.5} ${sw * 2}`
-      : ann.penStyle === 'dotted'
-        ? `0.1 ${sw * 1.6}`
-        : undefined;
+  // Brush-specific texture/filter
+  const effectiveTexture: LineTexture | 'watercolor' | undefined =
+    ann.brushType === 'chalk'
+      ? 'chalk'
+      : ann.brushType === 'crayon'
+        ? 'crayon'
+        : ann.brushType === 'oil' || ann.brushType === 'drybrush'
+          ? 'drybrush'
+          : ann.brushType === 'watercolor'
+            ? 'watercolor'
+            : ann.lineTexture;
+
+  let activeFilter = getTextureFilter(effectiveTexture);
+  let dynamicFilterDefs: React.ReactNode = null;
+  const safeId = (ann.id || 'brush').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+  if (effectiveTexture === 'chalk') {
+    const filterId = `chalk-filter-${safeId}`;
+    const { baseFreq, scale, offset } = getChalkFilterValues(
+      ann.chalkPressure,
+      ann.chalkGrain,
+      ann.chalkRoughness
+    );
+    dynamicFilterDefs = (
+      <defs>
+        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+          <feTurbulence type="fractalNoise" baseFrequency={baseFreq} numOctaves={4} result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale={scale} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feColorMatrix in="noise" type="matrix" values={`
+            0 0 0 0 0
+            0 0 0 0 0
+            0 0 0 0 0
+            1 0 0 0 ${offset}`} result="maskNoise" />
+          <feComposite in="displaced" in2="maskNoise" operator="in" />
+        </filter>
+      </defs>
+    );
+    activeFilter = `url(#${filterId})`;
+  } else if (effectiveTexture === 'crayon') {
+    const filterId = `crayon-filter-${safeId}`;
+    const { baseFreq, scale, offset } = getCrayonFilterValues(
+      ann.crayonDensity,
+      ann.crayonGrain,
+      ann.crayonRoughness
+    );
+    dynamicFilterDefs = (
+      <defs>
+        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+          <feTurbulence type="turbulence" baseFrequency={baseFreq} numOctaves={3} result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale={scale} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feColorMatrix in="noise" type="matrix" values={`
+            0 0 0 0 0
+            0 0 0 0 0
+            0 0 0 0 0
+            1 1 0 0 ${offset}`} result="maskNoise" />
+          <feComposite in="displaced" in2="maskNoise" operator="in" />
+        </filter>
+      </defs>
+    );
+    activeFilter = `url(#${filterId})`;
+  } else if (effectiveTexture === 'drybrush') {
+    const filterId = `drybrush-filter-${safeId}`;
+    const { baseFreq, scale, offset } = getDrybrushFilterValues(
+      ann.drybrushDensity,
+      ann.drybrushStreaks,
+      ann.drybrushRoughness
+    );
+    dynamicFilterDefs = (
+      <defs>
+        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+          <feTurbulence type="fractalNoise" baseFrequency={baseFreq} numOctaves={3} result="grain" />
+          <feDisplacementMap in="SourceGraphic" in2="grain" scale={scale} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feColorMatrix in="grain" type="matrix" values={`
+            0 0 0 0 0
+            0 0 0 0 0
+            0 0 0 0 0
+            1.2 0 0 0 ${offset}`} result="grainMask" />
+          <feComposite in="displaced" in2="grainMask" operator="in" />
+        </filter>
+      </defs>
+    );
+    activeFilter = `url(#${filterId})`;
+  } else if (effectiveTexture === 'watercolor') {
+    const filterId = `watercolor-filter-${safeId}`;
+    const { scale, stdDeviation } = getWatercolorFilterValues(
+      ann.watercolorBleed,
+      ann.watercolorSpread,
+      ann.watercolorWetness
+    );
+    dynamicFilterDefs = (
+      <defs>
+        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+          <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="2" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale={scale} xChannelSelector="R" yChannelSelector="G" result="displaced" />
+          <feGaussianBlur in="displaced" stdDeviation={stdDeviation} result="blurred" />
+          <feMerge>
+            <feMergeNode in="blurred" />
+            <feMergeNode in="displaced" />
+          </feMerge>
+        </filter>
+      </defs>
+    );
+    activeFilter = `url(#${filterId})`;
+  } else if (ann.brushType === 'brush' && (ann.brushFeather ?? 0) > 0) {
+    const filterId = `feather-filter-${safeId}`;
+    dynamicFilterDefs = (
+      <defs>
+        <filter id={filterId} x="-20%" y="-20%" width="140%" height="140%" filterUnits="userSpaceOnUse">
+          <feGaussianBlur in="SourceGraphic" stdDeviation={(ann.brushFeather || 0).toFixed(1)} />
+        </filter>
+      </defs>
+    );
+    activeFilter = `url(#${filterId})`;
+  }
+
+  const sw =
+    ann.brushType === 'brush'
+      ? ann.strokeWidth * 1.8
+      : ann.brushType === 'watercolor'
+        ? ann.strokeWidth * 2.0
+        : ann.brushType === 'chalk'
+          ? ann.strokeWidth * 1.8
+          : ann.strokeWidth * 1.5;
+
+  const effectiveOpacity =
+    ann.brushType === 'watercolor'
+      ? (ann.watercolorWetness != null ? 0.25 + (ann.watercolorWetness / 100) * 0.40 : (ann.opacity ?? 0.45))
+      : (ann.opacity ?? 1);
+
+  // Calligraphy chisel ribbons (Calligraphy 1: 45°, Calligraphy 2: -45°)
+  if ((ann.brushType === 'calligraphy1' || ann.brushType === 'calligraphy2') && smoothed.length >= 2) {
+    const defaultAngle = ann.brushType === 'calligraphy2' ? -45 : 45;
+    const angle = ann.nibAngle ?? defaultAngle;
+    const { weightRatio } = getCalligraphyNibValues(angle, ann.nibWeight);
+    const chiselWidth = sw * (weightRatio / 0.75);
+    const ribbonD = constructCalligraphyRibbon(smoothed, chiselWidth, angle);
+    return (
+      <g opacity={effectiveOpacity}>
+        {dynamicFilterDefs}
+        <path d={ribbonD} fill={ann.color} filter={activeFilter} />
+      </g>
+    );
+  }
+
+  const dashArray = getDashArrayString(sw, ann.penStyle, ann.dashLength, ann.dashGap);
 
   // Arrowhead at end of stroke (mirrors ArrowRenderer geometry)
   const arrowHead = (() => {
@@ -185,13 +372,14 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
 
   let mainStroke: React.ReactNode;
   if (ann.lineTaper && ann.lineTaper !== 'none' && smoothed.length >= 2) {
-    const ribbonD = constructVariableWidthRibbon(smoothed, sw, ann.lineTaper, ann.doodleLineStyle);
+    const intensity = ann.taperIntensity != null ? (0.6 + (ann.taperIntensity / 100) * 0.8) : 1;
+    const ribbonD = constructVariableWidthRibbon(smoothed, sw * intensity, ann.lineTaper, ann.doodleLineStyle);
     mainStroke = (
       <path
         d={ribbonD}
         fill={ann.color}
         fillOpacity={1}
-        filter={filter}
+        filter={activeFilter}
       />
     );
   } else {
@@ -210,15 +398,16 @@ export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
         strokeDasharray={dashArray}
         strokeLinecap="round"
         strokeLinejoin="round"
-        filter={filter}
+        filter={activeFilter}
       />
     );
   }
 
   return (
-    <g opacity={ann.opacity ?? 1}>
+    <g opacity={effectiveOpacity}>
+      {dynamicFilterDefs}
       {mainStroke}
-      {arrowHead && <polygon points={arrowHead} fill={ann.color} filter={filter} />}
+      {arrowHead && <polygon points={arrowHead} fill={ann.color} filter={activeFilter} />}
     </g>
   );
 }, arePropsEqual);

@@ -21,6 +21,16 @@ export const getAnnotationBBox = (ann: Annotation): { x: number; y: number; w: n
     const y = ann.bounds.h < 0 ? ann.bounds.y + ann.bounds.h : ann.bounds.y;
     return { x, y, w: Math.abs(ann.bounds.w), h: Math.abs(ann.bounds.h) };
   }
+  if (ann.sprayDots && ann.sprayDots.length > 0) {
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const d of ann.sprayDots) {
+      if (d.x - d.r < minX) minX = d.x - d.r;
+      if (d.x + d.r > maxX) maxX = d.x + d.r;
+      if (d.y - d.r < minY) minY = d.y - d.r;
+      if (d.y + d.r > maxY) maxY = d.y + d.r;
+    }
+    return { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) };
+  }
   if (ann.points && ann.points.length > 0) {
     const xs = ann.points.map(p => p.x);
     const ys = ann.points.map(p => p.y);
@@ -38,6 +48,15 @@ export const getAnnotationDistance = (
   ann: Annotation,
   options?: { strokeOnly?: boolean }
 ): number => {
+  if (ann.sprayDots && ann.sprayDots.length > 0) {
+    let minDist = Infinity;
+    for (let i = 0; i < ann.sprayDots.length; i++) {
+      const d = pointDistance(p, ann.sprayDots[i]);
+      if (d < minDist) minDist = d;
+    }
+    return minDist;
+  }
+
   if ((ann.type === 'freehand' || ann.type === 'highlighter' || ann.type === 'textPath') && ann.points) {
     let minDist = Infinity;
     for (let i = 0; i < ann.points.length; i++) {
@@ -618,11 +637,23 @@ export function partialEraseAnnotation(
   radius: number,
   aspectRatio: number = 1
 ): Annotation[] {
+  const ar = aspectRatio > 0 ? aspectRatio : 1;
+
+  // Partial erasure for Spray Paint droplets
+  if (ann.brushType === 'spray' && ann.sprayDots && ann.sprayDots.length > 0) {
+    const survivingDots = ann.sprayDots.filter(d => {
+      const dist = Math.hypot((d.x - center.x) * ar, d.y - center.y);
+      return dist >= radius + d.r;
+    });
+    if (survivingDots.length === 0) return [];
+    if (survivingDots.length === ann.sprayDots.length) return [ann];
+    return [{ ...ann, sprayDots: survivingDots }];
+  }
+
   const STROKE_TYPES = ['freehand', 'highlighter', 'textPath'] as const;
   if (!(STROKE_TYPES as readonly string[]).includes(ann.type) || !ann.points?.length) return [ann];
 
   const pts = ann.points;
-  const ar = aspectRatio > 0 ? aspectRatio : 1;
 
   if (pts.length === 1) {
     const d = Math.hypot((pts[0].x - center.x) * ar, pts[0].y - center.y);
@@ -732,5 +763,61 @@ export function partialEraseAnnotation(
   }));
 }
 
+/**
+ * Generates randomly scattered droplets within a circular radius, simulating MS Paint spray paint.
+ * Uses uniform disk sampling (r = sqrt(rand) * radius) for natural dispersal.
+ */
+export const generateSprayDots = (
+  cx: number,
+  cy: number,
+  radius: number,
+  count: number = 12
+): { x: number; y: number; r: number }[] => {
+  const dots: { x: number; y: number; r: number }[] = [];
+  const safeRadius = Math.max(5, radius);
+  for (let i = 0; i < count; i++) {
+    const r = Math.sqrt(Math.random()) * safeRadius;
+    const theta = Math.random() * 2 * Math.PI;
+    const dotX = Number((cx + r * Math.cos(theta)).toFixed(1));
+    const dotY = Number((cy + r * Math.sin(theta)).toFixed(1));
+    const dotR = Number((0.7 + Math.random() * (safeRadius * 0.04 + 0.8)).toFixed(1));
+    dots.push({ x: dotX, y: dotY, r: dotR });
+  }
+  return dots;
+};
 
+/**
+ * Constructs an authentic flat-nib calligraphy ribbon polygon path.
+ * A calligraphy nib is oriented at a fixed angle (e.g. 45° or -45°).
+ * When drawing perpendicular to the nib, strokes are wide; when parallel, strokes are hairline.
+ */
+export const constructCalligraphyRibbon = (
+  points: { x: number; y: number }[],
+  strokeWidth: number,
+  angleDeg: number = 45
+): string => {
+  if (points.length < 2) return '';
+  const rad = (angleDeg * Math.PI) / 180;
+  const halfW = strokeWidth * 0.75;
+  const dx = halfW * Math.cos(rad);
+  const dy = halfW * Math.sin(rad);
 
+  const topPts: { x: number; y: number }[] = [];
+  const btmPts: { x: number; y: number }[] = [];
+
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    topPts.push({ x: p.x + dx, y: p.y + dy });
+    btmPts.push({ x: p.x - dx, y: p.y - dy });
+  }
+
+  let d = `M ${topPts[0].x.toFixed(1)} ${topPts[0].y.toFixed(1)}`;
+  for (let i = 1; i < topPts.length; i++) {
+    d += ` L ${topPts[i].x.toFixed(1)} ${topPts[i].y.toFixed(1)}`;
+  }
+  for (let i = btmPts.length - 1; i >= 0; i--) {
+    d += ` L ${btmPts[i].x.toFixed(1)} ${btmPts[i].y.toFixed(1)}`;
+  }
+  d += ' Z';
+  return d;
+};

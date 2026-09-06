@@ -43,7 +43,22 @@ const TOOL_LABELS: Record<string, string> = {
   eraser: 'Eraser',
 };
 
-const getToolLabel = (type: string) => TOOL_LABELS[type] || type;
+const getToolLabel = (ann: Annotation) => {
+  if (ann.type === 'freehand') {
+    if (ann.brushType === 'spray') return 'Spray Paint';
+    if (ann.brushType === 'brush') return 'Paint Brush';
+    if (ann.brushType === 'calligraphy1') return 'Calligraphy 1';
+    if (ann.brushType === 'calligraphy2') return 'Calligraphy 2';
+    if (ann.brushType === 'chalk') return 'Chalk';
+    if (ann.brushType === 'crayon') return 'Crayon';
+    if (ann.brushType === 'oil') return 'Oil Brush';
+    if (ann.brushType === 'drybrush') return 'Dry Brush';
+    if (ann.brushType === 'watercolor') return 'Watercolor';
+    if (ann.brushType === 'pen') return 'Fine Pen';
+    return 'Brush';
+  }
+  return TOOL_LABELS[ann.type] || ann.type;
+};
 
 export const LayersListSection: React.FC<LayersListSectionProps> = ({
   annotations,
@@ -159,7 +174,7 @@ export const LayersListSection: React.FC<LayersListSectionProps> = ({
                         style={{ backgroundColor: ann.color }}
                       />
                       <span className="text-xs uppercase tracking-wider text-[10px] truncate">
-                        {index + 1}. {getToolLabel(ann.type)}
+                        {index + 1}. {getToolLabel(ann)}
                       </span>
                     </div>
                     <div className="flex items-center gap-1 opacity-100 transition-all">

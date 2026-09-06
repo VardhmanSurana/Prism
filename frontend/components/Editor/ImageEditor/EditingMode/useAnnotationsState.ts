@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
 
-export const useAnnotationsState = () => {
+export const useAnnotationsState = (onCommit?: (prev: Annotation[], next: Annotation[]) => void) => {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationsHistoryPast, setAnnotationsHistoryPast] = useState<Annotation[][]>([]);
   const [annotationsHistoryFuture, setAnnotationsHistoryFuture] = useState<Annotation[][]>([]);
@@ -43,10 +43,11 @@ export const useAnnotationsState = () => {
       const current = latestAnnotationsRef.current;
       if (JSON.stringify(start) !== JSON.stringify(current)) {
         pushToAnnotationsHistory(start);
+        onCommit?.(start, current);
       }
       annotationsStartRef.current = null;
     }
-  }, [pushToAnnotationsHistory]);
+  }, [pushToAnnotationsHistory, onCommit]);
 
   const updateAnnotations = useCallback((
     value: Annotation[] | ((prev: Annotation[]) => Annotation[])
@@ -68,6 +69,7 @@ export const useAnnotationsState = () => {
           const current = latestAnnotationsRef.current;
           if (JSON.stringify(start) !== JSON.stringify(current)) {
             pushToAnnotationsHistory(start);
+            onCommit?.(start, current);
           }
           annotationsStartRef.current = null;
         }
@@ -75,7 +77,7 @@ export const useAnnotationsState = () => {
     }
 
     setAnnotations(next);
-  }, [pushToAnnotationsHistory]);
+  }, [pushToAnnotationsHistory, onCommit]);
 
   const undoAnnotations = useCallback(() => {
     if (annotationsHistoryPast.length === 0) return;
@@ -175,8 +177,12 @@ export const useAnnotationsState = () => {
         setStyle(selected.fontStyle || 'normal');
         setDecoration(selected.textDecoration || 'none');
         setTextAlign(selected.textAlign || 'center');
-        lineHeight !== undefined && setLineHeight(selected.lineHeight || 1.2);
-        letterSpacing !== undefined && setLetterSpacing(selected.letterSpacing || 0);
+        if (lineHeight !== undefined) {
+          setLineHeight(selected.lineHeight || 1.2);
+        }
+        if (letterSpacing !== undefined) {
+          setLetterSpacing(selected.letterSpacing || 0);
+        }
       }
     }
   }, [selectedAnnId, annotations]);

@@ -21,6 +21,7 @@ import {
   smoothPath,
   doodleLinePoints,
   partialEraseAnnotation,
+  generateSprayDots,
 } from './utils';
 
 // ─── Resize (pure) ────────────────────────────────────────────────────────────
@@ -43,7 +44,7 @@ function applyResize(ann: Annotation, handleId: HandleId, x: number, y: number):
     }
     return { ...ann, bounds: nb };
   }
-  if (ann.points?.length) {
+  if (ann.points?.length || ann.sprayDots?.length) {
     const bbox = getAnnotationBBox(ann);
     if (bbox.w === 0 && bbox.h === 0) return ann;
     let nb = { ...bbox };
@@ -58,7 +59,11 @@ function applyResize(ann: Annotation, handleId: HandleId, x: number, y: number):
       case 'bm': nb={x:bbox.x,y:bbox.y,w:bbox.w,h:Math.max(10,y-bbox.y)}; break;
     }
     const sx = bbox.w > 0 ? nb.w/bbox.w : 1, sy = bbox.h > 0 ? nb.h/bbox.h : 1;
-    return { ...ann, points: ann.points.map(p => ({ x: nb.x+(p.x-bbox.x)*sx, y: nb.y+(p.y-bbox.y)*sy })) };
+    return {
+      ...ann,
+      points: ann.points?.map(p => ({ x: nb.x+(p.x-bbox.x)*sx, y: nb.y+(p.y-bbox.y)*sy })),
+      sprayDots: ann.sprayDots?.map(d => ({ x: nb.x+(d.x-bbox.x)*sx, y: nb.y+(d.y-bbox.y)*sy, r: Math.max(0.4, d.r * Math.sqrt(Math.abs(sx * sy))) })),
+    };
   }
   return ann;
 }
@@ -90,6 +95,17 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   const isDrawing  = useRef(false);
   const startPos   = useRef({ x: 0, y: 0 });
   const svgRef     = useRef<SVGSVGElement>(null);
+  const sprayIntervalRef = useRef<any>(null);
+  const sprayLastPosRef  = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    return () => {
+      if (sprayIntervalRef.current) {
+        clearInterval(sprayIntervalRef.current);
+        sprayIntervalRef.current = null;
+      }
+    };
+  }, []);
 
   // Always-fresh props ref
   const propsRef = useRef(props);
@@ -500,8 +516,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     let next: Annotation;
     if (startAnn.bounds) {
       next = { ...startAnn, bounds: { ...startAnn.bounds, x: startAnn.bounds.x + dx, y: startAnn.bounds.y + dy } };
-    } else if (startAnn.points) {
-      next = { ...startAnn, points: startAnn.points.map(p => ({ x: p.x + dx, y: p.y + dy })) };
+    } else if (startAnn.points || startAnn.sprayDots) {
+      next = {
+        ...startAnn,
+        points: startAnn.points?.map(p => ({ x: p.x + dx, y: p.y + dy })),
+        sprayDots: startAnn.sprayDots?.map(d => ({ ...d, x: d.x + dx, y: d.y + dy })),
+      };
     } else return;
     emit(anns.map(a => a.id === annId ? next : a));
   }
@@ -771,30 +791,83 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
 
     if (activeDrawTool === 'emoji') return;
 
+    if (sprayIntervalRef.current) {
+      clearInterval(sprayIntervalRef.current);
+      sprayIntervalRef.current = null;
+    }
+
     isDrawing.current = true;
     startPos.current  = { x, y };
+
+    const penSet = propsRef.current.penSettings;
+    const activeBrush = penSet?.brushType ?? 'brush';
+    const isSpray = activeDrawTool === 'freehand' && activeBrush === 'spray';
+    const sprayRadius = penSet?.sprayRadius ?? Math.max(15, strokeWidth * 2.5);
+    const sprayDensity = penSet?.sprayDensity ?? 12;
+
+    const initialSprayDots = isSpray ? generateSprayDots(x, y, sprayRadius, sprayDensity) : undefined;
+    if (isSpray) {
+      sprayLastPosRef.current = { x, y };
+    }
 
     const isPointShape = ['freehand','arrow','doubleArrow','line','highlighter','textPath'].includes(activeDrawTool);
     const newAnn: Annotation = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: activeDrawTool,
       color: activeColor,
-      opacity: activeDrawTool === 'highlighter' ? 0.4 : activeOpacity,
+      opacity: activeDrawTool === 'highlighter' ? 0.4 : (isSpray ? (activeOpacity ?? 0.85) : activeOpacity),
       strokeWidth: activeDrawTool === 'highlighter' ? strokeWidth * 2.5 : strokeWidth,
       ...(isPointShape ? { points: [{ x, y }] } : { bounds: { x, y, w: 0, h: 0 } }),
       ...(activeDrawTool === 'textPath' ? { doodleText: doodleText||'peace in the air', fontSize: doodleFontSize||18, fontFamily: doodleFontFamily||'Space Grotesk', showGuidePath: showDoodleGuide !== false } : {}),
       ...(activeDrawTool === 'freehand' ? {
-        penStyle: propsRef.current.penSettings?.style ?? 'solid',
-        lineTaper: propsRef.current.penSettings?.taper ?? 'none',
-        lineTexture: propsRef.current.penSettings?.texture ?? 'none',
-        doodleLineStyle: propsRef.current.penSettings?.doodleStyle,
-        arrowEnd: propsRef.current.penSettings?.arrowEnd ?? false,
-        closePath: propsRef.current.penSettings?.closeFill ?? false,
-        fillOpacity: propsRef.current.penSettings?.fillOpacity ?? 0.5,
+        penStyle: penSet?.style ?? 'solid',
+        lineTaper: penSet?.taper ?? 'none',
+        lineTexture: penSet?.texture ?? 'none',
+        doodleLineStyle: penSet?.doodleStyle,
+        arrowEnd: penSet?.arrowEnd ?? false,
+        closePath: penSet?.closeFill ?? false,
+        fillOpacity: penSet?.fillOpacity ?? 0.5,
+        brushType: activeBrush,
+        sprayDots: initialSprayDots,
+        sprayRadius,
+        sprayDensity,
+        chalkPressure: penSet?.chalkPressure ?? 60,
+        chalkGrain: penSet?.chalkGrain ?? 50,
+        chalkRoughness: penSet?.chalkRoughness ?? 50,
+        crayonDensity: penSet?.crayonDensity ?? 50,
+        crayonGrain: penSet?.crayonGrain ?? 50,
+        crayonRoughness: penSet?.crayonRoughness ?? 50,
+        drybrushDensity: penSet?.drybrushDensity ?? 50,
+        drybrushStreaks: penSet?.drybrushStreaks ?? 50,
+        drybrushRoughness: penSet?.drybrushRoughness ?? 50,
+        watercolorBleed: penSet?.watercolorBleed ?? 50,
+        watercolorSpread: penSet?.watercolorSpread ?? 50,
+        watercolorWetness: penSet?.watercolorWetness ?? 50,
+        nibAngle: penSet?.nibAngle ?? (activeBrush === 'calligraphy2' ? -45 : 45),
+        nibWeight: penSet?.nibWeight ?? 50,
+        dashLength: penSet?.dashLength ?? 5,
+        dashGap: penSet?.dashGap ?? 4,
+        taperIntensity: penSet?.taperIntensity ?? 50,
+        brushFeather: penSet?.brushFeather ?? 0,
       } : {}),
     };
     currentAnnRef.current = newAnn;
     setCurrentAnn(newAnn);
+
+    if (isSpray) {
+      sprayIntervalRef.current = setInterval(() => {
+        const cur = currentAnnRef.current;
+        if (!cur || !isDrawing.current || cur.brushType !== 'spray') return;
+        const curPos = sprayLastPosRef.current;
+        const moreDots = generateSprayDots(curPos.x, curPos.y, cur.sprayRadius || sprayRadius, Math.max(4, Math.round(sprayDensity * 0.7)));
+        const updated: Annotation = {
+          ...cur,
+          sprayDots: [...(cur.sprayDots || []), ...moreDots],
+        };
+        currentAnnRef.current = updated;
+        setCurrentAnn(updated);
+      }, 40);
+    }
   };
 
   // ─── Drawing stroke handlers (SVG synthetic — fine for drawing) ───────────
@@ -847,7 +920,19 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       const cur = currentAnnRef.current;
       if (!cur) return;
       let next: Annotation | null = null;
-      if ((cur.type==='freehand'||cur.type==='highlighter'||cur.type==='textPath') && cur.points) {
+      if (cur.brushType === 'spray' && cur.sprayDots) {
+        sprayLastPosRef.current = { x, y };
+        const lastPt = cur.points && cur.points.length > 0 ? cur.points[cur.points.length - 1] : { x: 0, y: 0 };
+        const dist = Math.hypot(x - lastPt.x, y - lastPt.y);
+        if (dist >= 3) {
+          const newDots = generateSprayDots(x, y, cur.sprayRadius || 25, cur.sprayDensity || 12);
+          next = {
+            ...cur,
+            points: [...(cur.points || []), { x, y }],
+            sprayDots: [...cur.sprayDots, ...newDots],
+          };
+        }
+      } else if ((cur.type==='freehand'||cur.type==='highlighter'||cur.type==='textPath') && cur.points) {
         next = { ...cur, points: [...cur.points, { x, y }] };
       } else if ((cur.type==='arrow'||cur.type==='doubleArrow'||cur.type==='line') && cur.points) {
         next = { ...cur, points: [cur.points[0], { x, y }] };
@@ -859,6 +944,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
   };
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (sprayIntervalRef.current) {
+      clearInterval(sprayIntervalRef.current);
+      sprayIntervalRef.current = null;
+    }
+
     if (!isDrawing.current) return;
     e.currentTarget.releasePointerCapture(e.pointerId);
 
@@ -876,7 +966,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const finalAnn = currentAnnRef.current ?? currentAnn;
     if (finalAnn) {
       let valid = true;
-      if (['freehand','highlighter','arrow','doubleArrow','line','textPath'].includes(finalAnn.type) && finalAnn.points && finalAnn.points.length < 2) valid = false;
+      if (finalAnn.brushType === 'spray' && finalAnn.sprayDots && finalAnn.sprayDots.length > 0) {
+        valid = true;
+      } else if (['freehand','highlighter','arrow','doubleArrow','line','textPath'].includes(finalAnn.type) && finalAnn.points && finalAnn.points.length < 2) {
+        valid = false;
+      }
       if (finalAnn.bounds && Math.abs(finalAnn.bounds.w) < 3 && Math.abs(finalAnn.bounds.h) < 3) valid = false;
       if (valid) onChange([...annotations, finalAnn]);
     }
