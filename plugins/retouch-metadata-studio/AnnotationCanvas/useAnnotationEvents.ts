@@ -220,6 +220,12 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       for (const child of Array.from(html.children)) {
         (child as HTMLElement).style.scale = '';
       }
+      const label = html.querySelector('[data-rot-label]') as HTMLElement | null;
+      if (label) {
+        const startRot = rotateStartRef.current?.startRotation ?? 0;
+        label.style.display = startRot !== 0 ? 'inline' : 'none';
+        label.textContent = `${startRot}°`;
+      }
     }
     dragSvgNodesRef.current = [];
     dragHtmlNodeRef.current = null;
@@ -258,6 +264,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
       }
     }
     if (!html) return;
+    const label = html.querySelector('[data-rot-label]') as HTMLElement | null;
+    if (label) {
+      label.style.display = rot !== 0 ? 'inline' : 'none';
+      label.textContent = `${rot}°`;
+    }
     if (dragBarOnlyRef.current) {
       // ponytail: bare bar has no box to rotate — track its anchor orbiting the bbox center
       const rect = dragRectRef.current;
@@ -277,6 +288,11 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     const rot = totalRotation(clientX, clientY);
     const rotating = rotatingAnnIdRef.current;
     if (rot === null || !rotating) return;
+    const html = dragHtmlNodeRef.current;
+    if (html && !dragBarOnlyRef.current) {
+      html.style.transform = `rotate(${rot}deg)`;
+      html.style.rotate = '';
+    }
     clearTransientMove();
     const anns = propsRef.current.annotations;
     const emit = propsRef.current.onChange;
@@ -926,7 +942,9 @@ export const useAnnotationEvents = (props: AnnotationCanvasProps) => {
     selectedAnnIdRef.current = annId; propsRef.current.setSelectedAnnId?.(annId);
     rotatingAnnIdRef.current   = annId; setRotatingAnnId(annId);
     dragAnnIdRef.current       = annId;
+    dragStartAnnRef.current    = ann ?? null;
     isDrawing.current          = true;
+    beginTransientDrag(annId);
     try {
       (e.currentTarget as HTMLElement)?.setPointerCapture?.(e.pointerId);
     } catch {}

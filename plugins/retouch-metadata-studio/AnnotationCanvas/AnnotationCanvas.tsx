@@ -76,6 +76,7 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
 
   useEffect(() => {
     if (!containerRef.current) return;
+    if (typeof ResizeObserver === 'undefined') return;
     const obs = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -149,8 +150,9 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
       case 'textPath': inner = <TextPathRenderer ann={ann} aspectRatio={aspectRatio} />; break;
       default: inner = <VectorShapeRenderer ann={ann} aspectRatio={aspectRatio} />;
     }
-    // ponytail: stable hook for transient drag — move writes transform to this node directly, zero setState/frame
-    return <g key={ann.id} data-ann-id={ann.id}>{inner}</g>;
+    const transform = getAnnRotationTransform(ann, aspectRatio);
+    // ponytail: stable hook for transient drag — move/rotate writes transform to this node directly, zero setState/frame
+    return <g key={ann.id} data-ann-id={ann.id} transform={transform}>{inner}</g>;
   };
 
   const handleDoubleClickWithEdit = React.useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -228,11 +230,20 @@ export const AnnotationCanvas: React.FC<AnnotationCanvasProps> = (props) => {
               <polyline points="21 15 19 12 21 9"/>
             </svg>
           </div>
-          {rotVal !== 0 && (
-            <span style={{ fontSize: Math.round(10 * scale), fontFamily: 'monospace', color: '#a1a1aa', paddingLeft: Math.round(4 * scale), paddingRight: Math.round(4 * scale), fontWeight: 600 }}>
-              {rotVal}°
-            </span>
-          )}
+          <span
+            data-rot-label={ann.id}
+            style={{
+              display: rotVal !== 0 ? 'inline' : 'none',
+              fontSize: Math.round(10 * scale),
+              fontFamily: 'monospace',
+              color: '#a1a1aa',
+              paddingLeft: Math.round(4 * scale),
+              paddingRight: Math.round(4 * scale),
+              fontWeight: 600,
+            }}
+          >
+            {rotVal}°
+          </span>
         </div>
     );
   };

@@ -3,7 +3,6 @@ import { Annotation, DoodleLineStyle, LineTexture, LineTaper } from '../Annotati
 import {
   smoothPath,
   doodleLinePoints,
-  getAnnRotationTransform,
   generateSmoothSpline,
   constructVariableWidthRibbon,
 } from './utils';
@@ -107,9 +106,8 @@ const arePropsEqual = (prev: RendererProps, next: RendererProps) => {
   );
 };
 
-export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const ArrowRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
-  const transform = getAnnRotationTransform(ann, aspectRatio);
   const filter = getTextureFilter(ann.lineTexture);
   const stroke = ann.color;
   const strokeWidth = ann.strokeWidth * 1.5;
@@ -147,7 +145,7 @@ export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps
   }
 
   return (
-    <g transform={transform} opacity={ann.opacity ?? 1}>
+    <g opacity={ann.opacity ?? 1}>
       {shaft}
       <polygon
         points={`${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${xLeft.toFixed(1)},${yLeft.toFixed(1)} ${xRight.toFixed(1)},${yRight.toFixed(1)}`}
@@ -158,7 +156,7 @@ export const ArrowRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps
   );
 }, arePropsEqual);
 
-export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const FreehandRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
   const filter = getTextureFilter(ann.lineTexture);
@@ -184,8 +182,6 @@ export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
     const yRight = end.y - headLength * Math.sin(angle + Math.PI / 6);
     return `${end.x.toFixed(1)},${end.y.toFixed(1)} ${xLeft.toFixed(1)},${yLeft.toFixed(1)} ${xRight.toFixed(1)},${yRight.toFixed(1)}`;
   })();
-
-  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   let mainStroke: React.ReactNode;
   if (ann.lineTaper && ann.lineTaper !== 'none' && smoothed.length >= 2) {
@@ -220,24 +216,22 @@ export const FreehandRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
   }
 
   return (
-    <g transform={transform} opacity={ann.opacity ?? 1}>
+    <g opacity={ann.opacity ?? 1}>
       {mainStroke}
       {arrowHead && <polygon points={arrowHead} fill={ann.color} filter={filter} />}
     </g>
   );
 }, arePropsEqual);
 
-export const HighlighterRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const HighlighterRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length === 0) return null;
   const smoothed = smoothPath(ann.points);
   const pathData = smoothed
     .map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
     .join(' ');
 
-  const transform = getAnnRotationTransform(ann, aspectRatio);
-
   return (
-    <g transform={transform}>
+    <g>
       <path
         d={pathData}
         fill="none"
@@ -252,7 +246,7 @@ export const HighlighterRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   );
 }, arePropsEqual);
 
-export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const VectorShapeRenderer = React.memo(({ ann }: RendererProps) => {
   const fill = ann.fillShape ? (ann.fillColor ?? ann.color) : 'none';
   const fillOpacity = ann.fillShape ? (ann.fillOpacity ?? 0.5) : undefined;
   const stroke = ann.color;
@@ -260,7 +254,6 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   const opacity = ann.opacity ?? 1;
 
   if (ann.type === 'line' && ann.points && ann.points.length >= 2) {
-    const transform = getAnnRotationTransform(ann, aspectRatio);
     const filter = getTextureFilter(ann.lineTexture);
 
     if (ann.points.length > 2 || (ann.lineTaper && ann.lineTaper !== 'none') || ann.doodleLineStyle) {
@@ -276,7 +269,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
       if (ann.lineTaper && ann.lineTaper !== 'none') {
         const ribbonD = constructVariableWidthRibbon(spine, strokeWidth, ann.lineTaper, ann.doodleLineStyle);
         return (
-          <g transform={transform} opacity={opacity}>
+          <g opacity={opacity}>
             <path d={ribbonD} fill={stroke} filter={filter} />
           </g>
         );
@@ -284,7 +277,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
 
       const d = spine.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
       return (
-        <g transform={transform} opacity={opacity}>
+        <g opacity={opacity}>
           <path d={d} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" filter={filter} />
         </g>
       );
@@ -293,7 +286,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     const start = ann.points[0];
     const end = ann.points[1];
     return (
-      <g transform={transform} opacity={opacity}>
+      <g opacity={opacity}>
         <line
           x1={start.x}
           y1={start.y}
@@ -309,7 +302,6 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   }
 
   if (ann.type === 'arrow' && ann.points && ann.points.length >= 2) {
-    const transform = getAnnRotationTransform(ann, aspectRatio);
     const filter = getTextureFilter(ann.lineTexture);
     const headLength = Math.max(20, ann.strokeWidth * 4);
 
@@ -345,7 +337,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     }
 
     return (
-      <g transform={transform} opacity={opacity}>
+      <g opacity={opacity}>
         {shaft}
         <polygon
           points={`${tip.x.toFixed(1)},${tip.y.toFixed(1)} ${xLeft.toFixed(1)},${yLeft.toFixed(1)} ${xRight.toFixed(1)},${yRight.toFixed(1)}`}
@@ -357,7 +349,6 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   }
 
   if (ann.type === 'doubleArrow' && ann.points && ann.points.length >= 2) {
-    const transform = getAnnRotationTransform(ann, aspectRatio);
     const filter = getTextureFilter(ann.lineTexture);
     const headLength = Math.max(20, ann.strokeWidth * 4);
 
@@ -404,7 +395,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
     }
 
     return (
-      <g transform={transform} opacity={opacity}>
+      <g opacity={opacity}>
         {shaftDA}
         <polygon
           points={`${tip1.x.toFixed(1)},${tip1.y.toFixed(1)} ${xLeft1.toFixed(1)},${yLeft1.toFixed(1)} ${xRight1.toFixed(1)},${yRight1.toFixed(1)}`}
@@ -422,7 +413,6 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
 
   if (!ann.bounds) return null;
   const { x, y, w, h } = normalizeBounds(ann.bounds);
-  const transform = getAnnRotationTransform(ann, aspectRatio);
 
   const isGradient = ann.gradientFill && ann.gradientFill !== 'none';
   const shapeFill = isGradient
@@ -541,7 +531,7 @@ export const VectorShapeRenderer = React.memo(({ ann, aspectRatio = 1 }: Rendere
   ) : null;
 
   return (
-    <g transform={transform}>
+    <g>
       {shapeElement}
       {badge}
     </g>
@@ -561,7 +551,7 @@ const calculatePathLength = (points: { x: number; y: number }[]) => {
   return length;
 };
 
-export const TextPathRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const TextPathRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.points || ann.points.length < 2) return null;
   const pathId = `path-${ann.id}`;
   const smoothed = smoothPath(ann.points);
@@ -580,10 +570,8 @@ export const TextPathRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
   const repeats = Math.max(2, Math.ceil(pathLen / wordLen) + 3);
   const repeatedText = Array(repeats).fill(text).join('   ');
 
-  const transform = getAnnRotationTransform(ann, aspectRatio);
-
   return (
-    <g transform={transform} opacity={ann.opacity ?? 1}>
+    <g opacity={ann.opacity ?? 1}>
       <defs>
         <path id={pathId} d={d} />
       </defs>
@@ -609,7 +597,7 @@ export const TextPathRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererPr
   );
 }, arePropsEqual);
 
-export const TextRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps) => {
+export const TextRenderer = React.memo(({ ann }: RendererProps) => {
   if (!ann.bounds) return null;
   const b = ann.bounds;
   const x = b.x;
@@ -625,15 +613,12 @@ export const TextRenderer = React.memo(({ ann, aspectRatio = 1 }: RendererProps)
   const textX = alignment === 'center' ? x + b.w / 2 : alignment === 'right' ? x + b.w : x;
   const textY = y + fontSize * 0.8;
 
-  const transform = getAnnRotationTransform(ann, aspectRatio);
-
   const baseBgColor = ann.bgColor || '';
   const bgOpacity = ann.bgOpacity !== undefined ? ann.bgOpacity : 1;
   const finalBgColor = baseBgColor ? `rgba(0,0,0,${bgOpacity})` : 'transparent';
 
   return (
     <g
-      transform={transform}
       opacity={ann.opacity !== undefined ? ann.opacity : 1}
     >
       {/* Background card if specified */}

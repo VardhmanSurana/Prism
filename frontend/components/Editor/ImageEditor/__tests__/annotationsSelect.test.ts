@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import React from 'react';
+import { describe, it, expect, vi } from 'vitest';
+import { renderHook, act, render, fireEvent } from '@testing-library/react';
 import {
   getAnnotationBBox,
   getAnnotationDistance,
@@ -15,6 +16,7 @@ import {
   partialEraseAnnotation,
 } from '@plugins/retouch-metadata-studio/AnnotationCanvas/utils';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
+import { AnnotationCanvas } from '@plugins/retouch-metadata-studio/AnnotationCanvas/AnnotationCanvas';
 import { useAnnotationsState } from '../EditingMode/useAnnotationsState';
 
 describe('Annotation Select Tool & Utils', () => {
@@ -532,6 +534,174 @@ describe('Annotation Select Tool & Utils', () => {
       }
       expect(currentIds).toEqual([]);
     });
+  it('useAnnotationsState fires onCommit once per gesture with prev/next snapshots', () => {
+      vi.useFakeTimers();
+      try {
+        const onCommit = vi.fn();
+        const { result } = renderHook(() => useAnnotationsState(onCommit));
+        const stroke: Annotation = { id: 's-1', type: 'freehand', color: '#ff0000', strokeWidth: 3, points: [{ x: 1, y: 1 }] };
+
+        // Non-gesture commit path (debounced 600ms)
+        act(() => { result.current.updateAnnotations([stroke]); });
+        expect(onCommit).not.toHaveBeenCalled();
+        act(() => { vi.advanceTimersByTime(600); });
+        expect(onCommit).toHaveBeenCalledTimes(1);
+        expect(onCommit.mock.calls[0][0]).toEqual([]);
+        expect(onCommit.mock.calls[0][1]).toEqual([stroke]);
+
+        // Gesture commit path (pointerup)
+        act(() => { result.current.onStartGesture(); });
+        act(() => { result.current.updateAnnotations([]); });
+        act(() => { result.current.onEndGesture(); });
+        expect(onCommit).toHaveBeenCalledTimes(2);
+        expect(onCommit.mock.calls[1][1]).toEqual([]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('renders rotation transform on outer SVG annotation group without inner duplicate', () => {
+      const ann: Annotation = {
+        id: 'rect-rot-test',
+        type: 'rect',
+        color: '#ff0000',
+        strokeWidth: 4,
+        bounds: { x: 100, y: 100, w: 200, h: 200 },
+        rotation: 45,
+      };
+
+      const { container } = render(
+        React.createElement(AnnotationCanvas, {
+          annotations: [ann],
+          onChange: () => {},
+          activeDrawTool: 'select',
+          activeColor: '#ff0000',
+          strokeWidth: 4,
+          selectedAnnId: 'rect-rot-test',
+          selectedAnnIds: ['rect-rot-test'],
+        })
+      );
+
+      const group = container.querySelector('g[data-ann-id="rect-rot-test"]');
+      expect(group).toBeTruthy();
+      expect(group?.getAttribute('transform')).toContain('matrix(');
+
+      // Verify no inner child group has a duplicate transform attribute
+      const innerGroup = group?.querySelector('g');
+      expect(innerGroup?.getAttribute('transform')).toBeNull();
+    });
+
+    it('updates SVG transform and HTML overlay live during rotation drag before pointerup', () => {
+      const ann: Annotation = {
+        id: 'rect-rot-drag',
+        type: 'rect',
+        color: '#ff0000',
+        strokeWidth: 4,
+        bounds: { x: 100, y: 100, w: 200, h: 200 },
+        rotation: 0,
+      };
+
+      const onChange = vi.fn();
+      const onStartGesture = vi.fn();
+      const onEndGesture = vi.fn();
+
+      const { container } = render(
+        React.createElement(AnnotationCanvas, {
+          annotations: [ann],
+          onChange,
+          onStartGesture,
+          onEndGesture,
+          activeDrawTool: 'select',
+          activeColor: '#ff0000',
+          strokeWidth: 4,
+          selectedAnnId: 'rect-rot-drag',
+          selectedAnnIds: ['rect-rot-drag'],
+        })
+      );
+
+      const svg = container.querySelector('svg')!;
+      svg.getBoundingClientRect = () => ({
+        left: 0,
+        top: 0,
+        width: 1000,
+        height: 1000,
+        right: 1000,
+        bottom: 1000,
+        x: 0,
+        y: 0,
+        toJSON: () => {},
+      });
+
+      const annLayer = container.querySelector('#ann-layer-rect-rot-drag') as HTMLElement;
+      expect(annLayer).toBeTruthy();
+      annLayer.getBoundingClientRect = () => ({
+        left: 100,
+        top: 100,
+        width: 200,
+        height: 200,
+        right: 300,
+        bottom: 300,
+        x: 100,
+        y: 100,
+        toJSON: () => {},
+      });
+
+      const rotateBtn = container.querySelector('div[title="Drag to Rotate"]') as HTMLElement;
+      expect(rotateBtn).toBeTruthy();
+
+      const svgGroup = container.querySelector('g[data-ann-id="rect-rot-drag"]') as SVGGElement;
+      expect(svgGroup.getAttribute('transform')).toBeNull(); // rotation is 0 initially
+
+      // 1. Mouse down on Rotate button (Center is at 200, 200. Start point at 200, 350 -> angle = 90 deg = Math.PI/2)
+      act(() => {
+        fireEvent.pointerDown(rotateBtn, { clientX: 200, clientY: 350, pointerId: 1 });
+      });
+      expect(onStartGesture).toHaveBeenCalled();
+
+      // 2. Mouse move to rotate by ~90 degrees (Move to 350, 200 -> angle = 0 deg => delta = -90 deg => rot = 270 deg)
+      // Mock requestAnimationFrame to execute synchronously
+      const origRAF = window.requestAnimationFrame;
+      window.requestAnimationFrame = (cb: FrameRequestCallback) => {
+        cb(performance.now());
+        return 1;
+      };
+
+      try {
+        act(() => {
+          window.dispatchEvent(new PointerEvent('pointermove', { clientX: 350, clientY: 200, bubbles: true }));
+        });
+
+        // CRITICAL CHECK: SVG transform MUST be updated LIVE *before* pointerup!
+        const liveTransform = svgGroup.getAttribute('transform');
+        expect(liveTransform).toBeTruthy();
+        expect(liveTransform).toContain('matrix(');
+
+        // HTML overlay style.rotate must be updated live
+        expect(annLayer.style.rotate).toBeTruthy();
+
+        // Degree label in action bar must reflect the live angle
+        const degLabel = container.querySelector('[data-rot-label="rect-rot-drag"]') as HTMLElement;
+        expect(degLabel).toBeTruthy();
+        expect(degLabel.textContent).toMatch(/\d+°/);
+
+        // onChange has NOT been called yet (zero setState before release)
+        expect(onChange).not.toHaveBeenCalled();
+
+        // 3. Mouse up (pointerup) commits the new rotation
+        act(() => {
+          window.dispatchEvent(new PointerEvent('pointerup', { clientX: 350, clientY: 200, bubbles: true }));
+        });
+
+        expect(onChange).toHaveBeenCalledTimes(1);
+        const committedAnns = onChange.mock.calls[0][0];
+        expect(committedAnns[0].rotation).toBeDefined();
+        expect(committedAnns[0].rotation).not.toBe(0);
+        expect(onEndGesture).toHaveBeenCalled();
+      } finally {
+        window.requestAnimationFrame = origRAF;
+      }
+    });
   });
 });
+
 
