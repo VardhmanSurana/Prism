@@ -8,7 +8,7 @@ export default {
     "./hooks/**/*.{js,ts,jsx,tsx}",
     "./store/**/*.{js,ts,jsx,tsx}",
     "./lib/**/*.{js,ts,jsx,tsx}",
-    "../plugins/**/*.{js,ts,jsx,tsx}",
+    "../plugins/!(node_modules)/**/*.{js,ts,jsx,tsx}",
   ],
   darkMode: "class",
   theme: {
