@@ -16,7 +16,6 @@ import { applyColorWheelsToImageData } from './colorWheelsEngine';
 import { applySpecializedCurvesToImageData } from './hslEngine';
 import { applyPortraitToImageData, loadMaskBuffer } from './portraitEngine';
 import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
-import { drawDepthTextToCanvas } from './depthTextEngine';
 import {
   applyBlur,
   applyUnsharpMask,
@@ -301,18 +300,6 @@ export const exportEditedCanvas = async ({
       applyBackgroundReplacementToCanvas(preparedCanvas, adjustments.background, maskImg, customBackdropImg);
     } catch (err) {
       console.warn('Failed to apply background replacement during export:', err);
-    }
-  }
-
-  // Depth Typography (Text Behind Subject) Stage
-  if (adjustments.depthText?.enabled) {
-    report('Applying depth typography', 14.8, TOTAL_STEPS);
-    try {
-      const maskSrc = adjustments.depthText.maskData || adjustments.depthText.maskUrl || adjustments.background?.maskUrl;
-      const maskImg = maskSrc ? await loadImageAsync(maskSrc) : null;
-      drawDepthTextToCanvas(preparedCanvas, adjustments.depthText, maskImg);
-    } catch (err) {
-      console.warn('Failed to apply depth typography during export:', err);
     }
   }
 
