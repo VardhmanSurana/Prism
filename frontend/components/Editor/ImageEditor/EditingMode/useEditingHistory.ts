@@ -34,7 +34,59 @@ function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boole
 /**
  * Maps standard adjustment keys to their corresponding editor tool tabs.
  */
-function inferToolId(key: string): string {
+export function inferToolId(key: string): string {
+  // Detail
+  if (
+    key === 'clarity' ||
+    key === 'sharpness' ||
+    key === 'noiseReduction' ||
+    key === 'tiltShift'
+  ) {
+    return 'detail';
+  }
+
+  // HSL & White Balance
+  if (
+    key === 'hsl' ||
+    key === 'splitToning' ||
+    key === 'colorWheels' ||
+    key === 'temperature' ||
+    key === 'tint' ||
+    key === 'vibrance' ||
+    key === 'saturation' ||
+    key === 'hue'
+  ) {
+    return 'hsl';
+  }
+
+  // Geometry / Transform
+  if (
+    key === 'perspective' ||
+    key === 'verticalPerspective' ||
+    key === 'distortion'
+  ) {
+    return 'transform';
+  }
+
+  // Texture & Effects
+  if (
+    key === 'vignette' ||
+    key === 'grain' ||
+    key === 'lightLeak' ||
+    key === 'blend'
+  ) {
+    return 'texture';
+  }
+
+  // Other explicit panels
+  if (key === 'frame') return 'frame';
+  if (key === 'layers') return 'layers';
+  if (key === 'portrait') return 'portrait';
+  if (key === 'background') return 'background';
+  if (key === 'lut') return 'lut';
+  if (key === 'raw') return 'raw';
+
+  // Light & Tone Adjustments
   if (
     key === 'exposure' ||
     key === 'contrast' ||
@@ -43,25 +95,14 @@ function inferToolId(key: string): string {
     key === 'shadows' ||
     key === 'whites' ||
     key === 'blacks' ||
-    key === 'vibrance' ||
-    key === 'saturation' ||
-    key === 'temperature' ||
-    key === 'tint' ||
-    key === 'clarity' ||
-    key === 'sharpness' ||
-    key === 'noiseReduction' ||
     key === 'ambiance' ||
-    key === 'vignette'
+    key === 'dehaze' ||
+    key === 'curves' ||
+    key === 'specializedCurves'
   ) {
     return 'adjust';
   }
-  if (key === 'hsl') return 'hsl';
-  if (key === 'curves') return 'adjust'; // or curves tab if present
-  if (key === 'splitToning') return 'hsl';
-  if (key === 'grain' || key === 'lightLeak') return 'texture';
-  if (key === 'frame') return 'frame';
-  if (key === 'layers' || key === 'blend') return 'layers';
-  if (key === 'tiltShift') return 'detail';
+
   return 'adjust';
 }
 
@@ -162,9 +203,13 @@ export const useEditingHistory = ({
       );
 
       const isCollapsible =
+        !options?.isSnapshot &&
         type !== 'initial' &&
         type !== 'crop' &&
         type !== 'inpaint' &&
+        type !== 'depth' &&
+        type !== 'enhance' &&
+        type !== 'colormatch' &&
         type !== 'rotate' &&
         type !== 'flip' &&
         type !== 'annotations';
@@ -310,14 +355,20 @@ export const useEditingHistory = ({
     (Object.keys(curr) as Array<keyof Adjustments>).forEach(key => {
       if (
         key === 'curves' ||
+        key === 'specializedCurves' ||
         key === 'hsl' ||
+        key === 'colorWheels' ||
         key === 'splitToning' ||
+        key === 'portrait' ||
         key === 'grain' ||
         key === 'lightLeak' ||
         key === 'frame' ||
         key === 'blend' ||
         key === 'tiltShift' ||
-        key === 'layers'
+        key === 'layers' ||
+        key === 'lut' ||
+        key === 'background' ||
+        key === 'raw'
       ) {
         if (JSON.stringify(prev[key]) !== JSON.stringify(curr[key])) {
           pendingChangesRef.current.set(key, curr[key]);
@@ -348,6 +399,11 @@ export const useEditingHistory = ({
               propertyKey: key,
               toolId: 'adjust',
             });
+          } else if (key === 'specializedCurves') {
+            addHistoryEntry(key, 'Adjusted Color vs Color', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'adjust',
+            });
           } else if (key === 'hsl') {
             addHistoryEntry('hsl', 'Adjusted Color Mixer', value, undefined, undefined, {
               propertyKey: key,
@@ -357,6 +413,31 @@ export const useEditingHistory = ({
             addHistoryEntry('splitToning', 'Adjusted Split Toning', value, undefined, undefined, {
               propertyKey: key,
               toolId: 'hsl',
+            });
+          } else if (key === 'colorWheels') {
+            addHistoryEntry(key, 'Adjusted Color Wheels', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'hsl',
+            });
+          } else if (key === 'portrait') {
+            addHistoryEntry(key, 'Adjusted Portrait', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'portrait',
+            });
+          } else if (key === 'lut') {
+            addHistoryEntry(key, 'Applied LUT', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'lut',
+            });
+          } else if (key === 'background') {
+            addHistoryEntry(key, 'Adjusted Background', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'background',
+            });
+          } else if (key === 'raw') {
+            addHistoryEntry(key, 'Adjusted RAW Settings', value, undefined, undefined, {
+              propertyKey: key,
+              toolId: 'raw',
             });
           } else if (key === 'grain') {
             addHistoryEntry('grain', `Film Grain: ${curr.grain.amount}%`, value, undefined, undefined, {
@@ -376,7 +457,7 @@ export const useEditingHistory = ({
           } else if (key === 'blend') {
             addHistoryEntry('blend', 'Adjusted Blend', value, undefined, undefined, {
               propertyKey: key,
-              toolId: 'layers',
+              toolId: 'texture',
             });
           } else if (key === 'tiltShift') {
             addHistoryEntry('tiltShift', 'Adjusted Tilt-Shift', value, undefined, undefined, {

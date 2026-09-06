@@ -101,7 +101,10 @@ export function useTransformControls(p: UseTransformControlsParams) {
           p.setFlipH(false);
           p.setFlipV(false);
 
-          p.history.addHistoryEntry('crop' as HistoryActionType, 'Applied crop', undefined, newUrl);
+          p.history.addHistoryEntry('crop' as HistoryActionType, 'Applied crop', undefined, newUrl, undefined, {
+            toolId: 'transform',
+            isSnapshot: true,
+          });
         }, 'image/jpeg', 0.95);
       };
 

@@ -184,10 +184,15 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
 
       setCurrentImageSrc(blobUrl);
       addHistoryEntry(
-        'filter' as HistoryActionType,
+        'colormatch' as HistoryActionType,
         `Applied Shot Matcher (${strength}%)`,
         undefined,
         blobUrl,
+        undefined,
+        {
+          toolId: 'colormatch',
+          isSnapshot: true,
+        },
       );
       showToast('Color palette matched successfully');
     } catch (e) {

@@ -45,23 +45,29 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
   const [isSamSegmenting, setIsSamSegmenting] = useState(false);
   const samPointsRef = useRef<Array<{ x: number; y: number; positive: boolean }>>([]);
 
-  const reloadPhotoAfterServerWrite = useCallback(async (label: string): Promise<boolean> => {
-    try {
-      if (!p.photoId) return false;
-      const res = await fetch(`${API_BASE}/api/v1/photos/${p.photoId}/file?t=${Date.now()}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      p.history.createdUrlRef.current = blobUrl;
-      p.setCurrentImageSrc(blobUrl);
-      p.history.addHistoryEntry('inpaint' as HistoryActionType, label, undefined, blobUrl);
-      return true;
-    } catch (e) {
-      console.error('Failed to reload photo after server write:', e);
-      p.showToast('Applied, but could not refresh preview');
-      return false;
-    }
-  }, [p]);
+  const reloadPhotoAfterServerWrite = useCallback(
+    async (label: string, actionType: HistoryActionType = 'enhance', toolId: string = 'enhance'): Promise<boolean> => {
+      try {
+        if (!p.photoId) return false;
+        const res = await fetch(`${API_BASE}/api/v1/photos/${p.photoId}/file?t=${Date.now()}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        p.history.createdUrlRef.current = blobUrl;
+        p.setCurrentImageSrc(blobUrl);
+        p.history.addHistoryEntry(actionType, label, undefined, blobUrl, undefined, {
+          toolId,
+          isSnapshot: true,
+        });
+        return true;
+      } catch (e) {
+        console.error('Failed to reload photo after server write:', e);
+        p.showToast('Applied, but could not refresh preview');
+        return false;
+      }
+    },
+    [p]
+  );
 
   const handleDepthProcess = useCallback(async () => {
     if (isDepthProcessing || !p.photoId) return;
@@ -85,7 +91,7 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
         setDepthMapData(result.depth_map_data ?? null);
         p.showToast('Depth map computed');
       } else {
-        await reloadPhotoAfterServerWrite('Applied bokeh blur');
+        await reloadPhotoAfterServerWrite('Applied bokeh blur', 'depth', 'depth');
         p.showToast('Bokeh applied');
       }
     } catch (e) {
@@ -126,6 +132,8 @@ export function useAiEnhance(p: UseAiEnhanceParams) {
           : action === 'face-restore'
             ? `Restored ${result.faces_restored} face(s)`
             : `Denoised ${result.width}×${result.height}`,
+        'enhance',
+        'enhance',
       );
       p.showToast(action === 'upscale' ? 'Upscale complete' : action === 'face-restore' ? 'Faces restored' : 'Denoise complete');
     } catch (e) {

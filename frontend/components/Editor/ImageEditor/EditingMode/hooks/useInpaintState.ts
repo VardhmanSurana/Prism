@@ -108,6 +108,11 @@ export function useInpaintState(p: UseInpaintStateParams) {
           `Applied ${inpaintOperation === 'remove' ? 'Object Removal' : 'Inpaint'}${usedLocalFallback ? ' (Local Engine)' : ''}`,
           undefined,
           resultBlobUrl,
+          undefined,
+          {
+            toolId: 'inpaint',
+            isSnapshot: true,
+          }
         );
 
         p.inpaintCanvasRef.current?.clearMask();

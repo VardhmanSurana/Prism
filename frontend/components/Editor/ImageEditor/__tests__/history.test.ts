@@ -118,3 +118,58 @@ describe('createHistoryEntry & recomputeActiveEditorState', () => {
     expect(state.customVariables.intensity).toBe(0.8);
   });
 });
+
+describe('inferToolId', () => {
+  it('correctly maps all adjustment and slider keys to their specific tool panels', async () => {
+    const { inferToolId } = await import('../EditingMode/useEditingHistory');
+
+    // Detail tool
+    expect(inferToolId('clarity')).toBe('detail');
+    expect(inferToolId('sharpness')).toBe('detail');
+    expect(inferToolId('noiseReduction')).toBe('detail');
+    expect(inferToolId('tiltShift')).toBe('detail');
+
+    // HSL & White Balance tool
+    expect(inferToolId('temperature')).toBe('hsl');
+    expect(inferToolId('tint')).toBe('hsl');
+    expect(inferToolId('vibrance')).toBe('hsl');
+    expect(inferToolId('saturation')).toBe('hsl');
+    expect(inferToolId('hue')).toBe('hsl');
+    expect(inferToolId('hsl')).toBe('hsl');
+    expect(inferToolId('splitToning')).toBe('hsl');
+    expect(inferToolId('colorWheels')).toBe('hsl');
+
+    // Transform / Geometry tool
+    expect(inferToolId('perspective')).toBe('transform');
+    expect(inferToolId('verticalPerspective')).toBe('transform');
+    expect(inferToolId('distortion')).toBe('transform');
+
+    // Texture tool
+    expect(inferToolId('vignette')).toBe('texture');
+    expect(inferToolId('grain')).toBe('texture');
+    expect(inferToolId('lightLeak')).toBe('texture');
+    expect(inferToolId('blend')).toBe('texture');
+
+    // Adjust / Light tool
+    expect(inferToolId('exposure')).toBe('adjust');
+    expect(inferToolId('contrast')).toBe('adjust');
+    expect(inferToolId('brightness')).toBe('adjust');
+    expect(inferToolId('highlights')).toBe('adjust');
+    expect(inferToolId('shadows')).toBe('adjust');
+    expect(inferToolId('whites')).toBe('adjust');
+    expect(inferToolId('blacks')).toBe('adjust');
+    expect(inferToolId('ambiance')).toBe('adjust');
+    expect(inferToolId('dehaze')).toBe('adjust');
+    expect(inferToolId('curves')).toBe('adjust');
+    expect(inferToolId('specializedCurves')).toBe('adjust');
+
+    // Explicit studio tools
+    expect(inferToolId('frame')).toBe('frame');
+    expect(inferToolId('layers')).toBe('layers');
+    expect(inferToolId('portrait')).toBe('portrait');
+    expect(inferToolId('background')).toBe('background');
+    expect(inferToolId('lut')).toBe('lut');
+    expect(inferToolId('raw')).toBe('raw');
+  });
+});
+
