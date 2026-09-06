@@ -47,3 +47,4 @@ describe('resolveUrl for Image Editor loading', () => {
     expect(resolved.startsWith('http')).toBe(true);
   });
 });
+

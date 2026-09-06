@@ -22,7 +22,6 @@ import { applyRawProcessingToImageData } from './rawEngine';
 import { applyPortraitToImageData, LoadedPortraitMasks } from './portraitEngine';
 import { compositeLayersToCanvas, isLayerStackEmpty } from './layersEngine';
 import type { Layer } from './layersEngine';
-import { drawDepthTextToCanvas } from './depthTextEngine';
 
 export function drawFilteredImageToCanvas(
   canvas: HTMLCanvasElement,
@@ -204,11 +203,6 @@ export function drawFilteredImageToCanvas(
   // 10.5. AI Background Cutout & Backdrop Replacement
   if (adjustments.background?.enabled && backgroundMaskImg) {
     applyBackgroundReplacementToCanvas(canvas, adjustments.background, backgroundMaskImg, customBackdropImg);
-  }
-
-  // 10.6. Depth Typography (Text Behind Subject)
-  if (adjustments.depthText?.enabled) {
-    drawDepthTextToCanvas(canvas, adjustments.depthText, backgroundMaskImg || null);
   }
 
   // 11. Double Exposure

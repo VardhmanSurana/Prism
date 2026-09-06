@@ -181,8 +181,8 @@ export function useEditDraftAutoSave({
     setFlipV(false);
     setAnnotations([]);
     if (cropperRef.current) {
-      cropperRef.current.scaleX(1);
-      cropperRef.current.scaleY(1);
+      cropperRef.current.scaleX?.(1);
+      cropperRef.current.scaleY?.(1);
       if (typeof cropperRef.current.rotateTo === 'function') {
         cropperRef.current.rotateTo(0);
       }

@@ -8,8 +8,6 @@ import { DraftRecoveryBanner } from '../../DraftRecoveryBanner';
 
 export interface TopBarSectionProps {
   onClose: () => void;
-  onReset: () => void;
-  isDirty: boolean;
   isSaving: boolean;
   handleSave: (isSaveAs: boolean, format?: string, quality?: number) => void;
   handleCopy: () => void;
@@ -38,8 +36,6 @@ export const TopBarSection: React.FC<TopBarSectionProps> = (p) => (
   <>
     <TopBar
       onClose={p.onClose}
-      onReset={p.onReset}
-      isDirty={p.isDirty}
       isSaving={p.isSaving}
       handleSave={p.handleSave}
       handleCopy={p.handleCopy}

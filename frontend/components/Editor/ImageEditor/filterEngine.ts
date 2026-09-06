@@ -40,8 +40,6 @@ export type {
   LutAdjustments,
   BackgroundAdjustments,
 } from './adjustmentTypes';
-export type { DepthTextSettings, DepthTextPreset } from './depthTextEngine';
-export { DEFAULT_DEPTH_TEXT_SETTINGS, DEPTH_TEXT_PRESETS } from './depthTextEngine';
 
 export {
   HSL_BAND_DEFAULTS,
@@ -117,7 +115,6 @@ export interface Adjustments {
   lut:         import('./adjustmentTypes').LutAdjustments;
   background?: import('./adjustmentTypes').BackgroundAdjustments;
   raw?:        RawSettings;
-  depthText?:  import('./depthTextEngine').DepthTextSettings;
 
   // Non-destructive layer stack (index 0 = top of stack). Absent = base only.
   layers?:     import('./layersEngine').Layer[];
@@ -138,7 +135,6 @@ import {
   DEFAULT_SPLIT_TONING,
   DEFAULT_BACKGROUND_ADJUSTMENTS,
 } from './adjustmentTypes';
-import { DEFAULT_DEPTH_TEXT_SETTINGS } from './depthTextEngine';
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
   brightness:  0,
@@ -181,7 +177,6 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   },
   background: { ...DEFAULT_BACKGROUND_ADJUSTMENTS },
   raw: { ...DEFAULT_RAW_SETTINGS },
-  depthText: { ...DEFAULT_DEPTH_TEXT_SETTINGS },
 };
 
 // ── CSS Filter Conversion ────────────────────────────────────────────────────

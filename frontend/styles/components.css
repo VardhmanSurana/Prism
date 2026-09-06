@@ -179,17 +179,7 @@
   border-radius: 99px;
 }
 
-/* ── react-color-palette Dark Theme ──────────────────────────────────────── */
-.rcp-dark {
-  --rcp-background: #1a1a1a;
-  --rcp-border-color: #333;
-  --rcp-input-border-color: #444;
-  --rcp-input-text-color: #ddd;
-  --rcp-pointer-color: #fff;
-  --rcp-saturation-pointer-border-color: #fff;
-  --rcp-hue-pointer-border-color: #fff;
-  --rcp-alpha-pointer-border-color: #fff;
-}
+
 
 /* ── Ctrl-key Panning grab/grabbing cursor overrides ── */
 .ctrl-grab-active,

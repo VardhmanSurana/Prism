@@ -9,7 +9,13 @@ import { HistoryEntry, HistoryActionType, appendBoundedHistory, createHistoryEnt
 import { recomputeActiveEditorState } from '../historyUtils';
 import { Adjustments, DEFAULT_ADJUSTMENTS } from '../filterEngine';
 import type { Annotation } from '@plugins/retouch-metadata-studio/AnnotationsPanel/types';
-import { API_BASE } from '@/constants';
+import {
+  inferToolId,
+  commitAdjustmentChange,
+  useInitialAdjustmentsLoader,
+} from './history';
+
+export { inferToolId };
 
 interface UseEditingHistoryProps {
   src: string;
@@ -22,88 +28,14 @@ interface UseEditingHistoryProps {
 }
 
 function restoreCropperState(cropper: any, state: { flipH: boolean; flipV: boolean; rotation: number }) {
-  cropper.scaleX(state.flipH ? -1 : 1);
-  cropper.scaleY(state.flipV ? -1 : 1);
+  if (!cropper) return;
+  cropper.scaleX?.(state.flipH ? -1 : 1);
+  cropper.scaleY?.(state.flipV ? -1 : 1);
   if (typeof cropper.rotateTo === 'function') {
     cropper.rotateTo(state.rotation);
-  } else {
+  } else if (typeof cropper.rotate === 'function') {
     cropper.rotate(state.rotation);
   }
-}
-
-/**
- * Maps standard adjustment keys to their corresponding editor tool tabs.
- */
-export function inferToolId(key: string): string {
-  // Detail
-  if (
-    key === 'clarity' ||
-    key === 'sharpness' ||
-    key === 'noiseReduction' ||
-    key === 'tiltShift'
-  ) {
-    return 'detail';
-  }
-
-  // HSL & White Balance
-  if (
-    key === 'hsl' ||
-    key === 'splitToning' ||
-    key === 'colorWheels' ||
-    key === 'temperature' ||
-    key === 'tint' ||
-    key === 'vibrance' ||
-    key === 'saturation' ||
-    key === 'hue'
-  ) {
-    return 'hsl';
-  }
-
-  // Geometry / Transform
-  if (
-    key === 'perspective' ||
-    key === 'verticalPerspective' ||
-    key === 'distortion'
-  ) {
-    return 'transform';
-  }
-
-  // Texture & Effects
-  if (
-    key === 'vignette' ||
-    key === 'grain' ||
-    key === 'lightLeak' ||
-    key === 'blend'
-  ) {
-    return 'texture';
-  }
-
-  // Other explicit panels
-  if (key === 'frame') return 'frame';
-  if (key === 'layers') return 'layers';
-  if (key === 'portrait') return 'portrait';
-  if (key === 'background') return 'background';
-  if (key === 'lut') return 'lut';
-  if (key === 'raw') return 'raw';
-
-  // Light & Tone Adjustments
-  if (
-    key === 'exposure' ||
-    key === 'contrast' ||
-    key === 'brightness' ||
-    key === 'highlights' ||
-    key === 'shadows' ||
-    key === 'whites' ||
-    key === 'blacks' ||
-    key === 'ambiance' ||
-    key === 'dehaze' ||
-    key === 'curves' ||
-    key === 'specializedCurves'
-  ) {
-    return 'adjust';
-  }
-
-  return 'adjust';
 }
 
 export const useEditingHistory = ({
@@ -128,11 +60,6 @@ export const useEditingHistory = ({
 
   const isRestoringHistory = useRef(false);
   const createdUrlRef = useRef<string | null>(null);
-  const lastPhotoIdRef = useRef<string | null>(null);
-  const initRunIdRef = useRef(0);
-  const initialAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
-  const latestSrcRef = useRef(src);
-  latestSrcRef.current = src;
 
   const stateRef = useRef({
     currentImageSrc,
@@ -158,6 +85,13 @@ export const useEditingHistory = ({
     history,
     annotations,
   };
+
+  const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
+  const previousRotationRef = useRef<number>(0);
+  const previousStraightenRef = useRef<number>(0);
+  const previousFlipHRef = useRef<boolean>(false);
+  const previousFlipVRef = useRef<boolean>(false);
+  const pendingChangesRef = useRef<Map<keyof Adjustments, any>>(new Map());
 
   const revokeLocalUrl = useCallback(() => {
     if (createdUrlRef.current) {
@@ -246,107 +180,27 @@ export const useEditingHistory = ({
   );
 
   // Initialize history on mount or if photo changes
-  useEffect(() => {
-    // Determine the stable canonical photo identifier (preferring explicit photoId prop)
-    const canonicalPhotoId = photoId !== undefined && photoId !== null && String(photoId).length > 0
-      ? String(photoId)
-      : (src.match(/nocache=([^&-]+)/)?.[1] || src.split('?')[0]);
-
-    if (lastPhotoIdRef.current !== canonicalPhotoId) {
-      console.log(`[useEditingHistory] Opening photo: "${canonicalPhotoId}" (previous was "${lastPhotoIdRef.current}")`);
-      for (const entry of stateRef.current.history) {
-        if (entry.imageSrc.startsWith('blob:')) URL.revokeObjectURL(entry.imageSrc);
-      }
-      const runId = ++initRunIdRef.current;
-      lastPhotoIdRef.current = canonicalPhotoId;
-
-      const fetchInitialAdjustments = async () => {
-        let initialAdjustments = DEFAULT_ADJUSTMENTS;
-        const activePhotoId = photoId || canonicalPhotoId;
-        if (activePhotoId && !isNaN(Number(activePhotoId))) {
-          try {
-            const res = await fetch(`${API_BASE}/api/v1/photos/${activePhotoId}/metadata`);
-            if (res.ok) {
-              const data = await res.json();
-              if (data.adjustments) {
-                initialAdjustments = data.adjustments;
-              }
-            }
-          } catch (e) {
-            console.error('[useEditingHistory] Failed to fetch initial photo adjustments:', e);
-          }
-        }
-
-        if (runId !== initRunIdRef.current) return;
-        
-        // Guard: Do not overwrite if user already made edits while metadata was fetching
-        const hasUserEdits = stateRef.current.history.length > 1 ||
-          JSON.stringify(stateRef.current.adjustments) !== JSON.stringify(DEFAULT_ADJUSTMENTS);
-
-        if (hasUserEdits) {
-          console.warn('[useEditingHistory] Skipping initial-adjustments fetch — user edits already exist in progress.');
-          return;
-        }
-
-        initialAdjustmentsRef.current = initialAdjustments;
-
-        const effectiveSrc = latestSrcRef.current;
-        const initialEntry = createHistoryEntry(
-          'initial',
-          'Original image',
-          effectiveSrc,
-          initialAdjustments,
-          0,
-          false,
-          false,
-          0
-        );
-
-        isRestoringHistory.current = true;
-        setHistory([initialEntry]);
-        setCurrentHistoryIndex(0);
-        setCurrentImageSrc(prev => prev.startsWith('blob:') ? prev : effectiveSrc);
-        setAdjustments(initialAdjustments);
-        setCustomVariables({});
-
-        previousAdjustmentsRef.current = { ...initialAdjustments };
-        previousRotationRef.current = 0;
-        previousStraightenRef.current = 0;
-        previousFlipHRef.current = false;
-        previousFlipVRef.current = false;
-        setAnnotations([]);
-        setAnnotationsHistoryPast([]);
-        setAnnotationsHistoryFuture([]);
-
-        isRestoringHistory.current = false;
-      };
-
-      fetchInitialAdjustments();
-    } else {
-      // Same photo — URL updated (e.g. background high-res loader finished after ~10s).
-      // Keep current adjustments, timeline history, and annotations completely intact!
-      console.log(`[useEditingHistory] High-res image upgraded for photo "${canonicalPhotoId}"`);
-      setHistory(prev => {
-        if (prev.length === 0) return prev;
-        const newHistory = [...prev];
-        if (newHistory[0]?.type === 'initial') {
-          newHistory[0] = { ...newHistory[0], imageSrc: src };
-        }
-        return newHistory;
-      });
-
-      setCurrentImageSrc(prev => prev.startsWith('blob:') ? prev : src);
-    }
-  }, [src, photoId, setAnnotations, setAnnotationsHistoryPast, setAnnotationsHistoryFuture]);
+  const { initialAdjustmentsRef } = useInitialAdjustmentsLoader({
+    src,
+    photoId,
+    stateRef,
+    setHistory,
+    setCurrentHistoryIndex,
+    setCurrentImageSrc,
+    setAdjustments,
+    setCustomVariables,
+    setAnnotations,
+    setAnnotationsHistoryPast,
+    setAnnotationsHistoryFuture,
+    isRestoringHistory,
+    previousAdjustmentsRef,
+    previousRotationRef,
+    previousStraightenRef,
+    previousFlipHRef,
+    previousFlipVRef,
+  });
 
   // Track adjustments and changes
-  const previousAdjustmentsRef = useRef<Adjustments>(DEFAULT_ADJUSTMENTS);
-  const previousRotationRef = useRef<number>(0);
-  const previousStraightenRef = useRef<number>(0);
-  const previousFlipHRef = useRef<boolean>(false);
-  const previousFlipVRef = useRef<boolean>(false);
-  const pendingChangesRef = useRef<Map<keyof Adjustments, any>>(new Map());
-
   useEffect(() => {
     if (isRestoringHistory.current) return;
 
@@ -390,96 +244,7 @@ export const useEditingHistory = ({
         pendingChangesRef.current.clear();
 
         changesToCommit.forEach(([key, value]) => {
-          const label = key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1');
-          const numValue = typeof value === 'number' ? value : undefined;
-
-          console.log(`[useEditingHistory] Commit timeline entry for ${key}:`, value);
-
-          if (key === 'curves') {
-            addHistoryEntry(key, `Adjusted ${label}`, value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'adjust',
-            });
-          } else if (key === 'specializedCurves') {
-            addHistoryEntry(key, 'Adjusted Color vs Color', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'adjust',
-            });
-          } else if (key === 'hsl') {
-            addHistoryEntry('hsl', 'Adjusted Color Mixer', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'hsl',
-            });
-          } else if (key === 'splitToning') {
-            addHistoryEntry('splitToning', 'Adjusted Split Toning', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'hsl',
-            });
-          } else if (key === 'colorWheels') {
-            addHistoryEntry(key, 'Adjusted Color Wheels', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'hsl',
-            });
-          } else if (key === 'portrait') {
-            addHistoryEntry(key, 'Adjusted Portrait', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'portrait',
-            });
-          } else if (key === 'lut') {
-            addHistoryEntry(key, 'Applied LUT', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'lut',
-            });
-          } else if (key === 'background') {
-            addHistoryEntry(key, 'Adjusted Background', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'background',
-            });
-          } else if (key === 'raw') {
-            addHistoryEntry(key, 'Adjusted RAW Settings', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'raw',
-            });
-          } else if (key === 'grain') {
-            addHistoryEntry('grain', `Film Grain: ${curr.grain.amount}%`, value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'texture',
-            });
-          } else if (key === 'lightLeak') {
-            addHistoryEntry('lightLeak', 'Adjusted Light Leak', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'texture',
-            });
-          } else if (key === 'frame') {
-            addHistoryEntry('frame', 'Adjusted Frame', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'frame',
-            });
-          } else if (key === 'blend') {
-            addHistoryEntry('blend', 'Adjusted Blend', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'texture',
-            });
-          } else if (key === 'tiltShift') {
-            addHistoryEntry('tiltShift', 'Adjusted Tilt-Shift', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'detail',
-            });
-          } else if (key === 'layers') {
-            addHistoryEntry('layer', 'Modified layer stack', value, undefined, undefined, {
-              propertyKey: key,
-              toolId: 'layers',
-            });
-          } else {
-            addHistoryEntry(
-              key,
-              `${label} ${numValue !== undefined ? (numValue > 0 ? '+' : '') + numValue : 'adjusted'}`,
-              numValue,
-              undefined,
-              undefined,
-              { propertyKey: key, toolId: inferToolId(key) }
-            );
-          }
+          commitAdjustmentChange(key, value, curr, addHistoryEntry);
         });
       }, 500);
 
@@ -581,7 +346,7 @@ export const useEditingHistory = ({
         return updated;
       });
     },
-    []
+    [initialAdjustmentsRef]
   );
 
   const deleteHistoryEntry = useCallback(
@@ -606,7 +371,7 @@ export const useEditingHistory = ({
 
       setCurrentHistoryIndex(prev => Math.max(0, prev - 1));
     },
-    []
+    [initialAdjustmentsRef]
   );
 
   const jumpToHistoryEntry = useCallback(

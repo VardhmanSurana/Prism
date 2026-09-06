@@ -1,12 +1,12 @@
 /**
  * HistoryPanel.tsx
  * Sidebar control panel for the non-destructive edit timeline and history stack.
- * Features connected thread layout, GSAP motion animations, and icon hover controls.
+ * Features connected thread layout, framer-motion animations, and icon hover controls.
  * Styled with a minimalist black, gray, and white palette.
  */
 
-import React, { useRef, useEffect, useMemo } from 'react';
-import { gsap } from 'gsap';
+import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { X, Eye, EyeOff, SlidersHorizontal, RotateCcw, Trash2 } from 'lucide-react';
 import { HistoryEntry } from './history';
 
@@ -31,8 +31,6 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
   onResetAll,
   onClose,
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
   // Filter out the raw 'initial' entry so only actual edits appear in the timeline tab
   const editEntries = useMemo(
     () =>
@@ -42,31 +40,8 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
     [history]
   );
 
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const items = containerRef.current.querySelectorAll('.timeline-item');
-    if (!items.length) return;
-
-    const ctx = gsap.context(() => {
-      gsap.fromTo(
-        items,
-        { opacity: 0, y: 6 },
-        {
-          opacity: 1,
-          y: 0,
-          stagger: 0.02,
-          duration: 0.2,
-          ease: 'power2.out',
-          clearProps: 'opacity,transform',
-        }
-      );
-    }, containerRef);
-
-    return () => ctx.revert();
-  }, [editEntries.length]);
-
   return (
-    <div ref={containerRef} className="flex flex-col h-full bg-[#12141a] select-none text-white p-4">
+    <div className="flex flex-col h-full bg-[#12141a] select-none text-white p-4">
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
         <div>
@@ -113,8 +88,11 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
             const isSnapshot = entry.isSnapshot || entry.type === 'inpaint' || entry.type === 'crop';
 
             return (
-              <div
+              <motion.div
                 key={entry.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut', delay: Math.min(originalIndex * 0.02, 0.3) }}
                 className={`timeline-item group relative flex items-center gap-3 p-2 rounded-lg transition-all duration-150 cursor-pointer ${
                   isActive
                     ? 'bg-white/[0.08] border border-white/20 shadow-sm'
@@ -194,7 +172,7 @@ export const HistoryPanel: React.FC<HistoryPanelProps> = ({
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

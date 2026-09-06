@@ -86,25 +86,25 @@ export const useKeyBindings = ({
       // ── Ctrl+= / Ctrl+- / Ctrl+0: Zoom ─────────────────────────────────
       if ((e.metaKey || e.ctrlKey) && (e.key === '=' || e.key === '+')) {
         e.preventDefault();
-        cropperRef.current?.zoom(0.1);
+        cropperRef.current?.zoom?.(0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '-') {
         e.preventDefault();
-        cropperRef.current?.zoom(-0.1);
+        cropperRef.current?.zoom?.(-0.1);
         return;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === '0') {
         e.preventDefault();
         const cropper = cropperRef.current;
-        if (cropper) {
+        if (cropper && typeof cropper.getContainerData === 'function') {
           const containerData = cropper.getContainerData();
           const imageData = cropper.getImageData();
           const scale = Math.min(
             (containerData.width * 0.95) / imageData.naturalWidth,
             (containerData.height * 0.95) / imageData.naturalHeight
           );
-          cropper.zoomTo(scale);
+          cropper.zoomTo?.(scale);
         }
         return;
       }

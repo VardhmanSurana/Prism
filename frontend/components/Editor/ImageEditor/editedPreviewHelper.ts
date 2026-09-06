@@ -1,7 +1,7 @@
 /**
  * editedPreviewHelper.ts
  * Generates an image preview URL containing all active edits (live canvas
- * adjustments, healing strokes, and vector annotations) for CropperJS,
+ * adjustments, healing strokes, and vector annotations) for transform & crop operations,
  * and remaps annotations when an image is cropped.
  */
 

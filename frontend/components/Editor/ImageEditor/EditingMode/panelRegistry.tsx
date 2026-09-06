@@ -94,6 +94,11 @@ export interface PanelCtx {
     state: LassoState;
     setState: React.Dispatch<React.SetStateAction<LassoState>>;
     onConvertToInpaintMask: (maskUrl: string) => void;
+    canvasWidth?: number;
+    canvasHeight?: number;
+    naturalWidth?: number;
+    naturalHeight?: number;
+    onAddHistoryEntry?: (toolId: string, description: string) => void;
   };
   layers: {
     activeLayerId: string | null;
@@ -292,6 +297,11 @@ export const PANELS: Array<[ToolId, (ctx: PanelCtx) => React.ReactNode]> = [
         c.setInpaintMask(maskUrl);
         c.setActiveTool('inpaint');
       }}
+      canvasWidth={c.lasso.canvasWidth}
+      canvasHeight={c.lasso.canvasHeight}
+      naturalWidth={c.lasso.naturalWidth}
+      naturalHeight={c.lasso.naturalHeight}
+      onAddHistoryEntry={c.lasso.onAddHistoryEntry}
     />
   )],
   ['frame', (c) => (

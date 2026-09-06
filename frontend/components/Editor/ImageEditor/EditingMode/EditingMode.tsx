@@ -3,9 +3,6 @@
  * Top-level orchestrator. Owns no JSX beyond layout; wires hooks to sub-components.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Cropper from 'cropperjs';
-import 'cropperjs/dist/cropper.css';
-import 'react-color-palette/css';
 
 import { CanvasArea } from '../CanvasArea';
 import { useEditDraftAutoSave } from '@/hooks/useEditDraftAutoSave';
@@ -58,7 +55,7 @@ interface EditingModeProps {
 
 export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, photoId }) => {
   // ── Refs ──────────────────────────────────────────────────────────────────
-  const cropperRef = useRef<Cropper | null>(null);
+  const cropperRef = useRef<any>(null);
   const inpaintCanvasRef = useRef<InpaintCanvasHandle | null>(null);
   const healingCanvasRef = useRef<HealingCanvasRef | null>(null);
   const liquifyCanvasRef = useRef<LiquifyCanvasRef | null>(null);
@@ -118,6 +115,19 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
     canUndo, canRedo, handleUndo, handleRedo, addHistoryEntry,
   } = history;
 
+  // ── Image natural dimensions ──────────────────────────────────────────────
+  const [naturalDimensions, setNaturalDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  useEffect(() => {
+    if (!currentImageSrc) return;
+    const img = new Image();
+    img.onload = () => {
+      if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+        setNaturalDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+      }
+    };
+    img.src = currentImageSrc;
+  }, [currentImageSrc]);
+
   // Annotation commits (stroke drawn / moved / deleted) become timeline snapshots
   useEffect(() => {
     annCommitRef.current = (prev, next) => {
@@ -157,7 +167,8 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
 
   // ── Export / save / copy / auto-enhance ───────────────────────────────────
   const exporter = useExportSave({
-    photoId, cropperRef, adjustments, annotations: ann.annotations,
+    photoId, src, currentImageSrc, cropRect: transform.cropRect,
+    cropperRef, adjustments, annotations: ann.annotations,
     healingCanvasRef, liquifyCanvasRef, onSave, showToast,
   });
 
@@ -323,10 +334,23 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
       },
     },
     lasso: {
-      state: lassoState, setState: setLassoState,
+      state: lassoState,
+      setState: setLassoState,
+      naturalWidth: naturalDimensions.width,
+      naturalHeight: naturalDimensions.height,
       onConvertToInpaintMask: (maskUrl: string) => {
         inpaint.setInpaintMask(maskUrl);
         setActiveTool('inpaint');
+      },
+      onAddHistoryEntry: (toolId: string, description: string) => {
+        addHistoryEntry(
+          toolId as HistoryActionType,
+          description,
+          undefined,
+          undefined,
+          undefined,
+          { isSnapshot: true },
+        );
       },
     },
     layers: { activeLayerId, setActiveLayerId },
@@ -437,6 +461,9 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
             currentImageSrc={currentImageSrc}
             filterString={filterString}
             cropperRef={cropperRef}
+            cropRect={transform.cropRect}
+            onCropChange={transform.onCropChange}
+            aspectRatio={transform.currentRatio}
             handleCropEvent={transform.handleCropEvent}
             handleReady={transform.handleReady}
             activeTool={activeTool}
