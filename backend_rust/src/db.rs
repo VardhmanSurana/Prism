@@ -291,12 +291,14 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("ALTER TABLE telemetry_events ADD COLUMN session_id TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE agent_messages ADD COLUMN session_id TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN ocr_bboxes TEXT").execute(pool).await.ok();
+    sqlx::query("ALTER TABLE photos ADD COLUMN ocr_attempted_at TEXT").execute(pool).await.ok();
 
     // Create session indexes after column migrations
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
 
     ensure_uuids(pool).await?;
+    ensure_file_sizes(pool).await.ok();
 
     // Create default admin user if no users exist
     let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
@@ -395,6 +397,35 @@ async fn ensure_uuids(pool: &DbPool) -> Result<(), Error> {
             .ok();
     }
 
+
+    Ok(())
+}
+
+/// ensure_file_sizes - Backfills file_size for existing photos if missing.
+async fn ensure_file_sizes(pool: &DbPool) -> Result<(), Error> {
+    #[derive(sqlx::FromRow)]
+    struct PhotoPath {
+        id: i64,
+        path: String,
+    }
+
+    let unmeasured: Vec<PhotoPath> = sqlx::query_as::<_, PhotoPath>("SELECT id, path FROM photos WHERE file_size IS NULL OR file_size = 0")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+    for p in unmeasured {
+        if let Some(real_path) = crate::routes::photos::resolve_photo_path(&p.path) {
+            if let Ok(meta) = std::fs::metadata(&real_path) {
+                let size = meta.len() as i64;
+                let _ = sqlx::query("UPDATE photos SET file_size = ? WHERE id = ?")
+                    .bind(size)
+                    .bind(p.id)
+                    .execute(pool)
+                    .await;
+            }
+        }
+    }
 
     Ok(())
 }

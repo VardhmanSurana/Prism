@@ -30,7 +30,8 @@ impl Analyzer for OcrBboxAnalyzer {
     }
 
     fn should_run(&self, photo: &PhotoRecord) -> bool {
-        !photo.has_ocr
+        // Skip if we already ran OCR on this photo or text is already present
+        !photo.has_ocr && !photo.ocr_attempted
     }
 
     async fn execute(
@@ -74,7 +75,7 @@ impl Analyzer for OcrBboxAnalyzer {
             let bboxes_json = serde_json::to_string(&result.lines).unwrap_or_default();
 
             let _ = sqlx::query(
-                "UPDATE photos SET ocr_text = ?, ocr_bboxes = ? WHERE id = ?",
+                "UPDATE photos SET ocr_text = ?, ocr_bboxes = ?, ocr_attempted_at = datetime('now') WHERE id = ?",
             )
             .bind(&result.full_text)
             .bind(&bboxes_json)
@@ -89,6 +90,13 @@ impl Analyzer for OcrBboxAnalyzer {
                 result.full_text.len(),
                 result.lines.len()
             );
+        } else {
+            let _ = sqlx::query(
+                "UPDATE photos SET ocr_attempted_at = datetime('now') WHERE id = ?",
+            )
+            .bind(photo_id)
+            .execute(db)
+            .await;
         }
 
         true

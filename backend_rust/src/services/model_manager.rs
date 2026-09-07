@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant, UNIX_EPOCH};
+use crate::db::DbPool;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, RwLock};
 use tracing::{error, info};
@@ -69,6 +70,7 @@ pub struct ModelManager {
     active_progress: Arc<RwLock<HashMap<String, ModelProgress>>>,
     abort_handles: Arc<Mutex<HashMap<String, tokio::task::AbortHandle>>>,
     acknowledged_licenses: Arc<RwLock<HashSet<String>>>,
+    pub db: Option<DbPool>,
 }
 
 impl ModelManager {
@@ -81,6 +83,20 @@ impl ModelManager {
             active_progress: Arc::new(RwLock::new(HashMap::new())),
             abort_handles: Arc::new(Mutex::new(HashMap::new())),
             acknowledged_licenses: Arc::new(RwLock::new(HashSet::new())),
+            db: None,
+        }
+    }
+
+    /// Create a ModelManager with a database connection (used when OCR backfill is needed).
+    pub fn new_with_db(models_dir: PathBuf, db: DbPool) -> Self {
+        let models = Self::default_model_registry();
+        Self {
+            models_dir,
+            models,
+            active_progress: Arc::new(RwLock::new(HashMap::new())),
+            abort_handles: Arc::new(Mutex::new(HashMap::new())),
+            acknowledged_licenses: Arc::new(RwLock::new(HashSet::new())),
+            db: Some(db),
         }
     }
 
@@ -192,7 +208,7 @@ impl ModelManager {
                 name: "RapidOCR / PP-OCRv4 (Text Extraction)".to_string(),
                 category: "Document & Receipt OCR".to_string(),
                 description: "Lightweight neural text detection & recognition for receipts, documents, and signs.".to_string(),
-                total_size_bytes: 14_000_000,
+                total_size_bytes: 15_600_000,
                 desktop_only: false,
                 license: Some("Apache-2.0".to_string()),
                 gated: false,
@@ -208,6 +224,12 @@ impl ModelManager {
                         url: "https://huggingface.co/SWHL/RapidOCR/resolve/main/PP-OCRv4/ch_PP-OCRv4_rec_infer.onnx".to_string(),
                         rel_path: "ocr/ch_PP-OCRv4_rec_infer.onnx".to_string(),
                         expected_size_bytes: 10_800_000,
+                        sha256: None,
+                    },
+                    ModelFileDef {
+                        url: "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/main/ppocr/utils/ppocr_keys_v1.txt".to_string(),
+                        rel_path: "ocr/ppocr_keys_v1.txt".to_string(),
+                        expected_size_bytes: 26_250,
                         sha256: None,
                     },
                 ],
@@ -550,6 +572,7 @@ impl ModelManager {
             .await
             .insert(model_id.to_string(), initial_progress);
 
+        let db_for_backfill = self.db.clone();
         let task = tokio::spawn(async move {
             info!("[ModelManager] Starting download for model: {}", model.id);
             let client = reqwest::Client::builder()
@@ -695,6 +718,14 @@ impl ModelManager {
             }
 
             info!("[ModelManager] Model {} download complete!", model.id);
+
+            if model.id == "rapid_ocr" {
+                // Trigger OCR backfill for every photo that hasn't had OCR attempted yet.
+                // The backfill is only possible when a database connection is available.
+                if let Some(ref db) = db_for_backfill {
+                    crate::services::worker::enqueue_missing_ocr_jobs(db).await;
+                }
+            }
             {
                 let mut guard = active_progress.write().await;
                 if let Some(p) = guard.get_mut(&model.id) {
@@ -720,6 +751,14 @@ impl ModelManager {
             .insert(model_id_owned, task.abort_handle());
 
         Ok(())
+    }
+
+    /// Trigger OCR backfill for every photo that hasn't had OCR attempted yet.
+    /// This is called after the rapid_ocr model download completes.
+    pub async fn trigger_ocr_backfill(&self) {
+        if let Some(ref db) = self.db {
+            crate::services::worker::enqueue_missing_ocr_jobs(db).await;
+        }
     }
 
     /// set_error - Performs set error.

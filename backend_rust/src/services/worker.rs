@@ -40,13 +40,14 @@ const JOB_POLL_INTERVAL_SECS: u64 = 2;
 
 /// Minimal photo data needed by analyzers for pre-flight checks.
 pub struct PhotoRecord {
-    pub id: i64,
-    pub path: String,
-    pub has_embedding: bool,
-    pub has_faces: bool,
-    pub has_summary: bool,
-    pub has_ocr: bool,
-}
+        pub id: i64,
+        pub path: String,
+        pub has_embedding: bool,
+        pub has_faces: bool,
+        pub has_summary: bool,
+        pub has_ocr: bool,
+        pub ocr_attempted: bool,
+    }
 
 /// Plugin trait for AI analysis stages.
 #[async_trait]
@@ -319,6 +320,7 @@ impl JobScheduler {
             has_faces: job.has_faces,
             has_summary: job.has_summary,
             has_ocr: job.has_ocr,
+            ocr_attempted: job.ocr_attempted,
         };
 
         let allowed: Vec<&str> = registry
@@ -545,6 +547,7 @@ pub(crate) struct PendingJob {
     has_faces: bool,
     has_summary: bool,
     has_ocr: bool,
+    ocr_attempted: bool,
 }
 
 /// reset_interrupted_jobs - Updates reset interrupted jobs.
@@ -569,7 +572,8 @@ async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
             CASE WHEN p.embedding IS NOT NULL AND p.embedding != '' THEN 1 ELSE 0 END AS has_embedding,
             CASE WHEN EXISTS (SELECT 1 FROM faces WHERE photo_id = p.id) THEN 1 ELSE 0 END AS has_faces,
             CASE WHEN p.ai_summary IS NOT NULL AND p.ai_summary != '' THEN 1 ELSE 0 END AS has_summary,
-            CASE WHEN p.ocr_text IS NOT NULL AND p.ocr_text != '' THEN 1 ELSE 0 END AS has_ocr
+            CASE WHEN p.ocr_text IS NOT NULL AND p.ocr_text != '' THEN 1 ELSE 0 END AS has_ocr,
+        CASE WHEN p.ocr_attempted_at IS NOT NULL THEN 1 ELSE 0 END AS ocr_attempted
         FROM background_jobs j
         JOIN photos p ON p.id = j.photo_id
         WHERE j.status = 'pending'
@@ -598,6 +602,7 @@ async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
         has_faces: row.get::<i64, _>("has_faces") == 1,
         has_summary: row.get::<i64, _>("has_summary") == 1,
         has_ocr: row.get::<i64, _>("has_ocr") == 1,
+        ocr_attempted: row.get::<i64, _>("ocr_attempted") == 1,
     })
 }
 
@@ -628,6 +633,8 @@ async fn run_analyzers(
         has_summary: sqlx::query_scalar::<_, String>("SELECT COALESCE(ai_summary, '') FROM photos WHERE id = ?")
             .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
         has_ocr: sqlx::query_scalar::<_, String>("SELECT COALESCE(ocr_text, '') FROM photos WHERE id = ?")
+            .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
+        ocr_attempted: sqlx::query_scalar::<_, String>("SELECT COALESCE(ocr_attempted_at, '') FROM photos WHERE id = ?")
             .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
     };
 
@@ -747,4 +754,43 @@ pub async fn enqueue_photo(db: &DbPool, photo_id: i64) {
     .bind(photo_id)
     .execute(db)
     .await;
+}
+
+/// Enqueue a sequential_analysis job for every photo that has n't had OCR attempted yet.
+/// Safe to call even before the OCR models are downloaded.
+pub async fn enqueue_missing_ocr_jobs(db: &DbPool) {
+    let missing: Vec<i64> = sqlx::query_scalar::<_, i64>(
+        r#"
+        SELECT p.id
+        FROM photos p
+        LEFT JOIN background_jobs j
+            ON j.photo_id = p.id
+            AND j.job_type = 'sequential_analysis'
+            AND j.status IN ('pending', 'processing')
+        WHERE p.is_trash = 0
+          AND p.is_locked = 0
+          AND p.ocr_attempted_at IS NULL
+          AND p.ocr_text IS NULL
+          AND j.id IS NULL
+        ORDER BY p.date_taken ASC
+        LIMIT 500
+        "#
+    )
+    .fetch_all(db)
+    .await
+    .unwrap_or_default();
+
+    let count = missing.len();
+    for id in missing {
+        let _ = sqlx::query(
+            "INSERT INTO background_jobs (photo_id, job_type, status) VALUES (?, 'sequential_analysis', 'pending')"
+        )
+        .bind(id)
+        .execute(db)
+        .await;
+    }
+
+    if count > 0 {
+        info!("[Scheduler] Enqueued {} photos for OCR after rapid_ocr download", count);
+    }
 }

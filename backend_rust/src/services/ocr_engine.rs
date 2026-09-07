@@ -10,8 +10,8 @@
 use ndarray::Array4;
 use ort::session::Session;
 use std::path::Path;
-use std::sync::{Arc, Mutex, OnceLock};
-use tracing::{info, warn};
+use std::sync::{Arc, Mutex, RwLock};
+use tracing::info;
 
 // ─── Public Types ───────────────────────────────────────────────────────────
 
@@ -50,7 +50,7 @@ struct OcrSessions {
     dict: Vec<String>,
 }
 
-static OCR: OnceLock<Option<Arc<OcrSessions>>> = OnceLock::new();
+static OCR: RwLock<Option<Arc<OcrSessions>>> = RwLock::new(None);
 
 const DET_MODEL_PATHS: &[&str] = &[
     "models/ocr/ch_PP-OCRv4_det_infer.onnx",
@@ -71,34 +71,29 @@ const DICT_PATHS: &[&str] = &[
 const CTC_BLANK: usize = 0;
 
 
-/// Load the PP-OCRv4 character dictionary (one character per line).
+/// Load the PP-OCRv4 character dictionary.
+/// Convention: index 0 = CTC blank, 1..=6623 = keys from ppocr_keys_v1.txt, 6624 = space.
+/// Total classes = 6625 (matches ch_PP-OCRv4_rec_infer.onnx).
 fn load_dict() -> Result<Vec<String>, String> {
-    let found = DICT_PATHS.iter().find(|p| Path::new(p).exists()).copied();
-    match found {
-        Some(path) => {
-            let content = std::fs::read_to_string(path)
-                .map_err(|e| format!("Failed to read OCR dict {}: {}", path, e))?;
-            let chars: Vec<String> = content.lines().map(|l| l.to_string()).collect();
-            info!("[OcrEngine] Loaded {} characters from {}", chars.len(), path);
-            Ok(chars)
-        }
-        None => {
-            // Fallback: minimal ASCII + common punctuation dict for English-only OCR.
-            // This won't handle Chinese but allows basic text extraction.
-            warn!("[OcrEngine] OCR dict not found; using minimal fallback (English only)");
-            let mut chars = vec!["".to_string()]; // index 0 = blank
-            // Space + ASCII printable
-            chars.push(" ".to_string());
-            for c in 33u8..=126 {
-                chars.push((c as char).to_string());
-            }
-            // Common CJK punctuation
-            for c in &['。', '，', '！', '？', '：', '；', '「', '」', '『', '』'] {
-                chars.push(c.to_string());
-            }
-            Ok(chars)
-        }
+    let path = DICT_PATHS.iter().find(|p| Path::new(p).exists()).copied().ok_or_else(|| {
+        format!(
+            "OCR dict not found (expected at {}). Download PP-OCRv4 from Model Manager.",
+            DICT_PATHS[0]
+        )
+    })?;
+
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("Failed to read OCR dict {}: {}", path, e))?;
+
+    let mut chars = Vec::with_capacity(6625);
+    chars.push(String::new()); // index 0 = CTC blank
+    for line in content.lines() {
+        chars.push(line.to_string());
     }
+    chars.push(" ".to_string()); // index 6624 = space
+
+    info!("[OcrEngine] Loaded {} characters from {}", chars.len(), path);
+    Ok(chars)
 }
 
 fn load_session(path: &str, label: &str) -> Result<(Session, String, String), String> {
@@ -121,10 +116,10 @@ fn load_session(path: &str, label: &str) -> Result<(Session, String, String), St
 }
 
 fn get_sessions() -> Result<Arc<OcrSessions>, String> {
-    if let Some(cached) = OCR.get() {
-        return cached
-            .clone()
-            .ok_or_else(|| "OCR models failed to load previously; see earlier log".to_string());
+    if let Ok(guard) = OCR.read() {
+        if let Some(ref cached) = *guard {
+            return Ok(cached.clone());
+        }
     }
 
     let det_path = DET_MODEL_PATHS
@@ -135,47 +130,45 @@ fn get_sessions() -> Result<Arc<OcrSessions>, String> {
         .iter()
         .find(|p| Path::new(p).exists())
         .copied();
+    let dict_path = DICT_PATHS
+        .iter()
+        .find(|p| Path::new(p).exists())
+        .copied();
 
-    let loaded = match (det_path, rec_path) {
-        ( Some(det), Some(rec) ) => {
-            match (load_session(det, "det"), load_session(rec, "rec")) {
-                ( Ok((det_sess, det_in, det_out)), Ok((rec_sess, rec_in, rec_out)) ) => {
-                    match load_dict() {
-                        Ok(dict) => Some(Arc::new(OcrSessions {
-                            det: DetSession { session: Mutex::new(det_sess), input_name: det_in, output_name: det_out },
-                            rec: RecSession { session: Mutex::new(rec_sess), input_name: rec_in, output_name: rec_out },
-                            dict,
-                        })),
-                        Err(e) => {
-                            warn!("[OcrEngine] Failed to load dict: {}", e);
-                            None
-                        }
-                    }
-                }
-                (Err(e), _) | (_, Err(e)) => {
-                    warn!("[OcrEngine] Failed to load OCR sessions: {}", e);
-                    None
-                }
-            }
-        }
+    let (det, rec, _dict) = match (det_path, rec_path, dict_path) {
+        (Some(d), Some(r), Some(k)) => (d, r, k),
         _ => {
-            warn!(
-                "[OcrEngine] OCR models not found. Det: {}, Rec: {}",
-                det_path.unwrap_or("MISSING"),
-                rec_path.unwrap_or("MISSING")
-            );
-            None
+            return Err(format!(
+                "OCR unavailable: download the PP-OCRv4 models first \
+                 (Model Manager → 'RapidOCR / PP-OCRv4', which also includes ppocr_keys_v1.txt). \
+                 Expected at {}", DET_MODEL_PATHS[0]
+            ));
         }
     };
 
-    let _ = OCR.set(loaded.clone());
-    loaded.ok_or_else(|| {
-        format!(
-            "OCR unavailable: download the PP-OCRv4 models first \
-             (Model Manager → 'RapidOCR / PP-OCRv4'). Expected at {}",
-            DET_MODEL_PATHS[0]
-        )
-    })
+    let (det_sess, det_in, det_out) = load_session(det, "det")?;
+    let (rec_sess, rec_in, rec_out) = load_session(rec, "rec")?;
+    let dict = load_dict()?;
+
+    let sessions = Arc::new(OcrSessions {
+        det: DetSession {
+            session: Mutex::new(det_sess),
+            input_name: det_in,
+            output_name: det_out,
+        },
+        rec: RecSession {
+            session: Mutex::new(rec_sess),
+            input_name: rec_in,
+            output_name: rec_out,
+        },
+        dict,
+    });
+
+    if let Ok(mut guard) = OCR.write() {
+        *guard = Some(sessions.clone());
+    }
+
+    Ok(sessions)
 }
 
 // ─── Detection ──────────────────────────────────────────────────────────────
@@ -325,23 +318,146 @@ fn det_postprocess(
     let scale_y = orig_h / scaled_h as f32;
     let min_area = 50; // minimum pixel area in heatmap space
 
+    // Helper to split a potentially multi-line connected component using horizontal projection (row density).
+    let mut split_multiline = |root: usize, bx1: u32, by1: u32, bx2: u32, by2: u32| -> Vec<(u32, u32, u32, u32, u32)> {
+        let box_h = by2.saturating_sub(by1) + 1;
+
+        // PP-OCR text lines in the heatmap are usually 8-20px tall.
+        // Only attempt line splitting if the region is tall enough to contain multiple lines.
+        if box_h < 26 {
+            let mut area = 0u32;
+            for y in by1..=by2 {
+                let row_offset = y as usize * heat_w;
+                for x in bx1..=bx2 {
+                    let idx = row_offset + x as usize;
+                    if binary[idx] == 1 && find(&mut parent, idx) == root {
+                        area += 1;
+                    }
+                }
+            }
+            return vec![(bx1, by1, bx2, by2, area)];
+        }
+
+        // Compute row density (horizontal projection)
+        let mut row_counts = vec![0u32; box_h as usize];
+        for y in by1..=by2 {
+            let r = (y - by1) as usize;
+            let row_offset = y as usize * heat_w;
+            for x in bx1..=bx2 {
+                let idx = row_offset + x as usize;
+                if binary[idx] == 1 && find(&mut parent, idx) == root {
+                    row_counts[r] += 1;
+                }
+            }
+        }
+
+        let max_count = *row_counts.iter().max().unwrap_or(&0);
+        if max_count == 0 {
+            return Vec::new();
+        }
+
+        // Valley threshold: rows with < 15% of peak row density are considered inter-line spaces
+        let valley_threshold = ((max_count as f32 * 0.15).ceil() as u32).max(1);
+
+        let mut segments = Vec::new();
+        let mut seg_start: Option<usize> = None;
+
+        for (r, &c) in row_counts.iter().enumerate() {
+            if c >= valley_threshold {
+                if seg_start.is_none() {
+                    seg_start = Some(r);
+                }
+            } else if let Some(start) = seg_start {
+                let seg_h = r - start;
+                if seg_h >= 6 {
+                    segments.push((start, r - 1));
+                }
+                seg_start = None;
+            }
+        }
+        if let Some(start) = seg_start {
+            let seg_h = row_counts.len() - start;
+            if seg_h >= 6 {
+                segments.push((start, row_counts.len() - 1));
+            }
+        }
+
+        // If no valley split was found, return single box
+        if segments.len() <= 1 {
+            let area: u32 = row_counts.iter().sum();
+            return vec![(bx1, by1, bx2, by2, area)];
+        }
+
+        // Build sub-boxes for each segment
+        let mut result = Vec::new();
+        for (r_start, r_end) in segments {
+            let sub_y1 = by1 + r_start as u32;
+            let sub_y2 = by1 + r_end as u32;
+            let mut sub_min_x = u32::MAX;
+            let mut sub_max_x = 0u32;
+            let mut sub_area = 0u32;
+
+            for y in sub_y1..=sub_y2 {
+                let row_offset = y as usize * heat_w;
+                for x in bx1..=bx2 {
+                    let idx = row_offset + x as usize;
+                    if binary[idx] == 1 && find(&mut parent, idx) == root {
+                        sub_min_x = sub_min_x.min(x);
+                        sub_max_x = sub_max_x.max(x);
+                        sub_area += 1;
+                    }
+                }
+            }
+
+            if sub_area >= 20 && sub_min_x <= sub_max_x {
+                result.push((sub_min_x, sub_y1, sub_max_x, sub_y2, sub_area));
+            }
+        }
+
+        if result.is_empty() {
+            let area: u32 = row_counts.iter().sum();
+            vec![(bx1, by1, bx2, by2, area)]
+        } else {
+            result
+        }
+    };
+
     let mut boxes = Vec::new();
     for root in 0..n {
         if count[root] < min_area {
             continue;
         }
-        // Add 2-pixel margin in heatmap space
-        let x1 = (min_x[root] as i32 - 2).max(0) as u32;
-        let y1 = (min_y[root] as i32 - 2).max(0) as u32;
-        let x2 = (max_x[root] + 3).min(heat_w as u32 - 1);
-        let y2 = (max_y[root] + 3).min(heat_h as u32 - 1);
 
-        boxes.push(DetBox {
-            x1: (x1 as f32 * scale_x).round() as u32,
-            y1: (y1 as f32 * scale_y).round() as u32,
-            x2: (x2 as f32 * scale_x).round() as u32,
-            y2: (y2 as f32 * scale_y).round() as u32,
-        });
+        let sub_boxes = split_multiline(root, min_x[root], min_y[root], max_x[root], max_y[root]);
+
+        for (bx1, by1, bx2, by2, sub_area) in sub_boxes {
+            if sub_area < min_area / 2 {
+                continue;
+            }
+
+            // PP-OCR standard unclip: distance = area * unclip_ratio / perimeter
+            let bw = (bx2.saturating_sub(bx1) + 1) as f32;
+            let bh = (by2.saturating_sub(by1) + 1) as f32;
+            let perimeter = 2.0 * (bw + bh);
+            let unclip_ratio = 1.6f32;
+            let dist = if perimeter > 0.0 {
+                (sub_area as f32 * unclip_ratio / perimeter).max(1.5).min(bh * 0.6)
+            } else {
+                2.0
+            };
+
+            let x1 = ((bx1 as f32 - dist).round() as i32).max(0) as u32;
+            let y1 = ((by1 as f32 - dist).round() as i32).max(0) as u32;
+            let x2 = ((bx2 as f32 + dist).round() as u32).min(heat_w as u32 - 1);
+            let y2 = ((by2 as f32 + dist).round() as u32).min(heat_h as u32 - 1);
+
+            boxes.push(DetBox {
+                x1: (x1 as f32 * scale_x).round() as u32,
+                y1: (y1 as f32 * scale_y).round() as u32,
+                x2: (x2 as f32 * scale_x).round() as u32,
+                y2: (y2 as f32 * scale_y).round() as u32,
+            });
+        }
     }
 
     // Sort top-to-bottom, left-to-right
@@ -358,8 +474,8 @@ fn det_postprocess(
 
 /// Fixed height for recognition input.
 const REC_HEIGHT: u32 = 48;
-/// Maximum width for recognition input.
-const REC_MAX_WIDTH: u32 = 320;
+/// Maximum width for recognition input (allows long lines without squashing).
+const REC_MAX_WIDTH: u32 = 1536;
 
 /// Recognition normalization.
 const REC_MEAN: [f32; 3] = [0.5, 0.5, 0.5];
@@ -377,16 +493,18 @@ fn rec_preprocess(
     let crop_h = crop_y2.saturating_sub(crop_y1).max(1);
 
     // Resize to REC_HEIGHT, maintaining aspect ratio
-    let new_w = ((crop_w as f32 * REC_HEIGHT as f32 / crop_h as f32).round() as u32)
-        .max(1)
+    let target_w = ((crop_w as f32 * REC_HEIGHT as f32 / crop_h as f32).round() as u32)
+        .max(REC_HEIGHT)
         .min(REC_MAX_WIDTH);
 
+    // Pad to multiple of 32 for the CNN backbone
+    let pad_w = ((target_w + 31) / 32) * 32;
+
     let cropped = img.crop(crop_x1, crop_y1, crop_w, crop_h);
-    let resized = cropped.resize_exact(new_w, REC_HEIGHT, image::imageops::FilterType::Triangle);
+    let resized = cropped.resize_exact(target_w, REC_HEIGHT, image::imageops::FilterType::Triangle);
     let rgb = resized.to_rgb8();
 
-    // Pad to REC_MAX_WIDTH
-    let mut arr = Array4::<f32>::zeros((1, 3, REC_HEIGHT as usize, REC_MAX_WIDTH as usize));
+    let mut arr = Array4::<f32>::zeros((1, 3, REC_HEIGHT as usize, pad_w as usize));
     for (x, y, pixel) in rgb.enumerate_pixels() {
         let nx = x as usize;
         let ny = y as usize;
@@ -396,15 +514,21 @@ fn rec_preprocess(
         }
     }
 
-    Ok((arr, new_w))
+    Ok((arr, target_w))
 }
 
 /// CTC greedy decode: argmax → collapse repeats → remove blanks → map to chars.
+/// PP-OCRv4 uses index 0 for CTC blank, and index 6624 for space.
+/// In PP-OCRv4, inter-word spaces often have CTC blank as argmax, with space (class 6624)
+/// as the runner-up with 3-30% probability, while intra-word gaps have ~0.0% space probability.
+/// We track the maximum space probability in the blank gap between characters.
 fn ctc_decode(logits: &[f32], num_classes: usize, timesteps: usize, dict: &[String]) -> (String, f32) {
     let mut result = String::new();
     let mut conf_sum: f32 = 0.0;
     let mut conf_count: u32 = 0;
     let mut prev_idx = usize::MAX;
+    let mut max_space_prob: f32 = 0.0;
+    let space_idx = 6624;
 
     for t in 0..timesteps {
         let offset = t * num_classes;
@@ -417,17 +541,30 @@ fn ctc_decode(logits: &[f32], num_classes: usize, timesteps: usize, dict: &[Stri
             .max_by(|a, b| a.1.partial_cmp(b.1).unwrap_or(std::cmp::Ordering::Equal))
             .unwrap_or((0, &0.0));
 
-        // Softmax confidence for the best class
-        let max_val = *best_val;
-        let exp_sum: f32 = slice.iter().map(|v| (v - max_val).exp()).sum();
-        let confidence = 1.0 / exp_sum; // simplified softmax confidence
+        let confidence = *best_val;
+        let space_prob = if space_idx < num_classes { slice[space_idx] } else { 0.0 };
 
-        if best_idx != CTC_BLANK && best_idx != prev_idx {
-            if best_idx < dict.len() {
-                result.push_str(&dict[best_idx]);
+        if best_idx == CTC_BLANK {
+            if space_prob > max_space_prob {
+                max_space_prob = space_prob;
             }
-            conf_sum += confidence;
-            conf_count += 1;
+        } else if best_idx != prev_idx {
+            if best_idx == space_idx {
+                if !result.is_empty() && !result.ends_with(' ') {
+                    result.push(' ');
+                }
+            } else {
+                // If there was a space detected during the preceding blank gap (threshold 0.025)
+                if max_space_prob >= 0.025 && !result.is_empty() && !result.ends_with(' ') {
+                    result.push(' ');
+                }
+                if best_idx < dict.len() {
+                    result.push_str(&dict[best_idx]);
+                }
+                conf_sum += confidence;
+                conf_count += 1;
+            }
+            max_space_prob = 0.0;
         }
         prev_idx = best_idx;
     }
@@ -438,7 +575,7 @@ fn ctc_decode(logits: &[f32], num_classes: usize, timesteps: usize, dict: &[Stri
         0.0
     };
 
-    (result, avg_conf)
+    (result.trim().to_string(), avg_conf)
 }
 
 // ─── Full Pipeline ──────────────────────────────────────────────────────────
@@ -562,7 +699,14 @@ pub fn recognize(photo_path: &str) -> Result<OcrResult, String> {
 pub fn is_available() -> bool {
     let det = DET_MODEL_PATHS.iter().any(|p| Path::new(p).exists());
     let rec = REC_MODEL_PATHS.iter().any(|p| Path::new(p).exists());
-    det && rec
+    let dict = DICT_PATHS.iter().any(|p| Path::new(p).exists());
+    det && rec && dict
+}
+
+/// Check whether the full PP-OCRv4 pipeline (det + rec + dict) is ready for OCR.
+#[allow(dead_code)]
+pub fn is_ready() -> bool {
+    is_available()
 }
 
 #[cfg(test)]
@@ -585,5 +729,38 @@ mod tests {
         } else {
             eprintln!("skip: ocr models not downloaded");
         }
+    }
+
+    #[test]
+    fn test_ocr_on_nano_banana_image() {
+        let banana_img = "/home/chotaxdon/.gemini/antigravity/brain/3831720b-cea6-4a3a-80c8-0f8ec2d0fd3a/nano_banana_text_1788802633367.jpg";
+        if !std::path::Path::new(banana_img).exists() {
+            eprintln!("Nano banana image does not exist, skipping");
+            return;
+        }
+        let candidates = [
+            "uploads/nano_banana_text_1788802633367.jpg",
+            "../frontend/public/sample_images/nano_banana_text_1788802633367.jpg",
+            "/home/chotaxdon/.gemini/antigravity/brain/3831720b-cea6-4a3a-80c8-0f8ec2d0fd3a/nano_banana_text_1788802633367.jpg",
+        ];
+        let banana_img = match candidates.iter().find(|p| std::path::Path::new(p).exists()) {
+            Some(p) => *p,
+            None => {
+                eprintln!("Nano banana image does not exist, skipping");
+                return;
+            }
+        };
+        let res = recognize(banana_img);
+        assert!(res.is_ok(), "OCR extract failed: {:?}", res.err());
+        let res = res.unwrap();
+        eprintln!("\n=== NANO BANANA OCR RESULT ===");
+        eprintln!("Full text:\n{}", res.full_text);
+        eprintln!("Extracted {} bounding boxes:", res.lines.len());
+        for (i, line) in res.lines.iter().enumerate() {
+            eprintln!("  Box #{}: {:?} (conf: {:.2}) at bbox: {:?}", i + 1, line.text, line.confidence, line.bbox);
+        }
+        assert!(res.full_text.contains("NANO BANANA"));
+        assert!(res.full_text.contains("POCKET FRUIT CO"));
+        assert!(res.full_text.contains("100% NATURAL"));
     }
 }
