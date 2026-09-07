@@ -25,6 +25,14 @@ const ChangeMapView: React.FC<ChangeMapViewProps> = ({ center, zoom }) => {
   return null;
 };
 
+const formatFileSize = (bytes?: number | null): string => {
+  if (!bytes || bytes <= 0) return "--";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
 interface InfoPanelProps {
   photo: Photo;
   metadata: Photo | null;
@@ -80,7 +88,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
     logAction('InfoPanel', 'extract_ocr', { photoId: photo.id });
     setIsExtractingOcr(true);
     try {
-      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/ocr`, {
+      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/ocr-bboxes`, {
         method: 'POST',
       });
       if (res.ok) {
@@ -336,7 +344,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({ photo, metadata, onMetadat
             </div>
             <div className="space-y-1">
               <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Size</p>
-              <p className="text-xs text-white font-mono">{metadata?.file_size ? (metadata.file_size / (1024 * 1024)).toFixed(2) + ' MB' : '--'}</p>
+              <p className="text-xs text-white font-mono">{formatFileSize(metadata?.file_size ?? photo.file_size)}</p>
             </div>
           </div>
         </section>

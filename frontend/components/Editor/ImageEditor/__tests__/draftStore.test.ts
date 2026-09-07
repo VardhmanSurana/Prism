@@ -11,7 +11,20 @@ import { DEFAULT_ADJUSTMENTS } from '../filterEngine';
 describe('editDraftStore', () => {
   const photoId = 'test-photo-100';
 
+  const mockStorage: Record<string, string> = {};
   beforeEach(() => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      value: {
+        getItem: (k: string) => mockStorage[k] ?? null,
+        setItem: (k: string, v: string) => { mockStorage[k] = v; },
+        removeItem: (k: string) => { delete mockStorage[k]; },
+        clear: () => {
+          for (const k in mockStorage) delete mockStorage[k];
+        },
+      },
+      configurable: true,
+      writable: true,
+    });
     localStorage.clear();
   });
 

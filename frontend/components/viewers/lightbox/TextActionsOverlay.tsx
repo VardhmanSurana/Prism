@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Type,
   X,
@@ -10,18 +10,33 @@ import {
   ShieldCheck,
   WrapText,
   Table as TableIcon,
-  Sparkles,
 } from 'lucide-react';
 import { Photo, OcrBbox, OcrBboxesResponse } from '@/types';
 import { API_BASE } from '@/constants';
 import { useImageBounds } from './useImageBounds';
 
-interface TextActionsOverlayProps {
+export interface TextActionsOverlayProps {
   photo: Photo;
   onClose: () => void;
+  onOcrComplete?: (ocrText: string) => void;
   zoomScale?: number;
   offset?: { x: number; y: number };
   containerRef?: React.RefObject<HTMLDivElement | null>;
+}
+
+export const EMAIL_REGEX = /[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/;
+export const PHONE_REGEX = /(?:(?:\b|\B\+)\d{1,3}[-.\s]?)?(?:\(?\d{3}\)?[-.\s]?|\d{3}[-.\s])\d{3}[-.\s]?\d{4}\b|(?:\b|\B\+)\d{1,3}[-.\s]?\d{4}[-.\s]?\d{6}\b|\b\d{10,11}\b/;
+export const CARD_REGEX = /\b(?:\d{4}[-\s]?){3}\d{4}\b/;
+
+export const EMAIL_GLOBAL_REGEX = new RegExp(EMAIL_REGEX.source, 'g');
+export const PHONE_GLOBAL_REGEX = new RegExp(PHONE_REGEX.source, 'g');
+export const CARD_GLOBAL_REGEX = new RegExp(CARD_REGEX.source, 'g');
+
+/**
+ * Checks whether text contains any sensitive pattern (email, phone, credit card).
+ */
+export function isRedactedText(text: string): boolean {
+  return CARD_REGEX.test(text) || EMAIL_REGEX.test(text) || PHONE_REGEX.test(text);
 }
 
 /**
@@ -29,13 +44,10 @@ interface TextActionsOverlayProps {
  * @param text - Raw OCR text.
  * @returns Redacted string with placeholders.
  */
-function applyQuickRedact(text: string): string {
-  // Redact emails
-  let result = text.replace(/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/g, '[REDACTED EMAIL]');
-  // Redact phone numbers
-  result = result.replace(/(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/g, '[REDACTED PHONE]');
-  // Redact credit cards
-  result = result.replace(/\b(?:\d{4}[-\s]?){3}\d{4}\b/g, '[REDACTED CARD]');
+export function applyQuickRedact(text: string): string {
+  let result = text.replace(CARD_GLOBAL_REGEX, '[REDACTED CARD]');
+  result = result.replace(EMAIL_GLOBAL_REGEX, '[REDACTED EMAIL]');
+  result = result.replace(PHONE_GLOBAL_REGEX, '[REDACTED PHONE]');
   return result;
 }
 
@@ -45,7 +57,7 @@ function applyQuickRedact(text: string): string {
  * @param selectedLines - OCR boxes to format.
  * @returns Tab-separated table string.
  */
-function formatAsTable(selectedLines: OcrBbox[]): string {
+export function formatAsTable(selectedLines: OcrBbox[]): string {
   if (selectedLines.length === 0) return '';
   const sorted = [...selectedLines].sort((a, b) => {
     const yA = Math.min(a.bbox[0][1], a.bbox[1][1]);
@@ -91,6 +103,7 @@ function formatAsTable(selectedLines: OcrBbox[]): string {
 export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
   photo,
   onClose,
+  onOcrComplete,
   zoomScale = 1,
   offset = { x: 0, y: 0 },
   containerRef,
@@ -112,6 +125,8 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
   const [dragEnd, setDragEnd] = useState<{ x: number; y: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const imageOverlayRef = useRef<HTMLDivElement>(null);
+  const onOcrCompleteRef = useRef(onOcrComplete);
+  onOcrCompleteRef.current = onOcrComplete;
 
   const imageBounds = useImageBounds(photo, containerRef, rootRef, zoomScale, offset);
 
@@ -133,7 +148,11 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
             setError(data.error || 'OCR failed');
           } else {
             setLines(data.lines || []);
-            setFullText(data.ocr_text || '');
+            const text = data.ocr_text || '';
+            setFullText(text);
+            if (text) {
+              onOcrCompleteRef.current?.(text);
+            }
           }
         }
       } catch (e) {
@@ -339,11 +358,7 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
 
     const isSelected = selectedIndices.has(index);
     const isHovered = hoveredIndex === index;
-    const isRedactedLine = quickRedact && (
-      /@/.test(line.text) ||
-      /\d{3}[-.\s]?\d{4}/.test(line.text) ||
-      /\b\d{4}[-\s]?\d{4}\b/.test(line.text)
-    );
+    const isRedactedLine = quickRedact && isRedactedText(line.text);
 
     return (
       <div
@@ -388,10 +403,11 @@ export const TextActionsOverlay: React.FC<TextActionsOverlayProps> = ({
             <p className="text-xs text-white font-mono truncate">
               {isRedactedLine ? applyQuickRedact(line.text) : line.text}
             </p>
-            <div className="flex items-center justify-between gap-3 text-[9px] text-white/50 mt-0.5 font-mono">
-              <span>{Math.round(line.confidence * 100)}% accuracy</span>
-              {isRedactedLine && <span className="text-red-400 font-bold uppercase">Redacted</span>}
-            </div>
+            {isRedactedLine && (
+              <p className="text-[9px] text-red-400 font-bold uppercase font-mono mt-0.5">
+                Redacted
+              </p>
+            )}
           </div>
         )}
       </div>

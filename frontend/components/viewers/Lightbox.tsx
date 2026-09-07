@@ -302,6 +302,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
   }, [photo.id]);
 
   useEffect(() => {
+    setMetadata(null);
+  }, [photo.id]);
+
+  useEffect(() => {
     if (showInfo) {
       fetchMetadata();
     }
@@ -512,6 +516,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       {!chromeHidden && (
         <Toolbar
           photo={photo}
+          metadata={metadata}
           highResStatus={highRes.highResStatus}
           zoomScale={zoomScale}
           showInfo={showInfo}
@@ -607,6 +612,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
                 <TextActionsOverlay
                   photo={photo}
                   onClose={() => setIsOcrActive(false)}
+                  onOcrComplete={fetchMetadata}
                   containerRef={containerRef}
                   zoomScale={zoomScale}
                   offset={offset}

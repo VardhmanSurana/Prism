@@ -36,7 +36,9 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
   });
 
   const sizeStr = photo.file_size
-    ? `${(photo.file_size / (1024 * 1024)).toFixed(2)} MB`
+    ? photo.file_size < 1024 * 1024
+      ? `${(photo.file_size / 1024).toFixed(1)} KB`
+      : `${(photo.file_size / (1024 * 1024)).toFixed(2)} MB`
     : 'Unknown size';
 
   const isFavorite = photo.isFavorite || photo.is_favorite;
