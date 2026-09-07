@@ -63,6 +63,13 @@ pub async fn list_photos(
         if p.url.as_deref().unwrap_or("").is_empty() { p.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key)); }
         if p.date_taken.is_none() { p.date_taken = p.upload_date.or(Some(Utc::now())); }
         if p.date.is_none() { p.date = p.date_taken; }
+        if p.file_size.is_none() || p.file_size == Some(0) {
+            if let Some(real_path) = resolve_photo_path(&p.path) {
+                if let Ok(meta) = std::fs::metadata(&real_path) {
+                    p.file_size = Some(meta.len() as i64);
+                }
+            }
+        }
     }
 
     Ok(Json(photos))

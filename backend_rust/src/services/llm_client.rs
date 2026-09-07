@@ -1,7 +1,7 @@
 //! llm_client.rs — direct HTTP calls to the local llama-server, replicating
 //! Python's payloads exactly:
 //!   - vision summary + tags: `app/services/image_summary/llm.py` (Gemma E4B :9091)
-//!   - OCR: `app/services/ocr/ocr_manager.py` (PaddleOCR-VL :9092)
+//!   - (OCR is executed in-process via PP-OCRv4 ONNX engine)
 //! Replaces the Python-orchestrated `/ml/vision` and `/ml/ocr` endpoints.
 
 use std::sync::Arc;
@@ -88,25 +88,6 @@ impl LlmClient {
         };
 
         Ok(VisionResult { summary, caption, tags })
-    }
-
-    /// OCR text extraction (Python `/ml/ocr` parity).
-    pub async fn ocr(&self, image_path: &str) -> Result<Option<String>, String> {
-        let base_url = self.server.base_url(LlmMode::Ocr).await?;
-        let text = self
-            .chat_completions(
-                &base_url,
-                &[chat_message(
-                    image_path,
-                    "Extract all visible text from this image. Return only the extracted text, preserving line breaks. If no text is visible, return an empty string.",
-                )],
-                2000,
-                0.1,
-                0.95,
-                64,
-            )
-            .await?;
-        Ok(text.filter(|t| !t.trim().is_empty()))
     }
 
     /// POST a multimodal chat completion; returns the assistant content or None.

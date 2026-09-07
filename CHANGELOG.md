@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - AGENTS.md for AI coding agents
 - CONTRIBUTING.md for contributors
 - CHANGELOG.md for tracking changes
+- In-process PP-OCRv4 ONNX text extraction with bounding boxes and Text Actions overlay
+- `ocr_attempted_at` tracking column to skip re-running text-less photos
+- Automatic backfill scheduling when OCR models complete downloading
+
+### Changed
+- Migrated OCR from external `llama-server` PaddleOCR-VL (:9092) to in-process PP-OCRv4 ONNX engine
+- Enhanced OCR recognition quality: unclip box expansion (1.6 ratio), horizontal projection multi-line splitting, and dynamic recognition aspect ratio
+- Hardened `fused_search` and agent search with parameterized SQL bindings and wildcard escaping
+- Migrated InfoPanel OCR extraction to `/api/v1/photos/:id/ocr-bboxes`
+- Removed legacy `LlmMode::Ocr` and dead `OcrAnalyzer`
+
+### Removed
+- Deprecated `llama-server` PaddleOCR-VL mode, port 9092, and `/photos/:id/ocr` route
 
 ## [0.1.0] - 2024-01-XX
 

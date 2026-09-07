@@ -181,7 +181,6 @@ RUST_LOG=info  # debug, info, warn, error
 # LLM Services (Optional)
 LLM_AGENT_PORT=9090
 LLM_VISION_PORT=9091
-LLM_OCR_PORT=9092
 ```
 
 ### Configuration Files

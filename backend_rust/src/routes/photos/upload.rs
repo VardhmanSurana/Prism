@@ -69,16 +69,25 @@ pub async fn upload_photo(
         .unwrap_or_else(|| "photo.jpg".to_string());
 
     let abs_path_str = target_path.to_string_lossy().to_string();
+    let file_size = fs::metadata(&target_path).map(|m| m.len() as i64).ok();
 
     if let Ok(Some(mut existing)) = sqlx::query_as::<_, Photo>("SELECT * FROM photos WHERE path = ?")
         .bind(&abs_path_str)
         .fetch_optional(&state.db)
         .await
     {
-        if existing.uuid.is_none() {
-            let u = Uuid::new_v4().to_string();
-            sqlx::query("UPDATE photos SET uuid = ? WHERE id = ?").bind(&u).bind(existing.id).execute(&state.db).await.ok();
+        let sz = existing.file_size.or(file_size);
+        if existing.uuid.is_none() || existing.file_size.is_none() {
+            let u = existing.uuid.clone().unwrap_or_else(|| Uuid::new_v4().to_string());
+            sqlx::query("UPDATE photos SET uuid = ?, file_size = ? WHERE id = ?")
+                .bind(&u)
+                .bind(sz)
+                .bind(existing.id)
+                .execute(&state.db)
+                .await
+                .ok();
             existing.uuid = Some(u);
+            existing.file_size = sz;
         }
         let p_key = existing.uuid.as_deref().unwrap_or(&existing.id.to_string()).to_string();
         existing.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key));
@@ -99,8 +108,8 @@ pub async fn upload_photo(
 
     let id = sqlx::query(
         r#"
-        INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, exif_make, exif_model, exif_iso, exif_focal_length, date_taken, date, upload_date, file_type, mime_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image', 'image/jpeg')
+        INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, exif_make, exif_model, exif_iso, exif_focal_length, date_taken, date, upload_date, file_type, mime_type, file_size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image', 'image/jpeg', ?)
         "#
     )
     .bind(&new_uuid)
@@ -116,6 +125,7 @@ pub async fn upload_photo(
     .bind(&now_str)
     .bind(&now_str)
     .bind(&now_str)
+    .bind(file_size)
     .execute(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -214,6 +224,7 @@ pub async fn upload_blob(
 
     let filename = target_path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "edited.jpg".to_string());
     let abs_path_str = target_path.to_string_lossy().to_string();
+    let file_size = fs::metadata(&target_path).map(|m| m.len() as i64).ok();
 
     let img_info = get_image_info(&target_path).unwrap_or_else(|_| crate::services::thumbnail::ImageInfo {
         width: 1920,
@@ -243,11 +254,12 @@ pub async fn upload_blob(
         }
 
         let new_hash = Utc::now().timestamp_millis().to_string();
-        sqlx::query("UPDATE photos SET width = ?, height = ?, aspect_ratio = ?, hash = ? WHERE id = ?")
+        sqlx::query("UPDATE photos SET width = ?, height = ?, aspect_ratio = ?, hash = ?, file_size = ? WHERE id = ?")
             .bind(img_info.width as i32)
             .bind(img_info.height as i32)
             .bind(img_info.aspect_ratio)
             .bind(&new_hash)
+            .bind(file_size)
             .bind(existing.id)
             .execute(&state.db)
             .await
@@ -257,6 +269,7 @@ pub async fn upload_blob(
         existing.height = img_info.height as i64;
         existing.aspect_ratio = img_info.aspect_ratio;
         existing.hash = Some(new_hash.clone());
+        existing.file_size = file_size;
 
         let p_key = existing.uuid.as_deref().unwrap_or(&existing.id.to_string()).to_string();
         existing.url = Some(format!("/api/v1/photos/{}/thumbnail?h={}", p_key, new_hash));
@@ -265,8 +278,8 @@ pub async fn upload_blob(
 
     let id = sqlx::query(
         r#"
-        INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, exif_make, exif_model, exif_iso, exif_focal_length, date_taken, date, upload_date, file_type, mime_type)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image', 'image/jpeg')
+        INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, exif_make, exif_model, exif_iso, exif_focal_length, date_taken, date, upload_date, file_type, mime_type, file_size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'image', 'image/jpeg', ?)
         "#
     )
     .bind(&new_uuid)
@@ -282,6 +295,7 @@ pub async fn upload_blob(
     .bind(&now_str)
     .bind(&now_str)
     .bind(&now_str)
+    .bind(file_size)
     .execute(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?

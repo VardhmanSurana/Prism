@@ -15,9 +15,8 @@ graph TD
     end
 
     InProcess --> |"SigLIP2, Face-id, BiSeNet,
-SegFormer, LaMa"| Models["ML Models"]
-    LLM --> |"Gemma 4 E4B, E2B,
-PaddleOCR-VL"| Services["LLM Services"]
+SegFormer, LaMa, PP-OCRv4"| Models["ML Models"]
+    LLM --> |"Gemma 4 E4B, E2B"| Services["LLM Services"]
     Pipeline --> |"4-stage processing
 queue"| Worker["Background Worker"]
 
@@ -118,16 +117,18 @@ queue"| Worker["Background Worker"]
 - Analyze image content
 - Provide visual question answering
 
-### OCR (Port 9092)
-- **Model**: PaddleOCR-VL
-- **Purpose**: Text extraction from images
-- **Usage**: Document scanning, screenshot text
+### OCR (In-Process PP-OCRv4)
+- **Model**: PP-OCRv4 (detection + recognition + character dictionary)
+- **Engine**: ONNX Runtime (in-process, tier-1 session)
+- **Purpose**: Neural text detection & recognition from images
+- **Usage**: Document scanning, receipts, signs, screenshots, and Text Actions overlay
 
 **Capabilities:**
-- Extract printed text
-- Recognize handwritten text
-- Process multi-language text
-- Power document smart albums
+- Fast in-process neural detection and recognition (no external server required)
+- Multi-line component decomposition and unclip boundary expansion
+- Per-line normalized bounding boxes and confidence scoring
+- Powers interactive Text Actions overlay (drag-select, copy plain/table, quick redaction)
+- Automatic FTS5 search indexing and full-text keyword retrieval
 
 ## Background Processing Pipeline
 
@@ -138,7 +139,7 @@ The background worker processes newly imported photos through 4 stages:
 ```mermaid
 flowchart LR
     Import["Photo Imported"] --> Face["1. Face Detection<br/>SCRFD + ArcFace"]
-    Face --> OCR["2. OCR Extraction<br/>PaddleOCR-VL"]
+    Face --> OCR["2. OCR Extraction<br/>PP-OCRv4 (In-Process)"]
     OCR --> SigLIP["3. SigLIP Embedding<br/>Semantic Search"]
     SigLIP --> AutoEnhance["4. Auto-Enhance<br/>(Optional)"]
     AutoEnhance --> Complete["Processing Complete"]
@@ -230,9 +231,6 @@ llama-server -m models/llm/gemma-4-e4b.gguf --port 9090
 
 # Vision/captioning (port 9091)
 llama-server -m models/llm/gemma-4-e4b.gguf --port 9091
-
-# OCR (port 9092)
-llama-server -m models/ocr/paddleocr.onnx --port 9092
 ```
 
 ## GPU Acceleration

@@ -47,5 +47,23 @@ pub async fn find_photo_by_id_or_uuid(
         photo.date = photo.date_taken;
     }
 
+    if photo.file_size.is_none() || photo.file_size == Some(0) {
+        if let Some(real_path) = resolve_photo_path(&photo.path) {
+            if let Ok(meta) = std::fs::metadata(&real_path) {
+                let size = meta.len() as i64;
+                photo.file_size = Some(size);
+                let pid = photo.id;
+                let db_clone = db.clone();
+                tokio::spawn(async move {
+                    let _ = sqlx::query("UPDATE photos SET file_size = ? WHERE id = ?")
+                        .bind(size)
+                        .bind(pid)
+                        .execute(&db_clone)
+                        .await;
+                });
+            }
+        }
+    }
+
     Ok(photo)
 }

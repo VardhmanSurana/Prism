@@ -804,24 +804,49 @@ pub async fn fused_search(
     if results.len() < limit {
         let terms: Vec<&str> = query.split_whitespace().collect();
         if !terms.is_empty() {
-            let term_filters: Vec<String> = terms.iter().map(|t| {
-                format!("(ai_summary LIKE '%{}%' OR caption LIKE '%{}%' OR auto_tags LIKE '%{}%' OR ocr_text LIKE '%{}%')", t, t, t, t)
-            }).collect();
-            let exclude_ids = if results.is_empty() {
-                "0".to_string()
-            } else {
-                results.iter().map(|r| r["id"].to_string()).collect::<Vec<_>>().join(", ")
-            };
-            let text_sql = format!(
-                "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
-                 FROM photos WHERE is_trash = 0 AND is_locked = 0 AND ({})
-                 AND id NOT IN ({}) ORDER BY date_taken DESC LIMIT {}",
-                term_filters.join(" OR "), exclude_ids, limit - results.len()
+            type PhotoRow = (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+            let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+                "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary \
+                 FROM photos WHERE is_trash = 0 AND is_locked = 0"
             );
-            if let Ok(text_rows) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(&text_sql)
-                .fetch_all(&state.db)
-                .await
-            {
+
+            qb.push(" AND (");
+            let mut first_term = true;
+            for t in &terms {
+                if !first_term {
+                    qb.push(" OR ");
+                }
+                first_term = false;
+                let escaped = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+                qb.push("(ai_summary LIKE ")
+                  .push_bind(escaped.clone())
+                  .push(" ESCAPE '\\' OR caption LIKE ")
+                  .push_bind(escaped.clone())
+                  .push(" ESCAPE '\\' OR auto_tags LIKE ")
+                  .push_bind(escaped.clone())
+                  .push(" ESCAPE '\\' OR ocr_text LIKE ")
+                  .push_bind(escaped)
+                  .push(" ESCAPE '\\')");
+            }
+            qb.push(")");
+
+            let exclude_ids: Vec<i64> = results
+                .iter()
+                .filter_map(|r| r.get("id").and_then(|v| v.as_i64()))
+                .collect();
+            if !exclude_ids.is_empty() {
+                qb.push(" AND id NOT IN (");
+                let mut sep = qb.separated(", ");
+                for id in exclude_ids {
+                    sep.push_bind(id);
+                }
+                qb.push(")");
+            }
+
+            qb.push(" ORDER BY date_taken DESC LIMIT ");
+            qb.push_bind((limit - results.len()) as i64);
+
+            if let Ok(text_rows) = qb.build_query_as::<PhotoRow>().fetch_all(&state.db).await {
                 for row in text_rows {
                     results.push(json!({
                         "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,

@@ -404,7 +404,9 @@ pub async fn chat(
     body_chunks.push(progress_chunk);
 
     // Fetch matching photos from SQLite enforcing is_locked = 0 & is_trash = 0
-    let mut sql = String::from("SELECT * FROM photos WHERE is_trash = 0 AND is_locked = 0");
+    let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+        "SELECT * FROM photos WHERE is_trash = 0 AND is_locked = 0"
+    );
 
     let clean_terms: Vec<&str> = query.split_whitespace()
         .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()))
@@ -412,22 +414,38 @@ pub async fn chat(
         .collect();
 
     if !clean_terms.is_empty() {
-        let mut term_filters = Vec::new();
+        qb.push(" AND (");
+        let mut first = true;
         for t in &clean_terms {
-            term_filters.push(format!(
-                "(caption LIKE '%{t}%' OR ai_summary LIKE '%{t}%' OR location LIKE '%{t}%' OR city LIKE '%{t}%' OR auto_tags LIKE '%{t}%' OR ocr_text LIKE '%{t}%')"
-            ));
+            if !first {
+                qb.push(" OR ");
+            }
+            first = false;
+            let escaped = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+            qb.push("(caption LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR ai_summary LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR location LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR city LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR auto_tags LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR ocr_text LIKE ")
+              .push_bind(escaped)
+              .push(" ESCAPE '\\')");
         }
-        sql.push_str(&format!(" AND ({})", term_filters.join(" OR ")));
+        qb.push(")");
     }
 
     if query_lower.contains("favorite") || query_lower.contains("starred") {
-        sql.push_str(" AND is_favorite = 1");
+        qb.push(" AND is_favorite = 1");
     }
 
-    sql.push_str(" ORDER BY date_taken DESC LIMIT 30");
+    qb.push(" ORDER BY date_taken DESC LIMIT 30");
 
-    let photos = sqlx::query_as::<_, Photo>(&sql)
+    let photos = qb.build_query_as::<Photo>()
         .fetch_all(&state.db)
         .await
         .unwrap_or_default();

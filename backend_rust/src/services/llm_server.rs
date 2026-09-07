@@ -1,11 +1,11 @@
 //! llm_server.rs — spawns and lifecycle-manages the local llama-server
-//! (llama.cpp binary) in three mutually-exclusive modes, replacing Python's
+//! (llama.cpp binary) in mutually-exclusive modes, replacing Python's
 //! `ai_orchestrator.py` / `agent/llm.py` (LlamaManager).
 //!
-//! Modes (ports match Python exactly):
+//! Modes:
 //!   Agent  :9090 — Gemma 3.2 E4B (+mmproj)  — agent chat / stories
 //!   Vision :9091 — Gemma 3.2 E4B (+mmproj)  — image captions + tags
-//!   Ocr    :9092 — PaddleOCR-VL GGUF         — text extraction
+//!   (OCR is handled in-process via PP-OCRv4 ONNX engine, avoiding llama-server mode switching)
 //!
 //! Only one mode runs at a time: starting a different mode kills the current
 //! server (same mutual-exclusion as Python's AIOrchestrator).
@@ -22,7 +22,6 @@ use tracing::info;
 pub enum LlmMode {
     Agent,
     Vision,
-    Ocr,
 }
 
 impl LlmMode {
@@ -31,7 +30,6 @@ impl LlmMode {
         match self {
             LlmMode::Agent => 9090,
             LlmMode::Vision => 9091,
-            LlmMode::Ocr => 9092,
         }
     }
 
@@ -40,7 +38,6 @@ impl LlmMode {
         match self {
             LlmMode::Agent => models_dir.join("llm/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"),
             LlmMode::Vision => models_dir.join("llm/gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf"),
-            LlmMode::Ocr => models_dir.join("PaddleOCR/PaddleOCR-VL-1.6-GGUF.gguf"),
         }
     }
 
@@ -49,7 +46,6 @@ impl LlmMode {
         match self {
             LlmMode::Agent => models_dir.join("llm/mmproj-BF16-E4B.gguf"),
             LlmMode::Vision => models_dir.join("llm/mmproj-BF16-E4B.gguf"),
-            LlmMode::Ocr => models_dir.join("PaddleOCR/PaddleOCR-VL-1.6-GGUF-mmproj.gguf"),
         }
     }
 
@@ -58,7 +54,6 @@ impl LlmMode {
         match self {
             LlmMode::Agent => "llm_server_agent.log",
             LlmMode::Vision => "llm_server_vision.log",
-            LlmMode::Ocr => "llm_server_ocr.log",
         }
         .to_string()
     }

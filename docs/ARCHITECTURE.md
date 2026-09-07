@@ -169,7 +169,7 @@ The background worker processes photos through a 4-stage pipeline:
 ```mermaid
 flowchart LR
     Import["Photo Imported"] --> Face["1. Face Detection<br/>(SCRFD + ArcFace)"]
-    Face --> OCR["2. OCR<br/>(PaddleOCR-VL)"]
+    Face --> OCR["2. OCR<br/>(PP-OCRv4 In-Process)"]
     OCR --> SigLIP["3. SigLIP Embedding<br/>(Semantic Search)"]
     SigLIP --> AutoEnhance["4. Auto-Enhancement<br/>(Optional)"]
     AutoEnhance --> Complete["Processing Complete"]
@@ -254,12 +254,12 @@ erDiagram
 - **BiSeNet** — Face parsing/portrait segmentation
 - **SegFormer** — Semantic segmentation (ADE20K-150)
 - **LaMa** — Inpainting/object removal
+- **PP-OCRv4** — Neural text detection & recognition (in-process ONNX)
 
 ### External Services (Optional)
 
 - **llama-server** — LLM for agent search (port 9090)
 - **llama-server** — Vision/captioning (port 9091)
-- **PaddleOCR-VL** — OCR text extraction (port 9092)
 
 ## Security Model
 

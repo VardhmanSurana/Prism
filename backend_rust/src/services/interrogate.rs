@@ -70,17 +70,29 @@ pub async fn run_interrogate(photo_path: &str, _prompt: Option<&str>, llm_client
         Err(e) => return Err(format!("Failed to read image {}: {}", photo_path, e)),
     };
 
-    // OCR
-    match llm_client.ocr(photo_path).await {
-        Ok(Some(text)) => {
-            result.ocr = serde_json::json!({"status": "success", "text": text});
+    // OCR via the in-process PP-OCRv4 engine (PaddleOCR-VL llama-server path removed).
+    // NOTE: `photo_path` is cloned into the spawn_blocking task to avoid lifetime issues.
+    if let Ok(ocr_result) = tokio::task::spawn_blocking({
+        let path = photo_path.to_string();
+        move || crate::services::ocr_engine::recognize(&path)
+    })
+    .await
+    {
+        match ocr_result {
+            Ok(ocr_result) => {
+                let text = ocr_result.full_text;
+                if !text.is_empty() {
+                    result.ocr = serde_json::json!({"status": "success", "text": text});
+                } else {
+                    result.ocr = serde_json::json!({"status": "empty", "text": null});
+                }
+            }
+            Err(e) => {
+                result.ocr = serde_json::json!({"status": "error", "text": e});
+            }
         }
-        Ok(None) => {
-            result.ocr = serde_json::json!({"status": "empty", "text": null});
-        }
-        Err(e) => {
-            result.ocr = serde_json::json!({"status": "error", "text": e});
-        }
+    } else {
+        result.ocr = serde_json::json!({"status": "error", "text": "OCR task panicked"});
     }
 
     // Vision (LLM/Gemma) — only if Florence-2 didn't provide a caption,

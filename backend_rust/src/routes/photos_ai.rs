@@ -11,30 +11,6 @@ use tracing::warn;
 use crate::AppState;
 use crate::services::{auto_enhance, denoise, depth, enhance, florence2, inpaint, segmentation};
 
-/// trigger_ocr - Performs trigger ocr.
-pub async fn trigger_ocr(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id).await?;
-    match state.ml_client.get_ocr_text(&photo.path).await {
-        Ok(resp) => {
-            if let Some(ref text) = resp.text {
-                let _ = sqlx::query("UPDATE photos SET ocr_text = ? WHERE id = ?")
-                    .bind(text)
-                    .bind(photo.id)
-                    .execute(&state.db)
-                    .await;
-            }
-            Ok(Json(json!({ "photo_id": photo.id, "ocr_text": resp.text, "status": resp.status })))
-        }
-        Err(e) => {
-            warn!("OCR ML call failed: {}", e);
-            Ok(Json(json!({ "photo_id": photo.id, "ocr_text": null, "error": e })))
-        }
-    }
-}
-
 /// POST /photos/:id/ocr-bboxes — Extract text + bounding boxes via PP-OCRv4.
 /// Returns cached results if available; otherwise runs on-demand inference.
 pub async fn trigger_ocr_bboxes(
@@ -102,7 +78,7 @@ pub async fn trigger_ocr_bboxes(
 
             // Cache in DB
             let _ = sqlx::query(
-                "UPDATE photos SET ocr_text = ?, ocr_bboxes = ? WHERE id = ?"
+                "UPDATE photos SET ocr_text = ?, ocr_bboxes = ?, ocr_attempted_at = datetime('now') WHERE id = ?"
             )
             .bind(&ocr_result.full_text)
             .bind(&bboxes_json)

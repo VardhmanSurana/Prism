@@ -420,7 +420,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/photos/:id/location", axum::routing::put(photos::update_photo_location))
         .route("/photos/:id/adjustments", axum::routing::put(photos::update_photo_adjustments))
         .route("/photos/:id/tag-face", post(photos::tag_photo_face))
-        .route("/photos/:id/ocr", post(photos_ai::trigger_ocr))
         .route("/photos/:id/ocr-bboxes", post(photos_ai::trigger_ocr_bboxes))
         .route("/photos/inpaint/process", post(photos_ai::process_inpaint))
         .route("/photos/magic-eraser/process", post(photos_ai::process_inpaint))

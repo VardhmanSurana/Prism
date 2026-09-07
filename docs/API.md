@@ -232,9 +232,9 @@ Content-Type: application/json
 
 ## AI Photo Endpoints
 
-### Trigger OCR
+### Extract OCR & Bounding Boxes
 ```http
-POST /api/v1/photos/:id/ocr
+POST /api/v1/photos/:id/ocr-bboxes
 ```
 
 ### Process Inpainting
