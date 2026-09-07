@@ -435,7 +435,6 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/photos/:id/xmp", post(photos_ai::xmp_operation))
         .route("/photos/:id/lock", post(photos_ai::toggle_lock))
         .route("/photos/:id/unlock", post(photos_ai::unlock_photo))
-        .route("/photos/:id/export-preset", post(photos_ai::export_photo_preset))
         .route("/photos/:id/metadata", put(photos_ai::update_photo_metadata))
         .route("/photos/semantic-masks/:photo_id", get(photos_ai::get_semantic_masks))
         .route("/photos/background-mask/:photo_id", get(photos_ai::get_background_mask))

@@ -277,11 +277,6 @@ POST /api/v1/photos/:id/lock
 POST /api/v1/photos/:id/unlock
 ```
 
-### Export Photo Preset
-```http
-POST /api/v1/photos/:id/export-preset
-```
-
 ### Get Semantic Masks
 ```http
 GET /api/v1/photos/semantic-masks/:photo_id

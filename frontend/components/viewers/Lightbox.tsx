@@ -22,7 +22,6 @@ import { VideoPlayer } from './lightbox/VideoPlayer';
 import { SlideshowControls } from './lightbox/SlideshowControls';
 import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
 import { TextActionsOverlay } from './lightbox/TextActionsOverlay';
-import { ComparisonView } from './lightbox/ComparisonView';
 import { AskAIPanel } from './lightbox/AskAIPanel';
 import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
 import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
@@ -95,7 +94,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
   const [isOcrActive, setIsOcrActive] = useState(false);
   const [hasFaces, setHasFaces] = useState(false);
-  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAskAIOpen, setIsAskAIOpen] = useState(false);
 
@@ -429,10 +427,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
           setIsFaceTaggingActive(false);
           return;
         }
-        if (isComparisonOpen) {
-          setIsComparisonOpen(false);
-          return;
-        }
         if (isAskAIOpen) {
           setIsAskAIOpen(false);
           return;
@@ -457,7 +451,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);  }, [onClose, handleNext, handlePrev, zoomScale, isEditing, isNLEOpen, isVideo,
     slideshowActive, toggleSlideshowPlay, handleStopSlideshow, handleStartSlideshow,
-    canStartSlideshow, isFaceTaggingActive, isOcrActive, isComparisonOpen, isAskAIOpen,
+    canStartSlideshow, isFaceTaggingActive, isOcrActive, isAskAIOpen,
   ]);
 
   // Stop slideshow when entering editor
@@ -546,7 +540,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onStartSlideshow={handleStartSlideshow}
           onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
           onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
-          onOpenComparison={() => { logAction('Lightbox', 'open_comparison', { photoId: photo.id }); setIsComparisonOpen(true); }}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyImageToClipboard}
         />
@@ -690,18 +683,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
         )}
       </div>
 
-      {/* Side-by-Side Comparison Mode Overlay */}
-      {isComparisonOpen && (
-        <ComparisonView
-          currentPhoto={photo}
-          photos={photos}
-          onClose={() => setIsComparisonOpen(false)}
-          onSelectPhoto={(p) => {
-            onPhotoSelect?.(p);
-            setIsComparisonOpen(false);
-          }}
-        />
-      )}
 
       {/* Keyboard Shortcuts Modal */}
       <KeyboardShortcutsModal

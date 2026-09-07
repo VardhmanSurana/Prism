@@ -797,36 +797,6 @@ pub async fn unlock_photo(
     Ok(Json(json!({ "photo_id": photo.id, "status": "success", "is_locked": false })))
 }
 
-#[derive(Deserialize)]
-pub struct ExportPresetRequest {
-    #[serde(default)]
-    pub preset: String,
-}
-
-/// export_photo_preset - Performs export photo preset.
-pub async fn export_photo_preset(
-    State(state): State<Arc<AppState>>,
-    Path(id): Path<String>,
-    Json(payload): Json<ExportPresetRequest>,
-) -> Result<Json<Value>, (StatusCode, String)> {
-    let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id).await?;
-    let presets = json!({
-        "instagram_4_5": { "width": 1080, "height": 1350 },
-        "instagram_1_1": { "width": 1080, "height": 1080 },
-        "story_9_16": { "width": 1080, "height": 1920 },
-        "web_1080p": { "width": 1920, "height": 1080 },
-        "full_res": { "width": photo.width, "height": photo.height },
-    });
-    let dims = presets.get(&payload.preset).cloned()
-        .unwrap_or(json!({ "width": photo.width, "height": photo.height }));
-    Ok(Json(json!({
-        "photo_id": photo.id,
-        "status": "success",
-        "preset": payload.preset,
-        "source": photo.path,
-        "target_dimensions": dims,
-    })))
-}
 
 // -- XMP sub-endpoints --
 

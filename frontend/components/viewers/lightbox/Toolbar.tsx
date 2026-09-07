@@ -11,19 +11,16 @@ import {
   Image,
   MoreHorizontal,
   Copy,
-  Download,
   Presentation,
   UserCheck,
-  Columns,
   HelpCircle,
-  Share2,
   Type,
 } from 'lucide-react';
-import { API_BASE } from '@/constants';
 import { Photo } from '@/types';
 
 export interface ExtendedToolbarProps {
   photo: Photo;
+  metadata?: Photo | null;
   highResStatus: string;
   zoomScale: number;
   showInfo: boolean;
@@ -45,25 +42,17 @@ export interface ExtendedToolbarProps {
   onStartSlideshow?: () => void;
   onToggleFaceTagging?: () => void;
   onToggleOcr?: () => void;
-  onOpenComparison?: () => void;
   onOpenShortcutsModal?: () => void;
   onCopyImageToClipboard?: () => void;
 }
 
-const EXPORT_PRESETS = [
-  { id: 'instagram_4_5', label: 'Instagram Post (4:5 Portrait)' },
-  { id: 'instagram_1_1', label: 'Instagram Post (1:1 Square)' },
-  { id: 'story_9_16', label: 'Story / Reel (9:16 Vertical)' },
-  { id: 'web_1080p', label: 'Web Optimized (1080p HD)' },
-  { id: 'full_res', label: 'Full Resolution (Original)' },
-];
-
 /**
  * Top toolbar for the lightbox: close, file metadata, zoom controls,
- * quick actions (OCR, face tag, compare, slideshow, favorite, info) and overflow menu.
+ * quick actions (OCR, face tag, slideshow, favorite, info) and overflow menu.
  */
 export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   photo,
+  metadata,
   highResStatus,
   zoomScale,
   showInfo,
@@ -84,70 +73,38 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   onStartSlideshow,
   onToggleFaceTagging,
   onToggleOcr,
-  onOpenComparison,
   onOpenShortcutsModal,
   onCopyImageToClipboard,
 }) => {
   const [showMore, setShowMore] = useState(false);
-  const [showExportPresets, setShowExportPresets] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!showMore && !showExportPresets) return;
+    if (!showMore) return;
     const handleClick = (e: MouseEvent) => {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setShowMore(false);
       }
-      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
-        setShowExportPresets(false);
-      }
     };
     document.addEventListener('mousedown', handleClick, { passive: true });
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [showMore, showExportPresets]);
-
-  /**
-   * Requests a preset export from the backend and triggers a browser download.
-   * @param presetId - Export preset identifier (e.g. instagram_4_5).
-   */
-  const handleExportPreset = async (presetId: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/photos/${photo.id}/export-preset`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preset: presetId }),
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `export_${photo.id}_${presetId}.jpg`;
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      console.error('Failed to export preset:', e);
-    } finally {
-      setShowExportPresets(false);
-    }
-  };
+  }, [showMore]);
 
   /**
    * Formats a byte count into a human-readable size string.
    * @param bytes - File size in bytes.
    * @returns Formatted string (KB/MB/GB) or null if undefined/zero.
    */
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return null;
+  const formatFileSize = (bytes?: number | null) => {
+    if (!bytes || bytes <= 0) return null;
+    if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
     if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
     return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
   };
 
   const dims = photo.width && photo.height ? `${photo.width} × ${photo.height}` : null;
-  const size = formatFileSize(photo.file_size);
+  const size = formatFileSize(metadata?.file_size ?? photo.file_size);
   const ext = photo.filename?.split('.').pop()?.toUpperCase();
 
   return (
@@ -252,44 +209,6 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
             <UserCheck size={18} />
           </button>
         )}
-
-        {/* Side-by-Side Comparison */}
-        {onOpenComparison && (
-          <button
-            onClick={onOpenComparison}
-            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-            title="Compare Side-by-Side"
-          >
-            <Columns size={18} />
-          </button>
-        )}
-
-        {/* Quick Export Presets */}
-        <div className="relative" ref={exportRef}>
-          <button
-            onClick={() => setShowExportPresets(!showExportPresets)}
-            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors flex items-center gap-1"
-            title="Quick Export Presets"
-          >
-            <Share2 size={18} />
-          </button>
-
-          {showExportPresets && (
-            <div className="absolute top-full right-0 mt-1 w-64 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl py-2 z-50 animate-in fade-in duration-150">
-              <p className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-wider">Quick Export Presets</p>
-              {EXPORT_PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => handleExportPreset(preset.id)}
-                  className="w-full text-left px-3 py-2 text-xs text-gray-200 hover:bg-primary/20 hover:text-primary transition-colors flex items-center justify-between"
-                >
-                  <span>{preset.label}</span>
-                  <Download size={13} />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
         {/* Slideshow */}
         {canStartSlideshow && onStartSlideshow && (
