@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { gsap } from 'gsap';
+import { motion, animate } from 'framer-motion';
 
 interface GlassMaterialProps {
   children?: React.ReactNode;
@@ -15,9 +15,9 @@ interface GlassMaterialProps {
  * Liquid Glass Material (iOS 26 Style for Web)
  * 
  * Performance note: When interactive=false (default), this uses plain CSS
- * instead of GSAP to avoid Main Thread overhead.
+ * to avoid Main Thread overhead.
  * 
- * When interactive=true, uses GSAP quickTo for 60fps mouse tracking
+ * When interactive=true, uses Framer Motion for 60fps mouse tracking
  * without React re-renders.
  */
 export const GlassMaterial: React.FC<GlassMaterialProps> = ({
@@ -42,7 +42,7 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     prominent: 0.08,
   }[intensity];
 
-  // Non-interactive path: plain div, no GSAP, no springs
+  // Non-interactive path: plain div, no animation overhead
   if (!interactive) {
     return (
       <div
@@ -68,7 +68,7 @@ export const GlassMaterial: React.FC<GlassMaterialProps> = ({
     );
   }
 
-  // Interactive path: GSAP quickTo for pointer-following specular highlight
+  // Interactive path: Framer Motion for pointer-following specular highlight
   return (
     <InteractiveGlass
       children={children}
@@ -91,7 +91,6 @@ const InteractiveGlass: React.FC<{
   onClick?: () => void;
   opacityValue: number;
 }> = ({ children, className, intensity, tint, borderRadius, onClick, opacityValue }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
   const highlightRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -101,10 +100,6 @@ const InteractiveGlass: React.FC<{
     prominent: 'blur(16px)',
   }[intensity];
 
-  // GSAP quickTo for high-frequency mouse tracking — no React re-renders
-  const quickHighlightX = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
-  const quickHighlightY = useRef<ReturnType<typeof gsap.quickTo> | null>(null);
-
   /**
    * handlePointerMove - Handles pointer move.
    */
@@ -113,21 +108,8 @@ const InteractiveGlass: React.FC<{
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Lazy-init quickTo on first pointer move
-    if (!quickHighlightX.current && highlightRef.current) {
-      quickHighlightX.current = gsap.quickTo(highlightRef.current, 'x', {
-        duration: 0.3,
-        ease: 'power2.out',
-      });
-      quickHighlightY.current = gsap.quickTo(highlightRef.current, 'y', {
-        duration: 0.3,
-        ease: 'power2.out',
-      });
-    }
-
-    if (quickHighlightX.current && quickHighlightY.current) {
-      quickHighlightX.current(x);
-      quickHighlightY.current(y);
+    if (highlightRef.current) {
+      animate(highlightRef.current, { x, y }, { duration: 0.15, ease: 'easeOut' });
     }
   }, []);
 
@@ -137,11 +119,7 @@ const InteractiveGlass: React.FC<{
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);
     if (highlightRef.current) {
-      gsap.to(highlightRef.current, {
-        opacity: 1,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
+      animate(highlightRef.current, { opacity: 1 }, { duration: 0.3, ease: 'easeOut' });
     }
   }, []);
 
@@ -151,49 +129,17 @@ const InteractiveGlass: React.FC<{
   const handleMouseLeave = useCallback(() => {
     setIsHovered(false);
     if (highlightRef.current) {
-      gsap.to(highlightRef.current, {
-        opacity: 0,
-        duration: 0.3,
-        ease: 'power2.out',
-      });
-    }
-  }, []);
-
-  /**
-   * handlePointerDown - Handles pointer down.
-   */
-  const handlePointerDown = useCallback(() => {
-    if (containerRef.current) {
-      gsap.to(containerRef.current, {
-        scale: 0.98,
-        duration: 0.1,
-        ease: 'power2.inOut',
-      });
-    }
-  }, []);
-
-  /**
-   * handlePointerUp - Handles pointer up.
-   */
-  const handlePointerUp = useCallback(() => {
-    if (containerRef.current) {
-      gsap.to(containerRef.current, {
-        scale: 1,
-        duration: 0.15,
-        ease: 'power2.out',
-      });
+      animate(highlightRef.current, { opacity: 0 }, { duration: 0.3, ease: 'easeOut' });
     }
   }, []);
 
   return (
-    <div
-      ref={containerRef}
+    <motion.div
       onClick={onClick}
       onPointerMove={handlePointerMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onPointerDown={handlePointerDown}
-      onPointerUp={handlePointerUp}
+      whileTap={{ scale: 0.98 }}
       className={`relative overflow-hidden ${className}`}
       style={{
         borderRadius,
@@ -204,7 +150,7 @@ const InteractiveGlass: React.FC<{
         willChange: 'transform',
       }}
     >
-      {/* Specular highlight — follows pointer via GSAP quickTo */}
+      {/* Specular highlight — follows pointer */}
       <div
         ref={highlightRef}
         className="absolute inset-0 pointer-events-none"
@@ -224,7 +170,7 @@ const InteractiveGlass: React.FC<{
       <div className="relative z-10 h-full">
         {children}
       </div>
-    </div>
+    </motion.div>
   );
 };
 

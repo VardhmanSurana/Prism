@@ -3,7 +3,7 @@ import {
   Upload, Download, X, Check,
   Film, Palette, Camera, Sparkles, Wand2,
 } from 'lucide-react';
-import gsap from 'gsap';
+import { animate } from 'framer-motion';
 import { Adjustments, LutAdjustments } from '@/components/Editor/ImageEditor/filterEngine';
 import { resolveUrl } from '@/constants';
 import { BUILTIN_LUTS, parseCubeFile, getBuiltinLutData, exportToCubeFile, applyLutToImageData } from './lutEngine';
@@ -129,25 +129,23 @@ export const LutPanel: React.FC<LutPanelProps> = ({ adjustments, onChange }) => 
     URL.revokeObjectURL(url);
   }, [lut]);
 
-  // ── GSAP Stagger Entrance Animation when Category Changes ──────────────────────
+  // ── Framer Motion Stagger Entrance Animation when Category Changes ───────────
   useEffect(() => {
     if (!gridContainerRef.current) return;
-    const cards = gridContainerRef.current.querySelectorAll('.lut-card-item');
+    const cards = gridContainerRef.current.querySelectorAll<HTMLElement>('.lut-card-item');
     if (cards.length === 0) return;
 
-    gsap.fromTo(
-      cards,
-      { opacity: 0, y: 10, scale: 0.96 },
-      {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-        duration: 0.28,
-        stagger: 0.02,
-        ease: 'power2.out',
-        overwrite: 'auto',
-      }
-    );
+    cards.forEach((card, i) => {
+      animate(
+        card,
+        { opacity: [0, 1], y: [10, 0], scale: [0.96, 1] },
+        {
+          duration: 0.28,
+          delay: i * 0.02,
+          ease: 'easeOut',
+        }
+      );
+    });
   }, [activeCategory]);
 
   // ── Generate High-Definition Sample Photo Thumbnails with each LUT applied ──────

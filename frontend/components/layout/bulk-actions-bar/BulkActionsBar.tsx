@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { animate } from 'animejs';
-import { gsap } from 'gsap';
+import { animate } from 'framer-motion';
 import {
   X, FolderMinus, Trash2, Heart,
   RotateCcw, LayoutGrid, BookOpen, ClipboardPaste,
@@ -139,15 +138,16 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
         y: [16, 0],
         scale: [0.96, 1],
         boxShadow: ['0px 8px 8px rgba(0,0,0,0.05)', '0px 8px 24px rgba(0,0,0,0.2)'],
-        duration: 220,
-        ease: 'outCubic',
+      }, {
+        duration: 0.22,
+        ease: 'easeOut',
       });
     }
     const div = dividerRef.current;
     if (div) {
       div.style.transformOrigin = 'top center';
       div.style.transform = 'scaleY(0)';
-      animate(div, { scaleY: [0, 1], opacity: [0, 0.4], duration: 220, ease: 'outCubic', delay: 40 });
+      animate(div, { scaleY: [0, 1], opacity: [0, 0.4] }, { duration: 0.22, ease: 'easeOut', delay: 0.04 });
     }
   }, []);
 
@@ -162,8 +162,9 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
       opacity: [1, 0],
       y: [0, 8],
       scale: [1, 0.98],
-      duration: 160,
-      ease: 'outCubic',
+    }, {
+      duration: 0.16,
+      ease: 'easeOut',
       onComplete: done,
     });
   }, []);
@@ -206,15 +207,18 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     popup.style.top = `${centerY}px`;
     popup.style.display = 'flex';
 
-    // 3. Popup from button (GSAP scale + y rise)
+    // 3. Popup from button (scale + y rise)
     soundEffects.play('popup');
     popup.className = 'folder-animated folder-css folder-anim-popup';
 
-    gsap.fromTo(
-      popup,
-      { scale: 0.8, opacity: 0, y: 0 },
-      { scale: 2.6, opacity: 1, y: -50, duration: 0.22, ease: 'power2.out' },
-    );
+    animate(popup, {
+      scale: [0.8, 2.6],
+      opacity: [0, 1],
+      y: [0, -50],
+    }, {
+      duration: 0.22,
+      ease: 'easeOut',
+    });
     await delay(220);
 
     // 4. Open 3D folder flap
@@ -270,13 +274,12 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               soundEffects.play('suck');
               spawnParticles(targetX + slotOffsetX, targetY + slotOffsetY, 8);
               if (inner) {
-                gsap.to(inner, {
-                  scaleX: 1.15,
-                  scaleY: 0.9,
-                  duration: 0.1,
-                  yoyo: true,
-                  repeat: 1,
-                  ease: 'power2.out',
+                animate(inner, {
+                  scaleX: [1, 1.15, 1],
+                  scaleY: [1, 0.9, 1],
+                }, {
+                  duration: 0.2,
+                  ease: 'easeOut',
                 });
               }
             },
@@ -302,12 +305,13 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
     // 8. Return down into button
     soundEffects.play('return');
-    gsap.to(popup, {
+    animate(popup, {
       scale: 1,
       opacity: 0,
       y: 0,
+    }, {
       duration: 0.22,
-      ease: 'power2.in',
+      ease: 'easeIn',
       onComplete: () => {
         popup.style.display = 'none';
         popup.className = 'folder-animated folder-css';
@@ -356,15 +360,18 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     popup.style.transform = 'translate(-50%, -50%)';
     popup.style.display = 'flex';
 
-    // 3. Popup from button (GSAP scale + y rise)
+    // 3. Popup from button (scale + y rise)
     soundEffects.play('popup');
     popup.className = 'vault-animated vault-css vault-anim-popup';
 
-    gsap.fromTo(
-      popup,
-      { scale: 1, opacity: 0, y: 0, xPercent: -50, yPercent: -50 },
-      { scale: 2.8, opacity: 1, y: -110, xPercent: -50, yPercent: -50, duration: 0.25, ease: 'power2.out' },
-    );
+    animate(popup, {
+      scale: [1, 2.8],
+      opacity: [0, 1],
+      y: [0, -110],
+    }, {
+      duration: 0.25,
+      ease: 'easeOut',
+    });
     await delay(250);
 
     // 4. Spin chrome wheel & 3D swing vault door open 110°
@@ -415,13 +422,12 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               soundEffects.play('suck');
               spawnParticles(targetX, targetY, 8);
               if (inner) {
-                gsap.to(inner, {
-                  scaleX: 1.12,
-                  scaleY: 0.92,
-                  duration: 0.08,
-                  yoyo: true,
-                  repeat: 1,
-                  ease: 'power2.out',
+                animate(inner, {
+                  scaleX: [1, 1.12, 1],
+                  scaleY: [1, 0.92, 1],
+                }, {
+                  duration: 0.16,
+                  ease: 'easeOut',
                 });
               }
             },
@@ -442,12 +448,11 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
     popup.classList.add('vault-anim-snap');
 
     if (inner) {
-      gsap.to(inner, {
-        scale: 1.18,
-        duration: 0.1,
-        yoyo: true,
-        repeat: 1,
-        ease: 'power2.out',
+      animate(inner, {
+        scale: [1, 1.18, 1],
+      }, {
+        duration: 0.2,
+        ease: 'easeOut',
       });
     }
 
@@ -456,14 +461,13 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
     // 7. Return down into button, execute onToggleLock and clear selection
     soundEffects.play('return');
-    gsap.to(popup, {
+    animate(popup, {
       scale: 1,
       opacity: 0,
       y: 0,
-      xPercent: -50,
-      yPercent: -50,
+    }, {
       duration: 0.22,
-      ease: 'power2.in',
+      ease: 'easeIn',
       onComplete: () => {
         clones.forEach((c) => c.remove());
         popup.style.display = 'none';
@@ -641,7 +645,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
 
     if (open && selectedCount > 0 && prev !== selectedCount) {
       const el = countRef.current;
-      if (el) animate(el, { y: [8, 0], opacity: [0, 1], duration: 180, ease: 'outCubic' });
+      if (el) animate(el, { y: [8, 0], opacity: [0, 1] }, { duration: 0.18, ease: 'easeOut' });
     }
   }, [selectedCount, open, playExit]);
 

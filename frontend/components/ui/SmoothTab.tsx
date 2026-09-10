@@ -1,5 +1,5 @@
-import React, { useRef, useEffect, useLayoutEffect } from 'react';
-import { gsap } from 'gsap';
+import React, { useRef, useLayoutEffect } from 'react';
+import { animate } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 
 export interface TabItem<T extends string = string> {
@@ -24,7 +24,7 @@ export function SmoothTab<T extends string = string>({
   const indicatorRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Map<T, HTMLButtonElement | null>>(new Map());
 
-  // Animate indicator to the active tab position using GSAP
+  // Animate indicator to the active tab position using Framer Motion
   useLayoutEffect(() => {
     const indicator = indicatorRef.current;
     const activeButton = tabRefs.current.get(activeTab);
@@ -34,11 +34,12 @@ export function SmoothTab<T extends string = string>({
     const buttonRect = activeButton.getBoundingClientRect();
 
     if (containerRect) {
-      gsap.to(indicator, {
+      animate(indicator, {
         x: buttonRect.left - containerRect.left,
         width: buttonRect.width,
+      }, {
         duration: 0.3,
-        ease: 'power3.out',
+        ease: [0.16, 1, 0.3, 1],
       });
     }
   }, [activeTab]);
@@ -53,9 +54,11 @@ export function SmoothTab<T extends string = string>({
     const buttonRect = activeButton.getBoundingClientRect();
 
     if (containerRect) {
-      gsap.set(indicator, {
+      animate(indicator, {
         x: buttonRect.left - containerRect.left,
         width: buttonRect.width,
+      }, {
+        duration: 0,
       });
     }
   }, []);

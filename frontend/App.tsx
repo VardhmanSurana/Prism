@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, Suspense, useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { CommandPalette, buildDefaultCommands } from './components/ui/CommandPalette';
-import { initGSAPDefaults } from '@/lib/motion-tokens';
 import { usePrismShortcuts } from './hooks/useKeyboardShortcuts';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
@@ -116,11 +115,6 @@ function App() {
    * isAgentEnabled - Performs is agent enabled.
    */
   const isAgentEnabled = useSettingsStore((s) => s.isAgentEnabled);
-
-  // Initialize GSAP defaults once at app startup
-  React.useEffect(() => {
-    initGSAPDefaults();
-  }, []);
 
   React.useEffect(() => {
     fetchSettings();

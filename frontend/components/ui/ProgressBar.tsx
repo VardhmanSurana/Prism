@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
+import React from 'react';
+import { motion } from 'framer-motion';
 
 interface ProgressBarProps {
     progress: number;
@@ -21,36 +21,16 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
     label = 'Syncing Memories...',
     color = 'bg-primary'
 }) => {
-    const barRef = useRef<HTMLDivElement>(null);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    // GSAP tween for smooth progress bar animation
-    useEffect(() => {
-        if (barRef.current) {
-            gsap.to(barRef.current, {
-                width: `${Math.max(2, progress)}%`,
-                duration: 0.8,
-                ease: 'power2.out',
-                overwrite: 'auto',
-            });
-        }
-    }, [progress]);
-
-    // Entrance animation
-    useEffect(() => {
-        if (containerRef.current && isScanning && progress > 0 && progress < 100) {
-            gsap.fromTo(containerRef.current,
-                { x: 20, autoAlpha: 0 },
-                { x: 0, autoAlpha: 1, duration: 0.3, ease: 'power2.out' }
-            );
-        }
-    }, [isScanning, progress]);
-
     if (!isScanning && progress === 0) return null;
     if (!isScanning && progress === 100) return null;
 
     return (
-        <div ref={containerRef} className="pointer-events-auto">
+        <motion.div
+            initial={{ x: 20, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            className="pointer-events-auto"
+        >
             <div className="bg-surface border border-white/5 p-4 rounded-2xl shadow-2xl w-72">
                 <div className="flex items-center justify-between mb-2">
                     <span
@@ -66,10 +46,11 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                 </div>
 
                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
-                    <div 
-                        ref={barRef} 
+                    <motion.div 
                         className={`h-full ${color}`}
-                        style={{ width: '2%' }}
+                        initial={false}
+                        animate={{ width: `${Math.max(2, progress)}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
                     />
                 </div>
 
@@ -77,6 +58,6 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
                     {progress === 100 ? 'Process complete' : 'This might take a while'}
                 </p>
             </div>
-        </div>
+        </motion.div>
     );
 };

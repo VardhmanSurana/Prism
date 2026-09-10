@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, type ReactNode } from 'react';
-import { animate } from 'animejs';
+import { animate } from 'framer-motion';
 import { EASE } from './animationHelpers';
 
 export interface ActionButtonProps {
@@ -32,11 +32,11 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     const lbl = labelRef.current;
     const icon = iconRef.current;
     if (hoverRotate && icon) {
-      animate(icon, { rotate: 3, duration: 120, easing: EASE });
+      animate(icon, { rotate: 3 }, { duration: 0.12, ease: EASE });
     } else if (btn) {
-      animate(btn, { scale: 1.08, translateY: -2, duration: 120, easing: EASE });
+      animate(btn, { scale: 1.08, y: -2 }, { duration: 0.12, ease: EASE });
     }
-    if (lbl) animate(lbl, { opacity: 1, duration: 120, easing: EASE });
+    if (lbl) animate(lbl, { opacity: 1 }, { duration: 0.12, ease: EASE });
   }, [hoverRotate]);
 
   /**
@@ -47,11 +47,11 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     const lbl = labelRef.current;
     const icon = iconRef.current;
     if (hoverRotate && icon) {
-      animate(icon, { rotate: 0, duration: 120, easing: EASE });
+      animate(icon, { rotate: 0 }, { duration: 0.12, ease: EASE });
     } else if (btn) {
-      animate(btn, { scale: 1, translateY: 0, duration: 120, easing: EASE });
+      animate(btn, { scale: 1, y: 0 }, { duration: 0.12, ease: EASE });
     }
-    if (lbl) animate(lbl, { opacity: 0.85, duration: 120, easing: EASE });
+    if (lbl) animate(lbl, { opacity: 0.85 }, { duration: 0.12, ease: EASE });
   }, [hoverRotate]);
 
   /**
@@ -59,7 +59,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
    */
   const pressDown = useCallback(() => {
     const btn = btnRef.current;
-    if (btn) animate(btn, { scale: 0.94, duration: 70, easing: EASE });
+    if (btn) animate(btn, { scale: 0.94 }, { duration: 0.07, ease: EASE });
   }, []);
 
   /**
@@ -68,13 +68,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   const pressUp = useCallback(() => {
     const btn = btnRef.current;
     if (!btn) return;
-    animate(btn, {
-      keyframes: [
-        { scale: 1.02, duration: 90 },
-        { scale: 1, duration: 90 },
-      ],
-      easing: EASE,
-    });
+    animate(btn, { scale: [0.94, 1.02, 1] }, { duration: 0.18, ease: EASE });
   }, []);
 
   /**
@@ -83,16 +77,10 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   const handleClick = useCallback(() => {
     const icon = iconRef.current;
     if (pulseOnClick && icon) {
-      animate(icon, {
-        keyframes: [
-          { scale: 1.25, duration: 60 },
-          { scale: 1, duration: 60 },
-        ],
-        easing: EASE,
-      });
+      animate(icon, { scale: [1, 1.25, 1] }, { duration: 0.12, ease: EASE });
     }
     if (lockSnap && icon) {
-      animate(icon, { rotate: [8, 0], duration: 120, easing: EASE });
+      animate(icon, { rotate: [8, 0] }, { duration: 0.12, ease: EASE });
     }
     onClick?.();
   }, [pulseOnClick, lockSnap, onClick]);

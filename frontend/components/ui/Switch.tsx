@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { gsap } from 'gsap';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 
 interface SwitchProps {
   label: string;
@@ -14,7 +14,6 @@ interface SwitchProps {
  */
 export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabled = false, ariaLabel }) => {
   const [isHovered, setIsHovered] = useState(false);
-  const thumbRef = useRef<HTMLSpanElement>(null);
 
   const trackWidth = 34;
   const trackHeight = 20;
@@ -27,20 +26,6 @@ export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabl
   const currentThumbHeight = innerHeight;
   const thumbY = 0;
   const thumbX = checked ? travel : 0;
-
-  // GSAP tween for smooth thumb slide
-  useEffect(() => {
-    if (thumbRef.current) {
-      gsap.to(thumbRef.current, {
-        x: thumbX,
-        y: thumbY,
-        width: currentThumbWidth,
-        height: currentThumbHeight,
-        duration: 0.15,
-        ease: 'power3.out',
-      });
-    }
-  }, [checked, thumbX, thumbY, currentThumbWidth, currentThumbHeight]);
 
   return (
     <button
@@ -70,12 +55,17 @@ export const Switch: React.FC<SwitchProps> = ({ label, checked, onToggle, disabl
           backgroundColor: checked ? (isHovered ? 'var(--switch-on-hover)' : 'var(--switch-on)') : isHovered ? 'var(--switch-off-hover)' : 'var(--switch-off)',
         }}
       >
-        <span
-          ref={thumbRef}
+        <motion.span
           className="pointer-events-none absolute rounded-[1px] bg-white shadow-sm"
-          style={{
+          initial={false}
+          animate={{
+            x: thumbX,
+            y: thumbY,
             width: currentThumbWidth,
             height: currentThumbHeight,
+          }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          style={{
             willChange: 'transform',
           }}
         />

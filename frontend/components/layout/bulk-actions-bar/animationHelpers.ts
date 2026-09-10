@@ -1,7 +1,6 @@
-import { animate } from 'animejs';
-import { gsap } from 'gsap';
+import { animate } from 'framer-motion';
 
-export const EASE = 'easeOutCubic';
+export const EASE = [0.33, 1, 0.68, 1] as const;
 
 /**
  * nextFrame - Performs next frame.
@@ -19,7 +18,7 @@ export const nextFrame = (cb: () => void) => {
  */
 export const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** Parabolic arc flight for a cloned card to the trash target using GSAP. */
+/** Parabolic arc flight for a cloned card to the trash target using Framer Motion. */
 export function flyToTrash(
   el: HTMLElement,
   endX: number,
@@ -35,58 +34,18 @@ export function flyToTrash(
   const rotate = (Math.random() - 0.5) * 240;
   const duration = (opts.duration ?? 420) / 1000;
 
-  const tl = gsap.timeline({
+  animate(el, {
+    x: dx,
+    y: [0, dy + lift, dy],
+    rotate,
+    scale: [1, 0.85, 0.02],
+    opacity: [1, 1, 0],
+  }, {
+    duration,
+    times: [0, 0.4, 1],
+    ease: 'easeOut',
     onComplete: opts.onComplete,
   });
-
-  tl.to(
-    el,
-    {
-      x: dx,
-      rotation: rotate,
-      duration,
-      ease: 'power2.out',
-    },
-    0,
-  );
-
-  tl.to(
-    el,
-    {
-      y: dy + lift,
-      duration: duration * 0.35,
-      ease: 'power1.out',
-    },
-    0,
-  ).to(
-    el,
-    {
-      y: dy,
-      duration: duration * 0.65,
-      ease: 'power2.out',
-    },
-    duration * 0.35,
-  );
-
-  tl.to(
-    el,
-    {
-      scale: 0.85,
-      opacity: 1.0,
-      duration: duration * 0.6,
-      ease: 'none',
-    },
-    0,
-  ).to(
-    el,
-    {
-      scale: 0.02,
-      opacity: 0,
-      duration: duration * 0.4,
-      ease: 'power2.in',
-    },
-    duration * 0.6,
-  );
 }
 
 /** Burst of small colored particles at (x, y). */
@@ -105,13 +64,16 @@ export function spawnParticles(x: number, y: number, count = 10) {
 
     const angle = Math.random() * Math.PI * 2;
     const velocity = Math.random() * 80 + 30;
-    gsap.to(p, {
+    const duration = (500 + Math.random() * 300) / 1000;
+
+    animate(p, {
       x: Math.cos(angle) * velocity,
       y: Math.sin(angle) * velocity - 20,
       scale: 0,
       opacity: 0,
-      duration: (500 + Math.random() * 300) / 1000,
-      ease: 'power2.out',
+    }, {
+      duration,
+      ease: 'easeOut',
       onComplete: () => p.remove(),
     });
   }
@@ -123,7 +85,8 @@ export function gulpBounce(inner: HTMLElement | null) {
   animate(inner, {
     scaleX: [1, 1.22, 0.92, 1],
     scaleY: [1, 0.85, 1.08, 1],
-    duration: 300,
-    ease: 'outQuad',
+  }, {
+    duration: 0.3,
+    ease: 'easeOut',
   });
 }

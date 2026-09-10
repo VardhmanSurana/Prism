@@ -1,5 +1,4 @@
-import { animate } from 'animejs';
-import { gsap } from 'gsap';
+import { animate } from 'framer-motion';
 
 /**
  * Spawns a radial heart burst SVG animation at viewport coordinates (x, y).
@@ -95,33 +94,20 @@ export function flyHeart(
   const endOpacity = opts.endOpacity ?? 0;
   const duration = (opts.duration ?? 480) / 1000;
 
-  const tl = gsap.timeline({
+  animate(el, {
+    x: dx,
+    y: [0, lift, dy],
+    scale: [1, 1, endScale],
+    rotate,
+    opacity: [1, 1, endOpacity],
+  }, {
+    duration,
+    times: [0, 0.45, 1],
+    ease: 'easeOut',
     onComplete: () => {
       if (opts.onComplete) opts.onComplete();
     },
   });
-
-  tl.to(
-    el,
-    {
-      x: dx,
-      y: dy,
-      scale: endScale,
-      rotation: rotate,
-      opacity: endOpacity,
-      duration,
-      ease: 'power2.in',
-    },
-    0,
-  ).to(
-    el,
-    {
-      y: dy + lift,
-      duration: duration * 0.45,
-      ease: 'power2.out',
-    },
-    0,
-  );
 }
 
 /**
@@ -131,7 +117,8 @@ export function pulseElement(el: HTMLElement | null, scale = 1.05, duration = 26
   if (!el) return;
   animate(el, {
     scale: [1, scale, 1],
-    duration,
-    easing: 'easeOutQuad',
+  }, {
+    duration: duration / 1000,
+    ease: 'easeOut',
   });
 }
