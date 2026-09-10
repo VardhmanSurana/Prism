@@ -13,6 +13,7 @@ pub struct Config {
     pub models_dir: PathBuf,
     pub packs_dir: PathBuf,
     pub plugins_dir: PathBuf,
+    pub map_cache_dir: PathBuf,
 }
 
 impl Config {
@@ -76,6 +77,14 @@ impl Config {
                 }
             });
 
+        let map_cache_dir = env::var("MAP_CACHE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| {
+                env::current_dir()
+                    .unwrap_or_else(|_| PathBuf::from("."))
+                    .join("map_cache")
+            });
+
         Config {
             port,
             host,
@@ -87,6 +96,7 @@ impl Config {
             models_dir,
             packs_dir,
             plugins_dir,
+            map_cache_dir,
         }
     }
 }

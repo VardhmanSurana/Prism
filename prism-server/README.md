@@ -19,29 +19,15 @@
 
 The Dockerfile uses three build stages so the final image only contains what's needed at runtime:
 
-```
-Stage 1: node:22-slim
-  └── pnpm build → /build/frontend/dist  (React production bundle)
-
-Stage 2: rust:1.80-slim-bookworm
-  └── cargo build --release → prism-backend-rust binary
-
-Stage 3: debian:bookworm-slim
-  ├── /app/prism-server        ← Axum binary
-  ├── /app/frontend/dist/      ← React build (served as static files)
-  └── /data/                   ← Volume: DB · uploads · thumbnails · models
-```
+<p align="center">
+  <img src="../docs/diagrams/docker-build-pipeline.svg" alt="Prism Server Multi-Stage Docker Build Pipeline" width="100%" />
+</p>
 
 The Rust backend serves the React build from `WEB_STATIC_DIR`. All routes not matched by the API fall through to `index.html`, so React Router works normally.
 
-```
-Browser (any device on the network)
-  └── http://<server-ip>:8269
-        └── Docker container
-              ├── /api/v1/*      → Axum REST handlers
-              ├── /thumbnails/*  → static file serve
-              └── /*             → /app/frontend/dist/index.html
-```
+<p align="center">
+  <img src="../docs/diagrams/server-network-ingress.svg" alt="Prism Server Network Ingress and Routing" width="100%" />
+</p>
 
 ---
 

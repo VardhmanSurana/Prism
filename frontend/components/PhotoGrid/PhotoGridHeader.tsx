@@ -20,7 +20,7 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
   isHovered,
 }) => {
   const { settings } = useGalleryLayout();
-  const { galleryStyle, imageGrouping } = settings;
+  const { imageGrouping } = settings;
   /**
    * allSelected - Performs all selected.
    */
@@ -53,60 +53,6 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
     const isCurrentYear = year === new Date().getFullYear();
     displayTitle = `${dayName}, ${fullDate}`;
     displaySub = !isCurrentYear ? String(year) : '';
-  }
-
-  if (galleryStyle === 'google') {
-    return (
-      <div
-        key={virtualRowKey}
-        data-index={virtualRowIndex}
-        ref={measureElement}
-        className="absolute top-0 left-0 w-full pl-6 sm:pl-10 pr-24 z-10 font-sans"
-        style={{ transform: `translateY(${virtualRowStart}px)` }}
-      >
-        <div
-          className="flex items-baseline justify-between select-none py-2 bg-[#131314]"
-          onMouseEnter={() => setIsHeaderHovered(true)}
-          onMouseLeave={() => setIsHeaderHovered(false)}
-        >
-          <div
-            className={`flex items-center group cursor-pointer transition-all duration-200 ${
-              isHeaderHovered || isHovered || allSelected || someSelected ? 'gap-2.5' : ''
-            }`}
-            onClick={() => onToggleGroupSelection(photoIds)}
-          >
-            <div
-              className={`border rounded-full flex items-center justify-center transition-all duration-200 ${
-                isHeaderHovered || isHovered || allSelected || someSelected
-                  ? 'w-5 h-5 opacity-100'
-                  : 'w-0 h-0 opacity-0'
-              } ${
-                allSelected
-                  ? 'bg-[#A8C7FA] border-[#A8C7FA]'
-                  : someSelected
-                    ? 'border-[#A8C7FA]/60 bg-[#A8C7FA]/20'
-                    : 'border-white/30 group-hover:border-white/60'
-              }`}
-            >
-              <Check
-                size={12}
-                className={`${allSelected || someSelected ? 'opacity-100' : 'opacity-0'} ${allSelected ? 'text-black' : 'text-[#A8C7FA]'} transition-opacity`}
-              />
-            </div>
-            <div className="flex flex-col">
-              <h3 className="text-sm font-sans font-medium text-[#C4C6D0] leading-none">
-                {displayTitle} {displaySub ? displaySub : ''}
-              </h3>
-            </div>
-          </div>
-          {location && (
-            <span className="text-xs font-sans text-gray-400">
-              {location}
-            </span>
-          )}
-        </div>
-      </div>
-    );
   }
 
   return (

@@ -224,4 +224,27 @@ mod server_enhancement_tests {
         assert!(plugins_dir.join("dir-plugin").join("plugin.json").exists());
         assert!(plugins_dir.join("dir-plugin").join("index.js").exists());
     }
+
+    #[test]
+    fn test_map_coordinate_to_tile() {
+        use crate::routes::maps::lat_lon_to_tile;
+
+        // Zoom 0: entire world is 1 tile (0, 0)
+        assert_eq!(lat_lon_to_tile(0.0, 0.0, 0), (0, 0));
+        assert_eq!(lat_lon_to_tile(51.5074, -0.1278, 0), (0, 0));
+
+        // Zoom 1: 2x2 tiles
+        let (x, y) = lat_lon_to_tile(0.0, 0.0, 1);
+        assert_eq!((x, y), (1, 1));
+
+        // London at zoom 10: ~ (511, 340)
+        let (x, y) = lat_lon_to_tile(51.5074, -0.1278, 10);
+        assert_eq!(x, 511);
+        assert_eq!(y, 340);
+
+        // San Francisco at zoom 10: ~ (163, 395)
+        let (x, y) = lat_lon_to_tile(37.7749, -122.4194, 10);
+        assert_eq!(x, 163);
+        assert_eq!(y, 395);
+    }
 }

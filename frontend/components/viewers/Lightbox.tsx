@@ -358,9 +358,9 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   // Copy Image Blob to OS Clipboard
   /**
-   * handleCopyImageToClipboard - Handles copy image to clipboard.
+   * handleCopyToClipboard - Handles copy image to clipboard.
    */
-  const handleCopyImageToClipboard = useCallback(async () => {
+  const handleCopyToClipboard = useCallback(async () => {
     logAction('Lightbox', 'copy_to_clipboard', { photoId: photo.id });
     try {
       const rawImgUrl = editedPhotoUrl || highRes.currentHighResUrl || photo.url || (photo.path ? `local://${photo.path}` : `${API_BASE}/api/v1/photos/${photo.id}/file`);
@@ -370,7 +370,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       await navigator.clipboard.write([
         new ClipboardItem({ [blob.type || 'image/png']: blob })
       ]);
-      alert('Image copied to clipboard!');
+      alert('copied to clipboard!');
     } catch (err) {
       logError('Lightbox', 'copy_to_clipboard_failed', err, { photoId: photo.id });
     }
@@ -541,7 +541,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
           onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
-          onCopyImageToClipboard={handleCopyImageToClipboard}
+          onCopyImageToClipboard={handleCopyToClipboard}
         />
       )}
 

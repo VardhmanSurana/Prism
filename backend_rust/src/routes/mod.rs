@@ -20,6 +20,7 @@ pub mod admin;
 pub mod models;
 pub mod packs;
 pub mod plugins;
+pub mod maps;
 
 use axum::{
     extract::{Request, State},
@@ -238,8 +239,8 @@ async fn api_key_auth_layer(
     next: Next,
 ) -> Response {
     let path = req.uri().path();
-    // Exclude security settings get/post and swagger/health from blocking
-    if path == "/health" || path.starts_with("/swagger") || path.starts_with("/api-docs") || path == "/api/v1/settings/security" {
+    // Exclude swagger/health from blocking
+    if path == "/health" || path.starts_with("/swagger") || path.starts_with("/api-docs") {
         return next.run(req).await;
     }
 
@@ -501,6 +502,12 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/settings/", get(settings::get_settings))
         .route("/settings/general", get(settings::get_general_settings).post(settings::save_general_settings))
         .route("/settings/map-style", get(settings::get_map_style).post(settings::save_map_style))
+        .route("/maps/tiles/:provider/:z/:x/:y", get(maps::get_tile))
+        .route("/maps/cache/stats", get(maps::get_cache_stats))
+        .route("/maps/cache/progress", get(maps::get_cache_progress))
+        .route("/maps/cache/clear", post(maps::clear_cache))
+        .route("/maps/cache/photos", post(maps::cache_photos))
+        .route("/maps/cache/area", post(maps::cache_area))
         .route("/settings/events", get(settings::sse_events))
         .route("/settings/folders", get(settings::get_folders_settings).post(settings::save_folders_settings))
         .route("/settings/reset-library", post(settings::reset_library))

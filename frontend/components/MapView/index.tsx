@@ -1,5 +1,5 @@
-import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import React, { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
@@ -19,6 +19,7 @@ import { DensityLayer } from './components/DensityLayer';
 import { apiClient } from '@/services/apiClient';
 import { MapTemporalSlider } from './components/MapTemporalSlider';
 import { MapPlaybackPanel } from './components/MapPlaybackPanel';
+import { OfflineMapModal } from './components/OfflineMapModal';
 import { useTelemetry } from '@/hooks/useTelemetry';
 
 interface MapViewProps {
@@ -27,53 +28,6 @@ interface MapViewProps {
   onPhotoLocationUpdate?: (photoId: string | number, next: Partial<Photo>) => void;
 }
 
-interface ZoomToExtentsControlProps {
-  bounds: {
-    north: number;
-    south: number;
-    east: number;
-    west: number;
-    hasArea: boolean;
-  } | null;
-  center: [number, number];
-  onReady: (action: () => void) => void;
-}
-
-/**
- * ZoomToExtentsControl - Renders zoom to extents control.
- */
-const ZoomToExtentsControl: React.FC<ZoomToExtentsControlProps> = ({ bounds, center, onReady }) => {
-  const map = useMap();
-
-  useEffect(() => {
-    /**
-     * zoomAction - Performs zoom action.
-     */
-    const zoomAction = () => {
-      if (!bounds) {
-        map.setView(center, 2);
-        return;
-      }
-
-      if (bounds.hasArea) {
-        map.fitBounds(
-          L.latLngBounds(
-            [bounds.south, bounds.west],
-            [bounds.north, bounds.east]
-          ),
-          { padding: [48, 48], animate: true }
-        );
-        return;
-      }
-
-      map.setView(center, 11, { animate: true });
-    };
-
-    onReady(zoomAction);
-  }, [bounds, center, map, onReady]);
-
-  return null;
-};
 
 /**
  * MapView - Renders map view.
@@ -87,45 +41,31 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   const [timeLapsePlaying, setTimeLapsePlaying] = useState(false);
   const [timeLapseProgress, setTimeLapseProgress] = useState(1);
   const [savingPhotoIds, setSavingPhotoIds] = useState<Set<string>>(() => new Set());
-  const [zoomToExtents, setZoomToExtents] = useState<() => void>(() => () => undefined);
+  const mapRef = useRef<L.Map | null>(null);
   const [temporalRange, setTemporalRange] = useState<{ start: number; end: number } | null>(null);
+  const [isOfflineModalOpen, setIsOfflineModalOpen] = useState(false);
 
-  /**
-   * datedGeoPhotos - Performs dated geo photos.
-   */
-  const datedGeoPhotos = useMemo(() => {
-    return photos
-      .filter((photo) =>
-        photo.latitude !== undefined &&
-        photo.latitude !== null &&
-        photo.longitude !== undefined &&
-        photo.longitude !== null &&
-        Number.isFinite(Number(photo.latitude)) &&
-        Number.isFinite(Number(photo.longitude))
-      )
-      .map((photo) => {
-        const timestamp = photo.dateTimestamp
-          ?? (photo.date ? Date.parse(photo.date) : NaN)
-          ?? NaN;
-        return {
-          photo,
-          timestamp,
-        };
-      })
-      .filter((entry) => Number.isFinite(entry.timestamp))
-      .sort((left, right) => left.timestamp - right.timestamp);
-  }, [photos]);
-
-  /**
-   * temporalBounds - Performs temporal bounds.
-   */
-  const temporalBounds = useMemo(() => {
-    if (datedGeoPhotos.length === 0) return null;
+  const { datedGeoPhotos, temporalBounds } = useMemo(() => {
+    const list: Array<{ photo: Photo; timestamp: number }> = [];
+    for (const photo of photos) {
+      if (photo.latitude != null && photo.longitude != null) {
+        const lat = Number(photo.latitude);
+        const lng = Number(photo.longitude);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          const ts = photo.dateTimestamp ?? (photo.date ? Date.parse(photo.date) : NaN);
+          if (Number.isFinite(ts)) {
+            list.push({ photo, timestamp: ts });
+          }
+        }
+      }
+    }
+    if (list.length === 0) return { datedGeoPhotos: [], temporalBounds: null };
+    list.sort((a, b) => a.timestamp - b.timestamp);
     return {
-      min: datedGeoPhotos[0].timestamp,
-      max: datedGeoPhotos[datedGeoPhotos.length - 1].timestamp,
+      datedGeoPhotos: list,
+      temporalBounds: { min: list[0].timestamp, max: list[list.length - 1].timestamp },
     };
-  }, [datedGeoPhotos]);
+  }, [photos]);
 
   useEffect(() => {
     if (!temporalBounds) {
@@ -165,6 +105,19 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   }, [deferredTemporalRange, photos]);
 
   const { geoPhotos, center, timelinePhotos, bounds } = usePhotoGeoData(filteredPhotos);
+
+  const handleZoomToExtents = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (bounds?.hasArea) {
+      map.fitBounds(
+        L.latLngBounds([bounds.south, bounds.west], [bounds.north, bounds.east]),
+        { padding: [48, 48], animate: true }
+      );
+    } else {
+      map.setView(center, bounds ? 11 : 2, { animate: true });
+    }
+  }, [bounds, center]);
   /**
    * filteredTimelineWindow - Performs filtered timeline window.
    */
@@ -414,16 +367,10 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
     return new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(currentPlaybackTimestamp));
   }, [currentPlaybackTimestamp, timeLapseActive]);
 
-  /**
-   * handleZoomReady - Handles zoom ready.
-   */
-  const handleZoomReady = useCallback((action: () => void) => {
-    setZoomToExtents(() => action);
-  }, []);
-
   return (
     <div className="w-full h-full relative bg-[#0a0a0a]">
       <MapContainer
+        ref={mapRef}
         center={center} 
         zoom={2}
         style={{ width: '100%', height: '100%', background: '#0a0a0a' }}
@@ -431,15 +378,11 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
         preferCanvas={true}
       >
         <MapViewportManager bounds={bounds} center={center} emptyZoom={2} />
-        <ZoomToExtentsControl
-          bounds={bounds}
-          center={center}
-          onReady={handleZoomReady}
-        />
         <TileLayer
           key={selectedStyleId}
           attribution={currentStyle.attribution}
           url={currentStyle.url}
+          className={currentStyle.className}
         />
         {showDensity && <DensityLayer photos={timeLapsePhotos} />}
         {showRoute && canShowRoute && (
@@ -483,7 +426,8 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
         onToggleDensity={handleToggleDensity}
         onToggleEditMode={handleToggleEditMode}
         onToggleTimeLapse={handleToggleTimeLapse}
-        onZoomToExtents={zoomToExtents}
+        onZoomToExtents={handleZoomToExtents}
+        onOpenOfflineModal={() => setIsOfflineModalOpen(true)}
       />
       {filteredTimelineWindow && (
         <MapPlaybackPanel
@@ -512,6 +456,12 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
           onReset={handleTemporalReset}
         />
       )}
+      <OfflineMapModal
+        isOpen={isOfflineModalOpen}
+        onClose={() => setIsOfflineModalOpen(false)}
+        bounds={bounds}
+        photoCount={photos.filter((photo) => photo.latitude != null && photo.longitude != null).length}
+      />
       <MapStyles />
     </div>
   );

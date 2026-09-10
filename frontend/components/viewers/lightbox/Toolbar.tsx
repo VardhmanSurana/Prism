@@ -290,7 +290,7 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
                 >
                   <Copy size={15} className="text-gray-500" />
-                  <span>Copy Image to Clipboard</span>
+                  <span>Copy to Clipboard</span>
                 </button>
               )}
 

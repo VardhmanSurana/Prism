@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Route, LocateFixed, Pencil, Loader2 } from 'lucide-react';
+import { Flame, Route, LocateFixed, Pencil, Loader2, HardDriveDownload } from 'lucide-react';
 
 interface MapToolbarProps {
   canShowRoute: boolean;
@@ -13,6 +13,7 @@ interface MapToolbarProps {
   onToggleEditMode: () => void;
   onToggleTimeLapse: () => void;
   onZoomToExtents: () => void;
+  onOpenOfflineModal?: () => void;
 }
 
 /**
@@ -30,9 +31,22 @@ export const MapToolbar: React.FC<MapToolbarProps> = ({
   onToggleEditMode,
   onToggleTimeLapse,
   onZoomToExtents,
+  onOpenOfflineModal,
 }) => {
   return (
     <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-3">
+      {onOpenOfflineModal && (
+        <button
+          type="button"
+          onClick={onOpenOfflineModal}
+          className="flex items-center gap-2 rounded-2xl border border-white/10 bg-surface px-4 py-3 text-xs font-semibold text-white shadow-2xl transition hover:border-white/20 hover:bg-white/10"
+          title="Manage offline map storage and download tiles"
+        >
+          <HardDriveDownload size={14} className="text-primary" />
+          Offline maps
+        </button>
+      )}
+
       <button
         type="button"
         onClick={onZoomToExtents}

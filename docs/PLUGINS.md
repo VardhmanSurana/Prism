@@ -8,23 +8,9 @@ Prism provides a modular, privacy-first plugin architecture (similar to Jellyfin
 
 Every Prism plugin lives inside its own dedicated directory under the root `plugins/<plugin-id>/` directory. The Prism backend and frontend automatically discover, validate, and manage plugins and their sub-features at runtime.
 
-```mermaid
-graph TD
-    A["Prism Engine (Rust Backend + React UI)"] --> B["Plugin Manager (services/plugins.rs)"]
-    B --> C["Repository Root 'plugins/' Scanner"]
-    C --> D["plugins/ai-vision-studio/"]
-    C --> E["plugins/creative-color-studio/"]
-    C --> F["plugins/retouch-metadata-studio/"]
-    C --> G["plugins/your-plugin-id/"]
-
-    subgraph PluginStructure["Plugin Folder Anatomy"]
-        G --> H["plugin.json (Manifest & Capabilities)"]
-        G --> I["config.json (State, Settings & Sub-features)"]
-        G --> J["index.ts / React UI Components"]
-        G --> K["models/ (ONNX Neural Weights)"]
-        G --> L["assets/ (Thumbnails, LUTs, SVGs, Overlays)"]
-    end
-```
+<p align="center">
+  <img src="diagrams/plugin-architecture.svg" alt="Prism Plugin Architecture and Folder Anatomy" width="100%" />
+</p>
 
 ### Key Principles
 - **Self-Contained Full-Stack Packages**: Each plugin folder contains both frontend React components and backend manifests, assets, and ONNX weights.

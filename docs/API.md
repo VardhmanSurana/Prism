@@ -10,22 +10,9 @@ http://127.0.0.1:8269/api/v1
 
 ## Authentication
 
-```mermaid
-flowchart TD
-    Client["Client Request"] --> Auth{"API_KEY
-configured?"}
-    Auth -->|Yes| CheckHeader{"X-API-Key
-header present?"}
-    Auth -->|No| Allow["Allow Request"]
-    CheckHeader -->|Yes| Validate{"Key matches?"}
-    CheckHeader -->|No| Reject["401 Unauthorized"]
-    Validate -->|Yes| Allow
-    Validate -->|No| Reject
-
-    style Client fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Allow fill:#10b981,stroke:#059669,color:#fff
-    style Reject fill:#ef4444,stroke:#dc2626,color:#fff
-```
+<p align="center">
+  <img src="diagrams/api-route-topology.svg" alt="Prism API Authentication and Dispatch Flow" width="100%" />
+</p>
 
 ### API Key (Optional)
 

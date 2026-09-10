@@ -16,7 +16,7 @@ import {
 } from './constants';
 import { useGalleryLayout } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
-import { API_BASE, photoSrc } from '../../constants';
+import { API_BASE } from '../../constants';
 import { useSyncStore } from '@/store/syncStore';
 import { customConfirm } from '../../services/ConfirmService';
 import { Photo } from '../../types';
@@ -133,8 +133,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
 
   // Gallery layout settings
-  const { settings, rowHeightPx, maxRowWidth, galleryStyle, setImageGrouping } = useGalleryLayout();
-  const imageGrouping = settings.imageGrouping;
+  const { rowHeightPx, maxRowWidth } = useGalleryLayout();
 
   // Container width measurement for dynamic row packing
   const containerRef = useRef<HTMLDivElement>(null);
@@ -359,61 +358,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   return (
     <div ref={containerRef} className="relative w-full font-sans">
-      {/* Google Photos Memory Highlights Carousel (Screenshot 1) */}
-      {galleryStyle === 'google' && !isCompactView && (
-        <div className="w-full pl-10 pr-10 pt-6 pb-2 z-20">
-          <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-3 select-none">
-            {(photos.length > 0 ? photos.slice(0, 5) : [1, 2, 3, 4, 5]).map((p, idx) => {
-              const titles = ['Video spotlight', 'Video spotlight', 'Exploring trails', 'Golden hour', 'Mom'];
-              const subtitles = ['', '', 'Over the years', 'Over the years', 'Same face, different places'];
-              const imgSrc = typeof p === 'object' ? photoSrc(p) : '';
-              return (
-                <div
-                  key={idx}
-                  className="shrink-0 w-64 h-36 rounded-2xl overflow-hidden relative shadow-md border border-white/10 group cursor-pointer"
-                >
-                  {imgSrc ? (
-                    <img src={imgSrc} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-blue-900/40 via-purple-900/30 to-gray-900 flex items-center justify-center text-white/40 font-sans text-xs">
-                      Highlight {idx + 1}
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4 flex flex-col justify-end">
-                    <h4 className="text-white font-sans font-medium text-sm leading-tight drop-shadow">{titles[idx % titles.length]}</h4>
-                    {subtitles[idx % subtitles.length] && (
-                      <p className="text-[11px] font-sans text-gray-300 mt-0.5 opacity-90">{subtitles[idx % subtitles.length]}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="mt-4 mb-2">
-            <h2 className="text-2xl font-sans font-normal text-[#E3E2E6]">February</h2>
-          </div>
-        </div>
-      )}
-
-      {/* Apple Photos iPadOS 18 Header (Photo 4) */}
-      {galleryStyle === 'apple' && !isCompactView && (
-        <div className="w-full pl-10 pr-10 pt-8 pb-2 z-20">
-          <div className="flex items-baseline justify-between mb-4 border-b border-white/10 pb-4">
-            <div>
-              <h2 className="text-3xl font-sans font-bold text-white tracking-tight">Library</h2>
-              <p className="text-xs font-sans text-[#8e8e93] mt-1 font-medium">10 Nov 2025 – 28 Feb 2026</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-[#0a84ff] bg-[#0a84ff]/10 border border-[#0a84ff]/20 px-3 py-1 rounded-full font-bold">
-                 iPadOS 18
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
-      {!isCompactView && galleryStyle !== 'google' && galleryStyle !== 'apple' && (
+      {!isCompactView && (
         <div className="w-full pl-10 pr-10 pt-4 pb-2 z-20">
           {/* Sub Navigation and View Filters */}
           <div className="flex items-center justify-between py-2 mb-2 select-none">
@@ -571,32 +517,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
           scrollProgress={scrollState.progress}
           scrollHeight={scrollState.height}
         />
-      )}
-
-      {/* Apple Photos Floating Bottom Segmented Control Bar (Photo 3) */}
-      {galleryStyle === 'apple' && (
-        <div className="fixed bottom-8 left-1/2 md:left-[calc(50%+128px)] -translate-x-1/2 z-50 flex items-center backdrop-blur-3xl bg-[#1c1c1e]/95 border border-white/20 rounded-full p-1.5 md:p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] space-x-1.5 select-none">
-          {[
-            { id: 'years', label: 'Years' },
-            { id: 'months', label: 'Months' },
-            { id: 'none', label: 'All Photos' },
-          ].map((item) => {
-            const isActive = imageGrouping === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setImageGrouping(item.id as any)}
-                className={`px-6 py-2.5 md:px-8 md:py-3 rounded-full text-sm md:text-base font-sans font-semibold transition-colors 200ms ease, background-color 200ms ease, transition-transform 200ms cubic-bezier(0.23, 1, 0.32, 1) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a84ff] ${isActive
-                  ? 'bg-white/25 text-white font-bold shadow-md scale-[1.03] border border-white/20'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/10'
-                  }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
       )}
     </div>
   );

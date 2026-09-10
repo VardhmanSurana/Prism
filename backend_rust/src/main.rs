@@ -52,10 +52,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env();
     info!("Starting Prism Rust Backend on {}:{}", config.host, config.port);
 
-    // Ensure required working directories exist (uploads, thumbnails) so the
+    // Ensure required working directories exist (uploads, thumbnails, map_cache) so the
     // server can start cleanly on a fresh checkout.
     std::fs::create_dir_all(&config.upload_dir).ok();
     std::fs::create_dir_all(&config.thumbnails_dir).ok();
+    std::fs::create_dir_all(&config.map_cache_dir).ok();
 
     recover_interrupted_operations(&config);
 

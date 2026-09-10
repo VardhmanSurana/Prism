@@ -23,9 +23,6 @@ import { useSettingsStore } from './store';
 import { eventService } from '@/services/EventService';
 import { normalizePhoto } from './types';
 import type { ViewMode, Album, Photo } from './types';
-import { useGalleryLayout } from './hooks/useGalleryLayout';
-import { GoogleImportToast } from './components/ui/GoogleImportToast';
-import { photoSrc } from './constants';
 import { useTelemetry } from './hooks/useTelemetry';
 
 /**
@@ -108,7 +105,6 @@ function App() {
     handleSetAlbumCover,
   } = useAppState();
 
-  const { galleryStyle } = useGalleryLayout();
   const { isMobile } = usePlatform();
   const { logAction, logNavigation, logError } = useTelemetry();
 
@@ -348,7 +344,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div data-theme={galleryStyle} className={`theme-${galleryStyle} relative flex flex-1 h-dvh w-full overflow-hidden bg-background text-gray-100`}>
+      <div className="relative flex flex-1 h-dvh w-full overflow-hidden bg-background text-gray-100">
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 
@@ -458,13 +454,6 @@ function App() {
           phase={dragDrop.phase}
           error={dragDrop.error}
           onDismissError={dragDrop.clearError}
-        />
-
-        <GoogleImportToast
-          previewImg={displayedPhotos.length > 0 ? photoSrc(displayedPhotos[0]) : undefined}
-          onStop={() => {
-            fetch(`${API_BASE}/api/v1/utilities/background-jobs/stop`, { method: 'POST' }).catch(() => { });
-          }}
         />
 
         <Suspense fallback={null}>

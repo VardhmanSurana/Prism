@@ -10,6 +10,8 @@ This file provides guidance for AI coding agents working on the Prism codebase.
 - **Desktop Shell**: Tauri v2
 - **ML/AI**: ONNX Runtime (SigLIP2, face-id, segmentation, inpainting)
 
+> **MASTER SPECIFICATION**: An exhaustive, 100% verified architectural specification of the entire Prism application, all schemas, APIs, AI engines, frontend stores, and workflows is available at [`docs/PRISM_MASTER_SPECIFICATION.md`](file:///home/chotaxdon/Work/Projects/Prism/docs/PRISM_MASTER_SPECIFICATION.md). Refer to it for deep implementation details.
+
 ## Architecture Quick Reference
 
 ```
@@ -161,9 +163,6 @@ feat(scope): description
 
 - Detail 1
 - Detail 2
-
-🤖 Generated with Codebuff
-Co-Authored-By: Codebuff <noreply@codebuff.com>
 ```
 
 ### Scopes

@@ -6,6 +6,9 @@ import React from 'react';
 export const MapStyles: React.FC = () => {
   return (
     <style>{`
+      .map-tiles-dark .leaflet-tile {
+        filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+      }
       .leaflet-popup-content-wrapper {
         background: rgb(var(--color-surface-popover) / 0.95) !important;
         border: 1px solid rgb(var(--color-ink) / 0.1);
@@ -25,7 +28,6 @@ export const MapStyles: React.FC = () => {
       }
       .temporal-slider::-webkit-slider-thumb {
         -webkit-appearance: none;
-        appearance: none;
         width: 16px;
         height: 16px;
         border-radius: 9999px;
@@ -43,10 +45,7 @@ export const MapStyles: React.FC = () => {
         box-shadow: 0 0 0 4px rgb(var(--color-ink) / 0.08);
         cursor: pointer;
       }
-      .temporal-slider::-webkit-slider-runnable-track {
-        height: 100%;
-        background: transparent;
-      }
+      .temporal-slider::-webkit-slider-runnable-track,
       .temporal-slider::-moz-range-track {
         height: 100%;
         background: transparent;

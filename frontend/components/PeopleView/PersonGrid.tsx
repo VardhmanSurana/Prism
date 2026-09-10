@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Users, RefreshCw, Search, Sparkles, UserCheck, UserX, Heart } from 'lucide-react';
 import { Person } from './types';
 import { PersonCard } from './PersonCard';
-import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface PersonGridProps {
   people: Person[];
@@ -18,6 +17,7 @@ interface PersonGridProps {
   onEditNameChange: (value: string) => void;
 }
 
+// ponytail: simplified PersonGrid, standardized on signature Prism grid layout
 /**
  * PersonGrid - Renders person grid.
  */
@@ -33,7 +33,6 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
   onSaveRename,
   onEditNameChange,
 }) => {
-  const { galleryStyle } = useGalleryLayout();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterMode, setFilterMode] = useState<'all' | 'named' | 'unnamed'>('all');
 
@@ -218,11 +217,7 @@ export const PersonGrid: React.FC<PersonGridProps> = ({
         ) : (
           <motion.div
             layout
-            className={
-              galleryStyle === 'google'
-                ? 'grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3.5 pb-12'
-                : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-12'
-            }
+            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 pb-12"
           >
             <AnimatePresence>
               {filteredPeople.map((person) => {

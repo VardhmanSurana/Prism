@@ -8,93 +8,17 @@ Prism includes a professional-grade, non-destructive image editor featuring a 21
 
 The image editor is accessible from the photo lightbox by clicking the **Edit** action. It features a decoupled, reactive canvas viewport, a modular tool rail powered by dynamic plugin registration, an in-canvas overlay system, and a multi-stage export pipeline.
 
-```mermaid
-graph TB
-    subgraph EditorShell["Image Editor Shell (EditingMode.tsx)"]
-        TopBar["TopBar<br/>Undo/Redo | Compare | Copy/Paste | History | Export"]
-
-        subgraph CoreArea["Workspace Layout"]
-            Sidebar["Sidebar Rail<br/>(21 Tool Tabs + Plugin Store Gating)"]
-            ActivePanel["Active Panel Host<br/>(panelRegistry.tsx Dynamic Routing)"]
-            
-            subgraph DecoupledViewport["Decoupled Canvas Viewport (CanvasArea.tsx)"]
-                LiveCanvas["LivePreviewCanvas<br/>(GPU Filter Pipeline & Compositing)"]
-                NativeCrop["Native CropOverlay<br/>(8 Handles, Aspect Locks, Scrim)"]
-                ToolOverlays["Interactive Tool Overlays<br/>Annotations | Healing | Inpaint |<br/>Lasso | Liquify | Face BBoxes | Loupe"]
-            end
-        end
-
-        HistoryDrawer["History Panel Drawer<br/>(GSAP / Framer Motion Slide-out Timeline)"]
-    end
-
-    TopBar --> CoreArea
-    Sidebar --> ActivePanel
-    ActivePanel -.-> DecoupledViewport
-    DecoupledViewport --> LiveCanvas
-    LiveCanvas --> NativeCrop
-    LiveCanvas --> ToolOverlays
-    TopBar -.-> HistoryDrawer
-
-    style EditorShell fill:#0f172a,stroke:#1e293b,color:#fff
-    style TopBar fill:#1e293b,stroke:#334155,color:#fff
-    style DecoupledViewport fill:#064e3b,stroke:#047857,color:#fff
-    style NativeCrop fill:#047857,stroke:#10b981,color:#fff
-    style HistoryDrawer fill:#312e81,stroke:#4338ca,color:#fff
-```
+<p align="center">
+  <img src="diagrams/image-editor-architecture.svg" alt="Prism Image Editor Shell Architecture" width="100%" />
+</p>
 
 ### Modular Plugin Architecture
 
 Tool panels and processing engines are modularized into core built-ins and decoupled studio packs located in `plugins/`. Panels register dynamically through `EditingMode/panelRegistry.tsx`, and visibility is gated by installed plugin status via `usePluginStore`.
 
-```mermaid
-graph LR
-    subgraph CoreRegistry["Core Editor (EditingMode/panelRegistry.tsx)"]
-        Registry["Panel Registry Map<br/>(ToolId -> ReactNode)"]
-        Ctx["Unified PanelCtx<br/>(State, Handlers, Refs)"]
-    end
-
-    subgraph Builtins["Core Built-in Panels"]
-        TransformPanel["Transform & Native Crop"]
-        AdjustPanel["Light & Tone Curves"]
-        HslPanel["HSL & Color Wheels"]
-        DetailPanel["Detail & Sharpening"]
-        TemplatesPanel["Templates & Presets"]
-        LayersPanel["Layers Studio"]
-        RawEnginePanel["Camera RAW Engine"]
-        LiquifyPanel["Liquify & Reshape"]
-        LassoPanel["Lasso Selection"]
-        PalettePanel["Palette & Eyedropper"]
-    end
-
-    subgraph StudioPacks["Modular Studio Plugins"]
-        subgraph RetouchStudio["plugins/retouch-metadata-studio"]
-            AnnPanel["Annotations Studio"]
-            PortPanel["AI Portrait Retouching"]
-            MatchPanel["Shot Color Matcher"]
-        end
-        subgraph VisionStudio["plugins/ai-vision-studio"]
-            BgPanel["Background Matting Studio"]
-            InpaintPanel["Magic Eraser / Inpainting"]
-            DepthPanel["Depth & Bokeh Studio"]
-            EnhancePanel["AI Enhance & Face Restore"]
-        end
-        subgraph ColorStudio["plugins/creative-color-studio"]
-            LutPanel["3D LUT Grading Studio"]
-            TexPanel["Texture & Film Grain"]
-            FramePanel["Frames & Borders"]
-        end
-    end
-
-    Registry --> Builtins
-    Registry -. Lazy Import .-> StudioPacks
-    Ctx --> Registry
-
-    style CoreRegistry fill:#1e1e38,stroke:#4338ca,color:#fff
-    style Builtins fill:#1e293b,stroke:#334155,color:#fff
-    style RetouchStudio fill:#0c4a6e,stroke:#0284c7,color:#fff
-    style VisionStudio fill:#14532d,stroke:#16a34a,color:#fff
-    style ColorStudio fill:#701a75,stroke:#c026d3,color:#fff
-```
+<p align="center">
+  <img src="diagrams/editor-render-pipeline.svg" alt="Editor Panel Registry and Studio Plugin Architecture" width="100%" />
+</p>
 
 ### Subsystem Directory Map
 
@@ -250,34 +174,9 @@ Spatial orientation and compositional geometry:
 
 A vector drawing and annotation studio with an MS Paint-inspired interface, realistic media physics, and parametric brush customization:
 
-```mermaid
-graph TD
-    subgraph MSBrushes["Unified MS Paint Brushes Menu (8 Types)"]
-        B1["Paint Brush (Smooth Round / Feathered)"]
-        B2["Spray Paint (Airbrush Mist Droplets)"]
-        B3["Calligraphy 1 (+45° Chisel Nib)"]
-        B4["Calligraphy 2 (-45° Chisel Nib)"]
-        B5["Chalk (Porous Paper Grain)"]
-        B6["Crayon (Textured Wax Laydown)"]
-        B7["Oil / Drybrush (Bristle Drag & Impasto)"]
-        B8["Fine Pen (Crisp Vector Ink)"]
-    end
-
-    subgraph BrushControls["Parametric Dynamics & Tactile Controls"]
-        StrokeSize["MS Paint Thickness Chips (2px, 6px, 16px, 36px) + 1-80px Slider"]
-        SprayPhysics["Spray Nozzle Physics (Radius, Density Mist/Medium/Heavy Spatter)"]
-        TactileParams["Media Synthetics (Chalk Grain, Crayon Roughness, Drybrush Streaks, Watercolor Bleed)"]
-        RibbonGeom["Ribbon Geometry (Nib Angles, Weights, Variable-Width Taper Swell)"]
-        LineStyles["Stroke Styles (Solid, Dashed, Dotted, Dynamic Gap/Length)"]
-    end
-
-    MSBrushes --> BrushControls
-    BrushControls --> RenderEngine["Full SVG Filter & Path Parity Engine (Canvas & Export)"]
-
-    style MSBrushes fill:#1e1b4b,stroke:#4338ca,color:#fff
-    style BrushControls fill:#312e81,stroke:#6366f1,color:#fff
-    style RenderEngine fill:#047857,stroke:#10b981,color:#fff
-```
+<p align="center">
+  <img src="diagrams/annotations-brush-engine.svg" alt="MS Paint Brush Engine and SVG Filter Parity" width="100%" />
+</p>
 
 - **MS Paint Brushes Palette (`BrushesPalette.tsx`)**:
   1. **Paint Brush**: Smooth round brush with adjustable soft feathering (0–20px blur radius).
@@ -435,24 +334,9 @@ Neural super-resolution and image restoration:
 
 Prism guarantees zero data loss through an integrated history stack, granular action inference, and an auto-saving draft recovery system.
 
-```mermaid
-graph TD
-    UserEdit["User Modifies Control (Slider, Tool, Brush)"] --> Helper["adjustmentCommitHelper.ts"]
-    Helper --> Inference["toolInference.ts (Maps Key to ToolId)"]
-    Inference --> AddEntry["addHistoryEntry() Snapshot Creation"]
-    AddEntry --> HistoryStack["History Stack (undo / redo arrays)"]
-    HistoryStack --> TimelineDrawer["Slide-Out HistoryPanel (GSAP / Framer Motion)"]
-    
-    UserEdit --> AutoSaveHook["useEditDraftAutoSave.ts (300ms Debounce)"]
-    AutoSaveHook --> DraftStore["editDraftStore.ts -> localStorage"]
-    DraftStore --> RecoveryBanner["DraftRecoveryBanner.tsx (On Editor Relaunch)"]
-
-    style UserEdit fill:#1e293b,stroke:#334155,color:#fff
-    style HistoryStack fill:#0f766e,stroke:#14b8a6,color:#fff
-    style TimelineDrawer fill:#4338ca,stroke:#6366f1,color:#fff
-    style DraftStore fill:#b45309,stroke:#f59e0b,color:#fff
-    style RecoveryBanner fill:#991b1b,stroke:#ef4444,color:#fff
-```
+<p align="center">
+  <img src="diagrams/editor-history-state.svg" alt="History State Machine and Draft Auto-Save" width="100%" />
+</p>
 
 ### Modular History Engine
 
@@ -482,37 +366,9 @@ The edit timeline is housed in an animated slide-out drawer (`HistoryOverlay.tsx
 
 Exporting produces high-resolution photographic files matching the live preview down to the exact sub-pixel.
 
-```mermaid
-flowchart TD
-    A["Clone Full-Resolution Source Canvas"] --> B["Stage 1: Composite Liquify Mesh + Healing Strokes"]
-    B --> C["Stage 2: Base Tone & Global CSS/Canvas Filters"]
-    C --> D["Stage 3: Composite Layers Stack (Fill & Adjustments)"]
-    D --> E["Stage 4: White Balance, RAW Processing, Highlights/Shadows, Dehaze"]
-    E --> F["Stage 5: AI Portrait Retouching (Multi-Face Masks)"]
-    F --> G["Stage 6: HSL & Color Wheels & Specialized Curves"]
-    G --> H["Stage 7: Noise Reduction & Unsharp Mask Sharpening"]
-    H --> I["Stage 8: Tone Curves & 3D LUT Color Grade"]
-    I --> J["Stage 9: Split Toning, Grain, Light Leaks, Double Exposure"]
-    J --> K["Stage 10: Background Cutout & Studio Backdrop Matting"]
-    K --> L["Stage 11: Tilt-Shift Blur, Vignette, Perspective, Lens Distortion"]
-    L --> M["Stage 12: High-Resolution SVG Annotations (Per-Stroke Filter Parity)"]
-    M --> N["Stage 13: Frame & Border Compositing"]
-    N --> O["Encode Output Format (JPEG / PNG / WebP)"]
-    O --> P{"Format is JPEG?"}
-    P -->|Yes| Q["Preserve Camera EXIF via piexifjs"]
-    P -->|No| S["Skip EXIF Injection"]
-    Q --> R{"Inject C2PA Content Credentials?"}
-    S --> T["Final Output Blob"]
-    R -->|Yes| U["Inject C2PA APP11 Segment into JPEG Stream"]
-    R -->|No| T
-    U --> T
-
-    style A fill:#1e293b,stroke:#334155,color:#fff
-    style M fill:#047857,stroke:#10b981,color:#fff
-    style Q fill:#0369a1,stroke:#0ea5e9,color:#fff
-    style U fill:#4338ca,stroke:#6366f1,color:#fff
-    style T fill:#15803d,stroke:#22c55e,color:#fff
-```
+<p align="center">
+  <img src="diagrams/export-provenance-pipeline.svg" alt="Multi-Stage Export and Metadata Encoding Pipeline" width="100%" />
+</p>
 
 ### 18-Stage Export Pipeline (`exportPipeline.ts`, `exportPipeline/stages/`)
 
@@ -575,26 +431,9 @@ Prism implements standard-compliant Content Credentials (C2PA) provenance assert
 
 When executing background AI tasks (depth estimation, portrait segmentation, background matting, or neural inpainting), Prism displays animated SVG mathematical curve loaders:
 
-```mermaid
-graph LR
-    Loader["MathCurveLoader.tsx"] --> Math["math.ts (Parametric Point Evaluator)"]
-    Math --> Curves["curves.ts (Mathematical Definitions)"]
-    Curves --> SvgCanvas["SVG Particle & Path Renderer"]
-
-    subgraph CurveCatalog["Parametric Curves"]
-        C1["Bernoulli Lemniscate (lemniscate-bloom)"]
-        C2["Rose Curves (rose-curve, rose-orbit, etc.)"]
-        C3["Archimedean Spiral (spiral-search)"]
-        C4["Butterfly Curve (butterfly-phase)"]
-        C5["Hypotrochoid Loop (hypotrochoid-loop)"]
-    end
-
-    Curves --> CurveCatalog
-
-    style Loader fill:#1e293b,stroke:#334155,color:#fff
-    style Math fill:#312e81,stroke:#6366f1,color:#fff
-    style CurveCatalog fill:#0f766e,stroke:#14b8a6,color:#fff
-```
+<p align="center">
+  <img src="diagrams/math-curve-loaders.svg" alt="Mathematical Curve Loaders and Particle Render Engine" width="100%" />
+</p>
 
 | Curve Type | Identifier | Mathematical Formula / Parametric Definition | Visual Behavior |
 |---|---|---|---|

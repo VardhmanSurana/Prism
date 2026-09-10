@@ -12,26 +12,9 @@ The video editor is accessible from the photo lightbox when viewing a video file
 
 ### Interface Layout
 
-```mermaid
-graph TB
-    subgraph NLE["Video Editor (NLE)"]
-        subgraph Top["Top Section"]
-            LeftSidebar["Left Sidebar<br/>Assets | Text | Effects | Transitions"]
-            Preview["Preview Area<br/>Video Playback"]
-            Inspector["Inspector Panel<br/>Properties | Keyframes | Color"]
-        end
-        
-        Timeline["Timeline<br/>Multi-track editing interface"]
-    end
-
-    Top --> Timeline
-    LeftSidebar --> Preview
-    Preview --> Inspector
-
-    style NLE fill:#1e40af,stroke:#1e3a8a,color:#fff
-    style Preview fill:#059669,stroke:#047857,color:#fff
-    style Timeline fill:#7c3aed,stroke:#6d28d9,color:#fff
-```
+<p align="center">
+  <img src="diagrams/video-editor-architecture.svg" alt="Prism Video Editor (NLE) Architecture" width="100%" />
+</p>
 
 ## Timeline
 
@@ -178,21 +161,9 @@ Browse and apply transitions between clips:
 
 ### Export Process
 
-```mermaid
-flowchart TD
-    A["Render Timeline<br/>(Effects & Transitions)"] --> B["Apply Color Grading
-& Transformations"]
-    B --> C["Encode Video Stream
-(H.264/H.265)"]
-    C --> D["Mix Audio Tracks
-(AAC/MP3/Passthrough)"]
-    D --> E["Mux Video & Audio"]
-    E --> F["Output Final MP4"]
-    F --> G["Export Complete"]
-
-    style A fill:#3b82f6,stroke:#2563eb,color:#fff
-    style G fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/video-render-pipeline.svg" alt="Video Export and Audio Muxing Pipeline" width="100%" />
+</p>
 
 ### Export Status
 - **Progress Bar** — Real-time export progress

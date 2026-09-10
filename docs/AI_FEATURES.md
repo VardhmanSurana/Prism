@@ -6,24 +6,9 @@ Prism includes optional AI-powered features for intelligent photo organization, 
 
 AI features are organized into three tiers:
 
-```mermaid
-graph TD
-    subgraph Tiers["AI Feature Tiers"]
-        InProcess["1. In-process ML<br/>(ONNX Runtime)"]
-        LLM["2. Local LLM Services<br/>(llama-server instances)"]
-        Pipeline["3. Background Pipeline<br/>(Automated processing)"]
-    end
-
-    InProcess --> |"SigLIP2, Face-id, BiSeNet,
-SegFormer, LaMa, PP-OCRv4"| Models["ML Models"]
-    LLM --> |"Gemma 4 E4B, E2B"| Services["LLM Services"]
-    Pipeline --> |"4-stage processing
-queue"| Worker["Background Worker"]
-
-    style InProcess fill:#3b82f6,stroke:#2563eb,color:#fff
-    style LLM fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style Pipeline fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/ai-engine-architecture.svg" alt="Prism AI Engine Architecture" width="100%" />
+</p>
 
 ## In-process ML Models
 
@@ -136,26 +121,9 @@ queue"| Worker["Background Worker"]
 
 The background worker processes newly imported photos through 4 stages:
 
-```mermaid
-flowchart LR
-    Import["Photo Imported"] --> Face["1. Face Detection<br/>SCRFD + ArcFace"]
-    Face --> OCR["2. OCR Extraction<br/>PP-OCRv4 (In-Process)"]
-    OCR --> SigLIP["3. SigLIP Embedding<br/>Semantic Search"]
-    SigLIP --> AutoEnhance["4. Auto-Enhance<br/>(Optional)"]
-    AutoEnhance --> Complete["Processing Complete"]
-
-    Face --> |"Detect faces"| FaceDB[("Face DB")]
-    OCR --> |"Extract text"| FTS[("FTS5 Index")]
-    SigLIP --> |"Generate embeddings"| VectorDB[("Vector DB")]
-    AutoEnhance --> |"Store adjustments"| PhotoDB[("Photo DB")]
-
-    style Import fill:#6b7280,stroke:#4b5563,color:#fff
-    style Face fill:#f59e0b,stroke:#d97706,color:#fff
-    style OCR fill:#10b981,stroke:#059669,color:#fff
-    style SigLIP fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style AutoEnhance fill:#ec4899,stroke:#db2777,color:#fff
-    style Complete fill:#06b6d4,stroke:#0891b2,color:#fff
-```
+<p align="center">
+  <img src="diagrams/semantic-search-pipeline.svg" alt="Multimodal AI Processing and Vector Pipeline" width="100%" />
+</p>
 
 **Stage 1: Face Detection**
 - Detect faces using SCRFD

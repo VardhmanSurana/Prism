@@ -4,34 +4,9 @@ Prism is a privacy-first, local-only desktop photo and video library application
 
 ## Overview
 
-```mermaid
-graph TB
-    subgraph Desktop["Tauri v2 Desktop Shell"]
-        subgraph Frontend["Vite React UI (port 3005)"]
-            Zustand["Zustand Stores"]
-            ReactRouter["React Router"]
-            TanStack["TanStack Virtual"]
-        end
-    end
-
-    subgraph Backend["Rust (Axum) Backend"]
-        CORS["CORS / Auth"]
-        Routes["Routes / API"]
-        Services["Services / Business Logic"]
-    end
-
-    Database["SQLite (WAL + FTS5)"]
-    FileSystem["File System<br/>uploads/ thumbnails/"]
-
-    Frontend --> |"HTTP (127.0.0.1:8269)"| Backend
-    Services --> Database
-    Services --> FileSystem
-
-    style Desktop fill:#1e40af,stroke:#1e3a8a,color:#fff
-    style Backend fill:#059669,stroke:#047857,color:#fff
-    style Database fill:#d97706,stroke:#b45309,color:#fff
-    style FileSystem fill:#7c3aed,stroke:#6d28d9,color:#fff
-```
+<p align="center">
+  <img src="diagrams/system-architecture.svg" alt="Prism System Architecture" width="100%" />
+</p>
 
 ## Core Design Principles
 
@@ -57,27 +32,9 @@ All AI features are behind feature flags, disabled by default. AI models run in-
 
 ### Component Hierarchy
 
-```mermaid
-graph TD
-    App["App.tsx"] --> MainContent["MainContent.tsx<br/>(View Router)"]
-    App --> Sidebar["Sidebar.tsx<br/>(Navigation)"]
-    App --> Header["Header.tsx<br/>(Search & Actions)"]
-    App --> FloatingActions["FloatingActions.tsx<br/>(Quick Actions)"]
-
-    MainContent --> PhotoGrid["PhotoGrid/<br/>(Gallery View)"]
-    MainContent --> ExploreView["ExploreView/<br/>(AI Discovery)"]
-    MainContent --> AgentView["AgentView/<br/>(AI Assistant Chat)"]
-    MainContent --> AlbumsView["AlbumsView/<br/>(Album Management)"]
-    MainContent --> PeopleView["PeopleView/<br/>(Face Recognition)"]
-    MainContent --> MapView["MapView/<br/>(Leaflet Map)"]
-    MainContent --> Editor["Editor/<br/>(Image & Video Editors)"]
-    MainContent --> UtilitiesView["UtilitiesView/<br/>(System Tools)"]
-    MainContent --> LockedViewAuth["LockedViewAuth/<br/>(Private Folder)"]
-    MainContent --> TrashView["TrashView/<br/>(Deleted Photos)"]
-
-    style App fill:#3b82f6,stroke:#2563eb,color:#fff
-    style MainContent fill:#8b5cf6,stroke:#7c3aed,color:#fff
-```
+<p align="center">
+  <img src="diagrams/frontend-component-hierarchy.svg" alt="Frontend Component Hierarchy" width="100%" />
+</p>
 
 ### State Management
 
@@ -111,29 +68,9 @@ graph TD
 
 ### Application Startup
 
-```mermaid
-flowchart TD
-    A["Load Config from env vars"] --> B["Initialize SQLite pool
-(WAL mode, create tables)"]
-    B --> C["Auto-purge trashed photos
-(older than 30 days)"]
-    C --> D["Start LAN sync service"]
-    D --> E["Initialize sync watchdog"]
-    E --> F["Start background
-processing queue"]
-    F --> G["Recover interrupted
-Locked Folder files"]
-    G --> H["Spawn background
-AI worker loop"]
-    H --> I["Build Axum router
-with middleware layers"]
-    I --> J["Start TCP listener
-on host:port"]
-    J --> K["Server Ready"]
-
-    style A fill:#3b82f6,stroke:#2563eb,color:#fff
-    style K fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/backend-startup-flow.svg" alt="Backend Startup Flow" width="100%" />
+</p>
 
 ### Middleware Stack
 
@@ -146,41 +83,17 @@ on host:port"]
 
 ### Service Architecture
 
-```mermaid
-graph TD
-    AppState["AppState"] --> Config["Config<br/>Runtime configuration"]
-    AppState --> DbPool["DbPool<br/>SQLite connection pool"]
-    AppState --> MlClient["MlClient<br/>ML inference client"]
-    AppState --> Telemetry["Telemetry<br/>Usage analytics"]
-    AppState --> WorkerState["WorkerState<br/>Background job management"]
-    AppState --> JobScheduler["JobScheduler<br/>Job scheduling and queuing"]
-    AppState --> AnalyzerRegistry["AnalyzerRegistry<br/>Pluggable analyzer system"]
-
-    style AppState fill:#1e40af,stroke:#1e3a8a,color:#fff
-    style Config fill:#6b7280,stroke:#4b5563,color:#fff
-    style DbPool fill:#059669,stroke:#047857,color:#fff
-    style MlClient fill:#8b5cf6,stroke:#7c3aed,color:#fff
-```
+<p align="center">
+  <img src="diagrams/service-architecture.svg" alt="Service Architecture" width="100%" />
+</p>
 
 ### Background Worker Pipeline
 
 The background worker processes photos through a 4-stage pipeline:
 
-```mermaid
-flowchart LR
-    Import["Photo Imported"] --> Face["1. Face Detection<br/>(SCRFD + ArcFace)"]
-    Face --> OCR["2. OCR<br/>(PP-OCRv4 In-Process)"]
-    OCR --> SigLIP["3. SigLIP Embedding<br/>(Semantic Search)"]
-    SigLIP --> AutoEnhance["4. Auto-Enhancement<br/>(Optional)"]
-    AutoEnhance --> Complete["Processing Complete"]
-
-    style Import fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Face fill:#f59e0b,stroke:#d97706,color:#fff
-    style OCR fill:#10b981,stroke:#059669,color:#fff
-    style SigLIP fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style AutoEnhance fill:#ec4899,stroke:#db2777,color:#fff
-    style Complete fill:#06b6d4,stroke:#0891b2,color:#fff
-```
+<p align="center">
+  <img src="diagrams/background-worker-flow.svg" alt="Background Worker Pipeline" width="100%" />
+</p>
 
 Each stage is pluggable via the `AnalyzerRegistry`.
 
@@ -203,47 +116,9 @@ Each stage is pluggable via the `AnalyzerRegistry`.
 
 ### Entity Relationships
 
-```mermaid
-erDiagram
-    PHOTO ||--o{ PHOTO_PERSON : has
-    PHOTO ||--o{ PHOTO_ALBUM : belongs_to
-    PHOTO ||--o{ FACE : has
-    PHOTO ||--o{ BACKGROUND_JOB : triggers
-    PHOTO }o--|| EVENT : part_of
-
-    PERSON ||--o{ PHOTO_PERSON : has
-    ALBUM ||--o{ PHOTO_ALBUM : contains
-    EVENT ||--o{ PHOTO : contains
-
-    VIDEO_PROJECT ||--o{ VIDEO_CLIP : has
-    AGENT_SESSION ||--o{ AGENT_MESSAGE : contains
-
-    PHOTO {
-        int id PK
-        string uuid UK
-        string filename
-        string path
-        string file_type
-        datetime date_taken
-        boolean is_favorite
-        boolean is_locked
-    }
-
-    ALBUM {
-        int id PK
-        string uuid UK
-        string name
-        string type
-        int photo_count
-    }
-
-    PERSON {
-        int id PK
-        string uuid UK
-        string name
-        string face_embedding
-    }
-```
+<p align="center">
+  <img src="diagrams/database-schema.svg" alt="Entity Relationships" width="100%" />
+</p>
 
 ## ML/AI Pipeline
 

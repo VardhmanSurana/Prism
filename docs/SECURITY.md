@@ -4,33 +4,9 @@ Prism is built with privacy as a core principle. All data stays on your machine,
 
 ## Core Security Principles
 
-```mermaid
-graph TD
-    subgraph Principles["Security Principles"]
-        LocalFirst["1. Local-first Architecture"]
-        DataOwnership["2. Data Ownership"]
-        Encryption["3. Encryption"]
-    end
-
-    LocalFirst --> NoCloud["No Cloud Dependencies"]
-    LocalFirst --> NoAPI["No External API Calls"]
-    LocalFirst --> NoTelemetry["No Telemetry by Default"]
-    LocalFirst --> NoRemote["No Remote Storage"]
-
-    DataOwnership --> Control["You Control Your Data"]
-    DataOwnership --> NoLockin["No Vendor Lock-in"]
-    DataOwnership --> NoAccount["No Account Required"]
-    DataOwnership --> NoTracking["No Tracking"]
-
-    Encryption --> LockedFolder["Locked Folder<br/>(Argon2id)"]
-    Encryption --> SecureDeletion["Secure Deletion"]
-    Encryption --> LocalDB["Local Database<br/>(SQLite)"]
-
-    style Principles fill:#1e40af,stroke:#1e3a8a,color:#fff
-    style LocalFirst fill:#3b82f6,stroke:#2563eb,color:#fff
-    style DataOwnership fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style Encryption fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/security-trust-boundaries.svg" alt="Prism Core Security Principles and Trust Boundaries" width="100%" />
+</p>
 
 ## Locked Folder
 
@@ -141,26 +117,9 @@ connect-src 'self' http://127.0.0.1:8269;
 
 ## Threat Model
 
-```mermaid
-graph TD
-    subgraph Protected["What We Protect Against"]
-        CloudBreaches["Cloud Breaches<br/>(Data never in cloud)"]
-        ServiceOutages["Service Outages<br/>(Works offline)"]
-        VendorLockin["Vendor Lock-in<br/>(Export anytime)"]
-        UnauthorizedAccess["Unauthorized Access<br/>(API key + password)"]
-        DataMining["Data Mining<br/>(No telemetry)"]
-    end
-
-    subgraph NotProtected["What We Don't Protect Against"]
-        PhysicalAccess["Physical Access<br/>(If someone has device)"]
-        Malware["Malware<br/>(Standard protections)"]
-        WeakPasswords["Weak Passwords<br/>(Use strong passwords)"]
-        UnencryptedBackups["Unencrypted Backups<br/>(Encrypt externally)"]
-    end
-
-    style Protected fill:#10b981,stroke:#059669,color:#fff
-    style NotProtected fill:#ef4444,stroke:#dc2626,color:#fff
-```
+<p align="center">
+  <img src="diagrams/security-threat-model.svg" alt="Prism Threat Model and Protective Boundaries" width="100%" />
+</p>
 
 ## Best Practices
 

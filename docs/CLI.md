@@ -15,18 +15,9 @@ The binary will be available at `target/release/prism`.
 
 ## Usage
 
-```mermaid
-flowchart LR
-    User["User"] --> CLI["prism CLI"]
-    CLI --> |"HTTP Request"| Backend["Prism Backend
-(port 8269)"]
-    Backend --> |"JSON Response"| CLI
-    CLI --> |"Formatted Output"| User
-
-    style User fill:#6b7280,stroke:#4b5563,color:#fff
-    style CLI fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Backend fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/cli-architecture.svg" alt="Prism CLI Architecture" width="100%" />
+</p>
 
 ```bash
 prism [OPTIONS] <COMMAND>

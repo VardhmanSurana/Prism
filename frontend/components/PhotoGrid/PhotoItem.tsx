@@ -28,9 +28,8 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
     ? resolveUrl(photo.animated_url)
     : null;
 
-  const { settings, galleryStyle } = useGalleryLayout();
-  const isGoogle = galleryStyle === 'google';
-  const cornerRadius = isGoogle ? 0 : settings.cornerRadius;
+  const { settings } = useGalleryLayout();
+  const cornerRadius = settings.cornerRadius;
   const roundedClass = cornerRadius > 0 ? '' : 'rounded-none';
 
   return (

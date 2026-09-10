@@ -101,27 +101,9 @@ Full non-linear multi-track video editing engine:
 
 ## Desktop Architecture
 
-```mermaid
-graph TB
-    subgraph Desktop_App["Prism Desktop App Shell"]
-        subgraph Frontend_UI["Vite React 18 UI"]
-            Views["Views (PhotoGrid, Editor, Map, Albums)"]
-            Stores["Zustand State Stores"]
-        end
-
-        subgraph Backend_Process["Native Rust Backend (Axum)"]
-            API["REST API Router (Port 8269)"]
-            Services["ML Inference / Media Analyzers"]
-        end
-    end
-
-    DB[("SQLite WAL + FTS5")]
-    FS["Local Storage (uploads/ & thumbnails/)"]
-
-    Frontend_UI --> |"HTTP REST (127.0.0.1:8269)"| Backend_Process
-    Backend_Process --> DB
-    Backend_Process --> FS
-```
+<p align="center">
+  <img src="docs/diagrams/system-architecture.svg" alt="Prism Desktop Architecture" width="100%" />
+</p>
 
 ---
 

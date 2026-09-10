@@ -302,91 +302,9 @@ END;
 
 ## Entity Relationships
 
-```mermaid
-erDiagram
-    photos ||--o{ photo_albums : "belongs to"
-    albums ||--o{ photo_albums : "contains"
-    photos ||--o{ photo_people : "has"
-    people ||--o{ photo_people : "appears in"
-    photos ||--o{ faces : "detected in"
-    photos ||--o{ background_jobs : "processed by"
-    photos }o--|| events : "part of"
-    photos ||--o{ video_projects : "edited in"
-    agent_sessions ||--o{ agent_messages : "contains"
-
-    photos {
-        int id PK
-        string uuid UK
-        string filename
-        string path
-        string file_type
-        datetime date_taken
-        boolean is_favorite
-        boolean is_locked
-        boolean is_trash
-    }
-
-    albums {
-        int id PK
-        string uuid UK
-        string name
-        string type
-        int photo_count
-    }
-
-    people {
-        int id PK
-        string uuid UK
-        string name
-        string face_embedding
-    }
-
-    faces {
-        int id PK
-        int photo_id FK
-        float confidence
-        string box_json
-        string embedding_json
-    }
-
-    background_jobs {
-        int id PK
-        int photo_id FK
-        string job_type
-        string status
-        string current_stage
-    }
-
-    events {
-        int id PK
-        string title
-        string event_type
-        datetime start_date
-        datetime end_date
-    }
-
-    video_projects {
-        int id PK
-        string uuid UK
-        string name
-        int width
-        int height
-        int fps
-    }
-
-    agent_sessions {
-        int id PK
-        string uuid UK
-        string title
-    }
-
-    agent_messages {
-        int id PK
-        string session_id FK
-        string role
-        string content
-    }
-```
+<p align="center">
+  <img src="diagrams/database-schema.svg" alt="Prism Database Schema ERD" width="100%" />
+</p>
 
 ## Indexes
 

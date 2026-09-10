@@ -1,34 +1,45 @@
-export const MAP_STYLES = [
+import { API_BASE } from '../../constants';
+
+export interface MapStyle {
+  id: string;
+  name: string;
+  url: string;
+  attribution: string;
+  className?: string;
+}
+
+export const MAP_STYLES: MapStyle[] = [
   {
-    id: 'light',
-    name: 'Standard Light',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    id: 'dark',
+    name: 'Dark Mode',
+    url: `${API_BASE}/api/v1/maps/tiles/osm/{z}/{x}/{y}.png`,
+    className: 'map-tiles-dark',
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   },
   {
-    id: 'dark',
-    name: 'Dark Matter',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    id: 'light',
+    name: 'Standard Light',
+    url: `${API_BASE}/api/v1/maps/tiles/osm/{z}/{x}/{y}.png`,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   },
   {
-    id: 'positron',
-    name: 'Positron (Light)',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    id: 'satellite',
+    name: 'Satellite',
+    url: `${API_BASE}/api/v1/maps/tiles/satellite/{z}/{x}/{y}.png`,
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
   },
   {
     id: 'topo',
     name: 'OpenTopoMap',
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    url: `${API_BASE}/api/v1/maps/tiles/topo/{z}/{x}/{y}.png`,
     attribution: 'Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
   },
   {
     id: 'cycle',
     name: 'CyclOSM',
-    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    url: `${API_BASE}/api/v1/maps/tiles/cycle/{z}/{x}/{y}.png`,
     attribution: '&copy; <a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases">CyclOSM</a> contributors &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   }
 ];
 
-type MapStyle = typeof MAP_STYLES[number];
+export type MapStyleType = MapStyle;

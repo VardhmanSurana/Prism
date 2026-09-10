@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { Edit2, Check, X, User } from 'lucide-react';
 import { resolveUrl } from '../../constants';
 import { Person } from './types';
-import { useGalleryLayout } from '@/hooks/useGalleryLayout';
 
 interface PersonCardProps {
   person: Person;
@@ -16,6 +15,7 @@ interface PersonCardProps {
   onEditNameChange: (value: string) => void;
 }
 
+// ponytail: simplified PersonCard, standardized on signature Prism circular avatar
 /**
  * PersonCard - Renders person card.
  */
@@ -29,8 +29,6 @@ export const PersonCard: React.FC<PersonCardProps> = ({
   onSaveRename,
   onEditNameChange,
 }) => {
-  const { galleryStyle } = useGalleryLayout();
-
   /**
    * handleKeyDown - Handles key down.
    */
@@ -44,39 +42,6 @@ export const PersonCard: React.FC<PersonCardProps> = ({
   };
 
   const isUnnamed = person.name.startsWith('Person #') || person.name.startsWith('Cluster #');
-
-  if (galleryStyle === 'google') {
-    return (
-      <motion.div
-        layout
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        onClick={onClick}
-        className="group relative cursor-pointer aspect-square rounded-2xl overflow-hidden border border-white/[0.08] bg-[#0a0c10] hover:border-white/20 transition-all duration-200"
-      >
-        {person.cover_face_thumbnail ? (
-          <img
-            src={resolveUrl(person.cover_face_thumbnail)}
-            alt={person.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-white/[0.03] text-white/30">
-            <User size={32} />
-          </div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-3 flex flex-col justify-end pointer-events-none">
-          <span className="font-sans font-medium text-white text-xs tracking-tight truncate drop-shadow-md">
-            {person.name}
-          </span>
-          <span className="text-[10px] font-mono text-white/50 tabular-nums">
-            {person.photo_count} {person.photo_count === 1 ? 'photo' : 'photos'}
-          </span>
-        </div>
-      </motion.div>
-    );
-  }
 
   return (
     <motion.div

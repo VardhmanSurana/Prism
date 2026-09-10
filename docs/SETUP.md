@@ -20,22 +20,9 @@ This guide covers installation, configuration, and troubleshooting for Prism.
 
 ## Installation
 
-```mermaid
-flowchart TD
-    A["Clone Repository"] --> B["Install Frontend
-Dependencies"]
-    B --> C["Build Backend"]
-    C --> D{"Need CLI?"}
-    D -->|Yes| E["Build CLI"]
-    D -->|No| F{"Need AI?"}
-    E --> F
-    F -->|Yes| G["Download AI Models"]
-    F -->|No| H["Ready to Run"]
-    G --> H
-
-    style A fill:#3b82f6,stroke:#2563eb,color:#fff
-    style H fill:#10b981,stroke:#059669,color:#fff
-```
+<p align="center">
+  <img src="diagrams/dev-setup-pipeline.svg" alt="Prism Development Setup Pipeline" width="100%" />
+</p>
 
 ### 1. Clone the Repository
 
@@ -96,30 +83,9 @@ wget -O backend_rust/models/inpainting/lama.onnx <url>
 
 ## Running Prism
 
-```mermaid
-graph TD
-    subgraph Modes["Running Modes"]
-        Web["Web Mode<br/>(Recommended)"]
-        Desktop["Desktop Mode<br/>(Tauri)"]
-        Docker["Docker Mode<br/>(Server)"]
-    end
-
-    Web --> |"./run-web.sh"| Backend["Backend
-(port 8269)"]
-    Web --> |"./run-web.sh"| Frontend["Frontend
-(port 3005)"]
-    
-    Desktop --> |"./run-desktop.sh"| Tauri["Tauri Shell"]
-    Tauri --> Backend
-    Tauri --> Frontend
-    
-    Docker --> |"docker compose up -d"| Container["Docker Container
-(port 8269)"]
-
-    style Web fill:#3b82f6,stroke:#2563eb,color:#fff
-    style Desktop fill:#8b5cf6,stroke:#7c3aed,color:#fff
-    style Docker fill:#059669,stroke:#047857,color:#fff
-```
+<p align="center">
+  <img src="diagrams/packaging-matrix.svg" alt="Prism Execution Modes and Packaging Architecture" width="100%" />
+</p>
 
 ### Web Mode (Recommended for Development)
 

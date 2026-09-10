@@ -53,7 +53,9 @@ export const useMapStyle = () => {
    * currentStyle - Performs current style.
    */
   const currentStyle = useMemo(() => {
-    return MAP_STYLES.find(s => s.id === selectedStyleId) || MAP_STYLES[1];
+    return MAP_STYLES.find(s => s.id === selectedStyleId)
+      || (selectedStyleId === 'positron' ? MAP_STYLES.find(s => s.id === 'light') : null)
+      || MAP_STYLES[0];
   }, [selectedStyleId]);
 
   return {
