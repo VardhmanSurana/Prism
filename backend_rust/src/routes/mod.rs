@@ -278,7 +278,7 @@ async fn api_key_auth_layer(
         .get("x-api-key")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
-    if supplied != expected {
+    if !constant_time_eq_str(supplied, &expected) {
         return (
             StatusCode::UNAUTHORIZED,
             Json(serde_json::json!({"error": "Invalid or missing API key"})),
@@ -287,6 +287,28 @@ async fn api_key_auth_layer(
     }
     next.run(req).await
 }
+
+/// Compare two secret strings in constant time using `subtle::ConstantTimeEq`
+/// over SHA-256 digests to prevent timing attacks and string-length timing leakage.
+pub fn constant_time_eq_str(a: &str, b: &str) -> bool {
+    use sha2::{Sha256, Digest};
+    use subtle::ConstantTimeEq;
+    let hash_a = Sha256::digest(a.as_bytes());
+    let hash_b = Sha256::digest(b.as_bytes());
+    hash_a.ct_eq(&hash_b).into()
+}
+
+/// Compare two secret byte slices in constant time using `subtle::ConstantTimeEq`
+/// over SHA-256 digests to prevent timing attacks.
+#[allow(dead_code)]
+pub fn constant_time_eq_bytes(a: &[u8], b: &[u8]) -> bool {
+    use sha2::{Sha256, Digest};
+    use subtle::ConstantTimeEq;
+    let hash_a = Sha256::digest(a);
+    let hash_b = Sha256::digest(b);
+    hash_a.ct_eq(&hash_b).into()
+}
+
 
 // ponytail: per-IP sliding-window rate limiter keyed by path. In-memory,
 // resets on restart — sufficient for a local-first app. If multi-process

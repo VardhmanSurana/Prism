@@ -55,8 +55,10 @@ impl Analyzer for SiglipAnalyzer {
         match result {
             Ok(Ok(embedding)) if !embedding.is_empty() => {
                 let json = serde_json::to_string(&embedding).unwrap_or_default();
-                let _ = sqlx::query("UPDATE photos SET embedding = ? WHERE id = ?")
+                let blob: Vec<u8> = embedding.iter().flat_map(|f| f.to_le_bytes()).collect();
+                let _ = sqlx::query("UPDATE photos SET embedding = ?, embedding_blob = ? WHERE id = ?")
                     .bind(&json)
+                    .bind(&blob)
                     .bind(photo_id)
                     .execute(db)
                     .await;
@@ -64,6 +66,7 @@ impl Analyzer for SiglipAnalyzer {
                 info!("[Scheduler] SigLIP done for photo_id={}", photo_id);
                 true
             }
+
             Ok(Ok(_)) => {
                 warn!("[Scheduler] SigLIP returned empty embedding for photo_id={}", photo_id);
                 false

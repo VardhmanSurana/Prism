@@ -95,7 +95,7 @@ pub async fn get_photo_metadata(
 // ponytail: canonicalize a user-supplied path to resolve `..` / symlinks.
 // Returns Err if the path is invalid or doesn't exist.
 /// safe_resolve - Performs safe resolve.
-fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
+pub fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
     let raw = PathBuf::from(path);
     let canonical = raw
         .canonicalize()
@@ -108,13 +108,75 @@ fn safe_resolve(path: &str) -> Result<PathBuf, (StatusCode, String)> {
 
 // ponytail: ensure resolved path stays under an allowed directory root.
 /// safe_resolve_under - Performs safe resolve under.
-fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (StatusCode, String)> {
+pub fn safe_resolve_under(path: &str, root: &std::path::Path) -> Result<PathBuf, (StatusCode, String)> {
     let resolved = safe_resolve(path)?;
-    if !resolved.starts_with(root) {
-        return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
+    let canonical_root = root.canonicalize().map_err(|_| (StatusCode::BAD_REQUEST, "Invalid root directory".to_string()))?;
+    if !resolved.starts_with(&canonical_root) {
+        return Err((StatusCode::FORBIDDEN, "Access denied: path traversal detected".to_string()));
     }
     Ok(resolved)
 }
+
+/// Resolve and validate a local file path against allowed library and upload roots to prevent path traversal attacks.
+pub async fn safe_resolve_library_path(
+    path: &str,
+    state: &AppState,
+) -> Result<PathBuf, (StatusCode, String)> {
+    let canonical = safe_resolve(path)?;
+
+    // 1. Check configured root directories (upload_dir, thumbnails_dir, cwd)
+    let mut allowed_roots = vec![
+        state.config.upload_dir.clone(),
+        state.config.thumbnails_dir.clone(),
+    ];
+    if let Ok(cwd) = std::env::current_dir() {
+        allowed_roots.push(cwd);
+    }
+    for root in allowed_roots {
+        if let Ok(canonical_root) = root.canonicalize() {
+            if canonical.starts_with(&canonical_root) {
+                return Ok(canonical);
+            }
+        }
+    }
+
+    // 2. Check registered external locations
+    if let Ok(external_paths) = sqlx::query_scalar::<_, String>(
+        "SELECT mount_path FROM external_locations WHERE enabled = 1"
+    )
+    .fetch_all(&state.db)
+    .await {
+        for ext in external_paths {
+            if let Ok(canonical_ext) = PathBuf::from(ext).canonicalize() {
+                if canonical.starts_with(&canonical_ext) {
+                    return Ok(canonical);
+                }
+            }
+        }
+    }
+
+    // 3. Check registered photos in database
+    let raw_str = path.to_string();
+    let canonical_str = canonical.to_string_lossy().to_string();
+    let exists_in_db: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM photos WHERE path = ? OR path = ?)"
+    )
+    .bind(&raw_str)
+    .bind(&canonical_str)
+    .fetch_one(&state.db)
+    .await
+    .unwrap_or(false);
+
+    if exists_in_db {
+        return Ok(canonical);
+    }
+
+    Err((
+        StatusCode::FORBIDDEN,
+        "Access denied: path is outside allowed library directories".to_string(),
+    ))
+}
+
 
 /// resolve_photo_path - Performs resolve photo path.
 pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
@@ -219,9 +281,10 @@ pub struct ServeLocalQuery {
 
 /// serve_local_file - Performs serve local file.
 pub async fn serve_local_file(
+    State(state): State<Arc<AppState>>,
     Query(query): Query<ServeLocalQuery>,
 ) -> Result<Response, (StatusCode, String)> {
-    let file_path = safe_resolve(&query.path)?;
+    let file_path = safe_resolve_library_path(&query.path, &state).await?;
     serve_file_by_path(file_path).await
 }
 
@@ -229,6 +292,10 @@ pub async fn serve_local_file(
 pub async fn serve_sample_image(
     Path(filename): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err((StatusCode::FORBIDDEN, "Access denied: invalid sample filename".to_string()));
+    }
+
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let candidates = [
         cwd.join("frontend/public/sample_images"),
@@ -249,6 +316,7 @@ pub async fn serve_sample_image(
 
     Err((StatusCode::NOT_FOUND, format!("Sample image '{}' not found", filename)))
 }
+
 
 /// serve_file_by_path - Performs serve file by path.
 async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode, String)> {

@@ -367,16 +367,27 @@ pub async fn stream_video(
         }
     }
 
-    let metadata = tokio::fs::metadata(&file_path)
+    let canonical = file_path
+        .canonicalize()
+
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid video path".to_string()))?;
+
+    let canonical_cwd = cwd.canonicalize().map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Invalid working directory".to_string()))?;
+    if !canonical.starts_with(&canonical_cwd) {
+        return Err((StatusCode::FORBIDDEN, "Access denied: path traversal detected".to_string()));
+    }
+
+    let metadata = tokio::fs::metadata(&canonical)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let file_size = metadata.len();
-    let mime = mime_guess::from_path(&file_path)
+    let mime = mime_guess::from_path(&canonical)
         .first_or_octet_stream()
         .to_string();
 
-    let file = File::open(&file_path)
+    let file = File::open(&canonical)
+
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 

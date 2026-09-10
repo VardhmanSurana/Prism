@@ -78,6 +78,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             ai_summary TEXT,
             auto_tags TEXT,
             embedding TEXT,
+            embedding_blob BLOB,
             ocr_text TEXT,
             adjustments_json TEXT,
             blur_score REAL,
@@ -292,6 +293,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("ALTER TABLE agent_messages ADD COLUMN session_id TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN ocr_bboxes TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN ocr_attempted_at TEXT").execute(pool).await.ok();
+    sqlx::query("ALTER TABLE photos ADD COLUMN embedding_blob BLOB").execute(pool).await.ok();
 
     // Create session indexes after column migrations
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();

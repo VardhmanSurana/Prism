@@ -493,19 +493,34 @@ pub async fn chat(
 pub async fn serve_agent_upload(
     Path(filename): Path<String>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
+        return Err((StatusCode::FORBIDDEN, "Access denied: invalid filename".to_string()));
+    }
+
     let upload_dir = std::env::var("AGENT_UPLOAD_DIR")
         .unwrap_or_else(|_| "/tmp/prism_agent_uploads".to_string());
 
-    let file_path = std::path::Path::new(&upload_dir).join(&filename);
+    let dir_path = std::path::Path::new(&upload_dir);
+    if !dir_path.exists() {
+        return Err((StatusCode::NOT_FOUND, "Upload directory not found".to_string()));
+    }
+    let canonical_dir = dir_path
+        .canonicalize()
+        .map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Invalid upload directory".to_string()))?;
 
-    // ponytail: path traversal guard
-    if !file_path.to_string_lossy().contains(&upload_dir) {
-        return Err((StatusCode::FORBIDDEN, "Access denied".to_string()));
+    let file_path = dir_path.join(&filename);
+    let canonical_file = file_path
+        .canonicalize()
+        .map_err(|_| (StatusCode::NOT_FOUND, "File not found".to_string()))?;
+
+    if !canonical_file.starts_with(&canonical_dir) {
+        return Err((StatusCode::FORBIDDEN, "Access denied: path traversal detected".to_string()));
     }
 
-    if !file_path.exists() {
+    if !canonical_file.exists() {
         return Err((StatusCode::NOT_FOUND, "File not found".to_string()));
     }
+
 
     Ok(Json(json!({
         "status": "success",

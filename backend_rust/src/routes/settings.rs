@@ -496,6 +496,84 @@ pub struct LockSessionRequest {
     pub action: String,
 }
 
+use argon2::password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::Argon2;
+use std::collections::VecDeque;
+use std::sync::Mutex;
+use std::time::Instant;
+
+
+const VAULT_MAX_FAILED_ATTEMPTS: usize = 5;
+const VAULT_LOCKOUT_WINDOW: Duration = Duration::from_secs(15 * 60); // 15 minutes
+const VAULT_COOLDOWN_DURATION: Duration = Duration::from_secs(15 * 60); // 15 minutes
+
+pub struct VaultRateLimiter {
+    failed_attempts: VecDeque<Instant>,
+    lockout_until: Option<Instant>,
+}
+
+impl VaultRateLimiter {
+    pub const fn new() -> Self {
+        Self {
+            failed_attempts: VecDeque::new(),
+            lockout_until: None,
+        }
+    }
+
+
+    pub fn check_lockout(&mut self) -> Result<(), Duration> {
+        let now = Instant::now();
+        if let Some(until) = self.lockout_until {
+            if now < until {
+                return Err(until - now);
+            } else {
+                self.lockout_until = None;
+                self.failed_attempts.clear();
+            }
+        }
+        Ok(())
+    }
+
+    pub fn record_failure(&mut self) {
+        let now = Instant::now();
+        while self.failed_attempts.front().is_some_and(|t| now.duration_since(*t) > VAULT_LOCKOUT_WINDOW) {
+            self.failed_attempts.pop_front();
+        }
+        self.failed_attempts.push_back(now);
+        if self.failed_attempts.len() >= VAULT_MAX_FAILED_ATTEMPTS {
+            self.lockout_until = Some(now + VAULT_COOLDOWN_DURATION);
+        }
+    }
+
+    pub fn record_success(&mut self) {
+        self.failed_attempts.clear();
+        self.lockout_until = None;
+    }
+
+    pub fn reset(&mut self) {
+        self.failed_attempts.clear();
+        self.lockout_until = None;
+    }
+}
+
+static VAULT_RATE_LIMITER: Mutex<VaultRateLimiter> = Mutex::new(VaultRateLimiter::new());
+
+pub fn check_vault_lockout() -> Result<(), Duration> {
+    VAULT_RATE_LIMITER.lock().unwrap().check_lockout()
+}
+
+pub fn record_vault_failure() {
+    VAULT_RATE_LIMITER.lock().unwrap().record_failure();
+}
+
+pub fn record_vault_success() {
+    VAULT_RATE_LIMITER.lock().unwrap().record_success();
+}
+
+pub fn reset_vault_rate_limiter() {
+    VAULT_RATE_LIMITER.lock().unwrap().reset();
+}
+
 /// POST /api/v1/settings/locked-folder/setup — Set up locked folder with passcode.
 pub async fn setup_locked_folder(
     State(state): State<Arc<AppState>>,
@@ -516,19 +594,20 @@ pub async fn setup_locked_folder(
         return Err((StatusCode::CONFLICT, "Locked folder already configured. Use change-passcode instead.".to_string()));
     }
 
-    // ponytail: sha256 hash, real app should use bcrypt/scrypt
-    let hash = {
-        use sha2::{Sha256, Digest};
-        let mut hasher = Sha256::new();
-        hasher.update(payload.passcode.as_bytes());
-        format!("{:x}", hasher.finalize())
-    };
+    let salt = SaltString::generate(&mut OsRng);
+    let argon2 = Argon2::default();
+    let hash = argon2
+        .hash_password(payload.passcode.as_bytes(), &salt)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Hashing failed: {}", e)))?
+        .to_string();
 
     sqlx::query("INSERT INTO settings (key, value) VALUES ('locked_folder_passcode_hash', ?)")
         .bind(&hash)
         .execute(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    reset_vault_rate_limiter();
 
     Ok(Json(json!({ "status": "success", "message": "Locked folder configured" })))
 }
@@ -538,6 +617,15 @@ pub async fn verify_locked_folder(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<LockedFolderVerifyRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    // Check rate-limiting lockout
+    if let Err(remaining) = check_vault_lockout() {
+        let secs = remaining.as_secs().max(1);
+        return Err((
+            StatusCode::TOO_MANY_REQUESTS,
+            format!("Too many failed attempts. Vault is locked out. Try again in {} seconds.", secs),
+        ));
+    }
+
     let stored_hash: Option<String> = sqlx::query_scalar(
         "SELECT value FROM settings WHERE key = 'locked_folder_passcode_hash'"
     )
@@ -545,18 +633,54 @@ pub async fn verify_locked_folder(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let verified = if let Some(ref expected) = stored_hash {
+    let Some(stored) = stored_hash else {
+        return Ok(Json(json!({ "status": "success", "verified": false })));
+    };
+
+    let mut verified = false;
+    let mut needs_migration = false;
+
+    // Check if stored hash is in PHC Argon2id format
+    if let Ok(parsed_hash) = PasswordHash::new(&stored) {
+        verified = Argon2::default()
+            .verify_password(payload.passcode.as_bytes(), &parsed_hash)
+            .is_ok();
+    } else {
+        // Legacy unsalted SHA-256 backward compatibility
         use sha2::{Sha256, Digest};
         let mut hasher = Sha256::new();
         hasher.update(payload.passcode.as_bytes());
-        let input_hash = format!("{:x}", hasher.finalize());
-        &input_hash == expected
-    } else {
-        false
-    };
+        let sha256_hex = format!("{:x}", hasher.finalize());
 
-    Ok(Json(json!({ "status": "success", "verified": verified })))
+        if crate::routes::constant_time_eq_str(&sha256_hex, &stored) {
+            verified = true;
+            needs_migration = true;
+        }
+    }
+
+    if verified {
+        record_vault_success();
+
+        // Transparent in-place migration to Argon2id
+        if needs_migration {
+            let salt = SaltString::generate(&mut OsRng);
+            if let Ok(new_hash) = Argon2::default().hash_password(payload.passcode.as_bytes(), &salt) {
+                let new_hash_str = new_hash.to_string();
+                let _ = sqlx::query("UPDATE settings SET value = ? WHERE key = 'locked_folder_passcode_hash'")
+                    .bind(&new_hash_str)
+                    .execute(&state.db)
+                    .await;
+                tracing::info!("Transparently upgraded locked folder passcode to Argon2id");
+            }
+        }
+
+        Ok(Json(json!({ "status": "success", "verified": true })))
+    } else {
+        record_vault_failure();
+        Ok(Json(json!({ "status": "success", "verified": false })))
+    }
 }
+
 
 /// POST /api/v1/settings/locked-folder/lock-session — Start/end lock session.
 pub async fn lock_session(

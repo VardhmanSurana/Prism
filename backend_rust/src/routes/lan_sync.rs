@@ -90,7 +90,7 @@ pub async fn pair_with_peer(
     .fetch_optional(&state.db)
     .await
     {
-        if !expected_pin.trim().is_empty() && pin != expected_pin {
+        if !expected_pin.trim().is_empty() && !crate::routes::constant_time_eq_str(&pin, &expected_pin) {
             return Err((StatusCode::BAD_REQUEST, "Invalid pairing PIN".to_string()));
         }
     }
@@ -144,7 +144,7 @@ pub async fn handle_pair_request(
     .fetch_optional(&state.db)
     .await
     {
-        if !expected_pin.trim().is_empty() && payload.pin != expected_pin {
+        if !expected_pin.trim().is_empty() && !crate::routes::constant_time_eq_str(&payload.pin, &expected_pin) {
             return Ok(Json(json!({
                 "accepted": false,
                 "error": "Invalid PIN",
