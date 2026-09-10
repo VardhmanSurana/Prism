@@ -20,8 +20,9 @@ import { apiClient } from '@/services/apiClient';
 import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
 import { useSettingsStore } from './store';
 import { eventService } from '@/services/EventService';
-import { normalizePhoto } from './types';
-import type { ViewMode, Album, Photo } from './types';
+import { normalizePhoto, type Album, type Photo, type ViewMode } from './types';
+import { LiveAnnouncer } from './components/ui/LiveAnnouncer';
+import { useAnnounce } from './hooks/useAnnounce';
 import { useTelemetry } from './hooks/useTelemetry';
 
 /**
@@ -106,6 +107,63 @@ function App() {
 
   const { isMobile } = usePlatform();
   const { logAction, logNavigation, logError } = useTelemetry();
+  const { announce } = useAnnounce();
+
+  // Announce selection count changes for screen readers
+  const prevSelectedCountRef = React.useRef(selectedIds.size);
+  React.useEffect(() => {
+    if (prevSelectedCountRef.current !== selectedIds.size) {
+      if (selectedIds.size === 0 && prevSelectedCountRef.current > 0) {
+        announce('Selection cleared');
+      } else if (selectedIds.size > 0) {
+        announce(`${selectedIds.size} ${selectedIds.size === 1 ? 'photo' : 'photos'} selected`);
+      }
+      prevSelectedCountRef.current = selectedIds.size;
+    }
+  }, [selectedIds.size, announce]);
+
+  // Announce import status completion
+  const prevImportStatusRef = React.useRef(importStatus);
+  React.useEffect(() => {
+    if (prevImportStatusRef.current?.is_scanning && !importStatus?.is_scanning) {
+      announce(`Import completed. Processed ${importStatus?.processed_files ?? 0} files.`);
+    }
+    prevImportStatusRef.current = importStatus;
+  }, [importStatus, announce]);
+
+  // Wrapped delete with screen reader announcement
+  const handleBulkDeleteFromGrid = useCallback(async (ids: Set<string>) => {
+    const count = ids.size;
+    await handleBulkDelete(ids);
+    if (count > 0) {
+      announce(
+        currentView === 'trash'
+          ? `Permanently deleted ${count} ${count === 1 ? 'photo' : 'photos'}`
+          : `Moved ${count} ${count === 1 ? 'photo' : 'photos'} to trash`
+      );
+    }
+  }, [handleBulkDelete, currentView, announce]);
+
+  const handleBulkDeleteFromBar = useCallback(async () => {
+    const count = selectedIds.size;
+    await handleBulkDelete();
+    if (count > 0) {
+      announce(
+        currentView === 'trash'
+          ? `Permanently deleted ${count} ${count === 1 ? 'photo' : 'photos'}`
+          : `Moved ${count} ${count === 1 ? 'photo' : 'photos'} to trash`
+      );
+    }
+  }, [handleBulkDelete, selectedIds.size, currentView, announce]);
+
+  // Wrapped restore with screen reader announcement
+  const handleBulkRestoreWithAnnounce = useCallback(async () => {
+    const count = selectedIds.size;
+    await handleBulkRestore();
+    if (count > 0) {
+      announce(`Restored ${count} ${count === 1 ? 'photo' : 'photos'}`);
+    }
+  }, [handleBulkRestore, selectedIds.size, announce]);
 
   /**
    * fetchSettings - Retrieves fetch settings.
@@ -394,7 +452,7 @@ function App() {
             onUpdatePhotos={setPhotos}
             onPhotoLocationUpdate={handlePhotoLocationUpdate}
             onBulkFavorite={handleBulkFavorite}
-            onBulkDelete={handleBulkDelete}
+            onBulkDelete={handleBulkDeleteFromGrid}
             onBulkLockToggle={handleBulkLockToggle}
             onResetSuccess={handleResetSuccess}
           />
@@ -409,8 +467,8 @@ function App() {
             onFavorite={handleBulkFavorite}
             isFavorited={isFavorited}
             onToggleLock={handleBulkLockToggle}
-            onDelete={handleBulkDelete}
-            onRestore={handleBulkRestore}
+            onDelete={handleBulkDeleteFromBar}
+            onRestore={handleBulkRestoreWithAnnounce}
             onCollage={handleCollage}
             onPhotoBook={handlePhotoBook}
             onToolbox={() => handleViewChange('toolbox')}
@@ -443,6 +501,8 @@ function App() {
             onImportProgress={setImportStatus}
           />
         )}
+
+        <LiveAnnouncer />
 
         <DragDropOverlay
           phase={dragDrop.phase}

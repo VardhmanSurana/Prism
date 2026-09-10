@@ -21,6 +21,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   dateKey,
   isRowHovered,
   onRowHover,
+  focusedPhotoId,
+  onPhotoFocus,
 }) => {
   /**
    * handleMouseEnter - Handles mouse enter.
@@ -57,6 +59,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
           onPhotoClick={onPhotoClick}
           onToggleSelection={onToggleSelection}
           isRowHovered={isRowHovered}
+          isFocused={focusedPhotoId === String(photo.id)}
+          onFocus={onPhotoFocus ? () => onPhotoFocus(String(photo.id)) : undefined}
         />
       ))}
     </div>
@@ -70,6 +74,12 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   if (prevProps.dateKey !== nextProps.dateKey) return false;
   if (prevProps.isRowHovered !== nextProps.isRowHovered) return false;
   if (prevProps.photos.length !== nextProps.photos.length) return false;
+
+  const prevHasFocused = prevProps.photos.some(p => String(p.id) === prevProps.focusedPhotoId);
+  const nextHasFocused = nextProps.photos.some(p => String(p.id) === nextProps.focusedPhotoId);
+  if (prevHasFocused || nextHasFocused) {
+    if (prevProps.focusedPhotoId !== nextProps.focusedPhotoId) return false;
+  }
 
   for (let i = 0; i < prevProps.photos.length; i++) {
     if (prevProps.photos[i].id !== nextProps.photos[i].id) return false;

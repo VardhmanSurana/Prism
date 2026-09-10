@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import {
   Search,
   Image,
@@ -64,6 +65,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+
+  useFocusTrap(isOpen, paletteRef, onClose);
 
   // Reset state when opening
   useEffect(() => {
@@ -181,6 +185,10 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
           {/* Palette */}
           <motion.div
+            ref={paletteRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command Palette"
             className="relative w-full max-w-[560px] mx-4 bg-zinc-900 border border-zinc-700/50 rounded-2xl shadow-2xl overflow-hidden"
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}

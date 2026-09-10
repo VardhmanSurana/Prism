@@ -18,6 +18,8 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
   rowPadding,
   onPhotoClick,
   onToggleSelection,
+  isFocused = false,
+  onFocus,
 }) => {
   const aspectRatio = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
   const [isHovering, setIsHovering] = useState(false);
@@ -34,10 +36,12 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
 
   return (
     <div
-      tabIndex={0}
+      tabIndex={isFocused ? 0 : -1}
+      data-photo-id={photo.id}
       role="button"
-      aria-label={photo.caption || 'Photo'}
+      aria-label={photo.caption || photo.filename || 'Photo'}
       aria-pressed={isSelected}
+      onFocus={onFocus}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onClick={(e) => {
@@ -49,7 +53,10 @@ export const PhotoItem = React.memo<PhotoItemProps>(({
         }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === ' ') {
+          e.preventDefault();
+          onToggleSelection(String(photo.id));
+        } else if (e.key === 'Enter') {
           e.preventDefault();
           if (isSelectionMode || e.shiftKey) {
             onToggleSelection(String(photo.id));

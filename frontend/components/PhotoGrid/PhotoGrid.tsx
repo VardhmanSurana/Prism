@@ -131,6 +131,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
+  const [focusedPhotoId, setFocusedPhotoId] = useState<string | null>(null);
 
   // Gallery layout settings
   const { rowHeightPx, maxRowWidth } = useGalleryLayout();
@@ -338,6 +339,138 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     return `${isToday ? 'Today' : 'Gallery'} • ${filteredPhotos.length} photos`;
   }, [filteredPhotos, isCompactView]);
 
+  // 2D Roving Matrix for grid and list navigation
+  const photoRows = useMemo(() => {
+    const rows: { photos: Photo[]; virtualIndex: number }[] = [];
+    rowItems.forEach((item, index) => {
+      if (item.type === 'row' && item.photos.length > 0) {
+        rows.push({ photos: item.photos, virtualIndex: index });
+      } else if (item.type === 'list-item') {
+        rows.push({ photos: [item.photo], virtualIndex: index });
+      }
+    });
+    return rows;
+  }, [rowItems]);
+
+  const photoToGridPos = useMemo(() => {
+    const map = new Map<string, { rowIndex: number; colIndex: number; photoIndex: number; virtualIndex: number }>();
+    let pIdx = 0;
+    photoRows.forEach((r, rIdx) => {
+      r.photos.forEach((p, cIdx) => {
+        map.set(String(p.id), {
+          rowIndex: rIdx,
+          colIndex: cIdx,
+          photoIndex: pIdx++,
+          virtualIndex: r.virtualIndex,
+        });
+      });
+    });
+    return map;
+  }, [photoRows]);
+
+  const effectiveFocusedId = useMemo(() => {
+    if (focusedPhotoId && photoToGridPos.has(focusedPhotoId)) {
+      return focusedPhotoId;
+    }
+    return filteredPhotos.length > 0 ? String(filteredPhotos[0].id) : null;
+  }, [focusedPhotoId, photoToGridPos, filteredPhotos]);
+
+  const focusPhoto = useCallback((targetPhoto: Photo) => {
+    const strId = String(targetPhoto.id);
+    setFocusedPhotoId(strId);
+    const pos = photoToGridPos.get(strId);
+    if (pos) {
+      rowVirtualizer.scrollToIndex(pos.virtualIndex, { align: 'auto' });
+    }
+    requestAnimationFrame(() => {
+      const el = containerRef.current?.querySelector<HTMLElement>(`[data-photo-id="${strId}"]`);
+      el?.focus();
+    });
+  }, [photoToGridPos, rowVirtualizer]);
+
+  const handleGridKeyDown = useCallback((e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+      return;
+    }
+
+    if (filteredPhotos.length === 0) return;
+
+    const currentId = effectiveFocusedId ?? String(filteredPhotos[0].id);
+    const currentPos = photoToGridPos.get(currentId) ?? {
+      rowIndex: 0,
+      colIndex: 0,
+      photoIndex: 0,
+      virtualIndex: 0,
+    };
+
+    switch (e.key) {
+      case 'ArrowRight': {
+        e.preventDefault();
+        if (currentPos.photoIndex + 1 < filteredPhotos.length) {
+          focusPhoto(filteredPhotos[currentPos.photoIndex + 1]);
+        }
+        break;
+      }
+      case 'ArrowLeft': {
+        e.preventDefault();
+        if (currentPos.photoIndex - 1 >= 0) {
+          focusPhoto(filteredPhotos[currentPos.photoIndex - 1]);
+        }
+        break;
+      }
+      case 'ArrowDown': {
+        e.preventDefault();
+        if (currentPos.rowIndex + 1 < photoRows.length) {
+          const nextRow = photoRows[currentPos.rowIndex + 1];
+          const targetCol = Math.min(currentPos.colIndex, nextRow.photos.length - 1);
+          focusPhoto(nextRow.photos[targetCol]);
+        }
+        break;
+      }
+      case 'ArrowUp': {
+        e.preventDefault();
+        if (currentPos.rowIndex - 1 >= 0) {
+          const prevRow = photoRows[currentPos.rowIndex - 1];
+          const targetCol = Math.min(currentPos.colIndex, prevRow.photos.length - 1);
+          focusPhoto(prevRow.photos[targetCol]);
+        }
+        break;
+      }
+      case 'Home': {
+        e.preventDefault();
+        focusPhoto(filteredPhotos[0]);
+        break;
+      }
+      case 'End': {
+        e.preventDefault();
+        focusPhoto(filteredPhotos[filteredPhotos.length - 1]);
+        break;
+      }
+      case ' ': {
+        e.preventDefault();
+        handleToggleSelectionTelemetry(currentId);
+        break;
+      }
+      case 'Enter': {
+        e.preventDefault();
+        const photo = filteredPhotos.find(p => String(p.id) === currentId);
+        if (photo) {
+          handlePhotoClickTelemetry(photo);
+        }
+        break;
+      }
+    }
+  }, [
+    filteredPhotos,
+    effectiveFocusedId,
+    photoToGridPos,
+    photoRows,
+    focusPhoto,
+    handleToggleSelectionTelemetry,
+    handlePhotoClickTelemetry,
+  ]);
+
   // Keep timeline dial linked to regular grid rows (header/row only).
   // gridRows from usePhotoGrid already contains only those types.
   const { timelineItems, scrollState, activeId } = useTimeline(gridRows, scrollParentRef);
@@ -357,7 +490,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   logRender?.();
 
   return (
-    <div ref={containerRef} className="relative w-full font-sans">
+    <div
+      ref={containerRef}
+      role="region"
+      aria-label="Photos grid"
+      onKeyDown={handleGridKeyDown}
+      className="relative w-full font-sans"
+    >
       {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
       {!isCompactView && (
         <div className="w-full pl-10 pr-10 pt-4 pb-2 z-20">
@@ -479,6 +618,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                 dateKey={item.photos[0]?.date?.split('T')[0] ?? virtualRow.key as string}
                 isRowHovered={hoveredDateKey !== null}
                 onRowHover={handleRowHover}
+                focusedPhotoId={effectiveFocusedId}
+                onPhotoFocus={setFocusedPhotoId}
               />
             );
           }
@@ -497,6 +638,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
                   photo={item.photo}
                   isSelected={selectedIds.has(String(item.photo.id))}
                   isSelectionMode={isSelectionMode}
+                  isFocused={effectiveFocusedId === String(item.photo.id)}
+                  onFocus={() => setFocusedPhotoId(String(item.photo.id))}
                   onPhotoClick={handlePhotoClickTelemetry}
                   onToggleSelection={handleToggleSelectionTelemetry}
                   onFavoriteToggle={handleFavoriteToggle}

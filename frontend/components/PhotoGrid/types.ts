@@ -49,6 +49,8 @@ export interface PhotoItemProps {
   onPhotoClick: (photo: Photo) => void;
   onToggleSelection: (id: string) => void;
   isRowHovered: boolean;
+  isFocused?: boolean;
+  onFocus?: () => void;
 }
 
 export interface PhotoGridRowProps {
@@ -67,6 +69,8 @@ export interface PhotoGridRowProps {
   dateKey: string;
   isRowHovered: boolean;
   onRowHover: (dateKey: string | null) => void;
+  focusedPhotoId?: string | null;
+  onPhotoFocus?: (id: string) => void;
 }
 
 

@@ -11,6 +11,7 @@ import { useImageHighRes } from '@/hooks/useImageHighRes';
 import { useZoomShortcuts } from '@/hooks/useZoomShortcuts';
 import { useSlideshow } from '@/hooks/useSlideshow';
 import { useTelemetry } from '@/hooks/useTelemetry';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 import { InfoPanel } from './lightbox/InfoPanel';
 import { Toolbar } from './lightbox/Toolbar';
@@ -96,6 +97,8 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [hasFaces, setHasFaces] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAskAIOpen, setIsAskAIOpen] = useState(false);
+  const lightboxRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(true, lightboxRef, onClose);
 
   const { logAction, logError } = useTelemetry();
 
@@ -419,6 +422,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       }
 
       if (e.key === 'Escape') {
+        e.preventDefault();
         if (isOcrActive) {
           setIsOcrActive(false);
           return;
@@ -500,6 +504,10 @@ export const Lightbox: React.FC<LightboxProps> = ({
 
   return (
     <motion.div
+      ref={lightboxRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo Viewer"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

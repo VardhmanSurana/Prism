@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { X, Plus, Search, ArrowUpDown, Folder } from 'lucide-react';
 import { Album } from '../../types';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface AddToAlbumDialogProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   onCreateAlbum,
   selectedCount
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(isOpen, dialogRef, onClose);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showNewAlbumInput, setShowNewAlbumInput] = useState(false);
@@ -65,13 +68,24 @@ export const AddToAlbumDialog: React.FC<AddToAlbumDialogProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in">
-      <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-to-album-title"
+        className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl relative overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <h3 className="text-lg font-semibold text-white">Add to album</h3>
+          <h3 id="add-to-album-title" className="text-lg font-semibold text-white">Add to album</h3>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="p-1.5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
           >
             <X size={18} />

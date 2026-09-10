@@ -12,6 +12,8 @@ interface PhotoListItemProps {
   onFavoriteToggle: (id: string | number, current: boolean) => void;
   onLockToggle: (id: string | number, current: boolean) => void;
   onDeleteToggle: (id: string | number) => void;
+  isFocused?: boolean;
+  onFocus?: () => void;
 }
 
 /**
@@ -26,6 +28,8 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
   onFavoriteToggle,
   onLockToggle,
   onDeleteToggle,
+  isFocused = false,
+  onFocus,
 }) => {
   const dateStr = new Date(photo.date).toLocaleDateString('en-US', {
     month: 'short',
@@ -46,19 +50,25 @@ export const PhotoListItem: React.FC<PhotoListItemProps> = ({
 
   return (
     <div
-      tabIndex={0}
+      tabIndex={isFocused ? 0 : -1}
+      data-photo-id={photo.id}
       role="button"
       aria-label={photo.filename || photo.path.split('/').pop()}
       aria-pressed={isSelected}
+      onFocus={onFocus}
       onClick={(e) => {
         if (isSelectionMode || e.shiftKey) {
+          e.preventDefault();
           onToggleSelection(String(photo.id));
         } else {
           onPhotoClick(photo);
         }
       }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === ' ') {
+          e.preventDefault();
+          onToggleSelection(String(photo.id));
+        } else if (e.key === 'Enter') {
           e.preventDefault();
           if (isSelectionMode || e.shiftKey) {
             onToggleSelection(String(photo.id));
