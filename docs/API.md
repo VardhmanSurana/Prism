@@ -1009,6 +1009,144 @@ Content-Type: application/json
 GET /api/v1/stories/event/:event_id
 ```
 
+## Vault (Encrypted Locked Folder) Endpoints
+
+### Get Vault Status
+```http
+GET /api/v1/vault/status
+```
+
+**Response:**
+```json
+{
+  "is_initialized": true,
+  "is_unlocked": true,
+  "escrow_enabled": false,
+  "locked_photos_count": 3
+}
+```
+
+### Setup Vault
+```http
+POST /api/v1/vault/setup
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "password": "min-6-chars",
+  "enable_os_escrow": false
+}
+```
+
+**Response:** returns the armored recovery token, the downloadable Emergency
+Recovery Kit document (`prism-vault-recovery.txt`), and the wrapped key records.
+
+### Unlock Vault
+```http
+POST /api/v1/vault/unlock
+```
+
+### Recover Vault (Emergency Kit)
+```http
+POST /api/v1/vault/recover
+```
+
+Accepts the armored recovery token (or pasted kit contents), unwraps the master
+key, and sets a new password.
+
+### Unlock via OS Keyring Escrow
+```http
+POST /api/v1/vault/unlock-escrow
+```
+
+### Lock Vault Session
+```http
+POST /api/v1/vault/lock
+```
+
+> Locking individual photos via `POST /api/v1/photos/:id/lock` encrypts the
+> original to `<path>.prism_enc` (AES-256-GCM) and shreds plaintext once the
+> vault is initialized; `POST /api/v1/photos/:id/unlock` reverses it. Locked
+> media is decrypted in memory when served — never written back to disk.
+
+## Culling Endpoints
+
+### Get Burst Groups
+```http
+GET /api/v1/cull/bursts?window_seconds=2.0&min_count=2
+```
+
+Clusters adjacent photos within `window_seconds` (configurable: 1.0, 2.0, 3.0,
+5.0; default 2.0) sharing a camera model or perceptual-hash Hamming distance
+≤ 12. Returns burst stacks with sharpest-frame (`blur_score`) cover candidates.
+
+### Update Cull Status
+```http
+POST /api/v1/cull/status
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "photo_ids": [1, 2, 3],
+  "cull_status": "picked",
+  "rating": 4
+}
+```
+
+`cull_status` ∈ `picked` | `rejected` | `unflagged`; `rating` 0–5.
+
+### Purge Rejected
+```http
+POST /api/v1/cull/purge-rejected
+```
+
+Atomically moves all `rejected` photos to trash and returns an undo token with
+the purged photo IDs.
+
+### Undo Purge
+```http
+POST /api/v1/cull/undo-purge
+```
+
+Restores recently purged photos by ID list, or all still-trashed rejected
+photos when no IDs are supplied.
+
+## Library Health Endpoints
+
+### Get Health Status
+```http
+GET /api/v1/library/health/status
+```
+
+Returns storage breakdown, SQLite integrity (`PRAGMA integrity_check`), missing
+originals, and last backup info from the `library_backups` table.
+
+### Scan Missing Media
+```http
+POST /api/v1/library/health/scan-missing
+```
+
+Verifies every active photo path on disk, setting `missing_since`/
+`last_verified` columns accordingly.
+
+### Relink Folder
+```http
+POST /api/v1/library/health/relink
+```
+
+Batch-maps an old base path prefix to a new mount point.
+
+### Verify Checksums
+```http
+POST /api/v1/library/health/verify-checksums
+```
+
+Recomputes file hashes to detect silent bit-rot.
+
 ## Video Export Endpoints
 
 ### Start Export

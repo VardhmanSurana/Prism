@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Encrypted vault for the Locked Folder: AES-256-GCM encryption-at-rest
+  (`.prism_enc` sidecars, plaintext shredding), in-memory decrypt-on-serve,
+  Emergency Recovery Kit (armored token + downloadable document), and optional
+  OS keyring escrow unlock (`/api/v1/vault/*`)
+- Culling workspace backend: burst clustering (`/api/v1/cull/bursts`),
+  tri-state cull status + star ratings, purge-rejected with undo token
+- Library Health & Recovery endpoints (`/api/v1/library/health/*`): missing
+  media scanner, batch relinker, checksum verification, storage breakdown
+- `library_backups` table plus `cull_status`, `rating`, `burst_group_id`,
+  `missing_since`, `last_verified` photo columns and culling indexes
+- First-run onboarding wizard, keyboard shortcuts cheatsheet (`?`), and undo
+  toast for bulk actions
 - Full documentation suite (docs/)
 - AGENTS.md for AI coding agents
 - CONTRIBUTING.md for contributors
