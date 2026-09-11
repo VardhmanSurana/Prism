@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   X, FolderMinus, Trash2, Heart,
   RotateCcw, LayoutGrid, BookOpen, ClipboardPaste,
+  Share2,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { useBulkActions } from './useBulkActions';
@@ -30,6 +31,7 @@ export interface BulkActionsBarProps {
   onToolbox?: () => void;
   isFavorited?: boolean;
   onPasteEdits?: () => void;
+  onShare?: () => void;
 }
 
 // ─── BulkActionsBar ──────────────────────────────────────────────────────
@@ -52,6 +54,7 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
   onToolbox,
   isFavorited,
   onPasteEdits,
+  onShare,
 }) => {
   const { isTrashView } = useBulkActions({ selectedCount, currentView });
   const copiedAdjustments = useEditStore((s) => s.copiedAdjustments);
@@ -177,6 +180,12 @@ export const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
               <ActionButton onClick={handleAddToAlbum} label="Album">
                 <CssFolderIcon />
               </ActionButton>
+
+              {onShare && (
+                <ActionButton onClick={onShare} label="Share" className="hover:text-primary">
+                  <Share2 size={20} />
+                </ActionButton>
+              )}
 
               {onToolbox && (
                 <ActionButton onClick={onToolbox} label="Toolbox" className="hover:text-primary">

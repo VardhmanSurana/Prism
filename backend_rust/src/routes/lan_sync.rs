@@ -346,3 +346,132 @@ pub async fn get_photo_file(
 ) -> Result<Response, (StatusCode, String)> {
     crate::routes::photos::get_photo_file(State(state), Path(photo_id)).await
 }
+
+/// GET /api/v1/lan/nearby — Return live nearby peers discovered via UDP beacon
+pub async fn get_nearby_peers(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let peers = state.lan_beacon.get_nearby_peers().await;
+    let local_ip = state.lan_beacon.get_local_ip();
+    let local_peer_id = get_or_create_local_peer_id(&state.db).await;
+
+    Ok(Json(json!({
+        "peers": peers,
+        "local_peer_id": local_peer_id,
+        "local_ip": local_ip,
+        "port": state.config.port
+    })))
+}
+
+/// GET /api/v1/lan/network-info — Return local LAN IP and listening port
+pub async fn get_network_info(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let local_ip = state.lan_beacon.get_local_ip();
+    Ok(Json(json!({
+        "local_ip": local_ip,
+        "port": state.config.port
+    })))
+}
+
+#[derive(Deserialize)]
+pub struct PushToPeerRequest {
+    pub peer_ip: String,
+    pub peer_port: u16,
+    pub photo_ids: Vec<i64>,
+}
+
+/// POST /api/v1/lan/push-to-peer — Push selected photos to a discovered peer via its upload endpoint
+pub async fn push_to_peer(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<PushToPeerRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    if payload.photo_ids.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "photo_ids cannot be empty".to_string()));
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let target_url = format!("http://{}:{}/api/v1/photos/upload", payload.peer_ip, payload.peer_port);
+    let mut transferred = 0;
+    let mut errors: Vec<String> = Vec::new();
+
+    for id in &payload.photo_ids {
+        let photo_res: Result<crate::models::Photo, _> = sqlx::query_as::<_, crate::models::Photo>(
+            "SELECT * FROM photos WHERE id = ?"
+        )
+        .bind(id)
+        .fetch_one(&state.db)
+        .await;
+
+        let photo = match photo_res {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(format!("Photo {} not found: {}", id, e));
+                continue;
+            }
+        };
+
+        let file_path = match crate::routes::photos::resolve_photo_path(&photo.path) {
+            Some(p) => p,
+            None => {
+                errors.push(format!("Photo {} file not found on disk", id));
+                continue;
+            }
+        };
+
+        let file_bytes = match tokio::fs::read(&file_path).await {
+            Ok(b) => b,
+            Err(e) => {
+                errors.push(format!("Failed to read photo {}: {}", id, e));
+                continue;
+            }
+        };
+
+        let filename = std::path::Path::new(&file_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("photo.jpg")
+            .to_string();
+
+        let mime = mime_guess::from_path(&file_path)
+            .first_or_octet_stream()
+            .to_string();
+
+        let part = match reqwest::multipart::Part::bytes(file_bytes)
+            .file_name(filename)
+            .mime_str(&mime)
+        {
+            Ok(p) => p,
+            Err(e) => {
+                errors.push(format!("Multipart error for photo {}: {}", id, e));
+                continue;
+            }
+        };
+
+        let form = reqwest::multipart::Form::new().part("file", part);
+
+        match client.post(&target_url).multipart(form).send().await {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    transferred += 1;
+                } else {
+                    errors.push(format!("Peer returned status {} for photo {}", resp.status(), id));
+                }
+            }
+            Err(e) => {
+                errors.push(format!("Failed to transfer photo {}: {}", id, e));
+            }
+        }
+    }
+
+    Ok(Json(json!({
+        "success": transferred > 0,
+        "transferred_count": transferred,
+        "total": payload.photo_ids.len(),
+        "errors": errors
+    })))
+}

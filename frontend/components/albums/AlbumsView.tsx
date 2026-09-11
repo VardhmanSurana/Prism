@@ -11,6 +11,7 @@ interface AlbumsViewProps {
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
+  onShareAlbum?: (album: Album | SmartAlbum) => void;
 }
 
 type DialogState =
@@ -27,6 +28,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
   selectedIds,
   onToggleSelection,
   onToggleGroupSelection,
+  onShareAlbum,
 }) => {
   const {
     albums,
@@ -98,6 +100,7 @@ export const AlbumsView: React.FC<AlbumsViewProps> = ({
         selectedIds={selectedIds}
         onToggleSelection={onToggleSelection}
         onToggleGroupSelection={onToggleGroupSelection}
+        onShareAlbum={onShareAlbum}
       />
     );
   }

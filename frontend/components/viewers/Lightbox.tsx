@@ -41,6 +41,7 @@ interface LightboxProps {
   onRemoveFromAlbum?: () => void;
   onSetAsCover?: () => void;
   onToggleFavorite?: (id: string | number) => void;
+  onShare?: (photo: Photo) => void;
 }
 
 /** Cinematic enter/exit variants for slideshow transitions. */
@@ -75,6 +76,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
   onRemoveFromAlbum,
   onSetAsCover,
   onToggleFavorite,
+  onShare,
 }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [metadata, setMetadata] = useState<Photo | null>(null);
@@ -550,6 +552,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
           onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyToClipboard}
+          onShare={onShare ? () => onShare(photo) : undefined}
         />
       )}
 

@@ -311,6 +311,11 @@ mod server_enhancement_tests {
             config.models_dir.clone(),
         ));
 
+        let lan_beacon = Arc::new(crate::services::lan_beacon::LanBeaconService::new(
+            "test_peer".to_string(),
+            config.port,
+        ));
+
         Arc::new(crate::AppState {
             config,
             db: pool,
@@ -322,8 +327,8 @@ mod server_enhancement_tests {
             model_manager,
             pack_manager,
             plugin_manager,
+            lan_beacon,
         })
-
     }
 
     static VAULT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
@@ -565,5 +570,23 @@ mod server_enhancement_tests {
             }
         }
     }
+
+    #[tokio::test]
+    async fn test_lan_beacon_ip_and_nearby() {
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let state = create_test_state(pool.clone());
+
+        let local_ip = state.lan_beacon.get_local_ip();
+        assert!(!local_ip.is_empty());
+
+        let nearby = state.lan_beacon.get_nearby_peers().await;
+        // Initially empty
+        assert!(nearby.is_empty());
+
+        let net_info = crate::routes::lan_sync::get_network_info(axum::extract::State(state.clone())).await.unwrap();
+        assert_eq!(net_info.0["port"], state.config.port);
+        assert_eq!(net_info.0["local_ip"], local_ip);
+    }
 }
+
 

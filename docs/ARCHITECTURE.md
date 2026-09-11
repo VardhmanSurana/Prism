@@ -136,6 +136,38 @@ Each stage is pluggable via the `AnalyzerRegistry`.
 - **llama-server** — LLM for agent search (port 9090)
 - **llama-server** — Vision/captioning (port 9091)
 
+## Dual-Mode Media Sharing & Device Discovery
+
+Prism supports zero-configuration local network media sharing through two complementary mechanisms:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                       Prism Share Modal                     │
+├──────────────────────────────┬──────────────────────────────┤
+│     EasyShare (AirDrop)      │      Web Link & QR Code      │
+│  - UDP beacon (port 8272)    │  - Canvas QR code            │
+│  - Zero-config peer discovery│  - Passcode & expiry         │
+│  - Direct HTTP push upload   │  - EXIF/GPS stripping        │
+└──────────────┬───────────────┴──────────────┬───────────────┘
+               │                              │
+               ▼                              ▼
+      ┌─────────────────┐            ┌──────────────────┐
+      │ Discovered Peer │            │  Mobile Browser  │
+      │ (Prism Node)    │            │ (/share/:token)  │
+      └─────────────────┘            └──────────────────┘
+```
+
+### 1. EasyShare (Direct Device-to-Device Push)
+- **UDP Beacon Discovery (`LanBeaconService`)**: Background service running on UDP port `8272`. Broadcasts lightweight JSON presence beacons every 3 seconds to `255.255.255.255:8272`.
+- **Peer Liveness & Auto-Expiry**: In-memory registry tracking discovered hostnames, device types, IPs, and ports. Peers not seen for 10 seconds are automatically evicted.
+- **Direct Push (`POST /api/v1/lan/push-to-peer`)**: Streams selected photo files directly across the LAN to the peer's upload endpoint with real-time transfer progress feedback.
+
+### 2. Web Link & QR Code
+- **Tokenized Ephemeral Shares (`/api/v1/shares`)**: Generates cryptographically secure, time-limited tokens (1h, 24h, 7d, never) with optional password protection.
+- **Privacy Controls**: Strips camera metadata (EXIF) and GPS location coordinates dynamically before serving.
+- **Integrated Canvas QR Generator**: Renders scannable QR codes in-client using the server's detected LAN IP, allowing immediate phone camera scanning.
+- **Recipient Portal (`SharePortalView`)**: Responsive standalone web viewer served directly at `/share/:token` with passcode verification, thumbnail preview, and full-resolution media downloads.
+
 ## Security Model
 
 - **Local-first** — No data leaves the machine
@@ -152,3 +184,4 @@ Each stage is pluggable via the `AnalyzerRegistry`.
 - **FTS5** — Full-text search with ranking
 - **Background Processing** — Non-blocking AI pipeline
 - **Proxy Videos** — Automatic proxy generation for smooth NLE editing
+

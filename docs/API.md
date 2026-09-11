@@ -948,14 +948,53 @@ Content-Type: application/json
 ```json
 {
   "resource_type": "photo",
-  "resource_id": 1,
-  "expires_in_hours": 24
+  "resource_id": "1",
+  "expires_in_secs": 86400,
+  "max_downloads": null,
+  "hide_exif": true,
+  "hide_gps": true,
+  "download_original": true,
+  "password": "optional-passcode"
+}
+```
+
+**Response:**
+```json
+{
+  "share_token": "a1b2c3d4e5f67890abcdef1234567890",
+  "share_url": "http://192.168.1.10:8269/share/a1b2c3d4e5f67890abcdef1234567890",
+  "share": {
+    "token": "a1b2c3d4e5f67890abcdef1234567890",
+    "resource_type": "photo",
+    "resource_id": "1",
+    "expires_at": "2026-09-12T12:00:00Z",
+    "password_hash": "...",
+    "hide_exif": 1,
+    "hide_gps": 1
+  }
 }
 ```
 
 ### Get Shared Resource
 ```http
-GET /api/v1/shares/:token
+GET /api/v1/shares/:token?password=optional-passcode
+```
+
+**Response:**
+```json
+{
+  "share": { ... },
+  "resource_type": "photo",
+  "photo": {
+    "id": 1,
+    "filename": "IMG_001.jpg",
+    "caption": "Sunset",
+    "camera_make": null,
+    "latitude": null
+  },
+  "album": null,
+  "album_photos": null
+}
 ```
 
 ### Revoke Share
@@ -963,10 +1002,89 @@ GET /api/v1/shares/:token
 DELETE /api/v1/shares/:token
 ```
 
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
 ### Download Shared File
 ```http
-GET /api/v1/shares/:token/download
+GET /api/v1/shares/:token/download?password=optional-passcode&photo_id=optional-photo-id
 ```
+
+Returns binary photo file with `Content-Disposition: attachment; filename="..."`.
+
+## LAN & EasyShare Endpoints
+
+Direct device-to-device media push and local network peer discovery powered by continuous UDP beacon broadcasting on port `8272`.
+
+### Get Network Info
+Returns the server's detected LAN IP address and HTTP port for constructing mobile/cross-device URLs.
+
+```http
+GET /api/v1/lan/network-info
+```
+
+**Response:**
+```json
+{
+  "local_ip": "192.168.1.10",
+  "port": 8269
+}
+```
+
+### Discover Nearby Peers
+Returns active Prism instances discovered on the local subnet within the last 10 seconds.
+
+```http
+GET /api/v1/lan/nearby
+```
+
+**Response:**
+```json
+[
+  {
+    "peer_id": "c1f7b3a2-9a8b-4c5d-ae01-7b9c1d3e5f7a",
+    "hostname": "MacBook-Pro",
+    "ip": "192.168.1.42",
+    "port": 8269,
+    "device_type": "laptop",
+    "version": "0.1.0",
+    "last_seen_epoch_secs": 1726053600
+  }
+]
+```
+
+### Push Photos to Peer (EasyShare)
+Pushes media files directly from local storage to a discovered peer's upload endpoint over the local network.
+
+```http
+POST /api/v1/lan/push-to-peer
+Content-Type: application/json
+```
+
+**Body:**
+```json
+{
+  "peer_ip": "192.168.1.42",
+  "peer_port": 8269,
+  "photo_ids": [101, 102, 103]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "transferred_count": 3,
+  "total_requested": 3,
+  "failed_count": 0,
+  "failed_ids": []
+}
+```
+
 
 ## Plugin Endpoints
 

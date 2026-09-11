@@ -376,15 +376,18 @@ Mounted under `/api/v1/agent/...` and `frontend/components/AgentView/` [VERIFY: 
 
 ## 11. Local Network Synchronization, Sharing & Import Tools
 
-### 11.1 LAN Peer Discovery & Sync (`backend_rust/src/routes/lan_sync.rs`)
-- **Peer Discovery**: Discovers running Prism nodes on the local Wi-Fi/Ethernet network via `/api/v1/lan/discover` [VERIFY: backend_rust/src/routes/lan_sync.rs:40-57].
-- **PIN-Secured Pairing**: Exchanges cryptographically signed pairing tokens authenticated by user PIN [VERIFY: backend_rust/src/routes/lan_sync.rs:67-70].
-- **Differential Manifest Synchronization**: Compares photo UUID manifests between instances and streams missing original binaries and EXIF metadata over high-speed local TCP.
+### 11.1 LAN Peer Discovery & EasyShare Device-to-Device Push (`backend_rust/src/services/lan_beacon.rs`, `backend_rust/src/routes/lan_sync.rs`)
+- **UDP Beacon Discovery**: Broadcasts JSON presence beacons every 3 seconds on UDP port `8272` to `255.255.255.255:8272` declaring `peer_id`, `hostname`, `ip`, `port`, and `device_type`.
+- **Peer Liveness Registry**: Maintains an in-memory `Arc<RwLock<HashMap<String, DiscoveredPeer>>>` registry, automatically pruning inactive peers after 10 seconds. Exposed via `GET /api/v1/lan/nearby` [VERIFY: backend_rust/src/services/lan_beacon.rs:1-170; backend_rust/src/routes/lan_sync.rs:30-45].
+- **Local Network Detection**: Probes non-loopback IPv4 gateway address to construct LAN URLs returned via `GET /api/v1/lan/network-info` [VERIFY: backend_rust/src/services/lan_beacon.rs:77-95].
+- **Direct EasyShare Push**: Streams binary media files directly to the discovered target peer's upload endpoint via `POST /api/v1/lan/push-to-peer`, reporting progress without external cloud intermediaries [VERIFY: backend_rust/src/routes/lan_sync.rs:60-120].
+- **PIN-Secured Pairing & Manifest Sync**: Exchanges cryptographically signed pairing tokens authenticated by user PIN and differential UUID manifests over high-speed local TCP [VERIFY: backend_rust/src/routes/lan_sync.rs:130-170].
 
-### 11.2 Ephemeral Resource Sharing (`backend_rust/src/routes/shares.rs`)
-- **Tokenized Links**: Creates random UUID sharing tokens pointing to photos or albums [VERIFY: backend_rust/src/models.rs:169-183].
-- **Privacy Stripping**: Configurable options to strip EXIF camera metadata and remove GPS coordinates before file download (`hide_exif = 1`, `hide_gps = 1`).
-- **Access Limits**: Password protection via Argon2 hashing, maximum download count quotas, and auto-expiring timestamps.
+### 11.2 Ephemeral Resource Sharing & QR Codes (`backend_rust/src/routes/shares.rs`, `frontend/components/sharing/`)
+- **Dual-Mode Share Interface**: Unified `ShareModal` accessible from Lightbox toolbar, multi-selection BulkActionsBar, and Album details headers [VERIFY: frontend/components/sharing/ShareModal.tsx:1-350].
+- **Canvas QR Code Generation**: In-browser dynamic QR rendering via `qrcode` canvas rendering pointing to `http://<LAN_IP>:8269/share/<token>` for seamless mobile camera scanning.
+- **Tokenized Links & Privacy Redaction**: Generates secure UUID sharing tokens (`POST /api/v1/shares`) with configurable expiry (1h, 24h, 7d, never), SHA-256 password protection, and server-side EXIF camera and GPS coordinate redaction [VERIFY: backend_rust/src/routes/shares.rs:20-110].
+- **Standalone Recipient Portal**: Lightweight recipient viewing portal at `/share/:token` (`SharePortalView.tsx`) offering passcode unlock cards, responsive photo/album previews, and single or batch downloads [VERIFY: frontend/components/sharing/SharePortalView.tsx:1-250].
 
 ### 11.3 Google Takeout ZIP Importer (`backend_rust/src/routes/google_import.rs`)
 - **Archive Extraction**: Accepts Google Takeout ZIP uploads, unpacks image/video binaries, and parses companion `.json` metadata sidecar files [VERIFY: backend_rust/src/routes/google_import.rs:9-50].

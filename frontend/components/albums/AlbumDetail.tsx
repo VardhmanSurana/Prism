@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { ArrowLeft, CheckSquare } from 'lucide-react';
+import { ArrowLeft, CheckSquare, Share2 } from 'lucide-react';
 import { Album, SmartAlbum, Photo } from '../../types';
 import { PhotoGrid } from '../PhotoGrid';
 import { useTelemetry } from '../../hooks/useTelemetry';
@@ -13,6 +13,7 @@ interface AlbumDetailProps {
   selectedIds: Set<string>;
   onToggleSelection: (id: string) => void;
   onToggleGroupSelection: (ids: string[]) => void;
+  onShareAlbum?: (album: Album | SmartAlbum) => void;
 }
 
 /**
@@ -26,7 +27,8 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
   onBack,
   selectedIds,
   onToggleSelection,
-  onToggleGroupSelection
+  onToggleGroupSelection,
+  onShareAlbum,
 }) => {
   const { logAction } = useTelemetry();
   const albumScrollRef = useRef<HTMLDivElement>(null);
@@ -71,6 +73,20 @@ export const AlbumDetail: React.FC<AlbumDetailProps> = ({
             {photos.length} photos{locationLabel ? ` • ${locationLabel}` : ''}
           </p>
         </div>
+        {onShareAlbum && (
+          <button
+            onClick={() => {
+              logAction('AlbumDetail', 'share_album', { albumId: album.id, albumName: album.name });
+              onShareAlbum(album);
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 text-gray-300 hover:text-white hover:bg-white/10 border border-white/5 transition-colors"
+            title="Share Album"
+          >
+            <Share2 size={14} />
+            <span>Share</span>
+          </button>
+        )}
+
         {photos.length > 0 && (
           <button
             onClick={() => { logAction('AlbumDetail', allSelected ? 'deselect_all' : 'select_all', { albumId: album.id, photoCount: photos.length }); handleSelectAll(); }}

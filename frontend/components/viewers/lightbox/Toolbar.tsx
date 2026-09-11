@@ -15,6 +15,7 @@ import {
   UserCheck,
   HelpCircle,
   Type,
+  Share2,
 } from 'lucide-react';
 import { Photo } from '@/types';
 
@@ -44,6 +45,7 @@ export interface ExtendedToolbarProps {
   onToggleOcr?: () => void;
   onOpenShortcutsModal?: () => void;
   onCopyImageToClipboard?: () => void;
+  onShare?: () => void;
 }
 
 /**
@@ -75,6 +77,7 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   onToggleOcr,
   onOpenShortcutsModal,
   onCopyImageToClipboard,
+  onShare,
 }) => {
   const [showMore, setShowMore] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -250,6 +253,17 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
         >
           <Info size={18} />
         </button>
+
+        {/* Share */}
+        {onShare && (
+          <button
+            onClick={onShare}
+            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            title="Share Photo"
+          >
+            <Share2 size={18} />
+          </button>
+        )}
 
         {/* Keyboard Shortcuts (?) */}
         {onOpenShortcutsModal && (

@@ -22,6 +22,7 @@ use crate::services::ml_client::MlClient;
 use crate::services::telemetry::TelemetryService;
 use crate::services::model_manager::ModelManager;
 use crate::services::packs::PackManager;
+use crate::services::lan_beacon::LanBeaconService;
 use crate::services::plugins::PluginManager;
 use crate::services::vector_index;
 use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn_worker_loop};
@@ -37,6 +38,7 @@ pub struct AppState {
     pub model_manager: Arc<ModelManager>,
     pub pack_manager: Arc<PackManager>,
     pub plugin_manager: Arc<PluginManager>,
+    pub lan_beacon: Arc<LanBeaconService>,
 }
 
 #[tokio::main]
@@ -136,6 +138,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.models_dir.clone(),
     ));
 
+    let local_peer_id = routes::lan_sync::get_or_create_local_peer_id(&db_pool).await;
+    let lan_beacon = Arc::new(LanBeaconService::new(local_peer_id, config.port));
+    lan_beacon.start();
+
     let state = Arc::new(AppState {
         config: config.clone(),
         db: db_pool,
@@ -147,6 +153,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         model_manager,
         pack_manager,
         plugin_manager,
+        lan_beacon,
     });
 
     let app = routes::create_router(state);

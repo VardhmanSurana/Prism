@@ -34,3 +34,4 @@ pub mod editor_models;
 
 pub mod packs;
 pub mod plugins;
+pub mod lan_beacon;

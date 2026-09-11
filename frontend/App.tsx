@@ -23,6 +23,7 @@ import { normalizePhoto, type Album, type Photo, type ViewMode } from './types';
 import { LiveAnnouncer } from './components/ui/LiveAnnouncer';
 import { useAnnounce } from './hooks/useAnnounce';
 import { useTelemetry } from './hooks/useTelemetry';
+import { ShareModal, type ShareTarget, SharePortalView } from './components/sharing';
 
 /**
  * Lightbox - Renders lightbox.
@@ -71,6 +72,11 @@ const CommandPalette = React.lazy(() =>
  * App - Renders app.
  */
 function App() {
+  const isSharePortal = typeof window !== 'undefined' && window.location.pathname.startsWith('/share/');
+  if (isSharePortal) {
+    return <SharePortalView />;
+  }
+
   const {
     currentView,
     setCurrentView,
@@ -115,6 +121,34 @@ function App() {
     handleRemoveSingleFromActiveAlbum,
     handleSetAlbumCover,
   } = useAppState();
+
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareTarget, setShareTarget] = useState<ShareTarget>({ type: 'selection' });
+
+  const handleShareSelected = useCallback(() => {
+    setShareTarget({
+      type: 'selection',
+      photoIds: Array.from(selectedIds),
+      count: selectedIds.size,
+    });
+    setIsShareModalOpen(true);
+  }, [selectedIds]);
+
+  const handleSharePhoto = useCallback((photo: Photo) => {
+    setShareTarget({
+      type: 'photo',
+      photo,
+    });
+    setIsShareModalOpen(true);
+  }, []);
+
+  const handleShareAlbum = useCallback((album: Album | any) => {
+    setShareTarget({
+      type: 'album',
+      album,
+    });
+    setIsShareModalOpen(true);
+  }, []);
 
   const { isMobile } = usePlatform();
   const { logAction, logNavigation, logError } = useTelemetry();
@@ -466,6 +500,7 @@ function App() {
             onBulkDelete={handleBulkDeleteFromGrid}
             onBulkLockToggle={handleBulkLockToggle}
             onResetSuccess={handleResetSuccess}
+            onShareAlbum={handleShareAlbum}
           />
 
           <BulkActionsBar
@@ -484,6 +519,7 @@ function App() {
             onPhotoBook={handlePhotoBook}
             onToolbox={() => handleViewChange('toolbox')}
             onPasteEdits={handleBulkPasteEdits}
+            onShare={handleShareSelected}
           />
         </main>
 
@@ -500,6 +536,7 @@ function App() {
                 onToggleFavorite={handleLightboxToggleFavorite}
                 onRemoveFromAlbum={handleLightboxRemoveFromAlbum}
                 onSetAsCover={handleLightboxSetAsCover}
+                onShare={handleSharePhoto}
               />
             )}
           </AnimatePresence>
@@ -557,6 +594,12 @@ function App() {
             onClose={() => setIsPhotoBookOpen(false)}
           />
         </Suspense>
+
+        <ShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          target={shareTarget}
+        />
 
         {isMobile && (
           <MobileBottomNav

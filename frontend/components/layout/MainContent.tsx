@@ -1,6 +1,6 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { PhotoGrid } from '../PhotoGrid';
-import { Photo, ViewMode, SearchFilters, SortMode } from '../../types';
+import { Photo, ViewMode, SearchFilters, SortMode, Album, SmartAlbum } from '../../types';
 import { ImportProgressStatus } from '../PhotoGrid/types';
 
 /**
@@ -78,6 +78,7 @@ interface MainContentProps {
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
   onResetSuccess?: () => void;
+  onShareAlbum?: (album: Album | SmartAlbum) => void;
 }
 
 /**
@@ -108,7 +109,8 @@ export const MainContent = React.memo(function MainContent({
   onBulkFavorite,
   onBulkDelete,
   onBulkLockToggle,
-  onResetSuccess
+  onResetSuccess,
+  onShareAlbum,
 }: MainContentProps) {
   /**
    * renderContent - Performs render content.
@@ -126,6 +128,7 @@ export const MainContent = React.memo(function MainContent({
             selectedIds={selectedIds}
             onToggleSelection={onToggleSelection}
             onToggleGroupSelection={onToggleGroupSelection}
+            onShareAlbum={onShareAlbum}
           />
         );
       case 'people':
