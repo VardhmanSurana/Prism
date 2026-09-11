@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Editor Modular Plugin Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Modular Plugins · Extensible Registry</p>
+    <h1>Editor Panel Registry &amp; Studio Plugin Architecture</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="960" height="480">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#c084fc" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="480" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Registry to Built-in Panels -->
+      <path d="M 280 180 L 340 180" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Registry to Studio Plugins (Lazy) -->
+      <path d="M 280 250 L 590 250 Q 600 250 600 240 L 600 120 L 630 120" stroke="#c084fc" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-purple)" />
+      <path d="M 600 250 L 630 250" stroke="#c084fc" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-purple)" />
+      <path d="M 600 250 L 600 370 L 630 370" stroke="#c084fc" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-purple)" />
+
+      <!-- Lazy load badge -->
+      <rect x="520" y="240" width="65" height="18" rx="3" fill="#161A20" stroke="rgba(192,132,252,0.4)" />
+      <text x="552" y="252" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Lazy Load</text>
+
+      <!-- COLUMN 1: CORE REGISTRY -->
+      <g transform="translate(30, 40)">
+        <rect width="250" height="400" rx="10" fill="#161A20" stroke="#3b82f6" stroke-width="2" />
+        <rect x="16" y="16" width="100" height="20" rx="4" fill="rgba(59,130,246,0.15)" />
+        <text x="21" y="30" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">CORE ENGINE</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Panel Registry</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">EditingMode/panelRegistry.tsx</text>
+
+        <!-- Registry Map -->
+        <rect x="16" y="104" width="218" height="120" rx="8" fill="#1D2432" stroke="rgba(255,255,255,0.05)" />
+        <text x="28" y="128" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Panel Registry Map</text>
+        <text x="28" y="148" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="11">ToolId → ReactNode</text>
+        <text x="28" y="172" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Dynamic panel dispatch</text>
+        <text x="28" y="190" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">usePluginStore gating</text>
+
+        <!-- Panel Context -->
+        <rect x="16" y="240" width="218" height="130" rx="8" fill="#1D2432" stroke="rgba(255,255,255,0.05)" />
+        <text x="28" y="264" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Unified PanelCtx</text>
+        <text x="28" y="284" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="11">State · Handlers · Refs</text>
+        <text x="28" y="308" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Active adjustment state</text>
+        <text x="28" y="326" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Undo/redo triggers</text>
+        <text x="28" y="344" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Decoupled viewport bridge</text>
+      </g>
+
+      <!-- COLUMN 2: CORE BUILT-INS -->
+      <g transform="translate(340, 40)">
+        <rect width="240" height="400" rx="10" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="14" y="14" width="120" height="20" rx="4" fill="rgba(255,255,255,0.04)" />
+        <text x="19" y="28" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">STATIC BUILT-INS</text>
+        
+        <text x="14" y="58" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="15" font-weight="600">Core Built-in Panels</text>
+        <text x="14" y="76" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Bundled zero-dependency tools</text>
+
+        <!-- Tools List -->
+        <g transform="translate(14, 94)">
+          <rect width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="17" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Transform &amp; Native Crop</text>
+
+          <rect y="32" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="49" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Light &amp; Tone Curves</text>
+
+          <rect y="64" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="81" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">HSL &amp; Color Wheels</text>
+
+          <rect y="96" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="113" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Detail &amp; Sharpening</text>
+
+          <rect y="128" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="145" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Templates &amp; Presets</text>
+
+          <rect y="160" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="177" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Layers Studio (16 Blends)</text>
+
+          <rect y="192" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="209" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Camera RAW Engine</text>
+
+          <rect y="224" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="241" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Liquify &amp; Mesh Reshape</text>
+
+          <rect y="256" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="273" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Magnetic &amp; Poly Lasso</text>
+
+          <rect y="288" width="212" height="26" rx="4" fill="#1A202A" />
+          <text x="12" y="305" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="11">Palette &amp; Eyedropper</text>
+        </g>
+      </g>
+
+      <!-- COLUMN 3: MODULAR STUDIO PLUGINS -->
+      <g transform="translate(640, 40)">
+        <rect width="280" height="400" rx="10" fill="#141820" stroke="rgba(192,132,252,0.3)" />
+        <rect x="14" y="14" width="130" height="20" rx="4" fill="rgba(192,132,252,0.12)" />
+        <text x="19" y="28" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">DECOUPLED PLUGINS</text>
+        
+        <text x="14" y="58" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="15" font-weight="600">Modular Studio Packs</text>
+
+        <!-- Pack 1 -->
+        <g transform="translate(14, 76)">
+          <rect width="252" height="88" rx="6" fill="#1A202A" stroke="rgba(2,132,199,0.25)" />
+          <text x="12" y="22" fill="#38bdf8" font-family="'Sora', sans-serif" font-size="12" font-weight="600">retouch-metadata-studio</text>
+          <text x="12" y="42" fill="#e5e7eb" font-family="'JetBrains Mono', monospace" font-size="10">Markup &amp; MS Paint Annotations</text>
+          <text x="12" y="58" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">AI Portrait Retouching</text>
+          <text x="12" y="74" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Reinhard Shot Color Matcher</text>
+        </g>
+
+        <!-- Pack 2 -->
+        <g transform="translate(14, 174)">
+          <rect width="252" height="106" rx="6" fill="#1A202A" stroke="rgba(22,163,74,0.25)" />
+          <text x="12" y="22" fill="#4ade80" font-family="'Sora', sans-serif" font-size="12" font-weight="600">ai-vision-studio</text>
+          <text x="12" y="42" fill="#e5e7eb" font-family="'JetBrains Mono', monospace" font-size="10">ISNet &amp; RMBG Background Matting</text>
+          <text x="12" y="58" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">LaMa Neural Magic Eraser</text>
+          <text x="12" y="74" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Depth &amp; Lens Bokeh Synthesis</text>
+          <text x="12" y="90" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">AI Face Restoration</text>
+        </g>
+
+        <!-- Pack 3 -->
+        <g transform="translate(14, 290)">
+          <rect width="252" height="88" rx="6" fill="#1A202A" stroke="rgba(192,38,211,0.25)" />
+          <text x="12" y="22" fill="#f472b6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">creative-color-studio</text>
+          <text x="12" y="42" fill="#e5e7eb" font-family="'JetBrains Mono', monospace" font-size="10">3D LUT Grading (.cube parser)</text>
+          <text x="12" y="58" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Texture &amp; Film Grain Synthesizer</text>
+          <text x="12" y="74" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Frames, Borders &amp; Mattes</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

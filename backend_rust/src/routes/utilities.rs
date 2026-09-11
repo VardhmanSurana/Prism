@@ -774,7 +774,11 @@ pub async fn fused_search(
         return Json(json!({ "results": results, "total": results.len() }));
     }
 
-    let search_tools = crate::services::agent_search::SearchTools::new(state.db.clone(), crate::services::siglip::get_engine().ok());
+    let search_tools = crate::services::agent_search::SearchTools::new(
+        state.db.clone(),
+        crate::services::siglip::get_engine().ok(),
+        crate::services::vector_index::get_vector_index(),
+    );
     let similar_ids = search_tools.semantic_search(query, limit, false, true).await;
 
     if similar_ids.is_empty() {

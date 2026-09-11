@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism API Authentication &amp; Route Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Axum Middleware · Request Pipeline</p>
+    <h1>API Authentication &amp; Dispatch Flow</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-red" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#ef4444" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="440" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Ingress to Decision 1 -->
+      <path d="M 170 140 L 220 140" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Decision 1 (No API_KEY configured) -> Direct Bypass to Allow -->
+      <path d="M 310 90 L 310 50 Q 310 40 320 40 L 680 40 Q 690 40 690 90 L 690 100" stroke="#10b981" stroke-width="1.75" marker-end="url(#arr-green)" />
+      <rect x="460" y="32" width="80" height="16" rx="3" fill="#161A20" />
+      <text x="500" y="44" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">NO (Default)</text>
+
+      <!-- Decision 1 (API_KEY configured) -> Check Header -->
+      <path d="M 400 140 L 450 140" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <rect x="408" y="132" width="34" height="16" rx="3" fill="#161A20" />
+      <text x="425" y="144" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">YES</text>
+
+      <!-- Check Header -> Missing Header (Reject 401) -->
+      <path d="M 540 190 L 540 280 Q 540 290 550 290 L 600 290" stroke="#ef4444" stroke-width="1.75" marker-end="url(#arr-red)" />
+      <rect x="522" y="230" width="36" height="16" rx="3" fill="#161A20" />
+      <text x="540" y="242" fill="#ef4444" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">NO</text>
+
+      <!-- Check Header -> Header Present -> Validate -->
+      <path d="M 630 140 L 680 140" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <rect x="638" y="132" width="34" height="16" rx="3" fill="#161A20" />
+      <text x="655" y="144" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">YES</text>
+
+      <!-- Validate -> Key matches -> Allow -->
+      <path d="M 770 110 L 770 70 Q 770 60 760 60 L 730 60 Q 720 60 720 80 L 720 100" stroke="#10b981" stroke-width="1.75" marker-end="url(#arr-green)" />
+
+      <!-- Validate -> Key mismatch -> Reject 401 -->
+      <path d="M 770 190 L 770 280 Q 770 290 760 290 L 710 290" stroke="#ef4444" stroke-width="1.75" marker-end="url(#arr-red)" />
+      <rect x="752" y="230" width="36" height="16" rx="3" fill="#161A20" />
+      <text x="770" y="242" fill="#ef4444" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">NO</text>
+
+      <!-- Allow -> Axum Route Handler -->
+      <path d="M 770 140 L 820 140" stroke="#10b981" stroke-width="2" marker-end="url(#arr-green)" />
+
+      <!-- NODE 1: Ingress -->
+      <g transform="translate(30, 90)">
+        <rect width="140" height="100" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="12" y="12" width="60" height="16" rx="3" fill="rgba(255,255,255,0.05)" />
+        <text x="16" y="24" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">CLIENT</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">HTTP Request</text>
+        <text x="12" y="70" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">GET / POST / PUT</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Port 8269 Ingress</text>
+      </g>
+
+      <!-- NODE 2: Decision 1 (Is API_KEY set?) -->
+      <g transform="translate(220, 90)">
+        <rect width="180" height="100" rx="8" fill="#161A20" stroke="#3b82f6" stroke-width="1.5" />
+        <text x="90" y="32" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" text-anchor="middle">CONFIG CHECK</text>
+        <text x="90" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">Is API_KEY Set?</text>
+        <text x="90" y="76" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" text-anchor="middle">PRISM_API_KEY env</text>
+      </g>
+
+      <!-- NODE 3: Check Header -->
+      <g transform="translate(450, 90)">
+        <rect width="180" height="100" rx="8" fill="#161A20" stroke="rgba(59,130,246,0.5)" />
+        <text x="90" y="32" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" text-anchor="middle">HEADER INSPECT</text>
+        <text x="90" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">X-API-Key Present?</text>
+        <text x="90" y="76" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" text-anchor="middle">Header token lookup</text>
+      </g>
+
+      <!-- NODE 4: Validate -->
+      <g transform="translate(680, 90)">
+        <rect width="180" height="100" rx="8" fill="#161A20" stroke="rgba(59,130,246,0.5)" />
+        <text x="90" y="32" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" text-anchor="middle">CRYPTO COMPARE</text>
+        <text x="90" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">Secret Matches?</text>
+        <text x="90" y="76" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" text-anchor="middle">Constant-time eq</text>
+      </g>
+
+      <!-- ALLOW / PROCEED NODE -->
+      <g transform="translate(600, 270)">
+        <!-- 401 REJECT -->
+        <rect width="180" height="80" rx="8" fill="rgba(239,68,68,0.08)" stroke="#ef4444" stroke-width="1.5" />
+        <circle cx="28" cy="28" r="10" fill="rgba(239,68,68,0.2)" />
+        <text x="28" y="32" fill="#ef4444" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✕</text>
+        <text x="50" y="28" fill="#ef4444" font-family="'Sora', sans-serif" font-size="12" font-weight="700">401 Unauthorized</text>
+        <text x="20" y="56" fill="#fca5a5" font-family="'JetBrains Mono', monospace" font-size="10">Invalid or missing key</text>
+      </g>
+
+      <!-- DISPATCHED TO AXUM -->
+      <g transform="translate(820, 90)">
+        <rect width="110" height="100" rx="8" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-width="1.5" />
+        <circle cx="28" cy="28" r="10" fill="rgba(16,185,129,0.2)" />
+        <text x="28" y="32" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+        <text x="46" y="28" fill="#10b981" font-family="'Sora', sans-serif" font-size="12" font-weight="700">Allow</text>
+        <text x="14" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11">Route Handler</text>
+        <text x="14" y="74" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">JSON Response</text>
+      </g>
+
+      <!-- FOOTER SUMMARY PILL -->
+      <rect x="30" y="380" width="900" height="34" rx="6" fill="#141820" stroke="rgba(255,255,255,0.06)" />
+      <text x="50" y="401" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="11">POLICY: Localhost loopback allows unauthenticated access by default for frictionless desktop usage. Set PRISM_API_KEY to lock down endpoints.</text>
+    </svg>
+  </div>
+</body>
+</html>

@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 520" width="960" height="520">
+      <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Sora:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap');</style>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="520" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- PHASE 1: PIXEL &amp; BASE ADJUSTMENTS (TOP ROW) -->
+      <g transform="translate(40, 40)">
+        <rect width="880" height="120" rx="10" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="14" y="10" width="90" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="18" y="23" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PHASE 01</text>
+        <text x="115" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Pixel Geometry &amp; Base Processing</text>
+
+        <!-- 4 boxes -->
+        <g transform="translate(14, 38)">
+          <rect width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="12" y="22" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 01-02</text>
+          <text x="12" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Source Cloning</text>
+          <text x="12" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Liquify mesh + healing strokes</text>
+
+          <path d="M 205 33 L 215 33" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="225" width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="237" y="22" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 03-04</text>
+          <text x="237" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Base Tone &amp; RAW</text>
+          <text x="237" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Kelvin WB, exposure &amp; dehaze</text>
+
+          <path d="M 430 33 L 440 33" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="450" width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="462" y="22" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 05</text>
+          <text x="462" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Layers Stack</text>
+          <text x="462" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Fill, gradients &amp; 16 blend modes</text>
+
+          <path d="M 655 33 L 665 33" stroke="#3b82f6" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="675" width="170" height="66" rx="6" fill="#1A202A" />
+          <text x="687" y="22" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 06</text>
+          <text x="687" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">AI Portrait Mask</text>
+          <text x="687" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Skin smooth &amp; Real Tone</text>
+        </g>
+      </g>
+
+      <!-- SERPENTINE CONNECTOR: Row 1 to Row 2 -->
+      <path d="M 900 160 L 920 160 Q 930 160 930 175 L 930 185 Q 930 200 920 200 L 900 200" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- PHASE 2: COLOR SCIENCE &amp; MATTING (MIDDLE ROW) -->
+      <g transform="translate(40, 195)">
+        <rect width="880" height="120" rx="10" fill="#141820" stroke="rgba(168,85,247,0.25)" />
+        <rect x="14" y="10" width="90" height="18" rx="3" fill="rgba(168,85,247,0.12)" />
+        <text x="18" y="23" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PHASE 02</text>
+        <text x="115" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Color Science, LUTs &amp; Scene Matting</text>
+
+        <!-- 4 boxes in reverse/forward flow -->
+        <g transform="translate(14, 38)">
+          <rect width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="12" y="22" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 07-08</text>
+          <text x="12" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">HSL &amp; Tone Curves</text>
+          <text x="12" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Color wheels + 3D LUT tables</text>
+
+          <path d="M 205 33 L 215 33" stroke="#c084fc" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="225" width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="237" y="22" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 09</text>
+          <text x="237" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Sharpen &amp; Denoise</text>
+          <text x="237" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Wavelet noise &amp; unsharp mask</text>
+
+          <path d="M 430 33 L 440 33" stroke="#c084fc" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="450" width="195" height="66" rx="6" fill="#1A202A" />
+          <text x="462" y="22" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 10</text>
+          <text x="462" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Creative Textures</text>
+          <text x="462" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Film grain, leaks &amp; split tone</text>
+
+          <path d="M 655 33 L 665 33" stroke="#c084fc" stroke-width="1.5" marker-end="url(#arr)" />
+
+          <rect x="675" width="170" height="66" rx="6" fill="#1A202A" />
+          <text x="687" y="22" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 11</text>
+          <text x="687" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Background Mat</text>
+          <text x="687" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">ISNet cutout &amp; backdrops</text>
+        </g>
+      </g>
+
+      <!-- SERPENTINE CONNECTOR: Row 2 to Row 3 -->
+      <path d="M 60 315 L 60 335 Q 60 345 70 345 L 90 345" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- PHASE 3: COMPOSITION &amp; ENCODING (BOTTOM ROW) -->
+      <g transform="translate(40, 350)">
+        <rect width="880" height="135" rx="10" fill="#141820" stroke="rgba(16,185,129,0.3)" />
+        <rect x="14" y="10" width="90" height="18" rx="3" fill="rgba(16,185,129,0.12)" />
+        <text x="18" y="23" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PHASE 03</text>
+        <text x="115" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">SVG Vectors, EXIF &amp; C2PA Provenance Manifest</text>
+
+        <!-- 4 boxes -->
+        <g transform="translate(14, 38)">
+          <rect width="195" height="78" rx="6" fill="#1A202A" />
+          <text x="12" y="22" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">STAGE 12-13</text>
+          <text x="12" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">SVG Markup &amp; Borders</text>
+          <text x="12" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Per-stroke feTurbulence</text>
+          <text x="12" y="70" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Frames &amp; mattes</text>
+
+          <path d="M 205 39 L 215 39" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-green)" />
+
+          <rect x="225" width="195" height="78" rx="6" fill="#1A202A" />
+          <text x="237" y="22" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">FORMAT ENCODE</text>
+          <text x="237" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Bitmap Encoding</text>
+          <text x="237" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">JPEG / PNG / WebP</text>
+          <text x="237" y="70" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Full 1:1 sensor resolution</text>
+
+          <path d="M 430 39 L 440 39" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-green)" />
+
+          <rect x="450" width="195" height="78" rx="6" fill="#1A202A" />
+          <text x="462" y="22" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">METADATA</text>
+          <text x="462" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">piexifjs EXIF &amp; GPS</text>
+          <text x="462" y="56" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Camera maker notes</text>
+          <text x="462" y="70" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Preserves orientation</text>
+
+          <path d="M 655 39 L 665 39" stroke="#10b981" stroke-width="1.5" marker-end="url(#arr-green)" />
+
+          <!-- C2PA Injection Final -->
+          <rect x="675" width="170" height="78" rx="6" fill="rgba(16,185,129,0.1)" stroke="#10b981" stroke-width="1.5" />
+          <text x="687" y="22" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700">C2PA INJECTION</text>
+          <text x="687" y="40" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="700">Content Credentials</text>
+          <text x="687" y="56" fill="#a7f3d0" font-family="'JetBrains Mono', monospace" font-size="9">APP11 JUMBF box</text>
+          <text x="687" y="70" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="9">Signed cryptographic hash</text>
+        </g>
+      </g>
+    </svg>

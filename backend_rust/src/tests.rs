@@ -536,7 +536,7 @@ mod server_enhancement_tests {
         .await
         .unwrap();
 
-        let search_tools = SearchTools::new(pool.clone(), None);
+        let search_tools = SearchTools::new(pool.clone(), None, None);
 
         // Search similar images using Photo 1 (id=1) as the query embedding
         let results = search_tools.similar_image(1, 10, false, false).await;

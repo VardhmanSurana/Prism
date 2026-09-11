@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 490" width="960" height="490">
+      <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Sora:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap');</style>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="490" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- PHASE 1: Storage &amp; Env -->
+      <rect x="40" y="40" width="270" height="410" rx="10" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+      <rect x="52" y="52" width="100" height="20" rx="4" fill="rgba(255,255,255,0.04)" />
+      <text x="58" y="66" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">PHASE 01</text>
+      <text x="52" y="94" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="14" font-weight="600">Persistence &amp; Config</text>
+
+      <!-- Phase 1 Cards -->
+      <g transform="translate(52, 114)">
+        <rect width="246" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="24" r="10" fill="#262C36" />
+        <text x="24" y="28" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">01</text>
+        <text x="44" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Load Configuration</text>
+        <text x="44" y="42" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Env vars · GPU flags · Ports</text>
+      </g>
+
+      <g transform="translate(52, 194)">
+        <rect width="246" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="24" r="10" fill="#262C36" />
+        <text x="24" y="28" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">02</text>
+        <text x="44" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Init SQLite DbPool</text>
+        <text x="44" y="42" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">WAL mode · FTS5 · Migrations</text>
+      </g>
+
+      <g transform="translate(52, 274)">
+        <rect width="246" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="24" r="10" fill="#262C36" />
+        <text x="24" y="28" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">03</text>
+        <text x="44" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Auto-Purge Trashed</text>
+        <text x="44" y="42" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Hard delete items &gt;30 days</text>
+      </g>
+
+      <!-- Connector P1 to P2 -->
+      <path d="M 310 245 L 340 245" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- PHASE 2: Services &amp; Workers -->
+      <rect x="345" y="40" width="270" height="410" rx="10" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+      <rect x="357" y="52" width="100" height="20" rx="4" fill="rgba(59,130,246,0.12)" />
+      <text x="363" y="66" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">PHASE 02</text>
+      <text x="357" y="94" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="14" font-weight="600">Services &amp; Background Queues</text>
+
+      <!-- Phase 2 Cards -->
+      <g transform="translate(357, 114)">
+        <rect width="246" height="52" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="20" r="10" fill="#262C36" />
+        <text x="24" y="24" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">04</text>
+        <text x="44" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">LAN Sync &amp; Watchdog</text>
+        <text x="44" y="38" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">mDNS discovery · peer beacon</text>
+      </g>
+
+      <g transform="translate(357, 178)">
+        <rect width="246" height="52" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="20" r="10" fill="#262C36" />
+        <text x="24" y="24" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">05</text>
+        <text x="44" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Job Processing Queue</text>
+        <text x="44" y="38" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Channel receivers &amp; tasks</text>
+      </g>
+
+      <g transform="translate(357, 242)">
+        <rect width="246" height="52" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="20" r="10" fill="#262C36" />
+        <text x="24" y="24" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">06</text>
+        <text x="44" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Locked Folder Recovery</text>
+        <text x="44" y="38" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Atomic state reconciliation</text>
+      </g>
+
+      <g transform="translate(357, 306)">
+        <rect width="246" height="52" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="20" r="10" fill="#262C36" />
+        <text x="24" y="24" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">07</text>
+        <text x="44" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Spawn AI Worker Loop</text>
+        <text x="44" y="38" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">SigLIP2, OCR &amp; ArcFace workers</text>
+      </g>
+
+      <!-- Connector P2 to P3 -->
+      <path d="M 615 245 L 645 245" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- PHASE 3: Axum Ingress &amp; Readiness -->
+      <rect x="650" y="40" width="270" height="410" rx="10" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+      <rect x="662" y="52" width="100" height="20" rx="4" fill="rgba(255,255,255,0.04)" />
+      <text x="668" y="66" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600">PHASE 03</text>
+      <text x="662" y="94" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="14" font-weight="600">Network &amp; Readiness</text>
+
+      <!-- Phase 3 Cards -->
+      <g transform="translate(662, 114)">
+        <rect width="246" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="24" r="10" fill="#262C36" />
+        <text x="24" y="28" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">08</text>
+        <text x="44" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Build Axum Router</text>
+        <text x="44" y="42" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">6-layer middleware composition</text>
+      </g>
+
+      <g transform="translate(662, 194)">
+        <rect width="246" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+        <circle cx="24" cy="24" r="10" fill="#262C36" />
+        <text x="24" y="28" fill="#3b82f6" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">09</text>
+        <text x="44" y="24" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Bind TCP Listener</text>
+        <text x="44" y="42" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">0.0.0.0:8269 · tokio::net</text>
+      </g>
+
+      <!-- SERVER READY HIGHLIGHT -->
+      <g transform="translate(662, 274)">
+        <rect width="246" height="90" rx="8" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-width="1.5" />
+        <circle cx="24" cy="28" r="10" fill="rgba(16,185,129,0.2)" />
+        <text x="24" y="32" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+        <text x="44" y="28" fill="#10b981" font-family="'Sora', sans-serif" font-size="13" font-weight="700">SERVER READY</text>
+        <text x="44" y="48" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11">Accepting HTTP &amp; IPC</text>
+        <text x="44" y="66" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Ready for UI &amp; CLI clients</text>
+      </g>
+    </svg>

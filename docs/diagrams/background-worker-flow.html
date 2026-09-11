@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Background Worker Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">AnalyzerRegistry · Async Execution</p>
+    <h1>Background Media Processing Pipeline</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 340" width="960" height="340">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="340" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Between the 5 columns) -->
+      <!-- 0 to 1 -->
+      <path d="M 175 160 L 205 160" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- 1 to 2 -->
+      <path d="M 360 160 L 390 160" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- 2 to 3 -->
+      <path d="M 545 160 L 575 160" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- 3 to 4 -->
+      <path d="M 730 160 L 760 160" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Optional branch / bypass note -->
+      <path d="M 700 230 L 700 270 Q 700 280 710 280 L 810 280 Q 820 280 820 270 L 820 235" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)" />
+      <rect x="720" y="272" width="80" height="16" rx="3" fill="#161A20" />
+      <text x="760" y="284" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Optional skip</text>
+
+      <!-- STAGE 0: Photo Imported -->
+      <g transform="translate(30, 70)">
+        <rect width="145" height="180" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="14" y="14" width="70" height="18" rx="4" fill="rgba(255,255,255,0.05)" />
+        <text x="18" y="27" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">INPUT</text>
+        
+        <circle cx="34" cy="62" r="14" fill="rgba(59,130,246,0.12)" />
+        <text x="34" y="66" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" text-anchor="middle">IN</text>
+        
+        <text x="14" y="102" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Import Event</text>
+        <text x="14" y="122" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">File watch or upload</text>
+        <text x="14" y="140" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Extract EXIF / hash</text>
+        <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Queue background task</text>
+      </g>
+
+      <!-- STAGE 1: Face Detection -->
+      <g transform="translate(215, 70)">
+        <rect width="145" height="180" rx="8" fill="#141820" stroke="rgba(245,158,11,0.25)" />
+        <rect x="14" y="14" width="70" height="18" rx="4" fill="rgba(245,158,11,0.12)" />
+        <text x="18" y="27" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">STAGE 01</text>
+        
+        <circle cx="34" cy="62" r="14" fill="rgba(245,158,11,0.15)" />
+        <text x="34" y="66" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" text-anchor="middle">01</text>
+        
+        <text x="14" y="102" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Face Recognition</text>
+        <text x="14" y="122" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="10">SCRFD Detection</text>
+        <text x="14" y="140" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">ArcFace 512d vectors</text>
+        <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Cluster into people</text>
+      </g>
+
+      <!-- STAGE 2: OCR -->
+      <g transform="translate(400, 70)">
+        <rect width="145" height="180" rx="8" fill="#141820" stroke="rgba(16,185,129,0.25)" />
+        <rect x="14" y="14" width="70" height="18" rx="4" fill="rgba(16,185,129,0.12)" />
+        <text x="18" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">STAGE 02</text>
+        
+        <circle cx="34" cy="62" r="14" fill="rgba(16,185,129,0.15)" />
+        <text x="34" y="66" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" text-anchor="middle">02</text>
+        
+        <text x="14" y="102" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Neural OCR</text>
+        <text x="14" y="122" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10">PP-OCRv4 Engine</text>
+        <text x="14" y="140" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">BBox text detection</text>
+        <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">FTS5 table index</text>
+      </g>
+
+      <!-- STAGE 3: SigLIP2 Embedding -->
+      <g transform="translate(585, 70)">
+        <rect width="145" height="180" rx="8" fill="#141820" stroke="rgba(59,130,246,0.35)" />
+        <rect x="14" y="14" width="70" height="18" rx="4" fill="rgba(59,130,246,0.15)" />
+        <text x="18" y="27" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">STAGE 03</text>
+        
+        <circle cx="34" cy="62" r="14" fill="rgba(59,130,246,0.2)" />
+        <text x="34" y="66" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" text-anchor="middle">03</text>
+        
+        <text x="14" y="102" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">SigLIP2 Search</text>
+        <text x="14" y="122" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10">768-dim Vision</text>
+        <text x="14" y="140" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Semantic text/image</text>
+        <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Cosine similarity</text>
+      </g>
+
+      <!-- STAGE 4: Completion -->
+      <g transform="translate(770, 70)">
+        <rect width="155" height="180" rx="8" fill="rgba(16,185,129,0.06)" stroke="#10b981" stroke-width="1.5" />
+        <rect x="14" y="14" width="80" height="18" rx="4" fill="rgba(16,185,129,0.15)" />
+        <text x="18" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">COMPLETE</text>
+        
+        <circle cx="34" cy="62" r="14" fill="rgba(16,185,129,0.2)" />
+        <text x="34" y="66" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="700" text-anchor="middle">✓</text>
+        
+        <text x="14" y="102" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Ready in Library</text>
+        <text x="14" y="122" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10">SQLite updated</text>
+        <text x="14" y="140" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">WebP thumb cached</text>
+        <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Broadcast UI event</text>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

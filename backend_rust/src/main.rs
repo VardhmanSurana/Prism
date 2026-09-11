@@ -23,6 +23,7 @@ use crate::services::telemetry::TelemetryService;
 use crate::services::model_manager::ModelManager;
 use crate::services::packs::PackManager;
 use crate::services::plugins::PluginManager;
+use crate::services::vector_index;
 use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn_worker_loop};
 
 pub struct AppState {
@@ -61,6 +62,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     recover_interrupted_operations(&config);
 
     let db_pool = init_db(&config.database_url).await?;
+
+    // Initialize HNSW vector index for fast semantic search
+    let vector_index_instance = vector_index::init_global(db_pool.clone(), config.models_dir.clone());
+    vector_index_instance.init().await;
+
     let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
     let ml_client = MlClient::new(LlmClient::new(llm_server.clone()));
     let telemetry = TelemetryService::new(db_pool.clone());

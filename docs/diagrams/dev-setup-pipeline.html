@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Development Setup Pipeline</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Developer Workflow · Environment Setup</p>
+    <h1>Build &amp; Dependency Installation Pipeline</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="960" height="420">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="420" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Step 1 to 2 -->
+      <path d="M 170 120 L 210 120" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- Step 2 to 3 -->
+      <path d="M 360 120 L 400 120" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- Step 3 to CLI Decision -->
+      <path d="M 550 120 L 590 120" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- CLI Decision -> Build CLI -->
+      <path d="M 720 120 L 760 120" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <!-- CLI Decision -> Bypass to AI (bottom branch) -->
+      <path d="M 655 170 L 655 240 Q 655 250 645 250 L 550 250" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arr)" />
+
+      <!-- Build CLI down to AI Models -->
+      <path d="M 835 170 L 835 240 Q 835 250 825 250 L 550 250" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- AI Models to Ready -->
+      <path d="M 400 250 L 320 250" stroke="#10b981" stroke-width="2" marker-end="url(#arr-green)" />
+
+      <!-- STEP 1: Clone -->
+      <g transform="translate(30, 70)">
+        <rect width="140" height="100" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="12" y="12" width="70" height="18" rx="3" fill="rgba(255,255,255,0.05)" />
+        <text x="16" y="24" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">STEP 01</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Clone Repo</text>
+        <text x="12" y="70" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">git clone prism</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Submodules &amp; docs</text>
+      </g>
+
+      <!-- STEP 2: Frontend -->
+      <g transform="translate(210, 70)">
+        <rect width="150" height="100" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="12" y="12" width="70" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">STEP 02</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Frontend Deps</text>
+        <text x="12" y="70" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">pnpm install</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Vite 6 + React 18</text>
+      </g>
+
+      <!-- STEP 3: Backend -->
+      <g transform="translate(400, 70)">
+        <rect width="150" height="100" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="12" y="12" width="70" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">STEP 03</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Build Backend</text>
+        <text x="12" y="70" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">cargo build --release</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Axum + SQLite</text>
+      </g>
+
+      <!-- DECISION: Need CLI? -->
+      <g transform="translate(590, 70)">
+        <rect width="130" height="100" rx="8" fill="#161A20" stroke="#3b82f6" stroke-width="1.5" />
+        <text x="65" y="32" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">OPTIONAL</text>
+        <text x="65" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600" text-anchor="middle">Need CLI?</text>
+        <text x="65" y="76" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" text-anchor="middle">prism binary</text>
+      </g>
+
+      <!-- STEP 4: Build CLI -->
+      <g transform="translate(760, 70)">
+        <rect width="150" height="100" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="12" y="12" width="70" height="18" rx="3" fill="rgba(255,255,255,0.05)" />
+        <text x="16" y="24" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">CLI STEP</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Build CLI</text>
+        <text x="12" y="70" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">cd cli &amp;&amp; cargo build</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">target/release/prism</text>
+      </g>
+
+      <!-- STEP 5: AI Models -->
+      <g transform="translate(400, 200)">
+        <rect width="150" height="100" rx="8" fill="#141820" stroke="rgba(168,85,247,0.3)" />
+        <rect x="12" y="12" width="80" height="18" rx="3" fill="rgba(168,85,247,0.12)" />
+        <text x="16" y="24" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">OPTIONAL AI</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">AI Models</text>
+        <text x="12" y="70" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10">SigLIP, ArcFace</text>
+        <text x="12" y="86" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">models/ directory</text>
+      </g>
+
+      <!-- READY HIGHLIGHT -->
+      <g transform="translate(100, 200)">
+        <rect width="220" height="100" rx="8" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-width="2" />
+        <circle cx="28" cy="28" r="10" fill="rgba(16,185,129,0.2)" />
+        <text x="28" y="32" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+        <text x="48" y="28" fill="#10b981" font-family="'Sora', sans-serif" font-size="13" font-weight="700">READY TO RUN</text>
+        <text x="20" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12">Launch Local Instance</text>
+        <text x="20" y="76" fill="#a7f3d0" font-family="'JetBrains Mono', monospace" font-size="11">./run-web.sh | ./run-desktop.sh</text>
+      </g>
+
+      <!-- FOOTER NOTE -->
+      <text x="50" y="360" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">NOTE: AI models can be downloaded on-demand when activating specific features in the UI or CLI.</text>
+    </svg>
+  </div>
+</body>
+</html>

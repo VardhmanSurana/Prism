@@ -21,6 +21,7 @@ pub mod interrogate;
 pub mod stories;
 pub mod agent_planner;
 pub mod agent_search;
+pub mod vector_index;
 pub mod subtitle_gen;
 pub mod webhooks;
 pub mod model_manager;

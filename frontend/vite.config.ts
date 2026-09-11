@@ -58,10 +58,10 @@ export default defineConfig(({ mode }) => {
         rollupOptions: {
           output: {
             manualChunks: {
-              'react-vendor': ['react', 'react-dom'],
-              'motion-vendor': ['framer-motion'],
-              'map-vendor': ['leaflet', 'react-leaflet'],
-              'virtual-vendor': ['@tanstack/react-virtual'],
+              'vendor-react': ['react', 'react-dom'],
+              'vendor-motion': ['framer-motion'],
+              'vendor-map': ['leaflet', 'react-leaflet'],
+              'vendor-virtual': ['@tanstack/react-virtual'],
             },
           },
         },

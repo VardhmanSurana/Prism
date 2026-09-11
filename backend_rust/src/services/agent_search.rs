@@ -2,6 +2,7 @@ use sqlx::{SqlitePool, Row};
 use std::sync::Arc;
 use rayon::prelude::*;
 use crate::services::siglip::SiglipEngine;
+use crate::services::vector_index::VectorIndex;
 
 /// Encodes an f32 slice into raw little-endian bytes.
 #[allow(dead_code)]
@@ -76,12 +77,13 @@ impl PhotoCandidate {
 pub struct SearchTools {
     db: SqlitePool,
     siglip: Option<Arc<SiglipEngine>>,
+    vector_index: Option<Arc<VectorIndex>>,
 }
 
 impl SearchTools {
     /// new - Performs new.
-    pub fn new(db: SqlitePool, siglip: Option<Arc<SiglipEngine>>) -> Self {
-        Self { db, siglip }
+    pub fn new(db: SqlitePool, siglip: Option<Arc<SiglipEngine>>, vector_index: Option<Arc<VectorIndex>>) -> Self {
+        Self { db, siglip, vector_index }
     }
 
     /// semantic_search - Performs semantic search.
@@ -103,6 +105,19 @@ impl SearchTools {
             }
         };
 
+        // Try HNSW index first for O(log N) approximate search
+        if let Some(vi) = &self.vector_index {
+            if vi.is_loaded() {
+                let results = vi.search(&query_emb, top_k * 2);
+                return results
+                    .into_iter()
+                    .map(|(id, _dist)| id)
+                    .take(top_k)
+                    .collect();
+            }
+        }
+
+        // Fallback to brute-force scan
         let rows = sqlx::query(
             "SELECT id, embedding_blob, embedding FROM photos WHERE is_trash = 0 AND is_locked = ? AND (embedding_blob IS NOT NULL OR embedding IS NOT NULL)"
         )
@@ -168,6 +183,20 @@ impl SearchTools {
             return vec![];
         }
 
+        // Try HNSW index first
+        if let Some(vi) = &self.vector_index {
+            if vi.is_loaded() {
+                let results = vi.search(&query_emb, top_k * 2);
+                return results
+                    .into_iter()
+                    .filter(|(id, _)| *id != photo_id)
+                    .map(|(id, _)| id)
+                    .take(top_k)
+                    .collect();
+            }
+        }
+
+        // Fallback to brute-force scan
         let rows = sqlx::query(
             "SELECT id, embedding_blob, embedding FROM photos WHERE is_trash = 0 AND id != ? AND is_locked = ? AND (embedding_blob IS NOT NULL OR embedding IS NOT NULL)"
         )
@@ -203,4 +232,3 @@ impl SearchTools {
         scored.into_iter().take(top_k).map(|(pid, _)| pid).collect()
     }
 }
-

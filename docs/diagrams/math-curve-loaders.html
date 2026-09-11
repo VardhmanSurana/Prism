@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Mathematical Curve Loaders</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Parametric Physics · SVG Visualizers</p>
+    <h1>Mathematical Curve Loaders &amp; Particle Render Engine</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#c084fc" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="440" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Loader to Math -->
+      <path d="M 230 150 L 290 150" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Math to Curves -->
+      <path d="M 490 150 L 550 150" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Curves to SvgCanvas -->
+      <path d="M 750 150 L 780 150 Q 790 150 790 160 L 790 200 Q 790 210 780 210 L 750 210" stroke="#c084fc" stroke-width="1.75" marker-end="url(#arr-purple)" />
+
+      <!-- Curves down to Catalog -->
+      <path d="M 650 200 L 650 240" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- ROW 1: CORE PIPELINE -->
+      <!-- Component 1: MathCurveLoader.tsx -->
+      <g transform="translate(40, 90)">
+        <rect width="190" height="110" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="12" y="12" width="70" height="18" rx="3" fill="rgba(255,255,255,0.05)" />
+        <text x="16" y="24" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">REACT HOST</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">MathCurveLoader</text>
+        <text x="12" y="72" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">MathCurveLoader.tsx</text>
+        <text x="12" y="88" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Active AI task indicator</text>
+      </g>
+
+      <!-- Component 2: math.ts -->
+      <g transform="translate(290, 90)">
+        <rect width="200" height="110" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="12" y="12" width="90" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">POINT EVAL</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">math.ts Evaluator</text>
+        <text x="12" y="72" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">Parametric (x, y) coords</text>
+        <text x="12" y="88" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Hermite spline interpolation</text>
+      </g>
+
+      <!-- Component 3: curves.ts -->
+      <g transform="translate(550, 90)">
+        <rect width="200" height="110" rx="8" fill="#161A20" stroke="#3b82f6" stroke-width="2" />
+        <rect x="12" y="12" width="100" height="18" rx="3" fill="rgba(59,130,246,0.15)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">DEFINITIONS</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="700">curves.ts Registry</text>
+        <text x="12" y="72" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">Theta &amp; time equations</text>
+        <text x="12" y="88" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Normalized 0..2pi cycles</text>
+      </g>
+
+      <!-- ROW 2: PARAMETRIC CURVES CATALOG -->
+      <g transform="translate(40, 240)">
+        <rect width="880" height="160" rx="10" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="16" y="12" width="130" height="18" rx="4" fill="rgba(255,255,255,0.04)" />
+        <text x="21" y="25" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600">CURVE CATALOG</text>
+        <text x="160" y="25" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Supported Analytical &amp; Transcendental Formulations</text>
+
+        <!-- 5 curve cards -->
+        <g transform="translate(16, 42)">
+          <rect width="160" height="102" rx="6" fill="#1A202A" stroke="rgba(59,130,246,0.2)" />
+          <text x="12" y="22" fill="#60a5fa" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Bernoulli Lemniscate</text>
+          <text x="12" y="40" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">lemniscate-bloom</text>
+          <text x="12" y="60" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">r² = a² cos(2θ)</text>
+          <text x="12" y="82" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="9">Pulsing ∞ orbit</text>
+
+          <rect x="172" width="160" height="102" rx="6" fill="#1A202A" stroke="rgba(168,85,247,0.2)" />
+          <text x="184" y="22" fill="#c084fc" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Rose Curve</text>
+          <text x="184" y="40" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">rose-orbit / four</text>
+          <text x="184" y="60" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">r = a cos(kθ)</text>
+          <text x="184" y="82" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9">Multi-petal blossom</text>
+
+          <rect x="344" width="160" height="102" rx="6" fill="#1A202A" stroke="rgba(16,185,129,0.2)" />
+          <text x="356" y="22" fill="#34d399" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Archimedean Spiral</text>
+          <text x="356" y="40" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">spiral-search</text>
+          <text x="356" y="60" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">r = a + bθ</text>
+          <text x="356" y="82" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="9">Radial expansion</text>
+
+          <rect x="516" width="160" height="102" rx="6" fill="#1A202A" stroke="rgba(245,158,11,0.2)" />
+          <text x="528" y="22" fill="#fbbf24" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Butterfly Curve</text>
+          <text x="528" y="40" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">butterfly-phase</text>
+          <text x="528" y="60" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Temple H. Fay fn</text>
+          <text x="528" y="82" fill="#fbbf24" font-family="'JetBrains Mono', monospace" font-size="9">Complex wing cycles</text>
+
+          <rect x="688" width="160" height="102" rx="6" fill="#1A202A" stroke="rgba(236,72,153,0.2)" />
+          <text x="700" y="22" fill="#f472b6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Hypotrochoid</text>
+          <text x="700" y="40" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">hypotrochoid-loop</text>
+          <text x="700" y="60" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Roulette roulette (R, r, d)</text>
+          <text x="700" y="82" fill="#f472b6" font-family="'JetBrains Mono', monospace" font-size="9">Harmonograph loop</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

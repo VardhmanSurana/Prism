@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440">
+      <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Sora:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap');</style>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-purple" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#c084fc" />
+        </marker>
+        <marker id="arr-green" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#10b981" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="440" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Mode 1 to outputs -->
+      <path d="M 175 220 L 175 270" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- Mode 2 to outputs -->
+      <path d="M 480 220 L 480 270" stroke="#c084fc" stroke-width="2" marker-end="url(#arr-purple)" />
+
+      <!-- Mode 3 to outputs -->
+      <path d="M 785 220 L 785 270" stroke="#10b981" stroke-width="2" marker-end="url(#arr-green)" />
+
+      <!-- COLUMN 1: WEB MODE (RECOMMENDED) -->
+      <g transform="translate(40, 40)">
+        <rect width="270" height="180" rx="10" fill="#141820" stroke="#3b82f6" stroke-width="2" />
+        <rect x="16" y="16" width="130" height="20" rx="4" fill="rgba(59,130,246,0.15)" />
+        <text x="21" y="30" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">RECOMMENDED DEV</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Web Mode</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Browser + Native Server</text>
+
+        <rect x="16" y="104" width="238" height="56" rx="6" fill="#1D2432" stroke="rgba(255,255,255,0.05)" />
+        <text x="14" y="24" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600">./run-web.sh</text>
+        <text x="14" y="42" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Hot Module Replacement (HMR)</text>
+      </g>
+
+      <!-- Web Mode Details -->
+      <g transform="translate(40, 270)">
+        <rect width="270" height="130" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <text x="16" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Dual Local Processes</text>
+        
+        <rect x="16" y="42" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10">Vite Dev UI :3005</text>
+
+        <rect x="16" y="82" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10">Axum Rust Core :8269</text>
+      </g>
+
+      <!-- COLUMN 2: DESKTOP TAURI MODE -->
+      <g transform="translate(345, 40)">
+        <rect width="270" height="180" rx="10" fill="#141820" stroke="rgba(168,85,247,0.3)" />
+        <rect x="16" y="16" width="120" height="20" rx="4" fill="rgba(168,85,247,0.12)" />
+        <text x="21" y="30" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">NATIVE DESKTOP</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Desktop Mode</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Tauri v2 OS Shell</text>
+
+        <rect x="16" y="104" width="238" height="56" rx="6" fill="#1D2432" stroke="rgba(255,255,255,0.05)" />
+        <text x="14" y="24" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600">./run-desktop.sh</text>
+        <text x="14" y="42" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Single native application bundle</text>
+      </g>
+
+      <!-- Desktop Mode Details -->
+      <g transform="translate(345, 270)">
+        <rect width="270" height="130" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <text x="16" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Integrated Shell Process</text>
+        
+        <rect x="16" y="42" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="10">WebView Native Shell</text>
+
+        <rect x="16" y="82" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10">Child Backend Sidecar</text>
+      </g>
+
+      <!-- COLUMN 3: DOCKER CONTAINER SERVER -->
+      <g transform="translate(650, 40)">
+        <rect width="270" height="180" rx="10" fill="#141820" stroke="rgba(16,185,129,0.3)" />
+        <rect x="16" y="16" width="110" height="20" rx="4" fill="rgba(16,185,129,0.12)" />
+        <text x="21" y="30" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">SERVER CLOUD</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Docker Mode</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Self-Contained Headless</text>
+
+        <rect x="16" y="104" width="238" height="56" rx="6" fill="#1D2432" stroke="rgba(255,255,255,0.05)" />
+        <text x="14" y="24" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="11" font-weight="600">docker compose up -d</text>
+        <text x="14" y="42" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">3-stage scratch alpine image</text>
+      </g>
+
+      <!-- Docker Mode Details -->
+      <g transform="translate(650, 270)">
+        <rect width="270" height="130" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <text x="16" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Single Container Appliance</text>
+        
+        <rect x="16" y="42" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="10">Rust Server + Embedded UI :8269</text>
+
+        <rect x="16" y="82" width="238" height="32" rx="4" fill="#1A202A" />
+        <text x="10" y="21" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Mounted volume: /data</text>
+      </g>
+    </svg>

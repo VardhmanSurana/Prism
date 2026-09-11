@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, Suspense, useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { CommandPalette, buildDefaultCommands } from './components/ui/CommandPalette';
+import { buildDefaultCommands } from './components/ui/CommandPalette';
 import { usePrismShortcuts } from './hooks/useKeyboardShortcuts';
 import { Sidebar } from './components/layout/sidebar/Sidebar';
 import { Header } from './components/layout/header/Header';
@@ -17,7 +17,6 @@ import { useDragDropImport } from './hooks/import/useDragDropImport';
 import { useAppState } from './hooks/useAppState';
 import { API_BASE } from './constants';
 import { apiClient } from '@/services/apiClient';
-import { AddToAlbumDialog } from './components/albums/AddToAlbumDialog';
 import { useSettingsStore } from './store';
 import { eventService } from '@/services/EventService';
 import { normalizePhoto, type Album, type Photo, type ViewMode } from './types';
@@ -54,6 +53,18 @@ const CollageMaker = React.lazy(() =>
  */
 const PhotoBook = React.lazy(() =>
   import('./components/PhotoView/PhotoBook').then((m) => ({ default: m.PhotoBook }))
+);
+/**
+ * AddToAlbumDialog - Renders add to album dialog.
+ */
+const AddToAlbumDialog = React.lazy(() =>
+  import('./components/albums/AddToAlbumDialog').then((m) => ({ default: m.AddToAlbumDialog }))
+);
+/**
+ * CommandPalette - Renders command palette.
+ */
+const CommandPalette = React.lazy(() =>
+  import('./components/ui/CommandPalette').then((m) => ({ default: m.CommandPalette }))
 );
 
 /**
@@ -524,11 +535,13 @@ function App() {
         </Suspense>
 
         {/* Command Palette */}
-        <CommandPalette
-          isOpen={isCommandPaletteOpen}
-          onClose={() => setIsCommandPaletteOpen(false)}
-          commands={commandItems}
-        />
+        <Suspense fallback={null}>
+          <CommandPalette
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+            commands={commandItems}
+          />
+        </Suspense>
 
         <Suspense fallback={null}>
           <CollageMaker

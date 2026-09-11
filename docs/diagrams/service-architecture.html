@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Service Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Axum State Model · Rust Services</p>
+    <h1>AppState Composition &amp; Service Registry</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="960" height="480">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#6b7280" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="480" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (AppState to left services) -->
+      <!-- AppState to Config -->
+      <path d="M 360 210 L 300 210 Q 290 210 290 190 L 290 90 L 270 90" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr-muted)" />
+      <!-- AppState to DbPool -->
+      <path d="M 360 230 L 270 230" stroke="#3b82f6" stroke-width="1.75" marker-end="url(#arr)" />
+      <!-- AppState to MlClient -->
+      <path d="M 360 250 L 300 250 Q 290 250 290 270 L 290 370 L 270 370" stroke="#3b82f6" stroke-width="1.75" marker-end="url(#arr)" />
+
+      <!-- CONNECTORS (AppState to right services) -->
+      <!-- AppState to Telemetry -->
+      <path d="M 600 210 L 660 210 Q 670 210 670 190 L 670 90 L 690 90" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arr-muted)" />
+      <!-- AppState to WorkerState -->
+      <path d="M 600 225 L 690 225" stroke="#3b82f6" stroke-width="1.75" marker-end="url(#arr)" />
+      <!-- AppState to JobScheduler -->
+      <path d="M 600 245 L 660 245 Q 670 245 670 270 L 670 320 L 690 320" stroke="#3b82f6" stroke-width="1.75" marker-end="url(#arr)" />
+      <!-- AppState to AnalyzerRegistry -->
+      <path d="M 600 260 L 650 260 Q 670 260 670 290 L 670 415 L 690 415" stroke="#3b82f6" stroke-width="1.75" marker-end="url(#arr)" />
+
+      <!-- CENTRAL HUB: AppState -->
+      <g transform="translate(360, 170)">
+        <rect width="240" height="120" rx="10" fill="#1D2432" stroke="#3b82f6" stroke-width="2" />
+        <rect x="20" y="16" width="100" height="18" rx="4" fill="rgba(59,130,246,0.15)" />
+        <text x="25" y="29" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">SHARED CONTEXT</text>
+        <text x="20" y="56" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="18" font-weight="700">Arc&lt;AppState&gt;</text>
+        <text x="20" y="78" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Cloneable Axum extractor</text>
+        <text x="20" y="96" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Thread-safe Tokio reference</text>
+      </g>
+
+      <!-- LEFT COLUMN SERVICES -->
+
+      <!-- Config -->
+      <g transform="translate(40, 50)">
+        <rect width="230" height="80" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="14" y="14" width="20" height="20" rx="4" fill="rgba(255,255,255,0.05)" />
+        <text x="24" y="28" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">CF</text>
+        <text x="44" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Config</text>
+        <text x="14" y="50" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">AppConfig · Host &amp; Port</text>
+        <text x="14" y="66" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Paths, GPU mode &amp; flags</text>
+      </g>
+
+      <!-- DbPool -->
+      <g transform="translate(40, 190)">
+        <rect width="230" height="80" rx="8" fill="#141820" stroke="rgba(245,158,11,0.25)" />
+        <rect x="14" y="14" width="20" height="20" rx="4" fill="rgba(245,158,11,0.12)" />
+        <text x="24" y="28" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">DB</text>
+        <text x="44" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">DbPool (SQLite)</text>
+        <text x="14" y="50" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">sqlx::SqlitePool (WAL)</text>
+        <text x="14" y="66" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Concurrent reads + FTS5 index</text>
+      </g>
+
+      <!-- MlClient -->
+      <g transform="translate(40, 330)">
+        <rect width="230" height="80" rx="8" fill="#141820" stroke="rgba(168,85,247,0.25)" />
+        <rect x="14" y="14" width="20" height="20" rx="4" fill="rgba(168,85,247,0.12)" />
+        <text x="24" y="28" fill="#a855f7" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">ML</text>
+        <text x="44" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">MlClient</text>
+        <text x="14" y="50" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">In-Process ONNX Engine</text>
+        <text x="14" y="66" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">SigLIP2, ArcFace, OCR, LaMa</text>
+      </g>
+
+      <!-- RIGHT COLUMN SERVICES -->
+
+      <!-- Telemetry -->
+      <g transform="translate(690, 50)">
+        <rect width="230" height="80" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <rect x="14" y="14" width="20" height="20" rx="4" fill="rgba(255,255,255,0.05)" />
+        <text x="24" y="28" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">TM</text>
+        <text x="44" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Telemetry</text>
+        <text x="14" y="50" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Usage Metrics (Opt-in)</text>
+        <text x="14" y="66" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Error logger &amp; request sampling</text>
+      </g>
+
+      <!-- WorkerState -->
+      <g transform="translate(690, 185)">
+        <rect width="230" height="80" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="14" y="14" width="20" height="20" rx="4" fill="rgba(59,130,246,0.12)" />
+        <text x="24" y="28" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">WS</text>
+        <text x="44" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">WorkerState</text>
+        <text x="14" y="50" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Background Job Tracker</text>
+        <text x="14" y="66" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Atomic status &amp; cancel tokens</text>
+      </g>
+
+      <!-- JobScheduler -->
+      <g transform="translate(690, 280)">
+        <rect width="230" height="65" rx="8" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+        <text x="14" y="26" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">JobScheduler</text>
+        <text x="14" y="46" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Priority queuing &amp; retry loops</text>
+      </g>
+
+      <!-- AnalyzerRegistry -->
+      <g transform="translate(690, 365)">
+        <rect width="230" height="65" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <text x="14" y="26" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">AnalyzerRegistry</text>
+        <text x="14" y="46" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="11">Pluggable media analyzers</text>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

@@ -1,0 +1,125 @@
+{
+  "id": "background-removal",
+  "version": "1.0.0",
+  "name": "Background Removal Studio",
+  "capability": "image.matting",
+  "description": "High-precision AI background removal, subject extraction, and alpha matting capability pack.",
+  "author": "Prism AI Team",
+  "license": "mixed-per-model",
+  "models": [
+    {
+      "id": "isnet-general-use",
+      "name": "ISNet (High Quality Universal)",
+      "description": "Highly accurate 1024px dichotomic segmentation model for universal portrait & object cutout.",
+      "file": "isnet_general_use.onnx",
+      "input": {
+        "name": "input_image",
+        "size": [
+          1024,
+          1024
+        ],
+        "layout": "NCHW",
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "output": {
+        "postprocess": "minmax",
+        "threshold": null,
+        "output_index": 0,
+        "output_name": null
+      },
+      "download": {
+        "url": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx",
+        "sha256": null,
+        "size_bytes": 178648008
+      },
+      "license": "Apache-2.0",
+      "gated": false,
+      "ack_required": false
+    },
+    {
+      "id": "birefnet",
+      "name": "BiRefNet (Bilateral Reference High-Res)",
+      "description": "State-of-the-art bilateral reference model with extreme edge and hair detail resolution.",
+      "file": "birefnet.onnx",
+      "input": {
+        "name": "input_image",
+        "size": [
+          1024,
+          1024
+        ],
+        "layout": "NCHW",
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "output": {
+        "postprocess": "minmax",
+        "threshold": null,
+        "output_index": 0,
+        "output_name": null
+      },
+      "download": {
+        "url": "https://huggingface.co/onnx-community/BiRefNet-ONNX/resolve/main/onnx/model.onnx",
+        "sha256": null,
+        "size_bytes": 450000000
+      },
+      "license": "MIT",
+      "gated": false,
+      "ack_required": false
+    },
+    {
+      "id": "rmbg-1.4",
+      "name": "RMBG-1.4 (BRIA Studio Matting)",
+      "description": "Commercial-grade image matting by BRIA AI. Gated under non-commercial creative license.",
+      "file": "rmbg_1_4.onnx",
+      "input": {
+        "name": "input.1",
+        "size": [
+          1024,
+          1024
+        ],
+        "layout": "NCHW",
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          1.0,
+          1.0,
+          1.0
+        ]
+      },
+      "output": {
+        "postprocess": "minmax",
+        "threshold": null,
+        "output_index": 0,
+        "output_name": null
+      },
+      "download": {
+        "url": "https://huggingface.co/briaai/RMBG-1.4/resolve/main/onnx/model.onnx",
+        "sha256": null,
+        "size_bytes": 176000000
+      },
+      "license": "Non-Commercial (BRIA)",
+      "gated": true,
+      "ack_required": true
+    }
+  ]
+}

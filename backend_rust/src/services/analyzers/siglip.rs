@@ -5,6 +5,7 @@ use super::super::worker::{Analyzer, PhotoRecord, ResourceNeed, WorkerState};
 use crate::db::DbPool;
 use crate::services::ml_client::MlClient;
 use crate::services::siglip::get_engine;
+use crate::services::vector_index::get_vector_index;
 
 pub struct SiglipAnalyzer;
 
@@ -62,6 +63,10 @@ impl Analyzer for SiglipAnalyzer {
                     .bind(photo_id)
                     .execute(db)
                     .await;
+                // Insert into HNSW index for fast vector search
+                if let Some(vi) = get_vector_index() {
+                    vi.insert(photo_id, &embedding);
+                }
                 worker.increment_counter("siglip");
                 info!("[Scheduler] SigLIP done for photo_id={}", photo_id);
                 true

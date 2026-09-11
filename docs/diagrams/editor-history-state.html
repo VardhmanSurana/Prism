@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Editor History &amp; Auto-Save State Machine</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Zero Data Loss · Reactive Persistence</p>
+    <h1>History State Machine &amp; Draft Auto-Save</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 460" width="960" height="460">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#f59e0b" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="460" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Input to Branch 1 (History) -->
+      <path d="M 180 200 L 220 200 Q 230 200 230 150 L 250 150" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      
+      <!-- Input to Branch 2 (AutoSave) -->
+      <path d="M 180 230 L 220 230 Q 230 230 230 330 L 250 330" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)" />
+
+      <!-- History pipeline steps -->
+      <path d="M 450 150 L 480 150" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      <path d="M 680 150 L 710 150" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+
+      <!-- AutoSave pipeline steps -->
+      <path d="M 450 330 L 480 330" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)" />
+      <path d="M 680 330 L 710 330" stroke="#f59e0b" stroke-width="2" marker-end="url(#arr-amber)" />
+
+      <!-- ORIGIN: USER EDIT EVENT -->
+      <g transform="translate(30, 160)">
+        <rect width="150" height="110" rx="8" fill="#161A20" stroke="#3b82f6" stroke-width="1.5" />
+        <rect x="12" y="12" width="60" height="18" rx="3" fill="rgba(59,130,246,0.15)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">ACTION</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">User Edit Event</text>
+        <text x="12" y="70" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Slider modification</text>
+        <text x="12" y="86" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Brush stroke commit</text>
+      </g>
+
+      <!-- TRACK 1: TIMELINE HISTORY (TOP) -->
+      <!-- Step 1: Commit Helper & Inference -->
+      <g transform="translate(250, 90)">
+        <rect width="200" height="120" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="12" y="12" width="120" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">INFERENCE ENGINE</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">adjustmentCommitHelper</text>
+        <text x="12" y="72" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">toolInference.ts</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Maps state key → ToolId</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Generates text summary</text>
+      </g>
+
+      <!-- Step 2: History Stack -->
+      <g transform="translate(480, 90)">
+        <rect width="200" height="120" rx="8" fill="#161A20" stroke="#3b82f6" stroke-width="2" />
+        <rect x="12" y="12" width="100" height="18" rx="3" fill="rgba(59,130,246,0.15)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">STACK BUFFER</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="700">History Stack</text>
+        <text x="12" y="72" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="10">undo[] &amp; redo[] arrays</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Parametric snapshot state</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">50-step memory limit</text>
+      </g>
+
+      <!-- Step 3: Slide-Out Timeline Drawer -->
+      <g transform="translate(710, 90)">
+        <rect width="220" height="120" rx="8" fill="#141820" stroke="rgba(59,130,246,0.25)" />
+        <rect x="12" y="12" width="110" height="18" rx="3" fill="rgba(59,130,246,0.12)" />
+        <text x="16" y="24" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">TIMELINE DRAWER</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">HistoryPanel.tsx</text>
+        <text x="12" y="72" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Interactive scrub timeline</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Toggle individual edits (eye)</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Jump to previous state</text>
+      </g>
+
+      <!-- TRACK 2: AUTO-SAVE & DRAFT RECOVERY (BOTTOM) -->
+      <!-- Step 1: Debounce Hook -->
+      <g transform="translate(250, 270)">
+        <rect width="200" height="120" rx="8" fill="#141820" stroke="rgba(245,158,11,0.25)" />
+        <rect x="12" y="12" width="100" height="18" rx="3" fill="rgba(245,158,11,0.12)" />
+        <text x="16" y="24" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">AUTO DEBOUNCE</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">useEditDraftAutoSave</text>
+        <text x="12" y="72" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="10">300ms Debounce Loop</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Dirty check against base</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Prevents redundant writes</text>
+      </g>
+
+      <!-- Step 2: Storage Persistence -->
+      <g transform="translate(480, 270)">
+        <rect width="200" height="120" rx="8" fill="#141820" stroke="rgba(245,158,11,0.25)" />
+        <rect x="12" y="12" width="90" height="18" rx="3" fill="rgba(245,158,11,0.12)" />
+        <text x="16" y="24" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PERSISTENCE</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">editDraftStore</text>
+        <text x="12" y="72" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="10">localStorage Sync</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Photo UUID keyed drafts</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Vectors, meshes &amp; curves</text>
+      </g>
+
+      <!-- Step 3: Recovery Banner -->
+      <g transform="translate(710, 270)">
+        <rect width="220" height="120" rx="8" fill="rgba(239,68,68,0.06)" stroke="#ef4444" stroke-width="1.5" />
+        <rect x="12" y="12" width="110" height="18" rx="3" fill="rgba(239,68,68,0.15)" />
+        <text x="16" y="24" fill="#ef4444" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">CRASH RECOVERY</text>
+        <text x="12" y="52" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="700">DraftRecoveryBanner</text>
+        <text x="12" y="72" fill="#fca5a5" font-family="'JetBrains Mono', monospace" font-size="10">Session restore prompt</text>
+        <text x="12" y="90" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">One-click restore or discard</text>
+        <text x="12" y="104" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="9">Zero lost progress</text>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

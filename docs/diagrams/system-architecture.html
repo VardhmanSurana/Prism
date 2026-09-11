@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism System Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Prism Architecture · High-Level Overview</p>
+    <h1>Local-First System Architecture</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="960" height="480">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arr-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#6b7280" />
+        </marker>
+        <linearGradient id="blueGlow" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.16"/>
+          <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.04"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="480" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- CONNECTORS (Drawn first) -->
+      <!-- Frontend to Backend HTTP bridge -->
+      <path d="M 330 200 L 390 200" stroke="#3b82f6" stroke-width="2" marker-end="url(#arr)" />
+      
+      <!-- Backend to SQLite -->
+      <path d="M 720 160 L 762 160 Q 770 160 770 168 L 770 180 Q 770 188 778 188 L 790 188" stroke="#6b7280" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-muted)" />
+      
+      <!-- Backend to Storage -->
+      <path d="M 720 230 L 762 230 Q 770 230 770 238 L 770 282 Q 770 290 778 290 L 790 290" stroke="#6b7280" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-muted)" />
+      
+      <!-- Backend to ONNX ML -->
+      <path d="M 720 250 L 755 250 Q 770 250 770 265 L 770 372 Q 770 380 778 380 L 790 380" stroke="#6b7280" stroke-width="1.75" stroke-dasharray="4 3" marker-end="url(#arr-muted)" />
+
+      <!-- HTTP Badge / Connector Label -->
+      <rect x="333" y="186" width="54" height="18" rx="4" fill="#161A20" stroke="rgba(59,130,246,0.3)" />
+      <text x="360" y="199" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="600" text-anchor="middle">REST API</text>
+
+      <!-- CONTAINER 1: Desktop Shell (Tauri v2) -->
+      <rect x="40" y="50" width="310" height="380" rx="10" fill="#141820" stroke="rgba(255,255,255,0.08)" />
+      <rect x="52" y="62" width="132" height="20" rx="4" fill="rgba(255,255,255,0.04)" />
+      <text x="58" y="76" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" letter-spacing="0.05em">TAURI V2 SHELL</text>
+      <text x="52" y="104" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="15" font-weight="600">Frontend Presentation</text>
+      <text x="52" y="122" fill="#6b7280" font-family="'Sora', sans-serif" font-size="12">Vite 6 · React 18 · Port 3005</text>
+
+      <!-- Subcard: Stores & Router -->
+      <rect x="52" y="142" width="286" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.06)" />
+      <text x="66" y="166" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Zustand State Engine</text>
+      <text x="66" y="185" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">uiStore · editStore · nleStore</text>
+
+      <rect x="52" y="218" width="286" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.06)" />
+      <text x="66" y="242" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="13" font-weight="600">TanStack Virtual Grid</text>
+      <text x="66" y="261" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">60fps windowing (100k+ assets)</text>
+
+      <rect x="52" y="294" width="286" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.06)" />
+      <text x="66" y="318" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Interactive Canvas / UI</text>
+      <text x="66" y="337" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Photo, Video NLE, Map &amp; People</text>
+
+      <text x="52" y="410" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="11">WebView IPC / localhost loopback</text>
+
+      <!-- CONTAINER 2: Backend Core (Rust Axum) -->
+      <rect x="400" y="50" width="340" height="380" rx="10" fill="#141820" stroke="rgba(59,130,246,0.3)" />
+      <rect x="412" y="62" width="140" height="20" rx="4" fill="rgba(59,130,246,0.12)" />
+      <text x="418" y="76" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="600" letter-spacing="0.05em">RUST CORE BACKEND</text>
+      <text x="412" y="104" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="15" font-weight="600">Axum Native Server</text>
+      <text x="412" y="122" fill="#6b7280" font-family="'Sora', sans-serif" font-size="12">Tokio Runtime · Port 8269</text>
+
+      <!-- Subcard: Routes & API -->
+      <rect x="412" y="142" width="316" height="66" rx="8" fill="url(#blueGlow)" stroke="rgba(59,130,246,0.25)" />
+      <text x="426" y="166" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600">HTTP REST &amp; Route Pipeline</text>
+      <text x="426" y="185" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="11">CORS · Auth · Rate Limit · Tracing</text>
+
+      <!-- Subcard: Services -->
+      <rect x="412" y="218" width="316" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.06)" />
+      <text x="426" y="242" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="13" font-weight="600">AppState &amp; Business Services</text>
+      <text x="426" y="261" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">JobScheduler · Exif · LAN Sync</text>
+
+      <!-- Subcard: Background Workers -->
+      <rect x="412" y="294" width="316" height="66" rx="8" fill="#1A202A" stroke="rgba(255,255,255,0.06)" />
+      <text x="426" y="318" fill="#e5e7eb" font-family="'Sora', sans-serif" font-size="13" font-weight="600">Background Worker Pool</text>
+      <text x="426" y="337" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="11">Non-blocking AI, Thumbnails &amp; Video</text>
+
+      <text x="412" y="410" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="11">100% In-Memory IPC or Loopback REST</text>
+
+      <!-- RIGHT SIDE: Storage & AI Stack -->
+      <!-- SQLite -->
+      <g transform="translate(800, 142)">
+        <rect width="120" height="66" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <circle cx="24" cy="24" r="8" fill="rgba(245,158,11,0.15)" stroke="#f59e0b" stroke-width="1.5" />
+        <text x="24" y="27" fill="#f59e0b" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">DB</text>
+        <text x="42" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">SQLite</text>
+        <text x="14" y="52" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">WAL + FTS5</text>
+      </g>
+
+      <!-- Local File System -->
+      <g transform="translate(800, 218)">
+        <rect width="120" height="66" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <circle cx="24" cy="24" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+        <text x="24" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">FS</text>
+        <text x="42" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">Storage</text>
+        <text x="14" y="52" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">uploads/ thumbs/</text>
+      </g>
+
+      <!-- ONNX Runtime -->
+      <g transform="translate(800, 294)">
+        <rect width="120" height="66" rx="8" fill="#161A20" stroke="rgba(255,255,255,0.08)" />
+        <circle cx="24" cy="24" r="8" fill="rgba(168,85,247,0.15)" stroke="#a855f7" stroke-width="1.5" />
+        <text x="24" y="27" fill="#a855f7" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700" text-anchor="middle">AI</text>
+        <text x="42" y="28" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600">ONNX</text>
+        <text x="14" y="52" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">In-Process ML</text>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

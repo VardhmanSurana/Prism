@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Security &amp; Trust Boundaries</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Local-Only Trust Model · Privacy Perimeter</p>
+    <h1>Core Security Principles &amp; Trust Boundaries</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="440" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- PILLARS (3 Columns) -->
+
+      <!-- PILLAR 1: Local-First Architecture -->
+      <g transform="translate(40, 40)">
+        <rect width="270" height="360" rx="10" fill="#141820" stroke="rgba(59,130,246,0.3)" />
+        <rect x="16" y="16" width="120" height="20" rx="4" fill="rgba(59,130,246,0.12)" />
+        <text x="21" y="30" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PRINCIPLE 01</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Local-First Model</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Zero Cloud Dependencies</text>
+
+        <g transform="translate(16, 106)">
+          <rect width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Offline Independence</text>
+          <text x="14" y="38" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">100% functionality without internet</text>
+
+          <rect y="60" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="82" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">No External Telemetry</text>
+          <text x="14" y="98" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Analytics are strictly opt-in</text>
+
+          <rect y="120" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="142" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Localhost Loopback</text>
+          <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">127.0.0.1 bound by default</text>
+
+          <rect y="180" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="202" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">In-Process Inference</text>
+          <text x="14" y="218" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">AI runs inside memory space</text>
+        </g>
+      </g>
+
+      <!-- PILLAR 2: Data Ownership -->
+      <g transform="translate(345, 40)">
+        <rect width="270" height="360" rx="10" fill="#141820" stroke="rgba(168,85,247,0.3)" />
+        <rect x="16" y="16" width="120" height="20" rx="4" fill="rgba(168,85,247,0.12)" />
+        <text x="21" y="30" fill="#c084fc" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PRINCIPLE 02</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Data Ownership</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Zero Vendor Lock-In</text>
+
+        <g transform="translate(16, 106)">
+          <rect width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Standard Formats</text>
+          <text x="14" y="38" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Plain files: JPEG, PNG, MP4, SQLite</text>
+
+          <rect y="60" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="82" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">No Account Required</text>
+          <text x="14" y="98" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">No email, registration, or licensing</text>
+
+          <rect y="120" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="142" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Direct Disk Portability</text>
+          <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Move libraries by copying folders</text>
+
+          <rect y="180" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="202" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Transparent Schemas</text>
+          <text x="14" y="218" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Open SQLite schema &amp; JSON metadata</text>
+        </g>
+      </g>
+
+      <!-- PILLAR 3: Encryption & Isolation -->
+      <g transform="translate(650, 40)">
+        <rect width="270" height="360" rx="10" fill="#141820" stroke="rgba(16,185,129,0.3)" />
+        <rect x="16" y="16" width="120" height="20" rx="4" fill="rgba(16,185,129,0.12)" />
+        <text x="21" y="30" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">PRINCIPLE 03</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Strong Encryption</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Argon2id &amp; Vaults</text>
+
+        <g transform="translate(16, 106)">
+          <rect width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="22" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Locked Folder Vault</text>
+          <text x="14" y="38" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10">Argon2id key derivation</text>
+
+          <rect y="60" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="82" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Cryptographic Wipe</text>
+          <text x="14" y="98" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Secure overwrite on deletion</text>
+
+          <rect y="120" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="142" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Tauri Shell CSP</text>
+          <text x="14" y="158" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Strict native sandbox barriers</text>
+
+          <rect y="180" width="238" height="50" rx="6" fill="#1A202A" stroke="rgba(255,255,255,0.05)" />
+          <text x="14" y="202" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">C2PA Credentials</text>
+          <text x="14" y="218" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="10">Tamper-evident edit manifests</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>

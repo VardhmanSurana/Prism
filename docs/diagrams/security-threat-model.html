@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Security Threat Model</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Threat Matrix · Security Posture</p>
+    <h1>Prism Threat Model &amp; Protective Boundaries</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 440" width="960" height="440">
+      <!-- Background Canvas -->
+      <rect width="960" height="440" rx="14" fill="#0F1115" stroke="rgba(255,255,255,0.06)" />
+
+      <!-- COLUMN 1: MITIGATED & PROTECTED (EMERALD) -->
+      <g transform="translate(40, 40)">
+        <rect width="425" height="360" rx="10" fill="#141820" stroke="rgba(16,185,129,0.3)" />
+        <rect x="16" y="16" width="130" height="20" rx="4" fill="rgba(16,185,129,0.12)" />
+        <text x="21" y="30" fill="#34d399" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">IN SCOPE · SHIELDED</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">What We Protect Against</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Guaranteed by Local-First Design</text>
+
+        <g transform="translate(16, 98)">
+          <rect width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+          <text x="20" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Cloud Data Breaches</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Media is never uploaded or cached on remote servers</text>
+
+          <rect y="52" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+          <text x="20" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Cloud Outages &amp; Downtime</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">100% resilient offline operation without network</text>
+
+          <rect y="104" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+          <text x="20" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Vendor Lock-In &amp; Ransom</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Unrestricted exports and raw file accessibility</text>
+
+          <rect y="156" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+          <text x="20" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Corporate Data Mining &amp; Profiling</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Zero tracking telemetry or facial database scraping</text>
+
+          <rect y="208" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(16,185,129,0.15)" stroke="#10b981" stroke-width="1.5" />
+          <text x="20" y="27" fill="#10b981" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">✓</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Casual Snooping (Locked Folder)</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Argon2id encrypted vault hides sensitive media</text>
+        </g>
+      </g>
+
+      <!-- COLUMN 2: OUT OF SCOPE / HOST RESPONSIBILITY (AMBER/ROSE) -->
+      <g transform="translate(495, 40)">
+        <rect width="425" height="360" rx="10" fill="#141820" stroke="rgba(244,63,94,0.3)" />
+        <rect x="16" y="16" width="150" height="20" rx="4" fill="rgba(244,63,94,0.12)" />
+        <text x="21" y="30" fill="#fb7185" font-family="'JetBrains Mono', monospace" font-size="9" font-weight="700">HOST &amp; USER RESPONSIBILITY</text>
+        
+        <text x="16" y="62" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="16" font-weight="700">Outside Application Scope</text>
+        <text x="16" y="82" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="10">Requires OS &amp; Physical Hardening</text>
+
+        <g transform="translate(16, 98)">
+          <rect width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(244,63,94,0.15)" stroke="#f43f5e" stroke-width="1.5" />
+          <text x="20" y="27" fill="#f43f5e" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">!</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Physical Device Theft</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Must use OS disk encryption (BitLocker / FileVault / LUKS)</text>
+
+          <rect y="52" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(244,63,94,0.15)" stroke="#f43f5e" stroke-width="1.5" />
+          <text x="20" y="27" fill="#f43f5e" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">!</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Host OS Malware &amp; Spyware</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Root keyloggers can capture in-memory keys</text>
+
+          <rect y="104" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(244,63,94,0.15)" stroke="#f43f5e" stroke-width="1.5" />
+          <text x="20" y="27" fill="#f43f5e" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">!</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Weak Locked Folder Passwords</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">Brute-force vulnerable if user picks low-entropy keys</text>
+
+          <rect y="156" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(244,63,94,0.15)" stroke="#f43f5e" stroke-width="1.5" />
+          <text x="20" y="27" fill="#f43f5e" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">!</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Unencrypted Library Backups</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">External drives must be encrypted before offsite archival</text>
+
+          <rect y="208" width="393" height="46" rx="6" fill="#1A202A" />
+          <circle cx="20" cy="23" r="8" fill="rgba(244,63,94,0.15)" stroke="#f43f5e" stroke-width="1.5" />
+          <text x="20" y="27" fill="#f43f5e" font-family="'JetBrains Mono', monospace" font-size="10" font-weight="700" text-anchor="middle">!</text>
+          <text x="36" y="20" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="11" font-weight="600">Public Network Binding</text>
+          <text x="36" y="35" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9">If binding to 0.0.0.0, PRISM_API_KEY must be configured</text>
+        </g>
+      </g>
+    </svg>
+  </div>
+</body>
+</html>
