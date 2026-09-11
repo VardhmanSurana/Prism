@@ -147,8 +147,8 @@ PRAGMA foreign_keys = ON;
 - **Foreign Keys ON**: Guarantees cascading deletes for photo metadata, faces, and album associations.
 
 ### Database Schema Entity Overview
-The database creates 18 core tables [VERIFY: backend_rust/src/db.rs:50-281]:
-1. **`photos`**: Master entity containing filesystem paths, dimensions, aspect ratio, camera EXIF, perceptual hashes (`hash`, `phash`), blur score, and generated AI fields (`embedding`, `ai_summary`, `auto_tags`, `ocr_text`, `ocr_bboxes`).
+The database creates 19 core tables [VERIFY: backend_rust/src/db.rs:50-295]:
+1. **`photos`**: Master entity containing filesystem paths, dimensions, aspect ratio, camera EXIF, perceptual hashes (`hash`, `phash`), blur score, generated AI fields (`embedding`, `ai_summary`, `auto_tags`, `ocr_text`, `ocr_bboxes`), culling metadata (`cull_status`, `rating`, `burst_group_id`), and disk availability tracking (`missing_since`, `last_verified`).
 2. **`albums`**: Logical user-created collections and smart albums (`screenshots`, `documents`, `places`).
 3. **`photo_albums`**: Junction table establishing many-to-many relationships between photos and albums.
 4. **`people`**: Clustered individuals with display names, cover thumbnails, and 512-dimensional face embeddings.
@@ -166,6 +166,7 @@ The database creates 18 core tables [VERIFY: backend_rust/src/db.rs:50-281]:
 16. **`shares`**: Tokenized link sharing records with expiration timestamps, download quotas, and privacy toggles.
 17. **`webhooks`**: External webhook listener endpoints with secret keys.
 18. **`users`**: Administrative authentication table using Argon2 password hashes.
+19. **`library_backups`**: Atomic SQLite backup snapshot archive tracking backup timestamps, file paths, byte sizes, and quick_check integrity statuses.
 
 ---
 
@@ -235,6 +236,25 @@ All API routes are mounted under the `/api/v1` namespace [VERIFY: backend_rust/s
 | `/maps/tiles/:provider/:z/:x/:y`| `GET`| Local tile proxy with offline disk caching | [VERIFY: backend_rust/src/routes/mod.rs:505] |
 | `/shares` | `POST` | Create password-protected resource sharing token | [VERIFY: backend_rust/src/routes/mod.rs:579] |
 | `/lan/discover` | `GET` | Broadcast & discover peer Prism instances on LAN | [VERIFY: backend_rust/src/routes/mod.rs:557] |
+
+### 5.6 Library Health & Recovery
+| Route | Method | Purpose | Source Reference |
+|---|---|---|---|
+| `/utilities/backup/export` | `POST` | Atomic SQLite snapshot via `VACUUM INTO` and verified with `PRAGMA quick_check` | [VERIFY: backend_rust/src/routes/utilities.rs:561] |
+| `/utilities/backup/restore` | `POST` | Restore database snapshot from `backups/` after clearing WAL/SHM | [VERIFY: backend_rust/src/routes/utilities.rs:651] |
+| `/utilities/backup/list` | `GET` | List all historical database backup snapshots | [VERIFY: backend_rust/src/routes/utilities.rs:698] |
+| `/library/health/status` | `GET` | Return comprehensive multi-tier storage allocation, missing media count, and WAL health | [VERIFY: backend_rust/src/routes/library_health.rs:60] |
+| `/library/health/scan-missing` | `POST` | Verify filesystem presence of all active photos, updating `missing_since` and `last_verified` | [VERIFY: backend_rust/src/routes/library_health.rs:142] |
+| `/library/health/relink` | `POST` | Batch relink photo paths matching `old_prefix` to `new_prefix` if present on disk | [VERIFY: backend_rust/src/routes/library_health.rs:223] |
+| `/library/health/verify-checksums` | `POST` | Execute `PRAGMA integrity_check` on the active SQLite database | [VERIFY: backend_rust/src/routes/library_health.rs:280] |
+
+### 5.7 Fast Review & Culling Workspace (`/cull/...`)
+| Route | Method | Purpose | Source Reference |
+|---|---|---|---|
+| `/cull/bursts` | `GET` | Cluster adjacent photos into bursts ($\Delta t \le 2.0\text{s}$ and same camera or phash Hamming distance $\le 12$) with `best_photo_id` | [VERIFY: backend_rust/src/routes/cull.rs:136] |
+| `/cull/status` | `POST` | Batch update `cull_status` (`picked`, `rejected`, `unflagged`) and star `rating` | [VERIFY: backend_rust/src/routes/cull.rs:195] |
+| `/cull/purge-rejected` | `POST` | Atomically soft-delete all photos marked `cull_status = 'rejected'` to trash (`is_trash = 1`) | [VERIFY: backend_rust/src/routes/cull.rs:247] |
+| `/cull/undo-purge` | `POST` | Restore recently purged rejected photos within undo window | [VERIFY: backend_rust/src/routes/cull.rs:288] |
 
 ---
 
@@ -320,8 +340,9 @@ Managed inside `frontend/components/layout/MainContent.tsx` [VERIFY: frontend/co
 - **`agent`**: Natural language assistant interface for photo search and collection curation.
 - **`toolbox`**: Image utility workspace for batch watermarking, palette extraction, and format transcoding.
 - **`projects`**: Non-linear video editor project management dashboard.
-- **`utilities`**: Storage cleanup tools, perceptual duplicate finder, blurry photo detector, and diagnostics.
+- **`utilities`**: Storage cleanup tools, perceptual duplicate finder, blurry photo detector, diagnostics, and Library Health & Recovery Center (`LibraryHealthView`).
 - **`appearance`**: Custom themes, accent colors, and animation tuning.
+- **`cull`**: High-speed review and fast culling workspace (`CullingView`) with synchronized 100%/200% dual-canvas compare, burst sequence filmstrip, sharpest frame indicator, and rapid keyboard triage.
 
 ### 8.2 Complete Zustand Store Inventory
 The frontend state is partitioned into specialized stores under `frontend/store/`:
@@ -336,6 +357,7 @@ The frontend state is partitioned into specialized stores under `frontend/store/
 9. **`pluginStore.ts`**: Installed plugin registry, active extensions, and plugin catalog state.
 10. **`galleryLayoutStore.ts`**: Grid layout preferences (justified vs masonry, thumbnail scale, display details).
 11. **`mobileStore.ts`**: Responsive mobile drawer states, bottom navigation, and touch gesture handlers.
+12. **`cullStore.ts`**: High-speed triage state, burst sequence clusters, candidate selection, synchronized pan/zoom offsets, auto-advance, and purge undo stack.
 
 ---
 

@@ -51,6 +51,10 @@ const TrashView = React.lazy(() => import('../TrashView/TrashView').then(m => ({
  * ImageToolboxView - Renders image toolbox view.
  */
 const ImageToolboxView = React.lazy(() => import('../ImageToolbox/ImageToolboxView').then(m => ({ default: m.ImageToolboxView })));
+/**
+ * CullingView - Renders fast culling & review workspace.
+ */
+const CullingView = React.lazy(() => import('../culling/CullingView').then(m => ({ default: m.CullingView })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -188,6 +192,8 @@ export const MainContent = React.memo(function MainContent({
             onPhotoClick={onPhotoClick}
           />
         );
+      case 'cull':
+        return <CullingView />;
       default:
         return (
           <PhotoGrid
@@ -214,7 +220,7 @@ export const MainContent = React.memo(function MainContent({
       ref={scrollRef as React.LegacyRef<HTMLDivElement>}
       onScroll={onScroll}
       className={`flex-1 scroll-smooth custom-scrollbar relative ${
-        (currentView === 'agent' || currentView === 'map') ? 'overflow-hidden h-full' : 'overflow-y-auto'
+        (currentView === 'agent' || currentView === 'map' || currentView === 'cull') ? 'overflow-hidden h-full' : 'overflow-y-auto'
       }`}
     >
       <React.Suspense fallback={null}>

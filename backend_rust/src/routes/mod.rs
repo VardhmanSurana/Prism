@@ -23,6 +23,8 @@ pub mod plugins;
 pub mod maps;
 pub mod capabilities;
 pub mod jobs;
+pub mod cull;
+pub mod library_health;
 
 use axum::{
     extract::{Request, State},
@@ -560,8 +562,17 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/external-locations", get(utilities::list_external_locations_api).post(utilities::create_external_location))
         .route("/utilities/external-locations/:loc_id", patch(utilities::update_external_location).delete(utilities::delete_external_location))
         .route("/utilities/visual-duplicates", get(utilities::get_visual_duplicates))
+        .route("/utilities/backup/list", get(utilities::list_backups))
         .route("/utilities/backup/export", post(utilities::export_backup))
         .route("/utilities/backup/restore", post(utilities::restore_backup))
+        .route("/library/health/status", get(library_health::get_health_status))
+        .route("/library/health/scan-missing", post(library_health::scan_missing))
+        .route("/library/health/relink", post(library_health::relink_paths))
+        .route("/library/health/verify-checksums", post(library_health::verify_checksums))
+        .route("/cull/bursts", get(cull::get_bursts))
+        .route("/cull/status", post(cull::update_cull_status))
+        .route("/cull/purge-rejected", post(cull::purge_rejected))
+        .route("/cull/undo-purge", post(cull::undo_purge))
         .route("/utilities/google-import", post(google_import::google_takeout_import))
         .route("/utilities/batch-rename", post(utilities::batch_rename_files))
         .route("/utilities/open-in-os-explorer", post(utilities::open_in_os_explorer))

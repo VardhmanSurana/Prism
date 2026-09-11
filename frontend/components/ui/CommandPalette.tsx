@@ -26,6 +26,7 @@ import {
   Grid3X3,
   LayoutList,
   SlidersHorizontal,
+  Flame,
 } from 'lucide-react';
 
 export interface CommandItem {
@@ -383,6 +384,16 @@ export function buildDefaultCommands(actions: {
       category: 'Navigation',
       action: () => actions.onNavigate('agent'),
       keywords: ['ai', 'chat', 'assistant'],
+    },
+    {
+      id: 'nav:cull',
+      label: 'Go to Culling Workspace',
+      description: 'High-speed review, burst triage, and pick/reject',
+      icon: <Flame className="w-4 h-4" />,
+      shortcut: '8',
+      category: 'Navigation',
+      action: () => actions.onNavigate('cull'),
+      keywords: ['cull', 'burst', 'review', 'triage', 'pick', 'reject'],
     },
 
     // Actions

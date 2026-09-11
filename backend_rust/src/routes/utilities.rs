@@ -270,46 +270,93 @@ pub async fn get_document_photos(
     Ok(Json(photos))
 }
 
-/// get_diagnostics - Retrieves get diagnostics.
-pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> {
-    let db_path = state.config.database_url.trim_start_matches("sqlite://");
-    let db_size = fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
-
-    let mut thumb_size: u64 = 0;
-    if let Ok(entries) = fs::read_dir(&state.config.thumbnails_dir) {
+pub fn dir_size_recursive(path: &std::path::Path) -> u64 {
+    let mut total: u64 = 0;
+    if let Ok(entries) = fs::read_dir(path) {
         for entry in entries.flatten() {
-            if let Ok(meta) = entry.metadata() {
-                thumb_size += meta.len();
+            let p = entry.path();
+            if p.is_dir() {
+                total += dir_size_recursive(&p);
+            } else if let Ok(meta) = entry.metadata() {
+                total += meta.len();
             }
         }
     }
+    total
+}
 
+/// get_diagnostics - Retrieves system diagnostics with live telemetry.
+pub async fn get_diagnostics(State(state): State<Arc<AppState>>) -> Json<Value> {
+    let db_path = state.config.database_url.trim_start_matches("sqlite://");
+    let db_size = fs::metadata(db_path).map(|m| m.len()).unwrap_or(0);
+    let wal_size = fs::metadata(format!("{}-wal", db_path)).map(|m| m.len()).unwrap_or(0);
+    let total_db_size = db_size + wal_size;
+
+    let thumb_size = dir_size_recursive(&state.config.thumbnails_dir);
+    let models_size = dir_size_recursive(&state.config.models_dir);
+
+    let total_photos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE is_trash = 0")
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+    let missing_photos: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE is_trash = 0 AND missing_since IS NOT NULL")
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+    let external_locs: Vec<(String, Option<String>, bool)> = sqlx::query_as(
+        "SELECT name, mount_path, enabled FROM external_locations"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut active_mounts = Vec::new();
+    for (name, mount_path, enabled) in external_locs {
+        let is_available = mount_path.as_ref().map_or(false, |p| std::path::Path::new(p).exists());
+        active_mounts.push(json!({
+            "name": name,
+            "path": mount_path,
+            "enabled": enabled,
+            "is_available": is_available
+        }));
+    }
+
+    let worker_snapshot = state.worker.status_snapshot();
     let home = env::var("HOME").unwrap_or_else(|_| "/".to_string());
 
     Json(json!({
         "status": "healthy",
         "backend": "rust-axum",
-        "platform": "Linux x86_64",
+        "platform": format!("{} {}", std::env::consts::OS, std::env::consts::ARCH),
         "database_path": db_path,
-        "database_size_bytes": db_size,
+        "database_size_bytes": total_db_size,
         "thumbnail_cache_size_bytes": thumb_size,
+        "models_dir_size_bytes": models_size,
+        "total_active_photos": total_photos,
+        "missing_photos_count": missing_photos,
         "sync_status": {
-            "is_running": true,
-            "queue_size": 0,
-            "processed_count": 0
+            "is_running": !worker_snapshot.paused,
+            "is_processing": worker_snapshot.is_processing,
+            "queue_size": worker_snapshot.total_photos.saturating_sub(worker_snapshot.completed),
+            "processed_count": worker_snapshot.completed,
+            "failed_count": worker_snapshot.failed
         },
-        "active_mounts": [],
+        "active_mounts": active_mounts,
         "watched_folders": [format!("{}/Pictures", home)],
         "excluded_folders": [],
         "models_loaded": {
-            "florence": true,
-            "siglip": true
+            "florence": state.config.models_dir.join("florence").exists() || state.config.models_dir.join("florence-2-base").exists(),
+            "siglip": state.config.models_dir.join("siglip").exists() || state.config.models_dir.join("clip").exists()
         },
         "features_enabled": {
             "magic_eraser": true,
             "face": true,
             "clip": true,
-            "rembg": true
+            "rembg": true,
+            "atomic_backup": true,
+            "burst_culling": true
         }
     }))
 }
@@ -512,51 +559,149 @@ pub async fn get_visual_duplicates(
     Json(json!({ "clusters": clusters }))
 }
 
-/// POST /api/v1/utilities/backup/export — Export backup (DB + settings as zip).
+/// POST /api/v1/utilities/backup/export — Export atomic backup via SQLite VACUUM INTO.
 pub async fn export_backup(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let db_path = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "backend_rust/prism.db".to_string())
-        .replace("sqlite://", "");
+    let backups_dir = PathBuf::from("backups");
+    fs::create_dir_all(&backups_dir)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create backups directory: {}", e)))?;
 
-    let backup_path = std::env::temp_dir().join(format!("prism_backup_{}.db", chrono::Utc::now().format("%Y%m%d_%H%M%S")));
-    std::fs::copy(&db_path, &backup_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to copy database: {}", e)))?;
+    let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S").to_string();
+    let filename = format!("prism_backup_{}.db", timestamp);
+    let abs_backup_path = fs::canonicalize(&backups_dir)
+        .unwrap_or_else(|_| env::current_dir().unwrap_or_default().join(&backups_dir))
+        .join(&filename);
+
+    let backup_path_str = abs_backup_path.to_string_lossy().replace('\'', "''");
+
+    // Execute atomic SQLite VACUUM INTO
+    sqlx::query(&format!("VACUUM INTO '{}'", backup_path_str))
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("SQLite VACUUM INTO failed: {}", e)))?;
+
+    // PRAGMA quick_check to verify database integrity
+    let integrity_check: String = sqlx::query_scalar("PRAGMA quick_check;")
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or_else(|_| "error".to_string());
+
+    let size_bytes = fs::metadata(&abs_backup_path)
+        .map(|m| m.len() as i64)
+        .unwrap_or(0);
+
+    // Record backup in library_backups table
+    sqlx::query(
+        "INSERT INTO library_backups (filename, path, size_bytes, integrity_status) VALUES (?, ?, ?, ?)"
+    )
+    .bind(&filename)
+    .bind(&abs_backup_path.to_string_lossy().to_string())
+    .bind(size_bytes)
+    .bind(&integrity_check)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to record backup metadata: {}", e)))?;
 
     Ok(Json(json!({
         "status": "success",
-        "backup_path": backup_path.to_string_lossy(),
+        "filename": filename,
+        "backup_path": abs_backup_path.to_string_lossy(),
+        "size_bytes": size_bytes,
+        "integrity_status": integrity_check,
     })))
 }
 
-/// POST /api/v1/utilities/backup/restore — Restore backup from zip.
+#[derive(Deserialize)]
+pub struct RestoreBackupRequest {
+    pub filename: Option<String>,
+    pub path: Option<String>,
+}
+
+fn find_latest_backup_file(backups_dir: &std::path::Path) -> Result<PathBuf, (StatusCode, String)> {
+    if !backups_dir.exists() {
+        return Err((StatusCode::NOT_FOUND, "No backups directory found".to_string()));
+    }
+    let mut files = Vec::new();
+    if let Ok(entries) = fs::read_dir(backups_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() && p.extension().map_or(false, |ext| ext == "db") {
+                if let Ok(meta) = p.metadata() {
+                    let mtime = meta.modified().unwrap_or(std::time::SystemTime::UNIX_EPOCH);
+                    files.push((p, mtime));
+                }
+            }
+        }
+    }
+    files.sort_by_key(|(_, mtime)| *mtime);
+    files.last().map(|(p, _)| p.clone()).ok_or((StatusCode::NOT_FOUND, "No backup files found in backups directory".to_string()))
+}
+
+/// POST /api/v1/utilities/backup/restore — Restore backup.
 pub async fn restore_backup(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
+    payload: Option<Json<RestoreBackupRequest>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    // ponytail: restore = replace the active DB file. Requires app restart.
-    let db_path = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "backend_rust/prism.db".to_string())
-        .replace("sqlite://", "");
+    let db_path_str = state.config.database_url.trim_start_matches("sqlite://");
+    let db_path = PathBuf::from(db_path_str);
 
-    let backup_dir = std::env::temp_dir();
-    let entries: Vec<_> = std::fs::read_dir(&backup_dir)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-        .filter_map(|e| e.ok())
-        .filter(|e| e.path().to_string_lossy().starts_with("prism_backup_"))
-        .collect();
+    let backups_dir = PathBuf::from("backups");
+    let target_backup_file = if let Some(Json(req)) = payload {
+        if let Some(ref path) = req.path {
+            let p = PathBuf::from(path);
+            if !p.exists() {
+                return Err((StatusCode::NOT_FOUND, format!("Backup file not found at path: {}", path)));
+            }
+            p
+        } else if let Some(ref filename) = req.filename {
+            let p = backups_dir.join(filename);
+            if !p.exists() {
+                return Err((StatusCode::NOT_FOUND, format!("Backup file not found: {}", filename)));
+            }
+            p
+        } else {
+            find_latest_backup_file(&backups_dir)?
+        }
+    } else {
+        find_latest_backup_file(&backups_dir)?
+    };
 
-    let latest = entries.last()
-        .ok_or((StatusCode::NOT_FOUND, "No backup found".to_string()))?;
+    let meta = fs::metadata(&target_backup_file)
+        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Cannot read backup metadata: {}", e)))?;
+    if meta.len() == 0 {
+        return Err((StatusCode::BAD_REQUEST, "Backup file is empty".to_string()));
+    }
 
-    std::fs::copy(latest.path(), &db_path)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to restore: {}", e)))?;
+    // Clean up any existing WAL / SHM files to prevent corruption upon restore
+    let wal_path = PathBuf::from(format!("{}-wal", db_path_str));
+    let shm_path = PathBuf::from(format!("{}-shm", db_path_str));
+    let _ = fs::remove_file(&wal_path);
+    let _ = fs::remove_file(&shm_path);
+
+    // Overwrite the DB file
+    fs::copy(&target_backup_file, &db_path)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to restore backup: {}", e)))?;
 
     Ok(Json(json!({
         "status": "success",
-        "restored_from": latest.path().to_string_lossy(),
-        "message": "Database restored. Please restart the application.",
+        "restored_from": target_backup_file.to_string_lossy(),
+        "message": "Database restored successfully. Please restart the application if connections are cached.",
     })))
+}
+
+/// GET /api/v1/utilities/backup/list — List all backups.
+pub async fn list_backups(
+    State(state): State<Arc<AppState>>,
+) -> Result<Json<Vec<crate::models::LibraryBackup>>, (StatusCode, String)> {
+    let backups = sqlx::query_as::<_, crate::models::LibraryBackup>(
+        "SELECT id, filename, path, size_bytes, integrity_status, created_at FROM library_backups ORDER BY id DESC"
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(backups))
 }
 
 #[derive(serde::Deserialize)]

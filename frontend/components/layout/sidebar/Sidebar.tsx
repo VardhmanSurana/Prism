@@ -10,6 +10,7 @@ import {
   Bot,
   Palette,
   Wrench,
+  Flame,
 } from 'lucide-react';
 import { ViewMode } from '@/types';
 import { GlassMaterial, GlassEffectContainer } from '@/components/ui/GlassMaterial';
@@ -33,6 +34,7 @@ const MAIN_NAV: NavItemData[] = [
 ];
 
 const LIBRARY_NAV: NavItemData[] = [
+  { view: 'cull', icon: Flame, label: 'Cull' },
   { view: 'people', icon: Users, label: 'People' },
   { view: 'trash', icon: Trash2, label: 'Trash' },
 ];

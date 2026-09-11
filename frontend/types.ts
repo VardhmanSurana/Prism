@@ -49,6 +49,11 @@ export interface Photo {
   exif_iso?: number;
   hash?: string;
   search_explanation?: { score: number; matched: string[] };
+  cull_status?: 'picked' | 'rejected' | 'unflagged';
+  rating?: number;
+  burst_group_id?: string;
+  missing_since?: string;
+  last_verified?: string;
 }
 
 interface AlbumMetadata {
@@ -94,7 +99,7 @@ interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent' | 'toolbox';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent' | 'toolbox' | 'cull';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 

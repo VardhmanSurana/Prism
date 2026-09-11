@@ -106,6 +106,7 @@ export function usePrismShortcuts(actions: {
       { key: '5', description: 'Favorites', action: () => actions.onNavigate('favorites') },
       { key: '6', description: 'Trash', action: () => actions.onNavigate('trash') },
       { key: '7', description: 'AI Agent', action: () => actions.onNavigate('agent') },
+      { key: '8', description: 'Cull', action: () => actions.onNavigate('cull') },
       // Actions
       { key: 'u', description: 'Upload', action: actions.onUpload },
       { key: 'l', description: 'Lock Toggle', action: actions.onToggleLock },

@@ -101,6 +101,31 @@ pub struct Photo {
     pub video_faces_scanned: bool,
     pub animated_url: Option<String>,
     pub event_id: Option<i64>,
+    #[serde(default)]
+    #[sqlx(default)]
+    pub cull_status: Option<String>,
+    #[serde(default)]
+    #[sqlx(default)]
+    pub rating: Option<i64>,
+    #[serde(default)]
+    #[sqlx(default)]
+    pub burst_group_id: Option<String>,
+    #[serde(default)]
+    #[sqlx(default)]
+    pub missing_since: Option<DateTime<Utc>>,
+    #[serde(default)]
+    #[sqlx(default)]
+    pub last_verified: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct LibraryBackup {
+    pub id: i64,
+    pub filename: String,
+    pub path: String,
+    pub size_bytes: i64,
+    pub integrity_status: String,
+    pub created_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]

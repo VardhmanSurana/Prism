@@ -28,12 +28,14 @@ import { DiagnosticsLogs } from './DiagnosticsLogs';
 import { PrivacyDashboard } from './PrivacyDashboard';
 import { ModelManager } from './ModelManager';
 import { PluginManager } from './PluginManager';
+import { LibraryHealthView } from '../health/LibraryHealthView';
 
 interface UtilitiesViewProps {
   onResetSuccess?: () => void;
 }
 
 const TABS = [
+  { id: 'health' as const, label: 'Health & Recovery', displayLabel: 'Library Health & Recovery', icon: Activity },
   { id: 'plugins' as const, label: 'Plugins', displayLabel: 'Plugin Management', icon: Package },
   { id: 'models' as const, label: 'AI Models', displayLabel: 'AI Model Management', icon: Sparkles },
   { id: 'engine' as const, label: 'Engine Configuration', displayLabel: 'Engine Configuration', icon: Cpu },
@@ -43,10 +45,10 @@ const TABS = [
 ];
 
 /**
- * Top-level utilities container with tab navigation (models, engine, storage, privacy, diagnostics).
+ * Top-level utilities container with tab navigation (health, plugins, models, engine, storage, privacy, diagnostics).
  */
 export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) => {
-  const [activeTab, setActiveTab] = useState<'plugins' | 'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('plugins');
+  const [activeTab, setActiveTab] = useState<'health' | 'plugins' | 'models' | 'engine' | 'storage' | 'privacy' | 'diagnostics'>('health');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hostCacheSize, setHostCacheSize] = useState<string | null>(null);
 
@@ -274,6 +276,10 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
           </div>
 
           {/* Active Tab Views */}
+          {activeTab === 'health' && (
+            <LibraryHealthView />
+          )}
+
           {activeTab === 'plugins' && (
             <div>
               <PluginManager />
