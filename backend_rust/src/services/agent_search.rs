@@ -152,6 +152,69 @@ impl SearchTools {
         scored.into_iter().take(top_k).map(|(pid, _)| pid).collect()
     }
 
+    /// Performs semantic search and returns photo IDs with their similarity scores.
+    pub async fn semantic_search_with_scores(&self, text_query: &str, top_k: usize, is_locked: bool) -> Vec<(i64, f32)> {
+        if text_query.is_empty() {
+            return vec![];
+        }
+
+        let engine = match &self.siglip {
+            Some(e) => e,
+            None => return vec![],
+        };
+
+        let query_emb = match engine.embed_text(text_query) {
+            Ok(emb) => emb,
+            Err(e) => {
+                tracing::error!("SigLIP embed_text error: {}", e);
+                return vec![];
+            }
+        };
+
+        if let Some(vi) = &self.vector_index {
+            if vi.is_loaded() {
+                let results = vi.search(&query_emb, top_k * 2);
+                return results
+                    .into_iter()
+                    .map(|(id, dist)| (id, (1.0 - dist).max(0.0) as f32))
+                    .take(top_k)
+                    .collect();
+            }
+        }
+
+        let rows = sqlx::query(
+            "SELECT id, embedding_blob, embedding FROM photos WHERE is_trash = 0 AND is_locked = ? AND (embedding_blob IS NOT NULL OR embedding IS NOT NULL)"
+        )
+        .bind(is_locked)
+        .fetch_all(&self.db)
+        .await
+        .unwrap_or_default();
+
+        let candidates: Vec<PhotoCandidate> = rows
+            .into_iter()
+            .map(|r| PhotoCandidate {
+                id: r.get("id"),
+                blob: r.get("embedding_blob"),
+                json: r.get("embedding"),
+            })
+            .collect();
+
+        let mut scored: Vec<(i64, f32)> = candidates
+            .par_iter()
+            .filter_map(|c| {
+                let sim = c.score(&query_emb)?;
+                if sim >= 0.15 {
+                    Some((c.id, sim))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        scored.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+        scored.into_iter().take(top_k).collect()
+    }
+
     #[allow(dead_code)]
     /// similar_image - Performs similar image.
     pub async fn similar_image(&self, photo_id: i64, top_k: usize, is_locked: bool, _ordered: bool) -> Vec<i64> {

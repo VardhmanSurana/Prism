@@ -35,3 +35,7 @@ pub mod editor_models;
 pub mod packs;
 pub mod plugins;
 pub mod lan_beacon;
+pub mod scheduler;
+pub mod xmp;
+
+pub mod vault_crypto;

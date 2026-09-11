@@ -111,6 +111,11 @@ pub async fn update_photo_adjustments(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    let photo_path = std::path::Path::new(&photo.path);
+    if photo_path.exists() {
+        let _ = crate::services::xmp::write_xmp_sidecar(photo_path, &payload.adjustments);
+    }
+
     Ok(Json(json!({ "status": "success", "photo_id": photo.id })))
 }
 
@@ -128,7 +133,7 @@ pub async fn bulk_update_adjustments(
     let adj_str = payload.adjustments.to_string();
     let mut updated_count = 0;
 
-    for item in payload.photo_ids {
+    for item in &payload.photo_ids {
         if let Some(n) = item.as_i64() {
             if sqlx::query("UPDATE photos SET adjustments_json = ? WHERE id = ?")
                 .bind(&adj_str)
@@ -138,6 +143,16 @@ pub async fn bulk_update_adjustments(
                 .is_ok()
             {
                 updated_count += 1;
+                if let Ok(Some(path_str)) = sqlx::query_scalar::<_, String>("SELECT path FROM photos WHERE id = ?")
+                    .bind(n)
+                    .fetch_optional(&state.db)
+                    .await
+                {
+                    let photo_path = std::path::Path::new(&path_str);
+                    if photo_path.exists() {
+                        let _ = crate::services::xmp::write_xmp_sidecar(photo_path, &payload.adjustments);
+                    }
+                }
             }
         }
     }

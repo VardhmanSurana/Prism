@@ -57,3 +57,32 @@ pub fn generate_thumbnail(
 
     Ok(thumb_path)
 }
+
+/// Generates a thumbnail from in-memory image bytes (used for decrypted vault
+/// photos so plaintext never needs to exist on disk again).
+/// Returns the path of the written thumbnail.
+pub fn generate_thumbnail_from_bytes(
+    bytes: &[u8],
+    thumb_dir: &Path,
+    photo_id: i64,
+    max_dim: u32,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
+
+    let thumb_filename = if max_dim == 400 {
+        format!("{}_thumb.jpg", photo_id)
+    } else {
+        format!("{}_thumb_{}.jpg", photo_id, max_dim)
+    };
+    let thumb_path = thumb_dir.join(&thumb_filename);
+
+    if thumb_path.exists() {
+        return Ok(thumb_path);
+    }
+
+    let img = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
+    let resized = img.thumbnail(max_dim, max_dim);
+    resized.save(&thumb_path).map_err(|e| e.to_string())?;
+
+    Ok(thumb_path)
+}

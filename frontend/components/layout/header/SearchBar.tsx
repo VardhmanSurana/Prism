@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Loader2, ArrowDownWideNarrow, ChevronDown, Check } from 'lucide-react';
+import { Search, Loader2, ArrowDownWideNarrow, ChevronDown, Check, BookmarkPlus, CheckCircle2 } from 'lucide-react';
 import { SearchFilters, SortMode } from '@/types';
+import { API_BASE } from '@/constants';
 
 interface SearchBarProps {
   onSearch: (filters: SearchFilters | null) => void;
@@ -10,12 +11,15 @@ interface SearchBarProps {
 
 // ponytail: simplified SearchBar, standardized on signature Prism styling
 /**
- * SearchBar - Renders search bar.
+ * SearchBar - Renders search bar with match filter pills and smart album saving.
  */
 export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSortChange }) => {
   const [query, setQuery] = useState('');
   const [isSearching] = useState(false);
   const [isSortOpen, setIsSortOpen] = useState(false);
+  const [isSavingAlbum, setIsSavingAlbum] = useState(false);
+  const [albumSaved, setAlbumSaved] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -44,6 +48,39 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
     }
   };
 
+  const handleAppendFilter = (prefix: string) => {
+    setQuery((prev) => {
+      const next = prev ? `${prev.trim()} ${prefix}` : prefix;
+      return next;
+    });
+    inputRef.current?.focus();
+  };
+
+  const handleSaveSmartAlbum = async () => {
+    if (!query.trim() || isSavingAlbum) return;
+    setIsSavingAlbum(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/albums`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `Smart: ${query}`,
+          type: 'smart',
+          is_smart: true,
+          smart_rules: JSON.stringify({ query }),
+        }),
+      });
+      if (res.ok) {
+        setAlbumSaved(true);
+        setTimeout(() => setAlbumSaved(false), 2500);
+      }
+    } catch (err) {
+      console.error('Failed to save smart album:', err);
+    } finally {
+      setIsSavingAlbum(false);
+    }
+  };
+
   const sortOptions: { label: string; value: SortMode }[] = [
     { label: 'Newest first', value: 'newest' },
     { label: 'Oldest first', value: 'oldest' },
@@ -61,12 +98,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
           )}
         </div>
         <input
+          ref={inputRef}
           id="header-search-input"
           name="headerSearchQuery"
           aria-label="Query deep library"
           type="text"
           className="w-full bg-transparent border-b border-white/5 rounded-none py-3 pl-8 pr-12 text-sm text-gray-100 focus:border-primary/50 focus:ring-0 transition-colors 150ms ease, border-color 150ms ease font-mono placeholder:text-gray-600 placeholder:uppercase placeholder:tracking-widest placeholder:text-[10px]"
-          placeholder="Query deep library..."
+          placeholder="Query deep library (e.g. sunset -dog)..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -82,7 +120,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
           </button>
 
           {isSortOpen && (
-            <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl p-1 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-xl shadow-2xl p-1 animate-in fade-in slide-in-from-top-2 duration-200 z-50">
               <div className="px-3 py-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest border-b border-border/50 mb-1">
                 Sort by
               </div>
@@ -104,6 +142,57 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, sortMode, onSort
             </div>
           )}
         </div>
+      </div>
+
+      {/* Match Filter Pills & Smart Album Action */}
+      <div className="flex items-center gap-1.5 mt-1 px-0.5 flex-wrap">
+        <span className="text-[9px] uppercase tracking-wider text-gray-500 font-mono select-none">Pills:</span>
+        <button
+          type="button"
+          onClick={() => handleAppendFilter('date:2024')}
+          className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white/[0.04] hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer border border-white/5"
+        >
+          Date:
+        </button>
+        <button
+          type="button"
+          onClick={() => handleAppendFilter('camera:Sony')}
+          className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white/[0.04] hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer border border-white/5"
+        >
+          Camera:
+        </button>
+        <button
+          type="button"
+          onClick={() => handleAppendFilter('person:Alice')}
+          className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-white/[0.04] hover:bg-white/10 text-gray-400 hover:text-white transition-colors cursor-pointer border border-white/5"
+        >
+          Person:
+        </button>
+        <button
+          type="button"
+          onClick={() => handleAppendFilter('-')}
+          className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 transition-colors cursor-pointer border border-rose-500/20"
+          title="Exclude keyword (e.g. -dog)"
+        >
+          Exclude:
+        </button>
+
+        {query.trim().length > 0 && (
+          <button
+            type="button"
+            onClick={handleSaveSmartAlbum}
+            disabled={isSavingAlbum}
+            className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-all cursor-pointer ${
+              albumSaved
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                : 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20'
+            }`}
+            title="Save active search as Smart Album"
+          >
+            {albumSaved ? <CheckCircle2 size={11} /> : <BookmarkPlus size={11} />}
+            <span>{albumSaved ? 'Saved Smart Album!' : 'Save as Smart Album'}</span>
+          </button>
+        )}
       </div>
     </div>
   );

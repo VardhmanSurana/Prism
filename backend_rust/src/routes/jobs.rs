@@ -17,6 +17,9 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/", get(list_jobs))
         .route("/pause", post(pause_jobs))
         .route("/resume", post(resume_jobs))
+        .route("/pause-stage", post(pause_stage))
+        .route("/resume-stage", post(resume_stage))
+        .route("/prioritize-album/:album_id", post(prioritize_album))
         .route("/prune", delete(prune_jobs))
         .route("/:id/cancel", post(cancel_job))
         .route("/:id/retry", post(retry_job))
@@ -138,7 +141,7 @@ pub async fn list_jobs(
         }
     }
 
-    let worker_snapshot = state.worker.status_snapshot();
+    let worker_snapshot = state.worker.status_snapshot_with_scheduler(&state.scheduler);
 
     // Map job rows into friendly structure
     let formatted_jobs: Vec<Value> = rows.into_iter().map(|job| {
@@ -189,7 +192,10 @@ pub async fn list_jobs(
         "jobs": formatted_jobs,
         "counts": counts,
         "is_worker_paused": worker_snapshot.paused,
-        "is_worker_processing": worker_snapshot.is_processing
+        "is_worker_processing": worker_snapshot.is_processing,
+        "pause_reason": worker_snapshot.pause_reason,
+        "paused_stages": worker_snapshot.paused_stages,
+        "hardware": worker_snapshot.hardware,
     })))
 }
 
@@ -296,4 +302,52 @@ pub async fn resume_jobs(
     state.worker.paused.store(false, Ordering::Relaxed);
     state.worker.notify.notify_one();
     Ok(Json(json!({ "success": true, "paused": false })))
+}
+
+#[derive(Deserialize)]
+pub struct StageControlPayload {
+    pub stage: String,
+}
+
+/// pause_stage - Pauses a specific background stage (e.g. embedding, face, ocr).
+pub async fn pause_stage(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<StageControlPayload>,
+) -> Json<Value> {
+    state.worker.pause_stage(&payload.stage);
+    Json(json!({
+        "success": true,
+        "paused_stage": payload.stage,
+        "paused_stages": state.worker.get_paused_stages(),
+    }))
+}
+
+/// resume_stage - Resumes a paused background stage.
+pub async fn resume_stage(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<StageControlPayload>,
+) -> Json<Value> {
+    state.worker.resume_stage(&payload.stage);
+    state.worker.notify.notify_one();
+    Json(json!({
+        "success": true,
+        "resumed_stage": payload.stage,
+        "paused_stages": state.worker.get_paused_stages(),
+    }))
+}
+
+/// prioritize_album - Prioritizes background jobs for photos inside an album.
+pub async fn prioritize_album(
+    State(state): State<Arc<AppState>>,
+    Path(album_id): Path<i64>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let affected = crate::services::worker::prioritize_album(&state.db, album_id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    state.worker.notify.notify_one();
+    Ok(Json(json!({
+        "success": true,
+        "album_id": album_id,
+        "jobs_prioritized": affected,
+    })))
 }

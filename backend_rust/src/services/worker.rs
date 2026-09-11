@@ -11,7 +11,7 @@
 /// Each analyzer has a cost profile. The scheduler picks the highest-priority
 /// analyzer that the current system can handle, then runs it.
 use async_trait::async_trait;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -19,6 +19,8 @@ use tokio::sync::Notify;
 use tokio::time::sleep;
 use tracing::info;
 use sqlx::Row;
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
 
 use crate::db::DbPool;
 use crate::services::ml_client::MlClient;
@@ -74,7 +76,7 @@ pub trait Analyzer: Send + Sync {
 // ─── System Monitor ────────────────────────────────────────────────────────
 
 /// Point-in-time snapshot of what the machine is doing.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SystemState {
     pub cpu_usage: f32,
     pub on_battery: bool,
@@ -82,6 +84,9 @@ pub struct SystemState {
     pub external_disconnected: bool,
     pub gpu_busy: bool,
     pub user_active: bool,
+    pub cpu_temp_c: f32,
+    pub disk_free_bytes: u64,
+    pub disk_free_gb: f32,
 }
 
 /// Polls the OS for resource usage. Cheap — spawns no threads, just reads sysinfo on demand.
@@ -120,6 +125,62 @@ impl SystemMonitor {
             let mut sys = System::new();
             sys.refresh_cpu_all();
             state.cpu_usage = sys.global_cpu_usage();
+        }
+
+        // ── CPU Temperature ──
+        let mut max_temp = 0.0f32;
+        if let Ok(entries) = std::fs::read_dir("/sys/class/thermal") {
+            for entry in entries.flatten() {
+                let name = entry.file_name();
+                if name.to_string_lossy().starts_with("thermal_zone") {
+                    if let Ok(temp_str) = std::fs::read_to_string(entry.path().join("temp")) {
+                        if let Ok(temp_milli) = temp_str.trim().parse::<f32>() {
+                            let deg = temp_milli / 1000.0;
+                            if deg > max_temp {
+                                max_temp = deg;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if max_temp == 0.0 {
+            if let Ok(hwmons) = std::fs::read_dir("/sys/class/hwmon") {
+                for hwmon in hwmons.flatten() {
+                    if let Ok(files) = std::fs::read_dir(hwmon.path()) {
+                        for f in files.flatten() {
+                            let fname = f.file_name();
+                            let fname_str = fname.to_string_lossy();
+                            if fname_str.starts_with("temp") && fname_str.ends_with("_input") {
+                                if let Ok(content) = std::fs::read_to_string(f.path()) {
+                                    if let Ok(milli) = content.trim().parse::<f32>() {
+                                        let deg = milli / 1000.0;
+                                        if deg > max_temp {
+                                            max_temp = deg;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        state.cpu_temp_c = max_temp;
+
+        // ── Available Disk Space ──
+        {
+            use sysinfo::Disks;
+            let disks = Disks::new_with_refreshed_list();
+            let mut free_bytes = 0u64;
+            for disk in disks.list() {
+                let mnt = disk.mount_point();
+                if self.uploads_dir.starts_with(mnt) || free_bytes == 0 {
+                    free_bytes = disk.available_space();
+                }
+            }
+            state.disk_free_bytes = free_bytes;
+            state.disk_free_gb = free_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
         }
 
         // ── Battery ──
@@ -304,6 +365,32 @@ impl JobScheduler {
         if state.on_battery && state.battery_percent < BATTERY_LOW {
             return Some(("battery_critical", 30));
         }
+        if state.cpu_temp_c >= 85.0 {
+            return Some(("cpu_overheated", 15));
+        }
+        if state.disk_free_bytes > 0 && state.disk_free_bytes < 2 * 1024 * 1024 * 1024 {
+            return Some(("low_disk_space", 30));
+        }
+        None
+    }
+
+    /// Evaluates system metrics and returns a plain-language pause reason if throttled/paused.
+    pub fn get_pause_reason(&self, worker_paused: bool, state: &SystemState) -> Option<String> {
+        if worker_paused {
+            return Some("Paused by user".to_string());
+        }
+        if state.on_battery && state.battery_percent < BATTERY_LOW {
+            return Some(format!("Paused: Battery below {}% ({}%)", BATTERY_LOW, state.battery_percent));
+        }
+        if state.cpu_temp_c >= 85.0 {
+            return Some(format!("Paused: High CPU temperature ({:.0}°C)", state.cpu_temp_c));
+        }
+        if state.disk_free_bytes > 0 && state.disk_free_bytes < 2 * 1024 * 1024 * 1024 {
+            return Some(format!("Paused: Low disk space (< 2 GB, {:.1} GB free)", state.disk_free_gb));
+        }
+        if state.cpu_usage > CPU_THRESHOLD_HIGH {
+            return Some(format!("Paused: CPU overloaded ({:.0}%)", state.cpu_usage));
+        }
         None
     }
 
@@ -365,6 +452,7 @@ pub struct WorkerState {
     pub completed: AtomicU64,
     pub failed: AtomicU64,
     pub currently_processing: AtomicBool,
+    pub paused_stages: RwLock<HashSet<String>>,
     /// Per-analyzer completion counters, keyed by analyzer name.
     analyzer_counters: HashMap<String, Arc<AtomicU64>>,
 }
@@ -384,8 +472,51 @@ impl WorkerState {
             completed: AtomicU64::new(0),
             failed: AtomicU64::new(0),
             currently_processing: AtomicBool::new(false),
+            paused_stages: RwLock::new(HashSet::new()),
             analyzer_counters,
         })
+    }
+
+    /// pause_stage - Pause an individual analysis stage.
+    pub fn pause_stage(&self, stage: &str) {
+        self.paused_stages.write().insert(stage.trim().to_lowercase());
+    }
+
+    /// resume_stage - Resume an individual analysis stage.
+    pub fn resume_stage(&self, stage: &str) {
+        self.paused_stages.write().remove(&stage.trim().to_lowercase());
+    }
+
+    /// is_stage_paused - Checks if an analysis stage is paused.
+    pub fn is_stage_paused(&self, stage: &str) -> bool {
+        let paused = self.paused_stages.read();
+        let s = stage.trim().to_lowercase();
+        if paused.contains(&s) {
+            return true;
+        }
+        match s.as_str() {
+            "siglip" | "embedding" | "embeddings" => {
+                paused.contains("siglip") || paused.contains("embedding") || paused.contains("embeddings")
+            }
+            "face" | "faces" | "face_detection" | "face_id" => {
+                paused.contains("face") || paused.contains("faces") || paused.contains("face_detection") || paused.contains("face_id")
+            }
+            "vision" | "gemma" | "summary" => {
+                paused.contains("vision") || paused.contains("gemma") || paused.contains("summary")
+            }
+            "ocr" | "rapid_ocr" | "ocr_bbox" => {
+                paused.contains("ocr") || paused.contains("rapid_ocr") || paused.contains("ocr_bbox")
+            }
+            "thumbnail" | "thumbnails" => {
+                paused.contains("thumbnail") || paused.contains("thumbnails")
+            }
+            _ => false,
+        }
+    }
+
+    /// get_paused_stages - Returns active list of paused stages.
+    pub fn get_paused_stages(&self) -> Vec<String> {
+        self.paused_stages.read().iter().cloned().collect()
     }
 
     /// increment_counter - Performs increment counter.
@@ -414,33 +545,111 @@ impl WorkerState {
         }
     }
 
-    /// status_snapshot - Performs status snapshot.
-    pub fn status_snapshot(&self) -> WorkerStatus {
+    /// status_snapshot_with_scheduler - Snapshot with live hardware telemetry.
+    pub fn status_snapshot_with_scheduler(&self, scheduler: &JobScheduler) -> WorkerStatusSnapshot {
+        let sys = scheduler.get_system_state();
+        let is_paused = self.paused.load(Ordering::Relaxed);
+        let pause_reason = scheduler.get_pause_reason(is_paused, &sys);
+        let paused_stages = self.get_paused_stages();
+
         let analyzer_counts: HashMap<String, u64> = self
             .analyzer_counters
             .iter()
             .map(|(name, counter)| (name.clone(), counter.load(Ordering::Relaxed)))
             .collect();
 
-        WorkerStatus {
+        let is_throttled = pause_reason.is_some() && !is_paused;
+
+        let hardware = HardwareMetricsSnapshot {
+            cpu_usage: sys.cpu_usage,
+            on_battery: sys.on_battery,
+            battery_percent: sys.battery_percent,
+            cpu_temp_c: sys.cpu_temp_c,
+            disk_free_bytes: sys.disk_free_bytes,
+            disk_free_gb: sys.disk_free_gb,
+            gpu_busy: sys.gpu_busy,
+            external_disconnected: sys.external_disconnected,
+            user_active: sys.user_active,
+            is_throttled,
+        };
+
+        WorkerStatusSnapshot {
             total_photos: self.total_enqueued.load(Ordering::Relaxed),
-            paused: self.paused.load(Ordering::Relaxed),
+            paused: is_paused,
             is_processing: self.currently_processing.load(Ordering::Relaxed),
             completed: self.completed.load(Ordering::Relaxed),
             failed: self.failed.load(Ordering::Relaxed),
             analyzer_counts,
+            pause_reason,
+            paused_stages,
+            hardware,
+        }
+    }
+
+    /// status_snapshot - Performs status snapshot.
+    pub fn status_snapshot(&self) -> WorkerStatusSnapshot {
+        let analyzer_counts: HashMap<String, u64> = self
+            .analyzer_counters
+            .iter()
+            .map(|(name, counter)| (name.clone(), counter.load(Ordering::Relaxed)))
+            .collect();
+
+        let is_paused = self.paused.load(Ordering::Relaxed);
+        let pause_reason = if is_paused { Some("Paused by user".to_string()) } else { None };
+
+        WorkerStatusSnapshot {
+            total_photos: self.total_enqueued.load(Ordering::Relaxed),
+            paused: is_paused,
+            is_processing: self.currently_processing.load(Ordering::Relaxed),
+            completed: self.completed.load(Ordering::Relaxed),
+            failed: self.failed.load(Ordering::Relaxed),
+            analyzer_counts,
+            pause_reason,
+            paused_stages: self.get_paused_stages(),
+            hardware: HardwareMetricsSnapshot {
+                cpu_usage: 0.0,
+                on_battery: false,
+                battery_percent: 100,
+                cpu_temp_c: 0.0,
+                disk_free_bytes: 0,
+                disk_free_gb: 0.0,
+                gpu_busy: false,
+                external_disconnected: false,
+                user_active: false,
+                is_throttled: false,
+            },
         }
     }
 }
 
-pub struct WorkerStatus {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HardwareMetricsSnapshot {
+    pub cpu_usage: f32,
+    pub on_battery: bool,
+    pub battery_percent: u32,
+    pub cpu_temp_c: f32,
+    pub disk_free_bytes: u64,
+    pub disk_free_gb: f32,
+    pub gpu_busy: bool,
+    pub external_disconnected: bool,
+    pub user_active: bool,
+    pub is_throttled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorkerStatusSnapshot {
     pub total_photos: u64,
     pub paused: bool,
     pub is_processing: bool,
     pub completed: u64,
     pub failed: u64,
     pub analyzer_counts: HashMap<String, u64>,
+    pub pause_reason: Option<String>,
+    pub paused_stages: Vec<String>,
+    pub hardware: HardwareMetricsSnapshot,
 }
+
+pub type WorkerStatus = WorkerStatusSnapshot;
 
 // ─── Stage-aware resume ───────────────────────────────────────────────────
 
@@ -578,7 +787,7 @@ async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
         JOIN photos p ON p.id = j.photo_id
         WHERE j.status = 'pending'
           AND j.job_type = 'sequential_analysis'
-        ORDER BY j.created_at ASC
+        ORDER BY COALESCE(j.priority, 0) DESC, j.created_at ASC
         LIMIT 1
         "#
     )
@@ -642,6 +851,11 @@ async fn run_analyzers(
     let mut results = Vec::with_capacity(allowed.len());
 
     for &stage_name in allowed {
+        if worker.is_stage_paused(stage_name) {
+            info!("[Scheduler] Skipping stage '{}' on photo {} (stage paused)", stage_name, photo_id);
+            continue;
+        }
+
         update_stage(db, photo_id, stage_name).await;
 
         // Find the analyzer by name in the registry
@@ -792,5 +1006,50 @@ pub async fn enqueue_missing_ocr_jobs(db: &DbPool) {
 
     if count > 0 {
         info!("[Scheduler] Enqueued {} photos for OCR after rapid_ocr download", count);
+    }
+}
+
+/// Boost background job priority for all photos in an album.
+pub async fn prioritize_album(db: &DbPool, album_id: i64) -> Result<u64, sqlx::Error> {
+    let rows = sqlx::query(
+        r#"
+        UPDATE background_jobs
+        SET priority = COALESCE(priority, 0) + 100, updated_at = CURRENT_TIMESTAMP
+        WHERE photo_id IN (
+            SELECT photo_id FROM photo_albums WHERE album_id = ?
+        ) AND status IN ('pending', 'processing')
+        "#
+    )
+    .bind(album_id)
+    .execute(db)
+    .await?
+    .rows_affected();
+
+    info!("[Scheduler] Boosted priority (+100) for {} jobs in album {}", rows, album_id);
+    Ok(rows)
+}
+
+/// Automatically generates / enqueues a proxy video if video height > 1080 or fps > 30.
+pub async fn enqueue_video_proxy_if_needed(db: &DbPool, photo_id: i64, height: Option<i64>, fps: Option<f64>) {
+    let is_large = height.map(|h| h > 1080).unwrap_or(false) || fps.map(|f| f > 30.0).unwrap_or(false);
+    if !is_large {
+        return;
+    }
+    let exists: bool = sqlx::query_scalar(
+        "SELECT COUNT(*) > 0 FROM background_jobs WHERE photo_id = ? AND job_type = 'video_proxy' AND status IN ('pending', 'processing', 'completed')"
+    )
+    .bind(photo_id)
+    .fetch_one(db)
+    .await
+    .unwrap_or(false);
+
+    if !exists {
+        let _ = sqlx::query(
+            "INSERT INTO background_jobs (photo_id, job_type, title, status, priority) VALUES (?, 'video_proxy', 'Generate Fast Editing Proxy', 'pending', 50)"
+        )
+        .bind(photo_id)
+        .execute(db)
+        .await;
+        info!("[Scheduler] Enqueued proxy generation for photo_id={}", photo_id);
     }
 }

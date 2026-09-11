@@ -11,7 +11,7 @@ use tokio::fs::File;
 use tokio_util::io::ReaderStream;
 
 use crate::models::Photo;
-use crate::services::thumbnail::generate_thumbnail;
+use crate::services::thumbnail::{generate_thumbnail, generate_thumbnail_from_bytes};
 use crate::AppState;
 use super::find_photo_by_id_or_uuid;
 
@@ -200,6 +200,54 @@ pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     None
 }
 
+/// Resolves a photo's content source, transparently decrypting vaulted files.
+///
+/// For locked photos the plaintext original has been shredded and replaced by
+/// `<path>.prism_enc` ciphertext. Instead of writing decrypted data to disk
+/// (zero-knowledge requirement), the ciphertext is decrypted into memory and
+/// returned as full bytes for direct streaming in the response.
+/// Returns `Ok(None)`-style signal via `PhotoContent::File` for normal files.
+enum PhotoContent {
+    /// Plaintext file on disk — stream it.
+    File(PathBuf),
+    /// Decrypted-in-memory bytes from a `.prism_enc` vault file.
+    DecryptedBytes(Vec<u8>, String),
+}
+
+async fn resolve_photo_content(
+    photo: &Photo,
+) -> Result<PhotoContent, (StatusCode, String)> {
+    let real_path = resolve_photo_path(&photo.path)
+        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
+
+    // Vaulted photo: plaintext gone, ciphertext beside the original path.
+    if photo.is_locked {
+        let enc_path = format!("{}.prism_enc", real_path.display());
+        if std::path::Path::new(&enc_path).exists() {
+            let key = crate::services::vault_crypto::get_vault().get_key().ok_or((
+                StatusCode::LOCKED,
+                "Vault is locked. Unlock the vault to view this photo.".to_string(),
+            ))?;
+            let enc = enc_path.clone();
+            let bytes = tokio::task::spawn_blocking(move || {
+                crate::services::vault_crypto::VaultManager::decrypt_file(
+                    std::path::Path::new(&enc),
+                    &key,
+                )
+            })
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
+            let mime = mime_guess::from_path(&real_path)
+                .first_or_octet_stream()
+                .to_string();
+            return Ok(PhotoContent::DecryptedBytes(bytes, mime));
+        }
+    }
+
+    Ok(PhotoContent::File(real_path))
+}
+
 /// get_photo_file - Retrieves get photo file.
 pub async fn get_photo_file(
     State(state): State<Arc<AppState>>,
@@ -207,19 +255,21 @@ pub async fn get_photo_file(
 ) -> Result<Response, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
 
-    let file_path = resolve_photo_path(&photo.path)
-        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
-
-    let mime = mime_guess::from_path(&file_path)
-        .first_or_octet_stream()
-        .to_string();
-
-    let file = File::open(&file_path)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let stream = ReaderStream::new(file);
-    let body = axum::body::Body::from_stream(stream);
+    let (mime, body) = match resolve_photo_content(&photo).await? {
+        PhotoContent::File(file_path) => {
+            let mime = mime_guess::from_path(&file_path)
+                .first_or_octet_stream()
+                .to_string();
+            let file = File::open(&file_path)
+                .await
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            let stream = ReaderStream::new(file);
+            (mime, axum::body::Body::from_stream(stream))
+        }
+        PhotoContent::DecryptedBytes(bytes, mime) => {
+            (mime, axum::body::Body::from(bytes))
+        }
+    };
 
     Ok(Response::builder()
         .header(header::CONTENT_TYPE, mime)
@@ -241,20 +291,31 @@ pub async fn get_photo_thumbnail(
 ) -> Result<Response, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
 
-    let source_path = resolve_photo_path(&photo.path)
-        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
-
     let max_dim = query.size.unwrap_or(400).clamp(64, 2048);
-    let source_path_clone = source_path.clone();
     let thumbnails_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
 
-    let target_file_path = tokio::task::spawn_blocking(move || {
-        generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim)
-    })
-    .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-    .unwrap_or_else(|_| source_path.clone());
+    let target_file_path = match resolve_photo_content(&photo).await? {
+        PhotoContent::File(source_path) => {
+            let source_path_clone = source_path.clone();
+            tokio::task::spawn_blocking(move || {
+                generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim)
+            })
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .unwrap_or_else(|_| source_path.clone())
+        }
+        PhotoContent::DecryptedBytes(bytes, _) => {
+            // Generate thumbnail from decrypted bytes in memory — never touches
+            // plaintext disk beyond a transient buffer held by the caller.
+            tokio::task::spawn_blocking(move || {
+                generate_thumbnail_from_bytes(&bytes, &thumbnails_dir, photo_id, max_dim)
+            })
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?
+        }
+    };
 
     let mime = mime_guess::from_path(&target_file_path)
         .first_or_octet_stream()

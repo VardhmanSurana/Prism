@@ -67,6 +67,12 @@ const AddToAlbumDialog = React.lazy(() =>
 const CommandPalette = React.lazy(() =>
   import('./components/ui/CommandPalette').then((m) => ({ default: m.CommandPalette }))
 );
+const FirstRunWizardModal = React.lazy(() =>
+  import('./components/onboarding/FirstRunWizardModal').then((m) => ({ default: m.FirstRunWizardModal }))
+);
+const ShortcutsCheatsheetModal = React.lazy(() =>
+  import('./components/ui/ShortcutsCheatsheetModal').then((m) => ({ default: m.ShortcutsCheatsheetModal }))
+);
 
 /**
  * App - Renders app.
@@ -362,6 +368,25 @@ function App() {
   const [isCollageOpen, setIsCollageOpen] = useState(false);
   const [isPhotoBookOpen, setIsPhotoBookOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !localStorage.getItem('prism_onboarding_completed')) {
+      setIsOnboardingOpen(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleGlobalShortcuts = (e: KeyboardEvent) => {
+      if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) {
+        e.preventDefault();
+        setIsShortcutsOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleGlobalShortcuts);
+    return () => window.removeEventListener('keydown', handleGlobalShortcuts);
+  }, []);
 
   /**
    * selectedPhotos - Performs selected photos.
@@ -600,6 +625,17 @@ function App() {
           onClose={() => setIsShareModalOpen(false)}
           target={shareTarget}
         />
+
+        <Suspense fallback={null}>
+          <FirstRunWizardModal
+            isOpen={isOnboardingOpen}
+            onComplete={() => setIsOnboardingOpen(false)}
+          />
+          <ShortcutsCheatsheetModal
+            isOpen={isShortcutsOpen}
+            onClose={() => setIsShortcutsOpen(false)}
+          />
+        </Suspense>
 
         {isMobile && (
           <MobileBottomNav

@@ -15,6 +15,8 @@ use crate::AppState;
 pub struct CreateAlbumRequest {
     pub name: String,
     pub r#type: Option<String>,
+    pub is_smart: Option<bool>,
+    pub smart_rules: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -147,14 +149,17 @@ pub async fn create_album(
     Json(payload): Json<CreateAlbumRequest>,
 ) -> Result<Json<Album>, (StatusCode, String)> {
     let album_type = payload.r#type.unwrap_or_else(|| "custom".to_string());
+    let is_smart = payload.is_smart.unwrap_or(false);
     let new_uuid = Uuid::new_v4().to_string();
 
     let id = sqlx::query(
-        "INSERT INTO albums (uuid, name, type, is_smart, photo_count) VALUES (?, ?, ?, 0, 0)"
+        "INSERT INTO albums (uuid, name, type, is_smart, smart_rules, photo_count) VALUES (?, ?, ?, ?, ?, 0)"
     )
     .bind(&new_uuid)
     .bind(&payload.name)
     .bind(&album_type)
+    .bind(is_smart)
+    .bind(&payload.smart_rules)
     .execute(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?

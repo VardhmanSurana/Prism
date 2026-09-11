@@ -8,18 +8,32 @@ Prism is built with privacy as a core principle. All data stays on your machine,
   <img src="diagrams/security-trust-boundaries.svg" alt="Prism Core Security Principles and Trust Boundaries" width="100%" />
 </p>
 
-## Locked Folder
+## Locked Folder / Encrypted Vault
 
-### What is Locked Folder?
+### What is the Locked Folder?
 Locked Folder provides a protected, access-restricted enclave for your most private photos and videos. Files in the Locked Folder are:
 
 - **Isolated from Queries** — Excluded from general photo queries, FTS5 search indexes, face recognition, and explore views (`is_locked = 0` enforcement).
 - **Hidden from UI** — Not visible in the gallery, albums, map, or timeline without active authentication.
 - **Passcode Protected** — Verified using memory-hard **Argon2id** key derivation function (KDF) with session-based expiration and rate-limiting against brute force.
 - **Dedicated Sessions** — Authenticated viewing tokens automatically expire after 15 minutes of inactivity.
+- **Encrypted at Rest** — Locking a photo while the vault is initialized encrypts the original with **AES-256-GCM** (unique 96-bit nonce per file) into a `.prism_enc` sidecar and shreds the plaintext original. Cached plaintext thumbnails are removed as well.
+- **Zero-Knowledge Serving** — Vaulted photos are decrypted in memory when served (`GET /photos/:id/file`, `GET /photos/:id/thumbnail`); decrypted data is never written back to disk. Thumbnails for locked photos are generated from decrypted bytes on the fly.
+- **Dual-Mode Recovery** — Vault setup produces a downloadable Emergency Recovery Kit (armored recovery token that unwraps the master key and resets the password) and, optionally, an OS keyring escrow token for biometric/system-login unlock.
 
 > [!NOTE]
-> **Scope of Protection**: In the current release, Locked Folder operates via database filtering, query isolation, and UI session gating backed by Argon2id password verification. Raw media files reside in local storage without disk-level block encryption at rest; direct physical disk access by unauthorized local OS users is mitigated when host-level full disk encryption (LUKS, FileVault, BitLocker) is active. Full file-level AES-256-GCM encryption at rest derived from the Argon2id key is scheduled in the product coherence roadmap.
+> **Scope of Protection**: When the vault is initialized, media files locked into the vault are file-level encrypted at rest using AES-256-GCM with keys derived via Argon2id (`vault_initialized` setting gates this behavior). Photos locked before vault setup are protected by database filtering and session gating only; re-locking them after vault setup upgrades them to full encryption. Direct physical disk access by unauthorized local OS users remains best mitigated by host-level full disk encryption (LUKS, FileVault, BitLocker).
+
+### Vault Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /api/v1/vault/setup` | Initialize vault: Argon2id salt, wrapped master key, Emergency Recovery Kit, optional OS escrow |
+| `POST /api/v1/vault/unlock` | Unlock with password |
+| `POST /api/v1/vault/recover` | Unlock with Emergency Recovery Kit token and reset password |
+| `POST /api/v1/vault/unlock-escrow` | Unlock via OS keyring escrow token |
+| `POST /api/v1/vault/lock` | Lock the vault session |
+| `GET /api/v1/vault/status` | Initialization, unlock state, escrow flag, locked photo count |
 
 ## API Security
 

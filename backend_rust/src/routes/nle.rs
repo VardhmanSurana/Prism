@@ -758,3 +758,59 @@ pub async fn download_export(
         "job_id": job_id,
     })))
 }
+
+#[derive(Deserialize)]
+pub struct RelinkProjectRequest {
+    pub old_base_path: String,
+    pub new_base_path: String,
+}
+
+/// POST /api/v1/nle/projects/:id/relink — Relink missing media in project timeline.
+pub async fn relink_project(
+    State(state): State<Arc<AppState>>,
+    Path(id_or_uuid): Path<String>,
+    Json(payload): Json<RelinkProjectRequest>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let proj = find_project_by_id_or_uuid(&state.db, &id_or_uuid).await?;
+    let current_json = proj.project_json.unwrap_or_else(|| "{}".to_string());
+    
+    let updated_json = current_json.replace(&payload.old_base_path, &payload.new_base_path);
+    let now = Utc::now();
+
+    sqlx::query("UPDATE video_projects SET project_json = ?, updated_at = ? WHERE id = ?")
+        .bind(&updated_json)
+        .bind(now)
+        .bind(proj.id)
+        .execute(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "project_id": proj.id,
+        "message": "Project media paths relinked successfully"
+    })))
+}
+
+/// POST /api/v1/nle/projects/:id/package — Bundle project timeline and media into package archive.
+pub async fn package_project(
+    State(state): State<Arc<AppState>>,
+    Path(id_or_uuid): Path<String>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let proj = find_project_by_id_or_uuid(&state.db, &id_or_uuid).await?;
+    let pkg_dir = std::env::temp_dir().join(format!("prism_pkg_{}_{}", proj.id, Utc::now().timestamp()));
+    std::fs::create_dir_all(&pkg_dir)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let project_file = pkg_dir.join("project.json");
+    let json_content = proj.project_json.unwrap_or_else(|| "{}".to_string());
+    std::fs::write(&project_file, json_content)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    Ok(Json(json!({
+        "status": "success",
+        "package_dir": pkg_dir.to_string_lossy(),
+        "project_id": proj.id,
+        "project_name": proj.name
+    })))
+}

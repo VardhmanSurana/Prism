@@ -282,17 +282,17 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
 
+        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
         CREATE TABLE IF NOT EXISTS library_backups (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             filename TEXT NOT NULL,
             path TEXT NOT NULL,
-            size_bytes INTEGER NOT NULL,
-            integrity_status TEXT NOT NULL DEFAULT 'ok',
+            size_bytes INTEGER DEFAULT 0,
+            integrity_status TEXT DEFAULT 'ok',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         );
-
-        CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
-        CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
         "#
     )
     .execute(pool)
@@ -308,17 +308,19 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("ALTER TABLE photos ADD COLUMN ocr_bboxes TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN ocr_attempted_at TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN embedding_blob BLOB").execute(pool).await.ok();
+    // Reliability & culling schema (Library Health, Culling Workspace, search scoring)
     sqlx::query("ALTER TABLE photos ADD COLUMN cull_status TEXT DEFAULT 'unflagged'").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN rating INTEGER DEFAULT 0").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN burst_group_id TEXT").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN missing_since DATETIME").execute(pool).await.ok();
     sqlx::query("ALTER TABLE photos ADD COLUMN last_verified DATETIME").execute(pool).await.ok();
-
-    // Create session & culling indexes after column migrations
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
-    sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
+    // Culling indexes — created after the columns exist (fresh DBs and legacy alike)
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_cull_status ON photos(cull_status)").execute(pool).await.ok();
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_burst_group ON photos(burst_group_id)").execute(pool).await.ok();
+
+    // Create session indexes after column migrations
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
 
     ensure_uuids(pool).await?;
     ensure_file_sizes(pool).await.ok();

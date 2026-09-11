@@ -11,26 +11,48 @@ import {
   Trash2,
   Clock,
   Loader2,
-  X
+  X,
+  Battery,
+  BatteryCharging,
+  Cpu,
+  HardDrive,
+  Thermometer,
+  Layers,
 } from 'lucide-react';
-import { useJobsStore, BackgroundJob } from '@/store/jobsStore';
+import { useJobsStore } from '@/store/jobsStore';
+
+const STAGES = [
+  { id: 'thumbnail', label: 'Thumbnails' },
+  { id: 'face', label: 'Face ID' },
+  { id: 'embedding', label: 'Embeddings' },
+  { id: 'ocr', label: 'OCR' },
+];
 
 export const ActivityCenter: React.FC = () => {
   const {
     jobs,
     counts,
     isWorkerPaused,
+    pauseReason,
+    pausedStages,
+    hardware,
     fetchJobs,
     cancelJob,
     retryJob,
     pruneJobs,
     pauseWorker,
     resumeWorker,
+    pauseStage,
+    resumeStage,
   } = useJobsStore();
 
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const containerRef = useRef<HTMLDivElement>(null);
+  const prevActiveRef = useRef<number>(0);
+
+  const totalActive = counts.processing + counts.pending;
+  const isRunning = counts.processing > 0;
 
   // Poll for job updates while open, or every 5 seconds normally
   useEffect(() => {
@@ -40,6 +62,26 @@ export const ActivityCenter: React.FC = () => {
     }, isOpen ? 2000 : 8000);
     return () => clearInterval(interval);
   }, [isOpen]);
+
+  // Request notification permission when opening popover
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, [isOpen]);
+
+  // Web Notification API trigger when background tasks complete in the background
+  useEffect(() => {
+    if (prevActiveRef.current > 0 && totalActive === 0) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
+        new Notification('Prism Background Tasks Complete', {
+          body: 'All queued media analysis and AI tasks have finished processing.',
+          icon: '/favicon.ico',
+        });
+      }
+    }
+    prevActiveRef.current = totalActive;
+  }, [totalActive]);
 
   // Click outside to close
   useEffect(() => {
@@ -55,8 +97,17 @@ export const ActivityCenter: React.FC = () => {
   const activeJobs = jobs.filter((j) => j.status === 'processing' || j.status === 'pending');
   const historyJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'failed' || j.status === 'cancelled');
 
-  const totalActive = counts.processing + counts.pending;
-  const isRunning = counts.processing > 0;
+  const isStagePaused = (stageId: string) => {
+    return pausedStages.some((s) => s.toLowerCase() === stageId.toLowerCase());
+  };
+
+  const toggleStage = (stageId: string) => {
+    if (isStagePaused(stageId)) {
+      resumeStage(stageId);
+    } else {
+      pauseStage(stageId);
+    }
+  };
 
   return (
     <div className="relative" ref={containerRef}>
@@ -124,6 +175,77 @@ export const ActivityCenter: React.FC = () => {
                 >
                   <X size={15} />
                 </button>
+              </div>
+            </div>
+
+            {/* Hardware Telemetry & Pause Reason Banner */}
+            <div className="px-4 py-2.5 bg-black/20 border-b border-white/5 space-y-2">
+              {/* Telemetry Metrics Bar */}
+              <div className="flex items-center justify-between text-[11px] text-gray-400">
+                <div className="flex items-center gap-3">
+                  {hardware && (
+                    <>
+                      <span className="flex items-center gap-1" title="CPU Load">
+                        <Cpu size={12} className="text-primary" />
+                        <span>{Math.round(hardware.cpu_usage)}%</span>
+                      </span>
+                      {hardware.cpu_temp_c > 0 && (
+                        <span className={`flex items-center gap-1 ${hardware.cpu_temp_c >= 80 ? 'text-rose-400' : 'text-gray-400'}`} title="CPU Temperature">
+                          <Thermometer size={12} />
+                          <span>{Math.round(hardware.cpu_temp_c)}°C</span>
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1" title="Available Disk Space">
+                        <HardDrive size={12} />
+                        <span>{hardware.disk_free_gb.toFixed(1)} GB</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {hardware?.on_battery && (
+                  <span className={`flex items-center gap-1 font-medium ${hardware.battery_percent <= 20 ? 'text-rose-400' : 'text-amber-300'}`} title="Battery Level">
+                    <Battery size={13} />
+                    <span>{hardware.battery_percent}%</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Plain-Language Pause Reason Banner */}
+              {pauseReason && (
+                <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
+                  <AlertTriangle size={13} className="shrink-0 text-amber-400" />
+                  <span className="font-medium truncate">{pauseReason}</span>
+                </div>
+              )}
+
+              {/* Per-Stage Pause/Resume Controls */}
+              <div className="pt-1">
+                <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Layers size={10} />
+                  <span>Pipeline Stages</span>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {STAGES.map((st) => {
+                    const paused = isStagePaused(st.id);
+                    return (
+                      <button
+                        key={st.id}
+                        onClick={() => toggleStage(st.id)}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-medium border transition-all cursor-pointer ${
+                          paused
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                            : 'bg-white/5 border-white/10 text-gray-300 hover:text-white hover:border-white/20'
+                        }`}
+                        title={paused ? `Resume ${st.label}` : `Pause ${st.label}`}
+                      >
+                        <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle" style={{ backgroundColor: paused ? '#fbbf24' : '#10b981' }} />
+                        <span>{st.label}</span>
+                        {paused && <span className="ml-1 text-[9px] opacity-70">(Paused)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
