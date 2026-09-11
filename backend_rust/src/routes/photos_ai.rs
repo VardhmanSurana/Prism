@@ -5,6 +5,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::warn;
 
@@ -587,9 +588,15 @@ pub async fn toggle_lock(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let photo = crate::routes::photos::find_photo_by_id_or_uuid(&state.db, &id).await?;
 
-    // Resolve the on-disk path through the same resolver used for serving.
-    let real_path = crate::routes::photos::resolve_photo_path(&photo.path)
-        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
+    // Resolve BOTH plaintext and `.prism_enc` ciphertext locations. For locked
+    // photos the plaintext is shredded, so the ciphertext sibling is the only
+    // thing on disk and the legacy resolver alone would 404 here.
+    let resolved =
+        crate::routes::photos::resolve_photo_content_paths(&photo.path);
+    let plaintext_path = resolved.plaintext.ok_or((
+        StatusCode::NOT_FOUND,
+        "Source file missing".to_string(),
+    ))?;
 
     if payload.lock {
         // Only encrypt when the vault is initialized (a master key is configured).
@@ -603,6 +610,14 @@ pub async fn toggle_lock(
         .flatten();
 
         if vault_initialized.as_deref() == Some("true") {
+            if resolved.encrypted.is_some() {
+                return Ok(Json(json!({
+                    "photo_id": photo.id,
+                    "is_locked": true,
+                    "status": "already_encrypted"
+                })));
+            }
+
             let key = crate::services::vault_crypto::get_vault()
                 .get_key()
                 .ok_or((
@@ -610,8 +625,8 @@ pub async fn toggle_lock(
                     "Vault is locked. Unlock the vault before adding photos.".to_string(),
                 ))?;
 
-            let enc_path = format!("{}.prism_enc", real_path.display());
-            let real_path_clone = real_path.clone();
+            let enc_path = format!("{}.prism_enc", plaintext_path.display());
+            let real_path_clone = plaintext_path.clone();
             let enc_path_clone = enc_path.clone();
             tokio::task::spawn_blocking(move || {
                 crate::services::vault_crypto::VaultManager::encrypt_file(
@@ -625,7 +640,7 @@ pub async fn toggle_lock(
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
             // Shred the plaintext original only after a successful encryption.
-            std::fs::remove_file(&real_path)
+            std::fs::remove_file(&plaintext_path)
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
             // Remove cached plaintext thumbnails for this photo.
@@ -634,15 +649,14 @@ pub async fn toggle_lock(
                 .flatten()
             {
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with(&format!("{}_thumb", photo.id)) {
+                if name.starts_with(&format!("{}_thumb", photo.id)) && !name.ends_with(".thumb_enc") {
                     let _ = std::fs::remove_file(entry.path());
                 }
             }
         }
     } else {
         // Unlock path: decrypt `.prism_enc` back to the original plaintext path.
-        let enc_path = format!("{}.prism_enc", real_path.display());
-        if std::path::Path::new(&enc_path).exists() {
+        if let Some(enc_path) = resolved.encrypted {
             let key = crate::services::vault_crypto::get_vault()
                 .get_key()
                 .ok_or((
@@ -651,7 +665,7 @@ pub async fn toggle_lock(
                 ))?;
 
             let enc_path_clone = enc_path.clone();
-            let real_path_clone = real_path.clone();
+            let real_path_clone = plaintext_path.clone();
             let decrypted = tokio::task::spawn_blocking(move || {
                 crate::services::vault_crypto::VaultManager::decrypt_file(
                     std::path::Path::new(&enc_path_clone),
@@ -888,39 +902,54 @@ pub async fn unlock_photo(
         return Ok(Json(json!({ "photo_id": photo.id, "status": "already_unlocked" })));
     }
 
+    // Resolve BOTH plaintext and ciphertext locations — for a locked photo the
+    // plaintext is gone, so the `.prism_enc` sibling is what must be found.
+    let resolved = crate::routes::photos::resolve_photo_content_paths(&photo.path);
+
     // If a `.prism_enc` ciphertext exists, decrypt it back to the original path.
-    if let Some(real_path) = crate::routes::photos::resolve_photo_path(&photo.path) {
-        let enc_path = format!("{}.prism_enc", real_path.display());
-        if std::path::Path::new(&enc_path).exists() {
-            let key = crate::services::vault_crypto::get_vault()
-                .get_key()
-                .ok_or((
-                    StatusCode::LOCKED,
-                    "Vault is locked. Unlock the vault first.".to_string(),
-                ))?;
+    if let Some(enc_path) = resolved.encrypted {
+        let key = crate::services::vault_crypto::get_vault()
+            .get_key()
+            .ok_or((
+                StatusCode::LOCKED,
+                "Vault is locked. Unlock the vault first.".to_string(),
+            ))?;
 
-            let enc_path_clone = enc_path.clone();
-            let real_path_clone = real_path.clone();
-            let decrypted = tokio::task::spawn_blocking(move || {
-                crate::services::vault_crypto::VaultManager::decrypt_file(
-                    std::path::Path::new(&enc_path_clone),
-                    &key,
-                )
-                .map(|bytes| {
-                    use std::io::Write;
-                    let mut f = std::fs::File::create(&real_path_clone)
-                        .map_err(|e| e.to_string())?;
-                    f.write_all(&bytes).map_err(|e| e.to_string())?;
-                    Ok(())
+        // Restore plaintext at the original recorded path (ciphertext minus the
+        // `.prism_enc` suffix), not wherever resolution happened to land.
+        let restored_path = enc_path
+            .to_string_lossy()
+            .strip_suffix(".prism_enc")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| {
+                resolved.plaintext.clone().unwrap_or_else(|| {
+                    PathBuf::from(format!("{}.prism_enc", photo.path).trim_end_matches(".prism_enc"))
                 })
-                .and_then(|r| r)
-            })
-            .await
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+            });
 
-            decrypted.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
-            let _ = std::fs::remove_file(&enc_path);
-        }
+        let enc_path_clone = enc_path.clone();
+        let restored_clone = restored_path.clone();
+        let decrypted = tokio::task::spawn_blocking(move || {
+            crate::services::vault_crypto::VaultManager::decrypt_file(
+                std::path::Path::new(&enc_path_clone),
+                &key,
+            )
+            .map(|bytes| {
+                use std::io::Write;
+                if let Some(parent) = restored_clone.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let mut f = std::fs::File::create(&restored_clone).map_err(|e| e.to_string())?;
+                f.write_all(&bytes).map_err(|e| e.to_string())?;
+                Ok(())
+            })
+            .and_then(|r| r)
+        })
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+        decrypted.map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+        let _ = std::fs::remove_file(&enc_path);
     }
 
     sqlx::query("UPDATE photos SET is_locked = 0 WHERE id = ?")

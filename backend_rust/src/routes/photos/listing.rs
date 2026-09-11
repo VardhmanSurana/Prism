@@ -11,7 +11,7 @@ use tokio::fs::File;
 use tokio_util::io::ReaderStream;
 
 use crate::models::Photo;
-use crate::services::thumbnail::{generate_thumbnail, generate_thumbnail_from_bytes};
+use crate::services::thumbnail::{generate_thumbnail, generate_vault_thumbnail};
 use crate::AppState;
 use super::find_photo_by_id_or_uuid;
 
@@ -200,13 +200,66 @@ pub fn resolve_photo_path(raw_path: &str) -> Option<PathBuf> {
     None
 }
 
-/// Resolves a photo's content source, transparently decrypting vaulted files.
+/// Resolution outcome for a photo's content location.
+///
+/// Vaulted photos keep their ciphertext at `<original>.prism_enc` after the
+/// plaintext original is shredded on lock, so path resolution must consider
+/// both siblings at every candidate location.
+pub struct ResolvedPhotoContentPaths {
+    /// Plaintext original if it exists on disk.
+    pub plaintext: Option<PathBuf>,
+    /// `.prism_enc` ciphertext if it exists on disk.
+    pub encrypted: Option<PathBuf>,
+}
+
+/// Resolves a photo path to its plaintext and/or `.prism_enc` ciphertext.
+///
+/// Mirrors `resolve_photo_path`'s candidate strategy (raw path, cwd-relative,
+/// uploads-relative), but accepts the `<candidate>.prism_enc` sibling when the
+/// plaintext itself is gone — the steady state for photos locked into the
+/// encrypted vault.
+pub fn resolve_photo_content_paths(raw_path: &str) -> ResolvedPhotoContentPaths {
+    let raw = PathBuf::from(raw_path);
+    let filename = raw
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
+    let candidates = [
+        raw.clone(),
+        cwd.join(raw_path),
+        cwd.join("uploads").join(&filename),
+    ];
+
+    for candidate in candidates {
+        let enc = PathBuf::from(format!("{}.prism_enc", candidate.display()));
+        if candidate.exists() {
+            return ResolvedPhotoContentPaths {
+                plaintext: Some(candidate),
+                encrypted: enc.exists().then_some(enc),
+            };
+        }
+        if enc.exists() {
+            return ResolvedPhotoContentPaths {
+                plaintext: None,
+                encrypted: Some(enc),
+            };
+        }
+    }
+
+    ResolvedPhotoContentPaths {
+        plaintext: None,
+        encrypted: None,
+    }
+}
+
+/// Content source for serving a photo, transparently decrypting vaulted files.
 ///
 /// For locked photos the plaintext original has been shredded and replaced by
 /// `<path>.prism_enc` ciphertext. Instead of writing decrypted data to disk
 /// (zero-knowledge requirement), the ciphertext is decrypted into memory and
 /// returned as full bytes for direct streaming in the response.
-/// Returns `Ok(None)`-style signal via `PhotoContent::File` for normal files.
 enum PhotoContent {
     /// Plaintext file on disk — stream it.
     File(PathBuf),
@@ -217,34 +270,42 @@ enum PhotoContent {
 async fn resolve_photo_content(
     photo: &Photo,
 ) -> Result<PhotoContent, (StatusCode, String)> {
-    let real_path = resolve_photo_path(&photo.path)
-        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
+    let resolved = resolve_photo_content_paths(&photo.path);
+    if resolved.plaintext.is_none() && resolved.encrypted.is_none() {
+        return Err((StatusCode::NOT_FOUND, "Source file missing".to_string()));
+    }
 
-    // Vaulted photo: plaintext gone, ciphertext beside the original path.
+    // Vaulted photo: prefer decrypting the ciphertext so plaintext is never
+    // re-materialized on disk. Legacy pre-vault locked photos (DB flag only,
+    // no ciphertext) fall through to plaintext serving.
     if photo.is_locked {
-        let enc_path = format!("{}.prism_enc", real_path.display());
-        if std::path::Path::new(&enc_path).exists() {
+        if let Some(enc_path) = resolved.encrypted {
             let key = crate::services::vault_crypto::get_vault().get_key().ok_or((
                 StatusCode::LOCKED,
                 "Vault is locked. Unlock the vault to view this photo.".to_string(),
             ))?;
-            let enc = enc_path.clone();
+            let base = resolved.plaintext.clone().unwrap_or_else(|| {
+                PathBuf::from(enc_path.to_string_lossy().trim_end_matches(".prism_enc"))
+            });
             let bytes = tokio::task::spawn_blocking(move || {
                 crate::services::vault_crypto::VaultManager::decrypt_file(
-                    std::path::Path::new(&enc),
+                    std::path::Path::new(&enc_path),
                     &key,
                 )
             })
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
             .map_err(|e| (StatusCode::UNAUTHORIZED, e))?;
-            let mime = mime_guess::from_path(&real_path)
+            let mime = mime_guess::from_path(&base)
                 .first_or_octet_stream()
                 .to_string();
             return Ok(PhotoContent::DecryptedBytes(bytes, mime));
         }
     }
 
+    let real_path = resolved
+        .plaintext
+        .ok_or((StatusCode::NOT_FOUND, "Source file missing".to_string()))?;
     Ok(PhotoContent::File(real_path))
 }
 
@@ -295,41 +356,58 @@ pub async fn get_photo_thumbnail(
     let thumbnails_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
 
-    let target_file_path = match resolve_photo_content(&photo).await? {
+    // Vaulted photos: the decrypted thumbnail is encrypted-at-rest in the
+    // thumbnails dir (AES-256-GCM, `.thumb_enc`) so no plaintext image ever
+    // persists on disk; it is decrypted back into memory on every request.
+    let content = resolve_photo_content(&photo).await?;
+
+    let (thumb_path, thumb_bytes) = match content {
         PhotoContent::File(source_path) => {
             let source_path_clone = source_path.clone();
-            tokio::task::spawn_blocking(move || {
+            let target = tokio::task::spawn_blocking(move || {
                 generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim)
             })
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .unwrap_or_else(|_| source_path.clone())
+            .unwrap_or_else(|_| source_path.clone());
+            (target, None)
         }
         PhotoContent::DecryptedBytes(bytes, _) => {
-            // Generate thumbnail from decrypted bytes in memory — never touches
-            // plaintext disk beyond a transient buffer held by the caller.
-            tokio::task::spawn_blocking(move || {
-                generate_thumbnail_from_bytes(&bytes, &thumbnails_dir, photo_id, max_dim)
+            let key = crate::services::vault_crypto::get_vault().get_key().ok_or((
+                StatusCode::LOCKED,
+                "Vault is locked. Unlock the vault to view this photo.".to_string(),
+            ))?;
+            let enc_thumb = tokio::task::spawn_blocking(move || {
+                generate_vault_thumbnail(&bytes, &thumbnails_dir, photo_id, max_dim, &key)
             })
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
-            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+            let enc_thumb_clone = enc_thumb.clone();
+            let plain = tokio::task::spawn_blocking(move || {
+                crate::services::vault_crypto::VaultManager::decrypt_file(
+                    std::path::Path::new(&enc_thumb_clone),
+                    &key,
+                )
+            })
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+            (enc_thumb, Some(plain))
         }
     };
 
-    let mime = mime_guess::from_path(&target_file_path)
-        .first_or_octet_stream()
-        .to_string();
-
-    let file = File::open(&target_file_path)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let stream = ReaderStream::new(file);
-    let body = axum::body::Body::from_stream(stream);
+    let body = if let Some(bytes) = thumb_bytes {
+        axum::body::Body::from(bytes)
+    } else {
+        let file = File::open(&thumb_path)
+            .await
+            .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        axum::body::Body::from_stream(ReaderStream::new(file))
+    };
 
     Ok(Response::builder()
-        .header(header::CONTENT_TYPE, mime)
+        .header(header::CONTENT_TYPE, "image/jpeg")
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .unwrap())

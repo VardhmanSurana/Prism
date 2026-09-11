@@ -679,6 +679,269 @@ mod server_enhancement_tests {
         let list_res3 = list_jobs(State(state.clone()), Query(JobQueryParams { status: None, limit: None, offset: None })).await.unwrap();
         assert_eq!(list_res3.0["jobs"].as_array().unwrap().len(), 0);
     }
+
+    // ─── Vault encryption-at-rest & reliability schema regression tests ─────
+
+    use tempfile::TempDir;
+    use std::path::PathBuf;
+
+    fn make_jpeg_bytes(width: u32, height: u32, color: [u8; 3]) -> Vec<u8> {
+        let _ = color;
+        let img = image::DynamicImage::new_rgb8(width, height);
+        let mut buf = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Jpeg)
+            .unwrap();
+        buf
+    }
+
+    async fn insert_test_photo(pool: &crate::db::DbPool, path: &str, locked: bool) -> i64 {
+        sqlx::query(
+            "INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, is_locked) \
+             VALUES (?, ?, ?, 100, 100, 1.0, ?)",
+        )
+        .bind(uuid::Uuid::new_v4().to_string())
+        .bind("test.jpg")
+        .bind(path)
+        .bind(locked)
+        .execute(pool)
+        .await
+        .unwrap()
+        .last_insert_rowid()
+    }
+
+    /// GAP 1: the reliability schema must exist — cull/health routes query
+    /// these tables/columns unconditionally, so a missing one breaks boot-time
+    /// parity for every fresh install.
+    #[tokio::test]
+    async fn test_reliability_schema_tables_and_columns_exist() {
+        let pool = init_db("sqlite::memory:").await.unwrap();
+
+        // library_backups table is writable with the exact columns used by routes
+        let res = sqlx::query(
+            "INSERT INTO library_backups (filename, path, size_bytes, integrity_status) VALUES (?, ?, ?, ?)",
+        )
+        .bind("prism_backup_test.db")
+        .bind("backups/prism_backup_test.db")
+        .bind(1234i64)
+        .bind("ok")
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert!(res.last_insert_rowid() > 0);
+
+        let row: (i64, String, Option<chrono::DateTime<chrono::Utc>>) = sqlx::query_as(
+            "SELECT id, filename, created_at FROM library_backups WHERE id = ?",
+        )
+        .bind(res.last_insert_rowid())
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(row.1, "prism_backup_test.db");
+        let _ = row.0;
+        let _ = row.2;
+
+        // Culling columns accept the tri-state values and ratings used by /cull
+        let photo_id = insert_test_photo(&pool, "/tmp/nonexistent.jpg", false).await;
+        sqlx::query("UPDATE photos SET cull_status = 'picked', rating = 4, burst_group_id = 'burst_1' WHERE id = ?")
+            .bind(photo_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let (status, rating, burst): (String, i64, String) = sqlx::query_as(
+            "SELECT cull_status, rating, burst_group_id FROM photos WHERE id = ?",
+        )
+        .bind(photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert_eq!(status, "picked");
+        assert_eq!(rating, 4);
+        assert_eq!(burst, "burst_1");
+
+        // Health scanner columns update cleanly
+        sqlx::query("UPDATE photos SET missing_since = CURRENT_TIMESTAMP, last_verified = CURRENT_TIMESTAMP WHERE id = ?")
+            .bind(photo_id)
+            .execute(&pool)
+            .await
+            .unwrap();
+        let missing: Option<chrono::DateTime<chrono::Utc>> = sqlx::query_scalar(
+            "SELECT missing_since FROM photos WHERE id = ?",
+        )
+        .bind(photo_id)
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+        assert!(missing.is_some());
+
+        // Culling indexes exist (used by burst clustering ORDER BY / WHERE paths)
+        let indexes: Vec<String> = sqlx::query_as::<_, (String,)>(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('idx_photos_cull_status', 'idx_photos_burst_group')",
+        )
+        .fetch_all(&pool)
+        .await
+        .unwrap()
+        .into_iter()
+        .map(|r| r.0)
+        .collect();
+        assert_eq!(indexes.len(), 2, "culling indexes missing: {:?}", indexes);
+    }
+
+    /// GAP 2 + 3: lock → encrypt-at-rest → decrypt-on-serve → unlock round trip.
+    #[tokio::test]
+    async fn test_vault_lock_unlock_round_trip_and_decrypt_on_serve() {
+        let _lock = VAULT_TEST_LOCK.lock().await;
+        use axum::extract::{Json, State};
+        use crate::routes::photos_ai::{toggle_lock, LockRequest};
+        use crate::routes::photos_ai::unlock_photo;
+
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let state = create_test_state(pool.clone());
+        let temp = TempDir::new().unwrap();
+        let photo_path = temp.path().join("secret.jpg");
+        let original_bytes = make_jpeg_bytes(64, 64, [200, 30, 30]);
+        std::fs::write(&photo_path, &original_bytes).unwrap();
+        let path_str = photo_path.to_string_lossy().to_string();
+
+        let photo_id = insert_test_photo(&pool, &path_str, false).await;
+        let photo_uuid: String =
+            sqlx::query_scalar("SELECT uuid FROM photos WHERE id = ?")
+                .bind(photo_id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+
+        // Initialize the vault (derives Argon2id key, sets master key) so
+        // locking performs real encryption instead of legacy flag-only mode.
+        let setup = crate::routes::vault::setup_vault(
+            State(state.clone()),
+            Json(crate::routes::vault::VaultSetupRequest {
+                password: "roundTrip1".to_string(),
+                enable_os_escrow: false,
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(setup.0["status"], "success");
+
+        // The vault manager must hold the unlocked master key after setup.
+        assert!(crate::services::vault_crypto::get_vault().is_unlocked());
+
+        // 1. Lock the photo via the handler.
+        let lock_res = toggle_lock(
+            State(state.clone()),
+            axum::extract::Path(photo_uuid.clone()),
+            Json(LockRequest { lock: true, passcode: None }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(lock_res.0["is_locked"], true);
+
+        // 2. Plaintext must be shredded; ciphertext must exist and differ.
+        assert!(!photo_path.exists(), "plaintext original was not shredded");
+        let enc_path = PathBuf::from(format!("{}.prism_enc", path_str));
+        assert!(enc_path.exists(), ".prism_enc ciphertext missing after lock");
+        let ciphertext = std::fs::read(&enc_path).unwrap();
+        assert_ne!(ciphertext, original_bytes);
+        assert!(ciphertext.len() > 12, "ciphertext missing nonce prefix");
+
+        // 3. Serving path resolves the ciphertext even though plaintext is gone.
+        let resolved = crate::routes::photos::resolve_photo_content_paths(&path_str);
+        assert!(resolved.plaintext.is_none());
+        assert!(resolved.encrypted.is_some());
+
+        // 4. Unlock restores the exact original bytes and removes ciphertext.
+        let unlock_res = unlock_photo(
+            State(state.clone()),
+            axum::extract::Path(photo_uuid),
+        )
+        .await
+        .unwrap();
+        assert_eq!(unlock_res.0["is_locked"], false);
+        assert!(photo_path.exists(), "plaintext not restored on unlock");
+        let restored = std::fs::read(&photo_path).unwrap();
+        assert_eq!(restored, original_bytes, "restored bytes differ from original");
+        assert!(!enc_path.exists(), "ciphertext not removed after unlock");
+    }
+
+    /// GAP 3: decrypt-on-serve — a locked photo's bytes decrypt in memory via
+    /// the vault key and match the original; a wrong key fails closed.
+    #[tokio::test]
+    async fn test_vaulted_photo_decrypt_matches_original_and_wrong_key_fails() {
+        let temp = TempDir::new().unwrap();
+        let photo_path = temp.path().join("enc_served.jpg");
+        let original = make_jpeg_bytes(32, 32, [10, 120, 250]);
+        std::fs::write(&photo_path, &original).unwrap();
+        let path_str = photo_path.to_string_lossy().to_string();
+
+        let key = [7u8; 32];
+        let wrong_key = [8u8; 32];
+        let enc_path = PathBuf::from(format!("{}.prism_enc", path_str));
+        crate::services::vault_crypto::VaultManager::encrypt_file(
+            &photo_path,
+            &enc_path,
+            &key,
+        )
+        .unwrap();
+        std::fs::remove_file(&photo_path).unwrap(); // simulate shredded plaintext
+
+        // Resolution must find the ciphertext without the plaintext present.
+        let resolved = crate::routes::photos::resolve_photo_content_paths(&path_str);
+        assert!(resolved.encrypted.is_some(), "ciphertext not resolved without plaintext");
+
+        // Decrypt with the right key → exact original bytes.
+        let decrypted = crate::services::vault_crypto::VaultManager::decrypt_file(
+            resolved.encrypted.as_ref().unwrap(),
+            &key,
+        )
+        .unwrap();
+        assert_eq!(decrypted, original);
+
+        // Decrypt with the wrong key → hard failure, never garbage.
+        assert!(crate::services::vault_crypto::VaultManager::decrypt_file(
+            resolved.encrypted.as_ref().unwrap(),
+            &wrong_key,
+        )
+        .is_err());
+    }
+
+    /// Vaulted thumbnails are stored encrypted (.thumb_enc), never as plaintext JPEGs.
+    #[tokio::test]
+    async fn test_vault_thumbnail_is_encrypted_at_rest() {
+        let temp = TempDir::new().unwrap();
+        let thumbs = temp.path().join("thumbs");
+        let decrypted = make_jpeg_bytes(200, 200, [1, 2, 3]);
+        let key = [42u8; 32];
+
+        let enc_thumb = crate::services::thumbnail::generate_vault_thumbnail(
+            &decrypted,
+            &thumbs,
+            999,
+            400,
+            &key,
+        )
+        .unwrap();
+
+        assert!(enc_thumb.to_string_lossy().ends_with(".thumb_enc"));
+        let on_disk = std::fs::read(&enc_thumb).unwrap();
+        assert_ne!(on_disk, decrypted, "thumbnail plaintext leaked to disk");
+        assert!(on_disk.len() > 12);
+
+        // Second call is a cache hit (same path, no regeneration error).
+        let again = crate::services::thumbnail::generate_vault_thumbnail(
+            &decrypted,
+            &thumbs,
+            999,
+            400,
+            &key,
+        )
+        .unwrap();
+        assert_eq!(enc_thumb, again);
+
+        // Serving decrypts back to a valid JPEG at the thumbnail size.
+        let plain = crate::services::vault_crypto::VaultManager::decrypt_file(&enc_thumb, &key).unwrap();
+        let decoded = image::load_from_memory(&plain).unwrap();
+        assert_eq!((decoded.width(), decoded.height()), (400u32, 400u32));
+    }
 }
 
 
