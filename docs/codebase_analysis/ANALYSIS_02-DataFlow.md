@@ -14,13 +14,14 @@
 - [4. Fused Multimodal Search Execution Flow](#4-fused-multimodal-search-execution-flow)
 - [5. Real-Time Telemetry & Event Streaming](#5-real-time-telemetry--event-streaming)
 - [6. Non-Linear Video Editor (NLE) Pipeline](#6-non-linear-video-editor-nle-pipeline)
-- [7. Verification Report](#7-verification-report)
+- [7. Local Cryptographic Sharing & Export Flow](#7-local-cryptographic-sharing--export-flow)
+- [8. Verification Report](#8-verification-report)
 
 ---
 
 ## 1. Data Flow Architecture Overview
 
-Data flow in Prism connects disk media, Axum API endpoints, SQLite tables, ONNX tensor execution, and client Zustand stores:
+Data flow in Prism connects disk media, Axum API endpoints, SQLite tables, in-process ONNX neural models, and reactive frontend Zustand stores:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -46,7 +47,7 @@ Data flow in Prism connects disk media, Axum API endpoints, SQLite tables, ONNX 
 
 ## 2. Media Ingestion & Persistence Pipeline
 
-The ingestion pipeline handles both raw binary streaming and multipart file upload:
+The ingestion pipeline handles both raw binary streaming and JSON path-referencing:
 
 ```
 Client Request (Binary Body / JSON Path / Multipart)
@@ -100,123 +101,149 @@ Worker Event Loop (`spawn_worker_loop`)
     - Filters remaining analyzers by hardware availability [VERIFY: backend_rust/src/services/worker.rs:268-270]
         │
         ▼
-[4] Sequential Analyzer Execution
-    - Stage 1: SiglipAnalyzer (Priority 300) -> Writes 768-dim float array [VERIFY: backend_rust/src/services/analyzers/siglip.rs:24-60]
-    - Stage 2: FaceAnalyzer (Priority 200) -> Writes detected face boxes & embeddings [VERIFY: backend_rust/src/services/analyzers/face.rs:23-52]
-    - Stage 3: Vision / Florence2 (Priority 100/90) -> Writes scene description [VERIFY: backend_rust/src/services/analyzers/vision.rs:23-40]
-    - Stage 4: OcrBboxAnalyzer (Priority 0) -> Writes recognized text & bboxes [VERIFY: backend_rust/src/services/analyzers/ocr_bbox.rs:28-40]
+[4] Priority Execution Cascade:
+    ├─ Priority 300: SiglipAnalyzer [VERIFY: backend_rust/src/services/analyzers/siglip.rs:24-60]
+    │  - Normalizes pixels and generates 768d float embedding
+    │  - Writes embedding JSON & binary blob to SQLite
+    │  - Inserts vector into memory HNSW index
+    ├─ Priority 200: FaceAnalyzer [VERIFY: backend_rust/src/services/analyzers/face.rs:23-52]
+    │  - Scans ArcFace 512d face embeddings
+    │  - Inserts detected faces into `faces` table
+    ├─ Priority 100: VisionAnalyzer [VERIFY: backend_rust/src/services/analyzers/vision.rs:23-40]
+    │  - Calls Florence-2 / Vision model
+    │  - Updates `ai_summary`, `caption`, and `auto_tags` in SQLite
+    └─ Priority 0: OcrBboxAnalyzer [VERIFY: backend_rust/src/services/analyzers/ocr_bbox.rs:28-40]
+       - Runs PP-OCRv4 detection and recognition
+       - Stores extracted text and bounding boxes in SQLite
         │
         ▼
-[5] Job Completion & Progress Recording
-    - Updates `background_jobs` status to 'completed' or 'failed' [VERIFY: backend_rust/src/services/worker.rs:522-528]
-    - Increments atomic completed/failed counters on `WorkerState` [VERIFY: backend_rust/src/services/worker.rs:525-527]
+[5] Status Transition & Client Notification
+    - Marks background job 'completed' in SQLite [VERIFY: backend_rust/src/services/worker.rs:522-528]
+    - Increments global worker completed counter [VERIFY: backend_rust/src/services/worker.rs:525-527]
 ```
 
 ---
 
 ## 4. Fused Multimodal Search Execution Flow
 
-The `fused_search` pipeline joins neural vector search with relational keyword filtering:
+The fused search pipeline combines semantic vector dot-product scoring with SQLite keyword matching:
 
 ```
-User Query: "golden retriever on the beach"
+User Query Input ("sunset on water")
         │
         ▼
-GET /api/v1/utilities/search/fused?q=...&limit=20
+[1] Embedding Generation
+    - SigLIP2 tokenizes query and computes 768d unit vector [VERIFY: backend_rust/src/services/siglip.rs:96-121]
+    - Normalizes vector to unit Euclidean norm [VERIFY: backend_rust/src/services/siglip.rs:118-120]
         │
         ▼
-[1] Vector Generation
-    - Passes query text to `SiglipEngine::embed_text` [VERIFY: backend_rust/src/services/siglip.rs:96-121]
-    - Produces 768-dimensional L2-normalized float vector [VERIFY: backend_rust/src/services/siglip.rs:118-120]
+[2] Track A: Parallel Vector Dot-Product Scan
+    - Reads candidate vectors from `embedding_blob` [VERIFY: backend_rust/src/services/agent_search.rs:36-42]
+    - Computes inner dot product via auto-vectorized SIMD [VERIFY: backend_rust/src/services/agent_search.rs:51-54]
+    - Filters results using minimum threshold score >= 0.15 [VERIFY: backend_rust/src/services/agent_search.rs:55-57]
+    - Sorts descending by score and truncates to limit [VERIFY: backend_rust/src/services/agent_search.rs:62]
         │
         ▼
-[2] In-Memory Dot-Product Scoring
-    - Fetches non-null embeddings from SQLite `photos` table [VERIFY: backend_rust/src/services/agent_search.rs:36-42]
-    - Computes dot product: Sim(q, d) = Σ (q_i * d_i) [VERIFY: backend_rust/src/services/agent_search.rs:51-54]
-    - Retains candidates with similarity >= 0.15 [VERIFY: backend_rust/src/services/agent_search.rs:55-57]
-    - Sorts descending by similarity score [VERIFY: backend_rust/src/services/agent_search.rs:62]
+[3] Track B: Fallback Text Matching (if count < limit)
+    - Checks if vector results are fewer than requested limit [VERIFY: backend_rust/src/routes/utilities.rs:808]
+    - Performs SQL LIKE matching across: [VERIFY: backend_rust/src/routes/utilities.rs:821-830]
+      ai_summary, caption, auto_tags, and ocr_text
+    - Excludes existing vector match IDs: `id NOT IN (...)` [VERIFY: backend_rust/src/routes/utilities.rs:833-844]
         │
         ▼
-[3] Relational Keyword Fallback
-    - If vector search yielded fewer results than `limit`: [VERIFY: backend_rust/src/routes/utilities.rs:804]
-    - Builds SQL query with `LIKE %term% ESCAPE '\'` across:
-      `ai_summary`, `caption`, `auto_tags`, `ocr_text` [VERIFY: backend_rust/src/routes/utilities.rs:821-830]
-    - Excludes IDs already returned by semantic search [VERIFY: backend_rust/src/routes/utilities.rs:833-844]
-        │
-        ▼
-[4] Unified JSON Response
-    - Merges semantic hits and keyword fallback rows into unified array [VERIFY: backend_rust/src/routes/utilities.rs:851-858]
+[4] Response Aggregation & Serialization
+    - Joins photo metadata rows from SQLite [VERIFY: backend_rust/src/routes/utilities.rs:851-858]
+    - Returns JSON response with score and match_type indicators
 ```
 
 ---
 
 ## 5. Real-Time Telemetry & Event Streaming
 
-Prism monitors system health and API performance using an adaptive telemetry sampling pipeline:
+Prism monitors system health and notifies connected clients via Server-Sent Events (SSE):
 
 ```
-Incoming Request
+HTTP Request Execution
         │
         ▼
-[1] Request Interception (`telemetry_tracking_layer`)
-    - Captures start timestamp and request URI [VERIFY: backend_rust/src/routes/mod.rs:134-137]
-    - Skips polling routes (`/telemetry/*`, `/background-jobs/status`) [VERIFY: backend_rust/src/routes/mod.rs:141-146]
+[1] Telemetry Interceptor Layer
+    - Measures wall-clock request duration [VERIFY: backend_rust/src/routes/mod.rs:134-137]
+    - Skips internal polling paths to prevent feedback loops [VERIFY: backend_rust/src/routes/mod.rs:143-146]
+    - Passes request to downstream business handler [VERIFY: backend_rust/src/routes/mod.rs:150]
         │
         ▼
-[2] Response Execution & Timing
-    - Awaits inner handler: `next.run(req).await` [VERIFY: backend_rust/src/routes/mod.rs:148]
-    - Computes elapsed duration in milliseconds [VERIFY: backend_rust/src/routes/mod.rs:150]
+[2] Dynamic Sampling Decision
+    - Always records responses with status >= 400 (errors) [VERIFY: backend_rust/src/routes/mod.rs:154-155]
+    - Evaluates 1-in-N atomic counter for successful requests [VERIFY: backend_rust/src/routes/mod.rs:159-160]
         │
         ▼
-[3] Adaptive Sampling Decision
-    - Always records errors (HTTP status >= 400) [VERIFY: backend_rust/src/routes/mod.rs:156]
-    - If status < 400, samples 1 in every N requests using atomic counter [VERIFY: backend_rust/src/routes/mod.rs:159-160]
-        │
-        ▼
-[4] Asynchronous Event Insertion
-    - Writes record into SQLite `telemetry_events` table [VERIFY: backend_rust/src/db.rs:186-197]
-    - Streams live telemetry events over SSE to connected clients [VERIFY: backend_rust/src/routes/mod.rs:554]
+[3] Asynchronous Persistence & Client SSE Broadcast
+    - Inserts event row into `telemetry_events` table [VERIFY: backend_rust/src/db.rs:192-203]
+    - Broadcasts event to connected clients on SSE channel `/api/v1/settings/events`
 ```
 
 ---
 
 ## 6. Non-Linear Video Editor (NLE) Pipeline
 
-Video editing operations are routed between client-side WebCodecs canvas rendering and server-side FFmpeg processing:
-
 ```
-[Import Clip into Timeline]
+NLE Media Editing & Export
         │
         ▼
-[1] Proxy Generation Request
-    - POST /api/v1/nle/clips/proxy [VERIFY: backend_rust/src/routes/nle.rs:484]
-    - Server invokes FFmpeg to generate lightweight editing proxy
+[1] Waveform Peak Extraction (`/api/v1/nle/audio-peaks`)
+    - Spawns FFmpeg to extract mono 44.1kHz f32le audio samples [VERIFY: backend_rust/src/routes/nle.rs:471-477]
+    - Downsamples samples into 200 normalized peaks [VERIFY: backend_rust/src/routes/nle.rs:484-499]
         │
         ▼
-[2] Timeline State Serialization
-    - Client updates multi-track Zustand store (`nleStore`)
-    - PUT /api/v1/nle/projects/:id persists `TimelineState` JSON [VERIFY: backend_rust/src/routes/nle.rs:483]
+[2] Frame Preview Extraction (`/api/v1/nle/preview/render`)
+    - Performs seek to playhead position t: `ffmpeg -ss {t} -i {src}` [VERIFY: backend_rust/src/routes/nle.rs:515-520]
+    - Renders preview JPEG to temporary directory [VERIFY: backend_rust/src/routes/nle.rs:521]
         │
         ▼
-[3] Export Pipeline
-    - Client initiates export: POST /api/v1/nle/export [VERIFY: backend_rust/src/routes/mod.rs:491]
-    - Option A (Client Fast-Path): WebCodecs frame-by-frame canvas render to `mp4-muxer`
-    - Option B (Server High-Quality): FFmpeg complex filtergraph rendering with audio ducking
+[3] Production Render Export (`/api/v1/nle/export`)
+    - Builds multi-track `-filter_complex` specification [VERIFY: backend_rust/src/routes/nle.rs:537-550]
+    - Applies transforms, trims, transitions, and audio EQ
+    - Encodes final MP4 deliverable on host filesystem
 ```
 
 ---
 
-## 7. Verification Report
+## 7. Local Cryptographic Sharing & Export Flow
 
-| Data Flow Stage | Implementation Code Reference | Verification Description | Status |
+```
+Local Asset Sharing
+        │
+        ▼
+[1] Share Token Generation (`POST /api/v1/shares`)
+    - Generates 128-bit UUID share_token [VERIFY: backend_rust/src/db.rs:252]
+    - Optionally hashes access password with Argon2id [VERIFY: backend_rust/src/db.rs:255]
+    - Sets expiration timestamp and download quotas [VERIFY: backend_rust/src/db.rs:256-258]
+        │
+        ▼
+[2] Shared Asset Download (`GET /share/:token`)
+    - Validates token existence, expiration, and quota limits
+    - If `hide_exif` is enabled, dynamically strips EXIF headers from image stream [VERIFY: backend_rust/src/db.rs:259]
+    - If `hide_gps` is enabled, sanitizes GPS metadata tags [VERIFY: backend_rust/src/db.rs:260]
+    - Streams sanitized binary to client
+```
+
+---
+
+## 8. Verification Report
+
+| Pipeline Step | Source Code Location | Description | Status |
 |---|---|---|---|
-| Upload Dispatch | `backend_rust/src/routes/photos/upload.rs:34-65` | Header parsing, disk write, deduplication | ✓ Verified |
-| EXIF & Dimensions | `backend_rust/src/routes/photos/upload.rs:100-120` | Extraction of width, height, aspect ratio, camera data | ✓ Verified |
-| Queue Notification | `backend_rust/src/routes/photos/upload.rs:170-173` | Enqueuing in `background_jobs` and waking worker | ✓ Verified |
-| System Telemetry Check | `backend_rust/src/services/worker.rs:298-308` | CPU usage > 85% and battery < 20% throttling | ✓ Verified |
-| Stage Priority Filter | `backend_rust/src/services/worker.rs:257-272` | Skipping completed analyzers based on photo columns | ✓ Verified |
-| SigLIP2 Vector Flow | `backend_rust/src/services/siglip.rs:54-93` | 224x224 RGB image normalization & tensor output | ✓ Verified |
-| Semantic Dot-Product | `backend_rust/src/services/agent_search.rs:50-58` | Vector dot-product with 0.15 threshold filtering | ✓ Verified |
-| Keyword Fallback Flow | `backend_rust/src/routes/utilities.rs:804-858` | SQLite LIKE multi-field escape and text supplementation | ✓ Verified |
-| Telemetry Sampling | `backend_rust/src/routes/mod.rs:148-160` | Error preservation and 1-in-N atomic counter sampling | ✓ Verified |
-| NLE Timeline Flow | `backend_rust/src/routes/nle.rs:481-494` | Project creation, proxy generation, and export status | ✓ Verified |
+| Upload Dispatch & File Write | `backend_rust/src/routes/photos/upload.rs:39-64` | Binary/JSON branching and disk write | ✓ Verified |
+| Deduplication Guard | `backend_rust/src/routes/photos/upload.rs:74-78` | Deduplication by existing file path | ✓ Verified |
+| EXIF & Dimension Extraction | `backend_rust/src/routes/photos/upload.rs:100-105`| Image dimensions, camera make/model | ✓ Verified |
+| Database Insert & Webhook | `backend_rust/src/routes/photos/upload.rs:109-160`| SQL insert and photo.imported event | ✓ Verified |
+| Thumbnail & Worker Awakening | `backend_rust/src/routes/photos/upload.rs:166-172`| spawn_blocking thumbnail, notify_one() | ✓ Verified |
+| System Monitor Throttling | `backend_rust/src/services/worker.rs:301-306` | CPU > 85%, Battery < 20% guards | ✓ Verified |
+| Pending Job Fetch & Plan | `backend_rust/src/services/worker.rs:498-507` | Oldest pending job fetch, DAG planning | ✓ Verified |
+| SigLIP Vectorization | `backend_rust/src/services/analyzers/siglip.rs:24-60`| 768d vector creation and DB save | ✓ Verified |
+| Face Engine Scan | `backend_rust/src/services/analyzers/face.rs:23-52` | ArcFace detection and DB save | ✓ Verified |
+| Vision Scene Description | `backend_rust/src/services/analyzers/vision.rs:23-40`| Captioning, summary, and auto_tags | ✓ Verified |
+| PP-OCRv4 Text Extraction | `backend_rust/src/services/analyzers/ocr_bbox.rs:28-40`| Text recognition and bounding boxes | ✓ Verified |
+| Fused Vector + Text Search | `backend_rust/src/routes/utilities.rs:750-860` | Dot-product vector + SQL LIKE fallback | ✓ Verified |
+| Telemetry Tracking Layer | `backend_rust/src/routes/mod.rs:134-160` | Wall-clock latency, dynamic 1-in-N | ✓ Verified |
+| NLE Audio Peaks & Export | `backend_rust/src/routes/nle.rs:471-550` | 200 audio peaks, fast preview, export | ✓ Verified |

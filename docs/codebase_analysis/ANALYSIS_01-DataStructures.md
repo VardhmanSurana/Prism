@@ -8,23 +8,33 @@
 ---
 
 ## Table of Contents
-- [Part 1: Concept Layer (What)](#part-1-concept-layer-what)
-- [Part 2: Structure Layer (Structure)](#part-2-structure-layer-structure)
-- [Part 3: Operation Layer (How)](#part-3-operation-layer-how)
-- [Part 4: Integration Layer (Integration)](#part-4-integration-layer-integration)
-- [Part 5: Summary Layer (Summary)](#part-5-summary-layer-summary)
+- [Part 1: Concept Layer (Conceptual Architecture)](#part-1-concept-layer-conceptual-architecture)
+- [Part 2: Structure Layer (Detailed Entity Breakdown)](#part-2-structure-layer-detailed-entity-breakdown)
+  - [2.1 The `Photo` Core Media Entity](#21-the-photo-core-media-entity)
+  - [2.2 Collections: `Album` & Junction `PhotoAlbum`](#22-collections-album--junction-photoalbum)
+  - [2.3 Identity & Biometrics: `Person` & `Face`](#23-identity--biometrics-person--face)
+  - [2.4 Video Synthesis: `VideoProject` & Timeline Types](#24-video-synthesis-videoproject--timeline-types)
+  - [2.5 Background Operations: `BackgroundJob` & `PhotoRecord`](#25-background-operations-backgroundjob--photorecord)
+  - [2.6 Hardware & System: `SystemState` & `ResourceShare`](#26-hardware--system-systemstate--resourceshare)
+  - [2.7 Conversational Agent: `AgentSession` & `AgentMessage`](#27-conversational-agent-agentsession--agentmessage)
+  - [2.8 Authentication & Security: `User`](#28-authentication--security-user)
+- [Part 3: Operation Layer (Memory Layout & Index Topology)](#part-3-operation-layer-memory-layout--index-topology)
+- [Part 4: Integration Layer (Frontend Zustand State Synchronization)](#part-4-integration-layer-frontend-zustand-state-synchronization)
+- [Part 5: Entity-Relationship Schema Diagram](#part-5-entity-relationship-schema-diagram)
 - [Part 6: Verification Report](#part-6-verification-report)
 
 ---
 
-# Part 1: Concept Layer (What)
+# Part 1: Concept Layer (Conceptual Architecture)
 
-## 1. System Overview
+Prism models multimedia assets, AI representations, and application runtime state through a strict three-tier structural paradigm:
 
-Prism models media assets and computational state through a strict dual-representation architecture:
-1. **Persistent Relational Schema**: SQLite with Write-Ahead Logging (WAL), Foreign Keys enabled, and specialized indices.
-2. **Asynchronous Rust In-Memory State**: Tokio-managed thread pools, `Arc<AppState>`, atomic primitive status counters, and mimalloc heap management.
-3. **Reactive Frontend State**: Strict TypeScript interfaces mirrored from Rust backend models, driving reactive Zustand stores and virtualized grid views.
+1. **Persistent Relational Schema (SQLite 3 with WAL)**:
+   All structural entities reside in a local SQLite file with Write-Ahead Logging (`PRAGMA journal_mode = WAL`), normal synchronization (`PRAGMA synchronous = NORMAL`), and strict foreign key integrity (`PRAGMA foreign_keys = ON`).
+2. **Asynchronous Rust In-Memory State**:
+   Domain representations utilize `sqlx::FromRow` derivation, `Option<T>` for nullable metadata, `Arc<AppState>` for shared thread-safe contexts, and `mimalloc` for fragmentation-free heap allocation.
+3. **Reactive Frontend State (Zustand & TypeScript)**:
+   Strict TypeScript interfaces mirror the Rust backend representations, driving UI reactivity across virtualized grid renderers, canvas pipelines, and interactive agent chats.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -47,6 +57,9 @@ Prism models media assets and computational state through a strict dual-represen
 │  ├── AgentSession (UUID-keyed conversational threads)                       │
 │  └── AgentMessage (Structured message with tool invocations & photo payloads)│
 │                                                                             │
+│  Authentication & Access Control                                            │
+│  └── User (Argon2-hashed local user accounts & roles)                       │
+│                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -60,15 +73,13 @@ Prism models media assets and computational state through a strict dual-represen
 
 ---
 
-# Part 2: Structure Layer (Structure)
+# Part 2: Structure Layer (Detailed Entity Breakdown)
 
-## 2. Core Domain Entities
+## 2.1 The `Photo` Core Media Entity
 
-### 2.1 The `Photo` Struct & SQLite Table
+The `Photo` struct represents the fundamental atomic asset in Prism. It unifies filesystem paths, camera EXIF parameters, and outputs from five ONNX neural networks.
 
-`Photo` serves as the primary data atom in Prism. It unifies camera EXIF metadata, filesystem pointers, perceptual hashing, and outputs from five ONNX AI analyzers.
-
-#### Rust Representation
+### Rust Representation
 ```rust
 // [VERIFY: backend_rust/src/models.rs:55-104]
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
@@ -108,7 +119,7 @@ pub struct Photo {
     pub adjustments_json: Option<String>,
     pub blur_score: Option<f64>,
     pub file_size: Option<i64>,
-    pub content_type: String,
+    pub content_type: Option<String>,
     pub exif_make: Option<String>,
     pub exif_model: Option<String>,
     pub exif_focal_length: Option<f64>,
@@ -118,13 +129,13 @@ pub struct Photo {
     pub codec: Option<String>,
     pub audio_codec: Option<String>,
     pub rotation: Option<i64>,
-    pub video_faces_scanned: bool,
+    pub video_faces_scanned: Option<bool>,
     pub animated_url: Option<String>,
     pub event_id: Option<i64>,
 }
 ```
 
-#### SQLite Schema
+### SQLite Schema Definition
 ```sql
 -- [VERIFY: backend_rust/src/db.rs:50-98]
 CREATE TABLE IF NOT EXISTS photos (
@@ -158,7 +169,9 @@ CREATE TABLE IF NOT EXISTS photos (
     ai_summary TEXT,
     auto_tags TEXT,
     embedding TEXT,
+    embedding_blob BLOB,
     ocr_text TEXT,
+    ocr_bboxes TEXT,
     adjustments_json TEXT,
     blur_score REAL,
     file_size INTEGER,
@@ -178,98 +191,160 @@ CREATE TABLE IF NOT EXISTS photos (
 );
 ```
 
-#### TypeScript Mirroring
+### TypeScript Frontend Interface
 ```typescript
 // [VERIFY: frontend/types.ts:1-52]
 export interface Photo {
-  id: string | number;
+  id: number;
   uuid?: string;
-  url: string;
+  filename: string;
   path: string;
+  url?: string;
   width: number;
   height: number;
-  aspect_ratio?: number;
-  date: string;
-  dateTimestamp?: number;
-  date_taken?: string;
-  uploadDate?: string;
-  uploadDateTimestamp?: number;
-  upload_date?: string;
-  location?: string;
+  aspect_ratio: number;
+  hash?: string;
+  phash?: string;
   caption?: string;
-  filename?: string;
-  isFavorite: boolean;
-  is_favorite?: boolean;
-  isLocked?: boolean;
-  is_locked?: boolean;
-  isTrash?: boolean;
-  is_trash?: boolean;
-  type?: 'image' | 'video';
-  mime_type?: string;
-  file_type?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  location?: string;
+  date?: string;
+  date_taken?: string;
+  upload_date?: string;
+  is_favorite: boolean;
+  is_locked: boolean;
+  is_trash: boolean;
+  mime_type: string;
+  file_type: string;
+  device_id?: string;
+  is_external: boolean;
+  ai_summary?: string;
+  auto_tags?: string;
+  embedding?: string;
+  ocr_text?: string;
+  ocr_bboxes?: string;
+  adjustments_json?: string;
+  blur_score?: number;
   file_size?: number;
+  content_type?: string;
+  exif_make?: string;
+  exif_model?: string;
+  exif_focal_length?: number;
+  exif_iso?: number;
   duration?: number;
   fps?: number;
   codec?: string;
   audio_codec?: string;
   rotation?: number;
+  video_faces_scanned?: boolean;
   animated_url?: string;
-  ai_summary?: string;
-  ocr_text?: string;
-  latitude?: number;
-  longitude?: number;
-  summary?: string;
-  people?: { id: string | number; uuid?: string; name: string; cover_face_thumbnail: string }[];
-  city?: string;
-  state?: string;
-  country?: string;
-  exif_make?: string;
-  exif_model?: string;
-  exif_focal_length?: number;
-  exif_iso?: number;
-  hash?: string;
-  search_explanation?: { score: number; matched: string[] };
+  event_id?: number;
 }
 ```
 
 ---
 
-### 2.2 Facial Biometrics & Recognition Entities
+## 2.2 Collections: `Album` & Junction `PhotoAlbum`
 
-Face identification is managed across three relational tiers: detected face instances (`faces`), recognized individuals (`people`), and mapping junctions (`photo_people`).
+Albums provide user-curated and smart dynamic groupings:
 
-```
-┌─────────────────────────┐          ┌─────────────────────────┐
-│         photos          │          │         people          │
-│ id: 42                  │          │ id: 7                   │
-│ filename: portrait.jpg  │          │ name: "Alice"           │
-│ embedding: [768 floats] │          │ face_embedding: [512 f] │
-└────────────┬────────────┘          └────────────┬────────────┘
-             │                                    │
-             │ 1:N                                │ 1:N
-             ▼                                    ▼
-┌─────────────────────────┐          ┌─────────────────────────┐
-│          faces          │          │      photo_people       │
-│ id: 101                 │          │ photo_id: 42            │
-│ photo_id: 42            │          │ person_id: 7            │
-│ box_json: [x,y,w,h]     │          │ confidence: 0.98        │
-│ embedding_json: [512 f] │          │ face_box_json: [x,y,w,h]│
-└─────────────────────────┘          └─────────────────────────┘
+### Rust Representation
+```rust
+// [VERIFY: backend_rust/src/models.rs:107-117]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Album {
+    pub id: i64,
+    pub uuid: Option<String>,
+    pub name: String,
+    pub r#type: String,
+    pub is_smart: bool,
+    pub smart_type: Option<String>,
+    pub cover_url: Option<String>,
+    pub photo_count: i64,
+    pub metadata_json: Option<String>,
+}
 ```
 
-**Evidence**:
-- [VERIFY: backend_rust/src/db.rs:118-124] - `CREATE TABLE people` with `cover_face_thumbnail` and `face_embedding`.
-- [VERIFY: backend_rust/src/db.rs:126-132] - `CREATE TABLE photo_people` with compound primary key `(photo_id, person_id)`.
-- [VERIFY: backend_rust/src/db.rs:134-142] - `CREATE TABLE faces` with foreign key CASCADE to `photos(id)`.
-- [VERIFY: backend_rust/src/services/analyzers/face.rs:44-52] - Face record insertion with bounding box JSON.
+### SQLite Schema Definition
+```sql
+-- [VERIFY: backend_rust/src/db.rs:101-117]
+CREATE TABLE IF NOT EXISTS albums (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    is_smart BOOLEAN DEFAULT 0,
+    smart_type TEXT,
+    cover_url TEXT,
+    photo_count INTEGER DEFAULT 0,
+    metadata_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS photo_albums (
+    photo_id INTEGER NOT NULL,
+    album_id INTEGER NOT NULL,
+    PRIMARY KEY (photo_id, album_id)
+);
+```
 
 ---
 
-### 2.3 Non-Linear Editor (NLE) Data Structures
+## 2.3 Identity & Biometrics: `Person` & `Face`
 
-The NLE subsystem defines a JSON-serializable multi-track timeline model capable of precise sub-frame positioning, Bézier keyframe transitions, and real-time audio gain management.
+Prism clusters human identities using 512-dimensional ArcFace neural embeddings:
 
-#### Rust Model
+### Rust Representation
+```rust
+// [VERIFY: backend_rust/src/models.rs:132-138]
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+pub struct Person {
+    pub id: i64,
+    pub uuid: Option<String>,
+    pub name: String,
+    pub cover_face_thumbnail: Option<String>,
+    pub face_embedding: Option<String>,
+}
+```
+
+### SQLite Schema Definition
+```sql
+-- [VERIFY: backend_rust/src/db.rs:119-143]
+CREATE TABLE IF NOT EXISTS people (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE,
+    name TEXT NOT NULL,
+    cover_face_thumbnail TEXT,
+    face_embedding TEXT
+);
+
+CREATE TABLE IF NOT EXISTS photo_people (
+    photo_id INTEGER NOT NULL,
+    person_id INTEGER NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    face_box_json TEXT,
+    PRIMARY KEY (photo_id, person_id)
+);
+
+CREATE TABLE IF NOT EXISTS faces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    photo_id INTEGER NOT NULL,
+    confidence REAL DEFAULT 1.0,
+    box_json TEXT,
+    embedding_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE
+);
+```
+
+---
+
+## 2.4 Video Synthesis: `VideoProject` & Timeline Types
+
+### Rust Representation
 ```rust
 // [VERIFY: backend_rust/src/routes/nle.rs:17-28]
 #[derive(Debug, Serialize, Deserialize, FromRow)]
@@ -287,53 +362,54 @@ pub struct VideoProject {
 }
 ```
 
-#### TypeScript Timeline & Keyframing Hierarchy
-```typescript
-// [VERIFY: frontend/types/nle.ts:17-24]
-export interface TimelineState {
-  tracks: Track[];
-  duration: number;
-  playheadPosition: number;
-  zoomLevel: number;
-  scrollOffset: number;
-  projectAssets?: import('@/store/nleStore').ProjectAsset[];
-}
-
-// [VERIFY: frontend/types/nle.ts:26-37]
-export interface Track {
-  id: string;
-  type: 'video' | 'audio' | 'text';
-  name: string;
-  muted: boolean;
-  solo: boolean;
-  visible: boolean;
-  locked: boolean;
-  color?: string;
-  clips: Clip[];
-  angle?: number;
-}
-
-// [VERIFY: frontend/types/nle.ts:50-63]
-export interface BezierCP {
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
-}
-
-export interface Keyframe {
-  t: number; // time in seconds relative to clip start
-  v: number;
-  interpolation: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'bezier';
-  bezierCP?: BezierCP;
-}
+### SQLite Schema Definition
+```sql
+-- [VERIFY: backend_rust/src/db.rs:178-189]
+CREATE TABLE IF NOT EXISTS video_projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE,
+    name TEXT NOT NULL DEFAULT 'Untitled Edit',
+    cover_photo_id INTEGER,
+    width INTEGER DEFAULT 1920,
+    height INTEGER DEFAULT 1080,
+    fps INTEGER DEFAULT 30,
+    project_json TEXT,
+    created_at DATETIME,
+    updated_at DATETIME
+);
 ```
 
 ---
 
-### 2.4 AI Job Scheduler & Telemetry Types
+## 2.5 Background Operations: `BackgroundJob` & `PhotoRecord`
 
-#### Pre-Flight Evaluation Record
+### Background Jobs Table
+```sql
+-- [VERIFY: backend_rust/src/db.rs:145-163]
+CREATE TABLE IF NOT EXISTS background_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    photo_id INTEGER,
+    job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
+    title TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    current_stage TEXT,
+    stage_progress TEXT,
+    progress_pct REAL DEFAULT 0.0,
+    total_items INTEGER DEFAULT 1,
+    processed_items INTEGER DEFAULT 0,
+    metadata_json TEXT,
+    attempt_count INTEGER DEFAULT 0,
+    last_error TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_background_jobs_photo ON background_jobs(photo_id);
+```
+
+### `PhotoRecord` (Lean Pre-Flight Evaluation Struct)
 ```rust
 // [VERIFY: backend_rust/src/services/worker.rs:42-50]
 pub struct PhotoRecord {
@@ -347,7 +423,11 @@ pub struct PhotoRecord {
 }
 ```
 
-#### Hardware Telemetry Snapshot
+---
+
+## 2.6 Hardware & System: `SystemState` & `ResourceShare`
+
+### Rust Telemetry Struct
 ```rust
 // [VERIFY: backend_rust/src/services/worker.rs:78-85]
 #[derive(Debug, Clone, Default)]
@@ -361,129 +441,150 @@ pub struct SystemState {
 }
 ```
 
-#### Resource Requirement Classification
-```rust
-// [VERIFY: backend_rust/src/services/worker.rs:220-224]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ResourceNeed {
-    Gpu,
-    CpuHeavy,
-    CpuLight,
-}
+### Cryptographic Resource Sharing
+```sql
+-- [VERIFY: backend_rust/src/db.rs:250-264]
+CREATE TABLE IF NOT EXISTS shares (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    share_token TEXT UNIQUE NOT NULL,
+    resource_type TEXT NOT NULL,
+    resource_id TEXT NOT NULL,
+    password_hash TEXT,
+    expires_at DATETIME,
+    max_downloads INTEGER,
+    download_count INTEGER DEFAULT 0,
+    hide_exif BOOLEAN DEFAULT 0,
+    hide_gps BOOLEAN DEFAULT 0,
+    download_original BOOLEAN DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 ```
 
 ---
 
-# Part 3: Operation Layer (How)
+## 2.7 Conversational Agent: `AgentSession` & `AgentMessage`
 
-## 3. Data Structure Lifecycles
+```sql
+-- [VERIFY: backend_rust/src/db.rs:205-223]
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    title TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS agent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    photos_json TEXT,
+    plan_json TEXT,
+    tools_json TEXT,
+    attached_image_json TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+---
+
+## 2.8 Authentication & Security: `User`
+
+```sql
+-- [VERIFY: backend_rust/src/db.rs:274-287]
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT UNIQUE NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+```
+
+---
+
+# Part 3: Operation Layer (Memory Layout & Index Topology)
 
 ### 3.1 Memory Layout & Alignment
 
-Prism uses `mimalloc` as the global memory allocator. Structs are configured for zero-copy deserialization:
-
-```
-PhotoRecord (Memory Footprint: 56 bytes on x86_64)
-┌───────────────────────┬───────────────────────────┬──────────────────────┐
-│ Field                 │ Type                      │ Size / Offset        │
-├───────────────────────┼───────────────────────────┼──────────────────────┤
-│ id                    │ i64                       │ 8 bytes  (Offset 0)  │
-│ path                  │ String (ptr + cap + len)  │ 24 bytes (Offset 8)  │
-│ has_embedding         │ bool                      │ 1 byte   (Offset 32) │
-│ has_faces             │ bool                      │ 1 byte   (Offset 33) │
-│ has_summary           │ bool                      │ 1 byte   (Offset 34) │
-│ has_ocr               │ bool                      │ 1 byte   (Offset 35) │
-│ ocr_attempted         │ bool                      │ 1 byte   (Offset 36) │
-│ [padding]             │ -                         │ 3 bytes  (Offset 37) │
-└───────────────────────┴───────────────────────────┴──────────────────────┘
-```
-
-**Evidence**:
-- [VERIFY: backend_rust/src/main.rs:9-10] - `static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;`
-
-### 3.2 Stage Resume Priority Resolution
-
-When an interrupted background job is resumed after restart, `get_resume_priority` determines which analyzers can be skipped based on existing table columns:
-
-```rust
-// [VERIFY: backend_rust/src/services/worker.rs:449-460]
-fn get_resume_priority(
-    has_embedding: bool,
-    has_faces: bool,
-    has_summary: bool,
-    has_ocr: bool,
-) -> u32 {
-    if has_ocr { return 0; }        // ocr priority=0 done → skip ≤0
-    if has_summary { return 100; }  // vision priority=100 done → skip ≤100
-    if has_faces { return 200; }    // face priority=200 done → skip ≤200
-    if has_embedding { return 300; }// siglip priority=300 done → skip ≤300
-    0                               // nothing done yet → run everything
-}
-```
+1. **Global Heap Allocator**:
+   Prism binds `mimalloc::MiMalloc` as `#[global_allocator]` to eliminate memory fragmentation during continuous ONNX tensor operations and parallel Rayon vector scans.
+   - [VERIFY: backend_rust/src/main.rs:9-10]
+2. **Embedding BLOB Layout**:
+   The `embedding_blob` column stores raw little-endian IEEE 754 float32 bytes ($768 \times 4 = 3072\text{ bytes}$). When memory-aligned to 4-byte boundaries, it is transmuted directly into `&[f32]` without heap allocation:
+   - [VERIFY: backend_rust/src/services/agent_search.rs:36-40]
 
 ---
 
-# Part 4: Integration Layer (Integration)
+# Part 4: Integration Layer (Frontend Zustand State Synchronization)
 
-## 4. Cross-Subsystem Structural Dependencies
-
-```
-┌──────────────────┐
-│   HTTP Request   │
-└────────┬─────────┘
-         │ Upload bytes
-         ▼
-┌──────────────────┐           ┌──────────────────┐
-│   Photo Model    │──────────▶│ BackgroundJobs DB│
-│  (models.rs:55)  │           │   (db.rs:144)    │
-└────────┬─────────┘           └────────┬─────────┘
-         │                              │ Polled by
-         │ Foreign Key                  ▼
-         ▼                     ┌──────────────────┐
-┌──────────────────┐           │   PhotoRecord    │
-│   Faces Table    │           │ (worker.rs:42)   │
-│   (db.rs:134)    │           └────────┬─────────┘
-└────────┬─────────┘                    │ Filtered by
-         │ Evaluated by                 ▼
-         ▼                     ┌──────────────────┐
-┌──────────────────┐           │  AnalyzerRegistry│
-│   FaceAnalyzer   │◀──────────│ (worker.rs:229)  │
-│(face.rs:8, p=200)│           └──────────────────┘
-```
-
-1. **Ingestion to Worker**: `upload_photo` inserts the `Photo` record and enqueues a `background_jobs` row [VERIFY: backend_rust/src/routes/photos/upload.rs:109-173].
-2. **Worker to Pre-flight**: The scheduler loads a `PendingJob` and wraps it into a `PhotoRecord` [VERIFY: backend_rust/src/services/worker.rs:316-324].
-3. **Pre-flight to Analyzer DAG**: `AnalyzerRegistry::plan` compares `photo.has_*` flags with `get_resume_priority` to select eligible analyzers [VERIFY: backend_rust/src/services/worker.rs:257-272].
+Prism maps database entities into reactive Zustand stores:
+- `photoStore.ts`: Manages photo lists, active selections, favorites, and trash toggling.
+- `nleStore.ts`: Manages video timeline tracks, keyframes, playhead scrubbing, and preview renders.
+- `settingsStore.ts`: Coordinates telemetry, API keys, and theme settings.
+- `agentStore.ts`: Manages conversational agent chat history, tool calls, and attached photos.
 
 ---
 
-# Part 5: Summary Layer (Summary)
+# Part 5: Entity-Relationship Schema Diagram
 
-## 5. Struct & Model Cross-Reference Table
-
-| Domain Struct | Storage Medium | Key Index / Constraint | Concurrency Guard | Evidence |
-|---|---|---|---|---|
-| `Photo` | SQLite `photos` | PRIMARY KEY `id`, UNIQUE `uuid` | SQLite WAL Mutex | [VERIFY: backend_rust/src/models.rs:55] |
-| `Album` | SQLite `albums` | PRIMARY KEY `id`, UNIQUE `uuid` | SQLite WAL Mutex | [VERIFY: backend_rust/src/models.rs:107] |
-| `Person` | SQLite `people` | PRIMARY KEY `id`, UNIQUE `uuid` | SQLite WAL Mutex | [VERIFY: backend_rust/src/models.rs:132] |
-| `VideoProject` | SQLite `video_projects` | PRIMARY KEY `id`, UNIQUE `uuid` | SQLite WAL Mutex | [VERIFY: backend_rust/src/routes/nle.rs:17] |
-| `ResourceShare` | SQLite `shares` | UNIQUE `share_token` | SQLite WAL Mutex | [VERIFY: backend_rust/src/models.rs:169] |
-| `SystemState` | In-Memory / Stack | Snapshot cached for 10s | AtomicU64 timestamp | [VERIFY: backend_rust/src/services/worker.rs:78] |
-| `RateLimiter` | In-Memory (`AppState`) | Per-IP + Route String key | `Mutex<HashMap<...>>` | [VERIFY: backend_rust/src/routes/mod.rs:294] |
-| `SiglipEngine` | Heap (`OnceLock`) | Static singleton | `Mutex<Session>` | [VERIFY: backend_rust/src/services/siglip.rs:8] |
+```
+┌──────────────┐          ┌──────────────────┐          ┌──────────────┐
+│    users     │          │      photos      │1        *│    faces     │
+├──────────────┤          ├──────────────────┼──────────┤──────────────┤
+│ id (PK)      │          │ id (PK)          │          │ id (PK)      │
+│ uuid         │          │ uuid             │          │ photo_id(FK) │
+│ username     │          │ filename         │          │ box_json     │
+│ password_hash│          │ path             │          │ embedding    │
+└──────────────┘          │ embedding_blob   │          └──────────────┘
+                          │ ai_summary       │
+                          │ ocr_text         │
+                          └─────────┬────────┘
+                                    │ 1
+                                    │
+                                    ├──────────────────────────┐
+                                    │ *                        │ *
+                          ┌─────────┴────────┐       ┌─────────┴────────┐
+                          │   photo_albums   │       │   photo_people   │
+                          ├──────────────────┤       ├──────────────────┤
+                          │ photo_id (PK, FK)│       │ photo_id (PK, FK)│
+                          │ album_id (PK, FK)│       │ person_id(PK, FK)│
+                          └─────────┬────────┘       └─────────┬────────┘
+                                    │ *                        │ *
+                                    │ 1                        │ 1
+                          ┌─────────┴────────┐       ┌─────────┴────────┐
+                          │      albums      │       │      people      │
+                          ├──────────────────┤       ├──────────────────┤
+                          │ id (PK)          │       │ id (PK)          │
+                          │ uuid             │       │ uuid             │
+                          │ name             │       │ name             │
+                          │ is_smart         │       │ face_embedding   │
+                          └──────────────────┘       └──────────────────┘
+```
 
 ---
 
 # Part 6: Verification Report
 
-| Verification Checkpoint | Target Source File:Line | Verified Reality in Codebase | Status |
+| Target Struct / Table | Source Code Location | Description | Status |
 |---|---|---|---|
-| `Photo` Rust definition | `backend_rust/src/models.rs:55-104` | 46 fields mapped from database columns | ✓ Verified |
-| `Photo` SQLite table | `backend_rust/src/db.rs:50-98` | Tables created with WAL mode and foreign keys | ✓ Verified |
-| `Photo` TypeScript type | `frontend/types.ts:1-52` | Complete interface mirror with optional camelCase aliases | ✓ Verified |
-| `VideoProject` NLE struct | `backend_rust/src/routes/nle.rs:17-28` | Stores project_json text, width, height, fps | ✓ Verified |
-| `TimelineState` NLE TS type | `frontend/types/nle.ts:17-24` | Contains Track array, playhead, zoom, scrollOffset | ✓ Verified |
-| `PhotoRecord` scheduler | `backend_rust/src/services/worker.rs:42-50` | Pre-flight boolean flags (has_faces, has_ocr, etc.) | ✓ Verified |
-| `SystemState` telemetry | `backend_rust/src/services/worker.rs:78-85` | cpu_usage, on_battery, battery_percent, gpu_busy | ✓ Verified |
-| `ResourceShare` model | `backend_rust/src/models.rs:169-183` | Password hash, download limits, hide EXIF/GPS | ✓ Verified |
-| `RateLimiter` structure | `backend_rust/src/routes/mod.rs:294-314` | In-memory Mutex HashMap with sliding Instant deque | ✓ Verified |
+| `Photo` Rust Model | `backend_rust/src/models.rs:55-104` | 48-field domain struct | ✓ Verified |
+| `photos` SQLite Schema | `backend_rust/src/db.rs:50-98` | Primary relational media table | ✓ Verified |
+| `Photo` TypeScript Interface | `frontend/types.ts:1-52` | Mirrored frontend type | ✓ Verified |
+| `Album` Rust & SQLite Model | `backend_rust/src/models.rs:107-117`, `db.rs:101-111` | Album collection record | ✓ Verified |
+| `photo_albums` Junction Table | `backend_rust/src/db.rs:113-117` | M:N association table | ✓ Verified |
+| `Person` & `people` Table | `backend_rust/src/models.rs:132-138`, `db.rs:119-125` | Facial clustering identity | ✓ Verified |
+| `Face` & `faces` Table | `backend_rust/src/db.rs:135-143` | Face bounding boxes & vectors | ✓ Verified |
+| `BackgroundJob` Table | `backend_rust/src/db.rs:145-163` | Task scheduler state machine | ✓ Verified |
+| `PhotoRecord` Preflight Struct | `backend_rust/src/services/worker.rs:42-50` | Lean struct for scheduler planning | ✓ Verified |
+| `SystemState` Telemetry Struct| `backend_rust/src/services/worker.rs:78-85` | OS resource snapshot struct | ✓ Verified |
+| `ResourceShare` & `shares` Table| `backend_rust/src/db.rs:250-264` | Ephemeral cryptographic token record| ✓ Verified |
+| `VideoProject` NLE Model | `backend_rust/src/routes/nle.rs:17-28`, `db.rs:178-189`| Multi-track NLE project entity | ✓ Verified |
+| `User` & `users` Table | `backend_rust/src/db.rs:274-287` | Argon2 local user credential record | ✓ Verified |

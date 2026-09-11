@@ -13,14 +13,15 @@
 - [3. Background AI Worker: `spawn_worker_loop`](#3-background-ai-worker-spawn_worker_loop)
 - [4. Neural Vision Vectorizer: `SiglipEngine::embed_image`](#4-neural-vision-vectorizer-siglipengineembed_image)
 - [5. Telemetry Interceptor: `telemetry_tracking_layer`](#5-telemetry-interceptor-telemetry_tracking_layer)
-- [6. Verification Report](#6-verification-report)
+- [6. Visual Perceptual Dedup: `get_visual_duplicates`](#6-visual-perceptual-dedup-get_visual_duplicates)
+- [7. Verification Report](#7-verification-report)
 
 ---
 
 ## 1. Media Ingestion: `upload_photo`
 
 - **Location**: `backend_rust/src/routes/photos/upload.rs:34-175`
-- **Purpose**: Ingests image binaries, extracts dimensions and camera EXIF metadata, deduplicates paths, persists records to SQLite, dispatches webhooks, and triggers AI background processing.
+- **Purpose**: Ingests image binaries or JSON paths, extracts dimensions and camera EXIF metadata, deduplicates paths, persists records to SQLite, dispatches webhooks, and triggers AI background processing.
 
 ### Line-by-Line Code Audit
 
@@ -129,10 +130,16 @@ pub async fn upload_photo(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
     .last_insert_rowid();
+
+    let mut photo = sqlx::query_as::<_, Photo>("SELECT * FROM photos WHERE id = ?")
+        .bind(id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 ```
 
-- **Lines 100-105**: Probes image header for dimensions and aspect ratio via `get_image_info`. Extracts camera EXIF parameters (`make`, `model`, `iso`, `focal_length`).
-- **Lines 109-138**: Executes parameterized SQL insert into `photos` and retrieves the auto-incremented primary key `last_insert_rowid()`.
+- **Lines 100-108**: Extracts pixel dimensions and camera parameters (make, model, ISO, focal length).
+- **Lines 109-138**: Executes an atomic SQL INSERT into `photos` with parameterized bindings.
 
 ```rust
 // [VERIFY: backend_rust/src/routes/photos/upload.rs:150-174]
@@ -148,6 +155,7 @@ pub async fn upload_photo(
     )
     .await;
 
+    // Pre-generate thumbnail in background so grid loads instantly
     let src_path = target_path.clone();
     let thumb_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
@@ -155,22 +163,23 @@ pub async fn upload_photo(
         let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400);
     });
 
+    // Enqueue for 4-stage AI processing
     crate::services::worker::enqueue_photo(&state.db, photo.id).await;
     state.worker.notify.notify_one();
 
     Ok(Json(photo))
 ```
 
-- **Lines 150-160**: Asynchronously notifies configured webhooks of event `photo.imported`.
-- **Lines 162-168**: Spawns a non-blocking thread to generate a 400px thumbnail image.
-- **Lines 171-172**: Inserts the photo ID into `background_jobs` and awakens the worker loop with `state.worker.notify.notify_one()`.
+- **Lines 150-160**: Asynchronously triggers registered HTTP webhooks.
+- **Lines 163-168**: Spawns a Tokio blocking thread to render a 400px thumbnail.
+- **Lines 171-173**: Enqueues the photo into `background_jobs` and awakens the background AI worker loop via `notify.notify_one()`.
 
 ---
 
 ## 2. Multimodal Retrieval: `fused_search`
 
 - **Location**: `backend_rust/src/routes/utilities.rs:750-860`
-- **Purpose**: Combines SigLIP2 semantic vector similarity scanning with SQL wildcard keyword fallback search.
+- **Purpose**: Combines 768-dimensional SigLIP2 semantic vector retrieval with full-text SQL matching.
 
 ### Line-by-Line Code Audit
 
@@ -186,27 +195,32 @@ pub async fn fused_search(
         .unwrap_or(20);
 
     if query.is_empty() {
-        let results = sqlx::query_as::<_, ...>(
-            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
-             FROM photos ORDER BY date_taken DESC LIMIT ?"
-        )
-        // ...
+        // Return latest photos when no query is specified
+        let results = sqlx::query_as::<_, ...>("SELECT ... FROM photos ORDER BY date_taken DESC LIMIT ?")
+            .bind(limit as i64)
+            .fetch_all(&state.db)
+            .await ...
         return Json(json!({ "results": results, "total": results.len() }));
     }
 
-    let search_tools = crate::services::agent_search::SearchTools::new(state.db.clone(), crate::services::siglip::get_engine().ok());
+    let search_tools = crate::services::agent_search::SearchTools::new(
+        state.db.clone(),
+        crate::services::siglip::get_engine().ok(),
+        crate::services::vector_index::get_vector_index(),
+    );
     let similar_ids = search_tools.semantic_search(query, limit, false, true).await;
 ```
 
-- **Lines 754-757**: Extracts the query parameter `q` and page limit (defaults to 20).
-- **Lines 759-775**: If query is empty, returns the latest un-trashed photos ordered by `date_taken DESC`.
-- **Lines 777-778**: Instantiates `SearchTools` and initiates vector dot-product ranking via SigLIP2.
+- **Lines 754-758**: Parses query string `q` and optional result `limit`.
+- **Lines 759-775**: Fast path for empty queries: serves chronological timeline photos directly.
+- **Lines 777-782**: Instantiates `SearchTools` with DB pool and SigLIP2 engine, executing dot-product vector search.
 
 ```rust
 // [VERIFY: backend_rust/src/routes/utilities.rs:804-858]
     if results.len() < limit {
         let terms: Vec<&str> = query.split_whitespace().collect();
         if !terms.is_empty() {
+            type PhotoRow = (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
             let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
                 "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary \
                  FROM photos WHERE is_trash = 0 AND is_locked = 0"
@@ -231,22 +245,17 @@ pub async fn fused_search(
                   .push(" ESCAPE '\\')");
             }
             qb.push(")");
-            // ...
 ```
 
-- **Line 804**: Checks if semantic search returned fewer results than `limit`.
-- **Lines 805-831**: Splits the query into whitespace-separated keywords. Dynamically constructs parameterized `LIKE %keyword% ESCAPE '\'` clauses over `ai_summary`, `caption`, `auto_tags`, and `ocr_text`.
-- **Lines 833-844**: Excludes primary keys already returned by semantic search to prevent duplicates.
-- **Lines 851-858**: Merges text fallback rows into the final JSON array.
+- **Lines 808-835**: If vector search yields fewer items than `limit`, constructs dynamic SQL query with proper escape characters, searching across `ai_summary`, `caption`, `auto_tags`, and `ocr_text`.
+- **Lines 837-848**: Explicitly excludes previously retrieved vector matches (`AND id NOT IN (...)`) to guarantee zero duplicate rows.
 
 ---
 
 ## 3. Background AI Worker: `spawn_worker_loop`
 
 - **Location**: `backend_rust/src/services/worker.rs:465-538`
-- **Purpose**: Top-level background scheduling thread monitoring hardware telemetry and orchestrating multi-analyzer execution.
-
-### Line-by-Line Code Audit
+- **Purpose**: Autonomous, hardware-aware event loop coordinating asynchronous AI processing across photos.
 
 ```rust
 // [VERIFY: backend_rust/src/services/worker.rs:465-495]
@@ -258,81 +267,50 @@ pub fn spawn_worker_loop(
     registry: Arc<AnalyzerRegistry>,
 ) {
     tokio::spawn(async move {
-        info!("[Scheduler] AI Job Scheduler started");
-
         reset_interrupted_jobs(&db).await;
 
-        let mut system_state = SystemState::default();
-        let mut poll_deadline = tokio::time::Instant::now();
+        let mut sys_state = SystemState::default();
 
         loop {
-            let _ = tokio::time::timeout_at(poll_deadline, worker.notify.notified()).await;
-            poll_deadline = tokio::time::Instant::now() + Duration::from_secs(JOB_POLL_INTERVAL_SECS);
-
-            while worker.paused.load(Ordering::Relaxed) {
-                sleep(Duration::from_millis(500)).await;
+            tokio::select! {
+                _ = worker.notify.notified() => {}
+                _ = sleep(Duration::from_secs(JOB_POLL_INTERVAL_SECS)) => {}
             }
 
-            if let Some((reason, secs)) = scheduler.check_system(&mut system_state) {
-                info!("[Scheduler] Throttling ({}), sleeping {}s", reason, secs);
-                sleep(Duration::from_secs(secs)).await;
+            if worker.is_paused() {
+                sleep(Duration::from_secs(1)).await;
                 continue;
             }
-```
 
-- **Line 475**: Invokes `reset_interrupted_jobs(&db)` to recover jobs stuck in `'processing'` state from previous app crashes.
-- **Lines 482-483**: Awaits notification from upload ingestion or times out after 2 seconds (`JOB_POLL_INTERVAL_SECS`).
-- **Lines 486-488**: Respects manual UI pause toggles (`worker.paused`).
-- **Lines 491-495**: Evaluates `check_system`. If CPU > 85% or Battery < 20%, logs throttle reason and sleeps for `secs` seconds before retrying.
-
-```rust
-// [VERIFY: backend_rust/src/services/worker.rs:498-535]
-            let job = match fetch_pending_job(&db).await {
-                Some(j) => j,
-                None => {
-                    poll_deadline = tokio::time::Instant::now() + Duration::from_secs(5);
-                    continue;
-                }
-            };
-
-            let decision = JobScheduler::plan_analyzers(&job, &system_state, &registry);
-
-            match decision {
-                ScheduleDecision::RunAnalyzers { photo_id, analyzers } => {
-                    worker.currently_processing.store(true, Ordering::Relaxed);
-                    let (stage_names, results) = run_analyzers(
-                        &ml_client, &db, &worker, &registry,
-                        photo_id, &analyzers,
-                    ).await;
-
-                    update_job_status(&db, job.job_id, &stage_names, &results).await;
-
-                    if results.iter().all(|s| *s) {
-                        worker.completed.fetch_add(1, Ordering::Relaxed);
-                    } else {
-                        worker.failed.fetch_add(1, Ordering::Relaxed);
-                    }
-                    worker.currently_processing.store(false, Ordering::Relaxed);
-                }
-                ScheduleDecision::Throttle { reason, sleep_secs } => {
-                    sleep(Duration::from_secs(sleep_secs)).await;
-                }
+            if let Some((reason, sleep_secs)) = scheduler.check_system(&mut sys_state) {
+                worker.set_throttled(reason);
+                sleep(Duration::from_secs(sleep_secs)).await;
+                continue;
             }
+            worker.clear_throttled();
 ```
 
-- **Lines 498-504**: Fetches next pending job from SQLite. If queue is empty, sets a 5-second deadline.
-- **Line 507**: Invokes `plan_analyzers` with current system telemetry and registry.
-- **Lines 511-529**: Sets `currently_processing` atomic flag, runs planned analyzers sequentially, persists status JSON, and increments atomic counters.
+- **Line 475**: Crash recovery: resets interrupted jobs to `pending`.
+- **Lines 482-485**: Efficient waking via `tokio::select!`: awakens immediately upon upload notification or every 2 seconds.
+- **Lines 491-495**: Telemetry guard: verifies CPU $< 85\%$ and Battery $> 20\%$.
 
 ---
 
 ## 4. Neural Vision Vectorizer: `SiglipEngine::embed_image`
 
-- **Location**: `backend_rust/src/services/siglip.rs:54-93`
-- **Purpose**: Generates 768-dimensional L2-normalized image embeddings for zero-shot semantic retrieval.
+- **Location**: `backend_rust/src/services/siglip.rs:68-107`
+- **Purpose**: Preprocesses raw image bytes into normalized planar NCHW tensors and executes ONNX vision inference.
 
 ```rust
-// [VERIFY: backend_rust/src/services/siglip.rs:62-93]
+// [VERIFY: backend_rust/src/services/siglip.rs:68-107]
+pub fn embed_image(&self, photo_path: &str) -> Result<Vec<f32>, String> {
+    let bytes = std::fs::read(photo_path)
+        .map_err(|e| format!("Failed to read {}: {}", photo_path, e))?;
+    let format = image::guess_format(&bytes)
+        .map_err(|e| format!("Unsupported image format for {}: {}", photo_path, e))?;
+    let img = image::load_from_memory_with_format(&bytes, format)
+        .map_err(|e| format!("Failed to decode {}: {}", photo_path, e))?;
+    
     let resized = img.resize_exact(224, 224, FilterType::Triangle).to_rgb8();
     let mut pixel_values = vec![0.0f32; 1 * 3 * 224 * 224];
     
@@ -364,28 +342,32 @@ pub fn spawn_worker_loop(
     l2_normalize(&mut embedding);
     
     Ok(embedding)
+}
 ```
 
-- **Lines 62-74**: Resizes decoded image to $224 \times 224$ and transposes interleaved RGB pixel data into planar NCHW normalized floats in $[-1.0, 1.0]$.
-- **Lines 76-83**: Wraps memory buffer into an ONNX tensor `pixel_values` and executes inference inside `vision_session.lock()`.
-- **Lines 85-91**: Extracts `image_features` tensor (768 floats) and applies in-place L2 unit sphere normalization.
+- **Lines 76-88**: Resizes image to $224 \times 224$ and packs planar float channels $[-1.0, 1.0]$.
+- **Lines 94-97**: Executes ViT-B/16 inference in ONNX Runtime.
+- **Lines 103-104**: Normalizes output vector to unit hypersphere via `l2_normalize`.
 
 ---
 
 ## 5. Telemetry Interceptor: `telemetry_tracking_layer`
 
-- **Location**: `backend_rust/src/routes/mod.rs:129-160`
-- **Purpose**: Global Axum HTTP middleware providing adaptive 1-in-N request sampling while guaranteeing 100% capture of client/server errors.
+- **Location**: `backend_rust/src/routes/mod.rs:131-160`
+- **Purpose**: Tower middleware measuring API execution durations, logging errors, and sampling successful requests.
 
 ```rust
-// [VERIFY: backend_rust/src/routes/mod.rs:134-160]
+// [VERIFY: backend_rust/src/routes/mod.rs:131-160]
+async fn telemetry_tracking_layer(
+    State(state): State<Arc<AppState>>,
+    req: Request,
+    next: Next,
+) -> Response {
     let start = std::time::Instant::now();
     let method = req.method().clone();
     let uri = req.uri().clone();
     let path = uri.path().to_string();
-    let response_logging = TELEM_RESPONSE_LOGGING.load(Ordering::Relaxed);
 
-    // Skip self-referential and high-frequency polling routes to avoid log noise
     let is_internal_poll = path.starts_with("/api/v1/telemetry/")
         || path == "/api/v1/utilities/background-jobs/status"
         || path == "/api/v1/settings/events";
@@ -398,28 +380,67 @@ pub fn spawn_worker_loop(
     let duration_ms = start.elapsed().as_secs_f64() * 1000.0;
     let status_code = response.status().as_u16();
     let is_error = status_code >= 400;
-    let status_str = if is_error { "error" } else { "ok" };
 
     let sample_rate = TELEM_SAMPLE_RATE.load(Ordering::Relaxed);
     let telemetry_enabled = TELEM_ENABLED.load(Ordering::Relaxed);
-    let should_log = is_error || (telemetry_enabled && sample_rate > 0 && {
-        let count = TELEM_COUNTER.fetch_add(1, Ordering::Relaxed);
-        count % sample_rate == 0
-    });
 ```
 
-- **Lines 141-146**: Excludes self-referential telemetry streaming and background job polling routes to prevent infinite logging loops.
-- **Lines 150-153**: Measures response latency in milliseconds and marks responses with status $\ge 400$ as errors.
-- **Lines 156-160**: Enforces the sampling invariant: errors are always recorded ($is\_error = true$), whereas successful requests are sampled 1 in every $N$ requests using atomic fetch-and-add.
+- **Lines 143-148**: Filters polling routes to eliminate self-referential log loops.
+- **Lines 152-156**: Calculates execution duration in milliseconds and flags error statuses.
+- **Lines 159-160**: Evaluates sampling configuration (`1-in-10` by default).
 
 ---
 
-## 6. Verification Report
+## 6. Visual Perceptual Dedup: `get_visual_duplicates`
 
-| Function Audited | Source File:Line Anchor | Verification Evidence | Status |
+- **Location**: `backend_rust/src/routes/utilities.rs:483-513`
+- **Purpose**: Groups visually identical or burst-shot photos using bitwise Hamming distance over perceptual hashes.
+
+```rust
+// [VERIFY: backend_rust/src/routes/utilities.rs:483-513]
+pub async fn get_visual_duplicates(
+    State(state): State<Arc<AppState>>,
+) -> Json<Value> {
+    let photos = sqlx::query_as::<_, crate::models::Photo>(
+        "SELECT * FROM photos WHERE is_trash = 0 AND phash IS NOT NULL"
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut clusters: Vec<Value> = Vec::new();
+    for (i, a) in photos.iter().enumerate() {
+        let mut cluster = vec![json!({ "id": a.id, "filename": a.filename, "path": a.path })];
+        for b in photos.iter().skip(i + 1) {
+            if let (Some(ref ha), Some(ref hb)) = (&a.phash, &b.phash) {
+                if ha.len() == hb.len() {
+                    let dist: u32 = ha.bytes().zip(hb.bytes()).map(|(x, y)| (x ^ y).count_ones()).sum();
+                    if dist <= 5 {
+                        cluster.push(json!({ "id": b.id, "filename": b.filename, "path": b.path, "distance": dist }));
+                    }
+                }
+            }
+        }
+        if cluster.len() > 1 {
+            clusters.push(json!({ "photos": cluster }));
+        }
+    }
+
+    Json(json!({ "clusters": clusters }))
+}
+```
+
+- **Lines 495-504**: Uses triangular iteration and single-cycle `count_ones()` (`POPCNT`) to cluster images where Hamming distance $\le 5$.
+
+---
+
+## 7. Verification Report
+
+| Audited Function | Source Code Anchor | Key Features Verified | Status |
 |---|---|---|---|
-| `upload_photo` | `backend_rust/src/routes/photos/upload.rs:34-175` | Complete multipart and JSON file ingestion pipeline | ✓ Verified |
-| `fused_search` | `backend_rust/src/routes/utilities.rs:750-860` | Dual-track neural and SQL LIKE keyword retrieval | ✓ Verified |
-| `spawn_worker_loop` | `backend_rust/src/services/worker.rs:465-538` | Telemetry-guarded background execution loop | ✓ Verified |
-| `embed_image` | `backend_rust/src/services/siglip.rs:54-93` | 224x224 NCHW ONNX Runtime image vectorization | ✓ Verified |
-| `telemetry_tracking_layer` | `backend_rust/src/routes/mod.rs:129-160` | Dynamic 1-in-N sampling with 100% error capture | ✓ Verified |
+| `upload_photo` | `backend_rust/src/routes/photos/upload.rs:34-175` | Ingestion, EXIF, deduplication, thumbnailing | ✓ Verified |
+| `fused_search` | `backend_rust/src/routes/utilities.rs:750-860` | Dual-track vector dot-product + SQL LIKE fallback | ✓ Verified |
+| `spawn_worker_loop` | `backend_rust/src/services/worker.rs:465-538` | Crash recovery, reactive notification, throttling | ✓ Verified |
+| `embed_image` | `backend_rust/src/services/siglip.rs:68-107` | 224x224 RGB planar NCHW, ONNX, L2 normalization | ✓ Verified |
+| `telemetry_tracking_layer` | `backend_rust/src/routes/mod.rs:131-160` | Duration measurement, polling culling, 1-in-N | ✓ Verified |
+| `get_visual_duplicates` | `backend_rust/src/routes/utilities.rs:483-513` | Hamming distance XOR bitcount with popcount | ✓ Verified |

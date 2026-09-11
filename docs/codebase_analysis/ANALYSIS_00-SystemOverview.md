@@ -8,22 +8,23 @@
 ---
 
 ## Table of Contents
-- [1. System Introduction](#1-system-introduction)
-- [2. Architectural Layout & Threading Model](#2-architectural-layout--threading-model)
-- [3. Core Subsystems & Module Breakdown](#3-core-subsystems--module-breakdown)
+- [1. System Introduction & Core Tenets](#1-system-introduction--core-tenets)
+- [2. Architectural Layout & System Topology](#2-architectural-layout--system-topology)
+- [3. Threading Model & Concurrency Architecture](#3-threading-model--concurrency-architecture)
 - [4. Inter-Module Relationships & Middleware Topology](#4-inter-module-relationships--middleware-topology)
 - [5. Systemwide Data Flow Pipeline](#5-systemwide-data-flow-pipeline)
 - [6. Technology Stack & Key Dependencies](#6-technology-stack--key-dependencies)
 - [7. Codebase Structure Mapping](#7-codebase-structure-mapping)
-- [8. Verification Report](#8-verification-report)
+- [8. Security & Cryptographic Sandboxing Model](#8-security--cryptographic-sandboxing-model)
+- [9. Verification & Audit Report](#9-verification--audit-report)
 
 ---
 
-## 1. System Introduction
+## 1. System Introduction & Core Tenets
 
 ### 1.1 What is Prism?
 
-**Prism** is an offline, privacy-first desktop photo and video workstation designed to deliver cloud-caliber intelligence entirely on user hardware without transmitting private photos or telemetry to external clouds.
+**Prism** is an offline, privacy-first, high-performance desktop photo and video library workstation designed to deliver cloud-caliber multimedia intelligence entirely on user hardware without transmitting private photos or telemetry to external servers.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -34,7 +35,7 @@
 │   Tauri v2 Native Windows/Linux/macOS Window                                │
 │   └─ Vite 6 + React 18 + Zustand 5 User Interface (Port 3005)               │
 │                                                                             │
-│                     │ HTTP Rest & SSE Stream (127.0.0.1:8269)               │
+│                     │ HTTP REST & SSE Stream (127.0.0.1:8269)               │
 │                     ▼                                                       │
 │                                                                             │
 │  [Asynchronous Core Server]                                                 │
@@ -48,13 +49,13 @@
 ```
 
 **Evidence**:
-- [VERIFY: backend_rust/src/main.rs:41-53] - Tokio entry point and host:port binding.
+- [VERIFY: backend_rust/src/main.rs:44-53] - Tokio multi-threaded entry point and host:port binding.
 - [VERIFY: frontend/src-tauri/tauri.conf.json:3-10] - Tauri application product definition, devUrl on port 3005.
 - [VERIFY: backend_rust/src/db.rs:32-35] - SQLite initialization with WAL mode, normal synchronicity, and foreign keys enabled.
 
-### 1.2 Core Architectural Advantages
+### 1.2 Core Architectural Tenets
 
-1. **Deterministic Local Execution (Zero Cloud Data Exfiltration)**:
+1. **Deterministic Local Execution (Zero Cloud Exfiltration)**:
    All semantic vectorization, facial identification, optical character recognition, depth estimation, and natural language planning occur strictly inside local processes.
    - [VERIFY: backend_rust/src/services/siglip.rs:22-50] - In-process ONNX Runtime session creation.
    - [VERIFY: backend_rust/src/services/worker.rs:465-538] - Local background worker consuming SQLite jobs.
@@ -70,11 +71,59 @@
    - [VERIFY: backend_rust/src/services/agent_search.rs:18-70] - Dot-product semantic search algorithm.
    - [VERIFY: backend_rust/src/routes/utilities.rs:750-860] - `fused_search` handler combining vector results with fallback keyword matching.
 
+4. **Crash Resiliency & Operation Recovery**:
+   On every startup, Prism scans the uploads and thumbnails directories for interrupted operations and `.prism_backup` artifacts, restoring files and cleaning locks automatically.
+   - [VERIFY: backend_rust/src/main.rs:176-231] - `scan_and_recover` and `recover_interrupted_operations` directory traversal.
+
 ---
 
-## 2. Architectural Layout & Threading Model
+## 2. Architectural Layout & System Topology
 
-Prism divides system execution into dedicated threads and asynchronous task pools to prevent UI stuttering:
+Prism separates user interaction, business routing, computation, and storage into isolated subsystems:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       Prism Detailed Layered Architecture                   │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  [Presentation Layer - Frontend]                                            │
+│  ├── React 18 View Hierarchy (App.tsx, MainContent.tsx)                    │
+│  ├── Zustand Reactive Stores (photoStore, nleStore, uiStore, settingsStore) │
+│  ├── Virtualized Renderers (@tanstack/react-virtual PhotoGrid)              │
+│  └── Tauri IPC Bridge (Dialogs, Native Window Controls, FS Links)           │
+│                                                                             │
+│  [Transport & API Gateway Layer - Backend]                                  │
+│  ├── Axum 0.7 Router (120+ REST Endpoints, SSE Event Source)                │
+│  ├── CORS Enforcement (Allowed origins: tauri.localhost, localhost:3005)    │
+│  ├── Sliding-Window IP Rate Limiter (20 req/min on heavy AI endpoints)      │
+│  └── Dynamic Sampling Telemetry Layer (1-in-N sampling, 100% error logging) │
+│                                                                             │
+│  [Execution & Scheduling Layer]                                             │
+│  ├── Tokio Multi-threaded Async Runtime (Network I/O, DB queries)           │
+│  ├── Rayon / spawn_blocking Pool (Thumbnail generation, EXIF parsing)       │
+│  └── Autonomous AI Worker Loop (Battery/CPU monitor, DAG-based job queue)   │
+│                                                                             │
+│  [AI / ML Inference Engine Layer]                                           │
+│  ├── SigLIP2 ViT-B/16 (768d Multimodal Image & Text Embeddings)             │
+│  ├── ArcFace (512d Face Identification & Bounding Box Localization)         │
+│  ├── PP-OCRv4 (Text Detection & Recognition with Word Bounding Boxes)       │
+│  ├── Florence-2 / Local Vision (Dense Scene Captioning & Tagging)           │
+│  └── Inpainting / Depth Models (Selective Local Photo Enhancement)          │
+│                                                                             │
+│  [Persistence & Storage Layer]                                              │
+│  ├── SQLite 3 with WAL Mode & PRAGMA synchronous = NORMAL                   │
+│  ├── Inverted Index: FTS5 Full-Text Search Virtual Tables                  │
+│  ├── HNSW In-Memory Vector Index for sub-millisecond retrieval              │
+│  └── Filesystem Layout: uploads/, thumbnails/ (400px), models/llm/          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 3. Threading Model & Concurrency Architecture
+
+Prism divides system execution across dedicated execution contexts to guarantee that expensive neural inference and image decodes never freeze the user interface or stall API responses:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -108,26 +157,10 @@ Prism divides system execution into dedicated threads and asynchronous task pool
 
 **Evidence**:
 - [VERIFY: backend_rust/src/main.rs:9-10] - `mimalloc::MiMalloc` installed as global memory allocator for high-concurrency low-fragmentation heap access.
-- [VERIFY: backend_rust/src/main.rs:97-103] - Dedicated asynchronous background task spawned via `spawn_worker_loop`.
+- [VERIFY: backend_rust/src/main.rs:104-111] - Dedicated asynchronous background task spawned via `spawn_worker_loop`.
 - [VERIFY: backend_rust/src/routes/photos/upload.rs:166-168] - Offloading CPU-heavy thumbnail image encoding to Tokio's blocking threadpool via `tokio::task::spawn_blocking`.
 - [VERIFY: backend_rust/src/services/siglip.rs:9-10] - Thread-safe access to ONNX session via `std::sync::Mutex<Session>`.
-
----
-
-## 3. Core Subsystems & Module Breakdown
-
-| Module Name | Purpose | Primary Implementation File | Verification Anchor |
-|---|---|---|---|
-| **App Entry & State** | Config parsing, SQLite connection pool initialization, server startup | `backend_rust/src/main.rs` | [VERIFY: backend_rust/src/main.rs:28] |
-| **Routing & Middleware** | Route aggregation, rate limiting, API key security, telemetry layer | `backend_rust/src/routes/mod.rs` | [VERIFY: backend_rust/src/routes/mod.rs:374] |
-| **Database Engine** | SQLite WAL schema, table setup, foreign key enforcement, migrations | `backend_rust/src/db.rs` | [VERIFY: backend_rust/src/db.rs:10] |
-| **Media Ingestion** | Photo/video upload, blob decoding, EXIF extraction, thumbnail pipeline | `backend_rust/src/routes/photos/upload.rs` | [VERIFY: backend_rust/src/routes/photos/upload.rs:34] |
-| **AI Worker Engine** | Hardware-aware scheduling, retry backoff, multi-stage priority execution | `backend_rust/src/services/worker.rs` | [VERIFY: backend_rust/src/services/worker.rs:465] |
-| **Multimodal Vectorizer**| In-process SigLIP2 image/text embedding generation and normalization | `backend_rust/src/services/siglip.rs` | [VERIFY: backend_rust/src/services/siglip.rs:17] |
-| **Non-Linear Editor (NLE)**| Video timeline data management, proxy generation, transcode & export | `backend_rust/src/routes/nle.rs` | [VERIFY: backend_rust/src/routes/nle.rs:76] |
-| **Agent Chat & Search** | Autonomous assistant session management, photo search & metadata retrieval| `backend_rust/src/routes/agent.rs` | [VERIFY: backend_rust/src/routes/agent.rs:34] |
-| **Library Utilities** | Duplicate clustering, blur detection, fused search, backup/restore | `backend_rust/src/routes/utilities.rs` | [VERIFY: backend_rust/src/routes/utilities.rs:246] |
-| **Frontend UI Shell** | Virtualized grid rendering, multi-view router, global Zustand stores | `frontend/App.tsx` | [VERIFY: frontend/App.tsx:62] |
+- [VERIFY: backend_rust/src/services/agent_search.rs:3] - Multi-threaded vector scoring with Rayon parallel iteration.
 
 ---
 
@@ -144,7 +177,7 @@ The backend Axum router stacks several layers of middleware to guarantee securit
  └──────────────────────┬─────────────────────────────────┘
                         ▼
  ┌────────────────────────────────────────────────────────┐
- │ 2. CorsLayer (Tauri localhost & dev port 3005)         │ [VERIFY: backend_rust/src/routes/mod.rs:377-398]
+ │ 2. CorsLayer (Tauri localhost & dev port 3005)         │ [VERIFY: backend_rust/src/routes/mod.rs:398-422]
  └──────────────────────┬─────────────────────────────────┘
                         ▼
  ┌────────────────────────────────────────────────────────┐
@@ -156,7 +189,7 @@ The backend Axum router stacks several layers of middleware to guarantee securit
  └──────────────────────┬─────────────────────────────────┘
                         ▼
  ┌────────────────────────────────────────────────────────┐
- │ 5. TelemetryTrackingLayer (Adaptive 1-in-N sampling)   │ [VERIFY: backend_rust/src/routes/mod.rs:129-160]
+ │ 5. TelemetryTrackingLayer (Adaptive 1-in-N sampling)   │ [VERIFY: backend_rust/src/routes/mod.rs:131-160]
  └──────────────────────┬─────────────────────────────────┘
                         ▼
  ┌────────────────────────────────────────────────────────┐
@@ -165,6 +198,25 @@ The backend Axum router stacks several layers of middleware to guarantee securit
                         ▼
              Business Route Handlers
 ```
+
+### 4.1 Middleware Details
+
+1. **DefaultBodyLimit**:
+   Allocates up to 1024 MB per request to support multi-gigabyte 4K ProRes video uploads and batch image imports without premature client disconnections.
+   - [VERIFY: backend_rust/src/routes/mod.rs:613]
+
+2. **CORS Security**:
+   Explicitly restricts incoming origins to `tauri://localhost`, `http://tauri.localhost`, and development origins (`http://localhost:3005`). Production overrides can be provided via `ALLOWED_ORIGINS`.
+   - [VERIFY: backend_rust/src/routes/mod.rs:401-422]
+
+3. **Sliding-Window Rate Limiter**:
+   Guards computationally intense routes (`/api/v1/photos/ai/`, `/api/v1/photos/inpaint/`, `/api/v1/nle/preview/`) to at most 20 requests per minute per IP address, returning `429 Too Many Requests` on violation.
+   - [VERIFY: backend_rust/src/routes/mod.rs:347-370]
+
+4. **Telemetry Sampling**:
+   Monitors API execution latencies. Uses an atomic counter to log 1 in every 10 successful requests (`TELEM_SAMPLE_RATE = 10`), while capturing 100% of error responses (`status >= 400`).
+   - [VERIFY: backend_rust/src/routes/mod.rs:53-56]
+   - [VERIFY: backend_rust/src/routes/mod.rs:157-160]
 
 ---
 
@@ -197,7 +249,7 @@ The backend Axum router stacks several layers of middleware to guarantee securit
 └──────────────────────────────────┬───────────────────────────────────┘
                                    ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│ Stage 4: Reactive Client Notification                                │ [VERIFY: backend_rust/src/routes/settings.rs:511]
+│ Stage 4: Reactive Client Notification                                │ [VERIFY: backend_rust/src/routes/settings.rs:509]
 │ - SSE stream `/api/v1/settings/events` emits update message          │
 │ - Frontend Zustand store updates photo item in-memory                │
 │ - UI updates thumbnails, search vectors, and people clusters         │
@@ -272,17 +324,36 @@ Prism/
 
 ---
 
-## 8. Verification Report
+## 8. Security & Cryptographic Sandboxing Model
+
+Prism is designed from the ground up for strict local privacy:
+
+1. **Local Authentication**:
+   User credentials are encrypted using modern Argon2id with random 128-bit salt. Default admin bootstrap runs automatically if the `users` table is empty.
+   - [VERIFY: backend_rust/src/db.rs:317-326]
+
+2. **Resource-Based Ephemeral Sharing**:
+   Files can be shared via cryptographic UUID tokens (`share_token`) with optional argon2 password verification, download quotas (`max_downloads`), and expiration timestamps (`expires_at`). EXIF and GPS coordinates can be stripped dynamically during export.
+   - [VERIFY: backend_rust/src/db.rs:250-264]
+   - [VERIFY: backend_rust/src/routes/shares.rs:1-150]
+
+3. **Desktop Shell Isolation**:
+   Tauri v2 configuration locks down dangerous native capabilities, ensuring that web views only access designated host APIs through audited Tauri plugins.
+   - [VERIFY: frontend/src-tauri/tauri.conf.json:10-30]
+
+---
+
+## 9. Verification & Audit Report
 
 | Verification Target | Referenced File:Line | Code Content Summary | Status |
 |---|---|---|---|
-| Server Startup & AppState | `backend_rust/src/main.rs:28-53` | `pub struct AppState`, `tokio::main`, host/port setup | ✓ Verified |
+| Server Startup & AppState | `backend_rust/src/main.rs:30-53` | `pub struct AppState`, `tokio::main`, host/port setup | ✓ Verified |
 | Database Schema & WAL | `backend_rust/src/db.rs:32-50` | `PRAGMA journal_mode = WAL`, `CREATE TABLE photos` | ✓ Verified |
-| Rate Limiting Middleware | `backend_rust/src/routes/mod.rs:319-346` | Sliding window rate limit per IP on expensive paths | ✓ Verified |
-| Telemetry Tracking Layer | `backend_rust/src/routes/mod.rs:129-160` | Dynamic 1-in-N sampling & error auto-logging | ✓ Verified |
+| Rate Limiting Middleware | `backend_rust/src/routes/mod.rs:347-370` | Sliding window rate limit per IP on expensive paths | ✓ Verified |
+| Telemetry Tracking Layer | `backend_rust/src/routes/mod.rs:131-160` | Dynamic 1-in-N sampling & error auto-logging | ✓ Verified |
 | Media Ingestion Endpoint | `backend_rust/src/routes/photos/upload.rs:34-175` | EXIF extraction, thumbnail generation, worker enqueue | ✓ Verified |
 | AI Worker & System Monitor | `backend_rust/src/services/worker.rs:78-140` | Battery and CPU usage polling for task throttling | ✓ Verified |
-| SigLIP2 Engine Vectorization | `backend_rust/src/services/siglip.rs:54-93` | 224x224 RGB resize, NCHW normalization, L2 norm | ✓ Verified |
+| SigLIP2 Engine Vectorization | `backend_rust/src/services/siglip.rs:55-93` | 224x224 RGB resize, NCHW normalization, L2 norm | ✓ Verified |
 | Semantic Dot-Product Search | `backend_rust/src/services/agent_search.rs:18-70` | Cosine similarity calculation with 0.15 threshold | ✓ Verified |
 | Fused Search & Text Fallback | `backend_rust/src/routes/utilities.rs:750-860` | Vector search with SQL LIKE fallback across 4 fields | ✓ Verified |
 | Visual Perceptual Dedup | `backend_rust/src/routes/utilities.rs:483-512` | Hamming distance clustering (dist <= 5) | ✓ Verified |
