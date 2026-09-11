@@ -515,3 +515,50 @@ pnpm tsc               # Type-check TypeScript sources
 - **Database Inspection**: `sqlite3 backend_rust/prism.db "PRAGMA quick_check;"` [VERIFY: backend_rust/src/db.rs:36-37].
 - **Database Compaction**: `POST /api/v1/settings/vacuum` executes SQLite `VACUUM` to reclaim disk space [VERIFY: backend_rust/src/routes/mod.rs:515].
 - **Backend Logging**: Set `RUST_LOG=debug cargo run` to observe real-time worker loop scheduling, sysfs polling, and inference execution.
+
+---
+
+## 16. Reliability, Workflow Workspaces & Zero-Knowledge Vault Specification
+
+### 16.1 Library Health & Recovery Center
+- **Atomic SQLite WAL Live Backup**: Replaces naive file copying with SQLite `VACUUM INTO 'backups/prism_backup_TIMESTAMP.db'`. Guarantees 100% consistent, defragmented, self-contained snapshots even under active background indexing and WAL transactions. Backups are verified with `PRAGMA quick_check;` before entry into `library_backups` [VERIFY: backend_rust/src/routes/utilities.rs:710-760].
+- **Missing Media & Broken Paths Scanner**: `POST /api/v1/library/health/scan-missing` audits all photo paths in SQLite, identifying unmounted volumes, deleted originals, or broken directory trees.
+- **Batch Media Relinker**: `POST /api/v1/library/health/relink` updates base storage paths across all indexed items when drive mount points change [VERIFY: backend_rust/src/routes/library_health.rs].
+- **Multi-Tier Storage Footprint**: `GET /api/v1/library/health/status` provides live disk telemetry broken down into:
+  - Original Media Binaries
+  - High-Speed Thumbnails (`thumbnails/`)
+  - AI Neural Models (`models/onnx/`)
+  - Video Transcodes & Proxies (`prism_proxies/`)
+  - Database & Indices (`prism.db`, `hnsw.index`)
+
+### 16.2 Fast Review & Culling Workspace (`/cull`)
+- **Tri-State Culling Architecture**: Photos feature dedicated metadata columns: `cull_status` (`'unflagged'`, `'picked'`, `'rejected'`), `rating` (0–5 stars), and `burst_group_id` (indexed UUID) [VERIFY: backend_rust/src/db.rs:102-105].
+- **Burst Auto-Clustering Heuristic**: Photos taken within $\Delta t \le 2.0\text{s}$ with identical camera hardware or perceptual hash Hamming distance $\mathcal{H}(\text{phash}_i, \text{phash}_{i+1}) \le 12$ are grouped into burst stacks. The frame with highest Laplacian blur variance is crowned the sharpest cover [VERIFY: backend_rust/src/routes/cull.rs].
+- **Synchronized Comparison View**: `CullingView.tsx` features dual-canvas comparison with locked cursor pan and 100%/200% pixel-peep zoom to compare focus sharpness side-by-side [VERIFY: frontend/components/culling/CullingView.tsx].
+- **Rapid Triage Hotkeys**: `P` (Pick + next), `X` (Reject + next), `U` (Unflag + next), `1`-`5` (Ratings), `C` (Compare mode), `Space` (Inspect zoom).
+- **Atomic Rejected Purge with Undo**: `POST /api/v1/cull/purge-rejected` atomically moves all rejected photos to trash and returns an undo token valid for reversible restoration.
+
+### 16.3 Unified Activity Center & Hardware Transparency
+- **Hardware Telemetry Integration**: Background workers surface explicit, human-readable pause reasons from `HardwareScheduler` (e.g., `"Paused: Battery at 18% (threshold: 20%)"`, `"Paused: CPU thermal throttling (88°C)"`, or `"Paused by user"`) [VERIFY: backend_rust/src/services/worker.rs:620-660].
+- **Fine-Grained Worker Stage Controls**: Independent pause/resume for individual pipeline stages: Thumbnails, Face Recognition, SigLIP Embeddings, and OCR Text Extraction via `POST /api/v1/jobs/pause-stage`.
+- **Album Priority Promotion**: `POST /api/v1/jobs/prioritize-album/:album_id` reprioritizes SQLite job queue to process a designated album's photos ahead of the backlog.
+
+### 16.4 Metadata Portability & Search Transparency
+- **Adobe XMP Sidecars**: Non-destructive photo adjustments (exposure, contrast, highlights, shadows, crop) are serialized to standard Adobe Camera Raw `.xmp` sidecar files on disk alongside original photos [VERIFY: backend_rust/src/services/xmp.rs].
+- **Universal Library JSON Archive**: `POST /api/v1/utilities/export-metadata` exports a complete, portable ZIP package containing `prism_library_manifest.json` (all albums, people, tags, locations, timestamps, and edit history) [VERIFY: backend_rust/src/routes/library_export.rs].
+- **Search Match Explanations**: `fused_search` returns match justification badges (`"Matched OCR: invoice"`, `"Matched Concept: sunset"`, `"Matched Camera: Sony A7IV"`) [VERIFY: backend_rust/src/services/agent_search.rs:160-200].
+
+### 16.5 Zero-Knowledge Encrypted Vault Architecture
+- **AES-256-GCM Envelope Encryption at Rest**: Moving photos to the locked vault encrypts both the full-resolution file and cached thumbnails using AES-256-GCM with unique 96-bit nonces, storing `.prism_enc` files and shredding plaintext originals. Key derivation utilizes Argon2id with random 128-bit salt [VERIFY: backend_rust/src/services/vault_crypto.rs].
+- **Dual-Mode Password Recovery**:
+  - **Option 3: Printable/Downloadable Emergency Kit**: Generates an armored recovery token (`PRISM-RECOVERY-XXXX-...`) and downloadable `prism-vault-recovery.txt` containing instructions and wrapped key backup.
+  - **Option 2: OS Secure Enclave / Keyring Escrow**: Secure platform token escrowing allows frictionless unlocking via OS biometric/system credentials.
+- **In-Memory Decryption**: Unlocked vault items are streamed directly into memory via Axum without writing unencrypted temporary files to disk.
+
+### 16.6 First-Run Onboarding Wizard & Everyday Polish
+- **First-Run Onboarding Wizard**: `FirstRunWizardModal.tsx` guides new users on launch:
+  1. Storage Architecture: "Index in Place" (non-destructive) vs. "Copy into Prism".
+  2. Storage Footprint Calculator: Real-time thumbnail and vector cache estimator based on library size.
+  3. AI Profile Selection: "Fast & Balanced" (SigLIP only, ~350MB) vs. "Studio Studio AI" (Full model suite, ~1.8GB) [VERIFY: frontend/components/onboarding/FirstRunWizardModal.tsx].
+- **Keyboard Shortcuts Cheatsheet**: `ShortcutsCheatsheetModal.tsx` accessible anytime via `?` key [VERIFY: frontend/components/ui/ShortcutsCheatsheetModal.tsx].
+- **Undo Toast Notification**: Interactive 10-second countdown toast with 1-click Undo for all bulk operations [VERIFY: frontend/components/ui/UndoToast.tsx].
