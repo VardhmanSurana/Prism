@@ -1,6 +1,6 @@
 # Architecture
 
-Prism is a privacy-first, local-only desktop photo and video library application. This document describes the system architecture, design decisions, and data flow.
+Prism is a privacy-first, local-only desktop photo and video library application. This document describes the system architecture, design decisions, and data flow. For an overarching guide to the broader multi-surface platform, CLI, and P2P network, see the [Prism Ecosystem Guide](ECOSYSTEM.md).
 
 ## Overview
 

@@ -10,7 +10,7 @@
 
 Privacy-first adaptive photo and video library application powered by Tauri v2, React, and a high-performance Rust backend.
 
-[Quick Start](#quick-start) | [Features](#desktop-features) | [Image Editor](#image-editor-19-tools) | [Video Editor](#video-editor-nle) | [Documentation](#documentation)
+[Quick Start](#quick-start) | [Features](#desktop-features) | [Image Editor](#image-editor-19-tools) | [Video Editor](#video-editor-nle) | [Ecosystem Guide](docs/ECOSYSTEM.md) | [Documentation](#documentation)
 
 </div>
 
@@ -111,6 +111,7 @@ Full non-linear multi-track video editing engine:
 
 | Document | Description |
 |----------|-------------|
+| [Ecosystem Guide](docs/ECOSYSTEM.md) | Overarching guide to the Prism platform topology, subsystems, and P2P mesh |
 | [Architecture](docs/ARCHITECTURE.md) | Technical architecture, component layout, and data flow |
 | [CLI Reference](docs/CLI.md) | Command-line interface and plugin management |
 | [Image Editor Guide](docs/IMAGE_EDITOR.md) | In-depth breakdown of all 19 image editing tools |

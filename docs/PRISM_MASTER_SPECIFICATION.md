@@ -42,6 +42,8 @@
 
 ## 2. Ecosystem Blueprint & Technology Stack
 
+> For an overarching conceptual and operational guide to the complete multi-surface platform, refer to the dedicated [Prism Ecosystem Guide](ECOSYSTEM.md).
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
 │                           Prism Ecosystem Topology                              │
