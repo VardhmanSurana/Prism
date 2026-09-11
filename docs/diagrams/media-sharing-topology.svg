@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" width="960" height="540" role="img" aria-labelledby="share-title share-desc">
+  <title id="share-title">Dual-Mode Media Sharing Architecture</title>
+  <desc id="share-desc">Architecture diagram of Prism media sharing illustrating EasyShare direct device-to-device push and tokenized Web Link with canvas QR code.</desc>
+  <defs>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&amp;family=Sora:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap');</style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+    </marker>
+    <marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 9 5 L 0 9 z" fill="#6b7280" />
+    </marker>
+  </defs>
+
+  <!-- Background Canvas -->
+  <rect width="960" height="540" rx="12" fill="#0F1115" />
+
+  <!-- ZONES -->
+  <!-- Zone 1: User Initiation -->
+  <rect x="24" y="40" width="256" height="416" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="36" y="32" width="128" height="16" rx="2" fill="#0F1115" />
+  <text x="44" y="44" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="500" letter-spacing="0.18em">MEDIA SELECTION</text>
+
+  <!-- Zone 2: Transmission Protocols -->
+  <rect x="352" y="40" width="288" height="416" rx="8" fill="rgba(59,130,246,0.03)" stroke="rgba(59,130,246,0.24)" stroke-width="1" />
+  <rect x="364" y="32" width="144" height="16" rx="2" fill="#0F1115" />
+  <text x="372" y="44" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="500" letter-spacing="0.18em">PROTOCOL ENGINES</text>
+
+  <!-- Zone 3: Recipients -->
+  <rect x="688" y="40" width="256" height="416" rx="8" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="700" y="32" width="144" height="16" rx="2" fill="#0F1115" />
+  <text x="708" y="44" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="8" font-weight="500" letter-spacing="0.18em">TARGET RECIPIENTS</text>
+
+  <!-- CONNECTORS (Drawn before boxes) -->
+  <!-- Elbow 1: ShareModal to EasyShare Discovery (Upwards) -->
+  <path d="M 264,224 H 308 Q 316,224 316,216 V 124 Q 316,116 324,116 H 368" fill="none" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+  <!-- Elbow 2: ShareModal to Web Share Tokens (Downwards) -->
+  <path d="M 264,264 H 308 Q 316,264 316,272 V 364 Q 316,372 324,372 H 368" fill="none" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+  <!-- Straight 1: Discovery to Peer Push -->
+  <line x1="624" y1="116" x2="704" y2="116" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+  <!-- Straight 2: Web Tokens to QR Portal -->
+  <line x1="624" y1="372" x2="704" y2="372" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+  <!-- Connector Labels (Opaque masks with 8px visible gap) -->
+  <rect x="272" y="196" width="76" height="12" rx="2" fill="#0F1115" />
+  <text x="310" y="205" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.06em">EASYSHARE</text>
+
+  <rect x="272" y="280" width="76" height="12" rx="2" fill="#0F1115" />
+  <text x="310" y="289" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.06em">WEB &amp; QR</text>
+
+  <rect x="636" y="96" width="56" height="12" rx="2" fill="#0F1115" />
+  <text x="664" y="105" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.06em">P2P PUSH</text>
+
+  <rect x="636" y="352" width="56" height="12" rx="2" fill="#0F1115" />
+  <text x="664" y="361" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.06em">CANVAS QR</text>
+
+  <!-- NODES -->
+  <!-- Left Column: Source UI Component (Focal Accent) -->
+  <rect x="40" y="180" width="224" height="128" rx="8" fill="rgba(59,130,246,0.06)" stroke="#3b82f6" stroke-width="1.2" />
+  <rect x="48" y="188" width="48" height="12" rx="2" fill="transparent" stroke="rgba(59,130,246,0.40)" stroke-width="0.8" />
+  <text x="72" y="197" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">MODAL</text>
+  <text x="152" y="224" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">ShareModal Component</text>
+  <text x="152" y="244" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Lightbox · Bulk Bar · Albums</text>
+  <text x="152" y="264" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Unified 2-Tab Collaboration UI</text>
+  <text x="152" y="284" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">EasyShare Radar + QR Generator</text>
+
+  <!-- Middle Column Top: EasyShare Protocol -->
+  <rect x="368" y="64" width="256" height="104" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="376" y="72" width="36" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+  <text x="394" y="81" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">BEACON</text>
+  <text x="496" y="104" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600" text-anchor="middle">LanBeaconService</text>
+  <text x="496" y="124" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">UDP 8272 Broadcasts · Port 8269</text>
+  <text x="496" y="144" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">10s Rolling Peer Discovery Cache</text>
+
+  <!-- Middle Column Bottom: Web Shares Engine -->
+  <rect x="368" y="320" width="256" height="104" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="376" y="328" width="32" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+  <text x="392" y="337" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">TOKEN</text>
+  <text x="496" y="360" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600" text-anchor="middle">ResourceShare Engine</text>
+  <text x="496" y="380" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">POST /api/v1/shares (Expiry/PW)</text>
+  <text x="496" y="400" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Server-Side EXIF &amp; GPS Redaction</text>
+
+  <!-- Right Column Top: Discovered Peer Device -->
+  <rect x="704" y="64" width="224" height="104" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="712" y="72" width="32" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+  <text x="728" y="81" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">PEER</text>
+  <text x="816" y="104" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600" text-anchor="middle">Target Prism Node</text>
+  <text x="816" y="124" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">/api/v1/photos/upload</text>
+  <text x="816" y="144" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Direct Import Without Links/QRs</text>
+
+  <!-- Right Column Bottom: Mobile Recipient -->
+  <rect x="704" y="320" width="224" height="104" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+  <rect x="712" y="328" width="48" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+  <text x="736" y="337" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">BROWSER</text>
+  <text x="816" y="360" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="12" font-weight="600" text-anchor="middle">SharePortalView</text>
+  <text x="816" y="380" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">http://&lt;LAN_IP&gt;:8269/share/:token</text>
+  <text x="816" y="400" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Passcode Unlock &amp; Media Download</text>
+
+  <!-- LEGEND STRIP -->
+  <line x1="24" y1="480" x2="936" y2="480" stroke="rgba(255,255,255,0.08)" stroke-width="0.8" />
+  <text x="28" y="504" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="8" letter-spacing="0.14em">LEGEND</text>
+
+  <!-- Legend item 1: Focal Node -->
+  <rect x="120" y="496" width="12" height="12" rx="2" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1" />
+  <text x="140" y="506" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Initiation UI (ShareModal)</text>
+
+  <!-- Legend item 2: Protocol / Target -->
+  <rect x="336" y="496" width="12" height="12" rx="2" fill="#161A20" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+  <text x="356" y="506" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Protocol Engine / Target</text>
+
+  <!-- Legend item 3: Flow Arrow -->
+  <line x1="560" y1="502" x2="584" y2="502" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+  <text x="596" y="506" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Direct Transfer Path</text>
+</svg>

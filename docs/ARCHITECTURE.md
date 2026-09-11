@@ -140,22 +140,9 @@ Each stage is pluggable via the `AnalyzerRegistry`.
 
 Prism supports zero-configuration local network media sharing through two complementary mechanisms:
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                       Prism Share Modal                     │
-├──────────────────────────────┬──────────────────────────────┤
-│     EasyShare (AirDrop)      │      Web Link & QR Code      │
-│  - UDP beacon (port 8272)    │  - Canvas QR code            │
-│  - Zero-config peer discovery│  - Passcode & expiry         │
-│  - Direct HTTP push upload   │  - EXIF/GPS stripping        │
-└──────────────┬───────────────┴──────────────┬───────────────┘
-               │                              │
-               ▼                              ▼
-      ┌─────────────────┐            ┌──────────────────┐
-      │ Discovered Peer │            │  Mobile Browser  │
-      │ (Prism Node)    │            │ (/share/:token)  │
-      └─────────────────┘            └──────────────────┘
-```
+<p align="center">
+  <img src="diagrams/media-sharing-topology.svg" alt="Prism Dual-Mode Media Sharing Architecture" width="100%" />
+</p>
 
 ### 1. EasyShare (Direct Device-to-Device Push)
 - **UDP Beacon Discovery (`LanBeaconService`)**: Background service running on UDP port `8272`. Broadcasts lightweight JSON presence beacons every 3 seconds to `255.255.255.255:8272`.

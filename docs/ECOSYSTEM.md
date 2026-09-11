@@ -35,66 +35,9 @@ This document serves as the overarching guide to how the distinct components of 
 
 The diagram below illustrates how all entities within the Prism ecosystem interconnect:
 
-```
-┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                     PRISM ECOSYSTEM TOPOLOGY                                      │
-└───────────────────────────────────────────────────────────────────────────────────────────────────┘
-
-                       ┌──────────────────────────────────────────────┐
-                       │           Desktop Shell (Tauri v2)           │
-                       │   - Window Lifecycle & Native OS Menus       │
-                       │   - Hardware Acceleration & Native Dialogs   │
-                       └──────────────────────┬───────────────────────┘
-                                              │ Embedded WebView
-                                              ▼
-┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                Frontend Client Surface (React 18 + Vite)                          │
-│                                                                                                   │
-│  ┌───────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────────────────┐  │
-│  │   Gallery & Explore   │  │   Creative Workspaces   │  │        Sharing & Collaboration      │  │
-│  │   - Virtualized Grid  │  │   - 19-Tool Image Editor│  │   - EasyShare Radar (AirDrop Mode)  │  │
-│  │   - Face Recognition  │  │   - Multi-Track NLE     │  │   - Canvas QR & Ephemeral Shares    │  │
-│  │   - Leaflet Map & GIS │  │   - AI Agent Assistant  │  │   - Standalone SharePortalView      │  │
-│  └───────────────────────┘  └─────────────────────────┘  └─────────────────────────────────────┘  │
-│                                              │                                                    │
-└──────────────────────────────────────────────┼────────────────────────────────────────────────────┘
-                                               │
-                                               │ HTTP / SSE / Multipart Streams (Port 8269)
-                                               │
-┌──────────────────────────────────────────────▼────────────────────────────────────────────────────┐
-│                                   Backend Core Engine (Rust / Axum)                               │
-│                                                                                                   │
-│  ┌─────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │ HTTP Router & Middleware Stack (CORS, Rate Limiting, API Key, Tracing, Telemetry)           │  │
-│  └───────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-│                                              │                                                    │
-│  ┌───────────────────────────┐  ┌────────────┴──────────────┐  ┌───────────────────────────────┐  │
-│  │   Storage & Data Engine   │  │    In-Process AI Engine   │  │   Background Job Scheduler    │  │
-│  │   - SQLite WAL + FTS5     │  │    - ONNX Runtime (ort)   │  │   - 4-Stage Media Pipeline    │  │
-│  │   - Kamadak EXIF Parser   │  │    - SigLIP2, SCRFD, LaMa │  │   - Thumbnail Generator       │  │
-│  │   - Argon2id Vault Store  │  │    - SegFormer, PP-OCRv4  │  │   - Video Proxy Transcoder    │  │
-│  └───────────────────────────┘  └───────────────────────────┘  └───────────────────────────────┘  │
-│                                              │                                                    │
-│  ┌───────────────────────────────────────────┴─────────────────────────────────────────────────┐  │
-│  │ Local Network Services (LAN Mesh)                                                           │  │
-│  │ - UDP Presence Beacon (Port 8272 Broadcast: 255.255.255.255:8272)                          │  │
-│  │ - LanBeaconService Peer Liveness Registry (10s rolling auto-expiry)                         │  │
-│  │ - P2P Multipart Push Engine (/api/v1/lan/push-to-peer)                                      │  │
-│  │ - PIN-Secured Differential Manifest Sync                                                    │  │
-│  └───────────────────────────────────────────┬─────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────┼────────────────────────────────────────────────────┘
-                                               │
-              ┌────────────────────────────────┼────────────────────────────────┐
-              │                                │                                │
-              ▼                                ▼                                ▼
-┌───────────────────────────┐    ┌───────────────────────────┐    ┌───────────────────────────┐
-│   Headless Rust CLI       │    │     Nearby LAN Peers      │    │    External Recipients    │
-│   (cli/src/main.rs)       │    │   (Prism Instances on LAN)│    │   (Mobile/Desktop Web)    │
-│   - Batch Import/Export   │    │   - Discovered via UDP    │    │   - Scans Canvas QR Code  │
-│   - Automation & Cron     │    │   - Receive EasyShare Push│    │   - Access /share/:token  │
-│   - Server Monitoring     │    │   - Differential Sync     │    │   - Optional Passcode Gate│
-└───────────────────────────┘    └───────────────────────────┘    └───────────────────────────┘
-```
+<p align="center">
+  <img src="diagrams/ecosystem-topology.svg" alt="Prism Ecosystem Topology" width="100%" />
+</p>
 
 ---
 
@@ -213,20 +156,10 @@ Original Binary Saved           EXIF Metadata Extracted
 ```
 
 ### B. Dual-Mode Sharing Flow
-```
-                     User Selects Photos in Gallery
-                                    │
-                                    ▼
-                         Opens ShareModal UI
-                                    │
-        ┌───────────────────────────┴───────────────────────────┐
-        ▼                                                       ▼
-[EasyShare Mode]                                        [Web Link & QR Mode]
-Discovers Peers via UDP 8272                            Calls POST /api/v1/shares
-Selects "Living-Room-PC"                                Renders In-App Canvas QR Code
-Streams files to Peer's /upload                         Mobile scans QR -> opens /share/:token
-Photos imported to remote library instantly             Downloads originals (EXIF/GPS redacted)
-```
+
+<p align="center">
+  <img src="diagrams/media-sharing-topology.svg" alt="Prism Dual-Mode Media Sharing Architecture" width="100%" />
+</p>
 
 ---
 
