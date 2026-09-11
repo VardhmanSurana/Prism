@@ -11,27 +11,15 @@ Prism is built with privacy as a core principle. All data stays on your machine,
 ## Locked Folder
 
 ### What is Locked Folder?
-Locked Folder is a secure, encrypted storage area for your most private photos and videos. Files in the Locked Folder are:
+Locked Folder provides a protected, access-restricted enclave for your most private photos and videos. Files in the Locked Folder are:
 
-- **Encrypted** — Using Argon2id key derivation
-- **Hidden** — Not visible in the main library
-- **Protected** — Requires authentication to access
-- **Isolated** — Separate from regular photos
+- **Isolated from Queries** — Excluded from general photo queries, FTS5 search indexes, face recognition, and explore views (`is_locked = 0` enforcement).
+- **Hidden from UI** — Not visible in the gallery, albums, map, or timeline without active authentication.
+- **Passcode Protected** — Verified using memory-hard **Argon2id** key derivation function (KDF) with session-based expiration and rate-limiting against brute force.
+- **Dedicated Sessions** — Authenticated viewing tokens automatically expire after 15 minutes of inactivity.
 
-### How It Works
-
-1. **Setup** — Create a password for the Locked Folder
-2. **Lock** — Move photos/videos to the Locked Folder
-3. **Access** — Enter password to view contents
-4. **Session** — Automatic lock after inactivity
-
-### Security Features
-
-- **Argon2id** — Memory-hard key derivation function
-- **Password Protected** — Required for access
-- **Session Timeout** — Auto-lock after inactivity
-- **No Recovery** — Password cannot be recovered (by design)
-- **Secure Deletion** — Files are securely wiped when removed
+> [!NOTE]
+> **Scope of Protection**: In the current release, Locked Folder operates via database filtering, query isolation, and UI session gating backed by Argon2id password verification. Raw media files reside in local storage without disk-level block encryption at rest; direct physical disk access by unauthorized local OS users is mitigated when host-level full disk encryption (LUKS, FileVault, BitLocker) is active. Full file-level AES-256-GCM encryption at rest derived from the Argon2id key is scheduled in the product coherence roadmap.
 
 ## API Security
 
@@ -90,7 +78,11 @@ connect-src 'self' http://127.0.0.1:8269;
 ### Media Files
 - **Original Files** — Stored in `uploads/` directory
 - **Thumbnails** — Generated and stored in `thumbnails/`
-- **No Cloud Upload** — Files are never uploaded
+- **Zero Cloud Architecture** — Core media processing, computer vision inference, indexing, and storage require zero cloud services and run completely offline. Optional software updates, model weight packages, and plugin downloads contact external registries only upon explicit user request.
+
+### Local Network Sharing & QR Scope
+- **LAN-Only Reachability** — Ephemeral share URLs and Canvas QR codes encode private LAN IPv4 addresses (e.g. `192.168.x.x`). A QR code does not make a private IP internet-accessible; recipients must be connected to the same local Wi-Fi or Ethernet subnet.
+- **Discovery vs. Trust** — UDP beacon discovery (port `8272`) broadcasts presence metadata across the LAN to announce reachable instances; it does not grant automatic access. Pairing establishes authenticated peer identities, and file pushes require explicit user initiation.
 
 ### Configuration
 - **Settings** — Stored in SQLite database

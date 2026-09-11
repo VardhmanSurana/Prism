@@ -12,9 +12,9 @@ This document serves as the overarching guide to how the distinct components of 
   <img src="diagrams/ecosystem-vision-philosophy.svg" alt="Prism Ecosystem Vision & Philosophy" width="100%" />
 </p>
 
-1. **Local-First & Sovereign**: Every byte of photo and video data, thumbnail cache, metadata index, face vector, and semantic embedding resides exclusively on the user's hardware. No external analytics, telemetry phoning home, or third-party cloud synchronization.
+1. **Local-First & Sovereign**: Core media processing, computer vision inference, and storage require zero cloud services and run completely offline. No external analytics or telemetry phoning home. Optional neural model downloads, software updates, and plugin installations contact external registries only upon explicit user request.
 2. **Poly-Surface Experience**: One unified Rust backend powers native desktop shells (Tauri v2), desktop and mobile browser clients (React 18 + Vite), headless command-line automation (Rust CLI), and standalone mobile-scannable web portals (`/share/:token`).
-3. **Decentralized LAN Collaboration**: Devices discover each other over local Wi-Fi/Ethernet using UDP beacons (port `8272`), enabling instant AirDrop-style media transfers (EasyShare) and PIN-authenticated differential library synchronization without internet access.
+3. **Decentralized LAN Collaboration**: Devices discover each other over local Wi-Fi/Ethernet using UDP beacons (port `8272`), enabling instant AirDrop-style media transfers (EasyShare) and PIN-authenticated differential library synchronization without internet access. Note: Discovery identifies potential peers on the subnet; direct pushes and pairing require user authorization.
 4. **In-Process Deep Learning**: Machine learning is treated as a first-class local capability. Neural networks (SigLIP2, ArcFace, SCRFD, LaMa, SegFormer, PP-OCRv4) execute directly in-process via ONNX Runtime without remote API latency or cost.
 
 ---
@@ -54,7 +54,7 @@ The diagram below illustrates how all entities within the Prism ecosystem interc
 - **Key Capabilities**:
   - Sub-millisecond JSON REST API handling photo CRUD, searches, facial tagging, and metadata extraction.
   - SQLite WAL database engine with FTS5 lexical indexing and SIMD vector embeddings.
-  - Argon2id cryptographic vault storing locked photos with hardware key derivation.
+  - Memory-hard Argon2id KDF password authentication with database query isolation for private media.
 
 ### Pillar 4: In-Process AI & Vision Intelligence
 - **Directory**: `backend_rust/src/services/`
@@ -70,10 +70,10 @@ The diagram below illustrates how all entities within the Prism ecosystem interc
 ### Pillar 5: Local Network & Peer-to-Peer Mesh (EasyShare)
 - **Directory**: `backend_rust/src/services/lan_beacon.rs`, `backend_rust/src/routes/lan_sync.rs`
 - **Protocol Details**:
-  - **Discovery**: UDP broadcast on port `8272` emitting periodic heartbeats (`255.255.255.255:8272`).
+  - **Discovery**: UDP broadcast on port `8272` emitting periodic heartbeats (`255.255.255.255:8272`). Discovery establishes subnet visibility, not automated trust.
   - **Liveness Cache**: Thread-safe peer cache pruning nodes absent for over 10 seconds.
-  - **EasyShare Push**: One-click direct multipart HTTP transmission sending media binaries to `/api/v1/photos/upload` on target peers.
-  - **Ephemeral QR Links**: In-browser QR code generation pointing to the server's detected LAN IP address (`http://<LAN_IP>:8269/share/<token>`) with automatic EXIF and GPS redaction.
+  - **EasyShare Push**: One-click direct multipart HTTP transmission sending media binaries to `/api/v1/photos/upload` on target peers upon user initiation.
+  - **Ephemeral QR Links**: In-browser QR code generation pointing to the server's detected LAN IP address (`http://<LAN_IP>:8269/share/<token>`) for devices connected to the same Wi-Fi/Ethernet subnet, with automatic EXIF and GPS redaction.
 
 ### Pillar 6: Creative Suite & Non-Destructive Editing
 - **Directory**: `frontend/components/Editor/`, `frontend/components/video-editor/`
@@ -142,6 +142,7 @@ The Prism ecosystem relies on four explicit communication protocols:
 | If you need information about... | Consult this document |
 |---|---|
 | **The complete high-level ecosystem overview** | **[ECOSYSTEM.md](ECOSYSTEM.md)** *(You are here)* |
+| **Product coherence, friction reduction & roadmap** | **[PRODUCT_COHERENCE_ROADMAP.md](PRODUCT_COHERENCE_ROADMAP.md)** |
 | **The exhaustive, 100% verified technical specification** | **[PRISM_MASTER_SPECIFICATION.md](PRISM_MASTER_SPECIFICATION.md)** |
 | **Backend services, middleware, and architectural design** | **[ARCHITECTURE.md](ARCHITECTURE.md)** |
 | **HTTP endpoints, request/response bodies, and status codes** | **[API.md](API.md)** |

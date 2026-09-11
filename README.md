@@ -112,6 +112,7 @@ Full non-linear multi-track video editing engine:
 | Document | Description |
 |----------|-------------|
 | [Ecosystem Guide](docs/ECOSYSTEM.md) | Overarching guide to the Prism platform topology, subsystems, and P2P mesh |
+| [Product Coherence Roadmap](docs/PRODUCT_COHERENCE_ROADMAP.md) | Blueprint for turning the ecosystem into one unified, approachable product |
 | [Architecture](docs/ARCHITECTURE.md) | Technical architecture, component layout, and data flow |
 | [CLI Reference](docs/CLI.md) | Command-line interface and plugin management |
 | [Image Editor Guide](docs/IMAGE_EDITOR.md) | In-depth breakdown of all 19 image editing tools |
