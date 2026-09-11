@@ -26,6 +26,7 @@ pub mod jobs;
 pub mod cull;
 pub mod library_health;
 pub mod library_export;
+pub mod vault;
 
 use axum::{
     extract::{Request, State},
@@ -508,6 +509,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/nle/projects", get(nle::list_projects).post(nle::create_project))
         .route("/nle/projects/", get(nle::list_projects).post(nle::create_project))
         .route("/nle/projects/:id", get(nle::get_project).put(nle::update_project).delete(nle::delete_project))
+        .route("/nle/projects/:id/relink", post(nle::relink_project))
+        .route("/nle/projects/:id/package", post(nle::package_project))
         .route("/nle/clips/proxy", post(nle::generate_proxy_video))
         .route("/nle/clips/analyze", post(nle::analyze_video_clip))
         .route("/nle/clips/thumbnail-strip", post(nle::thumbnail_strip))
@@ -580,6 +583,12 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/search/fused", get(utilities::fused_search))
         .route("/utilities/purge-trash", post(utilities::purge_trash))
         .route("/utilities/export-metadata", post(library_export::export_metadata))
+        .route("/vault/status", get(vault::get_vault_status))
+        .route("/vault/setup", post(vault::setup_vault))
+        .route("/vault/unlock", post(vault::unlock_vault))
+        .route("/vault/recover", post(vault::recover_vault))
+        .route("/vault/unlock-escrow", post(vault::unlock_vault_escrow))
+        .route("/vault/lock", post(vault::lock_vault))
         .route("/utilities/background-jobs/status", get(utilities::get_background_jobs_status))
         .route("/utilities/background-jobs/start", post(utilities::start_background_jobs))
         .route("/utilities/background-jobs/stop", post(utilities::stop_background_jobs))
