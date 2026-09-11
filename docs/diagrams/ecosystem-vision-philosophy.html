@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prism Ecosystem Vision &amp; Philosophy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #0F1115;
+      --color-paper-2: #161A20;
+      --color-ink:     #f3f4f6;
+      --color-muted:   #9ca3af;
+      --color-soft:    #6b7280;
+      --color-rule:    rgba(255, 255, 255, 0.08);
+      --color-accent:  #3b82f6;
+      --color-accent-tint: rgba(59, 130, 246, 0.12);
+      --color-link:    #60a5fa;
+      --font-sans:     'Sora', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-serif:    'Instrument Serif', serif;
+      --font-mono:     'JetBrains Mono', monospace;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+    .frame { max-width: 980px; width: 100%; }
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+    h1 {
+      font-family: var(--font-serif);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+    svg { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Prism Core · Guiding Principles</p>
+    <h1>Ecosystem Vision &amp; Philosophy</h1>
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 480" width="960" height="480" role="img" aria-labelledby="vision-title vision-desc">
+      <title id="vision-title">Prism Ecosystem Vision and Philosophy</title>
+      <desc id="vision-desc">Hierarchical architectural tree showing the local-first engine root branching into User Privacy and Ownership, Native Performance, and Extensibility pillars.</desc>
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#3b82f6" />
+        </marker>
+        <marker id="arrow-muted" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 9 5 L 0 9 z" fill="#6b7280" />
+        </marker>
+      </defs>
+
+      <!-- Background Canvas -->
+      <rect width="960" height="480" rx="12" fill="#0F1115" />
+
+      <!-- CONNECTORS (Drawn before boxes) -->
+      <!-- Connector Left: Root to Privacy Pillar -->
+      <path d="M 400,152 V 184 Q 400,192 392,192 H 208 Q 200,192 200,200 V 232" fill="none" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+      <!-- Connector Center: Root to Performance Pillar -->
+      <line x1="480" y1="152" x2="480" y2="232" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+      <!-- Connector Right: Root to Extensibility Pillar -->
+      <path d="M 560,152 V 184 Q 560,192 568,192 H 752 Q 760,192 760,200 V 232" fill="none" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+
+      <!-- Connector Labels (Opaque masks with 8px visible gap) -->
+      <rect x="272" y="172" width="56" height="12" rx="2" fill="#0F1115" />
+      <text x="300" y="181" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">SOVEREIGN</text>
+
+      <rect x="492" y="184" width="48" height="12" rx="2" fill="#0F1115" />
+      <text x="516" y="193" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">NATIVE</text>
+
+      <rect x="632" y="172" width="56" height="12" rx="2" fill="#0F1115" />
+      <text x="660" y="181" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">MODULAR</text>
+
+      <!-- ROOT NODE (Focal Accent) -->
+      <rect x="320" y="56" width="320" height="96" rx="8" fill="rgba(59,130,246,0.06)" stroke="#3b82f6" stroke-width="1.2" />
+      <rect x="328" y="64" width="80" height="12" rx="2" fill="transparent" stroke="rgba(59,130,246,0.40)" stroke-width="0.8" />
+      <text x="368" y="73" fill="#60a5fa" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">FOUNDATION</text>
+      <text x="480" y="100" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="14" font-weight="600" text-anchor="middle">100% Local-First Engine</text>
+      <text x="480" y="120" fill="#93c5fd" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Zero Cloud Dependencies · Full Ownership</text>
+      <text x="480" y="136" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Air-Gapped Operation by Design</text>
+
+      <!-- PILLAR 1: User Privacy & Ownership -->
+      <rect x="72" y="232" width="256" height="160" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+      <rect x="80" y="240" width="64" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+      <text x="112" y="249" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">PRIVACY</text>
+      <text x="200" y="276" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">Privacy &amp; Data Ownership</text>
+      <text x="200" y="300" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Argon2id Encrypted Vault</text>
+      <text x="200" y="320" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">In-Process ONNX Models (Zero Phoning)</text>
+      <text x="200" y="340" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Client-Side EXIF &amp; GPS Stripping</text>
+      <text x="200" y="360" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">No External Telemetry by Default</text>
+
+      <!-- PILLAR 2: Performance & Native Code -->
+      <rect x="352" y="232" width="256" height="160" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+      <rect x="360" y="240" width="76" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+      <text x="398" y="249" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">PERFORMANCE</text>
+      <text x="480" y="276" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">Native Performance</text>
+      <text x="480" y="300" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Rust Core &amp; Tokio Multithreaded</text>
+      <text x="480" y="320" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Global Mimalloc Heap Allocator</text>
+      <text x="480" y="340" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">SQLite WAL Mode &amp; FTS5 Indexing</text>
+      <text x="480" y="360" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">TanStack 60fps Grid (100k+ Assets)</text>
+
+      <!-- PILLAR 3: Extensibility & Open APIs -->
+      <rect x="632" y="232" width="256" height="160" rx="6" fill="#161A20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+      <rect x="640" y="240" width="76" height="12" rx="2" fill="transparent" stroke="rgba(255,255,255,0.20)" stroke-width="0.8" />
+      <text x="678" y="249" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="7" text-anchor="middle" letter-spacing="0.08em">ECOSYSTEM</text>
+      <text x="760" y="276" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="13" font-weight="600" text-anchor="middle">Extensibility &amp; Mesh</text>
+      <text x="760" y="300" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="9" text-anchor="middle">Self-Contained Full-Stack Plugins</text>
+      <text x="760" y="320" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">P2P EasyShare (UDP 8272 Discovery)</text>
+      <text x="760" y="340" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Native Headless Rust CLI (prism)</text>
+      <text x="760" y="360" fill="#6b7280" font-family="'JetBrains Mono', monospace" font-size="8" text-anchor="middle">Standardized JSON REST &amp; SSE Endpoints</text>
+
+      <!-- LEGEND STRIP -->
+      <line x1="24" y1="424" x2="936" y2="424" stroke="rgba(255,255,255,0.08)" stroke-width="0.8" />
+      <text x="28" y="448" fill="#9ca3af" font-family="'JetBrains Mono', monospace" font-size="8" letter-spacing="0.14em">LEGEND</text>
+
+      <rect x="120" y="440" width="12" height="12" rx="2" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="1" />
+      <text x="140" y="450" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Root Architectural Thesis</text>
+
+      <rect x="336" y="440" width="12" height="12" rx="2" fill="#161A20" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+      <text x="356" y="450" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Operational Pillar</text>
+
+      <line x1="536" y1="446" x2="560" y2="446" stroke="#3b82f6" stroke-width="1.2" marker-end="url(#arrow)" />
+      <text x="572" y="450" fill="#f3f4f6" font-family="'Sora', sans-serif" font-size="9">Hierarchical Derivation</text>
+    </svg>
+  </div>
+</body>
+</html>

@@ -8,21 +8,9 @@ This document serves as the overarching guide to how the distinct components of 
 
 ## 1. Ecosystem Vision & Philosophy
 
-```
-                          ┌───────────────────────────┐
-                          │   Zero Cloud Dependencies │
-                          │   100% Local-First Engine │
-                          └─────────────┬─────────────┘
-                                        │
-        ┌───────────────────────────────┼───────────────────────────────┐
-        ▼                               ▼                               ▼
-┌───────────────┐               ┌───────────────┐               ┌───────────────┐
-│ User Privacy  │               │ Performance   │               │ Extensibility │
-│ & Ownership   │               │ & Native Code │               │ & Open APIs   │
-│ Argon2 Vault  │               │ Rust + Mimalloc│              │ Modular Plugins│
-│ Local ONNX ML │               │ WebCodecs NLE │               │ REST + CLI    │
-└───────────────┘               └───────────────┘               └───────────────┘
-```
+<p align="center">
+  <img src="diagrams/ecosystem-vision-philosophy.svg" alt="Prism Ecosystem Vision & Philosophy" width="100%" />
+</p>
 
 1. **Local-First & Sovereign**: Every byte of photo and video data, thumbnail cache, metadata index, face vector, and semantic embedding resides exclusively on the user's hardware. No external analytics, telemetry phoning home, or third-party cloud synchronization.
 2. **Poly-Surface Experience**: One unified Rust backend powers native desktop shells (Tauri v2), desktop and mobile browser clients (React 18 + Vite), headless command-line automation (Rust CLI), and standalone mobile-scannable web portals (`/share/:token`).
@@ -132,28 +120,10 @@ The Prism ecosystem relies on four explicit communication protocols:
 ## 5. End-to-End Data Lifecycle in the Ecosystem
 
 ### A. Media Ingestion Flow
-```
-User Local Directory / Mobile Camera / Google Takeout ZIP
-                       │
-                       ▼
-          Smart Ingestion Service (backend_rust)
-                       │
-       ┌───────────────┴───────────────┐
-       ▼                               ▼
-Original Binary Saved           EXIF Metadata Extracted
-(e.g., uploads/2026/09/IMG.jpg) (Kamadak: GPS, Camera, Date)
-       │                               │
-       └───────────────┬───────────────┘
-                       ▼
-              SQLite Record Created
-                       │
-                       ▼
-       4-Stage Background Worker DAG
-  ├── 1. WebP Thumbnail Generation (256px, 1024px)
-  ├── 2. PP-OCRv4 Text Detection & FTS5 Indexing
-  ├── 3. SCRFD Face Detection & ArcFace Clustering
-  └── 4. SigLIP2 768-dim Semantic Embedding Vector
-```
+
+<p align="center">
+  <img src="diagrams/media-ingestion-flow.svg" alt="Prism Media Ingestion Pipeline" width="100%" />
+</p>
 
 ### B. Dual-Mode Sharing Flow
 
@@ -164,53 +134,6 @@ Original Binary Saved           EXIF Metadata Extracted
 ---
 
 ## 6. Repository & Workspace Map
-
-```
-Prism/
-├── backend_rust/              # Core Axum backend service
-│   ├── Cargo.toml             # Rust dependencies (Axum, SQLx, ORT, Tokio)
-│   └── src/
-│       ├── main.rs            # Axum server factory & AppState assembly
-│       ├── routes/            # REST API route handlers
-│       │   ├── photos.rs      # Photo CRUD & metadata
-│       │   ├── shares.rs      # Ephemeral share tokens & redaction
-│       │   ├── lan_sync.rs    # EasyShare push & peer discovery routes
-│       │   └── agent.rs       # Conversational AI agent endpoints
-│       └── services/          # Business logic & machine learning engines
-│           ├── lan_beacon.rs  # UDP beacon broadcaster & peer cache
-│           ├── siglip.rs      # SigLIP2 semantic embeddings
-│           ├── face_engine.rs # SCRFD + ArcFace face clustering
-│           ├── ocr_engine.rs  # PP-OCRv4 optical character recognition
-│           └── inpaint.rs     # LaMa neural object removal
-├── frontend/                  # React 18 + TypeScript client surface
-│   ├── src-tauri/             # Tauri v2 desktop shell configuration
-│   ├── components/            # UI components
-│   │   ├── sharing/           # Dual-mode ShareModal & SharePortalView
-│   │   ├── Editor/            # 19-tool Image Editor
-│   │   ├── video-editor/      # Multi-track NLE Video Editor
-│   │   └── viewers/           # Lightbox & viewer toolbar
-│   └── store/                 # Zustand state stores (uiStore, syncStore, etc.)
-├── cli/                       # Native Rust command-line automation client
-│   ├── Cargo.toml
-│   └── src/main.rs            # Clap CLI interface for headless operation
-├── plugins/                   # Extensibility plugin directory
-│   ├── ai-vision-studio/      # Background removal & depth neural studio
-│   ├── creative-color-studio/ # Color LUT presets & film simulations
-│   └── retouch-metadata-studio/# IPTC & copyright batch processing
-└── docs/                      # Ecosystem documentation suite
-    ├── ECOSYSTEM.md           # This document (overarching ecosystem guide)
-    ├── PRISM_MASTER_SPECIFICATION.md # Exhaustive code-verified master spec
-    ├── ARCHITECTURE.md        # Technical architecture & subsystem flow
-    ├── API.md                 # Complete REST API reference
-    ├── CLI.md                 # Command-line interface guide
-    ├── PLUGINS.md             # Plugin development handbook
-    ├── AI_FEATURES.md         # Machine learning model guide
-    ├── IMAGE_EDITOR.md        # Image editing suite reference
-    ├── VIDEO_EDITOR.md        # Video editor & timeline specification
-    ├── DATABASE.md            # SQLite schema, tables & indexes
-    ├── SECURITY.md            # Privacy, encryption & vault model
-    └── SETUP.md               # Environment setup & build instructions
-```
 
 ---
 
