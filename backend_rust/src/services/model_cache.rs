@@ -34,7 +34,6 @@ impl<T> ModelCache<T> {
             .unwrap_or(false)
     }
 
-    #[cfg(test)]
     pub fn is_loaded(&self) -> bool {
         self.value.lock().map(|value| value.is_some()).unwrap_or(false)
     }

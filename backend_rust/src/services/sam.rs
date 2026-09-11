@@ -45,6 +45,11 @@ pub fn get_sam() -> Result<Arc<SamEngine>, String> {
     SAM.get_or_try_init(build_sam)
 }
 
+/// Checks whether MobileSAM sessions are resident in RAM.
+pub fn is_loaded() -> bool {
+    SAM.is_loaded()
+}
+
 /// Releases both MobileSAM sessions and the cached image embedding.
 pub fn unload() -> bool {
     SAM.unload()

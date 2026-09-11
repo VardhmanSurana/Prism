@@ -89,6 +89,10 @@ fn engine_cache() -> &'static Mutex<Option<Arc<FaceEngine>>> {
     ENGINE.get_or_init(|| Mutex::new(None))
 }
 
+pub fn is_loaded() -> bool {
+    ENGINE.get().and_then(|m| m.lock().ok()).map(|opt| opt.is_some()).unwrap_or(false)
+}
+
 /// Helper to search for local model path with fallback variants.
 fn find_model_path(relative: &str) -> Option<PathBuf> {
     if let Ok(dir) = std::env::var("MODELS_DIR") {

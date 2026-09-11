@@ -56,21 +56,29 @@ The diagram below illustrates how all entities within the Prism ecosystem interc
   - SQLite WAL database engine with FTS5 lexical indexing and SIMD vector embeddings.
   - Memory-hard Argon2id KDF password authentication with database query isolation for private media.
 
-### Pillar 4: In-Process AI & Vision Intelligence
-- **Directory**: `backend_rust/src/services/`
+### Pillar 4: In-Process AI & Shared Capability Registry
+- **Directory**: `backend_rust/src/services/`, `backend_rust/src/routes/capabilities.rs`, `backend_rust/src/routes/jobs.rs`
 - **Engine**: In-process ONNX Runtime (`ort` 2.0) with CPU, CUDA, and Metal execution providers.
+- **Capability Registry (`GET /api/v1/capabilities`)**:
+  - Distinguishes the 3-state model lifecycle: `installed` (files on disk), `enabled` (feature toggle), and `resident_in_ram` (weights in memory).
+  - Explicit RAM unloading (`POST /api/v1/capabilities/:feature/unload` & `/unload-all`) to return memory to the OS.
+  - Progressive model onboarding via `CapabilitySheet`: missing models prompt an informative sheet explaining disk and hardware requirements with 1-click activation instead of errors.
+- **Durable Background Jobs (`GET /api/v1/jobs`)**:
+  - Unified SQLite job queue managing model downloads, sequential photo indexing, thumbnail generation, video exports, and LAN transfers.
+  - Persistent frontend `ActivityCenter` in the header showing live progress bars, pause/resume, cancel, and failure retry.
 - **Integrated Models**:
   - **SigLIP2 (`siglip.rs`)**: 768-dimensional multimodal vision embeddings enabling natural-language text search against images without any labels.
   - **Face Recognition (`face_engine.rs`)**: SCRFD ultra-fast face detection coupled with ArcFace 512-dim face recognition embeddings and cosine-distance clustering.
   - **PP-OCRv4 (`ocr_engine.rs`)**: On-device optical character recognition detecting and indexing text embedded within screenshots, receipts, and signs.
-  - **Subject Segmentation (`segmentation.rs`)**: BiSeNet and SegFormer neural background extraction and portrait bokeh depth simulation.
+  - **Subject Segmentation (`segmentation.rs`, `sam.rs`)**: BiSeNet and MobileSAM neural background extraction and prompt-driven segmentation.
   - **Object Inpainting (`inpaint.rs`)**: LaMa neural diffusion model for non-destructive object erasure and defect correction.
   - **Local LLM Agent (`agent_planner.rs`)**: Conversational photo assistant coordinating tool execution via local `llama-server`.
 
-### Pillar 5: Local Network & Peer-to-Peer Mesh (EasyShare)
-- **Directory**: `backend_rust/src/services/lan_beacon.rs`, `backend_rust/src/routes/lan_sync.rs`
+### Pillar 5: Local Network & Peer-to-Peer Mesh (EasyShare & Remote Server Pairing)
+- **Directory**: `backend_rust/src/services/lan_beacon.rs`, `backend_rust/src/routes/lan_sync.rs`, `frontend/components/network/ServerConnectionModal.tsx`
 - **Protocol Details**:
   - **Discovery**: UDP broadcast on port `8272` emitting periodic heartbeats (`255.255.255.255:8272`). Discovery establishes subnet visibility, not automated trust.
+  - **Unified Desktop / Remote Identity**: Zero-config "Use this device" default, or "Connect to my Prism" discovering LAN servers and pairing without manual database or port entry.
   - **Liveness Cache**: Thread-safe peer cache pruning nodes absent for over 10 seconds.
   - **EasyShare Push**: One-click direct multipart HTTP transmission sending media binaries to `/api/v1/photos/upload` on target peers upon user initiation.
   - **Ephemeral QR Links**: In-browser QR code generation pointing to the server's detected LAN IP address (`http://<LAN_IP>:8269/share/<token>`) for devices connected to the same Wi-Fi/Ethernet subnet, with automatic EXIF and GPS redaction.

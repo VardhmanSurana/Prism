@@ -52,6 +52,14 @@ struct OcrSessions {
 
 static OCR: RwLock<Option<Arc<OcrSessions>>> = RwLock::new(None);
 
+pub fn is_loaded() -> bool {
+    OCR.read().map(|opt| opt.is_some()).unwrap_or(false)
+}
+
+pub fn unload() -> bool {
+    OCR.write().map(|mut opt| opt.take().is_some()).unwrap_or(false)
+}
+
 const DET_MODEL_PATHS: &[&str] = &[
     "models/ocr/ch_PP-OCRv4_det_infer.onnx",
     "../models/ocr/ch_PP-OCRv4_det_infer.onnx",

@@ -192,11 +192,11 @@ Users can export, share, and restore their setup via a portable `.prismprofile` 
 ---
 
 ## Implementation Sequence
-
-| Phase | Milestone | Primary Deliverables |
-|---|---|---|
-| **Phase 1** | **Capability Registry & Smart Defaulting** | `GET /api/v1/capabilities` backend endpoint + frontend `useCapabilities()` hook and lazy model download cards |
-| **Phase 2** | **Zero-Config Startup & Server Switcher** | "Use this device" zero-prompt boot + "Connect to Prism" LAN discovery modal |
-| **Phase 3** | **Durable Activity Center** | Universal `background_jobs` status tracker + UI Activity popover with pause/resume/retry |
-| **Phase 4** | **Hardened Plugin Lifecycle & Safe Mode** | Manifest permission checks + schema-driven plugin settings + CLI `--safe-mode` |
-| **Phase 5** | **Portable Profiles & Vault Encryption** | `.prismprofile` import/export + file-level AES-256-GCM encryption at rest |
+ 
+| Phase | Milestone | Status | Primary Deliverables |
+|---|---|---|---|
+| **Phase 1** | **Capability Registry & Smart Defaulting** | **Completed** | `GET /api/v1/capabilities`, `/unload`, `/toggle` + frontend `useCapabilitiesStore` and `CapabilitySheet` |
+| **Phase 2** | **Zero-Config Startup & Server Switcher** | **Completed** | "Use this device" zero-prompt boot + "Connect to Prism" LAN discovery modal (`ServerConnectionModal`) |
+| **Phase 3** | **Durable Activity Center** | **Completed** | Universal `background_jobs` queue + UI `ActivityCenter` header drawer with pause/resume/retry/cancel |
+| **Phase 4** | **Hardened Plugin Lifecycle & Safe Mode** | Next | Manifest permission checks + schema-driven plugin settings + CLI `--safe-mode` |
+| **Phase 5** | **Portable Profiles & Vault Encryption** | Planned | `.prismprofile` import/export + file-level AES-256-GCM encryption at rest |

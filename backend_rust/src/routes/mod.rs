@@ -21,6 +21,8 @@ pub mod models;
 pub mod packs;
 pub mod plugins;
 pub mod maps;
+pub mod capabilities;
+pub mod jobs;
 
 use axum::{
     extract::{Request, State},
@@ -608,6 +610,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .nest("/models", models::routes())
         .nest("/packs", packs::routes())
         .nest("/plugins", plugins::routes())
+        .nest("/capabilities", capabilities::routes())
+        .nest("/jobs", jobs::routes())
         .merge(auth::create_auth_routes())
         .layer(middleware::from_fn_with_state(state.clone(), api_key_auth_layer));
 

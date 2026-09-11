@@ -56,6 +56,157 @@ GET /api/v1/photos/stats
 }
 ```
 
+## Shared Capability Registry
+
+Provides clients with a single machine-readable contract describing available features, installed neural models, RAM residency, and hardware compute backends. Distinguishes three states: `installed`, `enabled`, and `resident_in_ram`.
+
+### Get Capabilities & Hardware
+```http
+GET /api/v1/capabilities
+```
+
+**Response:**
+```json
+{
+  "capabilities": {
+    "core_media": {
+      "name": "Core Media & Library",
+      "category": "core",
+      "state": "ready",
+      "installed": true,
+      "enabled": true,
+      "resident_in_ram": true,
+      "model_id": null,
+      "download_size_bytes": 0,
+      "description": "Local library management, EXIF parsing, albums, timeline, and trash lifecycle"
+    },
+    "semantic_search": {
+      "name": "Semantic Natural Language Search",
+      "category": "ai",
+      "state": "ready",
+      "installed": true,
+      "enabled": true,
+      "resident_in_ram": true,
+      "model_id": "siglip2",
+      "download_size_bytes": 970900000,
+      "description": "Natural language photo search via SigLIP2 image and text embeddings"
+    },
+    "magic_eraser": {
+      "name": "Magic Eraser (Object Removal)",
+      "category": "ai",
+      "state": "model_not_installed",
+      "installed": false,
+      "enabled": true,
+      "resident_in_ram": false,
+      "model_id": "mobile_sam",
+      "download_size_bytes": 45000000,
+      "description": "Zero-shot segmentation and contextual texture inpainting via MobileSAM and LaMa"
+    }
+  },
+  "hardware": {
+    "gpu_name": "NVIDIA GeForce RTX 4070",
+    "vram_mb": 12288,
+    "ram_mb": 32768,
+    "cpu_model": "AMD Ryzen 9 7900X",
+    "cpu_threads": 24,
+    "backend": "cuda",
+    "supports_heavyweight_generative": true
+  },
+  "server_mode": "local_bundled",
+  "ram_resident_models": ["siglip2"]
+}
+```
+
+### Unload Capability Session
+Frees RAM/VRAM by explicitly dropping loaded ONNX inference sessions from memory.
+```http
+POST /api/v1/capabilities/:feature/unload
+```
+
+### Unload All Models
+```http
+POST /api/v1/capabilities/unload-all
+```
+
+### Toggle Feature Flag
+```http
+POST /api/v1/capabilities/:feature/toggle
+```
+**Request:**
+```json
+{
+  "enabled": false
+}
+```
+
+## Durable Background Jobs
+
+Unified queue tracking all long-running tasks: neural model downloads, photo sequential analysis, thumbnail backfills, and video exports.
+
+### List Background Jobs
+```http
+GET /api/v1/jobs?status=processing&limit=50&offset=0
+```
+
+**Response:**
+```json
+{
+  "jobs": [
+    {
+      "id": 42,
+      "photo_id": 12,
+      "photo_filename": "IMG_0042.jpg",
+      "job_type": "sequential_analysis",
+      "title": "Analyze Photo (IMG_0042.jpg)",
+      "status": "processing",
+      "current_stage": "face_detection",
+      "stage_progress": "Detected 2 faces",
+      "progress_pct": 65.0,
+      "total_items": 1,
+      "processed_items": 0,
+      "attempt_count": 1,
+      "last_error": null,
+      "created_at": "2026-09-11T12:00:00",
+      "updated_at": "2026-09-11T12:00:05"
+    }
+  ],
+  "counts": {
+    "pending": 0,
+    "processing": 1,
+    "completed": 120,
+    "failed": 2,
+    "cancelled": 1
+  },
+  "is_worker_paused": false,
+  "is_worker_processing": true
+}
+```
+
+### Cancel Job
+```http
+POST /api/v1/jobs/:id/cancel
+```
+
+### Retry Job
+```http
+POST /api/v1/jobs/:id/retry
+```
+
+### Prune Finished Jobs
+```http
+DELETE /api/v1/jobs/prune
+```
+
+### Pause Worker Queue
+```http
+POST /api/v1/jobs/pause
+```
+
+### Resume Worker Queue
+```http
+POST /api/v1/jobs/resume
+```
+
 ## Photo Endpoints
 
 ### List Photos

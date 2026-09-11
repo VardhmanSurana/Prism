@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SearchBar } from './SearchBar';
-import { NotificationsButton } from './NotificationsButton';
+import { ActivityCenter } from '@/components/activity/ActivityCenter';
+import { ServerConnectionPill } from '@/components/network/ServerConnectionModal';
 import { HelpModal } from './HelpModal';
 import type { ViewMode, Photo, SearchFilters, SortMode } from '@/types';
 import { HelpCircle, Settings } from 'lucide-react';
@@ -14,7 +15,7 @@ export interface HeaderProps {
   onImportProgress?: (status: any) => void;
 }
 
-// ponytail: simplified Header, removed Google theme clone and dead import state
+// ponytail: simplified Header, unified ServerConnectionPill and ActivityCenter
 /**
  * Header - Renders header.
  */
@@ -44,8 +45,9 @@ export const Header: React.FC<HeaderProps> = ({
           onSortChange={onSortChange}
         />
 
-        <div className="flex items-center gap-4 ml-6">
-          <NotificationsButton />
+        <div className="flex items-center gap-3 ml-6">
+          <ServerConnectionPill />
+          <ActivityCenter />
           
           <button 
             onClick={() => setIsHelpOpen(true)}

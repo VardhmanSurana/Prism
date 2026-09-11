@@ -26,6 +26,10 @@ struct LamaSession {
 static LAMA: crate::services::model_cache::ModelCache<LamaSession> =
     crate::services::model_cache::ModelCache::new();
 
+pub fn is_loaded() -> bool {
+    LAMA.is_loaded()
+}
+
 const LAMA_MODEL_PATHS: &[&str] = &[
     "models/inpainting/lama_fp32.onnx",
     "../models/inpainting/lama_fp32.onnx",

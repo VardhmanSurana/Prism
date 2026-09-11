@@ -587,6 +587,98 @@ mod server_enhancement_tests {
         assert_eq!(net_info.0["port"], state.config.port);
         assert_eq!(net_info.0["local_ip"], local_ip);
     }
+
+    #[tokio::test]
+    async fn test_capabilities_registry_and_unload() {
+        use axum::extract::{Path, State, Json};
+        use crate::routes::capabilities::{get_capabilities, toggle_capability, unload_all_capabilities, TogglePayload};
+
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let state = create_test_state(pool.clone());
+
+        let res = get_capabilities(State(state.clone())).await.unwrap();
+        let caps = &res.0["capabilities"];
+        assert_eq!(caps["core_media"]["state"], "ready");
+        assert_eq!(caps["video_editor"]["state"], "ready");
+        assert_eq!(caps["easy_share"]["state"], "ready");
+        assert!(caps.get("semantic_search").is_some());
+        assert!(caps.get("face_recognition").is_some());
+        assert!(caps.get("magic_eraser").is_some());
+        assert!(caps.get("ocr").is_some());
+
+        assert!(res.0.get("hardware").is_some());
+        assert_eq!(res.0["server_mode"], "local_bundled");
+
+        // Toggle feature off
+        let toggle_res = toggle_capability(
+            State(state.clone()),
+            Path("semantic_search".to_string()),
+            Json(TogglePayload { enabled: false }),
+        ).await.unwrap();
+        assert_eq!(toggle_res.0["enabled"], false);
+
+        // Verify state is now "disabled"
+        let res2 = get_capabilities(State(state.clone())).await.unwrap();
+        assert_eq!(res2.0["capabilities"]["semantic_search"]["state"], "disabled");
+
+        // Unload all
+        let unload_res = unload_all_capabilities().await.unwrap();
+        assert_eq!(unload_res.0["success"], true);
+    }
+
+    #[tokio::test]
+    async fn test_durable_jobs_lifecycle() {
+        use axum::extract::{Path, Query, State};
+        use crate::routes::jobs::{list_jobs, cancel_job, retry_job, prune_jobs, JobQueryParams};
+
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let state = create_test_state(pool.clone());
+
+        // Insert a generic system task (photo_id = NULL)
+        let row_id: i64 = sqlx::query_scalar(
+            r#"
+            INSERT INTO background_jobs (job_type, title, status, current_stage, progress_pct, total_items, processed_items)
+            VALUES ('model_download', 'Download SigLIP2 Model', 'processing', 'downloading_weights', 45.0, 100, 45)
+            RETURNING id;
+            "#
+        )
+        .fetch_one(&state.db)
+        .await
+        .unwrap();
+
+        // 1. List jobs
+        let list_res = list_jobs(State(state.clone()), Query(JobQueryParams { status: None, limit: None, offset: None })).await.unwrap();
+        let jobs = list_res.0["jobs"].as_array().unwrap();
+        assert_eq!(jobs.len(), 1);
+        assert_eq!(jobs[0]["title"], "Download SigLIP2 Model");
+        assert_eq!(jobs[0]["status"], "processing");
+        assert_eq!(jobs[0]["progress_pct"], 45.0);
+        assert_eq!(list_res.0["counts"]["processing"], 1);
+
+        // 2. Cancel job
+        let cancel_res = cancel_job(State(state.clone()), Path(row_id)).await.unwrap();
+        assert_eq!(cancel_res.0["status"], "cancelled");
+
+        let list_res2 = list_jobs(State(state.clone()), Query(JobQueryParams { status: None, limit: None, offset: None })).await.unwrap();
+        assert_eq!(list_res2.0["counts"]["cancelled"], 1);
+
+        // 3. Retry job
+        let retry_res = retry_job(State(state.clone()), Path(row_id)).await.unwrap();
+        assert_eq!(retry_res.0["status"], "pending");
+
+        // 4. Mark completed and test prune
+        sqlx::query("UPDATE background_jobs SET status = 'completed' WHERE id = ?")
+            .bind(row_id)
+            .execute(&state.db)
+            .await
+            .unwrap();
+
+        let prune_res = prune_jobs(State(state.clone())).await.unwrap();
+        assert_eq!(prune_res.0["pruned_count"], 1);
+
+        let list_res3 = list_jobs(State(state.clone()), Query(JobQueryParams { status: None, limit: None, offset: None })).await.unwrap();
+        assert_eq!(list_res3.0["jobs"].as_array().unwrap().len(), 0);
+    }
 }
 
 

@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 use ort::session::Session;
 use ort::value::Value;
 use tokenizers::Tokenizer;
@@ -11,12 +11,25 @@ pub struct SiglipEngine {
     tokenizer: Tokenizer,
 }
 
-static ENGINE: OnceLock<Arc<SiglipEngine>> = OnceLock::new();
+static ENGINE: OnceLock<Mutex<Option<Arc<SiglipEngine>>>> = OnceLock::new();
+
+fn engine_cell() -> &'static Mutex<Option<Arc<SiglipEngine>>> {
+    ENGINE.get_or_init(|| Mutex::new(None))
+}
+
+pub fn is_loaded() -> bool {
+    ENGINE.get().and_then(|m| m.lock().ok()).map(|opt| opt.is_some()).unwrap_or(false)
+}
+
+pub fn unload() -> bool {
+    ENGINE.get().and_then(|m| m.lock().ok()).map(|mut opt| opt.take().is_some()).unwrap_or(false)
+}
 
 /// get_engine - Retrieves engine.
 pub fn get_engine() -> Result<Arc<SiglipEngine>, String> {
-    if let Some(engine) = ENGINE.get() {
-        return Ok(engine.clone());
+    let mut guard = engine_cell().lock().map_err(|_| "Siglip engine mutex poisoned".to_string())?;
+    if let Some(engine) = guard.as_ref() {
+        return Ok(Arc::clone(engine));
     }
 
     info!("[SiglipEngine] Initializing in-process Siglip inference engine...");
@@ -46,7 +59,8 @@ pub fn get_engine() -> Result<Arc<SiglipEngine>, String> {
     });
 
     info!("[SiglipEngine] Siglip analyzer ready");
-    Ok(ENGINE.get_or_init(|| engine).clone())
+    *guard = Some(Arc::clone(&engine));
+    Ok(engine)
 }
 
 impl SiglipEngine {

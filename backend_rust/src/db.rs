@@ -144,11 +144,16 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
 
         CREATE TABLE IF NOT EXISTS background_jobs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            photo_id INTEGER NOT NULL,
+            photo_id INTEGER,
             job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
+            title TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
             current_stage TEXT,
             stage_progress TEXT,
+            progress_pct REAL DEFAULT 0.0,
+            total_items INTEGER DEFAULT 1,
+            processed_items INTEGER DEFAULT 0,
+            metadata_json TEXT,
             attempt_count INTEGER DEFAULT 0,
             last_error TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -301,6 +306,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
 
     ensure_uuids(pool).await?;
     ensure_file_sizes(pool).await.ok();
+    migrate_background_jobs_if_needed(pool).await?;
 
     // Create default admin user if no users exist
     let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
@@ -427,6 +433,73 @@ async fn ensure_file_sizes(pool: &DbPool) -> Result<(), Error> {
                     .await;
             }
         }
+    }
+
+    Ok(())
+}
+
+/// migrate_background_jobs_if_needed - Ensures background_jobs supports nullable photo_id and generic metadata.
+async fn migrate_background_jobs_if_needed(pool: &DbPool) -> Result<(), Error> {
+    #[derive(sqlx::FromRow)]
+    struct ColInfo {
+        name: String,
+        notnull: i64,
+    }
+
+    let cols: Vec<ColInfo> = sqlx::query_as::<_, ColInfo>("PRAGMA table_info(background_jobs)")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+    let photo_id_not_null = cols.iter().any(|c| c.name == "photo_id" && c.notnull == 1);
+    let missing_title = !cols.iter().any(|c| c.name == "title");
+
+    if photo_id_not_null || missing_title {
+        info!("Migrating background_jobs table to support generic job tracking...");
+        let mut tx = pool.begin().await?;
+
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS background_jobs_v2 (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                photo_id INTEGER,
+                job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
+                title TEXT,
+                status TEXT NOT NULL DEFAULT 'pending',
+                current_stage TEXT,
+                stage_progress TEXT,
+                progress_pct REAL DEFAULT 0.0,
+                total_items INTEGER DEFAULT 1,
+                processed_items INTEGER DEFAULT 0,
+                metadata_json TEXT,
+                attempt_count INTEGER DEFAULT 0,
+                last_error TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (photo_id) REFERENCES photos(id) ON DELETE CASCADE
+            );
+            "#
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO background_jobs_v2 (id, photo_id, job_type, status, current_stage, stage_progress, attempt_count, last_error, created_at, updated_at)
+            SELECT id, photo_id, job_type, status, current_stage, stage_progress, attempt_count, last_error, created_at, updated_at
+            FROM background_jobs;
+            "#
+        )
+        .execute(&mut *tx)
+        .await?;
+
+        sqlx::query("DROP TABLE background_jobs;").execute(&mut *tx).await?;
+        sqlx::query("ALTER TABLE background_jobs_v2 RENAME TO background_jobs;").execute(&mut *tx).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);").execute(&mut *tx).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_photo ON background_jobs(photo_id);").execute(&mut *tx).await?;
+
+        tx.commit().await?;
+        info!("Migrated background_jobs table successfully.");
     }
 
     Ok(())
