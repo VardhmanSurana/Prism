@@ -28,11 +28,27 @@ export interface JobCounts {
   cancelled: number;
 }
 
+export interface HardwareTelemetry {
+  cpu_usage: number;
+  on_battery: boolean;
+  battery_percent: number;
+  cpu_temp_c: number;
+  disk_free_bytes: number;
+  disk_free_gb: number;
+  gpu_busy: boolean;
+  external_disconnected: boolean;
+  user_active: boolean;
+  is_throttled: boolean;
+}
+
 interface JobsResponse {
   jobs: BackgroundJob[];
   counts: JobCounts;
   is_worker_paused: boolean;
   is_worker_processing: boolean;
+  pause_reason?: string | null;
+  paused_stages?: string[];
+  hardware?: HardwareTelemetry | null;
 }
 
 interface JobsState {
@@ -40,6 +56,9 @@ interface JobsState {
   counts: JobCounts;
   isWorkerPaused: boolean;
   isWorkerProcessing: boolean;
+  pauseReason: string | null;
+  pausedStages: string[];
+  hardware: HardwareTelemetry | null;
   isLoading: boolean;
   error: string | null;
 
@@ -49,6 +68,9 @@ interface JobsState {
   pruneJobs: () => Promise<boolean>;
   pauseWorker: () => Promise<void>;
   resumeWorker: () => Promise<void>;
+  pauseStage: (stage: string) => Promise<void>;
+  resumeStage: (stage: string) => Promise<void>;
+  prioritizeAlbum: (albumId: number) => Promise<boolean>;
 }
 
 export const useJobsStore = create<JobsState>((set, get) => ({
@@ -62,6 +84,9 @@ export const useJobsStore = create<JobsState>((set, get) => ({
   },
   isWorkerPaused: false,
   isWorkerProcessing: false,
+  pauseReason: null,
+  pausedStages: [],
+  hardware: null,
   isLoading: false,
   error: null,
 
@@ -79,6 +104,9 @@ export const useJobsStore = create<JobsState>((set, get) => ({
         counts: data.counts || { pending: 0, processing: 0, completed: 0, failed: 0, cancelled: 0 },
         isWorkerPaused: !!data.is_worker_paused,
         isWorkerProcessing: !!data.is_worker_processing,
+        pauseReason: data.pause_reason || null,
+        pausedStages: data.paused_stages || [],
+        hardware: data.hardware || null,
         isLoading: false,
       });
     } catch (err: any) {
@@ -150,6 +178,52 @@ export const useJobsStore = create<JobsState>((set, get) => ({
       }
     } catch (err) {
       console.error('Failed to resume worker:', err);
+    }
+  },
+
+  pauseStage: async (stage: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/jobs/pause-stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
+      if (res.ok) {
+        await get().fetchJobs();
+      }
+    } catch (err) {
+      console.error(`Failed to pause stage ${stage}:`, err);
+    }
+  },
+
+  resumeStage: async (stage: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/jobs/resume-stage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+      });
+      if (res.ok) {
+        await get().fetchJobs();
+      }
+    } catch (err) {
+      console.error(`Failed to resume stage ${stage}:`, err);
+    }
+  },
+
+  prioritizeAlbum: async (albumId: number) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/jobs/prioritize-album/${albumId}`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        await get().fetchJobs();
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error(`Failed to prioritize album ${albumId}:`, err);
+      return false;
     }
   },
 }));

@@ -25,6 +25,7 @@ pub mod capabilities;
 pub mod jobs;
 pub mod cull;
 pub mod library_health;
+pub mod library_export;
 
 use axum::{
     extract::{Request, State},
@@ -578,11 +579,15 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/open-in-os-explorer", post(utilities::open_in_os_explorer))
         .route("/utilities/search/fused", get(utilities::fused_search))
         .route("/utilities/purge-trash", post(utilities::purge_trash))
+        .route("/utilities/export-metadata", post(library_export::export_metadata))
         .route("/utilities/background-jobs/status", get(utilities::get_background_jobs_status))
         .route("/utilities/background-jobs/start", post(utilities::start_background_jobs))
         .route("/utilities/background-jobs/stop", post(utilities::stop_background_jobs))
         .route("/utilities/background-jobs/pause", post(utilities::pause_background_jobs))
         .route("/utilities/background-jobs/resume", post(utilities::resume_background_jobs))
+        .route("/utilities/background-jobs/pause-stage", post(utilities::pause_stage))
+        .route("/utilities/background-jobs/resume-stage", post(utilities::resume_stage))
+        .route("/utilities/background-jobs/prioritize-album/:album_id", post(utilities::prioritize_album))
         .route("/utilities/system-state", get(utilities::get_system_state))
         .route("/telemetry/summary", get(telemetry_api::get_telemetry_summary))
         .route("/telemetry/events", get(telemetry_api::get_telemetry_events).delete(telemetry_api::clear_telemetry_events))

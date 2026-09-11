@@ -373,7 +373,7 @@ pub async fn get_logs() -> Json<Value> {
 pub async fn get_background_jobs_status(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
-    let s = state.worker.status_snapshot();
+    let s = state.worker.status_snapshot_with_scheduler(&state.scheduler);
     let sys = state.scheduler.get_system_state();
 
     // Query DB for total photos and per-stage completion counts
@@ -434,6 +434,9 @@ pub async fn get_background_jobs_status(
         "total_photos": total_photos,
         "paused": s.paused,
         "is_processing": s.is_processing,
+        "pause_reason": s.pause_reason,
+        "paused_stages": s.paused_stages,
+        "hardware": s.hardware,
         "clip": {
             "processed": clip_done,
             "total": total_photos,
@@ -463,11 +466,63 @@ pub async fn get_background_jobs_status(
             "cpu_usage": sys.cpu_usage,
             "on_battery": sys.on_battery,
             "battery_percent": sys.battery_percent,
+            "cpu_temp_c": sys.cpu_temp_c,
+            "disk_free_bytes": sys.disk_free_bytes,
+            "disk_free_gb": sys.disk_free_gb,
             "gpu_busy": sys.gpu_busy,
             "external_disconnected": sys.external_disconnected,
-            "user_active": sys.user_active
+            "user_active": sys.user_active,
+            "is_throttled": s.hardware.is_throttled
         }
     }))
+}
+
+#[derive(Deserialize)]
+pub struct StageControlPayload {
+    pub stage: String,
+}
+
+/// pause_stage - Pauses a specific background stage (e.g. embedding, face, ocr).
+pub async fn pause_stage(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<StageControlPayload>,
+) -> Json<Value> {
+    state.worker.pause_stage(&payload.stage);
+    Json(json!({
+        "success": true,
+        "paused_stage": payload.stage,
+        "paused_stages": state.worker.get_paused_stages()
+    }))
+}
+
+/// resume_stage - Resumes a paused background stage.
+pub async fn resume_stage(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<StageControlPayload>,
+) -> Json<Value> {
+    state.worker.resume_stage(&payload.stage);
+    state.worker.notify.notify_one();
+    Json(json!({
+        "success": true,
+        "resumed_stage": payload.stage,
+        "paused_stages": state.worker.get_paused_stages()
+    }))
+}
+
+/// prioritize_album - Prioritizes background jobs for photos inside an album.
+pub async fn prioritize_album(
+    State(state): State<Arc<AppState>>,
+    axum::extract::Path(album_id): axum::extract::Path<i64>,
+) -> Result<Json<Value>, (StatusCode, String)> {
+    let affected = crate::services::worker::prioritize_album(&state.db, album_id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    state.worker.notify.notify_one();
+    Ok(Json(json!({
+        "success": true,
+        "album_id": album_id,
+        "jobs_prioritized": affected
+    })))
 }
 
 /// start_background_jobs - Performs start background jobs.
@@ -892,118 +947,244 @@ pub async fn open_in_os_explorer(
 // ── New stubs for Python-parity endpoints ──────────────────────────────────
 
 /// GET /api/v1/utilities/search/fused — Multi-strategy fused search.
+fn extract_search_snippet(text: &str, term: &str) -> String {
+    let lower = text.to_lowercase();
+    let term_lower = term.to_lowercase();
+    if let Some(idx) = lower.find(&term_lower) {
+        let start = idx.saturating_sub(25);
+        let end = (idx + term.len() + 25).min(text.len());
+        let prefix = if start > 0 { "..." } else { "" };
+        let suffix = if end < text.len() { "..." } else { "" };
+        format!("{}{}{}", prefix, text[start..end].trim(), suffix)
+    } else {
+        text.chars().take(60).collect()
+    }
+}
+
+/// GET /api/v1/utilities/search/fused — Multi-strategy fused search with match explanations and negative keyword filtering.
 pub async fn fused_search(
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
-    let query = params.get("q").map(|s| s.as_str()).unwrap_or("");
+    let raw_query = params.get("q").map(|s| s.as_str()).unwrap_or("").trim();
     let limit: usize = params.get("limit")
         .and_then(|s| s.parse().ok())
         .unwrap_or(20);
 
-    if query.is_empty() {
+    if raw_query.is_empty() {
         let results = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
             "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
-             FROM photos ORDER BY date_taken DESC LIMIT ?"
+             FROM photos WHERE is_trash = 0 AND is_locked = 0 ORDER BY date_taken DESC LIMIT ?"
         )
         .bind(limit as i64)
         .fetch_all(&state.db)
         .await
         .map(|rows| rows.into_iter().map(|(id, uuid, filename, path, date_taken, city, state_val, country, caption, ai_summary)| {
-            json!({ "id": id, "uuid": uuid, "filename": filename, "path": path,
-                    "date_taken": date_taken, "city": city, "state": state_val,
-                    "country": country, "caption": caption, "ai_summary": ai_summary })
+            json!({
+                "id": id, "uuid": uuid, "filename": filename, "path": path,
+                "date_taken": date_taken, "city": city, "state": state_val,
+                "country": country, "caption": caption, "ai_summary": ai_summary,
+                "match_reasons": []
+            })
         }).collect::<Vec<_>>())
         .unwrap_or_default();
 
         return Json(json!({ "results": results, "total": results.len() }));
     }
 
+    // Parse query terms into positive and negative exclusion filters
+    let all_tokens: Vec<&str> = raw_query.split_whitespace().collect();
+    let mut positive_terms: Vec<&str> = Vec::new();
+    let mut negative_terms: Vec<String> = Vec::new();
+
+    for token in all_tokens {
+        if let Some(neg) = token.strip_prefix('-') {
+            if !neg.is_empty() {
+                negative_terms.push(neg.to_lowercase());
+            }
+        } else {
+            positive_terms.push(token);
+        }
+    }
+
+    let positive_query = positive_terms.join(" ");
+
+    // Helper: checks if a photo text matches any negative keyword
+    let matches_negative = |caption: &str, ai_summary: &str, auto_tags: &str, ocr_text: &str, filename: &str| -> bool {
+        for neg in &negative_terms {
+            if caption.to_lowercase().contains(neg)
+                || ai_summary.to_lowercase().contains(neg)
+                || auto_tags.to_lowercase().contains(neg)
+                || ocr_text.to_lowercase().contains(neg)
+                || filename.to_lowercase().contains(neg)
+            {
+                return true;
+            }
+        }
+        false
+    };
+
     let search_tools = crate::services::agent_search::SearchTools::new(
         state.db.clone(),
         crate::services::siglip::get_engine().ok(),
         crate::services::vector_index::get_vector_index(),
     );
-    let similar_ids = search_tools.semantic_search(query, limit, false, true).await;
 
-    if similar_ids.is_empty() {
-        return Json(json!({ "results": [], "total": 0 }));
-    }
-    
-    // Fetch photos
     let mut results = Vec::new();
-    for id in similar_ids {
-        if let Ok(row) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
-            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary
-             FROM photos WHERE id = ?"
-        )
-        .bind(id)
-        .fetch_one(&state.db)
-        .await {
-            results.push(json!({
-                "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
-                "date_taken": row.4, "city": row.5, "state": row.6,
-                "country": row.7, "caption": row.8, "ai_summary": row.9
-            }));
+    let mut seen_ids = std::collections::HashSet::new();
+
+    // 1. Semantic search if positive query exists
+    if !positive_query.is_empty() {
+        let scored_matches = search_tools.semantic_search_with_scores(&positive_query, limit, false).await;
+
+        for (id, score) in scored_matches {
+            if let Ok(row) = sqlx::query_as::<_, (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>)>(
+                "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary, auto_tags, ocr_text
+                 FROM photos WHERE id = ? AND is_trash = 0 AND is_locked = 0"
+            )
+            .bind(id)
+            .fetch_one(&state.db)
+            .await {
+                let caption_str = row.8.as_deref().unwrap_or("");
+                let summary_str = row.9.as_deref().unwrap_or("");
+                let tags_str = row.10.as_deref().unwrap_or("");
+                let ocr_str = row.11.as_deref().unwrap_or("");
+
+                // Negative keyword exclusion check
+                if matches_negative(caption_str, summary_str, tags_str, ocr_str, &row.2) {
+                    continue;
+                }
+
+                let mut match_reasons = Vec::new();
+                match_reasons.push(json!({
+                    "type": "semantic",
+                    "label": format!("Matched concept: {}", positive_query),
+                    "score": ((score * 100.0).round() / 100.0)
+                }));
+
+                for term in &positive_terms {
+                    if !ocr_str.is_empty() && ocr_str.to_lowercase().contains(&term.to_lowercase()) {
+                        match_reasons.push(json!({
+                            "type": "ocr",
+                            "label": "Matched text in image",
+                            "snippet": extract_search_snippet(ocr_str, term)
+                        }));
+                        break;
+                    }
+                }
+
+                seen_ids.insert(row.0);
+                results.push(json!({
+                    "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
+                    "date_taken": row.4, "city": row.5, "state": row.6,
+                    "country": row.7, "caption": row.8, "ai_summary": row.9,
+                    "match_reasons": match_reasons
+                }));
+            }
         }
     }
 
-    // Text-based fallback: if semantic search returned few results, supplement
-    // with keyword matching against ai_summary, caption, and auto_tags
-    if results.len() < limit {
-        let terms: Vec<&str> = query.split_whitespace().collect();
-        if !terms.is_empty() {
-            type PhotoRow = (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
-            let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
-                "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary \
-                 FROM photos WHERE is_trash = 0 AND is_locked = 0"
-            );
+    // 2. Keyword fallback / supplement
+    if results.len() < limit && !positive_terms.is_empty() {
+        type FullPhotoRow = (i64, String, String, String, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>, Option<String>);
+        let mut qb = sqlx::QueryBuilder::<sqlx::Sqlite>::new(
+            "SELECT id, uuid, filename, path, date_taken, city, state, country, caption, ai_summary, auto_tags, ocr_text \
+             FROM photos WHERE is_trash = 0 AND is_locked = 0"
+        );
 
-            qb.push(" AND (");
-            let mut first_term = true;
-            for t in &terms {
-                if !first_term {
-                    qb.push(" OR ");
-                }
-                first_term = false;
-                let escaped = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
-                qb.push("(ai_summary LIKE ")
-                  .push_bind(escaped.clone())
-                  .push(" ESCAPE '\\' OR caption LIKE ")
-                  .push_bind(escaped.clone())
-                  .push(" ESCAPE '\\' OR auto_tags LIKE ")
-                  .push_bind(escaped.clone())
-                  .push(" ESCAPE '\\' OR ocr_text LIKE ")
-                  .push_bind(escaped)
-                  .push(" ESCAPE '\\')");
+        qb.push(" AND (");
+        let mut first_term = true;
+        for t in &positive_terms {
+            if !first_term {
+                qb.push(" OR ");
+            }
+            first_term = false;
+            let escaped = format!("%{}%", t.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
+            qb.push("(ai_summary LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR caption LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR auto_tags LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR ocr_text LIKE ")
+              .push_bind(escaped.clone())
+              .push(" ESCAPE '\\' OR filename LIKE ")
+              .push_bind(escaped)
+              .push(" ESCAPE '\\')");
+        }
+        qb.push(")");
+
+        if !seen_ids.is_empty() {
+            qb.push(" AND id NOT IN (");
+            let mut sep = qb.separated(", ");
+            for id in &seen_ids {
+                sep.push_bind(*id);
             }
             qb.push(")");
+        }
 
-            let exclude_ids: Vec<i64> = results
-                .iter()
-                .filter_map(|r| r.get("id").and_then(|v| v.as_i64()))
-                .collect();
-            if !exclude_ids.is_empty() {
-                qb.push(" AND id NOT IN (");
-                let mut sep = qb.separated(", ");
-                for id in exclude_ids {
-                    sep.push_bind(id);
+        qb.push(" ORDER BY date_taken DESC LIMIT ");
+        qb.push_bind((limit - results.len()) as i64);
+
+        if let Ok(text_rows) = qb.build_query_as::<FullPhotoRow>().fetch_all(&state.db).await {
+            for row in text_rows {
+                let caption_str = row.8.as_deref().unwrap_or("");
+                let summary_str = row.9.as_deref().unwrap_or("");
+                let tags_str = row.10.as_deref().unwrap_or("");
+                let ocr_str = row.11.as_deref().unwrap_or("");
+
+                if matches_negative(caption_str, summary_str, tags_str, ocr_str, &row.2) {
+                    continue;
                 }
-                qb.push(")");
-            }
 
-            qb.push(" ORDER BY date_taken DESC LIMIT ");
-            qb.push_bind((limit - results.len()) as i64);
+                let mut match_reasons = Vec::new();
+                for term in &positive_terms {
+                    if !ocr_str.is_empty() && ocr_str.to_lowercase().contains(&term.to_lowercase()) {
+                        match_reasons.push(json!({
+                            "type": "ocr",
+                            "label": "Matched text in image",
+                            "snippet": extract_search_snippet(ocr_str, term)
+                        }));
+                        break;
+                    }
+                    if !summary_str.is_empty() && summary_str.to_lowercase().contains(&term.to_lowercase()) {
+                        match_reasons.push(json!({
+                            "type": "text",
+                            "label": "Matched visual summary",
+                            "snippet": extract_search_snippet(summary_str, term)
+                        }));
+                        break;
+                    }
+                    if !caption_str.is_empty() && caption_str.to_lowercase().contains(&term.to_lowercase()) {
+                        match_reasons.push(json!({
+                            "type": "text",
+                            "label": "Matched caption",
+                            "snippet": extract_search_snippet(caption_str, term)
+                        }));
+                        break;
+                    }
+                    if !tags_str.is_empty() && tags_str.to_lowercase().contains(&term.to_lowercase()) {
+                        match_reasons.push(json!({
+                            "type": "tag",
+                            "label": format!("Matched tag: {}", term)
+                        }));
+                        break;
+                    }
+                }
 
-            if let Ok(text_rows) = qb.build_query_as::<PhotoRow>().fetch_all(&state.db).await {
-                for row in text_rows {
-                    results.push(json!({
-                        "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
-                        "date_taken": row.4, "city": row.5, "state": row.6,
-                        "country": row.7, "caption": row.8, "ai_summary": row.9,
-                        "match_type": "text"
+                if match_reasons.is_empty() {
+                    match_reasons.push(json!({
+                        "type": "keyword",
+                        "label": "Matched filename or keyword"
                     }));
                 }
+
+                results.push(json!({
+                    "id": row.0, "uuid": row.1, "filename": row.2, "path": row.3,
+                    "date_taken": row.4, "city": row.5, "state": row.6,
+                    "country": row.7, "caption": row.8, "ai_summary": row.9,
+                    "match_reasons": match_reasons
+                }));
             }
         }
     }
