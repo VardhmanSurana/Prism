@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE } from '../../constants';
+import { showToast } from '../../services/ToastService';
 
 export interface WatcherStatus {
   is_scanning: boolean;
@@ -26,18 +27,47 @@ export const useSyncConfig = () => {
   const [watcherStatus, setWatcherStatus] = useState<WatcherStatus | null>(null);
   const [isRescanQueued, setIsRescanQueued] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Tracks the rescan request we initiated so the poll can toast on its
+  // completion (finish_ms set + a summary the endpoint did not have before).
+  const pendingRescanRef = useRef<{ requestedAt: number } | null>(null);
 
   useEffect(() => {
     fetchSyncConfig();
   }, []);
 
-  // Poll watcher status periodically so the indicator stays live.
+  // Poll watcher status periodically so the indicator stays live, and toast
+  // when a manual rescan we requested finishes importing.
   useEffect(() => {
     const poll = async () => {
       try {
         const res = await fetch(`${API_BASE}/api/v1/settings/watcher-status`);
         if (res.ok) {
-          setWatcherStatus((await res.json()) as WatcherStatus);
+          const next = (await res.json()) as WatcherStatus;
+          setWatcherStatus(next);
+
+          const pending = pendingRescanRef.current;
+          if (
+            pending &&
+            !next.is_scanning &&
+            next.last_scan_manual &&
+            next.last_scan_finished_ms > pending.requestedAt
+          ) {
+            pendingRescanRef.current = null;
+            const imported = next.last_scan_imported;
+            const failed = next.last_scan_failed;
+            if (imported > 0) {
+              showToast(
+                `Rescan complete — ${imported} new photo${imported !== 1 ? 's' : ''} imported`,
+                { variant: 'success' }
+              );
+            } else if (failed > 0) {
+              showToast(`Rescan complete — ${failed} file${failed !== 1 ? 's' : ''} failed to import`, {
+                variant: 'error',
+              });
+            } else {
+              showToast('Rescan complete — no new photos found', { variant: 'info' });
+            }
+          }
         }
       } catch {
         // Backend unreachable — keep last known status.
@@ -122,6 +152,9 @@ export const useSyncConfig = () => {
     try {
       const res = await fetch(`${API_BASE}/api/v1/settings/watcher/rescan`, { method: 'POST' });
       if (res.ok) {
+        // Arm the completion detector BEFORE refreshing status so a scan that
+        // finishes between the two fetches is still caught by its finish_ms.
+        pendingRescanRef.current = { requestedAt: Date.now() - WATCHER_POLL_MS };
         // Refresh the status right away so "Scanning…" appears immediately.
         const statusRes = await fetch(`${API_BASE}/api/v1/settings/watcher-status`);
         if (statusRes.ok) {
