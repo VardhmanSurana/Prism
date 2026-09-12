@@ -22,11 +22,13 @@
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 use notify::{Event, EventKind, RecursiveMode, Watcher as _};
+use serde::Serialize;
+use tokio::sync::Notify;
 
 use crate::AppState;
 use crate::services::importer::{expand_tilde, import_batch, is_importable_media};
@@ -40,29 +42,96 @@ const EVENT_TICK: Duration = Duration::from_millis(500);
 /// Maximum queued event paths before oldest entries are dropped.
 const EVENT_QUEUE_CAP: usize = 10_000;
 
-/// Monotonic counters for diagnostics/logging.
+/// Outcome counters of the most recent completed scan.
+#[derive(Debug, Default, Clone, Serialize)]
+pub struct ScanSummary {
+    pub imported: u64,
+    pub skipped: u64,
+    pub failed: u64,
+    /// Whether the scan was triggered manually (Rescan Now) vs automatic.
+    pub manual: bool,
+    /// `sync_enabled` value observed when the scan ran.
+    pub auto_enabled: bool,
+}
+
+/// Shared watcher state: counters, last-scan summary, manual-rescan signal.
+///
+/// Lives in a global `OnceLock` so the settings endpoints can read status and
+/// request rescans without threading the handle through `AppState`.
 #[derive(Debug, Default)]
 pub struct WatcherStatus {
     pub last_scan_started_ms: AtomicU64,
     pub last_scan_finished_ms: AtomicU64,
     pub total_imported: AtomicU64,
+    /// Set while a scan is walking/importing (guards against overlap).
+    pub is_scanning: AtomicBool,
+    /// Summary of the last completed scan.
+    pub last_summary: Mutex<Option<ScanSummary>>,
+    /// Manual rescan signal: waking this runs a scan immediately.
+    pub rescan_notify: Notify,
 }
 
 impl WatcherStatus {
     fn note_scan_start(&self) {
-        self.last_scan_started_ms
-            .store(now_ms(), Ordering::Relaxed);
+        self.is_scanning.store(true, Ordering::Relaxed);
+        self.last_scan_started_ms.store(now_ms(), Ordering::Relaxed);
     }
 
-    fn note_scan_finish(&self, imported: u64) {
-        self.total_imported.fetch_add(imported, Ordering::Relaxed);
-        self.last_scan_finished_ms
-            .store(now_ms(), Ordering::Relaxed);
+    fn note_scan_finish(&self, summary: ScanSummary) {
+        self.total_imported.fetch_add(summary.imported, Ordering::Relaxed);
+        *self.last_summary.lock().unwrap() = Some(summary);
+        self.last_scan_finished_ms.store(now_ms(), Ordering::Relaxed);
+        self.is_scanning.store(false, Ordering::Relaxed);
     }
 }
 
 fn now_ms() -> u64 {
     chrono::Utc::now().timestamp_millis().max(0) as u64
+}
+
+/// Global watcher handle, registered by `spawn_watcher`.
+static WATCHER: OnceLock<Arc<WatcherStatus>> = OnceLock::new();
+
+/// handle - The process-wide watcher status (initializes on first use).
+fn handle() -> Arc<WatcherStatus> {
+    WATCHER.get_or_init(|| Arc::new(WatcherStatus::default())).clone()
+}
+
+/// JSON snapshot of watcher state for the settings UI.
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct WatcherSnapshot {
+    pub is_scanning: bool,
+    pub auto_enabled: bool,
+    pub total_imported: u64,
+    pub last_scan_imported: u64,
+    pub last_scan_skipped: u64,
+    pub last_scan_failed: u64,
+    pub last_scan_manual: bool,
+    pub last_scan_started_ms: u64,
+    pub last_scan_finished_ms: u64,
+}
+
+/// snapshot_status - Current watcher status for diagnostics/UI polling.
+pub fn snapshot_status() -> WatcherSnapshot {
+    let h = handle();
+    let summary = h.last_summary.lock().unwrap().clone().unwrap_or_default();
+    WatcherSnapshot {
+        is_scanning: h.is_scanning.load(Ordering::Relaxed),
+        auto_enabled: summary.auto_enabled,
+        total_imported: h.total_imported.load(Ordering::Relaxed),
+        last_scan_imported: summary.imported,
+        last_scan_skipped: summary.skipped,
+        last_scan_failed: summary.failed,
+        last_scan_manual: summary.manual,
+        last_scan_started_ms: h.last_scan_started_ms.load(Ordering::Relaxed),
+        last_scan_finished_ms: h.last_scan_finished_ms.load(Ordering::Relaxed),
+    }
+}
+
+/// request_rescan - Queues an immediate manual rescan of watched folders.
+/// Coalesces concurrent requests; the scan runs on the watcher loop.
+pub fn request_rescan() {
+    handle().rescan_notify.notify_one();
 }
 
 /// Snapshot of watch-folder settings read from the `settings` table.
@@ -176,9 +245,27 @@ async fn filter_unindexed(db: &crate::db::DbPool, files: Vec<PathBuf>) -> Vec<Pa
 }
 
 /// run_scan - One full scan of all watched folders, importing new media.
-async fn run_scan(state: &AppState, status: &WatcherStatus) {
+///
+/// `manual = true` (Rescan Now) bypasses the `sync_enabled` toggle — the user
+/// explicitly asked — while automatic scans respect it. Overlapping scans are
+/// skipped (the in-progress one covers both). Every completed scan records a
+/// [`ScanSummary`] in the global status for the settings UI.
+pub async fn run_scan(state: &AppState, manual: bool) {
+    let status = handle();
+
+    // Skip if a scan is already running (coalesce periodic + manual overlap).
+    if status
+        .is_scanning
+        .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+        .is_err()
+    {
+        return;
+    }
+
     let cfg = read_watch_config(&state.db).await;
-    if !cfg.sync_enabled || cfg.watched.is_empty() {
+    if !manual && (!cfg.sync_enabled || cfg.watched.is_empty()) {
+        // Automatic scans quietly no-op when disabled; release the flag.
+        status.is_scanning.store(false, Ordering::Relaxed);
         return;
     }
     status.note_scan_start();
@@ -195,14 +282,21 @@ async fn run_scan(state: &AppState, status: &WatcherStatus) {
 
     let files = filter_unindexed(&state.db, files).await;
     let total = files.len();
-    let mut imported = 0u64;
+    let mut summary = ScanSummary {
+        manual,
+        auto_enabled: cfg.sync_enabled,
+        ..ScanSummary::default()
+    };
     if total > 0 {
         tracing::info!(
-            "watcher: scanning {} new media file(s) in watched folders",
-            total
+            "watcher: scanning {} new media file(s) in watched folders{}",
+            total,
+            if manual { " (manual)" } else { "" }
         );
         let stats = import_batch(state, &files).await;
-        imported = stats.imported as u64;
+        summary.imported = stats.imported as u64;
+        summary.skipped = stats.skipped as u64;
+        summary.failed = stats.failed as u64;
         tracing::info!(
             "watcher: scan finished: {} imported, {} skipped, {} failed",
             stats.imported,
@@ -210,7 +304,7 @@ async fn run_scan(state: &AppState, status: &WatcherStatus) {
             stats.failed
         );
     }
-    status.note_scan_finish(imported);
+    status.note_scan_finish(summary);
 }
 
 /// event_path_is_watched - Re-validates an FS-event path against the *current*
@@ -225,32 +319,37 @@ fn event_path_is_watched(path: &Path, cfg: &WatchConfig) -> bool {
 }
 
 /// spawn_watcher - Spawns the watch-folder indexer for the running server:
-/// an initial startup scan, a periodic rescan loop, and a debounced FS-event
-/// import loop. Errors are logged, never fatal.
+/// an initial startup scan, a periodic rescan loop (which also services manual
+/// "Rescan Now" requests), and a debounced FS-event import loop. Errors are
+/// logged, never fatal.
 pub fn spawn_watcher(state: Arc<AppState>) {
-    let status = Arc::new(WatcherStatus::default());
+    // Register the global handle so endpoints can read status / request
+    // rescans before/while the loops are running.
+    let _ = handle();
 
     // Initial startup scan (short delay so the DB is warm).
     {
         let state = Arc::clone(&state);
-        let status = Arc::clone(&status);
         tokio::spawn(async move {
             tokio::time::sleep(Duration::from_secs(3)).await;
-            run_scan(&state, &status).await;
+            run_scan(&state, false).await;
         });
     }
 
-    // Periodic rescan loop.
+    // Periodic rescan loop; also services manual rescan requests.
     {
         let state = Arc::clone(&state);
-        let status = Arc::clone(&status);
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(RESCAN_INTERVAL);
             interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             interval.tick().await; // first tick fires immediately; skip it
             loop {
-                interval.tick().await;
-                run_scan(&state, &status).await;
+                let watcher_status = handle();
+                let manual = tokio::select! {
+                    _ = interval.tick() => false,
+                    _ = watcher_status.rescan_notify.notified() => true,
+                };
+                run_scan(&state, manual).await;
             }
         });
     }
@@ -259,7 +358,6 @@ pub fn spawn_watcher(state: Arc<AppState>) {
     // re-validate against the live config, then import.
     {
         let state = Arc::clone(&state);
-        let status = Arc::clone(&status);
         tokio::spawn(async move {
             // Builds a fresh (watcher, receiver) pair. Recreating the watcher
             // on resubscribe drops the old subscription set atomically; the
@@ -382,7 +480,8 @@ pub fn spawn_watcher(state: Arc<AppState>) {
                         }
                         let stats = import_batch(&state, &batch).await;
                         if stats.imported > 0 {
-                            status.total_imported
+                            handle()
+                                .total_imported
                                 .fetch_add(stats.imported as u64, Ordering::Relaxed);
                             tracing::info!(
                                 "watcher: imported {} file(s) from FS events",

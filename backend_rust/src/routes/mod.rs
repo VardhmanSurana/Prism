@@ -549,6 +549,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/settings/locked-folder/verify", post(settings::verify_locked_folder))
         .route("/settings/locked-folder/lock-session", post(settings::lock_session))
         .route("/settings/sync", get(settings::get_sync_settings).post(settings::save_sync_settings))
+        .route("/settings/watcher-status", get(settings::get_watcher_status))
+        .route("/settings/watcher/rescan", post(settings::request_watcher_rescan))
         .route("/settings/trigger-face-sync", post(settings::trigger_face_sync))
         .route("/settings/telemetry", get(settings::get_telemetry_settings).post(settings::save_telemetry_settings))
         .route("/settings/security", get(settings::get_security_settings).post(settings::save_security_settings))

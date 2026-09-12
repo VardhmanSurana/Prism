@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Watcher status & manual rescan: `GET /api/v1/settings/watcher-status`
+  (scanning flag, last-scan summary, lifetime import total) and
+  `POST /api/v1/settings/watcher/rescan` (immediate manual scan); settings UI
+  shows a live Indexer Status card with a "Rescan Now" button (3s polling)
 - Watch-folder auto-indexing (previously settings-only): startup + 60s
   periodic scans and live filesystem-event imports (notify crate) of media in
   watched folders, honoring `excluded_folders`, the `sync_enabled` toggle, and

@@ -847,6 +847,34 @@ GET  /api/v1/settings/sync
 POST /api/v1/settings/sync         # { is_enabled: true|false }
 ```
 
+#### Watcher Status & Manual Rescan
+```http
+GET  /api/v1/settings/watcher-status
+POST /api/v1/settings/watcher/rescan
+```
+
+`GET /watcher-status` returns a live snapshot for the settings UI:
+```json
+{
+  "is_scanning": false,
+  "auto_enabled": true,
+  "total_imported": 128,
+  "last_scan_imported": 4,
+  "last_scan_skipped": 0,
+  "last_scan_failed": 0,
+  "last_scan_manual": true,
+  "last_scan_started_ms": 1734000000000,
+  "last_scan_finished_ms": 1734000001500
+}
+```
+
+`POST /watcher/rescan` queues an immediate manual rescan of all watched
+folders (bypasses the `sync_enabled` toggle since the user asked explicitly;
+coalesces with any in-progress scan) and returns immediately:
+```json
+{ "status": "success", "message": "Rescan queued. Watched folders will be scanned now." }
+```
+
 ### Locked Folder Endpoints
 ```http
 GET /api/v1/settings/locked-folder/status

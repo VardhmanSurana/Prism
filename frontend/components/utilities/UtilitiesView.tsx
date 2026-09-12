@@ -75,6 +75,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
     syncEnabled,
     watchedFolders,
     excludedFolders,
+    watcherStatus,
+    isRescanQueued,
+    rescanNow,
     watchedInput,
     setWatchedInput,
     handleAddWatchedFolder,
@@ -331,6 +334,9 @@ export const UtilitiesView: React.FC<UtilitiesViewProps> = ({ onResetSuccess }) 
                 <SyncSettings 
                   syncEnabled={syncEnabled}
                   onToggleSync={handleToggleSync}
+                  watcherStatus={watcherStatus}
+                  isRescanQueued={isRescanQueued}
+                  onRescanNow={rescanNow}
                   watchedFolders={watchedFolders}
                   watchedInput={watchedInput}
                   setWatchedInput={setWatchedInput}
