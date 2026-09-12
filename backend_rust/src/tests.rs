@@ -1185,6 +1185,55 @@ mod server_enhancement_tests {
                 .unwrap();
         assert_eq!(orphan_jobs, 0, "background_jobs orphans after purge");
     }
+
+    /// Watcher status snapshot reflects a completed scan and the rescan
+    /// request signal is accepted without error.
+    #[tokio::test]
+    async fn test_watcher_status_and_manual_rescan() {
+        let temp = TempDir::new().unwrap();
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let thumbs = temp.path().join("thumbs");
+        std::fs::create_dir_all(&thumbs).unwrap();
+        let state = create_test_state_with_thumbs(pool.clone(), thumbs);
+
+        // Register a watched folder with one importable file.
+        let watched = temp.path().join("watched");
+        std::fs::create_dir_all(&watched).unwrap();
+        let photo = watched.join("img.jpg");
+        std::fs::write(&photo, make_jpeg_bytes(60, 60, [5, 5, 5])).unwrap();
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('watched_folders', ?)")
+            .bind(serde_json::json!([watched.to_string_lossy()]).to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        // Before any scan: not scanning, zero counters.
+        let before = crate::services::watcher::snapshot_status();
+        assert!(!before.is_scanning);
+
+        // Manual scan imports the file and records a summary.
+        crate::services::watcher::run_scan(&state, true).await;
+        let after = crate::services::watcher::snapshot_status();
+        assert!(!after.is_scanning, "scanning flag must clear after finish");
+        assert_eq!(after.last_scan_imported, 1, "manual scan summary");
+        assert!(after.last_scan_manual);
+        assert!(after.last_scan_finished_ms > 0);
+        assert!(after.total_imported >= 1);
+
+        // Idempotent: rescanning imports nothing new (already-indexed paths
+        // are filtered out pre-import, so the summary is clean 0/0).
+        crate::services::watcher::run_scan(&state, true).await;
+        let again = crate::services::watcher::snapshot_status();
+        assert_eq!(again.last_scan_imported, 0, "dedupe on rescan");
+        assert_eq!(again.total_imported, after.total_imported, "total unchanged on rescan");
+
+        // Endpoint handlers serialize the snapshot and accept a rescan request.
+        use axum::response::IntoResponse;
+        let res = crate::routes::settings::get_watcher_status().await.into_response();
+        assert!(res.status().is_success());
+        let res = crate::routes::settings::request_watcher_rescan().await.into_response();
+        assert!(res.status().is_success());
+    }
 }
 
 

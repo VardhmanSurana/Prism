@@ -391,6 +391,27 @@ pub async fn sse_events() -> Sse<impl Stream<Item = Result<Event, Infallible>>> 
     )
 }
 
+/// get_watcher_status - Current watch-folder indexer status for the settings
+/// UI (scanning flag, totals, and the last scan's outcome).
+///
+/// GET /api/v1/settings/watcher-status
+pub async fn get_watcher_status() -> Json<Value> {
+    let snapshot = crate::services::watcher::snapshot_status();
+    Json(serde_json::to_value(&snapshot).unwrap_or_default())
+}
+
+/// request_watcher_rescan - Queues an immediate manual rescan of watched
+/// folders. Runs on the watcher's scan loop; returns immediately.
+///
+/// POST /api/v1/settings/watcher/rescan
+pub async fn request_watcher_rescan() -> Json<Value> {
+    crate::services::watcher::request_rescan();
+    Json(json!({
+        "status": "success",
+        "message": "Rescan queued. Watched folders will be scanned now."
+    }))
+}
+
 /// get_locked_folder_status - Retrieves get locked folder status.
 pub async fn get_locked_folder_status(
     State(state): State<Arc<AppState>>,

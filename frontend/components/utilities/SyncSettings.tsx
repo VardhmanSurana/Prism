@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Switch } from '../ui';
 import { getApiBase, setApiBase } from '../../constants';
+import { WatcherStatus as WatcherStatusData } from '../../hooks/utilities/useSyncConfig';
 
 interface SyncSettingsProps {
   syncEnabled: boolean;
   onToggleSync: () => void;
-  
+
+  /** Live watcher engine status (polled by useSyncConfig). */
+  watcherStatus?: WatcherStatusData | null;
+  /** True after Rescan Now is clicked until a scan starts. */
+  isRescanQueued?: boolean;
+  onRescanNow?: () => void;
+
   watchedFolders?: string[];
   watchedInput?: string;
   setWatchedInput?: (v: string) => void;
@@ -86,6 +93,9 @@ const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder,
 export const SyncSettings: React.FC<SyncSettingsProps> = ({
   syncEnabled,
   onToggleSync,
+  watcherStatus,
+  isRescanQueued,
+  onRescanNow,
   watchedFolders,
   watchedInput,
   setWatchedInput,
@@ -236,6 +246,13 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
         </div>
       </div>
 
+      {/* Watcher engine status card */}
+      <WatcherStatusCard
+        status={watcherStatus}
+        isRescanQueued={isRescanQueued}
+        onRescanNow={onRescanNow}
+      />
+
       {/* Watched folders card */}
       <div className="cr-card">
         <div className="cr-card-title">Watched Library Territories</div>
@@ -285,6 +302,96 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+/** Formats an epoch-ms timestamp as a short relative time ("2m ago"). */
+function formatRelative(ms: number): string {
+  if (!ms) return '—';
+  const diff = Date.now() - ms;
+  if (diff < 0) return 'just now';
+  const s = Math.floor(diff / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+/**
+ * Live status of the watch-folder indexer: scan state, last scan outcome,
+ * lifetime import total, and a manual "Rescan Now" trigger.
+ */
+export const WatcherStatusCard: React.FC<{
+  status?: WatcherStatusData | null;
+  isRescanQueued?: boolean;
+  onRescanNow?: () => void;
+}> = ({ status, isRescanQueued, onRescanNow }) => {
+  const scanning = status?.is_scanning ?? false;
+  const busy = scanning || !!isRescanQueued;
+
+  return (
+    <div className="cr-card" data-testid="watcher-status-card">
+      <div className="flex items-center justify-between gap-4 mb-3">
+        <div className="cr-card-title">Indexer Status</div>
+        <button
+          type="button"
+          onClick={onRescanNow}
+          disabled={!onRescanNow || busy}
+          title="Scan all watched folders for new media immediately"
+          aria-label="Rescan watched folders now"
+          className="cr-inline-btn font-mono text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {scanning ? 'Scanning…' : isRescanQueued ? 'Queued…' : 'Rescan Now'}
+        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono">
+        {scanning ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true"></span>
+            Scanning watched folders…
+          </span>
+        ) : isRescanQueued ? (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[var(--cr-surface-sunken)] text-[var(--cr-text-secondary)] border border-[var(--cr-border)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--cr-text-muted)]" aria-hidden="true"></span>
+            Rescan queued…
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+            Idle — monitoring for changes
+          </span>
+        )}
+
+        <span className="text-[var(--cr-text-muted)]">
+          Last scan: {formatRelative(status?.last_scan_finished_ms ?? 0)}
+        </span>
+
+        {(status?.last_scan_imported ?? 0) > 0 && (
+          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            +{status?.last_scan_imported} imported
+          </span>
+        )}
+        {(status?.last_scan_skipped ?? 0) > 0 && (
+          <span className="text-[var(--cr-text-muted)]">{status?.last_scan_skipped} skipped</span>
+        )}
+        {(status?.last_scan_failed ?? 0) > 0 && (
+          <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30">
+            {status?.last_scan_failed} failed
+          </span>
+        )}
+        {status?.last_scan_manual && (status?.last_scan_finished_ms ?? 0) > 0 && (
+          <span className="text-[var(--cr-text-muted)]">(manual)</span>
+        )}
+      </div>
+
+      <p className="text-[11px] font-mono text-[var(--cr-text-muted)] mt-2">
+        Total imported by watcher: {status?.total_imported ?? 0}
+      </p>
     </div>
   );
 };

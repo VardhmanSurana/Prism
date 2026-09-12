@@ -1,5 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { API_BASE } from '../../constants';
+
+export interface WatcherStatus {
+  is_scanning: boolean;
+  auto_enabled: boolean;
+  total_imported: number;
+  last_scan_imported: number;
+  last_scan_skipped: number;
+  last_scan_failed: number;
+  last_scan_manual: boolean;
+  last_scan_started_ms: number;
+  last_scan_finished_ms: number;
+}
+
+const WATCHER_POLL_MS = 3000;
 
 /**
  * useSyncConfig - Hook managing sync config.
@@ -9,9 +23,31 @@ export const useSyncConfig = () => {
   const [watchedFolders, setWatchedFolders] = useState<string[]>([]);
   const [excludedFolders, setExcludedFolders] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [watcherStatus, setWatcherStatus] = useState<WatcherStatus | null>(null);
+  const [isRescanQueued, setIsRescanQueued] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetchSyncConfig();
+  }, []);
+
+  // Poll watcher status periodically so the indicator stays live.
+  useEffect(() => {
+    const poll = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/v1/settings/watcher-status`);
+        if (res.ok) {
+          setWatcherStatus((await res.json()) as WatcherStatus);
+        }
+      } catch {
+        // Backend unreachable — keep last known status.
+      }
+    };
+    poll();
+    pollRef.current = setInterval(poll, WATCHER_POLL_MS);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
   /**
@@ -79,6 +115,28 @@ export const useSyncConfig = () => {
   };
 
   /**
+   * rescanNow - Requests an immediate manual rescan of watched folders.
+   */
+  const rescanNow = useCallback(async () => {
+    setIsRescanQueued(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/settings/watcher/rescan`, { method: 'POST' });
+      if (res.ok) {
+        // Refresh the status right away so "Scanning…" appears immediately.
+        const statusRes = await fetch(`${API_BASE}/api/v1/settings/watcher-status`);
+        if (statusRes.ok) {
+          setWatcherStatus((await statusRes.json()) as WatcherStatus);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to queue watcher rescan', e);
+    } finally {
+      // Keep the queued badge until a scan actually starts (poll catches it).
+      setTimeout(() => setIsRescanQueued(false), 4000);
+    }
+  }, []);
+
+  /**
    * updateWatchedFolders - Performs update watched folders.
    */
   const updateWatchedFolders = (folders: string[]) => {
@@ -99,6 +157,9 @@ export const useSyncConfig = () => {
     watchedFolders,
     excludedFolders,
     isLoading,
+    watcherStatus,
+    isRescanQueued,
+    rescanNow,
     setWatchedFolders: updateWatchedFolders,
     setExcludedFolders: updateExcludedFolders,
     handleToggleSync,
