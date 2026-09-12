@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -41,8 +41,7 @@ pub async fn upload_photo(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("");
 
-    let target_path: PathBuf;
-
+    // JSON branch: index an existing on-disk file in place.
     if content_type.contains("application/json") {
         let payload: UploadJsonPayload = serde_json::from_slice(&body)
             .map_err(|e| (StatusCode::BAD_REQUEST, format!("Invalid JSON payload: {}", e)))?;
@@ -52,16 +51,24 @@ pub async fn upload_photo(
             .or(payload.path)
             .ok_or((StatusCode::BAD_REQUEST, "Missing file_path in payload".to_string()))?;
 
-        target_path = PathBuf::from(raw_path);
-        if !target_path.exists() {
-            return Err((StatusCode::NOT_FOUND, format!("File not found: {:?}", target_path)));
-        }
-    } else {
-        let filename = format!("upload_{}.jpg", chrono::Utc::now().timestamp_millis());
-        fs::create_dir_all(&state.config.upload_dir).ok();
-        target_path = state.config.upload_dir.join(&filename);
-        fs::write(&target_path, body).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        // Shared in-place indexing flow (dedupe, EXIF, thumbnail, AI enqueue).
+        let (photo, _newly_imported) = crate::services::importer::import_file(&state, Path::new(&raw_path))
+            .await
+            .map_err(|e| {
+                if e.starts_with("File not found") {
+                    (StatusCode::NOT_FOUND, e)
+                } else {
+                    (StatusCode::INTERNAL_SERVER_ERROR, e)
+                }
+            })?;
+        return Ok(Json(photo));
     }
+
+    // Blob upload branch: write the body to the uploads dir.
+    let upload_filename = format!("upload_{}.jpg", chrono::Utc::now().timestamp_millis());
+    fs::create_dir_all(&state.config.upload_dir).ok();
+    let target_path = state.config.upload_dir.join(&upload_filename);
+    fs::write(&target_path, body).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let filename = target_path
         .file_name()
@@ -337,26 +344,10 @@ pub async fn expand_directory(
         return Err((StatusCode::BAD_REQUEST, "Path is not a directory".to_string()));
     }
 
+    // Shared recursive walker (same rules as the watch-folder indexer:
+    // skips hidden entries and vault/backup artifacts).
     let mut media_files = Vec::new();
-
-    /// walk_dir - Performs walk dir.
-    fn walk_dir(dir: &PathBuf, files: &mut Vec<String>) {
-        if let Ok(entries) = fs::read_dir(dir) {
-            for entry in entries.flatten() {
-                let path = entry.path();
-                if path.is_dir() {
-                    walk_dir(&path, files);
-                } else if path.is_file() {
-                    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
-                    if matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "heic" | "heif" | "mp4" | "mov" | "avi" | "mkv" | "webm") {
-                        files.push(path.to_string_lossy().to_string());
-                    }
-                }
-            }
-        }
-    }
-
-    walk_dir(&folder_path, &mut media_files);
+    crate::services::importer::collect_media_files_public(&folder_path, &mut media_files);
 
     Ok(Json(json!({
         "files": media_files

@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Watch-folder auto-indexing (previously settings-only): startup + 60s
+  periodic scans and live filesystem-event imports (notify crate) of media in
+  watched folders, honoring `excluded_folders`, the `sync_enabled` toggle, and
+  skipping hidden files and vault/backup artifacts
+- Shared in-place import engine (`services::importer`) used by the upload API
+  and the watcher; dedupes by absolute path and classifies image vs video
+  file types correctly for indexed videos
+- Purge-folder now also removes vault ciphertext artifacts (`<path>.prism_enc`)
+  for locked photos
 - Encrypted vault for the Locked Folder: AES-256-GCM encryption-at-rest
   (`.prism_enc` sidecars, plaintext shredding), in-memory decrypt-on-serve,
   Emergency Recovery Kit (armored token + downloadable document), and optional
@@ -18,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   media scanner, batch relinker, checksum verification, storage breakdown
 - `library_backups` table plus `cull_status`, `rating`, `burst_group_id`,
   `missing_since`, `last_verified` photo columns and culling indexes
+### Fixed
+- Purge-folder response contract: frontend read `data.deleted` while the API
+  returned `deleted_count`, so successful purges reported "Removed undefined
+  photos"; also handles non-OK responses and partial failures
+- Purge-folder now performs full per-photo cleanup (relational rows in
+  `photo_albums` / `photo_people` / `faces` / `background_jobs`, dangling
+  `cover_photo_id` references, thumbnails and segmentation masks on disk)
+  instead of a bare `DELETE FROM photos`, matching the canonical photo purge
+- Purge-folder scope is an exact path prefix (`/a/b` no longer over-matches
+  sibling `/a/bc`; `%`/`_` in folder names are escaped) with `~` expansion
 - First-run onboarding wizard, keyboard shortcuts cheatsheet (`?`), and undo
   toast for bulk actions
 - Full documentation suite (docs/)
