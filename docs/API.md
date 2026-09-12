@@ -809,9 +809,42 @@ POST /api/v1/settings/vacuum
 ```
 
 ### Purge Folder
+Removes all library records for photos under a folder. Scope is an exact path-prefix on the absolute photo path (`/a/b` purges `/a/b/**` but never sibling `/a/bc`); `~` is expanded. For each matched photo it removes relational data (`photo_albums`, `photo_people`, `faces`, `background_jobs`), clears dangling `cover_photo_id` references, deletes derived files (thumbnails, segmentation masks), and removes vault artifacts (`<path>.prism_enc`) for locked photos. Original media files are never touched.
 ```http
 POST /api/v1/settings/purge-folder
 Content-Type: application/json
+
+{ "folder_path": "~/Pictures/OldTrip" }
+```
+
+**Response**
+```json
+{
+  "status": "success",          // or "partial" when some photos failed
+  "folder": "/home/user/Pictures/OldTrip",
+  "deleted_count": 42,
+  "failed_count": 0             // present only on "partial"
+}
+```
+
+### Watch Folders (Automatic Indexing)
+Watched folders are indexed automatically by the background watcher service:
+- **Startup scan** — media under `watched_folders` is imported in place shortly after boot.
+- **Periodic rescan** — every 60s, new files are picked up.
+- **Live FS events** — newly created files are imported near-real-time (debounced ~2s) via OS file notifications.
+
+Behavior:
+- Imports are in place (no copying), deduped by absolute path.
+- `excluded_folders` paths (and subfolders) are never imported.
+- The **Automatic System File Watcher** toggle (`sync_enabled`) pauses both scanning and live events.
+- Hidden entries, `*.prism_enc` / `*.prism_backup*` artifacts are skipped.
+
+Settings endpoints (already existing):
+```http
+GET  /api/v1/settings/folders
+POST /api/v1/settings/folders      # { watched_folders: [...], excluded_folders: [...] }
+GET  /api/v1/settings/sync
+POST /api/v1/settings/sync         # { is_enabled: true|false }
 ```
 
 ### Locked Folder Endpoints

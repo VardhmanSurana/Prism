@@ -280,22 +280,97 @@ pub struct PurgeFolderRequest {
     pub folder_path: String,
 }
 
-/// purge_folder - Performs purge folder.
+/// purge_folder - Removes all library records for photos under a folder.
+///
+/// POST /api/v1/settings/purge-folder
+///
+/// Scope is an **exact path-prefix** on the absolute photo path: `/a/b` purges
+/// photos in `/a/b` (and subfolders) but never sibling `/a/bc`. `~` is
+/// expanded, the path is canonicalized when possible, and `%`/`_` in the
+/// folder name are matched literally.
+///
+/// For each matched photo this removes relational data (`photo_albums`,
+/// `photo_people`, `faces`, `background_jobs`), clears dangling
+/// `cover_photo_id` references, deletes derived files (thumbnails and
+/// segmentation masks), and removes vault artifacts (`<path>.prism_enc`,
+/// `.thumb_enc` caches) for locked photos. Original media files are never
+/// touched. Response: `{ status, folder, deleted_count }`.
 pub async fn purge_folder(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<PurgeFolderRequest>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
-    let folder = payload.folder_path.trim();
-    let deleted = sqlx::query("DELETE FROM photos WHERE path LIKE ?")
-        .bind(format!("{}%", folder))
-        .execute(&state.db)
-        .await
-        .map(|r| r.rows_affected())
-        .unwrap_or(0);
+    use crate::routes::photos::purge_photo_app_data;
+    use std::path::PathBuf;
 
+    let raw = payload.folder_path.trim();
+    if raw.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "folder_path is required".to_string()));
+    }
+
+    // `~` expansion + best-effort canonicalization for stable prefix matching.
+    let folder = if raw == "~" || raw.starts_with("~/") {
+        if let Ok(home) = env::var("HOME") {
+            PathBuf::from(home).join(raw.trim_start_matches("~").trim_start_matches('/'))
+        } else {
+            PathBuf::from(raw)
+        }
+    } else {
+        PathBuf::from(raw)
+    };
+    let folder = folder.canonicalize().unwrap_or(folder);
+    let folder_prefix = folder.to_string_lossy().to_string();
+
+    // Exact-prefix candidates: the folder itself, or anything under it
+    // (`{prefix}{SEPARATOR}%`). LIKE wildcards in the folder name are escaped
+    // so sibling folders sharing a string prefix (`/a/bc` when purging `/a/b`)
+    // are never matched.
+    let escaped = folder_prefix
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    let photos: Vec<(i64, String, Option<bool>)> = sqlx::query_as(
+        "SELECT id, path, is_locked FROM photos WHERE path = ? OR path LIKE ? ESCAPE '\\'",
+    )
+    .bind(&folder_prefix)
+    .bind(format!("{}{}%", escaped, std::path::MAIN_SEPARATOR))
+    .fetch_all(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let mut deleted = 0usize;
+    let mut failed = 0usize;
+    for (photo_id, path, is_locked) in &photos {
+        // Relational rows + derived thumbnails/masks, via the canonical purge.
+        if let Err(e) =
+            purge_photo_app_data(&state.db, &state.config.thumbnails_dir, *photo_id).await
+        {
+            tracing::warn!("purge-folder: failed to purge photo {}: {}", photo_id, e);
+            failed += 1;
+            continue;
+        }
+
+        // Vault artifacts the canonical purge doesn't know about.
+        if *is_locked == Some(true) {
+            let enc = PathBuf::from(format!("{}.prism_enc", path));
+            if enc.exists() {
+                let _ = tokio::fs::remove_file(&enc).await;
+            }
+        }
+
+        deleted += 1;
+    }
+
+    if failed > 0 {
+        return Ok(Json(json!({
+            "status": "partial",
+            "folder": folder_prefix,
+            "deleted_count": deleted,
+            "failed_count": failed
+        })));
+    }
     Ok(Json(json!({
         "status": "success",
-        "folder": folder,
+        "folder": folder_prefix,
         "deleted_count": deleted
     })))
 }

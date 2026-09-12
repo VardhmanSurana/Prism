@@ -156,6 +156,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         lan_beacon,
     });
 
+    // Spawn the watch-folder indexer: startup + periodic scan of watched
+    // folders and live FS-event imports (notify crate).
+    crate::services::watcher::spawn_watcher(Arc::clone(&state));
+
     let app = routes::create_router(state);
 
     let addr: SocketAddr = format!("{}:{}", config.host, config.port).parse()?;

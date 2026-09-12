@@ -39,3 +39,5 @@ pub mod scheduler;
 pub mod xmp;
 
 pub mod vault_crypto;
+pub mod importer;
+pub mod watcher;

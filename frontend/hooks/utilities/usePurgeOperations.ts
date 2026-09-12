@@ -36,8 +36,17 @@ export const usePurgeOperations = ({ openBrowseDialog }: UsePurgeOperationsProps
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ folder_path: purgeInput })
       });
+      if (!res.ok) {
+        throw new Error(`Server returned ${res.status}`);
+      }
       const data = await res.json();
-      setPurgeStatus(`✓ Removed ${data.deleted} photo${data.deleted !== 1 ? 's' : ''} from library`);
+      const deleted = typeof data.deleted_count === 'number' ? data.deleted_count : 0;
+      const failed = typeof data.failed_count === 'number' ? data.failed_count : 0;
+      if (data.status === 'partial' || failed > 0) {
+        setPurgeStatus(`⚠ Removed ${deleted} photo${deleted !== 1 ? 's' : ''}, ${failed} failed — check backend logs`);
+      } else {
+        setPurgeStatus(`✓ Removed ${deleted} photo${deleted !== 1 ? 's' : ''} from library`);
+      }
       setPurgeInput('');
     } catch (e) {
       setPurgeStatus('✗ Failed to purge folder');

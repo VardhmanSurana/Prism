@@ -942,6 +942,249 @@ mod server_enhancement_tests {
         let decoded = image::load_from_memory(&plain).unwrap();
         assert_eq!((decoded.width(), decoded.height()), (400u32, 400u32));
     }
+
+    // ── Watch folder & purge folder ───────────────────────────────────────
+
+    use crate::services::importer::{expand_tilde, import_file};
+    use crate::services::watcher::{collect_media_files, is_path_excluded};
+
+    /// Like `create_test_state`, but with `thumbnails_dir` pointed at a test
+    /// temp dir so nothing is written to the repo-relative ./thumbnails.
+    fn create_test_state_with_thumbs(
+        pool: crate::db::DbPool,
+        thumbnails_dir: PathBuf,
+    ) -> std::sync::Arc<crate::AppState> {
+        use crate::config::Config;
+        use crate::services::llm_client::LlmClient;
+        use crate::services::llm_server::LlmServer;
+        use crate::services::ml_client::MlClient;
+        use crate::services::model_manager::ModelManager;
+        use crate::services::packs::PackManager;
+        use crate::services::plugins::PluginManager;
+        use crate::services::telemetry::TelemetryService;
+        use crate::services::worker::{AnalyzerRegistry, JobScheduler, WorkerState};
+        use std::sync::Arc;
+
+        let config = Config {
+            port: 8269,
+            host: "127.0.0.1".to_string(),
+            database_url: "sqlite::memory:".to_string(),
+            upload_dir: PathBuf::from("uploads"),
+            thumbnails_dir,
+            api_key: None,
+            gpu_mode: "cpu".to_string(),
+            models_dir: PathBuf::from("models"),
+            packs_dir: PathBuf::from("packs"),
+            plugins_dir: PathBuf::from("plugins"),
+            map_cache_dir: PathBuf::from("map_cache"),
+        };
+
+        let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
+        let ml_client = MlClient::new(LlmClient::new(llm_server));
+        let telemetry = TelemetryService::new(pool.clone());
+        let registry = Arc::new(AnalyzerRegistry::new());
+        let worker = WorkerState::new(&registry.names());
+        let scheduler = JobScheduler::new(config.upload_dir.clone());
+        let model_manager = Arc::new(ModelManager::new(config.models_dir.clone()));
+        let pack_manager = Arc::new(PackManager::new(config.packs_dir.clone(), config.models_dir.clone()));
+        let plugin_manager = Arc::new(PluginManager::new(
+            config.plugins_dir.clone(),
+            config.packs_dir.clone(),
+            config.models_dir.clone(),
+        ));
+        let lan_beacon = Arc::new(crate::services::lan_beacon::LanBeaconService::new(
+            "test_peer".to_string(),
+            config.port,
+        ));
+
+        Arc::new(crate::AppState {
+            config,
+            db: pool,
+            ml_client,
+            telemetry,
+            worker,
+            scheduler,
+            registry,
+            model_manager,
+            pack_manager,
+            plugin_manager,
+            lan_beacon,
+        })
+    }
+
+    /// Helper: writes fake media files into a temp tree and indexes one via
+    /// the shared importer.
+    async fn seed_watched_tree(dir: &std::path::Path) -> (Vec<PathBuf>, PathBuf) {
+        let sub = dir.join("sub");
+        std::fs::create_dir_all(&sub).unwrap();
+        let files = vec![
+            dir.join("a.jpg"),
+            dir.join("b.png"),
+            sub.join("c.jpg"),
+            dir.join("notes.txt"), // non-media: must never be imported
+            dir.join(".hidden.jpg"),
+            dir.join("x.prism_enc"),
+        ];
+        for (i, f) in files.iter().enumerate() {
+            let bytes = if f.extension().and_then(|e| e.to_str()) == Some("png") {
+                make_png_bytes(20 + i as u32, 20)
+            } else {
+                make_jpeg_bytes(30 + i as u32, 30, [i as u8, 40, 90])
+            };
+            std::fs::write(f, bytes).unwrap();
+        }
+        (files, sub)
+    }
+
+    fn make_png_bytes(width: u32, height: u32) -> Vec<u8> {
+        let img = image::DynamicImage::new_rgb8(width, height);
+        let mut buf = Vec::new();
+        img.write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+            .unwrap();
+        buf
+    }
+
+    #[tokio::test]
+    async fn test_importer_imports_in_place_and_dedupes() {
+        let temp = TempDir::new().unwrap();
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        // Point thumbnails at a temp dir so the test never writes to ./thumbnails.
+        let thumbs = temp.path().join("thumbs");
+        std::fs::create_dir_all(&thumbs).unwrap();
+        let state = create_test_state_with_thumbs(pool.clone(), thumbs);
+
+        let media = temp.path().join("media");
+        std::fs::create_dir_all(&media).unwrap();
+        let photo_path = media.join("pic.jpg");
+        std::fs::write(&photo_path, make_jpeg_bytes(80, 60, [10, 20, 30])).unwrap();
+
+        // First import: new row, in place (original file still at its path).
+        let (photo, newly) = import_file(&state, &photo_path).await.unwrap();
+        assert!(newly);
+        assert_eq!(photo.path, photo_path.to_string_lossy().to_string());
+        assert!(photo_path.exists(), "import must not move or copy the file");
+        assert_eq!(photo.file_type, "image");
+
+        // Second import of the same path: dedupe, not a duplicate row.
+        let (again, newly2) = import_file(&state, &photo_path).await.unwrap();
+        assert!(!newly2);
+        assert_eq!(again.id, photo.id);
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(count, 1, "path-dedupe must prevent duplicate rows");
+
+        // Video extension is classified as a video row.
+        let vid = media.join("clip.mp4");
+        std::fs::write(&vid, b"fake video bytes").unwrap();
+        let (vphoto, vnewly) = import_file(&state, &vid).await.unwrap();
+        assert!(vnewly);
+        assert_eq!(vphoto.file_type, "video");
+
+        // expand_tilde resolves $HOME paths.
+        std::env::set_var("HOME", "/home/testuser");
+        assert_eq!(expand_tilde("~/Pictures"), PathBuf::from("/home/testuser/Pictures"));
+        assert_eq!(expand_tilde("/abs/path"), PathBuf::from("/abs/path"));
+    }
+
+    #[tokio::test]
+    async fn test_watcher_scan_respects_exclusions_toggle_and_artifacts() {
+        let temp = TempDir::new().unwrap();
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let thumbs = temp.path().join("thumbs");
+        std::fs::create_dir_all(&thumbs).unwrap();
+        let state = create_test_state_with_thumbs(pool.clone(), thumbs);
+
+        let watched = temp.path().join("watched");
+        let excluded_sub = watched.join("private");
+        std::fs::create_dir_all(&excluded_sub).unwrap();
+        let (_files, _sub) = seed_watched_tree(&watched).await;
+        let secret = excluded_sub.join("secret.jpg");
+        std::fs::write(&secret, make_jpeg_bytes(50, 50, [9, 9, 9])).unwrap();
+
+        // Simulate a pre-exclusion library state: index everything the
+        // collector finds with no exclusion list (a.jpg, b.png, secret.jpg,
+        // sub/c.jpg) — exactly 4 media files in the tree.
+        let mut discovered = Vec::new();
+        collect_media_files(&watched, &[], &mut discovered);
+        discovered.sort();
+        for f in &discovered {
+            import_file(&state, f).await.unwrap();
+        }
+        let indexed: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(indexed, 4, "importer must index exactly the 4 media files");
+
+        // Collect with exclusion of watched/private → only top-level media.
+        let excluded = vec![excluded_sub.clone()];
+        let mut found = Vec::new();
+        collect_media_files(&watched, &excluded, &mut found);
+        found.sort();
+        let names: Vec<String> = found
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().to_string())
+            .collect();
+        assert!(names.contains(&"a.jpg".to_string()), "got {:?}", names);
+        assert!(names.contains(&"b.png".to_string()), "got {:?}", names);
+        assert!(names.contains(&"c.jpg".to_string()), "got {:?}", names);
+        assert!(!names.contains(&"notes.txt".to_string()), "non-media must be skipped");
+        assert!(!names.contains(&"secret.jpg".to_string()), "excluded root leaked");
+        assert!(!names.contains(&".hidden.jpg".to_string()), "hidden file leaked");
+        assert!(!names.contains(&"x.prism_enc".to_string()), "vault artifact leaked");
+        assert!(is_path_excluded(&secret, &excluded));
+        assert!(!is_path_excluded(&watched.join("a.jpg"), &excluded));
+
+        // Exclusions come from the excluded_folders setting, tilde-expanded.
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('watched_folders', ?)")
+            .bind(serde_json::json!([watched.to_string_lossy()]).to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+        sqlx::query("INSERT INTO settings (key, value) VALUES ('excluded_folders', ?)")
+            .bind(serde_json::json!([excluded_sub.to_string_lossy()]).to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+
+        // Purge-folder honors the exact-prefix scope: /watched does NOT match
+        // a sibling /watched_other, and purging cleans relational data.
+        let sibling = watched.parent().unwrap().join("watched_other");
+        std::fs::create_dir_all(&sibling).unwrap();
+        let sib_photo = sibling.join("sib.jpg");
+        std::fs::write(&sib_photo, make_jpeg_bytes(40, 40, [1, 1, 1])).unwrap();
+        let (sib, _) = import_file(&state, &sib_photo).await.unwrap();
+
+        use axum::extract::{Json, State};
+        use crate::routes::settings::{purge_folder, PurgeFolderRequest};
+        let res = purge_folder(
+            State(state.clone()),
+            Json(PurgeFolderRequest { folder_path: watched.to_string_lossy().to_string() }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(res.0.get("status").and_then(|v| v.as_str()), Some("success"));
+        let deleted = res.0.get("deleted_count").and_then(|v| v.as_i64()).unwrap();
+        assert_eq!(deleted, 4, "a.jpg, b.png, c.jpg, private/secret.jpg — got {:?}", res.0);
+
+        // Sibling folder sharing a string prefix must survive.
+        let sib_left: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE id = ?")
+            .bind(sib.id)
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+        assert_eq!(sib_left, 1, "sibling prefix over-match");
+
+        // Relational cleanup happened for the purged photos.
+        let orphan_jobs: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM background_jobs WHERE photo_id NOT IN (SELECT id FROM photos)")
+                .fetch_one(&pool)
+                .await
+                .unwrap();
+        assert_eq!(orphan_jobs, 0, "background_jobs orphans after purge");
+    }
 }
 
 
