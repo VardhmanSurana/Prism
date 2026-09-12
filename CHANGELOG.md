@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (scanning flag, last-scan summary, lifetime import total) and
   `POST /api/v1/settings/watcher/rescan` (immediate manual scan); settings UI
   shows a live Indexer Status card with a "Rescan Now" button (3s polling)
+- Global toast notifications (`ToastService` + `ToastHost`): manual rescans
+  now fire a completion toast with the outcome (N imported / failures /
+  nothing new); polite aria-live announcement, stacked cards, auto-dismiss
 - Watch-folder auto-indexing (previously settings-only): startup + 60s
   periodic scans and live filesystem-event imports (notify crate) of media in
   watched folders, honoring `excluded_folders`, the `sync_enabled` toggle, and

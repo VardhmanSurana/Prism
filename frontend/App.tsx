@@ -21,6 +21,7 @@ import { useSettingsStore } from './store';
 import { eventService } from '@/services/EventService';
 import { normalizePhoto, type Album, type Photo, type ViewMode } from './types';
 import { LiveAnnouncer } from './components/ui/LiveAnnouncer';
+import { ToastHost } from './components/ui/ToastHost';
 import { useAnnounce } from './hooks/useAnnounce';
 import { useTelemetry } from './hooks/useTelemetry';
 import { ShareModal, type ShareTarget, SharePortalView } from './components/sharing';
@@ -576,6 +577,8 @@ function App() {
         )}
 
         <LiveAnnouncer />
+
+        <ToastHost />
 
         <DragDropOverlay
           phase={dragDrop.phase}
