@@ -20,7 +20,7 @@ export const CompareOverlay: React.FC<CompareOverlayProps> = (p) => (
   <>
     <div
       ref={p.beforeLabelRef}
-      className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-[#0D0F14]/75 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-white/50"
+      className="absolute z-20 pointer-events-none px-2.5 py-1 rounded bg-[#151312]/80 border border-white/10 text-[9px] font-bold uppercase tracking-wider text-white/50"
       style={{ left: p.rect.left + 16, top: p.rect.top + 16 }}
     >
       Before
@@ -44,7 +44,7 @@ export const CompareOverlay: React.FC<CompareOverlayProps> = (p) => (
       onPointerUp={p.onPointerUp}
     >
       <div className="w-[2px] h-full bg-primary shadow-[0_0_10px_rgba(var(--color-primary),0.5)]" />
-      <div className="absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#0D0F14] border-2 border-primary flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
+      <div className="absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-[#151312] border-2 border-primary flex items-center justify-center shadow-2xl hover:scale-110 transition-transform">
         <span className="text-[10px] font-bold text-primary select-none">↔</span>
       </div>
     </div>

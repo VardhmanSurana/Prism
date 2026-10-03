@@ -25,8 +25,8 @@ export const HslTabs: React.FC<HslTabsProps> = (p) => {
     }`;
 
   return (
-    <div className="sticky top-0 z-20 bg-[#0d0f14]/95 backdrop-blur-md px-3 pt-3 pb-2 border-b border-white/5">
-      <div className="grid grid-cols-4 gap-1.5 bg-[#12141a] p-1.5 rounded-xl border border-white/5">
+    <div className="sticky top-0 z-20 bg-[#1d1b1a]/95 backdrop-blur-md px-3 pt-3 pb-2 border-b border-white/5">
+      <div className="grid grid-cols-4 gap-1.5 bg-[#151312] p-1.5 rounded-xl border border-white/5">
         <button onClick={() => p.setSubTab('mixer')} className={tabClass(p.subTab === 'mixer')}>
           <Palette size={16} className="shrink-0" />
           <span className="leading-none">Mixer</span>

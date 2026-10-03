@@ -22,9 +22,9 @@ export const BlurryPhotosTab: React.FC<BlurryPhotosTabProps> = ({ photos, onDele
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#050505] border border-[#23252a] rounded-lg px-4 py-3">
-        <p className="text-xs text-[#8a8f98] leading-relaxed">
-          These photos were evaluated as out-of-focus or blurry using a local <strong className="text-[#d0d6e0]">OpenCV Laplacian Variance</strong> filter. Higher values mean sharper images; typical camera photos show variance values above 150.
+      <div className="bg-[#1d1b1a] border border-white/5 rounded-xl px-4 py-3">
+        <p className="text-xs text-[#a8a29e] leading-relaxed">
+          These photos were evaluated as out-of-focus or blurry using a local <strong className="text-[#f5f0ed]">OpenCV Laplacian Variance</strong> filter. Higher values mean sharper images; typical camera photos show variance values above 150.
         </p>
       </div>
 

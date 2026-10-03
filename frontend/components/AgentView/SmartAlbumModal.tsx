@@ -81,7 +81,7 @@ export const SmartAlbumModal: React.FC<SmartAlbumModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-[#121216] border border-white/10 rounded-2xl w-[380px] p-5 shadow-2xl space-y-4">
+      <div className="bg-[#1d1b1a] border border-white/10 rounded-2xl w-[380px] p-5 shadow-2xl space-y-4">
         <div className="flex items-center justify-between border-b border-white/10 pb-3">
           <div className="flex items-center gap-2">
             <FolderPlus size={18} className="text-emerald-400" />

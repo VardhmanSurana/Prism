@@ -30,7 +30,7 @@ export const HistoryOverlay: React.FC<HistoryOverlayProps> = (p) => (
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 320, opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-          className="absolute right-0 top-0 bottom-0 w-[320px] bg-[#0d0f14]/95 backdrop-blur-2xl border-l border-white/10 shadow-2xl z-40 flex flex-col"
+          className="absolute right-0 top-0 bottom-0 w-[320px] bg-[#1d1b1a]/95 backdrop-blur-2xl border-l border-white/10 shadow-2xl z-40 flex flex-col"
         >
           <HistoryPanel
             history={p.history}

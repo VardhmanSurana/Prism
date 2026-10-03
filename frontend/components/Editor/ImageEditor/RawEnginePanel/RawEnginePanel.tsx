@@ -79,7 +79,7 @@ export const RawEnginePanel: React.FC<RawEnginePanelProps> = ({
     settings.algorithm !== DEFAULT_RAW_SETTINGS.algorithm;
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white p-4 space-y-4 select-none">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a] text-white p-4 space-y-4 select-none">
       {/* ── Sub-header & Reset ── */}
       <div className="flex items-center justify-between pb-1">
         <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">

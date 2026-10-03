@@ -61,7 +61,7 @@ export const PhotoMetadataDisplay: React.FC<PhotoMetadataDisplayProps> = ({ phot
               {people.slice(0, 3).map((person) => (
                 <div
                   key={person.uuid || person.id}
-                  className="w-5 h-5 rounded-full border border-[#0D0F14] bg-white/10 overflow-hidden"
+                  className="w-5 h-5 rounded-full border border-[#1d1b1a] bg-white/10 overflow-hidden"
                   title={person.name}
                 >
                   {person.cover_face_thumbnail ? (

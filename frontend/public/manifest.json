@@ -4,8 +4,8 @@
   "description": "Privacy-first local photo & video library",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#050505",
+  "background_color": "#151312",
+  "theme_color": "#151312",
   "orientation": "portrait-primary",
   "icons": [
     {

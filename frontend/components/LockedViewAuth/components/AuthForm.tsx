@@ -249,7 +249,7 @@ export function AuthForm({
 
               <button
                 onClick={onAuthenticate}
-                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="w-full py-3 rounded-2xl bg-[#e5a93c] hover:bg-[#d4972b] text-[#151312] text-xs font-semibold shadow-lg shadow-[#e5a93c]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 I Have Saved My Recovery Key → Enter Vault
               </button>
@@ -292,7 +292,7 @@ export function AuthForm({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="w-full py-3 rounded-2xl bg-[#e5a93c] hover:bg-[#d4972b] text-[#151312] text-xs font-semibold shadow-lg shadow-[#e5a93c]/20 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 {submitting ? "Verifying Token..." : "Unlock with Emergency Key"}
               </button>
@@ -355,7 +355,7 @@ export function AuthForm({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={isConfigured ? "Enter passcode..." : "At least 6 characters..."}
-                    className="w-full bg-surfaceHover border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-primary focus:outline-none"
+                    className="w-full bg-surfaceHover border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#e5a93c] focus:outline-none"
                   />
                   <button
                     type="button"
@@ -378,7 +378,7 @@ export function AuthForm({
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       placeholder="Repeat passcode..."
-                      className="w-full bg-surfaceHover border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-primary focus:outline-none"
+                      className="w-full bg-surfaceHover border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-gray-600 focus:border-[#e5a93c] focus:outline-none"
                     />
                   </div>
 
@@ -389,7 +389,7 @@ export function AuthForm({
                       id="enableOsEscrow"
                       checked={enableOsEscrow}
                       onChange={(e) => setEnableOsEscrow(e.target.checked)}
-                      className="mt-0.5 accent-primary cursor-pointer"
+                      className="mt-0.5 accent-[#e5a93c] cursor-pointer"
                     />
                     <label htmlFor="enableOsEscrow" className="text-xs text-gray-300 cursor-pointer">
                       <span className="font-semibold text-white block">Enable OS Keyring Escrow (Option 2)</span>
@@ -404,7 +404,7 @@ export function AuthForm({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                className="w-full py-3.5 rounded-2xl bg-[#e5a93c] hover:bg-[#d4972b] text-[#151312] text-xs font-semibold shadow-lg shadow-[#e5a93c]/20 transition-colors disabled:opacity-50 mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 {submitting ? "Processing..." : isConfigured ? "Unlock Vault" : "Initialize Secure Vault"}
               </button>

@@ -53,7 +53,7 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
 }) => {
 
   return (
-    <div className="flex-1 w-full h-full flex flex-col min-h-0 bg-[#0d0f14]">
+    <div className="flex-1 w-full h-full flex flex-col min-h-0 bg-[#1d1b1a]">
       {/* Scrollable transform controls */}
       <div className="flex-1 w-full overflow-y-auto overflow-x-hidden p-5 space-y-8 custom-scrollbar">
         {/* Aspect ratio */}
@@ -170,13 +170,13 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
 
       {/* Crop Actions (Apply / Reset) at the bottom */}
       {(hasCropSelection || isImageCropped) && (
-        <div className="p-4 border-t border-white/5 bg-[#0d0f14]/95 backdrop-blur-md shrink-0 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div className="p-4 border-t border-white/5 bg-[#1d1b1a]/95 backdrop-blur-md shrink-0 space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/20">Selection</p>
           <div className="flex flex-col gap-2">
             {hasCropSelection && (
               <button
                 onClick={handleApplyCrop}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-[#050505] hover:brightness-110 transition-colors 150ms ease text-xs font-bold shadow-xl shadow-primary/20 cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary text-[#151312] hover:brightness-110 transition-all duration-150 text-xs font-bold shadow-xl shadow-primary/20 cursor-pointer"
               >
                 <Check size={14} strokeWidth={3} /> Apply Changes
               </button>

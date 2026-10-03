@@ -391,13 +391,13 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
           clickToFocus && !disabled ? "cursor-text" : ""
         } ${disabled ? "opacity-50 pointer-events-none" : ""} ${className ?? ""}`}
         style={{
-          background: "rgba(12, 12, 16, 0.85)",
+          background: "rgba(29, 27, 26, 0.95)",
           backdropFilter: "blur(12px)",
           border: dragOver
-            ? "1px solid rgba(107, 151, 255, 0.5)"
+            ? "1px solid rgba(229, 169, 60, 0.6)"
             : focusVisible
-              ? "1px solid rgba(255,255,255,0.12)"
-              : "1px solid rgba(255,255,255,0.06)",
+              ? "1px solid rgba(255,255,255,0.15)"
+              : "1px solid rgba(255,255,255,0.08)",
           boxShadow: edgeShadow,
           ...style,
         }}
@@ -523,9 +523,9 @@ const InputMessage = forwardRef<HTMLDivElement, InputMessageProps>(
               className="relative group inline-flex items-center justify-center w-8 h-8 rounded-lg outline-none cursor-pointer transition-colors 100ms ease, background-color 100ms ease disabled:opacity-30 disabled:pointer-events-none"
               style={{
                 background: canSend || buttonMode === "stop"
-                  ? "rgba(255,255,255,1)"
+                  ? "#e5a93c"
                   : "rgba(255,255,255,0.08)",
-                color: canSend || buttonMode === "stop" ? "#000" : "rgba(255,255,255,0.4)",
+                color: canSend || buttonMode === "stop" ? "#151312" : "rgba(255,255,255,0.4)",
               }}
             >
               <span className="absolute inset-0 rounded-[inherit] transition-transform 100ms cubic-bezier(0.23, 1, 0.32, 1), opacity 100ms ease group-hover:opacity-90 group-active:scale-95 group-active:opacity-80" />

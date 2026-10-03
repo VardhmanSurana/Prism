@@ -20,7 +20,7 @@ export const HslPanel: React.FC<HslPanelProps> = ({ adjustments, onChange }) => 
   const s = useHslState({ adjustments, onChange });
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a]">
       <HslTabs
         subTab={s.subTab}
         setSubTab={s.setSubTab}

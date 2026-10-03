@@ -70,7 +70,7 @@ export const HslMixerTab: React.FC<HslMixerTabProps> = (p) => {
                     title={band.name}
                   >
                     {isActive ? (
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center ring-2 ring-white/90 ring-offset-2 ring-offset-[#0d0f14] transition-all">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center ring-2 ring-white/90 ring-offset-2 ring-offset-[#1d1b1a] transition-all">
                         <div className="w-4 h-4 rounded-full shadow-sm transition-colors duration-150" style={{ backgroundColor: dynamicActiveColor }} />
                       </div>
                     ) : (
@@ -81,7 +81,7 @@ export const HslMixerTab: React.FC<HslMixerTabProps> = (p) => {
                     )}
                     {isModified && !isActive && (
                       <span
-                        className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-[#0d0f14]"
+                        className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ring-1 ring-[#1d1b1a]"
                         style={{ backgroundColor: bandDisplayColor }}
                       />
                     )}

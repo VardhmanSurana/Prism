@@ -34,10 +34,10 @@ export const GalleryDrawer: React.FC<GalleryDrawerProps> = ({
           animate={{ x: 0 }}
           exit={{ x: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-          className="w-[58%] border-l border-white/5 flex flex-col h-full bg-[#050505] relative z-20 shadow-2xl"
+          className="w-[58%] border-l border-white/10 flex flex-col h-full bg-[#181615] relative z-20 shadow-2xl"
         >
           {/* Drawer Header */}
-          <div className="p-5 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
+          <div className="p-5 border-b border-white/10 flex items-center justify-between bg-[#1d1b1a]">
             <h3 className="text-sm font-bold text-gray-200 flex items-center gap-2">
               <ImageIcon size={16} className="text-white" />
               <span>Search Results ({photos.length} matches)</span>

@@ -116,7 +116,7 @@ export const PalettePanel: React.FC<PalettePanelProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white select-none">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a] text-white select-none">
       {/* ── Header ── */}
       <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b border-white/5">
         <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">

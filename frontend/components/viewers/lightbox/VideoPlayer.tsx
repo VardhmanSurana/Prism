@@ -905,7 +905,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onClick={(e) => e.stopPropagation()}
         onDoubleClick={(e) => e.stopPropagation()}
       >
-        <div className="relative px-4 py-3 bg-[#0d0f14] border border-white/10 rounded-2xl flex flex-col gap-2.5 shadow-2xl">
+        <div className="relative px-4 py-3 bg-[#1d1b1a] border border-white/10 rounded-2xl flex flex-col gap-2.5 shadow-2xl">
           <div
             ref={progressBarRef}
             className="relative w-full cursor-pointer group/seek"

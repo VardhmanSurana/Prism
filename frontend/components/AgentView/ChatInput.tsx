@@ -49,7 +49,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({ value, onChange, onSend, d
             className="p-1.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-1 text-xs cursor-pointer"
             title="Upload image to analyze or find similar photos"
           >
-            <ImageIcon size={16} className="text-purple-400" />
+            <ImageIcon size={16} className="text-[#e5a93c]" />
             <span className="hidden sm:inline font-medium text-[11px]">Upload Image</span>
           </button>
         )}

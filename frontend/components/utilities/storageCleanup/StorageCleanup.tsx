@@ -70,7 +70,7 @@ export const StorageCleanup: React.FC = () => {
       <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title mb-1">Maintenance & Reclaim Utilities</div>
+            <div className="text-sm font-semibold text-[#f5f0ed] mb-1">Maintenance & Reclaim Utilities</div>
             <p className="text-xs text-[#78716c]">
               Clear temporary thumbnail caches or trigger database vacuum optimizations.
             </p>

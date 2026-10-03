@@ -420,7 +420,7 @@ export const ModelManager: React.FC = () => {
               key={model.id}
               className={`p-5 rounded-2xl border transition-all duration-200 flex flex-col justify-between gap-4 ${
                 isDownloading
-                  ? 'bg-blue-500/[0.04] border-blue-500/30 shadow-lg shadow-blue-500/5'
+                  ? 'bg-[#e5a93c]/[0.05] border-[#e5a93c]/30 shadow-lg shadow-[#e5a93c]/5'
                   : isCompleted
                   ? 'bg-[#211f1e] border-white/5 hover:border-white/10'
                   : 'bg-[#211f1e] border-white/5 opacity-85 hover:opacity-100 hover:border-white/10'
@@ -433,7 +433,7 @@ export const ModelManager: React.FC = () => {
                     isCompleted
                       ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                       : isDownloading
-                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 animate-pulse'
+                      ? 'bg-[#e5a93c]/10 border-[#e5a93c]/30 text-[#e5a93c] animate-pulse'
                       : 'bg-white/5 border-white/10 text-gray-400'
                   }`}>
                     <Icon size={20} />
@@ -484,7 +484,7 @@ export const ModelManager: React.FC = () => {
               {isDownloading && progress && (
                 <div className="flex flex-col gap-2.5 p-3 rounded-xl bg-black/40 border border-white/10 text-xs">
                   <div className="flex items-center justify-between text-[11px] font-mono">
-                    <span className="text-blue-400 font-medium">{pct.toFixed(1)}%</span>
+                    <span className="text-[#e5a93c] font-medium">{pct.toFixed(1)}%</span>
                     <span className="text-gray-400">
                       {formatBytes(progress.bytes_downloaded)} / {formatBytes(progress.total_bytes)}
                     </span>
@@ -492,14 +492,14 @@ export const ModelManager: React.FC = () => {
 
                   <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden relative">
                     <div
-                      className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-[#e5a93c] to-amber-300 rounded-full transition-all duration-300"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 pt-1 text-[11px] text-gray-400 font-mono">
                     <div className="flex items-center gap-1.5">
-                      <Gauge size={13} className="text-blue-400" />
+                      <Gauge size={13} className="text-[#e5a93c]" />
                       <span>{formatSpeed(progress.download_speed_bps)}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -580,7 +580,7 @@ export const ModelManager: React.FC = () => {
                     <button
                       onClick={() => handleStartDownload(model.id)}
                       disabled={isBusy}
-                      className="px-3.5 py-1.5 rounded-xl bg-blue-500 hover:bg-blue-600 active:scale-95 text-white text-xs font-medium flex items-center gap-1.5 shadow-md shadow-blue-500/20 transition-all"
+                      className="px-3.5 py-1.5 rounded-xl bg-[#e5a93c] hover:bg-[#d4972b] active:scale-95 text-[#151312] text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-[#e5a93c]/20 transition-all"
                     >
                       <Download size={13} />
                       <span>Download</span>
@@ -596,7 +596,7 @@ export const ModelManager: React.FC = () => {
       {/* ── Gated Model License Acknowledgment Modal ── */}
       {ackModalModel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-          <div className="bg-[#18181b] border border-white/15 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+          <div className="bg-[#1d1b1a] border border-white/10 rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 text-amber-400">
                 <ShieldAlert size={22} />
@@ -624,7 +624,7 @@ export const ModelManager: React.FC = () => {
                   type="checkbox"
                   checked={ackChecked}
                   onChange={(e) => setAckChecked(e.target.checked)}
-                  className="mt-0.5 rounded border-white/20 text-blue-500 focus:ring-0 bg-black/40"
+                  className="mt-0.5 rounded border-white/20 text-[#e5a93c] accent-[#e5a93c] focus:ring-0 bg-black/40"
                 />
                 <span className="text-xs text-gray-200">
                   I understand and acknowledge that I will use this model exclusively for personal and non-commercial purposes.
@@ -644,7 +644,7 @@ export const ModelManager: React.FC = () => {
                 type="button"
                 disabled={!ackChecked || isAcknowledging}
                 onClick={handleConfirmGatedAcknowledgment}
-                className="px-4 py-2 rounded-xl text-xs font-medium bg-blue-500 hover:bg-blue-600 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all"
+                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#e5a93c] hover:bg-[#d4972b] active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-[#151312] flex items-center gap-1.5 shadow-lg shadow-[#e5a93c]/20 transition-all"
               >
                 {isAcknowledging ? <RefreshCw size={13} className="animate-spin" /> : <Check size={13} />}
                 <span>Agree & Download</span>

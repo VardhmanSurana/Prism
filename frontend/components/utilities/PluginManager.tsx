@@ -236,7 +236,7 @@ export const PluginManager: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[rgba(255,255,255,0.06)]">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="p-2 rounded-xl bg-[#e5a93c]/10 text-[#e5a93c] border border-[#e5a93c]/20">
               <Package size={22} />
             </div>
             <div>
@@ -289,7 +289,7 @@ export const PluginManager: React.FC = () => {
             onClick={() => setActiveTab('installed')}
             className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
               activeTab === 'installed'
-                ? 'border-blue-500 text-blue-400'
+                ? 'border-[#e5a93c] text-[#e5a93c]'
                 : 'border-transparent text-[#a8a29e] hover:text-[#f5f0ed]'
             }`}
           >
@@ -303,12 +303,12 @@ export const PluginManager: React.FC = () => {
             onClick={() => setActiveTab('catalog')}
             className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
               activeTab === 'catalog'
-                ? 'border-blue-500 text-blue-400'
+                ? 'border-[#e5a93c] text-[#e5a93c]'
                 : 'border-transparent text-[#a8a29e] hover:text-[#f5f0ed]'
             }`}
           >
             <span>Plugin Catalog</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-blue-500/20 text-blue-300">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-[#e5a93c]/15 text-[#e5a93c]">
               {catalogItems.length} Available
             </span>
           </button>
@@ -320,7 +320,7 @@ export const PluginManager: React.FC = () => {
         <div className="space-y-4 animate-fadeIn">
           {installedPlugins.length === 0 ? (
             <div className="p-12 rounded-3xl border border-dashed border-[rgba(255,255,255,0.06)] bg-[#211f1e] text-center space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 mx-auto flex items-center justify-center border border-blue-500/20">
+              <div className="w-12 h-12 rounded-2xl bg-[#e5a93c]/10 text-[#e5a93c] mx-auto flex items-center justify-center border border-[#e5a93c]/20">
                 <Package size={24} />
               </div>
               <div className="space-y-1 max-w-md mx-auto">
@@ -331,7 +331,7 @@ export const PluginManager: React.FC = () => {
               </div>
               <button
                 onClick={() => setActiveTab('catalog')}
-                className="px-4 py-2 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white font-medium text-xs rounded-xl shadow-lg shadow-blue-500/20 transition-all inline-flex items-center gap-2"
+                className="px-4 py-2 bg-[#e5a93c] hover:bg-[#d4972b] active:scale-95 text-[#151312] font-semibold text-xs rounded-xl shadow-lg shadow-[#e5a93c]/20 transition-all inline-flex items-center gap-2"
               >
                 <Download size={14} />
                 <span>Browse Plugin Catalog</span>
@@ -340,7 +340,7 @@ export const PluginManager: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {installedPlugins.map((plugin) => {
-                const IconComponent = ICON_MAP[plugin.manifest.icon || ''] || <Package size={20} className="text-blue-400" />;
+                const IconComponent = ICON_MAP[plugin.manifest.icon || ''] || <Package size={20} className="text-[#e5a93c]" />;
                 const thumbnailUrl = plugin.config?.settings?.thumbnail_url;
                 return (
                   <div
@@ -405,7 +405,7 @@ export const PluginManager: React.FC = () => {
                         {plugin.manifest.capabilities.map((cap) => (
                           <span
                             key={cap}
-                            className="px-2 py-0.5 rounded-md text-[10px] bg-blue-500/10 text-blue-300 border border-blue-500/20 font-mono"
+                            className="px-2 py-0.5 rounded-md text-[10px] bg-[#e5a93c]/10 text-[#e5a93c] border border-[#e5a93c]/20 font-mono"
                           >
                             {cap}
                           </span>
@@ -459,7 +459,7 @@ export const PluginManager: React.FC = () => {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all ${
                     selectedCategory === cat
-                      ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
+                      ? 'bg-[#e5a93c] text-[#151312] font-semibold shadow-md shadow-[#e5a93c]/20'
                       : 'bg-[#211f1e] border border-[rgba(255,255,255,0.06)] text-[#a8a29e] hover:text-white'
                   }`}
                 >
@@ -476,7 +476,7 @@ export const PluginManager: React.FC = () => {
                 placeholder="Search catalog plugins..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] text-xs text-[#f5f0ed] placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] text-xs text-[#f5f0ed] placeholder-gray-500 focus:outline-none focus:border-[#e5a93c]"
               />
             </div>
           </div>
@@ -484,7 +484,7 @@ export const PluginManager: React.FC = () => {
           {/* Catalog Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredCatalog.map((item) => {
-              const IconComponent = ICON_MAP[item.icon] || <Package size={20} className="text-blue-400" />;
+              const IconComponent = ICON_MAP[item.icon] || <Package size={20} className="text-[#e5a93c]" />;
               const isInstalling = installingId === item.id;
               return (
                 <div
@@ -494,7 +494,7 @@ export const PluginManager: React.FC = () => {
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 shrink-0">
+                        <div className="p-2.5 rounded-xl bg-[#e5a93c]/10 border border-[#e5a93c]/20 text-[#e5a93c] shrink-0">
                           {IconComponent}
                         </div>
                         <div>
@@ -549,7 +549,7 @@ export const PluginManager: React.FC = () => {
                       <button
                         onClick={() => handleInstall(item.id)}
                         disabled={isInstalling}
-                        className="px-4 py-1.5 bg-blue-500 hover:bg-blue-600 active:scale-95 disabled:opacity-50 text-white text-xs font-medium rounded-xl shadow-md shadow-blue-500/20 transition-all flex items-center gap-1.5"
+                        className="px-4 py-1.5 bg-[#e5a93c] hover:bg-[#d4972b] active:scale-95 disabled:opacity-50 text-[#151312] text-xs font-semibold rounded-xl shadow-md shadow-[#e5a93c]/20 transition-all flex items-center gap-1.5"
                       >
                         {isInstalling ? (
                           <>
@@ -720,7 +720,7 @@ export const PluginManager: React.FC = () => {
                         className="w-12 h-12 rounded-2xl object-cover border border-white/20 shadow-md transition-transform group-hover/thumb:scale-105"
                       />
                     ) : (
-                      <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center shadow-inner transition-transform group-hover/thumb:scale-105">
+                      <div className="w-12 h-12 rounded-2xl bg-[#e5a93c]/10 border border-[#e5a93c]/30 text-[#e5a93c] flex items-center justify-center shadow-inner transition-transform group-hover/thumb:scale-105">
                         {ICON_MAP[configModalPlugin.manifest.icon || ''] || <Sliders size={22} />}
                       </div>
                     )}
@@ -728,7 +728,7 @@ export const PluginManager: React.FC = () => {
                     {/* Hover Camera Overlay */}
                     <div className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white">
                       {isUploadingThumbnail ? (
-                        <RefreshCw size={14} className="animate-spin text-blue-400" />
+                        <RefreshCw size={14} className="animate-spin text-[#e5a93c]" />
                       ) : (
                         <>
                           <Camera size={14} />
@@ -767,7 +767,7 @@ export const PluginManager: React.FC = () => {
                     {features.length > 0 && (
                       <button
                         onClick={handleResetSubFeatures}
-                        className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline cursor-pointer"
+                        className="text-[10px] text-[#e5a93c] hover:text-[#d4972b] hover:underline cursor-pointer"
                       >
                         Reset to Defaults
                       </button>
@@ -778,20 +778,20 @@ export const PluginManager: React.FC = () => {
                     <div className="space-y-2.5">
                       {features.map((feat) => {
                         const isEnabled = currentFeatures[feat.key] !== false;
-                        const FeatIcon = ICON_MAP[feat.icon] || <Sparkles size={16} className="text-blue-400" />;
+                        const FeatIcon = ICON_MAP[feat.icon] || <Sparkles size={16} className="text-[#e5a93c]" />;
                         return (
                           <div
                             key={feat.key}
                             className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3.5 ${
                               isEnabled
-                                ? 'bg-[#1a1c24] border-blue-500/30 shadow-sm'
-                                : 'bg-[#121318] border-white/5 opacity-60'
+                                ? 'bg-[#1d1b1a] border-[#e5a93c]/30 shadow-sm'
+                                : 'bg-[#171615] border-white/5 opacity-60'
                             }`}
                           >
                             <div className="flex items-start gap-3 min-w-0">
                               <div className={`p-2 rounded-xl shrink-0 mt-0.5 border ${
                                 isEnabled
-                                  ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+                                  ? 'bg-[#e5a93c]/10 border-[#e5a93c]/30 text-[#e5a93c]'
                                   : 'bg-white/5 border-white/10 text-gray-500'
                               }`}>
                                 {FeatIcon}
@@ -816,7 +816,7 @@ export const PluginManager: React.FC = () => {
                               type="button"
                               onClick={() => handleToggleSubFeature(feat.key)}
                               className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                                isEnabled ? 'bg-blue-600' : 'bg-white/10'
+                                isEnabled ? 'bg-[#e5a93c]' : 'bg-white/10'
                               }`}
                             >
                               <span
@@ -837,7 +837,7 @@ export const PluginManager: React.FC = () => {
                 </div>
 
                 {/* System & Location Details */}
-                <div className="p-3.5 rounded-2xl bg-[#121318] border border-white/10 space-y-2">
+                <div className="p-3.5 rounded-2xl bg-[#171615] border border-white/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-400">Plugin ID</span>
                     <span className="font-mono text-white text-[11px]">{configModalPlugin.id}</span>
@@ -858,13 +858,13 @@ export const PluginManager: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="flex items-center justify-between p-4 border-t border-white/10 bg-[#121318]">
+              <div className="flex items-center justify-between p-4 border-t border-white/10 bg-[#171615]">
                 <span className="text-[11px] text-gray-400">
                   Settings are persisted automatically to <code className="font-mono text-[10px] text-gray-300">config.json</code>
                 </span>
                 <button
                   onClick={() => setConfigModalPlugin(null)}
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-medium text-xs transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+                  className="px-5 py-2 rounded-xl bg-[#e5a93c] hover:bg-[#d4972b] active:scale-95 text-[#151312] font-semibold text-xs transition-all shadow-md shadow-[#e5a93c]/20 cursor-pointer"
                 >
                   Done
                 </button>

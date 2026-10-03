@@ -451,7 +451,7 @@ export const AISettings: React.FC = () => {
                     setSettings(updated);
                   }}
                   onBlur={() => saveSettings(settings)}
-                  className="w-full bg-[#121216] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#1d1b1a] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#e5a93c]"
                 />
               </div>
 
@@ -466,7 +466,7 @@ export const AISettings: React.FC = () => {
                     setSettings(updated);
                   }}
                   onBlur={() => saveSettings(settings)}
-                  className="w-full bg-[#121216] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#1d1b1a] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#e5a93c]"
                 />
               </div>
 
@@ -481,7 +481,7 @@ export const AISettings: React.FC = () => {
                     setSettings(updated);
                   }}
                   onBlur={() => saveSettings(settings)}
-                  className="w-full bg-[#121216] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-blue-500"
+                  className="w-full bg-[#1d1b1a] border border-white/10 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-[#e5a93c]"
                 />
               </div>
             </div>

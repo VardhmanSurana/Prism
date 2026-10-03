@@ -177,7 +177,7 @@ export const DashboardView: React.FC = () => {
   const diskFreeGb = hardware?.disk_free_gb ?? 580;
 
   return (
-    <div className="relative min-h-screen bg-[#0d0b0a] text-[#e7e1df] p-4 sm:p-8 flex-1 overflow-x-hidden select-none">
+    <div className="relative min-h-screen bg-[#151312] text-[#e7e1df] p-4 sm:p-8 flex-1 overflow-x-hidden select-none">
       {/* Volumetric Diffuse Background Lighting */}
       <div className="absolute -top-32 left-1/4 w-[36rem] h-[36rem] rounded-full bg-[#2c2928]/35 blur-[130px] pointer-events-none" />
       <div className="absolute top-1/3 -right-24 w-[32rem] h-[32rem] rounded-full bg-[#373433]/25 blur-[140px] pointer-events-none" />
@@ -298,7 +298,7 @@ export const DashboardView: React.FC = () => {
               className={`px-3.5 py-1.5 rounded-xl transition-all whitespace-nowrap border ${
                 activeTab === tab.id
                   ? 'bg-[#2c2928] text-[#f5f0ed] font-medium border-white/20 shadow-sm'
-                  : 'bg-[#151312] text-[#998f8a] border-white/5 hover:text-[#f5f0ed] hover:border-white/10'
+                  : 'bg-[#1d1b1a] text-[#998f8a] border-white/5 hover:text-[#f5f0ed] hover:border-white/10'
               }`}
             >
               {tab.label}

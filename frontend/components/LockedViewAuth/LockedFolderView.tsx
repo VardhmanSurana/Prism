@@ -29,7 +29,7 @@ export function LockedFolderView({
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-10 py-5 border-b border-white/5 bg-surface shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shadow-inner">
+          <div className="w-10 h-10 bg-[#e5a93c]/10 border border-[#e5a93c]/20 rounded-xl flex items-center justify-center text-[#e5a93c] shadow-inner">
             <Lock size={18} />
           </div>
           <div>
@@ -39,7 +39,7 @@ export function LockedFolderView({
         </div>
         <button
           onClick={onLockSession}
-          className="flex items-center gap-2 px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/30 text-rose-400 font-bold text-xs uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-colors 150ms ease, border-color 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1)"
+          className="flex items-center gap-2 px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 hover:border-rose-500/30 text-rose-400 font-bold text-xs uppercase tracking-widest rounded-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-150"
         >
           <Lock size={14} />
           <span>Lock Session</span>

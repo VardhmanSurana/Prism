@@ -131,7 +131,7 @@ export const DetailPanel: React.FC<DetailPanelProps> = ({ adjustments, onChange 
   const items = useMemo(() => DETAIL_GROUPS.flatMap(group => group.items), []);
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a]">
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-3 flex gap-2">
         <button

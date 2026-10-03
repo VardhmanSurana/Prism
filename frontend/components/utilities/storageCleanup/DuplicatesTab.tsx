@@ -24,8 +24,8 @@ export const DuplicatesTab: React.FC<DuplicatesTabProps> = ({ clusters, onDelete
 
   return (
     <div className="space-y-5">
-      <div className="bg-[#050505] border border-[#23252a] rounded-lg px-4 py-3">
-        <p className="text-xs text-[#8a8f98] leading-relaxed">
+      <div className="bg-[#1d1b1a] border border-white/5 rounded-xl px-4 py-3">
+        <p className="text-xs text-[#a8a29e] leading-relaxed">
           These photos share identical pixel dimensions and similar file profiles. Verify and delete unwanted duplicates below to free up your physical disk space.
         </p>
       </div>
@@ -33,10 +33,10 @@ export const DuplicatesTab: React.FC<DuplicatesTabProps> = ({ clusters, onDelete
       {safeClusters.map((cluster) => (
         <div key={cluster.key}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="px-2 py-0.5 bg-[#141516] border border-[#23252a] rounded-full text-[9px] font-mono text-[#8a8f98]">
+            <span className="px-2 py-0.5 bg-[#211f1e] border border-white/10 rounded-full text-[9px] font-mono text-[#a8a29e]">
               Group: {cluster.key}
             </span>
-            <span className="text-[10px] font-mono text-[#62666d]">
+            <span className="text-[10px] font-mono text-[#78716c]">
               {cluster.photo_count} matches
             </span>
           </div>

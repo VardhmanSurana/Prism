@@ -22,9 +22,9 @@ export const DocumentsTab: React.FC<DocumentsTabProps> = ({ photos, onDelete }) 
 
   return (
     <div className="space-y-4">
-      <div className="bg-[#050505] border border-[#23252a] rounded-lg px-4 py-3">
-        <p className="text-xs text-[#8a8f98] leading-relaxed">
-          These photos were categorized as screenshots, receipts, invoices, or paper documents using visual keywords found inside your local <strong className="text-[#d0d6e0]">Ollama AI Descriptions</strong>.
+      <div className="bg-[#1d1b1a] border border-white/5 rounded-xl px-4 py-3">
+        <p className="text-xs text-[#a8a29e] leading-relaxed">
+          These photos were categorized as screenshots, receipts, invoices, or paper documents using visual keywords found inside your local <strong className="text-[#f5f0ed]">Ollama AI Descriptions</strong>.
         </p>
       </div>
 

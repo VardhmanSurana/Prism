@@ -111,7 +111,7 @@ export const TemplatesPanel: React.FC<TemplatesPanelProps> = ({ adjustments, onC
   }, [activeTemplateId]);
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14]">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a]">
       {/* ── Save Current as Template ── */}
       <SaveTemplateSection
         isSaving={isSaving}

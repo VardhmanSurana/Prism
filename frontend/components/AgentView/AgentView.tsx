@@ -59,7 +59,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
   };
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-[#050505] relative">
+    <div className="flex h-full w-full overflow-hidden bg-[#151312] relative">
       {/* Sessions Left Sidebar */}
       <SessionSidebar
         sessions={sessions}
@@ -79,8 +79,8 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
 
       {/* Left/Main Column: Chat Feed Container */}
       <div
-        className={`flex flex-col h-full bg-[#0a0a0c]/40 transition-[width] 500ms cubic-bezier(0.23, 1, 0.32, 1) relative z-10 ${
-          isDrawerOpen ? 'w-[42%] border-r border-white/[0.02]' : 'flex-1'
+        className={`flex flex-col h-full bg-[#151312] transition-[width] 500ms cubic-bezier(0.23, 1, 0.32, 1) relative z-10 ${
+          isDrawerOpen ? 'w-[42%] border-r border-white/[0.04]' : 'flex-1'
         }`}
       >
         <AgentBanner title="Prism AI Assistant" subtitle="Completely offline neural search helper" />
@@ -105,7 +105,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
                 <div className={`p-4 rounded-2xl text-sm leading-relaxed ${
                   m.role === 'user'
                     ? 'bg-gradient-to-br from-white to-gray-200 text-black font-semibold rounded-tr-none shadow-[0_4px_24px_rgba(255,255,255,0.06)]'
-                    : 'bg-[#121216]/95 text-gray-200 border border-white/[0.06] rounded-tl-none shadow-[0_4px_16px_rgba(0,0,0,0.2)]'
+                    : 'bg-[#1d1b1a] text-gray-200 border border-white/10 rounded-tl-none shadow-[0_4px_16px_rgba(0,0,0,0.2)]'
                 }`}>
                   {m.attachedImage && (
                     <div className="mb-2 max-w-[200px] rounded-xl overflow-hidden border border-black/10 shadow-sm">
@@ -165,7 +165,7 @@ export const AgentView: React.FC<{ onPhotoClick: (photo: Photo) => void }> = ({ 
               <div className="w-8 h-8 rounded-full overflow-hidden border border-white/10 shrink-0">
                 <img src="/prism-logo.png" className="w-full h-full object-cover" alt="Prism Logo" />
               </div>
-              <div className="bg-[#121216]/95 px-3 py-3 rounded-2xl rounded-tl-none border border-white/[0.06] flex flex-col gap-2 max-w-[80%] items-start w-full">
+              <div className="bg-[#1d1b1a] px-3 py-3 rounded-2xl rounded-tl-none border border-white/10 flex flex-col gap-2 max-w-[80%] items-start w-full">
                 <ThinkingIndicator
                   words={['Searching', 'Planning', 'Scanning', 'Refining']}
                 />

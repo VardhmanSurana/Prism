@@ -81,7 +81,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
         initial={false}
         animate={{ width: isOpen ? 260 : 0 }}
         transition={{ duration: 0.3, ease: 'easeInOut' }}
-        className="h-full bg-[#08080a] border-r border-white/5 flex flex-col overflow-hidden shrink-0 shadow-2xl relative"
+        className="h-full bg-[#171615] border-r border-white/5 flex flex-col overflow-hidden shrink-0 shadow-2xl relative"
       >
         {/* Sidebar Header */}
         <div className="p-3 border-b border-white/5 flex items-center justify-between">
@@ -114,7 +114,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
-                    <MessageSquare size={14} className={isActive ? 'text-purple-400 shrink-0' : 'text-gray-500 shrink-0'} />
+                    <MessageSquare size={14} className={isActive ? 'text-[#e5a93c] shrink-0' : 'text-gray-500 shrink-0'} />
                     {isEditing ? (
                       <input
                         id={`session-title-${session.id}`}
@@ -129,7 +129,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                         autoFocus
-                        className="bg-black/60 text-white text-xs px-2 py-0.5 rounded border border-purple-500/50 outline-none w-full"
+                        className="bg-black/60 text-white text-xs px-2 py-0.5 rounded border border-[#e5a93c]/50 outline-none w-full"
                       />
                     ) : (
                       <span className="truncate text-left">{session.title}</span>
@@ -194,7 +194,7 @@ export const SessionSidebar: React.FC<SessionSidebarProps> = ({
       {/* Collapse/Expand Toggle Handle */}
       <button
         onClick={onToggle}
-        className="absolute left-full top-3 z-30 bg-[#0d0f14] hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 p-1 rounded-r-lg transition-colors shadow-lg"
+        className="absolute left-full top-3 z-30 bg-[#1d1b1a] hover:bg-white/10 text-gray-400 hover:text-white border border-white/10 p-1 rounded-r-lg transition-colors shadow-lg"
         title={isOpen ? 'Collapse history' : 'Expand chat history'}
       >
         {isOpen ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
