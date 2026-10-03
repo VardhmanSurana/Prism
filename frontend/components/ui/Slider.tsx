@@ -107,7 +107,7 @@ const SliderRange = React.forwardRef<HTMLDivElement, SliderRangeProps>(
     return (
       <div
         ref={ref}
-        className={`absolute top-0 left-0 h-full bg-white/50 rounded-full ${className}`}
+        className={`absolute top-0 left-0 h-full bg-[#e5a93c] rounded-full ${className}`}
         style={{ width: `${percentage}%` }}
       />
     );
@@ -244,12 +244,12 @@ const SliderThumb = React.forwardRef<HTMLDivElement, SliderThumbProps>(
           if (typeof ref === 'function') ref(node);
           else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }}
-        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[10px] h-[10px] rounded-full border border-white/20 transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1), transition-colors 150ms ease, box-shadow 150ms ease focus:outline-none focus:ring-2 focus:ring-white/30 focus:ring-offset-1 focus:ring-offset-[#0e0e10] ${
+        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-[11px] h-[11px] rounded-full border border-black/30 transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1), transition-colors 150ms ease, box-shadow 150ms ease focus:outline-none focus:ring-2 focus:ring-[#e5a93c]/50 focus:ring-offset-1 focus:ring-offset-[#151312] ${
           isDragging
-            ? 'bg-white scale-125 shadow-[0_0_8px_rgba(255,255,255,0.3)]'
+            ? 'bg-[#e5a93c] scale-125 shadow-[0_0_10px_rgba(229,169,60,0.5)]'
             : isHovered
-            ? 'bg-white/90 scale-110'
-            : 'bg-white/70'
+            ? 'bg-[#e5a93c] scale-110 shadow-[0_0_6px_rgba(229,169,60,0.3)]'
+            : 'bg-[#f5f0ed]'
         } ${disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'} ${className}`}
         style={{ left: `${percentage}%` }}
         role="slider"

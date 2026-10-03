@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, MapPin, Calendar, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { resolveUrl } from '@/constants';
@@ -94,14 +95,31 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
     return () => clearTimeout(timer);
   }, [currentIndex, photos.length, handleNext]);
 
-  if (!currentPhoto) return null;
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      } else if (e.key === 'ArrowRight' || e.key === ' ') {
+        e.preventDefault();
+        handleNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handlePrev();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, handleNext, handlePrev]);
 
-  return (
+  if (!currentPhoto || typeof document === 'undefined') return null;
+
+  return createPortal(
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] bg-black flex flex-col justify-between select-none overflow-hidden"
+      className="fixed inset-0 z-[9999] bg-black flex flex-col justify-between select-none overflow-hidden"
     >
       <div className="absolute inset-0 z-50 pointer-events-none opacity-[0.03] mix-blend-overlay">
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] bg-repeat" />
@@ -262,6 +280,7 @@ export const StoryViewer: React.FC<StoryViewerProps> = ({ highlight, onClose }) 
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
+    </motion.div>,
+    document.body
   );
 };

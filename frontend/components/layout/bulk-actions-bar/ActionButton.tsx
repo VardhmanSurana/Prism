@@ -17,25 +17,21 @@ export interface ActionButtonProps {
 export const ActionButton: React.FC<ActionButtonProps> = ({
   onClick, label, children, className = '', labelClassName = '',
 }) => {
-  const labelRef = useRef<HTMLSpanElement>(null);
-
   return (
-    <div className="flex flex-col items-center gap-0">
-      <button
-        onClick={onClick}
-        className={`p-2 rounded-full text-gray-300 hover:text-white transition-colors flex items-center justify-center ${className}`}
-      >
-        <span className="flex items-center justify-center">{children}</span>
-      </button>
+    <button
+      onClick={onClick}
+      className={`group/btn flex flex-col items-center justify-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-white/[0.06] active:bg-white/[0.1] transition-all text-[#d6d3d1] hover:text-white ${className}`}
+    >
+      <span className="flex items-center justify-center transition-transform duration-150 group-hover/btn:scale-105">
+        {children}
+      </span>
       {label && (
         <span
-          ref={labelRef}
-          className={`text-[11px] font-medium text-gray-300 whitespace-nowrap leading-none select-none pointer-events-none text-center truncate -mt-0.5 ${labelClassName}`}
-          style={{ opacity: 0.85 }}
+          className={`text-[11px] font-sans font-normal tracking-normal text-[#a8a29e] group-hover/btn:text-[#e7e5e4] transition-colors leading-none select-none text-center ${labelClassName}`}
         >
           {label}
         </span>
       )}
-    </div>
+    </button>
   );
 };

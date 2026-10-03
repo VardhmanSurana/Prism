@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { Header } from '@/components/layout/header/Header';
 import { Sidebar } from '@/components/layout/sidebar/Sidebar';
@@ -10,6 +10,7 @@ vi.mock('@/hooks/import', () => ({
   useImport: () => ({
     handleFileUpload: vi.fn(),
     handleFolderImport: vi.fn(),
+    importFromUrl: vi.fn(),
   }),
 }));
 
@@ -43,6 +44,29 @@ describe('layout', () => {
     expect(screen.getByPlaceholderText(/query deep library/i)).toBeTruthy();
   });
 
+  it('renders Header with Import button and reveals exactly 3 import options', () => {
+    render(
+      <Header
+        onSearch={vi.fn()}
+        sortMode="newest"
+        onSortChange={vi.fn()}
+      />
+    );
+    const importBtn = screen.getByTitle(/import media into archive/i);
+    expect(importBtn).toBeTruthy();
+
+    // Click to open dropdown
+    fireEvent.click(importBtn);
+    expect(screen.getByText('Import files')).toBeTruthy();
+    expect(screen.getByText('Import folder')).toBeTruthy();
+    expect(screen.getByText('Import from web')).toBeTruthy();
+
+    // Opening "Import from web" opens the WebImportModal
+    fireEvent.click(screen.getByText('Import from web'));
+    expect(screen.getByText('Media Web Address (URL)')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/direct image link/i)).toBeTruthy();
+  });
+
   it('renders Sidebar with navigation', () => {
     render(<Sidebar currentView="gallery" onChangeView={vi.fn()} />);
     expect(screen.getByText('Prism')).toBeTruthy();
@@ -62,7 +86,7 @@ describe('layout', () => {
         isFavorited={false}
       />
     );
-    expect(screen.getByText('2 selected')).toBeTruthy();
+    expect(screen.getByText(/2 selected/i)).toBeTruthy();
   });
 
   it('returns null for BulkActionsBar when nothing selected', () => {

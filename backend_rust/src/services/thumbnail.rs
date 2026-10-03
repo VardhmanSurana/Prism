@@ -10,6 +10,27 @@ pub struct ImageInfo {
     pub aspect_ratio: f64,
 }
 
+/// Thumbnail quality preset mapping: (jpeg_quality, max_dim).
+/// - "fast":     60% quality, 256px — smallest files, fastest generation
+/// - "balanced": 85% quality, 400px — good default
+/// - "quality":  95% quality, 800px — sharpest, largest files
+pub fn quality_preset(preset: &str) -> (u8, u32) {
+    match preset {
+        "fast" => (60, 256),
+        "quality" => (95, 800),
+        _ => (85, 400), // "balanced" or unknown → balanced
+    }
+}
+
+/// Size estimate per thumbnail in bytes for a given quality preset.
+pub fn thumb_size_estimate(preset: &str) -> usize {
+    match preset {
+        "fast" => 8_192,     // ~8 KB
+        "quality" => 40_960, // ~40 KB
+        _ => 15_360,         // ~15 KB (balanced)
+    }
+}
+
 fn load_image_sniffed(path: &Path) -> Result<image::DynamicImage, String> {
     let bytes = fs::read(path).map_err(|e| e.to_string())?;
     image::load_from_memory(&bytes).map_err(|e| e.to_string())
@@ -31,19 +52,27 @@ pub fn get_image_info(path: &Path) -> Result<ImageInfo, String> {
     })
 }
 
-/// generate_thumbnail - Generates thumbnail.
+/// generate_thumbnail - Generates thumbnail with optional quality preset.
+/// `quality` is one of "fast", "balanced", "quality" (default: "balanced").
+/// When provided, the max_dim is overridden by the preset's value.
 pub fn generate_thumbnail(
     source_path: &Path,
     thumb_dir: &Path,
     photo_id: i64,
     max_dim: u32,
+    quality: Option<&str>,
 ) -> Result<PathBuf, String> {
     fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
 
-    let thumb_filename = if max_dim == 400 {
+    let (jpeg_quality, effective_max_dim) = match quality {
+        Some(q) => quality_preset(q),
+        None => (85, max_dim),
+    };
+
+    let thumb_filename = if effective_max_dim == 400 {
         format!("{}_thumb.jpg", photo_id)
     } else {
-        format!("{}_thumb_{}.jpg", photo_id, max_dim)
+        format!("{}_thumb_{}.jpg", photo_id, effective_max_dim)
     };
     let thumb_path = thumb_dir.join(&thumb_filename);
 
@@ -52,8 +81,16 @@ pub fn generate_thumbnail(
     }
 
     let img = load_image_sniffed(source_path)?;
-    let resized = img.thumbnail(max_dim, max_dim);
-    resized.save(&thumb_path).map_err(|e| e.to_string())?;
+    let resized = img.thumbnail(effective_max_dim, effective_max_dim);
+
+    // Encode with explicit JPEG quality
+    let mut jpeg_buf = std::io::Cursor::new(Vec::new());
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, jpeg_quality);
+    resized
+        .write_with_encoder(encoder)
+        .map_err(|e| e.to_string())?;
+
+    fs::write(&thumb_path, jpeg_buf.into_inner()).map_err(|e| e.to_string())?;
 
     Ok(thumb_path)
 }
@@ -66,13 +103,19 @@ pub fn generate_thumbnail_from_bytes(
     thumb_dir: &Path,
     photo_id: i64,
     max_dim: u32,
+    quality: Option<&str>,
 ) -> Result<PathBuf, String> {
     fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
 
-    let thumb_filename = if max_dim == 400 {
+    let (jpeg_quality, effective_max_dim) = match quality {
+        Some(q) => quality_preset(q),
+        None => (85, max_dim),
+    };
+
+    let thumb_filename = if effective_max_dim == 400 {
         format!("{}_thumb.jpg", photo_id)
     } else {
-        format!("{}_thumb_{}.jpg", photo_id, max_dim)
+        format!("{}_thumb_{}.jpg", photo_id, effective_max_dim)
     };
     let thumb_path = thumb_dir.join(&thumb_filename);
 
@@ -81,8 +124,15 @@ pub fn generate_thumbnail_from_bytes(
     }
 
     let img = image::load_from_memory(bytes).map_err(|e| e.to_string())?;
-    let resized = img.thumbnail(max_dim, max_dim);
-    resized.save(&thumb_path).map_err(|e| e.to_string())?;
+    let resized = img.thumbnail(effective_max_dim, effective_max_dim);
+
+    let mut jpeg_buf = std::io::Cursor::new(Vec::new());
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, jpeg_quality);
+    resized
+        .write_with_encoder(encoder)
+        .map_err(|e| e.to_string())?;
+
+    fs::write(&thumb_path, jpeg_buf.into_inner()).map_err(|e| e.to_string())?;
 
     Ok(thumb_path)
 }
@@ -100,13 +150,19 @@ pub fn generate_vault_thumbnail(
     photo_id: i64,
     max_dim: u32,
     key: &[u8; 32],
+    quality: Option<&str>,
 ) -> Result<PathBuf, String> {
     fs::create_dir_all(thumb_dir).map_err(|e| e.to_string())?;
 
-    let thumb_filename = if max_dim == 400 {
+    let (jpeg_quality, effective_max_dim) = match quality {
+        Some(q) => quality_preset(q),
+        None => (85, max_dim),
+    };
+
+    let thumb_filename = if effective_max_dim == 400 {
         format!("{}_thumb.jpg.thumb_enc", photo_id)
     } else {
-        format!("{}_thumb_{}.jpg.thumb_enc", photo_id, max_dim)
+        format!("{}_thumb_{}.jpg.thumb_enc", photo_id, effective_max_dim)
     };
     let thumb_path = thumb_dir.join(&thumb_filename);
 
@@ -115,10 +171,11 @@ pub fn generate_vault_thumbnail(
     }
 
     let img = image::load_from_memory(decrypted_bytes).map_err(|e| e.to_string())?;
-    let resized = img.thumbnail(max_dim, max_dim);
+    let resized = img.thumbnail(effective_max_dim, effective_max_dim);
     let mut jpeg_buf = std::io::Cursor::new(Vec::new());
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut jpeg_buf, jpeg_quality);
     resized
-        .write_to(&mut jpeg_buf, image::ImageFormat::Jpeg)
+        .write_with_encoder(encoder)
         .map_err(|e| e.to_string())?;
 
     let ciphertext =

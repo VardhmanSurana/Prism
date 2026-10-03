@@ -16,6 +16,41 @@
   /* Status tokens */
   --status-processing: #5e6ad2;
   --status-processing-text: #828fff;
+
+  /* Cinder theme — onboarding wizard (Hallmark custom theme)
+   * paper: oklch(10% 0.008 35)  accent: oklch(62% 0.14 35)
+   */
+  --onb-paper: #191411;
+  --onb-paper-2: #201b16;
+  --onb-paper-3: #2a231c;
+  --onb-ink: #f0e8e0;
+  --onb-ink-2: #b5a99d;
+  --onb-ink-3: #7a7068;
+  --onb-accent: #d97a2a;
+  --onb-accent-dim: #a85e1f;
+  --onb-accent-muted: rgba(217, 122, 42, 0.12);
+  --onb-rule: #332c24;
+  --onb-focus: #d97a2a;
+  --onb-success: #5a9a4a;
+  --onb-success-muted: rgba(90, 154, 74, 0.12);
+  --onb-error: #c44a3a;
+  --onb-error-muted: rgba(196, 74, 58, 0.12);
+  --onb-loading: #d97a2a;
+  --onb-disabled: #4a423a;
+  --onb-disabled-ink: #6a625a;
+
+  /* Bklit UI Chart Tokens */
+  --chart-1: #10b981;
+  --chart-2: #3b82f6;
+  --chart-3: #8b5cf6;
+  --chart-4: #f59e0b;
+  --chart-5: #ec4899;
+  --chart-grid: rgba(255, 255, 255, 0.05);
+  --chart-background: #06080c;
+  --chart-line-primary: #3b82f6;
+  --chart-line-secondary: #10b981;
+  --chart-crosshair: rgba(255, 255, 255, 0.25);
+  --chart-indicator-color: #3b82f6;
 }
 .preset-card-selected {
   border-color: rgb(var(--color-primary));

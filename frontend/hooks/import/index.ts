@@ -34,7 +34,7 @@ interface UseImportProps {
  */
 export const useImport = ({ onUpload, onImportProgress }: UseImportProps) => {
   const { handleFileUpload, handleFolderSelection } = useFileSelection();
-  const { startImport } = useImportProcess({ onUpload, onImportProgress });
+  const { startImport, importFromUrl } = useImportProcess({ onUpload, onImportProgress });
   const { expandDirectories } = useDirectoryExpansion({ onImportProgress });
 
   /**
@@ -81,7 +81,9 @@ export const useImport = ({ onUpload, onImportProgress }: UseImportProps) => {
   return {
     handleFileUpload: handleFileUploadWithImport,
     handleFolderImport,
+    importFromUrl,
     importPaths,
     startImport,
   };
 };
+

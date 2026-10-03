@@ -2,13 +2,17 @@ import React from 'react';
 
 interface SectionHeaderProps {
   label: string;
+  className?: string;
 }
 
 /**
- * SectionHeader - Renders section header.
+ * SectionHeader - Renders category section header matching Prism Dark Basalt design.
  */
-export const SectionHeader: React.FC<SectionHeaderProps> = ({ label }) => (
-  <div className="px-6 pt-10 pb-3 text-[10px] font-mono font-bold text-gray-600 uppercase tracking-[0.3em] relative z-20">
+export const SectionHeader: React.FC<SectionHeaderProps> = ({ label, className = '' }) => (
+  <div
+    className={`px-3.5 pt-5 pb-1.5 text-[11px] font-medium text-[#7c746f] uppercase tracking-[0.14em] select-none ${className}`}
+  >
     {label}
   </div>
 );
+

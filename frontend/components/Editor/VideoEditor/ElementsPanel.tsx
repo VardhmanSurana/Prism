@@ -103,22 +103,22 @@ export const ElementsPanel: React.FC = () => {
   }, [tracks, projectFps, addClip]);
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
+    <div className="w-64 bg-[#151312] border-r border-white/10 flex flex-col shrink-0 select-none">
       {/* Header */}
-      <div className="h-10 flex items-center px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Elements</span>
+      <div className="h-10 flex items-center px-3 border-b border-white/10 bg-[#171615]">
+        <span className="text-[#f5f0ed] text-xs font-medium">Elements</span>
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-1 p-2 border-b border-[#2a2a2a]">
+      <div className="flex gap-1 p-2 border-b border-white/10 overflow-x-auto scrollbar-none">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+            className={`px-2 py-1 text-[10px] rounded-md transition-colors cursor-pointer ${
               activeCategory === cat
-                ? 'bg-[#3b82f6] text-white'
-                : 'bg-[#222] text-[#666] hover:text-[#999]'
+                ? 'bg-[#e5a93c] text-[#151312] font-semibold shadow-sm'
+                : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border border-white/10'
             }`}
           >
             {cat}
@@ -133,11 +133,11 @@ export const ElementsPanel: React.FC = () => {
             <button
               key={preset.name}
               onClick={() => handleAdd(preset)}
-              className="flex flex-col items-center gap-1 p-2 bg-[#222] hover:bg-[#2a2a2a] rounded border border-[#333] hover:border-[#555] transition-colors"
+              className="flex flex-col items-center gap-1.5 p-2.5 bg-[#1d1b1a] hover:bg-white/[0.04] rounded-lg border border-white/10 hover:border-[#e5a93c]/50 transition-colors cursor-pointer group"
               title={`Add ${preset.name}`}
             >
-              <span className="text-2xl">{preset.icon}</span>
-              <span className="text-[#999] text-[9px] text-center leading-tight">{preset.name}</span>
+              <span className="text-2xl group-hover:scale-110 transition-transform">{preset.icon}</span>
+              <span className="text-zinc-400 group-hover:text-zinc-200 text-[9px] text-center leading-tight">{preset.name}</span>
             </button>
           ))}
         </div>

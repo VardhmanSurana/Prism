@@ -318,9 +318,18 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_cull_status ON photos(cull_status)").execute(pool).await.ok();
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_burst_group ON photos(burst_group_id)").execute(pool).await.ok();
 
+    // Core query performance indexes
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_listing ON photos(is_trash, is_locked, date_taken DESC, id DESC)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_path ON photos(path)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_photos_phash ON photos(phash)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_photo_albums_album ON photo_albums(album_id, photo_id)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_photo_people_person ON photo_people(person_id, photo_id)").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_faces_photo ON faces(photo_id)").execute(pool).await.ok();
+
     // Create session indexes after column migrations
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
+
 
     ensure_uuids(pool).await?;
     ensure_file_sizes(pool).await.ok();

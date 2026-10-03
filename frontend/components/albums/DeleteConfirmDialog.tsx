@@ -9,7 +9,7 @@ interface DeleteConfirmDialogProps {
 }
 
 /**
- * DeleteConfirmDialog - Renders delete confirm dialog.
+ * DeleteConfirmDialog - Prism styled delete confirmation dialog.
  */
 export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
   isOpen,
@@ -21,47 +21,50 @@ export const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#100e0d]/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-[#1a1a1f] border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative">
-        {/* Close */}
+      <div className="w-full max-w-sm rounded-2xl bg-[#211f1e] border border-white/[0.1] shadow-2xl p-6 flex flex-col gap-4 relative">
+        {/* Close button */}
         <button
+          type="button"
           onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-[#a8a29e] hover:text-[#f5f5f4] hover:bg-[#2c2928] transition-colors cursor-pointer"
         >
           <X size={16} />
         </button>
 
-        {/* Icon + Title */}
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
-            <Trash2 size={18} className="text-red-400" />
+        {/* Icon & Title */}
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center shrink-0">
+            <Trash2 size={18} className="text-rose-400" />
           </div>
           <div>
-            <h3 className="text-base font-bold text-white">Delete Album</h3>
-            <p className="text-xs text-gray-500">This action cannot be undone</p>
+            <h3 className="font-serif text-lg text-[#f5f5f4]">Delete Collection</h3>
+            <p className="text-[11px] font-mono text-[#a8a29e]">This action cannot be undone</p>
           </div>
         </div>
 
-        <p className="text-sm text-gray-300 mb-6">
+        <p className="text-xs text-[#a8a29e] leading-relaxed">
           Are you sure you want to delete{' '}
-          <span className="font-semibold text-white">"{albumName}"</span>?{' '}
-          The photos inside will not be deleted.
+          <span className="font-medium text-[#f5f5f4]">"{albumName}"</span>?{' '}
+          The media assets inside will remain safely preserved in your master library.
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 pt-2">
           <button
+            type="button"
             onClick={onClose}
-            className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 text-sm font-medium transition-colors"
+            className="flex-1 py-2 rounded-full text-xs font-medium text-[#a8a29e] hover:text-[#f5f5f4] hover:bg-[#2c2928] border border-white/[0.04] transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-400 rounded-xl text-white text-sm font-semibold transition-colors"
+            className="flex-1 py-2 rounded-full text-xs font-semibold bg-rose-500 hover:bg-rose-400 text-white transition-colors cursor-pointer shadow-sm"
           >
-            Delete
+            Delete Collection
           </button>
         </div>
       </div>

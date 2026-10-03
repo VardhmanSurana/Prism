@@ -49,7 +49,6 @@ export interface Photo {
   exif_iso?: number;
   hash?: string;
   search_explanation?: { score: number; matched: string[] };
-  cull_status?: 'picked' | 'rejected' | 'unflagged';
   rating?: number;
   burst_group_id?: string;
   missing_since?: string;
@@ -77,6 +76,14 @@ export interface Album {
   metadata?: AlbumMetadata;
   is_smart?: boolean;
   smart_type?: 'screenshots' | 'documents' | 'places';
+  video_count?: number;
+  category?: 'travel' | 'events' | 'projects' | 'custom' | string;
+  date_label?: string;
+  location_label?: string;
+  badge_label?: string;
+  badge_icon?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SmartAlbum {
@@ -99,7 +106,7 @@ interface Place {
   coordinates: { lat: number; lng: number };
 }
 
-export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent' | 'toolbox' | 'cull';
+export type ViewMode = 'gallery' | 'explore' | 'sharing' | 'albums' | 'favorites' | 'utilities' | 'appearance' | 'locked' | 'map' | 'trash' | 'people' | 'projects' | 'agent' | 'toolbox' | 'dashboard';
 
 export type SortMode = 'newest' | 'oldest' | 'added';
 

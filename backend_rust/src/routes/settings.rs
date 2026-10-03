@@ -19,6 +19,73 @@ use super::{
     set_telemetry_enabled, set_telemetry_response_logging, set_telemetry_sample_rate,
 };
 
+/// get_advanced_settings - Retrieves advanced app configuration with masked secrets.
+pub async fn get_advanced_settings(State(state): State<Arc<AppState>>) -> Result<Json<Value>, StatusCode> {
+    let config = crate::services::app_config::load(&state.db).await;
+    let master_key = *state.vault_key.read();
+
+    let api_key = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await;
+    let agent_key = crate::services::secrets::get_secret(&state.db, &master_key, "agent_api_key").await;
+
+    Ok(Json(json!({
+        "config": config,
+        "secrets": {
+            "api_key_masked": api_key.as_deref().map(crate::services::secrets::mask).unwrap_or_default(),
+            "agent_api_key_masked": agent_key.as_deref().map(crate::services::secrets::mask).unwrap_or_default(),
+        },
+        "vault_initialized": true,
+        "restart_required": false,
+        "backend": "rust-axum",
+        "port": state.config.port,
+    })))
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SaveAdvancedSettingsRequest {
+    pub config: crate::services::app_config::AdvancedConfig,
+    /// Optional new secret values; empty strings clear the secret, None keeps the existing one.
+    pub api_key: Option<String>,
+    pub agent_api_key: Option<String>,
+}
+
+/// save_advanced_settings - Persists advanced config; secrets are encrypted at rest (AES-256-GCM).
+pub async fn save_advanced_settings(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SaveAdvancedSettingsRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    let master_key = *state.vault_key.read();
+
+    crate::services::app_config::save(&state.db, &payload.config)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    if let Some(value) = payload.api_key.clone() {
+        if value.is_empty() {
+            let _ = sqlx::query("DELETE FROM settings WHERE key = 'secret_api_key'")
+                .execute(&state.db).await;
+        } else {
+            crate::services::secrets::set_secret(&state.db, &master_key, "api_key", &value)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
+    if let Some(value) = payload.agent_api_key.clone() {
+        if value.is_empty() {
+            let _ = sqlx::query("DELETE FROM settings WHERE key = 'secret_agent_api_key'")
+                .execute(&state.db).await;
+        } else {
+            crate::services::secrets::set_secret(&state.db, &master_key, "agent_api_key", &value)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
+
+    Ok(Json(json!({
+        "ok": true,
+        "note": "Directory changes take effect after backend restart."
+    })))
+}
+
 /// get_settings - Retrieves get settings.
 pub async fn get_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     Json(json!({
@@ -552,6 +619,90 @@ pub async fn save_telemetry_settings(
     }))
 }
 
+/// POST /settings/onboarding — saves onboarding choices and applies them.
+#[derive(Deserialize)]
+pub struct OnboardingRequest {
+    pub storage_mode: Option<String>,
+    pub ai_profile: Option<String>,
+    pub preset: Option<String>,
+    pub thumb_quality: Option<String>,
+    pub completed: Option<bool>,
+}
+
+/// save_onboarding_settings - Saves onboarding config (thumb_quality, etc.).
+pub async fn save_onboarding_settings(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<OnboardingRequest>,
+) -> Result<Json<Value>, StatusCode> {
+    // Load current config
+    let mut config = crate::services::app_config::load(&state.db).await;
+
+    // Apply thumb_quality if provided
+    if let Some(ref q) = payload.thumb_quality {
+        let q_lower = q.trim().to_lowercase();
+        if ["fast", "balanced", "quality"].contains(&q_lower.as_str()) {
+            config.thumb_quality = q_lower;
+        }
+    }
+
+    // Persist
+    crate::services::app_config::save(&state.db, &config)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    // Mark onboarding as completed
+    if payload.completed.unwrap_or(false) {
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('onboarding_completed', 'true')
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .bind("true")
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    // Store storage_mode, ai_profile, and preset for reference
+    if let Some(ref mode) = payload.storage_mode {
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('onboarding_storage_mode', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .bind(mode)
+        .execute(&state.db)
+        .await
+        .ok();
+    }
+    if let Some(ref profile) = payload.ai_profile {
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('onboarding_ai_profile', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .bind(profile)
+        .execute(&state.db)
+        .await
+        .ok();
+    }
+    if let Some(ref p) = payload.preset {
+        sqlx::query(
+            "INSERT INTO settings (key, value) VALUES ('onboarding_preset', ?)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+        )
+        .bind(p)
+        .execute(&state.db)
+        .await
+        .ok();
+    }
+
+    // Note: thumb_quality takes effect on next request after reload.
+    // For immediate effect, the app should reload config from DB.
+
+    Ok(Json(json!({
+        "status": "success",
+        "thumb_quality": config.thumb_quality,
+    })))
+}
+
 /// trigger_face_sync - Performs trigger face sync.
 pub async fn trigger_face_sync(
     State(state): State<Arc<AppState>>,
@@ -808,36 +959,43 @@ pub struct SecuritySettingsRequest {
     pub api_key: Option<String>,
 }
 
-/// get_security_settings - Retrieves get security settings.
+/// get_security_settings - Retrieves security settings with masked API key from encrypted vault.
 pub async fn get_security_settings(State(state): State<Arc<AppState>>) -> Json<Value> {
     let enabled_setting: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
         .fetch_optional(&state.db)
         .await
         .unwrap_or(None);
-    let key_setting: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_value'")
-        .fetch_optional(&state.db)
-        .await
-        .unwrap_or(None);
 
-    let is_enabled = enabled_setting.map(|v| v == "true").unwrap_or_else(|| state.config.api_key.is_some());
-    let current_key = key_setting.or_else(|| state.config.api_key.clone());
+    let master_key = *state.vault_key.read();
+    let current_key = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await
+        .or_else(|| state.config.api_key.clone());
 
-    let masked = current_key.as_ref().map(|k| {
-        if k.len() > 6 {
-            format!("{}***{}", &k[..3], &k[k.len() - 3..])
-        } else {
-            "***".to_string()
-        }
-    });
+    let is_enabled = enabled_setting.map(|v| v == "true").unwrap_or(false);
+
+    let masked = current_key.as_ref().map(|k| crate::services::secrets::mask(k));
 
     Json(json!({
         "enabled": is_enabled,
         "api_key_masked": masked,
-        "has_key": current_key.is_some()
+        "has_key": current_key.is_some(),
+        "vault_encrypted": true
     }))
 }
 
-/// save_security_settings - Performs save security settings.
+/// reveal_api_key - Decrypts and returns the full current API key for local user inspection/clipboard.
+pub async fn reveal_api_key(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
+    let master_key = *state.vault_key.read();
+    let key = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await
+        .or_else(|| state.config.api_key.clone())
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "No API key configured".to_string()))?;
+
+    Ok(Json(json!({
+        "api_key": key,
+        "vault_encrypted": true
+    })))
+}
+
+/// save_security_settings - Persists security settings with AES-256-GCM encryption at rest.
 pub async fn save_security_settings(
     State(state): State<Arc<AppState>>,
     Json(payload): Json<SecuritySettingsRequest>,
@@ -850,27 +1008,31 @@ pub async fn save_security_settings(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     if let Some(key) = payload.api_key {
-        if !key.trim().is_empty() {
-            sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_value', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-                .bind(key.trim())
-                .execute(&state.db)
+        let trimmed = key.trim();
+        if !trimmed.is_empty() {
+            let master_key = *state.vault_key.read();
+            crate::services::secrets::set_secret(&state.db, &master_key, "api_key", trimmed)
                 .await
-                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+                .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+            // Delete legacy plaintext key if any
+            let _ = sqlx::query("DELETE FROM settings WHERE key = 'api_key_value'").execute(&state.db).await;
         }
     }
 
-    Ok(Json(json!({ "status": "success", "enabled": payload.enabled })))
+    Ok(Json(json!({ "status": "success", "enabled": payload.enabled, "vault_encrypted": true })))
 }
 
-/// generate_api_key - Performs generate api key.
+/// generate_api_key - Generates a new cryptographically secure API key and stores it encrypted.
 pub async fn generate_api_key(State(state): State<Arc<AppState>>) -> Result<Json<Value>, (StatusCode, String)> {
-    let new_key = format!("prism_key_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
+    let new_key = crate::services::secrets::generate_secure_api_key();
+    let master_key = *state.vault_key.read();
 
-    sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_value', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
-        .bind(&new_key)
-        .execute(&state.db)
+    crate::services::secrets::set_secret(&state.db, &master_key, "api_key", &new_key)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
+    // Delete legacy plaintext key if any
+    let _ = sqlx::query("DELETE FROM settings WHERE key = 'api_key_value'").execute(&state.db).await;
 
     sqlx::query("INSERT INTO settings (key, value) VALUES ('api_key_enabled', 'true') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
         .execute(&state.db)
@@ -880,7 +1042,8 @@ pub async fn generate_api_key(State(state): State<Arc<AppState>>) -> Result<Json
     Ok(Json(json!({
         "status": "success",
         "api_key": new_key,
-        "enabled": true
+        "enabled": true,
+        "vault_encrypted": true
     })))
 }
 

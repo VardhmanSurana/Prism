@@ -165,8 +165,9 @@ pub async fn import_file(state: &AppState, target_path: &Path) -> Result<(Photo,
     if !is_video {
         let src = target_path.to_path_buf();
         let thumb_dir = state.config.thumbnails_dir.clone();
+        let thumb_quality = state.config.thumb_quality.clone();
         tokio::task::spawn_blocking(move || {
-            let _ = crate::services::thumbnail::generate_thumbnail(&src, &thumb_dir, id, 400);
+            let _ = crate::services::thumbnail::generate_thumbnail(&src, &thumb_dir, id, 400, Some(&thumb_quality));
         });
     }
 

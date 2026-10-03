@@ -87,20 +87,33 @@ pub struct SystemState {
     pub cpu_temp_c: f32,
     pub disk_free_bytes: u64,
     pub disk_free_gb: f32,
+    pub disk_total_bytes: u64,
+    pub disk_total_gb: f32,
 }
 
 /// Polls the OS for resource usage. Cheap — spawns no threads, just reads sysinfo on demand.
 pub struct SystemMonitor {
     last_check: std::sync::atomic::AtomicU64,
     uploads_dir: std::path::PathBuf,
+    sys: parking_lot::Mutex<sysinfo::System>,
+    last_cpu_refresh: parking_lot::Mutex<std::time::Instant>,
+    last_cpu_usage: parking_lot::Mutex<f32>,
 }
 
 impl SystemMonitor {
     /// new - Performs new.
     pub fn new(uploads_dir: std::path::PathBuf) -> Self {
+        use sysinfo::{CpuRefreshKind, RefreshKind, System};
+        let mut sys = System::new_with_specifics(
+            RefreshKind::nothing().with_cpu(CpuRefreshKind::everything()),
+        );
+        sys.refresh_cpu_usage();
         Self {
             last_check: std::sync::atomic::AtomicU64::new(0),
             uploads_dir,
+            sys: parking_lot::Mutex::new(sys),
+            last_cpu_refresh: parking_lot::Mutex::new(std::time::Instant::now()),
+            last_cpu_usage: parking_lot::Mutex::new(0.0),
         }
     }
 
@@ -121,10 +134,16 @@ impl SystemMonitor {
 
         // ── CPU ──
         {
-            use sysinfo::System;
-            let mut sys = System::new();
-            sys.refresh_cpu_all();
-            state.cpu_usage = sys.global_cpu_usage();
+            let mut sys = self.sys.lock();
+            let mut last_refresh = self.last_cpu_refresh.lock();
+            let mut last_usage = self.last_cpu_usage.lock();
+            let now = std::time::Instant::now();
+            if now.duration_since(*last_refresh) >= sysinfo::MINIMUM_CPU_UPDATE_INTERVAL {
+                sys.refresh_cpu_usage();
+                *last_usage = sys.global_cpu_usage();
+                *last_refresh = now;
+            }
+            state.cpu_usage = *last_usage;
         }
 
         // ── CPU Temperature ──
@@ -173,14 +192,18 @@ impl SystemMonitor {
             use sysinfo::Disks;
             let disks = Disks::new_with_refreshed_list();
             let mut free_bytes = 0u64;
+            let mut total_bytes = 0u64;
             for disk in disks.list() {
                 let mnt = disk.mount_point();
                 if self.uploads_dir.starts_with(mnt) || free_bytes == 0 {
                     free_bytes = disk.available_space();
+                    total_bytes = disk.total_space();
                 }
             }
             state.disk_free_bytes = free_bytes;
             state.disk_free_gb = free_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
+            state.disk_total_bytes = total_bytes;
+            state.disk_total_gb = total_bytes as f32 / (1024.0 * 1024.0 * 1024.0);
         }
 
         // ── Battery ──
@@ -365,9 +388,6 @@ impl JobScheduler {
         if state.on_battery && state.battery_percent < BATTERY_LOW {
             return Some(("battery_critical", 30));
         }
-        if state.cpu_temp_c >= 85.0 {
-            return Some(("cpu_overheated", 15));
-        }
         if state.disk_free_bytes > 0 && state.disk_free_bytes < 2 * 1024 * 1024 * 1024 {
             return Some(("low_disk_space", 30));
         }
@@ -381,9 +401,6 @@ impl JobScheduler {
         }
         if state.on_battery && state.battery_percent < BATTERY_LOW {
             return Some(format!("Paused: Battery below {}% ({}%)", BATTERY_LOW, state.battery_percent));
-        }
-        if state.cpu_temp_c >= 85.0 {
-            return Some(format!("Paused: High CPU temperature ({:.0}°C)", state.cpu_temp_c));
         }
         if state.disk_free_bytes > 0 && state.disk_free_bytes < 2 * 1024 * 1024 * 1024 {
             return Some(format!("Paused: Low disk space (< 2 GB, {:.1} GB free)", state.disk_free_gb));
@@ -567,6 +584,8 @@ impl WorkerState {
             cpu_temp_c: sys.cpu_temp_c,
             disk_free_bytes: sys.disk_free_bytes,
             disk_free_gb: sys.disk_free_gb,
+            disk_total_bytes: sys.disk_total_bytes,
+            disk_total_gb: sys.disk_total_gb,
             gpu_busy: sys.gpu_busy,
             external_disconnected: sys.external_disconnected,
             user_active: sys.user_active,
@@ -613,6 +632,8 @@ impl WorkerState {
                 cpu_temp_c: 0.0,
                 disk_free_bytes: 0,
                 disk_free_gb: 0.0,
+                disk_total_bytes: 0,
+                disk_total_gb: 0.0,
                 gpu_busy: false,
                 external_disconnected: false,
                 user_active: false,
@@ -630,6 +651,10 @@ pub struct HardwareMetricsSnapshot {
     pub cpu_temp_c: f32,
     pub disk_free_bytes: u64,
     pub disk_free_gb: f32,
+    #[serde(default)]
+    pub disk_total_bytes: u64,
+    #[serde(default)]
+    pub disk_total_gb: f32,
     pub gpu_busy: bool,
     pub external_disconnected: bool,
     pub user_active: bool,
@@ -649,6 +674,7 @@ pub struct WorkerStatusSnapshot {
     pub hardware: HardwareMetricsSnapshot,
 }
 
+#[allow(dead_code)]
 pub type WorkerStatus = WorkerStatusSnapshot;
 
 // ─── Stage-aware resume ───────────────────────────────────────────────────
@@ -1030,6 +1056,7 @@ pub async fn prioritize_album(db: &DbPool, album_id: i64) -> Result<u64, sqlx::E
 }
 
 /// Automatically generates / enqueues a proxy video if video height > 1080 or fps > 30.
+#[allow(dead_code)]
 pub async fn enqueue_video_proxy_if_needed(db: &DbPool, photo_id: i64, height: Option<i64>, fps: Option<f64>) {
     let is_large = height.map(|h| h > 1080).unwrap_or(false) || fps.map(|f| f > 30.0).unwrap_or(false);
     if !is_large {
@@ -1051,5 +1078,24 @@ pub async fn enqueue_video_proxy_if_needed(db: &DbPool, photo_id: i64, height: O
         .execute(db)
         .await;
         info!("[Scheduler] Enqueued proxy generation for photo_id={}", photo_id);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_system_monitor_cpu_and_metrics() {
+        let monitor = SystemMonitor::new(std::path::PathBuf::from("/tmp"));
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let state = monitor.poll();
+        println!("[test] Detected CPU usage: {:.2}%", state.cpu_usage);
+        println!("[test] Detected CPU temp: {:.1}°C", state.cpu_temp_c);
+        println!("[test] Detected Disk free: {:.1} GB", state.disk_free_gb);
+        println!("[test] Detected Disk total: {:.1} GB", state.disk_total_gb);
+        // CPU usage should be a realistic percentage [0.0, 100.0]
+        assert!(state.cpu_usage >= 0.0 && state.cpu_usage <= 100.0);
+        assert!(state.disk_total_gb >= 0.0);
     }
 }

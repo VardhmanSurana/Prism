@@ -44,7 +44,7 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({
       iconCreateFunction: function (cluster: any) {
         const count = cluster.getChildCount();
         return L.divIcon({
-          html: `<div class="w-10 h-10 rounded-full bg-primary/80 border-2 border-primary flex items-center justify-center text-black text-xs font-bold shadow-lg">${count}</div>`,
+          html: `<div class="w-10 h-10 rounded-full bg-[#1d1b1a]/95 border-2 border-[#e5a93c] flex items-center justify-center text-[#f5f0ed] text-xs font-mono font-bold shadow-xl shadow-black/60">${count}</div>`,
           className: 'custom-cluster-icon',
           iconSize: [40, 40],
         });
@@ -61,7 +61,7 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({
         icon: L.divIcon({
           className: 'custom-photo-marker',
           html: `
-            <div class="relative w-10 h-10 rounded-lg border-2 ${editMode ? 'border-amber-300' : 'border-white'} shadow-xl overflow-hidden transform-gpu bg-surface">
+            <div class="relative w-10 h-10 rounded-xl border-2 ${editMode ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-white/80'} shadow-2xl overflow-hidden transform-gpu bg-[#151312] transition-transform duration-200">
               <img src="${thumbUrl}" class="w-full h-full object-cover" loading="lazy" decoding="async" />
             </div>
           `,
@@ -73,21 +73,26 @@ export const PhotoMarkers: React.FC<PhotoMarkersProps> = ({
 
       // Use thumbnail for popup preview (not full-size) — avoids loading heavy images
       const popupThumbUrl = resolveUrl(`/api/v1/photos/${photo.id}/thumbnail?size=400`);
+      const dateStr = photo.date ? new Date(photo.date).toLocaleDateString(undefined, { dateStyle: 'medium' }) : '';
+      const geoDetail = [photo.city, photo.country].filter(Boolean).join(', ');
+
       marker.bindPopup(
-        `<div class="w-48 cursor-pointer" data-photo-id="${photo.id}">
-          <div class="relative aspect-square rounded-lg overflow-hidden mb-2">
+        `<div class="w-52 cursor-pointer p-0.5" data-photo-id="${photo.id}">
+          <div class="relative aspect-[4/3] rounded-xl overflow-hidden mb-2 bg-[#151312] border border-white/10">
             <img src="${popupThumbUrl}" class="w-full h-full object-cover" loading="lazy" />
           </div>
-          <div class="px-1">
-            <p class="text-[10px] font-mono text-gray-400 uppercase tracking-wider mb-1">
-              ${new Date(photo.date).toLocaleDateString()}
-            </p>
-            <p class="text-sm font-medium text-white truncate">
+          <div class="px-1 pb-1">
+            <div class="flex items-center justify-between text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-0.5">
+              <span>${dateStr}</span>
+              ${photo.isFavorite ? '<span class="text-[#e5a93c]">★</span>' : ''}
+            </div>
+            <p class="text-sm font-serif font-medium text-white truncate">
               ${formatPopupLocation(photo, editMode, isSaving)}
             </p>
+            ${geoDetail ? `<p class="text-[11px] font-mono text-zinc-400 truncate mt-0.5">${geoDetail}</p>` : ''}
           </div>
         </div>`,
-        { maxWidth: 200 }
+        { maxWidth: 220 }
       );
 
       marker.on('popupopen', () => {

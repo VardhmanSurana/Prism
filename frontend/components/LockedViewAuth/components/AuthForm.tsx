@@ -249,7 +249,7 @@ export function AuthForm({
 
               <button
                 onClick={onAuthenticate}
-                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-white text-xs font-semibold shadow-lg shadow-primary/20 transition-colors"
+                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 I Have Saved My Recovery Key → Enter Vault
               </button>
@@ -292,7 +292,7 @@ export function AuthForm({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-white text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50"
+                className="w-full py-3 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 {submitting ? "Verifying Token..." : "Unlock with Emergency Key"}
               </button>
@@ -404,7 +404,7 @@ export function AuthForm({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/90 text-white text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 mt-2"
+                className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/90 text-black text-xs font-semibold shadow-lg shadow-primary/20 transition-colors disabled:opacity-50 mt-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
               >
                 {submitting ? "Processing..." : isConfigured ? "Unlock Vault" : "Initialize Secure Vault"}
               </button>

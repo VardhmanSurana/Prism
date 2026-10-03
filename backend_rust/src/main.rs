@@ -30,6 +30,8 @@ use crate::services::worker::{WorkerState, JobScheduler, AnalyzerRegistry, spawn
 pub struct AppState {
     pub config: Config,
     pub db: db::DbPool,
+    /// Auto-generated master key for the encrypted settings vault (AES-256-GCM).
+    pub vault_key: parking_lot::RwLock<[u8; 32]>,
     pub ml_client: MlClient,
     pub telemetry: TelemetryService,
     pub worker: Arc<WorkerState>,
@@ -52,7 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config = Config::from_env();
+    let mut config = Config::from_env();
     info!("Starting Prism Rust Backend on {}:{}", config.host, config.port);
 
     // Ensure required working directories exist (uploads, thumbnails, map_cache) so the
@@ -64,6 +66,68 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     recover_interrupted_operations(&config);
 
     let db_pool = init_db(&config.database_url).await?;
+
+    // ── Vault + DB-backed advanced config (no .env required) ────────────────
+    // The secrets master key is auto-generated on first startup next to the
+    // database. Advanced config stored by the UI (AdvancedSettings) overrides
+    // built-in defaults; PORT/HOST remain bootstrap-only.
+    let db_dir = std::path::Path::new(&config.database_url.trim_start_matches("sqlite://"))
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+    let vault_key = match services::secrets::load_or_create_master_key(&db_dir) {
+        Ok(key) => key,
+        Err(e) => {
+            info!("Vault key init warning: {e} — falling back to in-memory key");
+            let mut key = [0u8; 32];
+            use aes_gcm::aead::rand_core::RngCore;
+            aes_gcm::aead::OsRng.fill_bytes(&mut key);
+            key
+        }
+    };
+    let advanced = services::app_config::load(&db_pool).await;
+    services::app_config::apply_overrides(&advanced, &mut config);
+
+    // Migrate any legacy plaintext api_key_value into the encrypted vault
+    if let Ok(Some(legacy_key)) = sqlx::query_scalar::<_, String>(
+        "SELECT value FROM settings WHERE key = 'api_key_value'"
+    )
+    .fetch_optional(&db_pool)
+    .await
+    {
+        if !legacy_key.trim().is_empty() {
+            let _ = services::secrets::set_secret(&db_pool, &vault_key, "api_key", legacy_key.trim()).await;
+            info!("Migrated legacy plaintext API key to AES-256-GCM encrypted vault");
+        }
+        let _ = sqlx::query("DELETE FROM settings WHERE key = 'api_key_value'")
+            .execute(&db_pool)
+            .await;
+    }
+
+    // Ensure an API key always exists — auto-generate cryptographically if none exists
+    let existing_vault_key = services::secrets::get_secret(&db_pool, &vault_key, "api_key").await;
+    match (config.api_key.as_ref(), existing_vault_key) {
+        (Some(env_key), None) => {
+            let _ = services::secrets::set_secret(&db_pool, &vault_key, "api_key", env_key).await;
+        }
+        (None, Some(vault_k)) => {
+            config.api_key = Some(vault_k);
+        }
+        (None, None) => {
+            let auto_key = services::secrets::generate_secure_api_key();
+            let _ = services::secrets::set_secret(&db_pool, &vault_key, "api_key", &auto_key).await;
+            config.api_key = Some(auto_key);
+            info!("Auto-generated new secure API key and encrypted in AES-256-GCM vault");
+        }
+        (Some(_), Some(_)) => {}
+    }
+
+    // Re-create directories if the DB config moved them.
+    std::fs::create_dir_all(&config.upload_dir).ok();
+    std::fs::create_dir_all(&config.thumbnails_dir).ok();
+    std::fs::create_dir_all(&config.models_dir).ok();
+    std::fs::create_dir_all(&config.plugins_dir).ok();
+    std::fs::create_dir_all(&config.map_cache_dir).ok();
 
     // Initialize HNSW vector index for fast semantic search
     let vector_index_instance = vector_index::init_global(db_pool.clone(), config.models_dir.clone());
@@ -145,6 +209,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = Arc::new(AppState {
         config: config.clone(),
         db: db_pool,
+        vault_key: parking_lot::RwLock::new(vault_key),
         ml_client,
         telemetry,
         worker,

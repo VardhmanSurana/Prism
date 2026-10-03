@@ -35,6 +35,8 @@ export interface HardwareTelemetry {
   cpu_temp_c: number;
   disk_free_bytes: number;
   disk_free_gb: number;
+  disk_total_bytes?: number;
+  disk_total_gb?: number;
   gpu_busy: boolean;
   external_disconnected: boolean;
   user_active: boolean;

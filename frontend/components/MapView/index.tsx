@@ -368,12 +368,12 @@ export const MapView: React.FC<MapViewProps> = ({ photos, onPhotoClick, onPhotoL
   }, [currentPlaybackTimestamp, timeLapseActive]);
 
   return (
-    <div className="w-full h-full relative bg-[#0a0a0a]">
+    <div className="w-full h-full relative bg-[#151312] overflow-hidden select-none">
       <MapContainer
         ref={mapRef}
         center={center} 
         zoom={2}
-        style={{ width: '100%', height: '100%', background: '#0a0a0a' }}
+        style={{ width: '100%', height: '100%', background: '#151312' }}
         zoomControl={false}
         preferCanvas={true}
       >

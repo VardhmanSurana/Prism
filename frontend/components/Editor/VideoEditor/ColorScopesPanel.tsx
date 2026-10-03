@@ -4,6 +4,7 @@
  */
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { renderColorScope, type ScopeMode } from './scopesEngine';
+import { Activity, X } from 'lucide-react';
 
 export interface ColorScopesPanelProps {
   sourceCanvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -70,27 +71,25 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
 
   return (
     <div
-      className={`z-30 flex flex-col bg-[#141414]/95 backdrop-blur-md border border-[#2b2b2b] rounded-lg shadow-2xl overflow-hidden transition-all ${
+      className={`z-30 flex flex-col bg-[#1d1b1a]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl overflow-hidden transition-all ${
         dockPosition === 'overlay'
           ? 'absolute top-3 right-3 w-[380px] h-[260px]'
-          : 'w-80 bg-[#161616] border-l border-[#2a2a2a] shrink-0'
+          : 'w-80 bg-[#171615] border-l border-white/10 shrink-0'
       }`}
     >
       {/* Header / Mode Switcher */}
-      <div className="h-9 px-3 bg-[#1e1e1e] border-b border-[#2b2b2b] flex items-center justify-between shrink-0">
+      <div className="h-9 px-3 bg-[#171615] border-b border-white/10 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5 text-[#3b82f6]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-          <span className="text-white text-xs font-medium tracking-wide">Scopes</span>
+          <Activity className="w-3.5 h-3.5 text-[#e5a93c]" />
+          <span className="text-[#f5f0ed] text-xs font-medium tracking-wide">Scopes</span>
         </div>
 
         {/* Scope Mode Tabs */}
-        <div className="flex items-center bg-[#111] p-0.5 rounded border border-[#2a2a2a]">
+        <div className="flex items-center bg-[#151312] p-0.5 rounded-lg border border-white/10">
           <button
             onClick={() => setMode('waveform')}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
-              mode === 'waveform' ? 'bg-[#3b82f6] text-white' : 'text-[#888] hover:text-white'
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+              mode === 'waveform' ? 'bg-[#e5a93c] text-[#151312] font-semibold' : 'text-zinc-400 hover:text-white'
             }`}
             title="Luma Waveform (IRE)"
           >
@@ -98,8 +97,8 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
           </button>
           <button
             onClick={() => setMode('rgbParade')}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
-              mode === 'rgbParade' ? 'bg-[#3b82f6] text-white' : 'text-[#888] hover:text-white'
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+              mode === 'rgbParade' ? 'bg-[#e5a93c] text-[#151312] font-semibold' : 'text-zinc-400 hover:text-white'
             }`}
             title="RGB Parade"
           >
@@ -107,8 +106,8 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
           </button>
           <button
             onClick={() => setMode('vectorscope')}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
-              mode === 'vectorscope' ? 'bg-[#3b82f6] text-white' : 'text-[#888] hover:text-white'
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+              mode === 'vectorscope' ? 'bg-[#e5a93c] text-[#151312] font-semibold' : 'text-zinc-400 hover:text-white'
             }`}
             title="Cb/Cr Vectorscope"
           >
@@ -116,8 +115,8 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
           </button>
           <button
             onClick={() => setMode('all')}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded transition-colors ${
-              mode === 'all' ? 'bg-[#3b82f6] text-white' : 'text-[#888] hover:text-white'
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors cursor-pointer ${
+              mode === 'all' ? 'bg-[#e5a93c] text-[#151312] font-semibold' : 'text-zinc-400 hover:text-white'
             }`}
             title="All Scopes Grid"
           >
@@ -128,25 +127,25 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="text-[#777] hover:text-white text-sm p-0.5 transition-colors"
+          className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
           title="Close scopes"
         >
-          &times;
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
       {/* Scope Canvas Area */}
-      <div className="flex-1 relative bg-black flex items-center justify-center p-1 min-h-0">
+      <div className="flex-1 relative bg-[#151312] flex items-center justify-center p-1 min-h-0">
         <canvas
           ref={scopeCanvasRef}
           width={360}
           height={190}
-          className="w-full h-full block rounded bg-[#0a0a0a]"
+          className="w-full h-full block rounded bg-[#100f0e]"
         />
       </div>
 
       {/* Footer Controls */}
-      <div className="h-7 px-3 bg-[#181818] border-t border-[#252525] flex items-center justify-between text-[10px] text-[#888] shrink-0">
+      <div className="h-7 px-3 bg-[#171615] border-t border-white/10 flex items-center justify-between text-[10px] text-zinc-400 shrink-0">
         <div className="flex items-center gap-2">
           <span>Gain:</span>
           <input
@@ -156,14 +155,14 @@ export const ColorScopesPanel: React.FC<ColorScopesPanelProps> = ({
             step="0.1"
             value={gain}
             onChange={(e) => setGain(parseFloat(e.target.value))}
-            className="w-16 accent-[#3b82f6] cursor-pointer"
+            className="w-16 accent-[#e5a93c] cursor-pointer"
           />
-          <span className="font-mono text-white/80 w-6">{gain.toFixed(1)}x</span>
+          <span className="font-mono text-zinc-300 w-6">{gain.toFixed(1)}x</span>
         </div>
 
         <button
           onClick={() => setShowGraticule(!showGraticule)}
-          className={`hover:text-white transition-colors ${showGraticule ? 'text-[#3b82f6]' : 'text-[#555]'}`}
+          className={`hover:text-white transition-colors cursor-pointer ${showGraticule ? 'text-[#e5a93c] font-medium' : 'text-zinc-500'}`}
         >
           Grid: {showGraticule ? 'ON' : 'OFF'}
         </button>

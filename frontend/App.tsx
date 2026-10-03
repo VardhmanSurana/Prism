@@ -25,6 +25,9 @@ import { ToastHost } from './components/ui/ToastHost';
 import { useAnnounce } from './hooks/useAnnounce';
 import { useTelemetry } from './hooks/useTelemetry';
 import { ShareModal, type ShareTarget, SharePortalView } from './components/sharing';
+import { UpdateManager } from './components/updater/UpdateManager';
+import { useSafeModeStore } from '@/store/safeModeStore';
+import { ShieldAlert } from 'lucide-react';
 
 /**
  * Lightbox - Renders lightbox.
@@ -372,6 +375,11 @@ function App() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
 
+  const isSafeMode = useSafeModeStore((s) => s.isSafeMode);
+  const safeModeReason = useSafeModeStore((s) => s.safeModeReason);
+  const disableSafeMode = useSafeModeStore((s) => s.disableSafeMode);
+  const toggleSafeMode = useSafeModeStore((s) => s.toggleSafeMode);
+
   useEffect(() => {
     if (typeof window !== 'undefined' && !localStorage.getItem('prism_onboarding_completed')) {
       setIsOnboardingOpen(true);
@@ -415,8 +423,9 @@ function App() {
         onUpload: () => handleUpload([]),
         onSearch: (q: string) => setActiveFilters({ query: q, startDate: undefined, endDate: undefined, location: undefined }),
         onToggleLock: handleLockSession,
+        onToggleSafeMode: () => toggleSafeMode(),
       }),
-    [handleViewChange, handleUpload, setActiveFilters, handleLockSession]
+    [handleViewChange, handleUpload, setActiveFilters, handleLockSession, toggleSafeMode]
   );
 
   // ─── Global Keyboard Shortcuts ─────────────────────────────────────────────
@@ -467,7 +476,8 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="relative flex flex-1 h-dvh w-full overflow-hidden bg-background text-gray-100">
+      <UpdateManager />
+      <div className="relative flex flex-1 h-dvh w-full overflow-hidden bg-[#151312] text-gray-100">
         <div className="grain-overlay" />
         <div className="mesh-atmos" />
 
@@ -478,7 +488,23 @@ function App() {
           />
         )}
 
-        <main className="flex-1 flex flex-col min-w-0 relative z-10 pb-safe">
+        <main className="flex-1 flex flex-col min-w-0 relative z-10 pb-safe bg-[#151312]">
+          {isSafeMode && (
+            <div className="bg-amber-500/15 border-b border-amber-500/30 px-6 py-2 flex items-center justify-between text-xs text-amber-200 shrink-0 z-50">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0" />
+                <span className="font-semibold">Safe Mode Active:</span>
+                <span className="text-amber-300/90">{safeModeReason || 'Third-party plugins and UI extensions isolated.'}</span>
+              </div>
+              <button
+                onClick={disableSafeMode}
+                className="px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-medium transition cursor-pointer"
+              >
+                Exit Safe Mode
+              </button>
+            </div>
+          )}
+
           {!isMobile && currentView === 'gallery' && (
             <Header
               onSearch={setActiveFilters}
@@ -568,13 +594,7 @@ function App() {
           </AnimatePresence>
         </Suspense>
 
-        {currentView === 'gallery' && !selectedPhoto && (
-          <FloatingActions
-            importStatus={importStatus}
-            onUpload={handleUpload}
-            onImportProgress={setImportStatus}
-          />
-        )}
+        {/* Import is now prominently featured in Header */}
 
         <LiveAnnouncer />
 

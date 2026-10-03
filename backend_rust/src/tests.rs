@@ -295,7 +295,9 @@ mod server_enhancement_tests {
             packs_dir: PathBuf::from("packs"),
             plugins_dir: PathBuf::from("plugins"),
             map_cache_dir: PathBuf::from("map_cache"),
+            ..Default::default()
         };
+
 
         let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
         let ml_client = MlClient::new(LlmClient::new(llm_server));
@@ -319,6 +321,8 @@ mod server_enhancement_tests {
         Arc::new(crate::AppState {
             config,
             db: pool,
+            vault_key: parking_lot::RwLock::new([0u8; 32]),
+
             ml_client,
             telemetry,
             worker,
@@ -918,6 +922,7 @@ mod server_enhancement_tests {
             999,
             400,
             &key,
+            None,
         )
         .unwrap();
 
@@ -933,6 +938,7 @@ mod server_enhancement_tests {
             999,
             400,
             &key,
+            None,
         )
         .unwrap();
         assert_eq!(enc_thumb, again);
@@ -977,7 +983,9 @@ mod server_enhancement_tests {
             packs_dir: PathBuf::from("packs"),
             plugins_dir: PathBuf::from("plugins"),
             map_cache_dir: PathBuf::from("map_cache"),
+            ..Default::default()
         };
+
 
         let llm_server = LlmServer::new(config.models_dir.clone(), config.gpu_mode.clone());
         let ml_client = MlClient::new(LlmClient::new(llm_server));
@@ -1000,6 +1008,8 @@ mod server_enhancement_tests {
         Arc::new(crate::AppState {
             config,
             db: pool,
+            vault_key: parking_lot::RwLock::new([0u8; 32]),
+
             ml_client,
             telemetry,
             worker,

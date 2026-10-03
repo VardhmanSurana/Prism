@@ -28,29 +28,47 @@ pub async fn explore_photos(
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
 
     let mut sql = String::from("SELECT * FROM photos WHERE is_trash = 0 AND is_locked = 0");
+    if params.query.is_some() {
+        sql.push_str(" AND (caption LIKE ? OR location LIKE ? OR auto_tags LIKE ?)");
+    }
+    if params.city.is_some() {
+        sql.push_str(" AND city = ?");
+    }
+    if params.country.is_some() {
+        sql.push_str(" AND country = ?");
+    }
+    if params.camera_make.is_some() {
+        sql.push_str(" AND exif_make = ?");
+    }
+
+    sql.push_str(" ORDER BY date_taken DESC LIMIT ?");
+
+    let mut query = sqlx::query_as::<_, Photo>(&sql);
     if let Some(ref q) = params.query {
-        sql.push_str(&format!(
-            " AND (caption LIKE '%{}%' OR location LIKE '%{}%' OR auto_tags LIKE '%{}%')",
-            q, q, q
-        ));
+        let pattern = format!("%{}%", q);
+        query = query.bind(pattern.clone()).bind(pattern.clone()).bind(pattern);
     }
     if let Some(ref c) = params.city {
-        sql.push_str(&format!(" AND city = '{}'", c));
+        query = query.bind(c);
     }
     if let Some(ref co) = params.country {
-        sql.push_str(&format!(" AND country = '{}'", co));
+        query = query.bind(co);
     }
     if let Some(ref make) = params.camera_make {
-        sql.push_str(&format!(" AND exif_make = '{}'", make));
+        query = query.bind(make);
     }
-
-    sql.push_str(&format!(" ORDER BY date_taken DESC LIMIT {}", limit));
+    query = query.bind(limit);
 
     let start_time = std::time::Instant::now();
-    let photos = sqlx::query_as::<_, Photo>(&sql)
+    let mut photos = query
         .fetch_all(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    for p in &mut photos {
+        p.normalize_display_fields();
+    }
+
 
     let duration_ms = start_time.elapsed().as_secs_f64() * 1000.0;
     let meta = json!({

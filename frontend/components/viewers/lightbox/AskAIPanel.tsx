@@ -193,16 +193,16 @@ export const AskAIPanel: React.FC<AskAIPanelProps> = ({ photo, onClose }) => {
   }, [input, isLoading, sessionId, photo.path]);
 
   return (
-    <div className="w-96 h-full bg-[#0D0F14]/95 backdrop-blur-xl border-l border-white/5 flex flex-col animate-in slide-in-from-right duration-300 z-30">
+    <div className="w-96 h-full bg-[#151312]/95 backdrop-blur-xl border-l border-white/10 flex flex-col animate-in slide-in-from-right duration-300 z-30">
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary/20 flex items-center justify-center">
-            <Sparkles size={14} className="text-primary" />
+      <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-[#e5a93c]/15 border border-[#e5a93c]/25 flex items-center justify-center">
+            <Sparkles size={14} className="text-[#e5a93c]" />
           </div>
           <div>
-            <h3 className="text-xs font-semibold text-white/90">Ask AI</h3>
-            <p className="text-[10px] text-white/40 truncate max-w-[200px]">{photo.filename}</p>
+            <h3 className="text-xs font-semibold text-[#f5f0ed]">Ask AI</h3>
+            <p className="text-[10px] text-zinc-400 truncate max-w-[200px]">{photo.filename}</p>
           </div>
         </div>
         <button

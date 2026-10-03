@@ -170,8 +170,9 @@ pub async fn upload_photo(
     let src_path = target_path.clone();
     let thumb_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
+    let thumb_quality = state.config.thumb_quality.clone();
     tokio::task::spawn_blocking(move || {
-        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400);
+        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400, Some(&thumb_quality));
     });
 
     // Enqueue for 4-stage AI processing
@@ -321,8 +322,9 @@ pub async fn upload_blob(
     let src_path = target_path.clone();
     let thumb_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
+    let thumb_quality = state.config.thumb_quality.clone();
     tokio::task::spawn_blocking(move || {
-        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400);
+        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400, Some(&thumb_quality));
     });
 
     // Enqueue for 4-stage AI processing
@@ -358,3 +360,177 @@ pub async fn expand_directory(
 pub async fn unload_inpaint() -> Json<Value> {
     Json(crate::services::editor_models::unload_all().await)
 }
+
+#[derive(Deserialize)]
+pub struct ImportUrlPayload {
+    pub url: String,
+}
+
+/// import_from_url - Downloads media from a web URL and ingests it into the library.
+pub async fn import_from_url(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<ImportUrlPayload>,
+) -> Result<Json<Photo>, (StatusCode, String)> {
+    let raw_url = payload.url.trim();
+    if !raw_url.starts_with("http://") && !raw_url.starts_with("https://") {
+        return Err((StatusCode::BAD_REQUEST, "URL must start with http:// or https://".to_string()));
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create HTTP client: {}", e)))?;
+
+    let res = client
+        .get(raw_url)
+        .header("User-Agent", "Mozilla/5.0 (compatible; Prism/1.0; +https://prism.local)")
+        .send()
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to fetch URL: {}", e)))?;
+
+    if !res.status().is_success() {
+        return Err((StatusCode::BAD_GATEWAY, format!("Remote server returned status {}", res.status())));
+    }
+
+    let content_type = res
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+
+    let ext = if content_type.contains("png") {
+        "png"
+    } else if content_type.contains("webp") {
+        "webp"
+    } else if content_type.contains("gif") {
+        "gif"
+    } else if content_type.contains("avif") {
+        "avif"
+    } else if content_type.contains("mp4") || content_type.contains("video/mp4") {
+        "mp4"
+    } else if let Ok(parsed) = reqwest::Url::parse(raw_url) {
+        let path = parsed.path().to_lowercase();
+        if path.ends_with(".png") {
+            "png"
+        } else if path.ends_with(".webp") {
+            "webp"
+        } else if path.ends_with(".avif") {
+            "avif"
+        } else if path.ends_with(".gif") {
+            "gif"
+        } else if path.ends_with(".mp4") {
+            "mp4"
+        } else {
+            "jpg"
+        }
+    } else {
+        "jpg"
+    };
+
+    let bytes = res
+        .bytes()
+        .await
+        .map_err(|e| (StatusCode::BAD_GATEWAY, format!("Failed to download image bytes: {}", e)))?;
+
+    if bytes.is_empty() {
+        return Err((StatusCode::BAD_REQUEST, "Downloaded file is empty".to_string()));
+    }
+
+    let uuid_str = Uuid::new_v4().to_string();
+    let filename = format!("web_import_{}_{}.{}", Utc::now().timestamp_millis(), &uuid_str[..8], ext);
+    fs::create_dir_all(&state.config.upload_dir).ok();
+    let target_path = state.config.upload_dir.join(&filename);
+
+    fs::write(&target_path, &bytes).map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let abs_path_str = target_path.to_string_lossy().to_string();
+    let file_size = Some(bytes.len() as i64);
+
+    let is_video = ext == "mp4";
+    let mime = if is_video {
+        "video/mp4".to_string()
+    } else {
+        format!("image/{}", if ext == "jpg" { "jpeg" } else { ext })
+    };
+
+    let img_info = get_image_info(&target_path).unwrap_or_else(|_| crate::services::thumbnail::ImageInfo {
+        width: 1920,
+        height: 1080,
+        aspect_ratio: 1.77,
+    });
+    let exif = extract_exif(&target_path);
+    let now_str = Utc::now().to_rfc3339();
+
+    let id = sqlx::query(
+        r#"
+        INSERT INTO photos (uuid, filename, path, width, height, aspect_ratio, exif_make, exif_model, exif_iso, exif_focal_length, date_taken, date, upload_date, file_type, mime_type, file_size)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        "#
+    )
+    .bind(&uuid_str)
+    .bind(&filename)
+    .bind(&abs_path_str)
+    .bind(img_info.width as i32)
+    .bind(img_info.height as i32)
+    .bind(img_info.aspect_ratio)
+    .bind(&exif.make)
+    .bind(&exif.model)
+    .bind(&exif.iso)
+    .bind(&exif.focal_length)
+    .bind(&now_str)
+    .bind(&now_str)
+    .bind(&now_str)
+    .bind(if is_video { "video" } else { "image" })
+    .bind(&mime)
+    .bind(file_size)
+    .execute(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+    .last_insert_rowid();
+
+    let mut photo = sqlx::query_as::<_, Photo>("SELECT * FROM photos WHERE id = ?")
+        .bind(id)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    let p_key = photo.uuid.as_deref().unwrap_or(&photo.id.to_string()).to_string();
+    photo.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key));
+
+    if photo.date_taken.is_none() {
+        photo.date_taken = Some(Utc::now());
+    }
+    if photo.date.is_none() {
+        photo.date = photo.date_taken;
+    }
+
+    crate::services::webhooks::WebhookService::dispatch_event(
+        &state.db,
+        "photo.imported",
+        serde_json::json!({
+            "id": photo.id,
+            "uuid": photo.uuid,
+            "filename": photo.filename,
+            "path": photo.path,
+            "source_url": raw_url,
+        }),
+    )
+    .await;
+
+    // Pre-generate thumbnail in background
+    let src_path = target_path.clone();
+    let thumb_dir = state.config.thumbnails_dir.clone();
+    let photo_id = photo.id;
+    let thumb_quality = state.config.thumb_quality.clone();
+    tokio::task::spawn_blocking(move || {
+        let _ = crate::services::thumbnail::generate_thumbnail(&src_path, &thumb_dir, photo_id, 400, Some(&thumb_quality));
+    });
+
+    // Enqueue for 4-stage AI processing
+    crate::services::worker::enqueue_photo(&state.db, photo.id).await;
+    state.worker.notify.notify_one();
+
+    Ok(Json(photo))
+}
+

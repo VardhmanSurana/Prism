@@ -40,61 +40,65 @@ export const MapPlaybackPanel: React.FC<MapPlaybackPanelProps> = ({
   onReset,
 }) => {
   return (
-    <div className="absolute left-6 bottom-28 z-[1000] w-[min(420px,calc(100vw-3rem))]">
-      <div className="rounded-[28px] border border-white/10 bg-surface/95 px-5 py-4 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-start justify-between gap-4">
+    <div className="absolute left-6 bottom-24 z-[1000] w-[min(400px,calc(100vw-3rem))] pointer-events-none">
+      <div className="rounded-2xl border border-white/10 bg-[#1d1b1a]/95 px-5 py-4 shadow-2xl backdrop-blur-xl pointer-events-auto">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-lime-200/85">
-              Time-lapse map
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#e5a93c] flex items-center gap-1.5 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#e5a93c] animate-pulse" />
+              Chronological Replay
             </div>
-            <p className="mt-1 text-sm text-white">{formatPlaybackDate(currentTimestamp)}</p>
-            <p className="mt-1 text-xs text-gray-400">
-              {visibleCount} of {totalCount} mapped photos revealed in chronological playback.
+            <p className="mt-1 text-base font-serif text-white">{formatPlaybackDate(currentTimestamp)}</p>
+            <p className="mt-0.5 text-xs font-mono text-zinc-400">
+              <span className="text-[#f5f0ed] font-medium">{visibleCount}</span> of {totalCount} photos mapped
             </p>
           </div>
           <button
             type="button"
             onClick={onToggleActive}
-            className={`inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition ${
+            className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
               active
-                ? 'border-lime-300/70 bg-lime-200/90 text-black'
-                : 'border-white/15 bg-white/5 text-white hover:border-white/25 hover:bg-white/10'
+                ? 'border-white/15 bg-[#302d2c] text-white shadow-sm'
+                : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10'
             }`}
           >
-            <Clapperboard size={13} />
-            {active ? 'Time-lapse on' : 'Enable'}
+            <Clapperboard size={13} className={active ? 'text-[#e5a93c]' : 'text-zinc-400'} />
+            <span>{active ? 'Active' : 'Enable'}</span>
+            {active && <span className="w-1.5 h-1.5 rounded-full bg-[#e5a93c]" />}
           </button>
         </div>
 
-        <div className="mt-4 flex items-center gap-2">
+        <div className="mt-3.5 flex items-center gap-2">
           <button
             type="button"
             onClick={onTogglePlayback}
             disabled={!active}
-            className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
               active
-                ? 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
-                : 'cursor-not-allowed border-white/5 bg-white/5 text-gray-500'
+                ? 'border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10 active:scale-95'
+                : 'cursor-not-allowed border-white/5 bg-white/5 text-zinc-600'
             }`}
+            title={isPlaying ? 'Pause' : 'Play replay'}
           >
-            {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+            {isPlaying ? <Pause size={15} /> : <Play size={15} />}
           </button>
           <button
             type="button"
             onClick={onReset}
             disabled={!active}
-            className={`flex h-10 w-10 items-center justify-center rounded-2xl border transition ${
+            className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${
               active
-                ? 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
-                : 'cursor-not-allowed border-white/5 bg-white/5 text-gray-500'
+                ? 'border-white/10 bg-white/5 text-white hover:border-white/20 hover:bg-white/10 active:scale-95'
+                : 'cursor-not-allowed border-white/5 bg-white/5 text-zinc-600'
             }`}
+            title="Reset to beginning"
           >
-            <RotateCcw size={15} />
+            <RotateCcw size={14} />
           </button>
           <div className="relative flex-1">
-            <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/8" />
+            <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/10" />
             <div
-              className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-lime-200 via-primary to-sky-300 shadow-[0_0_20px_rgba(210,255,114,0.25)]"
+              className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#e5a93c]/70 via-[#e5a93c] to-[#f3ba57] shadow-[0_0_12px_rgba(229,169,60,0.45)]"
               style={{ width: `${Math.max(0, Math.min(100, progress * 100))}%` }}
             />
             <input
@@ -104,7 +108,7 @@ export const MapPlaybackPanel: React.FC<MapPlaybackPanelProps> = ({
               value={Math.round(progress * 1000)}
               onChange={(event) => onProgressChange(Number(event.target.value) / 1000)}
               disabled={!active}
-              className="temporal-slider relative h-10 w-full appearance-none bg-transparent"
+              className="temporal-slider relative h-8 w-full appearance-none bg-transparent cursor-pointer"
             />
           </div>
         </div>

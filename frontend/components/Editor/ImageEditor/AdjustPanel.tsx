@@ -133,25 +133,25 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
   const hasActiveCurves = !isIdentityCurve(adjustments.curves);
 
   return (
-    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#0d0f14] text-white">
+    <div className="flex-1 w-full min-h-full overflow-y-auto overflow-x-hidden custom-scrollbar bg-[#1d1b1a] text-[#f5f0ed]">
       {/* ── Action buttons ── */}
       <div className="px-4 pt-4 pb-2 flex gap-2">
         <button
           onClick={handleAutoEnhance}
           disabled={!photoId || isAutoEnhancing}
-          className="flex-[2] flex items-center justify-center gap-1.5 py-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/5 text-[11px] font-medium text-white/95 transition-colors 150ms ease, background-color 150ms ease cursor-pointer disabled:opacity-50 disabled:cursor-default"
+          className="flex-[2] flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-[#e5a93c] hover:bg-[#d4982b] text-[#151312] text-[11px] font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default shadow-xs"
         >
-          {isAutoEnhancing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} className="text-white/60" />}
+          {isAutoEnhancing ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
           Auto Enhance
         </button>
 
         <button
           onClick={handleReset}
           disabled={isDefault}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded text-[11px] font-medium transition-colors 150ms ease, background-color 150ms ease border ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors border ${
             !isDefault
-              ? 'border-white/5 text-white/70 hover:text-white hover:bg-white/5 cursor-pointer bg-white/5'
-              : 'border-transparent text-white/20 cursor-default'
+              ? 'border-white/10 text-zinc-300 hover:text-white hover:bg-white/5 cursor-pointer bg-white/[0.04]'
+              : 'border-transparent text-zinc-600 cursor-default'
           }`}
         >
           <RotateCcw size={11} />
@@ -160,16 +160,16 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
       </div>
 
       {/* ── 1. LIGHT ACCORDION ── */}
-      <div className="border-b border-white/5">
+      <div className="border-b border-white/10">
         <button
           onClick={() => setLightOpen(!lightOpen)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
-            <Sun size={14} className="text-white/40" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/75">Light</span>
+            <Sun size={14} className="text-[#e5a93c]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Light</span>
           </div>
-          {lightOpen ? <ChevronUp size={14} className="text-white/30" /> : <ChevronDown size={14} className="text-white/30" />}
+          {lightOpen ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
         </button>
 
         {lightOpen && (
@@ -231,18 +231,18 @@ export const AdjustPanel: React.FC<AdjustPanelProps> = ({ adjustments, onChange,
       </div>
 
       {/* ── 2. TONE & COLOR CURVES ACCORDION ── */}
-      <div className="border-b border-white/5">
+      <div className="border-b border-white/10">
         <button
           onClick={() => setCurvesOpen(!curvesOpen)}
-          className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
-            <Sun size={14} className="text-white/40" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/75">Curves (RGB & Color)</span>
+            <Sun size={14} className="text-[#e5a93c]" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Curves (RGB & Color)</span>
           </div>
           <div className="flex items-center gap-2">
-            {hasActiveCurves && <span className="text-[10px] text-white/35 font-bold select-none mr-1 font-sans">✓</span>}
-            {curvesOpen ? <ChevronUp size={14} className="text-white/30" /> : <ChevronDown size={14} className="text-white/30" />}
+            {hasActiveCurves && <span className="text-[10px] text-[#e5a93c] font-bold select-none mr-1 font-sans">✓</span>}
+            {curvesOpen ? <ChevronUp size={14} className="text-zinc-500" /> : <ChevronDown size={14} className="text-zinc-500" />}
           </div>
         </button>
 

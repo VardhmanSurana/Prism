@@ -233,15 +233,15 @@ export const PluginManager: React.FC = () => {
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--cr-border)]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[rgba(255,255,255,0.06)]">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
               <Package size={22} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[var(--cr-text-primary)] tracking-tight">Plugin Management</h2>
-              <p className="text-xs text-[var(--cr-text-secondary)]">
+              <h2 className="text-xl font-bold text-[#f5f0ed] tracking-tight">Plugin Management</h2>
+              <p className="text-xs text-[#a8a29e]">
                 Discover, install, and manage modular extensions in <code className="px-1.5 py-0.5 rounded bg-white/5 font-mono text-[11px]">{pluginsDir}</code>
               </p>
             </div>
@@ -252,7 +252,7 @@ export const PluginManager: React.FC = () => {
           <button
             onClick={fetchPlugins}
             disabled={isLoading}
-            className="px-3.5 py-2 rounded-xl border border-[var(--cr-border)] bg-[var(--cr-surface-card)] hover:bg-white/5 text-xs font-medium text-[var(--cr-text-primary)] flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40 shadow-sm"
+            className="px-3.5 py-2 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] hover:bg-white/5 text-xs font-medium text-[#f5f0ed] flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40 shadow-sm"
           >
             <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             <span>Refresh</span>
@@ -283,18 +283,18 @@ export const PluginManager: React.FC = () => {
       )}
 
       {/* ── Main Tab Navigation ── */}
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--cr-border)]">
+      <div className="flex items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.06)]">
         <div className="flex items-center gap-6">
           <button
             onClick={() => setActiveTab('installed')}
             className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
               activeTab === 'installed'
                 ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
+                : 'border-transparent text-[#a8a29e] hover:text-[#f5f0ed]'
             }`}
           >
             <span>My Plugins</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[var(--cr-text-primary)]">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-[#f5f0ed]">
               {installedPlugins.length}
             </span>
           </button>
@@ -304,7 +304,7 @@ export const PluginManager: React.FC = () => {
             className={`pb-3 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all ${
               activeTab === 'catalog'
                 ? 'border-blue-500 text-blue-400'
-                : 'border-transparent text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)]'
+                : 'border-transparent text-[#a8a29e] hover:text-[#f5f0ed]'
             }`}
           >
             <span>Plugin Catalog</span>
@@ -319,13 +319,13 @@ export const PluginManager: React.FC = () => {
       {activeTab === 'installed' && (
         <div className="space-y-4 animate-fadeIn">
           {installedPlugins.length === 0 ? (
-            <div className="p-12 rounded-3xl border border-dashed border-[var(--cr-border)] bg-[var(--cr-surface-card)] text-center space-y-4">
+            <div className="p-12 rounded-3xl border border-dashed border-[rgba(255,255,255,0.06)] bg-[#211f1e] text-center space-y-4">
               <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-400 mx-auto flex items-center justify-center border border-blue-500/20">
                 <Package size={24} />
               </div>
               <div className="space-y-1 max-w-md mx-auto">
-                <h3 className="font-semibold text-[var(--cr-text-primary)] text-sm">No Plugins Installed Yet</h3>
-                <p className="text-xs text-[var(--cr-text-secondary)] leading-relaxed">
+                <h3 className="font-semibold text-[#f5f0ed] text-sm">No Plugins Installed Yet</h3>
+                <p className="text-xs text-[#a8a29e] leading-relaxed">
                   Enhance Prism with AI matting backdrops, face retouching, 3D LUT profiles, and smart geotagging from the Plugin Catalog.
                 </p>
               </div>
@@ -345,7 +345,7 @@ export const PluginManager: React.FC = () => {
                 return (
                   <div
                     key={plugin.id}
-                    className="p-4 rounded-2xl border border-[var(--cr-border)] bg-[var(--cr-surface-card)] hover:border-white/20 transition-all flex flex-col justify-between gap-4 shadow-sm"
+                    className="p-4 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] hover:border-white/20 transition-all flex flex-col justify-between gap-4 shadow-sm"
                   >
                     <div className="space-y-3">
                       {/* Top row: Icon, Name, Active Toggle */}
@@ -364,14 +364,14 @@ export const PluginManager: React.FC = () => {
                           )}
                           <div>
                             <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-sm text-[var(--cr-text-primary)] leading-tight">
+                              <h3 className="font-semibold text-sm text-[#f5f0ed] leading-tight">
                                 {plugin.manifest.name}
                               </h3>
-                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-[var(--cr-text-secondary)] border border-white/10">
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-[#a8a29e] border border-white/10">
                                 v{plugin.manifest.version}
                               </span>
                             </div>
-                            <p className="text-[11px] text-[var(--cr-text-secondary)] mt-0.5">
+                            <p className="text-[11px] text-[#a8a29e] mt-0.5">
                               by {plugin.manifest.author}
                             </p>
                           </div>
@@ -396,7 +396,7 @@ export const PluginManager: React.FC = () => {
                       </div>
 
                       {/* Description */}
-                      <p className="text-xs text-[var(--cr-text-secondary)] leading-relaxed line-clamp-2">
+                      <p className="text-xs text-[#a8a29e] leading-relaxed line-clamp-2">
                         {plugin.manifest.description}
                       </p>
 
@@ -414,7 +414,7 @@ export const PluginManager: React.FC = () => {
                     </div>
 
                     {/* Footer: Folder Path and Action Buttons */}
-                    <div className="pt-3 border-t border-[var(--cr-border)] flex items-center justify-between text-[11px] text-[var(--cr-text-secondary)]">
+                    <div className="pt-3 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between text-[11px] text-[#a8a29e]">
                       <div className="flex items-center gap-1.5 font-mono text-[10px] text-gray-400 truncate max-w-[200px]" title={plugin.path}>
                         <Folder size={12} className="shrink-0" />
                         <span className="truncate">{pluginsDir}/{plugin.id}</span>
@@ -423,7 +423,7 @@ export const PluginManager: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => setConfigModalPlugin(plugin)}
-                          className="p-1.5 rounded-lg border border-[var(--cr-border)] hover:bg-white/5 text-[var(--cr-text-secondary)] hover:text-white transition-colors"
+                          className="p-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] hover:bg-white/5 text-[#a8a29e] hover:text-white transition-colors"
                           title="Configure plugin"
                         >
                           <Settings size={14} />
@@ -460,7 +460,7 @@ export const PluginManager: React.FC = () => {
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all ${
                     selectedCategory === cat
                       ? 'bg-blue-500 text-white shadow-md shadow-blue-500/20'
-                      : 'bg-[var(--cr-surface-card)] border border-[var(--cr-border)] text-[var(--cr-text-secondary)] hover:text-white'
+                      : 'bg-[#211f1e] border border-[rgba(255,255,255,0.06)] text-[#a8a29e] hover:text-white'
                   }`}
                 >
                   {cat === 'all' ? 'All Categories' : cat}
@@ -476,7 +476,7 @@ export const PluginManager: React.FC = () => {
                 placeholder="Search catalog plugins..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[var(--cr-border)] bg-[var(--cr-surface-card)] text-xs text-[var(--cr-text-primary)] placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] text-xs text-[#f5f0ed] placeholder-gray-500 focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
@@ -489,7 +489,7 @@ export const PluginManager: React.FC = () => {
               return (
                 <div
                   key={item.id}
-                  className="p-5 rounded-2xl border border-[var(--cr-border)] bg-[var(--cr-surface-card)] hover:border-white/20 transition-all flex flex-col justify-between gap-4 shadow-sm"
+                  className="p-5 rounded-2xl border border-[rgba(255,255,255,0.06)] bg-[#211f1e] hover:border-white/20 transition-all flex flex-col justify-between gap-4 shadow-sm"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
@@ -499,10 +499,10 @@ export const PluginManager: React.FC = () => {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-sm text-[var(--cr-text-primary)]">
+                            <h3 className="font-semibold text-sm text-[#f5f0ed]">
                               {item.name}
                             </h3>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-[var(--cr-text-secondary)] border border-white/10">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-[#a8a29e] border border-white/10">
                               v{item.version}
                             </span>
                           </div>
@@ -517,7 +517,7 @@ export const PluginManager: React.FC = () => {
                       </span>
                     </div>
 
-                    <p className="text-xs text-[var(--cr-text-secondary)] leading-relaxed">
+                    <p className="text-xs text-[#a8a29e] leading-relaxed">
                       {item.description}
                     </p>
 
@@ -534,7 +534,7 @@ export const PluginManager: React.FC = () => {
                   </div>
 
                   {/* Action row */}
-                  <div className="pt-3 border-t border-[var(--cr-border)] flex items-center justify-between">
+                  <div className="pt-3 border-t border-[rgba(255,255,255,0.06)] flex items-center justify-between">
                     <div className="text-[11px] text-gray-400 flex items-center gap-1">
                       <Info size={12} />
                       <span>Installs into <code className="font-mono text-[10px]">plugins/{item.id}</code></span>

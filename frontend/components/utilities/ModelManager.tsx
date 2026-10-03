@@ -329,13 +329,13 @@ export const ModelManager: React.FC = () => {
   return (
     <div className="flex flex-col gap-6 text-gray-100 font-sans pb-12">
       {/* ── Summary & Stats Header ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-white/[0.03] border border-white/10 backdrop-blur-xl">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 rounded-2xl bg-[#211f1e] border border-white/5">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+          <div className="w-12 h-12 rounded-2xl bg-[#1d1b1a] border border-white/10 flex items-center justify-center text-[#e5a93c]">
             <Cpu size={24} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white tracking-tight">On-Demand AI Models & Capability Packs</h2>
+            <h2 className="font-serif text-xl text-[#f5f0ed]">On-Demand AI Models & Capability Packs</h2>
             <p className="text-xs text-gray-400">
               Download models locally for offline vision search, background cutout, and face identification.
             </p>
@@ -343,7 +343,7 @@ export const ModelManager: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#1d1b1a] border border-white/5 text-xs font-mono text-[#a8a29e]">
             <HardDrive size={14} className="text-gray-400" />
             <span>Disk Used: <strong className="text-white">{formatBytes(totalDiskUsed)}</strong></span>
             <span className="text-gray-500">({downloadedCount}/{models.length} ready)</span>
@@ -352,7 +352,7 @@ export const ModelManager: React.FC = () => {
           <button
             onClick={handleDownloadAll}
             disabled={downloadedCount === models.length || hasActiveDownloads}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-white font-medium text-xs rounded-xl flex items-center gap-1.5 shadow-lg shadow-blue-500/20 transition-all"
+            className="px-4 py-2 px-4 py-2 bg-[#e5e2e0] hover:bg-white text-[#151312] font-semibold text-xs rounded-full flex items-center gap-1.5 transition-all shadow-sm cursor-pointer disabled:opacity-40"
           >
             <Download size={14} />
             <span>Download Ungated</span>
@@ -361,27 +361,27 @@ export const ModelManager: React.FC = () => {
       </div>
 
       {/* ── Filter Tabs ── */}
-      <div className="flex items-center gap-2 p-1 rounded-xl bg-white/5 border border-white/10 w-fit">
+      <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-[#100e0d] border border-[#2c2928] w-fit">
         <button
           onClick={() => setActiveCategoryTab('all')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activeCategoryTab === 'all' ? 'bg-white/15 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
+            activeCategoryTab === 'all' ? 'bg-[#2c2928] text-[#f5f0ed] font-semibold border border-white/10 shadow-sm' : 'text-[#a8a29e] hover:text-[#f5f0ed] hover:bg-[#1d1b1a]'
           }`}
         >
           All Models ({models.length})
         </button>
         <button
           onClick={() => setActiveCategoryTab('core')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activeCategoryTab === 'core' ? 'bg-white/15 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
+            activeCategoryTab === 'core' ? 'bg-[#2c2928] text-[#f5f0ed] font-semibold border border-white/10 shadow-sm' : 'text-[#a8a29e] hover:text-[#f5f0ed] hover:bg-[#1d1b1a]'
           }`}
         >
           Core AI ({models.filter(m => !m.category.toLowerCase().includes('capability pack')).length})
         </button>
         <button
           onClick={() => setActiveCategoryTab('packs')}
-          className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-            activeCategoryTab === 'packs' ? 'bg-white/15 text-white shadow' : 'text-gray-400 hover:text-gray-200'
+          className={`px-3.5 py-1.5 rounded-xl text-xs font-mono transition-all cursor-pointer ${
+            activeCategoryTab === 'packs' ? 'bg-[#2c2928] text-[#f5f0ed] font-semibold border border-white/10 shadow-sm' : 'text-[#a8a29e] hover:text-[#f5f0ed] hover:bg-[#1d1b1a]'
           }`}
         >
           Capability Packs: BG Removal ({models.filter(m => m.category.toLowerCase().includes('capability pack')).length})
@@ -422,8 +422,8 @@ export const ModelManager: React.FC = () => {
                 isDownloading
                   ? 'bg-blue-500/[0.04] border-blue-500/30 shadow-lg shadow-blue-500/5'
                   : isCompleted
-                  ? 'bg-white/[0.02] border-white/10 hover:border-white/20'
-                  : 'bg-white/[0.01] border-white/5 opacity-85 hover:opacity-100'
+                  ? 'bg-[#211f1e] border-white/5 hover:border-white/10'
+                  : 'bg-[#211f1e] border-white/5 opacity-85 hover:opacity-100 hover:border-white/10'
               }`}
             >
               {/* Card Header */}

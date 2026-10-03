@@ -1,37 +1,50 @@
 import React from 'react';
+import { ViewMode } from '@/types';
 
 interface NavItemProps {
   icon: React.ElementType;
   label: string;
-  view: any;
+  view: ViewMode;
   currentView: string;
-  onChangeView: (view: any) => void;
+  onChangeView: (view: ViewMode) => void;
   onMouseEnter?: () => void;
 }
 
-// ponytail: simplified NavItem, standardized on signature Prism styling
 /**
- * NavItem - Renders nav item.
+ * NavItem - Renders a sleek pill nav item matching Prism Dark Basalt aesthetics.
  */
-export const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, view, currentView, onChangeView, onMouseEnter }) => {
+export const NavItem: React.FC<NavItemProps> = ({
+  icon: Icon,
+  label,
+  view,
+  currentView,
+  onChangeView,
+  onMouseEnter,
+}) => {
   const isActive = currentView === view;
 
   return (
     <button
+      type="button"
       onClick={() => onChangeView(view)}
       onMouseEnter={onMouseEnter}
-      className={`w-full flex items-center gap-4 px-6 py-3.5 text-sm transition-colors duration-300 relative group
-        ${isActive ? 'text-white' : 'text-gray-500 hover:text-white'}`}
+      className={`w-full flex items-center gap-3.5 px-3.5 py-2.5 rounded-full transition-colors duration-150 relative text-left cursor-pointer group ${
+        isActive
+          ? 'bg-[#302d2c] text-[#f5f0ed] font-medium'
+          : 'text-[#aba19c] hover:text-[#f5f0ed] hover:bg-[#201e1d]/70'
+      }`}
     >
-      <div
-        className={`absolute inset-y-1.5 left-2 right-2 bg-white/[0.05] rounded-xl border border-white/5 shadow-inner
-          transition-opacity duration-200 ease-out, transition-transform 200ms cubic-bezier(0.23, 1, 0.32, 1)
-          ${isActive ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
-      >
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-primary rounded-full blur-[1px]" />
-      </div>
-      <Icon size={18} className={`transition-colors duration-300 relative z-10 ${isActive ? 'text-primary' : 'group-hover:text-primary/50'}`} />
-      <span className={`tracking-tight relative z-10 ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+      <Icon
+        size={18}
+        strokeWidth={1.75}
+        className={`shrink-0 transition-colors duration-150 ${
+          isActive ? 'text-[#f5f0ed]' : 'text-[#aba19c] group-hover:text-[#f5f0ed]'
+        }`}
+      />
+      <span className="text-[13.5px] tracking-tight truncate leading-none">
+        {label}
+      </span>
     </button>
   );
 };
+

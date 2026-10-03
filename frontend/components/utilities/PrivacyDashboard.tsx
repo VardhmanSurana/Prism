@@ -1,40 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { ShieldCheck, ShieldAlert, ChevronRight, ChevronDown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 import { API_BASE } from '../../constants';
+import { ShieldCheck, Server, Radio, ChevronRight, Lock, CheckCircle2 } from 'lucide-react';
 
-interface PrivacyFeature {
+interface FeatureAudit {
   id: string;
   label: string;
   enabled: boolean;
-  description: string;
+  model: string;
   network_calls: string[];
   what_runs_locally: string[];
   what_is_sent: string;
-  model: string;
 }
 
 interface PrivacyStatus {
   summary: {
-    total_features: number;
-    enabled: number;
-    disabled: number;
-    total_network_endpoints: number;
     all_local: boolean;
+    total_network_endpoints: number;
     verdict: string;
   };
-  features: PrivacyFeature[];
+  features: FeatureAudit[];
 }
 
-/**
- * Privacy dashboard: shows local-only guarantees, feature network guarantees, and data counts.
- */
 export const PrivacyDashboard: React.FC = () => {
   const [status, setStatus] = useState<PrivacyStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/v1/privacy/status`)
+    fetch(`${API_BASE}/api/v1/utilities/privacy/audit`)
       .then(res => res.json())
       .then(data => {
         setStatus(data);
@@ -45,9 +38,10 @@ export const PrivacyDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="cr-card flex items-center justify-center py-12">
-        <span className="font-mono text-xs text-[var(--cr-text-muted)] animate-pulse">
-          Auditing privacy sandbox...
+      <div className="bg-[#211f1e] border border-white/5 rounded-2xl flex items-center justify-center py-16">
+        <span className="font-mono text-xs text-[#a8a29e] animate-pulse flex items-center gap-2">
+          <ShieldCheck size={16} className="text-emerald-400" />
+          Auditing local privacy sandbox & hardware boundaries...
         </span>
       </div>
     );
@@ -55,8 +49,8 @@ export const PrivacyDashboard: React.FC = () => {
 
   if (!status) {
     return (
-      <div className="cr-card text-center py-12 font-mono text-xs text-[var(--cr-status-error)]">
-        Failed to load privacy audit
+      <div className="bg-[#211f1e] border border-rose-900/30 rounded-2xl text-center py-12 font-mono text-xs text-rose-400">
+        Failed to load privacy audit status from local engine.
       </div>
     );
   }
@@ -64,77 +58,107 @@ export const PrivacyDashboard: React.FC = () => {
   const { summary, features } = status;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {/* Data Flow Summary Bento Card */}
-      <div className="cr-card">
-        <div className="flex items-center justify-between border-b border-[var(--cr-border)] pb-3 mb-3">
-          <div className="cr-card-title mb-0">Data Flow & Privacy Audit</div>
-          <span className="cr-privacy-card-badge local font-mono">
-            {summary.all_local ? 'All Local' : 'Remote Enabled'}
+      <div className="bg-[#211f1e] border border-white/5 p-6 rounded-2xl flex flex-col gap-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h2 className="font-serif text-xl text-[#f5f0ed]">Data Flow &amp; Privacy Boundary Audit</h2>
+              <p className="text-xs text-[#a8a29e] mt-0.5">{summary.verdict}</p>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-mono text-xs self-start sm:self-auto font-medium">
+            {summary.all_local ? '100% Local Air-Gapped' : 'Remote APIs Enabled'}
           </span>
         </div>
 
-        <p className="text-xs text-[var(--cr-text-muted)] mb-4">{summary.verdict}</p>
-
+        {/* 3 Metric Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="cr-key-value">
-            <span className="k">Network Calls</span>
-            <span className="v val-accent">{summary.total_network_endpoints}</span>
+          <div className="p-4 rounded-xl bg-[#1d1b1a] border border-white/5 flex flex-col justify-between gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#a8a29e]">Network Endpoints</span>
+            <div className="font-serif text-2xl text-[#f5f0ed]">{summary.total_network_endpoints}</div>
+            <span className="text-[11px] text-[#78716c]">External TCP sockets</span>
           </div>
-          <div className="cr-key-value">
-            <span className="k">External APIs</span>
-            <span className="v val-accent">{summary.all_local ? 'None' : 'Active'}</span>
+
+          <div className="p-4 rounded-xl bg-[#1d1b1a] border border-white/5 flex flex-col justify-between gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#a8a29e]">External Cloud APIs</span>
+            <div className="font-serif text-2xl text-emerald-400">{summary.all_local ? 'Zero (Air-Gapped)' : 'Active'}</div>
+            <span className="text-[11px] text-[#78716c]">Third-party telemetry calls</span>
           </div>
-          <div className="cr-key-value">
-            <span className="k">Telemetry</span>
-            <span className="v val-accent">Disabled</span>
+
+          <div className="p-4 rounded-xl bg-[#1d1b1a] border border-white/5 flex flex-col justify-between gap-2">
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[#a8a29e]">Inference Telemetry</span>
+            <div className="font-serif text-2xl text-[#f5f0ed]">Local NVMe Only</div>
+            <span className="text-[11px] text-[#78716c]">Encrypted SQLite WAL logs</span>
           </div>
         </div>
       </div>
 
       {/* Feature Breakdown Cards */}
-      <div>
-        <div className="font-mono text-[10px] uppercase text-[var(--cr-text-muted)] tracking-wider mb-2">
+      <div className="space-y-3">
+        <div className="font-mono text-[11px] uppercase text-[#78716c] tracking-[0.14em] px-1">
           Local AI Feature Pipeline Audit
         </div>
 
         <div className="space-y-2">
-          {features.map(feature => {
+          {features.map((feature) => {
             const isExpanded = expandedFeature === feature.id;
             const isLocal = feature.network_calls.length === 0;
 
             return (
               <div
                 key={feature.id}
-                className={`cr-privacy-card ${isExpanded ? 'expanded' : ''}`}
+                className="bg-[#211f1e] border border-white/5 rounded-2xl overflow-hidden transition-colors hover:border-white/10"
               >
-                <div
-                  className="cr-privacy-card-header"
+                <button
+                  type="button"
                   onClick={() => setExpandedFeature(isExpanded ? null : feature.id)}
+                  className="w-full p-4 flex items-center justify-between text-left cursor-pointer transition-colors hover:bg-white/[0.01]"
                 >
                   <div className="flex items-center gap-3">
-                    <span className={`w-2 h-2 rounded-full ${feature.enabled ? 'bg-[var(--cr-accent)] shadow-[0_0_6px_var(--cr-accent)]' : 'bg-[var(--cr-text-muted)]'}`} />
-                    <span className="cr-privacy-card-title">{feature.label}</span>
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        feature.enabled
+                          ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]'
+                          : 'bg-[#78716c]'
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-[#f5f0ed]">{feature.label}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className={`cr-privacy-card-badge ${isLocal ? 'local' : 'network'}`}>
+                    <span
+                      className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] ${
+                        isLocal
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                      }`}
+                    >
                       {isLocal ? 'LOCAL ONLY' : `${feature.network_calls.length} ENDPOINTS`}
                     </span>
-                    <span className="cr-privacy-card-chevron text-[var(--cr-text-muted)] font-mono text-[10px]">
-                      {isExpanded ? '▼' : '▶'}
-                    </span>
+                    <ChevronRight
+                      size={15}
+                      className={`text-[#78716c] transition-transform duration-200 ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}
+                    />
                   </div>
-                </div>
+                </button>
 
                 {isExpanded && (
-                  <div className="p-4 pt-2 border-t border-[var(--cr-border)] bg-[var(--cr-surface-sunken)] space-y-3 font-mono text-xs">
+                  <div className="p-4 pt-3 border-t border-white/5 bg-[#1d1b1a] space-y-3 font-mono text-xs">
                     <div>
-                      <span className="text-[10px] text-[var(--cr-text-muted)] uppercase block mb-1">Runs Locally</span>
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block mb-1">
+                        Runs Locally
+                      </span>
                       <ul className="space-y-1">
                         {feature.what_runs_locally.map((item, i) => (
-                          <li key={i} className="text-[var(--cr-text-secondary)] flex items-center gap-2">
-                            <span className="text-[var(--cr-accent)]">&gt;</span>
+                          <li key={i} className="text-[#a8a29e] flex items-center gap-2">
+                            <span className="text-emerald-400">&gt;</span>
                             <span>{item}</span>
                           </li>
                         ))}
@@ -142,21 +166,30 @@ export const PrivacyDashboard: React.FC = () => {
                     </div>
 
                     <div>
-                      <span className="text-[10px] text-[var(--cr-text-muted)] uppercase block mb-1">Data Handling</span>
-                      <p className="text-[var(--cr-text-secondary)]">{feature.what_is_sent}</p>
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider block mb-1">
+                        Data Handling
+                      </span>
+                      <p className="text-[#a8a29e]">{feature.what_is_sent}</p>
                     </div>
 
-                    <div className="cr-key-value pt-2 border-t border-[var(--cr-border)]">
-                      <span className="k">Active Neural Model</span>
-                      <span className="v val-accent">{feature.model}</span>
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                      <span className="text-[10px] text-[#78716c] uppercase tracking-wider">
+                        Active Neural Model
+                      </span>
+                      <span className="text-[#f5f0ed] font-medium">{feature.model}</span>
                     </div>
 
                     {feature.network_calls.length > 0 && (
-                      <div className="pt-2">
-                        <span className="text-[10px] text-[var(--cr-status-warn)] uppercase block mb-1">Network Endpoints</span>
+                      <div className="pt-2 border-t border-white/5">
+                        <span className="text-[10px] text-amber-400 uppercase tracking-wider block mb-1">
+                          Network Endpoints
+                        </span>
                         <ul className="space-y-1">
                           {feature.network_calls.map((call, i) => (
-                            <li key={i} className="text-[var(--cr-status-warn)] bg-[var(--cr-surface-card)] p-1.5 rounded border border-[var(--cr-border)]">
+                            <li
+                              key={i}
+                              className="text-amber-300 bg-[#100e0d] p-2 rounded-lg border border-amber-500/20"
+                            >
                               {call}
                             </li>
                           ))}
@@ -173,5 +206,3 @@ export const PrivacyDashboard: React.FC = () => {
     </div>
   );
 };
-
-

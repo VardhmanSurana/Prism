@@ -266,21 +266,21 @@ export const TransitionsPanel: React.FC = () => {
   );
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0 select-none">
-      <div className="h-10 flex items-center px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Transitions Library</span>
+    <div className="w-64 bg-[#151312] border-r border-white/10 flex flex-col shrink-0 select-none">
+      <div className="h-10 flex items-center px-3 border-b border-white/10 bg-[#171615]">
+        <span className="text-[#f5f0ed] text-xs font-medium">Transitions Library</span>
       </div>
 
       {/* Category Tabs */}
-      <div className="flex gap-1 p-2 border-b border-[#2a2a2a] overflow-x-auto">
+      <div className="flex gap-1 p-2 border-b border-white/10 overflow-x-auto scrollbar-none">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-2 py-0.5 text-[10px] rounded whitespace-nowrap transition-colors ${
+            className={`px-2 py-1 text-[10px] rounded-md whitespace-nowrap transition-colors cursor-pointer ${
               activeCategory === cat
-                ? 'bg-[#3b82f6] text-white font-medium'
-                : 'bg-[#222] text-[#666] hover:text-[#999]'
+                ? 'bg-[#e5a93c] text-[#151312] font-semibold shadow-sm'
+                : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border border-white/10'
             }`}
           >
             {cat}
@@ -290,7 +290,7 @@ export const TransitionsPanel: React.FC = () => {
 
       {!selectedClip ? (
         <div className="flex-1 flex items-center justify-center px-6">
-          <p className="text-[#666] text-xs text-center">
+          <p className="text-zinc-500 text-xs text-center">
             Select a clip on the timeline to add a transition.
           </p>
         </div>
@@ -300,7 +300,7 @@ export const TransitionsPanel: React.FC = () => {
           {selectedClip.transition && (
             <button
               onClick={removeTransition}
-              className="w-full mb-2 px-3 py-2 bg-red-900/20 hover:bg-red-900/30 border border-red-800/50 text-red-400 text-[11px] rounded transition-colors"
+              className="w-full mb-2 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] rounded-lg transition-colors cursor-pointer font-medium"
             >
               Remove Current Transition
             </button>
@@ -311,15 +311,17 @@ export const TransitionsPanel: React.FC = () => {
               <button
                 key={`${preset.type}-${preset.duration}-${idx}`}
                 onClick={() => applyTransition(preset)}
-                className={`flex flex-col items-center gap-1.5 p-2 rounded border transition-all ${
+                className={`flex flex-col items-center gap-1.5 p-2 rounded-lg border transition-all cursor-pointer ${
                   selectedClip.transition?.type === preset.type
-                    ? 'bg-[#3b82f6]/20 border-[#3b82f6] text-[#3b82f6] shadow-lg shadow-blue-500/10'
-                    : 'bg-[#222] hover:bg-[#2a2a2a] border-[#333] hover:border-[#555]'
+                    ? 'bg-[#e5a93c]/15 border-[#e5a93c] text-[#e5a93c] shadow-lg shadow-[#e5a93c]/10'
+                    : 'bg-[#1d1b1a] hover:bg-white/[0.04] border-white/10 hover:border-white/20'
                 }`}
               >
                 {/* Animated Black & White Transition Preview Canvas */}
                 <AnimatedTransitionThumbnail type={preset.type} />
-                <span className="text-[#ccc] text-[10px] font-medium leading-tight text-center truncate w-full">
+                <span className={`text-[10px] font-medium leading-tight text-center truncate w-full ${
+                  selectedClip.transition?.type === preset.type ? 'text-[#e5a93c]' : 'text-zinc-300'
+                }`}>
                   {preset.name}
                 </span>
               </button>

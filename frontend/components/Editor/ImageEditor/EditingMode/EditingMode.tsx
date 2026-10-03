@@ -430,7 +430,7 @@ export const EditingMode: React.FC<EditingModeProps> = ({ src, onClose, onSave, 
   } as unknown as PanelCtx;
 
   return (
-    <div className="fixed inset-0 z-[100] oled-bg flex flex-col font-sans overflow-hidden bg-[var(--bg-primary)]">
+    <div className="fixed inset-0 z-[100] flex flex-col font-sans overflow-hidden bg-[#151312] text-[#f5f0ed]">
       <TopBarSection
         onClose={exit.handleRequestClose}
         isSaving={exporter.isSaving}

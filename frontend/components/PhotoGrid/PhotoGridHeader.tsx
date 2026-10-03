@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { Check } from 'lucide-react';
+import React from 'react';
 import { PhotoGridHeaderProps } from './types';
 import { formatDate } from './utils';
 import { useGalleryLayout } from '@/hooks/useGalleryLayout';
@@ -17,19 +16,9 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
   virtualRowKey,
   virtualRowIndex,
   measureElement,
-  isHovered,
 }) => {
   const { settings } = useGalleryLayout();
   const { imageGrouping } = settings;
-  /**
-   * allSelected - Performs all selected.
-   */
-  const allSelected = photoIds.every((id) => selectedIds.has(id));
-  /**
-   * someSelected - Performs some selected.
-   */
-  const someSelected = photoIds.some((id) => selectedIds.has(id)) && !allSelected;
-  const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
   let displayTitle = '';
   let displaySub = '';
@@ -55,60 +44,92 @@ export const PhotoGridHeader: React.FC<PhotoGridHeaderProps> = ({
     displaySub = !isCurrentYear ? String(year) : '';
   }
 
+  const isAllSelected = photoIds.length > 0 && !!selectedIds && photoIds.every((id) => selectedIds.has(String(id)));
+  const isSomeSelected = !isAllSelected && photoIds.length > 0 && !!selectedIds && photoIds.some((id) => selectedIds.has(String(id)));
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggleGroupSelection?.(photoIds.map(String));
+  };
+
   return (
     <div
       key={virtualRowKey}
       data-index={virtualRowIndex}
       ref={measureElement}
-      className="absolute top-0 left-0 w-full pl-4 sm:pl-8 pr-32 z-10"
+      className="absolute top-0 left-0 w-full pl-4 sm:pl-8 pr-12 xl:pr-24 z-10"
       style={{ transform: `translateY(${virtualRowStart}px)` }}
     >
-      <div
-        className="flex items-baseline justify-between select-none py-4 bg-background"
-        onMouseEnter={() => setIsHeaderHovered(true)}
-        onMouseLeave={() => setIsHeaderHovered(false)}
-      >
-        <div
-          className={`flex items-center group cursor-pointer transition-all duration-200 ${
-            isHeaderHovered || isHovered || allSelected || someSelected ? 'gap-3' : ''
-          }`}
-          onClick={() => onToggleGroupSelection(photoIds)}
-        >
-          <div
-            className={`border rounded-full flex items-center justify-center transition-all duration-200 ${
-              isHeaderHovered || isHovered || allSelected || someSelected
-                ? 'w-6 h-6 opacity-100'
-                : 'w-0 h-0 opacity-0'
-            } ${
-              allSelected
-                ? 'bg-primary border-primary'
-                : someSelected
-                  ? 'border-primary/60 bg-primary/20'
-                  : 'border-white/20 group-hover:border-white/50'
+      <div className="group/dateheader flex items-baseline justify-between select-none py-4 bg-transparent border-b border-[#292524]/40">
+        <div className="flex flex-col">
+          <div className="flex items-center relative">
+            {/* Hover / Active Checkbox */}
+            <div
+              className={`absolute left-0 top-1/2 -translate-y-1/2 transition-all duration-200 ease-out z-10 flex items-center ${
+                isAllSelected || isSomeSelected
+                  ? 'opacity-100 scale-100 pointer-events-auto'
+                  : 'opacity-0 scale-90 group-hover/dateheader:opacity-100 group-hover/dateheader:scale-100 pointer-events-none group-hover/dateheader:pointer-events-auto'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={handleCheckboxClick}
+                title={isAllSelected ? "Deselect all" : "Select all"}
+                aria-label={`Select all photos from ${displayTitle}`}
+                className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all duration-150 cursor-pointer shadow-sm ${
+                  isAllSelected
+                    ? 'bg-[#3b82f6] border-[#3b82f6] text-white'
+                    : isSomeSelected
+                    ? 'bg-[#3b82f6]/20 border-[#3b82f6] text-[#60a5fa]'
+                    : 'bg-[#1c1917]/80 hover:bg-[#292524] border-white/20 hover:border-white/40 text-transparent hover:text-white/40'
+                }`}
+              >
+                {isAllSelected ? (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : isSomeSelected ? (
+                  <div className="w-2.5 h-0.5 bg-current rounded-full" />
+                ) : (
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+
+            {/* Date Title with shift right on hover / select */}
+            <div
+              className={`flex items-center gap-2.5 transition-transform duration-200 ease-out ${
+                isAllSelected || isSomeSelected
+                  ? 'translate-x-7'
+                  : 'translate-x-0 group-hover/dateheader:translate-x-7'
+              }`}
+            >
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif text-[#f5f5f4] tracking-tight font-light leading-snug">
+                {displayTitle}
+              </h2>
+              {/* Green indicator dot for recent / current photos */}
+              {(displayTitle.includes('Today') || dateKey === new Date().toISOString().split('T')[0]) && (
+                <span className="w-2 h-2 rounded-full bg-[#34d399] shadow-[0_0_8px_#34d399] shrink-0" />
+              )}
+            </div>
+          </div>
+
+          <p
+            className={`text-xs sm:text-sm text-[#78716c] mt-0.5 font-normal tracking-wide transition-transform duration-200 ease-out ${
+              isAllSelected || isSomeSelected
+                ? 'translate-x-7'
+                : 'translate-x-0 group-hover/dateheader:translate-x-7'
             }`}
           >
-            <Check
-              size={14}
-              className={`${allSelected || someSelected ? 'opacity-100' : 'opacity-0'} ${allSelected ? 'text-black' : 'text-primary'} transition-opacity`}
-            />
-          </div>
-          <div className="flex flex-col transition-all duration-200">
-            <h3 className="text-3xl font-serif italic text-white leading-none tracking-tight">
-              {displayTitle}
-            </h3>
-            {displaySub && (
-              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-gray-500 mt-1">
-                {displaySub}
-              </span>
-            )}
-          </div>
+            {location ? `${location} • ` : ''}
+            {photoIds.length} Archival Exposure{photoIds.length === 1 ? '' : 's'}
+            {displaySub ? ` (${displaySub})` : ''}
+          </p>
         </div>
-        {location && (
-          <span className="text-[11px] font-mono uppercase tracking-widest text-gray-500 hover:text-primary transition-colors cursor-default">
-            {location}
-          </span>
-        )}
       </div>
     </div>
   );
 };
+

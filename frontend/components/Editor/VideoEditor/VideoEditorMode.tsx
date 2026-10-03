@@ -29,6 +29,18 @@ import { SettingsPanel } from './SettingsPanel';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { formatTimecode, getActiveVideoClips } from './editorUtils';
 import { PreviewArea } from './PreviewArea';
+import {
+  ChevronLeft,
+  Undo2,
+  Redo2,
+  Layers,
+  SplitSquareHorizontal,
+  Plus,
+  Save,
+  Download,
+  Video,
+  Loader2,
+} from 'lucide-react';
 
 interface VideoEditorModeProps {
   photo: Photo;
@@ -343,105 +355,102 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[#0a0a0a] flex flex-col items-center justify-center gap-6">
+      <div className="fixed inset-0 z-[100] bg-[#151312] flex flex-col items-center justify-center gap-6 select-none">
         <div className="relative">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#3b82f6]/20 to-[#3b82f6]/5 border border-[#3b82f6]/20 flex items-center justify-center">
-            <svg className="w-6 h-6 text-[#3b82f6] animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-            </svg>
+          <div className="w-14 h-14 rounded-2xl bg-[#e5a93c]/15 border border-[#e5a93c]/30 flex items-center justify-center shadow-[0_0_24px_rgba(229,169,60,0.2)]">
+            <Video className="w-7 h-7 text-[#e5a93c] animate-pulse" />
           </div>
-          <div className="absolute -inset-4 border border-[#3b82f6]/10 rounded-2xl animate-pulse" />
+          <div className="absolute -inset-3 border border-[#e5a93c]/15 rounded-3xl animate-pulse" />
         </div>
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-white/90 text-sm font-medium tracking-wide">Preparing Editor</p>
-          <p className="text-white/40 text-xs">Analyzing clip and loading project...</p>
+        <div className="flex flex-col items-center gap-1.5">
+          <p className="text-[#f5f0ed] text-sm font-semibold tracking-wide">Initializing Video Editor</p>
+          <p className="text-zinc-400 text-xs">Analyzing audio-visual tracks and setting up timeline...</p>
         </div>
-        <div className="w-48 h-0.5 bg-[#222] rounded-full overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-[#3b82f6]/0 via-[#3b82f6] to-[#3b82f6]/0 animate-[shimmer_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
+        <div className="w-48 h-1 bg-[#1d1b1a] border border-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#e5a93c]/20 via-[#e5a93c] to-[#e5a93c]/20 animate-[shimmer_1.5s_ease-in-out_infinite]" style={{ width: '60%' }} />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-[#1a1a1a] flex flex-col">
+    <div className="fixed inset-0 z-[100] bg-[#151312] text-[#f5f0ed] flex flex-col select-none">
       {/* Top Bar */}
-      <div className="h-11 bg-[#111113] border-b border-white/[0.06] flex items-center px-4 gap-4 shrink-0">
+      <div className="h-12 bg-[#151312] border-b border-white/10 flex items-center px-4 gap-4 shrink-0">
         <button
           onClick={handleClose}
-          className="text-white/50 hover:text-white text-xs flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-white/[0.06] transition-colors duration-150"
+          className="text-zinc-400 hover:text-[#f5f0ed] text-xs font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft size={16} />
           Back
         </button>
 
-        <div            className="flex-1 text-center">
+        <div className="flex-1 text-center flex items-center justify-center gap-2">
           <input
             type="text"
             value={projectName}
             onChange={(e) => useNLEStore.setState({ projectName: e.target.value, isDirty: true })}
-            className="bg-transparent text-white/90 text-sm text-center border-b border-transparent hover:border-white/20 focus:border-white/40 outline-none px-2 py-0.5 transition-colors duration-150 font-medium tracking-wide"
+            className="bg-transparent text-[#f5f0ed] text-sm text-center border-b border-transparent hover:border-white/20 focus:border-[#e5a93c] outline-none px-2 py-0.5 transition-colors font-medium tracking-wide"
           />
-          <span className="text-white/30 text-[10px] ml-2 font-mono">
+          <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+            isSaving
+              ? 'text-amber-400 bg-amber-400/10'
+              : isDirty
+              ? 'text-amber-400/80 bg-amber-400/5'
+              : 'text-emerald-400 bg-emerald-400/10'
+          }`}>
             {isSaving ? 'Saving...' : isDirty ? '● Unsaved' : 'Saved'}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {/* Undo */}
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="text-white/40 hover:text-white disabled:opacity-20 p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
+            className="text-zinc-400 hover:text-white disabled:opacity-20 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
             title="Undo (Ctrl+Z)"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l5 5m-5-5l5-5" />
-            </svg>
+            <Undo2 size={15} />
           </button>
           {/* Redo */}
           <button
             onClick={redo}
             disabled={!canRedo}
-            className="text-white/40 hover:text-white disabled:opacity-20 p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
+            className="text-zinc-400 hover:text-white disabled:opacity-20 p-2 rounded-lg hover:bg-white/5 transition-all cursor-pointer"
             title="Redo (Ctrl+Shift+Z)"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2m15-7l-5 5m5-5l-5-5" />
-            </svg>
+            <Redo2 size={15} />
           </button>
+
+          <div className="h-4 w-px bg-white/10 mx-1" />
 
           <button
             onClick={toggleMulticamMode}
-            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 transition-all duration-150 ${
+            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 transition-all cursor-pointer ${
               isMulticamMode
-                ? 'text-[#34d399] border-[#34d399]/30 bg-[#34d399]/10'
-                : 'text-white/40 border-white/[0.08] hover:border-white/20 hover:text-white/80 hover:bg-white/[0.04]'
+                ? 'text-[#34d399] border-[#34d399]/40 bg-[#34d399]/15'
+                : 'text-zinc-400 border-white/10 hover:border-white/20 hover:text-white hover:bg-white/5'
             }`}
             title="Toggle Multi-Cam Mode"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
+            <Layers size={13} />
             Multi-Cam
           </button>
 
           <button
             onClick={() => setCompareMode((prev) => !prev)}
-            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-md px-2.5 py-1.5 transition-all duration-150 ${
+            className={`text-[11px] font-medium flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 transition-all cursor-pointer ${
               compareMode
-                ? 'text-[#3b82f6] border-[#3b82f6]/30 bg-[#3b82f6]/10'
-                : 'text-white/40 border-white/[0.08] hover:border-white/20 hover:text-white/80 hover:bg-white/[0.04]'
+                ? 'text-[#e5a93c] border-[#e5a93c]/40 bg-[#e5a93c]/15'
+                : 'text-zinc-400 border-white/10 hover:border-white/20 hover:text-white hover:bg-white/5'
             }`}
             title="Toggle Before/After (\\)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-3M16 3l5 5-5 5" />
-            </svg>
+            <SplitSquareHorizontal size={13} />
             Compare
           </button>
+
           <button
             onClick={() => {
               const firstTrack = tracks[0];
@@ -449,24 +458,26 @@ export const VideoEditorMode: React.FC<VideoEditorModeProps> = ({ photo, onClose
                 setActivePanel('assets');
               }
             }}
-            className="text-white/40 hover:text-white/80 text-[11px] font-medium flex items-center gap-1.5 border border-white/[0.08] rounded-md px-2.5 py-1.5 hover:border-white/20 hover:bg-white/[0.04] transition-all duration-150"
+            className="text-zinc-400 hover:text-white text-[11px] font-medium flex items-center gap-1.5 border border-white/10 rounded-lg px-2.5 py-1.5 hover:border-white/20 hover:bg-white/5 transition-all cursor-pointer"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            <Plus size={13} />
             Add Clip
           </button>
+
           <button
             onClick={handleSave}
             disabled={isSaving || !isDirty}
-            className="text-white/40 hover:text-white/80 text-[11px] font-medium disabled:opacity-20 px-2 py-1.5 rounded-md hover:bg-white/[0.04] transition-all duration-150"
+            className="text-zinc-400 hover:text-white text-[11px] font-medium disabled:opacity-20 px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            Save
           </button>
+
           <button
             onClick={handleExport}
-            className="bg-white/90 hover:bg-white text-black text-[11px] font-semibold px-3.5 py-1.5 rounded-md transition-all duration-150"
+            className="bg-[#e5a93c] hover:bg-[#d4982f] text-[#151312] text-[11px] font-bold px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-[#e5a93c]/20 cursor-pointer"
           >
+            <Download size={13} strokeWidth={2.5} />
             Export
           </button>
         </div>

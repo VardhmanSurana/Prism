@@ -9,6 +9,15 @@
     "core:default",
     "dialog:default",
     "fs:default",
-    "http:default"
+    "http:default",
+    "updater:default",
+    "process:default",
+    {
+      "identifier": "shell:allow-open",
+      "allow": [{ "cmd": "open", "name": "open", "args": true }],
+      "windows": ["main"]
+    },
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive"
   ]
 }

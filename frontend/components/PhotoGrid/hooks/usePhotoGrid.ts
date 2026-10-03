@@ -1,39 +1,55 @@
 import { useMemo } from 'react';
 import { Photo } from '../../../types';
 import { RowItem } from '../types';
-import { useGalleryLayout } from '@/hooks/useGalleryLayout';
+import { useGalleryLayout, GalleryLayoutMode } from '@/hooks/useGalleryLayout';
 
 /**
- * usePhotoGrid - Hook managing photo grid state.
+ * usePhotoGrid - Hook managing photo grid state with Editorial, Grid, and Dense packing.
  */
 export const usePhotoGrid = (
   photos: Photo[],
   maxRowWidth?: number,
   containerWidth?: number,
-  rowHeight: number = 280
+  rowHeight: number = 280,
+  layoutMode: GalleryLayoutMode = 'editorial'
 ) => {
   const { settings } = useGalleryLayout();
   const imageGrouping = settings.imageGrouping;
+
+  // Adjust row height and packing factor based on layout mode
+  const effectiveRowHeight = useMemo(() => {
+    if (layoutMode === 'dense') return Math.max(160, Math.round(rowHeight * 0.65));
+    if (layoutMode === 'editorial') return Math.max(300, Math.round(rowHeight * 1.15));
+    return rowHeight;
+  }, [layoutMode, rowHeight]);
 
   /**
    * effectiveMaxWidth - Performs effective max width.
    */
   const effectiveMaxWidth = useMemo(() => {
     if (containerWidth && containerWidth > 300) {
-      // Subtract grid margins/padding (e.g. 140px total for padding & timeline offset)
-      const availableWidth = Math.max(300, containerWidth - 140);
-      return Math.max(3.0, availableWidth / rowHeight);
+      // Subtract margins and right-side chronology rail allowance (~120px)
+      const availableWidth = Math.max(300, containerWidth - 120);
+      const baseWidth = availableWidth / effectiveRowHeight;
+      if (layoutMode === 'dense') return baseWidth * 1.35;
+      if (layoutMode === 'editorial') return baseWidth * 0.95;
+      return Math.max(3.0, baseWidth);
     }
-    return maxRowWidth ? maxRowWidth * 1.5 : 6.0;
-  }, [containerWidth, rowHeight, maxRowWidth]);
+    const base = maxRowWidth ? maxRowWidth * 1.5 : 6.0;
+    if (layoutMode === 'dense') return base * 1.4;
+    return base;
+  }, [containerWidth, effectiveRowHeight, maxRowWidth, layoutMode]);
 
   /**
-   * rowItems - Performs row items.
+   * rowItems - Performs row items calculation.
    */
   const rowItems = useMemo(() => {
     const rows: RowItem[] = [];
 
-    if (imageGrouping === 'none') {
+    // Flat grid only if imageGrouping is explicitly 'none' AND layoutMode is NOT 'editorial'
+    const shouldGroup = layoutMode === 'editorial' || imageGrouping !== 'none';
+
+    if (!shouldGroup) {
       // Flat grid - no grouping, no headers
       let currentRow: Photo[] = [];
       let currentRowWidth = 0;
@@ -58,7 +74,7 @@ export const usePhotoGrid = (
       return rows;
     }
 
-    // Grouping is either 'months', 'years', or default 'none' (in store representation, but treated as days if not 'none'/'months'/'years')
+    // Chronological grouping
     const groups: { [key: string]: Photo[] } = {};
     photos.forEach((photo) => {
       let dateKey = 'Unknown';
@@ -76,9 +92,6 @@ export const usePhotoGrid = (
       groups[dateKey].push(photo);
     });
 
-    /**
-     * sortedGroups - Performs sorted groups.
-     */
     const sortedGroups = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
 
     sortedGroups.forEach(([dateKey, groupPhotos]) => {
@@ -86,32 +99,53 @@ export const usePhotoGrid = (
         type: 'header',
         dateKey,
         photoIds: groupPhotos.map((p) => String(p.id)),
-        location: groupPhotos[0].location,
+        location: groupPhotos[0].location || groupPhotos[0].city,
       });
+
+      const heroPhoto = layoutMode === 'editorial' && groupPhotos.length > 0
+        ? groupPhotos[0]
+        : null;
 
       let currentRow: Photo[] = [];
       let currentRowWidth = 0;
+      let isFirstRowOfGroup = true;
 
       groupPhotos.forEach((photo) => {
-        const ar = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
+        let ar = photo.aspect_ratio || (photo.height > 0 ? photo.width / photo.height : 1.0);
+        // In editorial mode, expand first hero photo so it commands 2 columns
+        if (heroPhoto && String(photo.id) === String(heroPhoto.id)) {
+          ar = Math.max(ar, 1.8);
+        }
+
         currentRow.push(photo);
         currentRowWidth += ar;
 
         if (currentRowWidth >= effectiveMaxWidth) {
-          rows.push({ type: 'row', photos: currentRow, isFull: true });
+          rows.push({
+            type: 'row',
+            photos: currentRow,
+            isFull: true,
+            heroPhotoId: isFirstRowOfGroup && heroPhoto ? heroPhoto.id : undefined,
+          });
           currentRow = [];
           currentRowWidth = 0;
+          isFirstRowOfGroup = false;
         }
       });
 
       if (currentRow.length > 0) {
         const isCloseToFull = currentRowWidth >= effectiveMaxWidth * 0.7;
-        rows.push({ type: 'row', photos: currentRow, isFull: isCloseToFull });
+        rows.push({
+          type: 'row',
+          photos: currentRow,
+          isFull: isCloseToFull,
+          heroPhotoId: isFirstRowOfGroup && heroPhoto ? heroPhoto.id : undefined,
+        });
       }
     });
 
     return rows;
-  }, [photos, effectiveMaxWidth, imageGrouping]);
+  }, [photos, effectiveMaxWidth, imageGrouping, layoutMode]);
 
   return rowItems;
 };

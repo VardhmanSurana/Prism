@@ -256,18 +256,23 @@ async fn api_key_auth_layer(
         .await
         .unwrap_or(None);
 
+    let master_key = *state.vault_key.read();
+    let vault_key_val = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await;
+
     let (is_enabled, expected_key) = match db_enabled.as_deref() {
         Some("true") => {
-            let key: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_value'")
-                .fetch_optional(&state.db)
-                .await
-                .unwrap_or(None);
-            (true, key.or_else(|| state.config.api_key.clone()))
+            (true, vault_key_val.or_else(|| state.config.api_key.clone()))
         }
         Some("false") => (false, None),
         _ => {
-            let config_key = state.config.api_key.clone();
-            (config_key.is_some(), config_key)
+            // Only enforce if an explicit API_KEY was supplied via environment or CLI flag.
+            // When running purely local/desktop with an auto-generated key, protection is off until explicitly enabled.
+            let is_explicit_env = std::env::var("API_KEY").is_ok();
+            if is_explicit_env {
+                (true, state.config.api_key.clone())
+            } else {
+                (false, None)
+            }
         }
     };
 
@@ -430,6 +435,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/photos/upload", post(photos::upload_photo))
         .route("/photos/upload/", post(photos::upload_photo))
         .route("/photos/upload-blob", post(photos::upload_blob))
+        .route("/photos/import-url", post(photos::import_from_url))
         .route("/photos/inpaint/unload", post(photos::unload_inpaint))
         .route("/photos/magic-eraser/unload", post(photos::unload_inpaint))
         .route("/photos/expand-directory", post(photos::expand_directory))
@@ -531,6 +537,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/settings", get(settings::get_settings))
         .route("/settings/", get(settings::get_settings))
         .route("/settings/general", get(settings::get_general_settings).post(settings::save_general_settings))
+        .route("/settings/advanced", get(settings::get_advanced_settings).post(settings::save_advanced_settings))
         .route("/settings/map-style", get(settings::get_map_style).post(settings::save_map_style))
         .route("/maps/tiles/:provider/:z/:x/:y", get(maps::get_tile))
         .route("/maps/cache/stats", get(maps::get_cache_stats))
@@ -553,8 +560,10 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/settings/watcher/rescan", post(settings::request_watcher_rescan))
         .route("/settings/trigger-face-sync", post(settings::trigger_face_sync))
         .route("/settings/telemetry", get(settings::get_telemetry_settings).post(settings::save_telemetry_settings))
+        .route("/settings/onboarding", post(settings::save_onboarding_settings))
         .route("/settings/security", get(settings::get_security_settings).post(settings::save_security_settings))
         .route("/settings/security/generate", post(settings::generate_api_key))
+        .route("/settings/security/reveal", get(settings::reveal_api_key))
         .route("/settings/webhooks", get(settings::list_webhooks).post(settings::create_webhook))
         .route("/settings/webhooks/:id", delete(settings::delete_webhook))
         .route("/settings/webhooks/test", post(settings::test_webhooks))
@@ -601,6 +610,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/utilities/background-jobs/prioritize-album/:album_id", post(utilities::prioritize_album))
         .route("/utilities/system-state", get(utilities::get_system_state))
         .route("/telemetry/summary", get(telemetry_api::get_telemetry_summary))
+        .route("/telemetry/timeseries", get(telemetry_api::get_telemetry_timeseries))
         .route("/telemetry/events", get(telemetry_api::get_telemetry_events).delete(telemetry_api::clear_telemetry_events))
         .route("/telemetry/stream", get(telemetry_api::telemetry_sse_stream))
         .route("/telemetry/log", post(telemetry_api::log_frontend_event))

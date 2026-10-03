@@ -2,20 +2,20 @@
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "prism",
   "version": "0.1.0",
-  "identifier": "com.prism.app",
+  "identifier": "com.prism.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:3005",
     "beforeDevCommand": "pnpm run dev",
-    "beforeBuildCommand": "../build.sh"
+    "beforeBuildCommand": "[ -f ./build.sh ] && bash ./build.sh || bash ../build.sh"
   },
   "app": {
     "windows": [
       {
         "title": "Prism",
         "fullscreen": false,
-        "width": 1920,
-        "height": 1080,
+        "width": 1280,
+        "height": 720,
         "resizable": true,
         "decorations": true,
         "transparent": false
@@ -36,7 +36,16 @@
       "icons/icon.ico"
     ],
     "externalBin": [
-      "../backend_rust/target/release/prism-backend-rust"
-    ]
+      "../../backend_rust/target/release/prism-backend-rust"
+    ],
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/VardhmanSurana/Prism/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE3NTA3RUZBNkQxMUUyODMKUldTRDRoRnQrbjVRcDMzQ3hBYUUzM0NKOEJjQjlzUHFsMUc1MG4vT2xka0RaYnlRSm00MEViRjAK"
+    }
   }
 }

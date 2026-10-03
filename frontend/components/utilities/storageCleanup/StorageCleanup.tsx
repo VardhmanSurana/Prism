@@ -37,15 +37,15 @@ export const StorageCleanup: React.FC = () => {
   return (
     <div className="space-y-4">
       {storageStats && (
-        <div className="cr-card">
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-[var(--cr-border)] pb-3 mb-3">
+        <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b border-[rgba(255,255,255,0.06)] pb-3 mb-3">
             <div>
-              <div className="cr-card-title mb-0">Disk Usage & Allocation</div>
-              <p className="text-xs text-[var(--cr-text-muted)]">Local index database & thumbnail asset footprints</p>
+              <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title mb-0">Disk Usage & Allocation</div>
+              <p className="text-xs text-[#78716c]">Local index database & thumbnail asset footprints</p>
             </div>
             <div className="text-right font-mono">
-              <span className="text-[10px] text-[var(--cr-text-muted)] block">Total Catalog Size</span>
-              <span className="text-sm font-bold text-[var(--cr-accent)]">{formatBytes(totalBytes)}</span>
+              <span className="text-[10px] text-[#78716c] block">Total Catalog Size</span>
+              <span className="text-sm font-bold text-[#e5a93c]">{formatBytes(totalBytes)}</span>
             </div>
           </div>
           
@@ -67,11 +67,11 @@ export const StorageCleanup: React.FC = () => {
       )}
 
       {/* Maintenance Controls */}
-      <div className="cr-card">
+      <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="cr-card-title mb-1">Maintenance & Reclaim Utilities</div>
-            <p className="text-xs text-[var(--cr-text-muted)]">
+            <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title mb-1">Maintenance & Reclaim Utilities</div>
+            <p className="text-xs text-[#78716c]">
               Clear temporary thumbnail caches or trigger database vacuum optimizations.
             </p>
           </div>
@@ -79,7 +79,7 @@ export const StorageCleanup: React.FC = () => {
             <button
               onClick={handleClearCache}
               disabled={isClearingCache}
-              className="cr-inline-btn"
+              className="px-3.5 py-1.5 rounded-full font-mono text-xs bg-[#2c2928] hover:bg-[#373433] text-[#f5f0ed] border border-white/10 transition"
             >
               {isClearingCache ? 'Clearing...' : 'Clear Cache'}
             </button>
@@ -87,7 +87,7 @@ export const StorageCleanup: React.FC = () => {
             <button
               onClick={handleVacuumDatabase}
               disabled={isVacuuming}
-              className="cr-inline-btn primary"
+              className="px-3.5 py-1.5 rounded-full font-mono text-xs font-semibold bg-[#e5e2e0] hover:bg-white text-[#151312] transition shadow-sm"
             >
               {isVacuuming ? 'Optimizing...' : 'Optimize Database'}
             </button>
@@ -96,9 +96,9 @@ export const StorageCleanup: React.FC = () => {
 
         {cacheActionStatus && (
           <div className={`mt-3 font-mono text-xs p-2.5 rounded border ${
-            cacheActionStatus.type === 'success' ? 'bg-[var(--cr-accent-glow-strong)] text-[var(--cr-accent)] border-[var(--cr-accent)]/30' :
-            cacheActionStatus.type === 'error' ? 'bg-[var(--cr-surface-sunken)] text-[var(--cr-status-error)] border-[var(--cr-status-error)]/30' :
-            'bg-[var(--cr-surface-sunken)] text-[var(--cr-secondary)] border-[var(--cr-secondary)]/30'
+            cacheActionStatus.type === 'success' ? 'bg-[rgba(229,169,60,0.15)] text-[#e5a93c] border-[#e5a93c]/30' :
+            cacheActionStatus.type === 'error' ? 'bg-[#100e0d] text-[#f87171] border-[#f87171]/30' :
+            'bg-[#100e0d] text-[#a8a29e] border-[#a8a29e]/30'
           }`}>
             {cacheActionStatus.message}
           </div>
@@ -113,7 +113,7 @@ export const StorageCleanup: React.FC = () => {
       {isLoading ? (
         <LoadingState />
       ) : (
-        <div className="cr-card">
+        <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
           {activeSubTab === 'blurry' && (
             <BlurryPhotosTab photos={blurryPhotos} onDelete={handleDeletePhoto} />
           )}

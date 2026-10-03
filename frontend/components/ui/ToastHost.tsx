@@ -58,8 +58,8 @@ export const ToastHost: React.FC = () => {
 
 const VARIANT_STYLES: Record<ToastItem['variant'], { icon: React.ReactNode; cls: string }> = {
   info: {
-    icon: <Info size={15} className="text-[var(--cr-secondary)] shrink-0" aria-hidden="true" />,
-    cls: 'border-[var(--cr-border)]',
+    icon: <Info size={15} className="text-[#a8a29e] shrink-0" aria-hidden="true" />,
+    cls: 'border-white/10',
   },
   success: {
     icon: <CheckCircle2 size={15} className="text-emerald-400 shrink-0" aria-hidden="true" />,
@@ -100,7 +100,7 @@ const ToastCard: React.FC<{ toast: ToastItem; onDismiss: (id: string) => void }>
       initial={{ opacity: 0, y: 16, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 10, scale: 0.96 }}
-      className={`pointer-events-auto w-80 max-w-[90vw] overflow-hidden rounded-xl bg-[#14171D] border ${cls} shadow-2xl px-4 py-3`}
+      className={`pointer-events-auto w-80 max-w-[90vw] overflow-hidden rounded-xl bg-[#211f1e] border ${cls} shadow-2xl px-4 py-3`}
       data-testid={`toast-${toast.variant}`}
     >
       <div className="flex items-start justify-between gap-3">

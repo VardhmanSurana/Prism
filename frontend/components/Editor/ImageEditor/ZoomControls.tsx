@@ -44,15 +44,15 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
   const isMax = localZoom >= maxZoom;
 
   return (
-    <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#12141a]/85 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.5)] select-none animate-in fade-in duration-200 pointer-events-auto">
+    <div className="absolute bottom-4 right-4 z-30 flex items-center gap-1.5 p-1.5 rounded-2xl bg-[#1d1b1a]/90 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.6)] select-none animate-in fade-in duration-200 pointer-events-auto">
       {/* Fit Button */}
       <button
         onClick={onReset}
         title="Fit to Screen (Ctrl+0)"
         className={`px-2.5 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
           localZoom !== 50 && localZoom !== 100 && localZoom !== 200
-            ? 'bg-white text-black font-bold shadow-md shadow-white/10'
-            : 'bg-white/[0.04] text-white/60 hover:text-white hover:bg-white/[0.08]'
+            ? 'bg-[#e5a93c] text-[#151312] font-bold shadow-[0_0_10px_rgba(229,169,60,0.35)]'
+            : 'bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08]'
         }`}
       >
         Fit
@@ -71,8 +71,8 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
             title={`Zoom to ${pct}%`}
             className={`px-2 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
               isActive
-                ? 'bg-white text-black font-bold shadow-md shadow-white/10'
-                : 'bg-white/[0.04] text-white/50 hover:text-white hover:bg-white/[0.08]'
+                ? 'bg-[#e5a93c] text-[#151312] font-bold shadow-[0_0_10px_rgba(229,169,60,0.35)]'
+                : 'bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/[0.08]'
             }`}
           >
             {pct}%
@@ -87,7 +87,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
         onClick={onZoomOut}
         disabled={isMin}
         title="Zoom Out (Ctrl+-)"
-        className="p-1.5 rounded-xl text-white/50 hover:text-white hover:bg-white/[0.08] transition-all disabled:opacity-20 cursor-pointer"
+        className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.08] transition-all disabled:opacity-20 cursor-pointer"
       >
         <ZoomOut size={12} strokeWidth={2.5} />
       </button>
@@ -96,7 +96,7 @@ export const ZoomControls: React.FC<ZoomControlsProps> = ({
       <div className="w-20 relative h-3 flex items-center group/zoom-slider">
         <div className="absolute w-full h-[2px] bg-white/15 rounded-full" />
         <div
-          className="absolute h-[2px] rounded-full pointer-events-none bg-white"
+          className="absolute h-[2px] rounded-full pointer-events-none bg-[#e5a93c]"
           style={{
             left: '0%',
             width: `${((localZoom - minZoom) / (maxZoom - minZoom)) * 100}%`,

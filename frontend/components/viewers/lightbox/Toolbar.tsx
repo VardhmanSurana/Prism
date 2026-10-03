@@ -3,8 +3,6 @@ import {
   X,
   Heart,
   Info,
-  ZoomIn,
-  ZoomOut,
   Edit2,
   Trash2,
   FolderMinus,
@@ -13,7 +11,6 @@ import {
   Copy,
   Presentation,
   UserCheck,
-  HelpCircle,
   Type,
   Share2,
 } from 'lucide-react';
@@ -111,31 +108,33 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
   const ext = photo.filename?.split('.').pop()?.toUpperCase();
 
   return (
-    <div className="h-14 flex items-center justify-between px-6 shrink-0 z-20 bg-[#0D0F14] border-b border-white/5 font-sans">
+    <div className="h-14 flex items-center justify-between px-6 shrink-0 z-20 bg-[#151312]/95 backdrop-blur-xl border-b border-white/10 font-sans">
       {/* Left: Close + Metadata */}
       <div className="flex items-center gap-4">
         <button
           onClick={onClose}
-          className="p-1.5 text-white/40 hover:text-white transition-colors rounded-lg hover:bg-white/5"
+          className="p-1.5 text-zinc-400 hover:text-white transition-colors rounded-xl hover:bg-white/5 cursor-pointer"
           title="Close (Esc)"
         >
           <X size={20} strokeWidth={1.5} />
         </button>
 
-        <div className="h-5 w-[1px] bg-white/10" />
+        <div className="h-4 w-[1px] bg-white/10" />
 
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-xs text-white/80 font-mono truncate max-w-[200px]" title={photo.filename}>
+          <span className="text-xs text-zinc-200 font-mono truncate max-w-[220px]" title={photo.filename}>
             {photo.filename || `Photo ${currentIndex + 1}`}
           </span>
           {dims && (
-            <span className="text-[10px] text-white/30 font-mono">{dims}</span>
+            <span className="text-[10px] text-zinc-500 font-mono">{dims}</span>
           )}
           {size && (
-            <span className="text-[10px] text-white/30 font-mono">{size}</span>
+            <span className="text-[10px] text-zinc-500 font-mono">{size}</span>
           )}
           {ext && (
-            <span className="text-[9px] text-white/20 font-mono uppercase bg-white/5 px-1.5 py-0.5 rounded">{ext}</span>
+            <span className="text-[9px] text-[#e5a93c] font-mono uppercase bg-[#e5a93c]/10 border border-[#e5a93c]/20 px-1.5 py-0.5 rounded-md">
+              {ext}
+            </span>
           )}
         </div>
 
@@ -144,12 +143,12 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
         <div className="hidden sm:flex items-center gap-1.5">
           <div className={`w-1.5 h-1.5 rounded-full ${
             highResStatus === 'loaded'
-              ? 'bg-green-500'
+              ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]'
               : highResStatus === 'loading'
-              ? 'bg-yellow-500 animate-pulse'
-              : 'bg-gray-600'
+              ? 'bg-amber-400 animate-pulse'
+              : 'bg-zinc-600'
           }`} />
-          <span className="text-[9px] font-mono text-white/25 uppercase tracking-wider">
+          <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider">
             {highResStatus === 'loaded' ? 'HD' : highResStatus === 'loading' ? 'Loading' : 'Preview'}
           </span>
         </div>
@@ -157,42 +156,12 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
 
       {/* Right: Actions */}
       <div className="flex items-center gap-1">
-        {/* Zoom controls */}
-        <div className="hidden sm:flex items-center gap-0.5 bg-white/5 rounded-lg p-0.5 mr-2 border border-white/5">
-          <button
-            onClick={() => onSetZoomScale(Math.max(0.1, zoomScale - 0.5))}
-            className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
-            title="Zoom Out"
-          >
-            <ZoomOut size={14}/>
-          </button>
-          <span className="text-[10px] font-mono text-white/40 w-10 text-center tabular-nums">
-            {zoomScale === 1 ? 'Fit' : `${Math.round(zoomScale * 100)}%`}
-          </span>
-          <button
-            onClick={() => onSetZoomScale(Math.min(10, zoomScale + 0.5))}
-            className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors"
-            title="Zoom In"
-          >
-            <ZoomIn size={14}/>
-          </button>
-          {zoomScale > 1 && (
-            <button
-              onClick={onResetInteraction}
-              className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 hover:text-white transition-colors text-[9px] font-mono"
-              title="Reset Zoom"
-            >
-              Reset
-            </button>
-          )}
-        </div>
-
         {/* Text Actions Toggle */}
         {onToggleOcr && (
           <button
             onClick={onToggleOcr}
-            className={`p-2 rounded-lg transition-colors ${
-              ocrActive ? 'text-blue-400 bg-blue-500/20 border border-blue-500/40' : 'text-white/50 hover:text-white hover:bg-white/5'
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              ocrActive ? 'text-blue-400 bg-blue-500/20 border border-blue-500/40' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Text Actions (OCR)"
           >
@@ -204,8 +173,8 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
         {onToggleFaceTagging && (
           <button
             onClick={onToggleFaceTagging}
-            className={`p-2 rounded-lg transition-colors ${
-              faceTaggingActive ? 'text-primary bg-primary/20 border border-primary/40' : 'text-white/50 hover:text-white hover:bg-white/5'
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
+              faceTaggingActive ? 'text-[#e5a93c] bg-[#e5a93c]/20 border border-[#e5a93c]/40' : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Tag People in Photo"
           >
@@ -217,10 +186,10 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
         {canStartSlideshow && onStartSlideshow && (
           <button
             onClick={onStartSlideshow}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2 rounded-xl transition-colors cursor-pointer ${
               slideshowActive
-                ? 'text-primary bg-primary/10'
-                : 'text-white/50 hover:text-white hover:bg-white/5'
+                ? 'text-[#e5a93c] bg-[#e5a93c]/15 border border-[#e5a93c]/30'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
             }`}
             title="Start slideshow (S)"
           >
@@ -231,69 +200,58 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
         {/* Favorite */}
         <button
           onClick={onToggleFavorite}
-          className={`p-2 rounded-lg transition-colors ${
+          className={`p-2 rounded-xl transition-colors cursor-pointer ${
             photo.isFavorite
-              ? 'text-red-500 bg-red-500/10'
-              : 'text-white/50 hover:text-white hover:bg-white/5'
+              ? 'text-rose-400 bg-rose-500/10'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title={photo.isFavorite ? 'Unfavorite' : 'Favorite'}
         >
           <Heart size={18} fill={photo.isFavorite ? 'currentColor' : 'none'} />
         </button>
 
-        {/* Info toggle */}
-        <button
-          onClick={onToggleShowInfo}
-          className={`p-2 rounded-lg transition-colors ${
-            showInfo
-              ? 'text-primary bg-primary/10'
-              : 'text-white/50 hover:text-white hover:bg-white/5'
-          }`}
-          title="Info Panel (I)"
-        >
-          <Info size={18} />
-        </button>
-
         {/* Share */}
         {onShare && (
           <button
             onClick={onShare}
-            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
             title="Share Photo"
           >
             <Share2 size={18} />
           </button>
         )}
 
-        {/* Keyboard Shortcuts (?) */}
-        {onOpenShortcutsModal && (
-          <button
-            onClick={onOpenShortcutsModal}
-            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
-            title="Keyboard Shortcuts (?)"
-          >
-            <HelpCircle size={18} />
-          </button>
-        )}
+        {/* Info toggle - Placed to the left immediately before More Options */}
+        <button
+          onClick={onToggleShowInfo}
+          className={`p-2 rounded-xl transition-colors cursor-pointer ${
+            showInfo
+              ? 'text-[#e5a93c] bg-[#e5a93c]/20 border border-[#e5a93c]/30'
+              : 'text-zinc-400 hover:text-white hover:bg-white/5'
+          }`}
+          title="Info Panel (I)"
+        >
+          <Info size={18} />
+        </button>
 
         {/* More menu */}
         <div className="relative" ref={moreRef}>
           <button
             onClick={() => setShowMore(!showMore)}
-            className="p-2 text-white/50 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+            className="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
             title="More Actions"
           >
             <MoreHorizontal size={18} />
           </button>
 
           {showMore && (
-            <div className="absolute top-full right-0 mt-1 w-52 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="absolute top-full right-0 mt-1 w-52 bg-[#1d1b1a] border border-white/10 rounded-2xl shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-1 duration-150 backdrop-blur-xl">
               {onEdit && (
                 <button
                   onClick={() => { onEdit(); setShowMore(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                 >
-                  <Edit2 size={15} className="text-gray-500" />
+                  <Edit2 size={14} className="text-zinc-500" />
                   <span>Edit</span>
                 </button>
               )}
@@ -301,45 +259,45 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
               {onCopyImageToClipboard && (
                 <button
                   onClick={() => { onCopyImageToClipboard(); setShowMore(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                 >
-                  <Copy size={15} className="text-gray-500" />
+                  <Copy size={14} className="text-zinc-500" />
                   <span>Copy to Clipboard</span>
                 </button>
               )}
 
               <button
                 onClick={() => { navigator.clipboard.writeText(photo.path); setShowMore(false); }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
               >
-                <Copy size={15} className="text-gray-500" />
+                <Copy size={14} className="text-zinc-500" />
                 <span>Copy File Path</span>
               </button>
 
               {onSetAsCover && (
                 <button
                   onClick={() => { onSetAsCover(); setShowMore(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                 >
-                  <Image size={15} className="text-gray-500" />
+                  <Image size={14} className="text-zinc-500" />
                   <span>Set as Album Cover</span>
                 </button>
               )}
               {onRemoveFromAlbum && (
                 <button
                   onClick={() => { onRemoveFromAlbum(); setShowMore(false); }}
-                  className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                  className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                 >
-                  <FolderMinus size={15} />
+                  <FolderMinus size={14} />
                   <span>Remove from Album</span>
                 </button>
               )}
-              <div className="h-px bg-white/5 my-1" />
+              <div className="h-px bg-white/10 my-1" />
               <button
                 onClick={() => { onTrash?.(); setShowMore(false); }}
-                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+                className="w-full flex items-center gap-3 px-3.5 py-2 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
               >
-                <Trash2 size={15} />
+                <Trash2 size={14} />
                 <span>Move to Trash</span>
               </button>
             </div>
@@ -349,3 +307,4 @@ export const Toolbar: React.FC<ExtendedToolbarProps> = ({
     </div>
   );
 };
+

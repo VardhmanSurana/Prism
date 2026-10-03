@@ -1,4 +1,5 @@
 import React from 'react';
+import { Trash2, FolderSearch } from 'lucide-react';
 
 interface PurgeSettingsProps {
   purgeInput: string;
@@ -9,7 +10,7 @@ interface PurgeSettingsProps {
 }
 
 /**
- * Purge settings: dangerous actions for clearing data with confirmation.
+ * Purge settings: remove folder records from database while preserving master files on disk.
  */
 export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
   purgeInput,
@@ -19,14 +20,16 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
   onPurge
 }) => {
   return (
-    <div className="cr-card">
-      <div className="cr-card-title mb-1">Remove Territory from Library</div>
-      <p className="text-xs text-[var(--cr-text-muted)] mb-3">
-        Permanently purge indexed photo records and cached thumbnails of a folder from database. Original source files remain untouched on disk.
-      </p>
+    <div className="space-y-4">
+      <div>
+        <h4 className="font-serif text-lg text-[#f5f0ed] mb-0.5">Remove Monitored Directory from Library</h4>
+        <p className="text-xs text-[#a8a29e]">
+          Permanently purge indexed photo records and cached thumbnails of a directory from the database. Original source files remain completely untouched on disk.
+        </p>
+      </div>
 
-      <div className="flex gap-2">
-        <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex-1 flex bg-[#100e0d] border border-white/10 rounded-xl overflow-hidden focus-within:border-white/20">
           <input
             type="text"
             id="purge-folder-input"
@@ -34,13 +37,13 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
             aria-label="Territory path to purge"
             value={purgeInput}
             onChange={(e) => setPurgeInput(e.target.value)}
-            placeholder="~/Pictures/FolderToPurge"
-            className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
+            placeholder="/Volumes/Storage/FolderToPurge"
+            className="flex-1 bg-transparent px-3.5 py-2 text-xs text-[#f5f0ed] placeholder:text-[#78716c] outline-none font-mono"
           />
           <button
             onClick={onBrowse}
             title="Browse for a folder to purge"
-            className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
+            className="px-3.5 py-2 text-xs font-mono text-[#a8a29e] hover:text-[#f5f0ed] border-l border-white/10 hover:bg-white/5 transition cursor-pointer"
           >
             Browse...
           </button>
@@ -48,19 +51,17 @@ export const PurgeSettings: React.FC<PurgeSettingsProps> = ({
         <button
           onClick={onPurge}
           disabled={!purgeInput}
-          className="cr-inline-btn font-mono text-xs font-semibold text-[var(--cr-status-error)] border-[var(--cr-status-error)]/40 hover:bg-[var(--cr-status-error)]/10 disabled:opacity-30 disabled:cursor-not-allowed"
+          className="px-4 py-2 rounded-xl font-mono text-xs font-semibold bg-rose-950/60 border border-rose-500/30 text-rose-300 hover:bg-rose-900/80 transition cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
         >
-          Purge Territory
+          Purge Directory Records
         </button>
       </div>
 
       {purgeStatus && (
-        <p className="text-xs text-[var(--cr-status-error)] mt-3 font-mono bg-[var(--cr-surface-sunken)] border border-[var(--cr-status-error)]/30 p-3 rounded">
+        <p className="text-xs text-rose-400 font-mono bg-[#100e0d] border border-rose-500/20 p-3 rounded-xl">
           {purgeStatus}
         </p>
       )}
     </div>
   );
 };
-
-

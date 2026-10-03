@@ -1,417 +1,247 @@
 ---
-name: Prism
-description: Privacy-first local photo & video library with AI-powered organization and professional editing suite
+name: Prism Dark Editorial
 colors:
-  primary: "#ffffff"
-  accent: "#2563eb"
-  background: "#06080c"
-  surface: "#0a0c10"
-  surface-raised: "#161A20"
-  surface-sunken: "#050505"
-  surface-popover: "#0c0c0c"
-  border: "rgba(11, 84, 230, 0.05)"
-  border-subtle: "rgba(255, 255, 255, 0.05)"
-  text-primary: "#ffffff"
-  text-secondary: "#999999"
-  text-muted: "#666666"
-  status-processing: "#5e6ad2"
-  status-success: "#22c55e"
-  status-warning: "#eab308"
-  status-error: "#ef4444"
-  google-primary: "#A8C7FA"
-  apple-primary: "#007AFF"
-  cr-accent: "oklch(75% 0.18 145)"
-  cr-secondary: "oklch(65% 0.15 250)"
+  surface: '#151312'
+  surface-dim: '#151312'
+  surface-bright: '#3b3937'
+  surface-container-lowest: '#100e0d'
+  surface-container-low: '#1d1b1a'
+  surface-container: '#211f1e'
+  surface-container-high: '#2c2928'
+  surface-container-highest: '#373433'
+  on-surface: '#e7e1df'
+  on-surface-variant: '#d0c4be'
+  inverse-surface: '#e7e1df'
+  inverse-on-surface: '#32302f'
+  outline: '#998f8a'
+  outline-variant: '#4d4541'
+  surface-tint: '#c6c6c7'
+  primary: '#c6c6c7'
+  on-primary: '#2f3131'
+  primary-container: '#121414'
+  on-primary-container: '#7d7e7f'
+  inverse-primary: '#5d5f5f'
+  secondary: '#c9c6c4'
+  on-secondary: '#31302f'
+  secondary-container: '#484745'
+  on-secondary-container: '#b7b5b3'
+  tertiary: '#c6c6c7'
+  on-tertiary: '#2f3131'
+  tertiary-container: '#121414'
+  on-tertiary-container: '#7d7e7f'
+  error: '#ffb4ab'
+  on-error: '#690005'
+  error-container: '#93000a'
+  on-error-container: '#ffdad6'
+  primary-fixed: '#e2e2e2'
+  primary-fixed-dim: '#c6c6c7'
+  on-primary-fixed: '#1a1c1c'
+  on-primary-fixed-variant: '#454747'
+  secondary-fixed: '#e5e2e0'
+  secondary-fixed-dim: '#c9c6c4'
+  on-secondary-fixed: '#1c1b1a'
+  on-secondary-fixed-variant: '#484745'
+  tertiary-fixed: '#e2e2e2'
+  tertiary-fixed-dim: '#c6c6c7'
+  on-tertiary-fixed: '#1a1c1c'
+  on-tertiary-fixed-variant: '#454747'
+  background: '#151312'
+  on-background: '#e7e1df'
+  surface-variant: '#373433'
 typography:
-  display:
-    fontFamily: "Instrument Serif, Georgia, serif"
-    fontSize: "clamp(2rem, 5vw, 4rem)"
-    fontWeight: 400
-    lineHeight: 1.1
-    letterSpacing: "normal"
-  body:
-    fontFamily: "Sora, system-ui, sans-serif"
-    fontSize: "14px"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "normal"
-  label:
-    fontFamily: "Sora, system-ui, sans-serif"
-    fontSize: "12px"
-    fontWeight: 500
-    lineHeight: 1.4
-    letterSpacing: "0.02em"
-  mono:
-    fontFamily: "JetBrains Mono, monospace"
-    fontSize: "12px"
-    fontWeight: 500
-    lineHeight: 1.5
-    fontFeatureSettings: "tnum"
+  display-lg:
+    fontFamily: EB Garamond
+    fontSize: 3.5rem
+    fontWeight: '400'
+    lineHeight: 4rem
+    letterSpacing: -0.02em
+  display-lg-mobile:
+    fontFamily: EB Garamond
+    fontSize: 2.25rem
+    fontWeight: '400'
+    lineHeight: 2.75rem
+    letterSpacing: -0.015em
+  display-md:
+    fontFamily: EB Garamond
+    fontSize: 2.5rem
+    fontWeight: '400'
+    lineHeight: 3rem
+    letterSpacing: -0.015em
+  display-md-mobile:
+    fontFamily: EB Garamond
+    fontSize: 1.875rem
+    fontWeight: '400'
+    lineHeight: 2.25rem
+    letterSpacing: -0.01em
+  headline-lg:
+    fontFamily: EB Garamond
+    fontSize: 2rem
+    fontWeight: '400'
+    lineHeight: 2.5rem
+    letterSpacing: -0.01em
+  headline-md:
+    fontFamily: EB Garamond
+    fontSize: 1.5rem
+    fontWeight: '400'
+    lineHeight: 2rem
+    letterSpacing: '0'
+  headline-sm:
+    fontFamily: EB Garamond
+    fontSize: 1.25rem
+    fontWeight: '400'
+    lineHeight: 1.75rem
+    letterSpacing: '0'
+  body-lg:
+    fontFamily: Inter
+    fontSize: 1.125rem
+    fontWeight: '300'
+    lineHeight: 1.75rem
+    letterSpacing: 0.01em
+  body-md:
+    fontFamily: Inter
+    fontSize: 0.9375rem
+    fontWeight: '300'
+    lineHeight: 1.5rem
+    letterSpacing: 0.015em
+  body-sm:
+    fontFamily: Inter
+    fontSize: 0.8125rem
+    fontWeight: '400'
+    lineHeight: 1.25rem
+    letterSpacing: 0.015em
+  label-lg:
+    fontFamily: Inter
+    fontSize: 0.875rem
+    fontWeight: '500'
+    lineHeight: 1.25rem
+    letterSpacing: 0.04em
+  label-md:
+    fontFamily: Inter
+    fontSize: 0.75rem
+    fontWeight: '500'
+    lineHeight: 1rem
+    letterSpacing: 0.06em
+  label-sm:
+    fontFamily: Inter
+    fontSize: 0.6875rem
+    fontWeight: '600'
+    lineHeight: 0.875rem
+    letterSpacing: 0.08em
 rounded:
-  sm: "4px"
-  md: "6px"
-  lg: "10px"
-  xl: "12px"
-  full: "9999px"
+  sm: 0.5rem
+  DEFAULT: 1rem
+  md: 1.5rem
+  lg: 2rem
+  xl: 3rem
+  full: 9999px
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "16px"
-  lg: "24px"
-  xl: "32px"
-components:
-  button-primary:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.md}"
-    padding: "8px 16px"
-    typography: "{typography.label}"
-  button-ghost:
-    backgroundColor: "transparent"
-    textColor: "{colors.text-secondary}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-    typography: "{typography.label}"
-  card:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.lg}"
-    padding: "16px"
-    typography: "{typography.body}"
-  input:
-    backgroundColor: "{colors.surface-sunken}"
-    textColor: "{colors.text-primary}"
-    rounded: "{rounded.md}"
-    padding: "8px 12px"
-    typography: "{typography.body}"
-  chip:
-    backgroundColor: "{colors.surface-raised}"
-    textColor: "{colors.text-secondary}"
-    rounded: "{rounded.full}"
-    padding: "6px 12px"
-    typography: "{typography.label}"
+  gutter: 1.5rem
+  margin: 2rem
+  space-xs: 0.25rem
+  space-sm: 0.5rem
+  space-md: 1rem
+  space-lg: 1.5rem
+  space-xl: 2.5rem
 ---
 
-# Design System: Prism
+## Brand & Style
 
-## 1. Overview
+This design system channels the refined precision of haute-couture dark interfaces—drawing aesthetic parallels to high-end creative studios, gallery archives, and modern generative media tools. It merges the gravitas of print editorial publishing with the sleek utility of next-generation digital interfaces.
 
-**Creative North Star: "The Darkroom Instrument"**
+### Core Character & Atmosphere
+- **Aura**: Nocturnal, bespoke, cinematic, and authoritative.
+- **Tone**: Understated luxury. Avoid glossy visual clutter or garish neons in favor of deep obsidian depths, tactile hairline frames, and diffuse, low-luminosity chromatic auras.
+- **Emotional Response**: Evokes focused concentration, craftsmanship, curated exclusivity, and reverence for artistic content.
 
-Prism's design language draws from professional photography darkrooms and precision instruments — a space where every control has purpose, every surface recedes to let the work breathe, and the tool disappears into the craft. The interface is a deep, near-black canvas that lets photographs and videos become the only source of color and light. This is not a dashboard or a social feed; it is a working environment for visual media, built with the restraint of a Leica and the clarity of a darkroom safelight.
+### Aesthetic Foundation
+The aesthetic is built upon an **Editorial Minimalist & Atmospheric Translucency** hybrid:
+1. **Architectural Obsidian**: Surfaces rely on warm stone charcoal tones rather than cold digital blacks, preventing harsh contrast fatigue.
+2. **Subtle Atmospheric Vignettes**: Atmospheric ambient light orbs (diffused lavender, pale peach, and muted mint) drift across deep canvas layers behind cards to suggest dimensionality and organic vitality without competing with focal media.
+3. **Hairstroke Precision**: 1px micro-borders and subtle contrast separations provide tactile framing akin to premium archival mount boards.
 
-The system explicitly rejects decorative AI patterns: no gradient text, no over-rounded cards, no gratuitous glassmorphism, no SaaS landing-page clichés. Every surface earns its presence through function. The palette is intentionally monochromatic — blacks, near-blacks, and grays — with a single electric blue accent that appears only where the user's eye must land: active states, primary actions, and selection indicators.
+## Colors
 
-**Key Characteristics:**
-- Near-black canvas with absolute minimal surface variation
-- Single accent color (electric blue) used sparingly for interactive states
-- Instrument-grade typography: Sora for body, Instrument Serif for display moments
-- Tonal layering over shadow-based elevation
-- Consistent 4–6px micro-radius across all interactive elements
-- Zero decorative motion; all animation conveys state change
+The palette is anchored in warm-toned carbon blacks and architectural stone hues, illuminated by crisp warm-white ink and balanced with ethereal atmospheric accents.
 
-## 2. Colors
+### Canvas & Surface Hierarchy
+- **Canvas Root**: `#0c0a09` (Deep obsidian black with an amber undertone).
+- **Sub-canvas / Recessed**: `#12100e` (Deep charcoal ground for gutters and deep bays).
+- **Surface Level 1 (Cards, panels)**: `#1c1917` (Rich volcanic stone).
+- **Surface Level 2 (Elevated, flyouts, hover targets)**: `#24201d` (Warm illuminated obsidian).
+- **Hairline Borders**: `#292524` (Subtle boundary), ramping to `#332e2b` for active/hover states.
 
-The palette is restrained to near-monochrome with a single accent, reinforcing that photographs are the only color that matters.
+### Ink & Typography
+- **Primary Ink**: `#f5f5f4` (Crisp warm alabaster for displays, headers, and high-emphasis reading).
+- **Secondary Ink**: `#a8a29e` (Muted warm stone for body copy, secondary metadata, and quiet framing).
+- **Tertiary / Subdued**: `#78716c` (Captions, inactive icons, timestamps).
 
-### Primary
-- **Pure White** (#ffffff): Body text, primary labels, active navigation. The brightest element on screen — reserved for content that demands immediate attention.
+### Atmospheric Glow Orbs (Ambient Accents)
+These diffuse chromatic gradients are applied strictly as backdrop elements at massive blur radii (120px–180px) and low opacity (6%–12%):
+- **Ethereal Mint**: `#86efac` (Faint bioluminescence, used for operational readiness or gentle focus).
+- **Dusk Lavender**: `#c084fc` (Creative intelligence, voice synthesis status, high-culture markers).
+- **Sunken Peach**: `#fdba74` (Warm human interaction, audio timeline playheads, tactile highlights).
 
-### Accent
-- **Electric Blue** (#2563eb): Primary actions, active tab indicators, selection rings, focus states. Used on ≤10% of any given screen. Its rarity is the point.
+## Typography
 
-### Neutral
-- **Void Black** (#050505): Deepest background layer, OLED-safe canvas. The foundation everything sits on.
-- **Deep Charcoal** (#06080c): Primary background surface. Slightly lighter than void to create subtle depth without contrast.
-- **Surface** (#0a0c10): Card backgrounds, sidebar panels, raised surfaces. The working layer above the canvas.
-- **Surface Raised** (#161A20): Hover states, active panels, popover backgrounds. The highest resting elevation.
-- **Muted Gray** (#666666): Secondary text, disabled states, placeholder content. Readable but deliberately recessive.
-- **Medium Gray** (#999999): Secondary labels, timestamps, metadata. Functional hierarchy without competing with content.
+The typographical cadence balances literary gravitas with microscopic precision:
 
-### Semantic
-- **Processing Indigo** (#5e6ad2): Background processing indicators, sync status, AI thinking states.
-- **Success Green** (#22c55e): Completed actions, positive confirmations, health indicators.
-- **Warning Amber** (#eab308): Caution states, low-storage warnings, non-critical alerts.
-- **Error Red** (#ef4444): Destructive actions, critical failures, trash states.
+- **Display & Headlines (EB Garamond)**: Set at delicate natural weights (regular/300-400), headlines carry bookish sophistication and historical depth. Line heights are disciplined and tight, avoiding excessive vertical bulk.
+- **Body & Functional Typography (Inter)**: Built with conscious letter spacing (`letterSpacing: 0.01em` to `0.015em`) and light 300-400 weights. This eliminates digital clutter, maintains pristine legibility across high-density obsidian canvases, and delivers an architectural, technical aura.
+- **Labels & Micro-copy**: Employs uppercase or deliberate slight tracking (`0.04em` to `0.08em`) to act as refined museum captions or gallery indices.
 
-### Named Rules
+## Layout & Spacing
 
-**The Darkroom Rule.** The canvas is always darker than any surface above it. Depth is conveyed through tonal layering (progressively lighter surfaces) — never through drop shadows on resting elements.
+The layout is grounded in an asymmetrical, editorial column structure designed to showcase media assets, waveforms, and visual compositions with museum-grade breathing space.
 
-**The Accent Restraint Rule.** The electric blue accent appears only on interactive elements: buttons, active tabs, selection rings, focus indicators. Never on decorative elements, never on cards, never as a background fill.
+### Grid Architecture
+- **Desktop (1280px and above)**: 12-column fluid grid, `2rem` (32px) margins, `1.5rem` (24px) gutters. Wide columns allow content to sit in majestic isolation, flanked by structural gutters.
+- **Tablet (768px – 1279px)**: 8-column layout, `1.5rem` margins, `1rem` gutters.
+- **Mobile (below 768px)**: 4-column layout, `1rem` margins, `0.75rem` gutters. Display typography collapses to mobile-specific tokens to preserve line balance.
 
-## 3. Typography
+### Spacing Principles
+- Generous outer section margins contrast with dense, mathematically disciplined inner component padding.
+- Structural elements align strictly to modular increments of `0.25rem` (4px). Empty layout gaps prioritize vertical rhythm, keeping narrative text groups unified while setting them well apart from controls.
 
-**Display Font:** Instrument Serif (with Georgia, serif fallback)
-**Body Font:** Sora (with system-ui, sans-serif fallback)
-**Mono Font:** JetBrains Mono (with monospace fallback)
+## Elevation & Depth
 
-**Character:** The pairing contrasts editorial warmth (Instrument Serif's humanist curves) against technical precision (Sora's geometric clarity). This mirrors the product's dual identity: a creative tool with engineering rigor. Instrument Serif appears only in rare display moments — the logo, section headings in the explore view — while Sora carries the functional weight of labels, buttons, and data.
+Rather than conventional drop shadows, visual depth is sculpted through **tonal progression, backlighting, and hairline precision**.
 
-### Hierarchy
-- **Display** (400 weight, clamp(2rem, 5vw, 4rem), line-height 1.1): Hero headlines, section openers in the explore view. Used sparingly — perhaps once per screen.
-- **Headline** (500 weight, 18px, line-height 1.3): Panel titles, sidebar section headers. The structural voice of the interface.
-- **Title** (500 weight, 14px, line-height 1.4): Card titles, album names, photo metadata headers.
-- **Body** (400 weight, 14px, line-height 1.5): Descriptions, form inputs, general content. Max line length 65–75ch for prose.
-- **Label** (500 weight, 12px, letter-spacing 0.02em): Button text, navigation items, chips, badges. The most-used role.
-- **Caption** (400 weight, 11px, line-height 1.4): Timestamps, secondary metadata, helper text.
+### Atmospheric Layers
+1. **Under-Canvas Orbs**: Beneath the UI plane sit radial gradient blur layers (400px–600px width, 120px blur, 8% opacity in mint, lavender, and peach). These create depth behind dark panes without illuminating the entire screen.
+2. **Surface Elevation (Tiers)**:
+   - *Ground (0)*: `#0c0a09` with no borders.
+   - *Resting Card (1)*: `#1c1917` with a 1px border of `#292524`.
+   - *Elevated Card / Modal (2)*: `#24201d` with a 1px border of `#332e2b` and a faint tinted ambient drop shadow (`0 20px 40px -15px rgba(0, 0, 0, 0.7)`).
+3. **Frosted Translucency (Overlays & Floating Bars)**:
+   - Navigation and control bars use an elevated glass surface: `rgba(28, 25, 23, 0.8)` paired with `backdrop-filter: blur(16px)` and a subtle `rgba(255, 255, 255, 0.05)` top hairline highlight.
 
-### Named Rules
+## Shapes
 
-**The Instrument Rule.** Instrument Serif is forbidden in labels, buttons, data tables, and form inputs. It exists only for display typography — moments where the interface speaks, not where it works.
+The design system employs an intentional contrast between **crisp, architectural rectilinear frames** and **fully pill-shaped interactive elements**:
 
-**The Tabular Rule.** All numeric data (durations, timestamps, dimensions, file sizes) uses JetBrains Mono with font-feature-settings: "tnum" for aligned columns.
+- **Panels, Cards, and Display Frames**: Softly framed with refined architectural corners (`rounded-lg` / 1rem) that mirror physical passe-partout mount boards and high-end audio racks.
+- **Interactive Controls (Buttons, Badges, Chips, Search Inputs)**: Fully curved pill geometries (`rounded-full` / 9999px) provide smooth touch and click targets that contrast against structural card grids.
 
-## 4. Elevation
-
-Prism uses tonal layering exclusively. No drop shadows on resting surfaces. Depth is communicated through progressively lighter surface tones: Void Black → Deep Charcoal → Surface → Surface Raised. This creates a darkroom-like ambiance where content floats above a true black void.
-
-### Tonal Vocabulary
-- **Level 0 — Void** (#050505): The deepest background. Used for the canvas behind all content.
-- **Level 1 — Canvas** (#06080c): The primary background surface. Sits just above void.
-- **Level 2 — Surface** (#0a0c10): Cards, sidebars, panels. The working layer.
-- **Level 3 — Raised** (#161A20): Hover states, active panels, popovers. The highest resting elevation.
-- **Level 4 — Overlay** (#1a1a1a): Modal backdrops, lightbox backgrounds. Temporary elevation above all.
-
-### Named Rules
-
-**The Flat-By-Default Rule.** Surfaces are flat at rest. Shadows appear only as a response to state: hover elevation, focus rings, or active drag operations. A resting card with a drop shadow is a bug, not a feature.
-
-**The Grain Overlay Rule.** A subtle noise texture (opacity 0.4, overlay blend mode) sits fixed over the entire canvas. It adds film grain atmosphere without affecting readability. Disabled in theme variants (Google, Apple) that prioritize clean surfaces.
-
-## 5. Motion & Animation
-
-**Animation Engine:** GSAP (GreenSock Animation Platform) with `@gsap/react` for React integration.
-
-**Motion Philosophy:** Every animation in Prism serves a functional purpose. Motion conveys state change, spatial relationships, and system feedback. There is no decorative motion. The animation system is split between GSAP (for performance-critical paths) and Framer Motion (for declarative React patterns).
-
-### GSAP Configuration
-
-**Default Easing:** `power3.out` (0.3s) — premium, weighty feel with immediate response.
-**Overwrite Mode:** `auto` — prevents tween stacking on rapid interactions.
-**Transform Aliases:** Always use GSAP's `x`, `y`, `scale`, `rotation` over raw `transform` strings.
-
-```typescript
-// motion-tokens.ts — GSAP easing map
-export const gsapEase = {
-  smooth: 'power3.out',        // General UI transitions
-  snappy: 'back.out(1.7)',     // Overshoot for playful elements
-  press: 'power2.inOut',       // Button press feedback
-  entry: 'power3.out',         // Elements entering viewport
-  exit: 'power2.in',           // Elements leaving (faster exit)
-  spring: 'elastic.out(1, 0.3)', // Playful bounce
-};
-```
-
-### Animation Timing
-
-| Element | Duration | Easing | Purpose |
-|---------|----------|--------|---------|
-| Button press | 100ms | power2.inOut | Immediate tactile feedback |
-| Tab indicator slide | 300ms | power3.out | Spatial navigation cue |
-| Dropdown entry | 150ms | power3.out | Quick reveal |
-| Modal/drawer | 200-300ms | power3.out | Significant state change |
-| Progress bar | 800ms | power2.out | Smooth value interpolation |
-| Mouse tracking (glass) | 300ms | power2.out | Fluid pointer follow |
-
-### GSAP Patterns
-
-**QuickTo for High-Frequency Updates:**
-```typescript
-// GlassMaterial pointer tracking — 60fps without React re-renders
-const quickX = gsap.quickTo(highlightRef, 'x', { duration: 0.3, ease: 'power2.out' });
-const quickY = gsap.quickTo(highlightRef, 'y', { duration: 0.3, ease: 'power2.out' });
-onPointerMove: (e) => { quickX(x); quickY(y); }
-```
-
-**Overwrite Auto for Rapid Interactions:**
-```typescript
-// Progress bar — prevents tween stacking on rapid updates
-gsap.to(barRef, { width: `${progress}%`, duration: 0.8, ease: 'power2.out', overwrite: 'auto' });
-```
-
-**AutoAlpha for Enter/Exit:**
-```typescript
-// Uses opacity + visibility — no pointer events on hidden elements
-gsap.fromTo(el, { autoAlpha: 0, y: 20 }, { autoAlpha: 1, y: 0, duration: 0.3 });
-```
-
-### Framer Motion Patterns (Retained)
-
-Framer Motion remains for:
-- **AnimatePresence** — Portal-mounted modals, toasts, drawers (React conditional rendering)
-- **layout/layoutId** — Shared element transitions between routes
-- **Declarative hover/tap** — Simple `whileHover`/`whileTap` on interactive elements
-
-### Reduced Motion
-
-**`prefers-reduced-motion: reduce`** preserves opacity and color transitions for comprehension while killing transform-based motion. This is surgical, not nuclear — users with vestibular disorders still see state changes through color and opacity shifts.
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-  }
-  /* Only kill transform-based transitions */
-  [style*="transform"], [style*="translate"], [style*="scale"] {
-    transition-duration: 0.01ms !important;
-  }
-}
-```
-
-### Hardware Acceleration
-
-- Animate exclusively via `transform` and `opacity` — skip layout and paint
-- Use `will-change: transform` on elements with frequent animations
-- GSAP's `quickTo` runs in the browser's animation frame, not React's render cycle
-- Framer Motion shorthand props (`x`, `y`, `scale`) use `requestAnimationFrame` — prefer full `transform` strings for GPU acceleration under load
-
-## 6. Components
+## Components
 
 ### Buttons
-- **Shape:** Gently curved (6px radius). Never pill-shaped except for chips/tags.
-- **Primary:** Electric blue background, white text, 8px 16px padding. Used for the single most important action on any screen.
-- **Ghost:** Transparent background, muted gray text, 8px 12px padding. Used for secondary actions, navigation, toolbars.
-- **Hover:** Ghost buttons gain a subtle background tint (white at 5% opacity). Primary buttons shift to a slightly darker blue.
-- **Active:** `scale(0.97)` via GSAP `power2.inOut` at 100ms. Immediate tactile push feedback.
-- **Focus:** 2px electric blue outline with 2px offset. Visible, unmissable, accessible.
-- **Disabled:** 40% opacity, no pointer events, cursor not-allowed.
+- **Primary Action**: Pill-shaped (`rounded-full`), `#f5f5f4` fill with `#0c0a09` typography. Provides undeniable contrast on dark canvases. Hover brings subtle luminescence via a `0 0 20px rgba(245, 245, 244, 0.2)` bloom.
+- **Secondary Action**: Pill-shaped, transparent interior, wrapped in a 1px hairline border (`#332e2b`) with `#f5f5f4` ink. On hover, background shifts to `#24201d` with border transition to `#a8a29e`.
+- **Ghost Action**: Pill-shaped, zero border, `#a8a29e` text, transitioning to `#f5f5f4` text with `#1c1917` background fill on hover.
 
-### Cards / Containers
-- **Corner Style:** 10px radius. Consistent across all card types.
-- **Background:** Surface (#0a0c10) at rest, Surface Raised (#161A20) on hover.
-- **Shadow Strategy:** None at rest. Subtle border shift on hover (border becomes white at 8% opacity).
-- **Internal Padding:** 16px standard, 12px compact, 24px spacious.
+### Badges & Chips
+- **Status & Attribute Badges**: Pill-shaped, minimal padding (`py-1 px-3`), text in `label-sm`. Backgrounds are low-luminosity tints of volcanic stone (`#24201d`) framed by `#292524`.
+- **Atmospheric Glowing Indicator**: A 6px glowing micro-orb rendered in mint (`#86efac`), lavender (`#c084fc`), or peach (`#fdba74`) positioned adjacent to status text.
 
-### Inputs / Fields
-- **Style:** Surface Sunken (#050505) background, 1px border at white 10% opacity, 6px radius.
-- **Focus:** Border shifts to electric blue, subtle 2px blue glow around the input.
-- **Error:** Border shifts to error red, helper text appears below in red.
-- **Placeholder:** Muted gray (#666666) at 4.5:1 contrast ratio minimum.
+### Cards & Media Frames
+- Constructed on `#1c1917` with a 1px uniform border in `#292524`. Internal padding conforms to `space-lg` (24px).
+- Images and media viewports inside cards sit flush or with a uniform 8px inset border, maintaining sharp 12px internal radii.
+- Interactive cards transition to a `#24201d` surface with border lightened to `#332e2b` under a 200ms ease curve.
 
-### Navigation (Sidebar)
-- **Style:** Fixed left sidebar, GlassMaterial (prominent intensity), 256px width.
-- **Typography:** Label role (12px, 500 weight, 0.02em tracking).
-- **Active State:** Electric blue text, left border accent (2px), background tint (blue at 6% opacity). Animated via GSAP `power3.out` at 200ms.
-- **Hover State:** White text, subtle background tint (white at 5%).
-- **Icon Language:** Lucide React icons, 18px, consistent stroke weight.
+### Input Fields & Controls
+- **Text Inputs**: Pill-shaped or subtle rounded rects (`0.75rem`). Background `#12100e`, border `#292524`, text `#f5f5f4`, placeholder `#78716c`. On focus: border shifts cleanly to `#d6d3d1` with no aggressive default browser rings.
+- **Checkboxes & Radios**: 16px square or circular toggles in `#12100e` with a 1px border in `#332e2b`. Active selection fills with `#f5f5f4` and displays obsidian checkmarks/dots.
 
-### Chips / Tags
-- **Style:** Surface Raised background, muted gray text, full pill radius (9999px).
-- **Selected:** Electric blue background, white text.
-- **Filter Variant:** Used for search filters, tag selectors. Compact padding (6px 12px).
-
-### Photo Grid Items
-- **Shape:** Configurable radius (0px for Google theme, 4px for Apple theme, 0px default).
-- **Hover:** Ring effect (1px white at 20% opacity), subtle scale (1.02x).
-- **Selected:** Electric blue ring (2px), checkmark overlay.
-- **Transition:** `transition-colors 200ms ease, border-color 200ms ease` — specific properties only.
-
-### GlassMaterial (Signature Component)
-- **Purpose:** Sidebar, modal containers, keyboard shortcut overlays, overlay panels.
-- **Treatment:** Backdrop blur (12px regular, 16px prominent), surface at 5% white opacity, 1px border at 5% white opacity.
-- **Interactive Mode:** Pointer-following specular highlight using GSAP `quickTo` — 60fps without React re-renders.
-- **Press Feedback:** GSAP `scale(0.98)` at 100ms via `power2.inOut`.
-- **Usage:** Sidebar (prominent), floating overlays (regular), decorative panels (subtle).
-
-### Adjustment Sliders
-- **Track:** 2px height, white at 12% opacity, 99px radius.
-- **Thumb:** 14px circle, white fill, subtle shadow (0 1px 6px rgba(0,0,0,0.6)).
-- **Hover:** Thumb scales to 125%, gains electric blue glow ring.
-- **Active:** Thumb scales to 115%, cursor becomes grabbing.
-- **Transition:** `transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1)` — specific properties only.
-
-### Tab Indicator (SmoothTab)
-- **Animation:** GSAP `power3.out` at 300ms slides a 2px indicator to the active tab position.
-- **Implementation:** Single DOM element animated via `gsap.to()` — zero React re-renders on tab switch.
-- **Visual:** Electric blue (#5e6ad2) with 10px glow shadow.
-
-### Toggle Switch
-- **Track:** 34×20px, rounded full. Off: #0c0c0c. On: #4b5563.
-- **Thumb:** 15px white circle, slides via GSAP `power3.out` at 150ms.
-- **Implementation:** GSAP `gsap.to()` for hardware-accelerated thumb position.
-
-## 7. Layout Principles
-
-- **Grid-First:** CSS Grid for multi-column layouts. Flexbox for single-axis alignment only.
-- **Max-Width Containment:** Content areas capped at 1400px centered.
-- **Full-Height:** Use `min-h-[100dvh]` — never `h-screen` (iOS Safari catastrophic jump).
-- **Sidebar + Content:** Fixed 256px sidebar + fluid content area. No horizontal scroll.
-- **Photo Grid:** Virtualized rendering via `@tanstack/react-virtual` for 10k+ items.
-- **No Overlapping Elements:** Every element occupies its own clear spatial zone.
-
-## 8. Anti-Patterns (Banned)
-
-### AI Design Clichés
-- No gradient text (`background-clip: text` with gradients)
-- No over-rounded cards (radius > 12px)
-- No decorative glassmorphism on resting surfaces
-- No neon/outer glow shadows
-- No purple button glows or "AI purple" aesthetic
-- No custom mouse cursors
-- No emojis in UI
-- No filler text: "Scroll to explore", "Swipe down", scroll arrows, bouncing chevrons
-
-### Animation Anti-Patterns
-- No `transition: all` — specify exact properties (`transition-colors`, `transition-transform`)
-- No `ease-in` for UI elements — starts slow, feels sluggish. Use `ease-out` or custom curves
-- No animations on keyboard-initiated actions (100+ times/day)
-- No `scale(0)` entry — start from `scale(0.95)` with opacity
-- No `transform-origin: center` on popovers (modals are exempt)
-- No keyframe animations on rapidly-triggered elements — use CSS transitions
-
-### Typography Anti-Patterns
-- No `Inter` font in premium/creative contexts
-- No generic serif fonts (`Times New Roman`, `Georgia`, `Garamond`) — only `Instrument Serif`
-- No Instrument Serif in labels, buttons, data tables, or form inputs
-- No font sizes below 11px for body text
-
-### Color Anti-Patterns
-- No pure black (#000000) — use Void Black (#050505) or Zinc-950
-- No oversaturated accents — keep saturation below 80%
-- No accent color on decorative elements or card backgrounds
-- No warm/cool gray fluctuation — stick to one neutral palette
-
-### Layout Anti-Patterns
-- No centered Hero sections (variance exceeds 4)
-- No 3-column equal card grids — use 2-column zig-zag or asymmetric layouts
-- No `calc()` percentage hacks — use CSS Grid
-- No horizontal scroll on mobile
-- No `h-screen` — always `min-h-[100dvh]`
-
-### Content Anti-Patterns
-- No generic placeholder names ("John Doe", "Acme", "Nexus")
-- No fake round numbers ("99.99%", "50%")
-- No AI copywriting clichés ("Elevate", "Seamless", "Unleash", "Next-Gen")
-- No broken Unsplash links — use `picsum.photos` or SVG avatars
-
-## 9. Do's and Don'ts
-
-### Do:
-- **Do** use the darkroom aesthetic — deep blacks, minimal surface contrast, photographs as the only color.
-- **Do** reserve the electric blue accent for interactive states only: buttons, active tabs, selection rings, focus indicators.
-- **Do** use tonal layering (Void → Surface → Raised) for depth, never drop shadows on resting elements.
-- **Do** use JetBrains Mono for all numeric data (durations, timestamps, dimensions) with tabular-nums.
-- **Do** use Lucide React icons consistently across all surfaces — same weight, same size, same style.
-- **Do** support `prefers-reduced-motion` with surgical reduction — preserve opacity/color transitions, kill transform motion.
-- **Do** maintain 4.5:1 contrast ratio minimum for body text on any surface.
-- **Do** use the grain overlay for atmosphere on the default theme; disable it for Google and Apple themes.
-- **Do** specify exact CSS transition properties — never `transition-all`.
-- **Do** use GSAP `quickTo` for high-frequency updates (mouse tracking, progress bars).
-- **Do** use GSAP `overwrite: 'auto'` for interactive elements that may receive rapid updates.
-
-### Don't:
-- **Don't** use gradient text (background-clip: text with gradients). Use solid colors only.
-- **Don't** use over-rounded cards (radius > 12px). Cards top out at 10px; full-pill is for chips/tags only.
-- **Don't** use decorative glassmorphism on cards, sidebars, or resting surfaces. GlassMaterial is for floating overlays only.
-- **Don't** use side-stripe borders (border-left > 1px as colored accent). Use full borders or background tints.
-- **Don't** use drop shadows on resting elements. Shadows appear only on hover, focus, or drag.
-- **Don't** use Instrument Serif in labels, buttons, data tables, or form inputs.
-- **Don't** use the electric blue accent on decorative elements, card backgrounds, or section headers.
-- **Don't** use generic SaaS patterns: hero-metric templates, identical card grids, numbered section markers (01/02/03).
-- **Don't** animate layout properties unless truly needed. State changes use 150–250ms ease-out.
-- **Don't** use bounce, elastic, or spring animations for UI feedback. Use exponential ease-out curves.
-- **Don't** use `transition-all` — always specify exact properties.
-- **Don't** animate `width`, `height`, `top`, `left` when `transform` can achieve the same effect.
+### Lists & Row Items
+- Divided by 1px warm horizontal lines (`#292524`). Row items feature generous vertical padding (`space-md` / 16px) with title in serif (`headline-sm`) and metadata tracked out in Inter (`body-sm`, `#a8a29e`).
+- Hover state softly illuminates the entire row with `#1c1917`.

@@ -45,44 +45,68 @@ export const MapOverlay: React.FC<MapOverlayProps> = ({
 }) => {
   return (
     <div className="absolute top-6 left-6 z-[1000] pointer-events-none">
-      <div className="max-w-[320px] bg-surface border border-white/10 p-4 rounded-2xl shadow-2xl">
-        <h2 className="text-xl font-serif italic text-white mb-1">World View</h2>
-        <p className="text-xs text-gray-500 font-medium">
-          {geoPhotoCount} Geolocated moments captured
-        </p>
+      <div className="max-w-[320px] sm:max-w-[340px] bg-[#1d1b1a]/90 backdrop-blur-xl border border-white/10 p-4 rounded-2xl shadow-2xl transition-all duration-300 pointer-events-auto">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#e5a93c] flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#e5a93c] animate-pulse" />
+            Prism Cartography
+          </div>
+          <div className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-zinc-400">
+            Offline Ready
+          </div>
+        </div>
+
+        <h2 className="text-xl font-serif text-white tracking-tight">Spatial Archive</h2>
+        <div className="flex items-center gap-2 mt-1 text-xs text-zinc-400 font-medium">
+          <span className="text-[#f5f0ed] font-semibold">{geoPhotoCount}</span>
+          <span>geolocated moments</span>
+          {totalGeoPhotoCount > geoPhotoCount && (
+            <span className="text-zinc-500 font-mono text-[11px]">({totalGeoPhotoCount} total)</span>
+          )}
+        </div>
+
         {temporalFilterActive && (
-          <p className="mt-3 text-xs text-sky-200/80">
-            Timeline filter active. {geoPhotoCount} of {totalGeoPhotoCount} mapped photos remain visible.
-          </p>
+          <div className="mt-3 flex items-start gap-2 bg-[#e5a93c]/10 border border-[#e5a93c]/20 px-2.5 py-1.5 rounded-xl font-mono text-[11px] text-amber-200/90 leading-relaxed">
+            <span className="text-[#e5a93c] font-bold">◷</span>
+            <span>Filter active: {geoPhotoCount} of {totalGeoPhotoCount} visible</span>
+          </div>
         )}
+
         {timeLapseActive && timeLapseDateLabel && (
-          <p className="mt-3 text-xs text-lime-200/85">
-            Time-lapse replay at {timeLapseDateLabel}.
-          </p>
+          <div className="mt-2.5 flex items-start gap-2 bg-[#e5a93c]/15 border border-[#e5a93c]/30 px-2.5 py-1.5 rounded-xl font-mono text-[11px] text-amber-100 leading-relaxed">
+            <span className="text-[#e5a93c] font-bold">▶</span>
+            <span>Replay at {timeLapseDateLabel}</span>
+          </div>
         )}
+
         {densityEnabled && (
-          <p className="mt-3 text-xs text-sky-200/80">
-            Density mode reveals repeated shooting hotspots without depending on cluster expansion.
-          </p>
+          <div className="mt-2.5 flex items-start gap-2 bg-white/5 border border-white/10 px-2.5 py-1.5 rounded-xl font-mono text-[11px] text-zinc-300 leading-relaxed">
+            <span className="text-[#e5a93c] font-bold">◈</span>
+            <span>Density heatmap reveals shoot distribution</span>
+          </div>
         )}
+
         {editMode && (
-          <p className="mt-3 text-xs text-amber-200/85">
-            Drag markers to correct GPS data.{saveCount > 0 ? ` Saving ${saveCount} change${saveCount === 1 ? '' : 's'}...` : ''}
-          </p>
+          <div className="mt-2.5 flex items-start gap-2 bg-amber-500/10 border border-amber-500/25 px-2.5 py-1.5 rounded-xl font-mono text-[11px] text-amber-200 leading-relaxed">
+            <span className="text-amber-400 font-bold">✎</span>
+            <span>Drag pins to calibrate GPS.{saveCount > 0 ? ` Saving ${saveCount}...` : ''}</span>
+          </div>
         )}
+
         {routeEnabled && routePhotoCount > 1 && (
-          <div className="mt-4 border-t border-white/10 pt-4">
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-lime-300/90">
-              Journey timeline
+          <div className="mt-3.5 pt-3 border-t border-white/10">
+            <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-[#e5a93c]">
+              <span>Journey Route</span>
+              <span className="text-zinc-500 font-mono">{routePhotoCount} stops</span>
             </div>
-            <p className="mt-2 text-sm text-white">
-              {routePhotoCount} stops connected from {formatRouteDate(firstRoutePhoto?.date || firstRoutePhoto?.date_taken)} to{' '}
-              {formatRouteDate(lastRoutePhoto?.date || lastRoutePhoto?.date_taken)}.
-            </p>
-            <p className="mt-2 text-xs text-gray-400">
-              {firstRoutePhoto?.location || firstRoutePhoto?.filename || 'First stop'} to{' '}
-              {lastRoutePhoto?.location || lastRoutePhoto?.filename || 'latest stop'}.
-            </p>
+            <div className="mt-1.5 text-xs text-[#f5f0ed] leading-snug font-medium truncate">
+              {firstRoutePhoto?.location || firstRoutePhoto?.city || firstRoutePhoto?.filename || 'Origin'}
+              <span className="text-[#e5a93c] mx-1.5 font-mono">→</span>
+              {lastRoutePhoto?.location || lastRoutePhoto?.city || lastRoutePhoto?.filename || 'Destination'}
+            </div>
+            <div className="mt-1 text-[11px] font-mono text-zinc-400">
+              {formatRouteDate(firstRoutePhoto?.date || firstRoutePhoto?.date_taken)} – {formatRouteDate(lastRoutePhoto?.date || lastRoutePhoto?.date_taken)}
+            </div>
           </div>
         )}
       </div>

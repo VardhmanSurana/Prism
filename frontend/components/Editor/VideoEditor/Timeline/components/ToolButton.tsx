@@ -14,10 +14,10 @@ export const ToolButton: React.FC<ToolButtonProps> = ({ title, onClick, active, 
   <button
     title={title}
     onClick={onClick}
-    className={`w-7 h-7 flex items-center justify-center rounded transition-colors cursor-pointer ${
+    className={`w-7 h-7 flex items-center justify-center rounded-lg transition-all duration-150 cursor-pointer ${
       active
-        ? 'bg-blue-600/25 text-blue-400 border border-blue-500/30'
-        : 'text-[#666] hover:text-[#999] hover:bg-[#252525]'
+        ? 'bg-[#e5a93c]/15 text-[#e5a93c] border border-[#e5a93c]/50 shadow-sm'
+        : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
     }`}
   >
     {children}

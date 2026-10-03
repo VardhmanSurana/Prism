@@ -118,7 +118,29 @@ pub struct Photo {
     pub last_verified: Option<DateTime<Utc>>,
 }
 
+impl Photo {
+    /// Returns the primary lookup key (UUID if present, otherwise integer ID string)
+    pub fn key(&self) -> String {
+        self.uuid.as_deref().unwrap_or(&self.id.to_string()).to_string()
+    }
+
+    /// Normalizes display fields: ensures standard thumbnail URL, date_taken fallback, and date synchronization
+    pub fn normalize_display_fields(&mut self) {
+        let p_key = self.key();
+        if self.url.as_deref().unwrap_or("").is_empty() {
+            self.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key));
+        }
+        if self.date_taken.is_none() {
+            self.date_taken = self.upload_date.or(Some(Utc::now()));
+        }
+        if self.date.is_none() {
+            self.date = self.date_taken;
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, ToSchema)]
+
 pub struct LibraryBackup {
     pub id: i64,
     pub filename: String,

@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, FolderPlus, Pencil } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface AlbumNameDialogProps {
   isOpen: boolean;
   mode: 'create' | 'rename';
   initialValue?: string;
-  onConfirm: (name: string) => void;
+  onConfirm: (name: string, category?: string) => void;
   onClose: () => void;
 }
 
 /**
- * AlbumNameDialog - Renders album name dialog.
+ * AlbumNameDialog - Prism styled dialog for creating and renaming albums.
  */
 export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
   isOpen,
@@ -20,6 +20,7 @@ export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
   onClose,
 }) => {
   const [value, setValue] = useState(initialValue);
+  const [category, setCategory] = useState<'travel' | 'events' | 'projects'>('travel');
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -32,80 +33,111 @@ export const AlbumNameDialog: React.FC<AlbumNameDialogProps> = ({
   if (!isOpen) return null;
 
   const isCreate = mode === 'create';
-  const title = isCreate ? 'New Album' : 'Rename Album';
-  const Icon = isCreate ? FolderPlus : Pencil;
-  const confirmLabel = isCreate ? 'Create' : 'Save';
+  const title = isCreate ? 'Create New Collection' : 'Rename Album';
+  const confirmLabel = isCreate ? 'Create Album' : 'Save Changes';
 
-  /**
-   * handleSubmit - Handles submit.
-   */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = value.trim();
     if (trimmed) {
-      onConfirm(trimmed);
+      onConfirm(trimmed, category);
       onClose();
     }
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[#100e0d]/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-[#1a1a1f] border border-white/10 rounded-2xl w-full max-w-sm p-6 shadow-2xl relative animate-scale-in">
-        {/* Close */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 hover:bg-white/10 rounded-full text-gray-400 hover:text-white transition-colors"
-        >
-          <X size={16} />
-        </button>
-
-        {/* Icon + Title */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/25 flex items-center justify-center shrink-0">
-            <Icon size={18} className="text-indigo-400" />
-          </div>
-          <div>
-            <h3 className="text-base font-bold text-white">{title}</h3>
-            <p className="text-xs text-gray-500">
-              {isCreate ? 'Give your new album a name' : 'Enter a new name for this album'}
-            </p>
-          </div>
+      <div className="w-full max-w-lg rounded-2xl bg-[#211f1e] border border-white/[0.1] shadow-2xl p-6 sm:p-7 flex flex-col gap-5 relative">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h3 className="font-serif text-xl sm:text-2xl text-[#f5f5f4] tracking-tight">
+            {title}
+          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#a8a29e] hover:text-[#f5f5f4] hover:bg-[#2c2928] transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            ref={inputRef}
-            id="album-name-input"
-            name="albumName"
-            aria-label="Album name"
-            type="text"
-            placeholder={isCreate ? 'e.g. Summer 2025' : 'Album name'}
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="w-full px-4 py-2.5 bg-white/5 border border-white/10 focus:border-indigo-500/60 rounded-xl text-white placeholder-gray-600 focus:outline-none text-sm transition-colors"
-          />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Input field */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-mono uppercase tracking-wider text-[#a8a29e]">
+              Album Title
+            </label>
+            <input
+              ref={inputRef}
+              id="album-name-input"
+              name="albumName"
+              aria-label="Album title"
+              type="text"
+              placeholder={isCreate ? 'e.g. Kyoto Architectural Survey, Monsoon 2024...' : 'Album title'}
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="bg-[#100e0d] border border-white/[0.08] focus:border-white/30 rounded-full px-4 py-2.5 text-[#e7e1df] placeholder-[#78716c] text-sm outline-none transition-colors"
+            />
+          </div>
 
-          <div className="flex gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-300 text-sm font-medium transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!value.trim()}
-              className="flex-1 px-4 py-2.5 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-white text-sm font-semibold transition-colors"
-            >
-              {confirmLabel}
-            </button>
+          {/* Genre / Category selection for creation */}
+          {isCreate && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-mono uppercase tracking-wider text-[#a8a29e]">
+                Collection Genre
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: 'travel', label: 'Travel' },
+                  { id: 'events', label: 'Events' },
+                  { id: 'projects', label: 'Project' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setCategory(item.id as any)}
+                    className={`py-2 px-3 rounded-full text-xs font-medium transition-all text-center cursor-pointer ${
+                      category === item.id
+                        ? 'bg-[#c6c6c7] text-[#151312] shadow-sm font-semibold'
+                        : 'bg-[#1d1b1a] text-[#a8a29e] hover:bg-[#2c2928] hover:text-[#f5f5f4] border border-white/[0.04]'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Hint and Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-white/[0.06]">
+            <span className="text-[11px] text-[#78716c] font-sans">
+              Photos can be dragged into album once created.
+            </span>
+            <div className="flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-full text-xs font-medium text-[#a8a29e] hover:text-[#f5f5f4] hover:bg-[#2c2928] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!value.trim()}
+                className="px-5 py-2 rounded-full text-xs font-semibold bg-[#f5f5f4] text-[#1c1917] hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm cursor-pointer"
+              >
+                {confirmLabel}
+              </button>
+            </div>
           </div>
         </form>
       </div>
     </div>
   );
 };
+

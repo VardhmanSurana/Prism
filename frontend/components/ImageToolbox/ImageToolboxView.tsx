@@ -25,12 +25,14 @@ import {
   Scissors,
   Image as ImageIcon,
   Type,
+  ArrowLeft,
 } from 'lucide-react';
 import exifr from 'exifr';
 import { Photo } from '@/types';
 import { PhotoBook } from '../PhotoView/PhotoBook';
 import { CollageMaker } from '../PhotoView/CollageMaker';
 import { EditingMode } from '../Editor/ImageEditor/EditingMode';
+import { StudioToolboxCatalog } from './StudioToolboxCatalog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,10 +95,10 @@ const ToolImageUpload: React.FC<{
         onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
         onDragLeave={() => setIsDragOver(false)}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center p-10 cursor-pointer transition-colors 200ms ease, border-color 200ms ease, background-color 200ms ease gap-3 ${
+        className={`border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center p-10 cursor-pointer transition-colors duration-200 ease-out gap-3 ${
           isDragOver
             ? 'border-white/20 bg-white/5'
-            : 'border-white/10 hover:border-white/20/40 hover:bg-white/20/5'
+            : 'border-white/10 hover:border-white/25 hover:bg-white/5'
         }`}
       >
         <Upload className="w-10 h-10 text-neutral-500" />
@@ -123,14 +125,14 @@ const ToolImageUpload: React.FC<{
         <div className="flex gap-2">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3 py-1.5 bg-white/10 border border-white/20 text-neutral-300 hover:text-white hover:bg-white rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, background-color 150ms ease"
+            className="px-3 py-1.5 bg-white/10 border border-white/20 text-neutral-300 hover:text-white hover:bg-white/15 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             <Upload size={12} />
             Add More
           </button>
           <button
             onClick={onClear}
-            className="px-3 py-1.5 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease"
+            className="px-3 py-1.5 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors duration-150 ease-out"
           >
             <Trash2 size={12} />
             Clear
@@ -251,6 +253,7 @@ function hexToRgb(hex: string): string {
  * ImageToolboxView - Renders image toolbox view.
  */
 export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] }) => {
+  const [viewMode, setViewMode] = useState<'catalog' | 'tool'>('catalog');
   const [activeTab, setActiveTab] = useState<ToolTab>('pdf');
   const [toolCategory, setToolCategory] = useState<'image' | 'video'>('image');
   const [isPdfOpen, setIsPdfOpen] = useState(false);
@@ -745,26 +748,73 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
+  const toolTitles: Record<ToolTab, string> = {
+    pdf: 'PDF Document Creator',
+    collage: 'Collage Builder',
+    converter: 'Format Converter',
+    watermark: 'Watermark Studio',
+    metadata: 'EXIF Privacy Inspector',
+    base64: 'Base64 Studio',
+    'svg-trace': 'Images to SVG',
+    palette: 'Palette Tools',
+    'web-load': 'Web Image Loader',
+    'video-trimmer': 'Video Trimmer',
+    'video-gif': 'Video to GIF',
+    'video-compress': 'Video Compressor',
+    subtitles: 'Subtitle Editor',
+  };
+
+  if (viewMode === 'catalog') {
+    return (
+      <div className="bg-[#151312] min-h-screen">
+        <StudioToolboxCatalog
+          photos={photos}
+          activeCategory={toolCategory}
+          onCategoryChange={setToolCategory}
+          onLaunchTool={(tool, category) => {
+            setActiveTab(tool);
+            setToolCategory(category);
+            setViewMode('tool');
+          }}
+          onOpenPdf={() => setIsPdfOpen(true)}
+          onOpenCollage={() => setIsCollageOpen(true)}
+        />
+
+        {/* Modals */}
+        <PhotoBook photos={photos} isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
+        <CollageMaker photos={photos} isOpen={isCollageOpen} onClose={() => setIsCollageOpen(false)} />
+        {isWebEditorOpen && webPreview && (
+          <EditingMode
+            src={webPreview}
+            onClose={() => setIsWebEditorOpen(false)}
+            onSave={handleWebEditorSave}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-background text-gray-100 p-6 lg:p-10">
-      {/* Header Banner */}
+    <div className="bg-[#151312] text-[#e8e1df] p-6 lg:p-10 min-h-screen">
+      {/* Prism Navigation Top Bar */}
       <div className="max-w-6xl mx-auto w-full mb-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-surface/80 border border-white/10 rounded-[10px] relative overflow-hidden">
-          <div className="flex items-center gap-4 z-10">
-            <div className="p-3 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center">
-              <img src="/toolbox.svg" alt="Toolbox" className="w-10 h-10 object-contain filter invert brightness-125 drop-shadow-[0_0_10px_rgba(37,99,235,0.6)]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-white tracking-tight">Toolbox</h1>
-                <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-white/10 text-neutral-300 border border-white/20">
-                  PRO SUITE
-                </span>
-              </div>
-              <p className="text-xs text-neutral-400 mt-1">
-                Professional studio utilities for PDF creation, collage building, format conversion, watermarking, and privacy inspection.
-              </p>
-            </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-[#1d1b1a] border border-[#2c2928] shadow-xl">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setViewMode('catalog')}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-[#2c2928] hover:bg-[#373433] text-stone-200 text-xs font-mono transition-colors border border-stone-700/40"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Back to Studio Toolbox</span>
+            </button>
+            <div className="h-4 w-px bg-stone-700/60 hidden sm:block" />
+            <span className="text-xs font-mono text-stone-400">
+              {toolCategory === 'image' ? 'Image Utilities' : 'Video Utilities'} / <span className="text-stone-200 font-semibold">{toolTitles[activeTab]}</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] font-mono text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Active Local Engine</span>
           </div>
         </div>
       </div>
@@ -774,21 +824,21 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
         {/* Navigation Sidebar / Tool Cards */}
         <div className="lg:col-span-4 space-y-3">
           {/* Category Toggle */}
-          <div className="flex items-center bg-white/5 border border-white/10 rounded-md p-0.5">
+          <div className="flex items-center bg-[#1d1b1a] border border-[#2c2928] rounded-xl p-1 shadow-inner">
             <button
               onClick={() => {
                 setToolCategory('image');
                 setActiveTab('pdf');
               }}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-[4px] transition-colors ${
+              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
                 toolCategory === 'image'
-                  ? 'bg-white text-black'
-                  : 'text-neutral-400 hover:text-white'
+                  ? 'bg-[#2c2928] text-white shadow-sm border border-stone-600/30'
+                  : 'text-[#a8a29e] hover:text-stone-200'
               }`}
             >
               <div className="flex items-center justify-center gap-1.5">
                 <ImageIcon size={12} />
-                Images
+                Images (8)
               </div>
             </button>
             <button
@@ -796,15 +846,15 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 setToolCategory('video');
                 setActiveTab('video-trimmer');
               }}
-              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-[4px] transition-colors ${
+              className={`flex-1 py-1.5 text-[11px] font-semibold rounded-lg transition-all ${
                 toolCategory === 'video'
-                  ? 'bg-white text-black'
-                  : 'text-neutral-400 hover:text-white'
+                  ? 'bg-[#2c2928] text-white shadow-sm border border-stone-600/30'
+                  : 'text-[#a8a29e] hover:text-stone-200'
               }`}
             >
               <div className="flex items-center justify-center gap-1.5">
                 <Film size={12} />
-                Video
+                Video (4)
               </div>
             </button>
           </div>
@@ -832,25 +882,26 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
               <button
                 key={tool.id}
                 onClick={() => setActiveTab(tool.id)}
-                className={`w-full p-4 rounded-md border text-left transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease relative overflow-hidden flex items-start gap-3.5 group ${
+                aria-pressed={isActive}
+                className={`w-full p-4 rounded-xl border text-left transition-all duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 relative overflow-hidden flex items-start gap-3.5 group ${
                   isActive
-                    ? 'border-white/30 bg-white/5 shadow-[0_0_20px_rgba(255,255,255,0.08)] ring-1 ring-white/20'
-                    : 'border-white/10 bg-surface/50 hover:bg-surface/80 hover:border-white/20'
+                    ? 'border-stone-500/40 bg-[#2c2928] text-white shadow-lg ring-1 ring-stone-500/30'
+                    : 'border-[#2c2928] bg-[#1d1b1a] hover:bg-[#221f1e] hover:border-stone-600/30'
                 }`}
               >
-                <div className={`p-2.5 rounded-md ${isActive ? 'bg-white text-black' : 'bg-white/5 text-neutral-400 group-hover:text-white'}`}>
+                <div className={`p-2.5 rounded-lg ${isActive ? 'bg-white text-black' : 'bg-[#151312] border border-[#2c2928] text-stone-400 group-hover:text-white'}`}>
                   <Icon size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-neutral-200'}`}>
+                    <h3 className={`text-xs font-bold truncate ${isActive ? 'text-white' : 'text-stone-200'}`}>
                       {tool.title}
                     </h3>
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-neutral-400 shrink-0">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-[#2c2928] text-stone-400 shrink-0">
                       {tool.badge}
                     </span>
                   </div>
-                  <p className="text-[11px] text-neutral-400 mt-1 line-clamp-2">{tool.desc}</p>
+                  <p className="text-[11px] text-[#a8a29e] mt-1 line-clamp-2">{tool.desc}</p>
                 </div>
               </button>
             );
@@ -859,7 +910,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
         {/* Dynamic Tool Playground */}
         <div className="lg:col-span-8">
-          <div className="bg-surface/80 border border-white/10 rounded-[10px] p-6 lg:p-8 flex flex-col">
+          <div className="bg-[#1d1b1a] border border-[#2c2928] rounded-2xl p-6 lg:p-8 flex flex-col shadow-2xl">
 
             {/* ── PDF ──────────────────────────────────────────────── */}
             {activeTab === 'pdf' && (
@@ -875,7 +926,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsPdfOpen(true)}
-                  className="px-6 py-3 bg-white hover:bg-white/20 text-white font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
+                  className="px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-all duration-150 ease-out active:scale-[0.98] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   <Sparkles size={16} />
                   Launch PDF Studio
@@ -897,7 +948,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                 </div>
                 <button
                   onClick={() => setIsCollageOpen(true)}
-                  className="px-6 py-3 bg-white hover:bg-white/20 text-white font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-colors 150ms ease, transform 150ms cubic-bezier(0.23, 1, 0.32, 1) active:scale-[0.98]"
+                  className="px-6 py-3 bg-white hover:bg-white/90 text-black font-bold rounded-md text-xs shadow-none flex items-center gap-2 transition-all duration-150 ease-out active:scale-[0.98] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-black"
                 >
                   <LayoutGrid size={16} />
                   Launch Collage Studio
@@ -958,9 +1009,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                         </div>
                         <button
                           onClick={() => setResizeEnabled(prev => !prev)}
-                          className={`relative w-9 h-5 rounded-full transition-colors 150ms ease, background-color 150ms ease ${resizeEnabled ? 'bg-white' : 'bg-white/10'}`}
+                          className={`relative w-9 h-5 rounded-full transition-colors duration-150 ease-out ${resizeEnabled ? 'bg-white' : 'bg-white/10'}`}
                         >
-                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform 150ms cubic-bezier(0.23, 1, 0.32, 1) ${resizeEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+                          <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-150 ease-out ${resizeEnabled ? 'left-[18px]' : 'left-0.5'}`} />
                         </button>
                       </div>
 
@@ -985,9 +1036,9 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
                             <button
                               onClick={() => setLockAspect(prev => !prev)}
-                              className={`mt-4 p-1.5 rounded-lg border transition-colors 150ms ease, border-color 150ms ease, background-color 150ms ease ${
+                              className={`mt-4 p-1.5 rounded-lg border transition-colors duration-150 ease-out ${
                                 lockAspect
-                                  ? 'bg-white/20 border-white/20/40 text-neutral-300'
+                                  ? 'bg-white/10 border-white/20 text-neutral-300'
                                   : 'bg-white/5 border-white/10 text-neutral-500 hover:text-white'
                               }`}
                               title={lockAspect ? 'Aspect ratio locked' : 'Aspect ratio unlocked'}
@@ -1611,10 +1662,10 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                   <button
                     onClick={handleWebLoad}
                     disabled={!webUrl.trim() || webLoading}
-                    className="px-4 py-2.5 bg-white hover:bg-white/20 text-white rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
+                    className="px-4 py-2.5 bg-white hover:bg-white/90 text-black rounded-md text-xs font-bold flex items-center gap-1.5 disabled:opacity-50 transition-all"
                   >
                     {webLoading ? (
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
                     ) : (
                       <Globe size={14} />
                     )}
@@ -1694,7 +1745,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                   </p>
                 </div>
                 <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
-                  <div className="border-2 border-dashed border-white/20 rounded-md p-8 flex flex-col items-center gap-3 hover:border-white/20/50 transition-colors cursor-pointer">
+                  <div className="border-2 border-dashed border-white/20 rounded-md p-8 flex flex-col items-center gap-3 hover:border-white/30 transition-colors cursor-pointer">
                     <Film size={24} className="text-neutral-300" />
                     <p className="text-xs text-neutral-300">Drop a video file here</p>
                     <p className="text-[10px] text-neutral-500">Supports MP4, MOV, WebM</p>

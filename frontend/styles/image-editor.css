@@ -12,13 +12,13 @@
   
   --ie-slider-thumb-hover-scale: 1.2;
   --ie-slider-thumb-hover-bg: #ffffff;
-  --ie-slider-thumb-hover-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  --ie-slider-thumb-hover-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 8px rgba(229, 169, 60, 0.4);
   
   --ie-slider-thumb-active-scale: 1.1;
-  --ie-slider-thumb-active-bg: #ffffff;
-  --ie-slider-thumb-active-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+  --ie-slider-thumb-active-bg: #e5a93c;
+  --ie-slider-thumb-active-shadow: 0 2px 10px rgba(0, 0, 0, 0.9), 0 0 12px rgba(229, 169, 60, 0.6);
 
-  --ie-slider-highlight-bg: rgba(255, 255, 255, 0.8);
+  --ie-slider-highlight-bg: #e5a93c;
 }
 
 /* ── 2. Unified Slider Base Rules ─────────────────────────────────────────── */
@@ -390,20 +390,20 @@ div:has(> [type="range"]) > div.pointer-events-none {
 /* ── 8. Unified Image Editor Button Design System ─────────────────────────── */
 :root {
   /* Active Button Styles - Modify here to change active button color across the entire editor */
-  --ie-btn-active-bg: #ffffff;
-  --ie-btn-active-text: #000000;
-  --ie-btn-active-border: #ffffff;
-  --ie-btn-active-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  --ie-btn-active-bg: #e5a93c;
+  --ie-btn-active-text: #151312;
+  --ie-btn-active-border: #e5a93c;
+  --ie-btn-active-shadow: 0 0 14px rgba(229, 169, 60, 0.4);
   
   /* Inactive Button Styles */
   --ie-btn-inactive-bg: rgba(255, 255, 255, 0.03);
-  --ie-btn-inactive-text: rgba(255, 255, 255, 0.5);
-  --ie-btn-inactive-border: rgba(255, 255, 255, 0.06);
+  --ie-btn-inactive-text: rgba(255, 255, 255, 0.6);
+  --ie-btn-inactive-border: rgba(255, 255, 255, 0.08);
   
   /* Hover Button Styles */
-  --ie-btn-hover-bg: rgba(255, 255, 255, 0.08);
+  --ie-btn-hover-bg: rgba(255, 255, 255, 0.07);
   --ie-btn-hover-text: #ffffff;
-  --ie-btn-hover-border: rgba(255, 255, 255, 0.15);
+  --ie-btn-hover-border: rgba(229, 169, 60, 0.3);
 
   /* Radius tokens */
   --ie-btn-radius-sm: 6px;
@@ -475,6 +475,6 @@ div:has(> [type="range"]) > div.pointer-events-none {
     linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.1) 75%);
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, -12px 0px;
-  background-color: #121216;
+  background-color: #151312;
 }
 

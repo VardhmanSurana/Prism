@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction, RefObject } from 'react';
 import { Photo } from '../../types';
 import { SearchFilters, ViewMode } from '../../types';
+import type { GalleryLayoutMode } from '@/store/galleryLayoutStore';
 
 export interface ImportProgressStatus {
   is_scanning: boolean;
@@ -24,19 +25,24 @@ export interface PhotoGridProps {
   onBulkFavorite?: (selectedIds: Set<string>) => Promise<void>;
   onBulkDelete?: (selectedIds: Set<string>) => Promise<void>;
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
+  onFavoriteToggle?: (id: string | number, current: boolean) => Promise<void>;
+  layoutMode?: GalleryLayoutMode;
+  onLayoutModeChange?: (mode: GalleryLayoutMode) => void;
+  onMonographClick?: () => void;
 }
 
 export interface PhotoGridHeaderProps {
   dateKey: string;
   photoIds: string[];
   location?: string;
-  selectedIds: Set<string>;
-  onToggleGroupSelection: (ids: string[]) => void;
+  selectedIds?: Set<string>;
+  onToggleGroupSelection?: (ids: string[]) => void;
   virtualRowStart: number;
   virtualRowKey: React.Key;
   virtualRowIndex: number;
   measureElement: (element: HTMLElement | null) => void;
-  isHovered: boolean;
+  isHovered?: boolean;
+  sectionCount?: number;
 }
 
 export interface PhotoItemProps {
@@ -51,6 +57,9 @@ export interface PhotoItemProps {
   isRowHovered: boolean;
   isFocused?: boolean;
   onFocus?: () => void;
+  isEditorialHero?: boolean;
+  layoutMode?: GalleryLayoutMode;
+  onFavoriteToggle?: (id: string | number, current: boolean) => Promise<void>;
 }
 
 export interface PhotoGridRowProps {
@@ -71,12 +80,15 @@ export interface PhotoGridRowProps {
   onRowHover: (dateKey: string | null) => void;
   focusedPhotoId?: string | null;
   onPhotoFocus?: (id: string) => void;
+  heroPhotoId?: string | number | null;
+  layoutMode?: GalleryLayoutMode;
+  onFavoriteToggle?: (id: string | number, current: boolean) => Promise<void>;
 }
 
 
 export type RowItem =
   | { type: 'header'; dateKey: string; photoIds: string[]; location?: string }
-  | { type: 'row'; photos: Photo[]; isFull: boolean };
+  | { type: 'row'; photos: Photo[]; isFull: boolean; heroPhotoId?: string | number };
 
 export type VirtualRowItem =
   | RowItem

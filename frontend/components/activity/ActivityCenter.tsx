@@ -16,7 +16,6 @@ import {
   BatteryCharging,
   Cpu,
   HardDrive,
-  Thermometer,
   Layers,
 } from 'lucide-react';
 import { useJobsStore } from '@/store/jobsStore';
@@ -189,12 +188,6 @@ export const ActivityCenter: React.FC = () => {
                         <Cpu size={12} className="text-primary" />
                         <span>{Math.round(hardware.cpu_usage)}%</span>
                       </span>
-                      {hardware.cpu_temp_c > 0 && (
-                        <span className={`flex items-center gap-1 ${hardware.cpu_temp_c >= 80 ? 'text-rose-400' : 'text-gray-400'}`} title="CPU Temperature">
-                          <Thermometer size={12} />
-                          <span>{Math.round(hardware.cpu_temp_c)}°C</span>
-                        </span>
-                      )}
                       <span className="flex items-center gap-1" title="Available Disk Space">
                         <HardDrive size={12} />
                         <span>{hardware.disk_free_gb.toFixed(1)} GB</span>
@@ -212,7 +205,7 @@ export const ActivityCenter: React.FC = () => {
               </div>
 
               {/* Plain-Language Pause Reason Banner */}
-              {pauseReason && (
+              {pauseReason && !pauseReason.toLowerCase().includes('temperature') && (
                 <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] flex items-center gap-2">
                   <AlertTriangle size={13} className="shrink-0 text-amber-400" />
                   <span className="font-medium truncate">{pauseReason}</span>

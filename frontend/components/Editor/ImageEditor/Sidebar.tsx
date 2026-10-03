@@ -188,14 +188,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
   return (
     <div
       ref={sidebarContainerRef}
-      className="flex h-full shrink-0 relative z-30 bg-[#0d0f14]"
+      className="flex h-full shrink-0 relative z-30 bg-[#151312]"
     >
       {/* Narrow vertical tab column on the left - strictly locked to vertical scroll only */}
       <div
         role="tablist"
         aria-label="Image editor tools"
         onScroll={() => setHoveredTool(null)}
-        className="w-[56px] shrink-0 bg-[#0b0d12] border-r border-white/5 flex flex-col items-center py-4 space-y-3 h-full overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0 select-none relative"
+        className="w-[56px] shrink-0 bg-[#151312] border-r border-white/10 flex flex-col items-center py-4 space-y-3 h-full overflow-y-auto overflow-x-hidden custom-scrollbar min-h-0 select-none relative"
       >
         {visibleTabs.map(id => {
           const tab = tabDefinitions[id];
@@ -213,15 +213,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
               whileTap={{ scale: 0.93 }}
               className={`group w-[38px] h-[38px] shrink-0 flex flex-col items-center justify-center rounded-xl relative select-none cursor-pointer focus:outline-none transition-colors duration-150 ${
                 isActive
-                  ? 'text-black font-semibold'
-                  : 'bg-[#14171f]/50 text-white/40 hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'text-[#151312] font-semibold'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
               }`}
             >
               {/* KokonutUI Smooth Sliding Spring Active Indicator */}
               {isActive && (
                 <motion.div
                   layoutId="smoothActiveToolTab"
-                  className="absolute inset-0 rounded-xl bg-[#FCBC00] shadow-[0_0_14px_rgba(252,188,0,0.45)] z-0"
+                  className="absolute inset-0 rounded-xl bg-[#e5a93c] shadow-[0_0_14px_rgba(229,169,60,0.45)] z-0"
                   transition={{
                     type: 'spring',
                     stiffness: 420,
@@ -264,16 +264,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
             }
             className={`absolute left-[62px] ${
               hoveredTool.align === 'bottom' ? '' : '-translate-y-1/2'
-            } bg-[#14171d]/95 text-white p-3 rounded-xl pointer-events-none shadow-2xl z-[60] border border-white/10 w-52 flex flex-col gap-0.5 text-left backdrop-blur-xl`}
+            } bg-[#1d1b1a]/95 text-[#f5f0ed] p-3 rounded-xl pointer-events-none shadow-2xl z-[60] border border-white/10 w-52 flex flex-col gap-0.5 text-left backdrop-blur-xl`}
           >
             <span className="text-[11px] font-bold text-white tracking-wide">
               {tabDefinitions[hoveredTool.id]?.label}
             </span>
-            <span className="text-[9px] text-white/50 font-normal leading-normal whitespace-normal">
+            <span className="text-[9px] text-zinc-400 font-normal leading-normal whitespace-normal">
               {tabDefinitions[hoveredTool.id]?.description}
             </span>
             {shortcutHints[hoveredTool.id] && (
-              <span className="text-[8px] text-[#FCBC00] font-mono mt-1 font-semibold">
+              <span className="text-[8px] text-[#e5a93c] font-mono mt-1 font-semibold">
                 {shortcutHints[hoveredTool.id]}
               </span>
             )}
@@ -283,16 +283,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
 
       {/* Active Panel Content on the right with KokonutUI smooth transitions */}
       {activeTool && (
-        <div className="w-[290px] shrink-0 bg-[#0d0f14] border-r border-white/5 flex flex-col overflow-hidden h-full">
+        <div className="w-[300px] shrink-0 bg-[#1d1b1a] border-r border-white/10 flex flex-col overflow-hidden h-full">
           {/* Header */}
-          <div className="px-5 py-3.5 shrink-0 flex items-center border-b border-white/5 bg-[#0d0f14]">
-            <h2 className="text-xs font-bold tracking-wider uppercase text-white/80">
+          <div className="px-5 py-3.5 shrink-0 flex items-center border-b border-white/10 bg-[#1d1b1a]">
+            <h2 className="text-xs font-bold tracking-wider uppercase text-zinc-200">
               {tabDefinitions[activeTool]?.label}
             </h2>
           </div>
 
           {/* Animated Panel Body */}
-          <div className="flex-1 min-h-0 relative flex flex-col bg-[#0d0f14] overflow-hidden">
+          <div className="flex-1 min-h-0 relative flex flex-col bg-[#1d1b1a] overflow-hidden">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activeTool}
@@ -304,7 +304,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTool, setActiveTool, chi
                   duration: 0.2,
                   ease: [0.32, 0.72, 0, 1],
                 }}
-                className="flex-1 w-full h-full flex flex-col bg-[#0d0f14] min-h-0 overflow-hidden"
+                className="flex-1 w-full h-full flex flex-col bg-[#1d1b1a] min-h-0 overflow-hidden"
               >
                 {children}
               </motion.div>

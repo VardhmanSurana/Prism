@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, ZoomIn, ZoomOut } from 'lucide-react';
 import { Photo } from '@/types';
 import { API_BASE, resolveUrl } from '@/constants';
 import { eventService } from '@/services/EventService';
@@ -15,7 +15,6 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 import { InfoPanel } from './lightbox/InfoPanel';
 import { Toolbar } from './lightbox/Toolbar';
-import { PhotoMetadataDisplay } from './lightbox/PhotoMetadataDisplay';
 import { NavigationArrows } from './lightbox/NavigationArrows';
 import { ImageDisplay } from './lightbox/ImageDisplay';
 import { Filmstrip } from './lightbox/Filmstrip';
@@ -24,7 +23,6 @@ import { SlideshowControls } from './lightbox/SlideshowControls';
 import { FaceTaggingOverlay } from './lightbox/FaceTaggingOverlay';
 import { TextActionsOverlay } from './lightbox/TextActionsOverlay';
 import { AskAIPanel } from './lightbox/AskAIPanel';
-import { KeyboardShortcutsModal } from './lightbox/KeyboardShortcutsModal';
 import { EditingMode } from '@/components/Editor/ImageEditor/EditingMode';
 import { MobileEditor } from '@/components/Editor/mobile/MobileEditor';
 import { VideoEditorMode } from '@/components/Editor/VideoEditor/VideoEditorMode';
@@ -97,7 +95,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
   const [isFaceTaggingActive, setIsFaceTaggingActive] = useState(false);
   const [isOcrActive, setIsOcrActive] = useState(false);
   const [hasFaces, setHasFaces] = useState(false);
-  const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAskAIOpen, setIsAskAIOpen] = useState(false);
   const lightboxRef = useRef<HTMLDivElement>(null);
   useFocusTrap(true, lightboxRef, onClose);
@@ -392,12 +389,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
 
-      if (e.key === '?') {
-        e.preventDefault();
-        setIsShortcutsOpen(prev => !prev);
-        return;
-      }
-
       // Slideshow mode bindings
       if (slideshowActive) {
         if (e.key === 'Escape') {
@@ -514,7 +505,7 @@ export const Lightbox: React.FC<LightboxProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-50 flex flex-col bg-[#0D0F14] overflow-hidden"
+      className="fixed inset-0 z-50 flex flex-col bg-[#151312] overflow-hidden"
     >
       {/* Top toolbar — hidden during slideshow for distraction-free viewing */}
       {!chromeHidden && (
@@ -550,7 +541,6 @@ export const Lightbox: React.FC<LightboxProps> = ({
           onStartSlideshow={handleStartSlideshow}
           onToggleFaceTagging={hasFaces ? () => { logAction('Lightbox', 'toggle_face_tagging', { photoId: photo.id }); setIsFaceTaggingActive(prev => !prev); } : undefined}
           onToggleOcr={!isVideo ? () => { logAction('Lightbox', 'toggle_ocr', { photoId: photo.id }); setIsOcrActive(prev => !prev); } : undefined}
-          onOpenShortcutsModal={() => setIsShortcutsOpen(true)}
           onCopyImageToClipboard={handleCopyToClipboard}
           onShare={onShare ? () => onShare(photo) : undefined}
         />
@@ -647,6 +637,67 @@ export const Lightbox: React.FC<LightboxProps> = ({
             />
           )}
 
+          {/* Floating Zoom Controls at bottom of image */}
+          {!chromeHidden && !isVideo && (
+            <div
+              className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 pointer-events-auto"
+              onPointerDown={(e) => e.stopPropagation()}
+              onPointerMove={(e) => e.stopPropagation()}
+              onPointerUp={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-1 bg-[#1d1b1a]/90 backdrop-blur-xl border border-white/10 rounded-full shadow-2xl px-2.5 py-1 text-white">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomScale(Math.max(0.1, zoomScale - 0.5));
+                  }}
+                  className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-[#f5f0ed] transition-colors cursor-pointer"
+                  title="Zoom Out (-)"
+                >
+                  <ZoomOut size={15} />
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    resetInteraction();
+                  }}
+                  className="px-2.5 py-0.5 text-xs font-mono text-zinc-300 hover:text-white hover:bg-white/10 rounded-full transition-colors tabular-nums cursor-pointer"
+                  title="Reset Zoom to Fit"
+                >
+                  {zoomScale === 1 ? 'Fit' : `${Math.round(zoomScale * 100)}%`}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomScale(Math.min(10, zoomScale + 0.5));
+                  }}
+                  className="p-1.5 rounded-full hover:bg-white/10 text-zinc-400 hover:text-[#f5f0ed] transition-colors cursor-pointer"
+                  title="Zoom In (+)"
+                >
+                  <ZoomIn size={15} />
+                </button>
+                {zoomScale !== 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      resetInteraction();
+                    }}
+                    className="ml-1 px-2 py-0.5 text-[11px] font-mono text-[#e5a93c] hover:bg-[#e5a93c]/15 rounded-full transition-colors cursor-pointer"
+                    title="Reset Zoom"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {slideshowActive && (
             <SlideshowControls
               isPlaying={slideshowPlaying}
@@ -685,28 +736,14 @@ export const Lightbox: React.FC<LightboxProps> = ({
         {!chromeHidden && !isVideo && !isAskAIOpen && (
           <button
             onClick={() => { logAction('Lightbox', 'open_ask_ai', { photoId: photo.id }); setIsAskAIOpen(true); }}
-            className="absolute bottom-6 right-6 z-40 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg transition-all duration-200 backdrop-blur-xl border bg-white/10 text-white/70 border-white/10 hover:bg-white/20 hover:text-white hover:border-white/20"
+            className="absolute bottom-6 right-6 z-40 flex items-center gap-2 px-3.5 py-2 rounded-full shadow-xl transition-all duration-200 backdrop-blur-xl border bg-[#1d1b1a]/90 text-zinc-300 border-white/10 hover:border-[#e5a93c]/40 hover:text-[#e5a93c] hover:bg-[#1d1b1a] cursor-pointer"
             title="Ask AI about this photo"
           >
-            <Sparkles size={16} />
-            <span className="text-xs font-medium">Ask AI</span>
+            <Sparkles size={15} className="text-[#e5a93c]" />
+            <span className="text-xs font-medium tracking-wide">Ask AI</span>
           </button>
         )}
       </div>
-
-
-      {/* Keyboard Shortcuts Modal */}
-      <KeyboardShortcutsModal
-        isOpen={isShortcutsOpen}
-        onClose={() => setIsShortcutsOpen(false)}
-      />
-
-      {/* Bottom metadata bar — hidden during slideshow */}
-      {!chromeHidden && (
-        <div className="shrink-0 px-6 py-3 bg-[#0D0F14] border-t border-white/5 z-20">
-          <PhotoMetadataDisplay photo={photo} metadata={metadata} />
-        </div>
-      )}
 
       {/* Filmstrip — hidden during slideshow */}
       {!chromeHidden && photos && photos.length > 1 ? (

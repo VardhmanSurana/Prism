@@ -39,10 +39,10 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
   if (photos.length === 0) return null;
 
   return (
-    <div className="shrink-0 bg-[#0D0F14] border-t border-white/5">
+    <div className="shrink-0 bg-[#151312] border-t border-white/10">
       <div
         ref={containerRef}
-        className="flex items-center gap-1 px-4 py-2 overflow-x-auto scrollbar-hide"
+        className="flex items-center gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
       >
         {photos.map((photo, idx) => {
@@ -53,10 +53,10 @@ export const Filmstrip: React.FC<FilmstripProps> = ({
             <button
               key={photo.id}
               onClick={() => onSelect(photo)}
-              className={`relative shrink-0 rounded-md overflow-hidden transition-[opacity,filter] duration-150 ${
+              className={`relative shrink-0 rounded-lg overflow-hidden transition-all duration-150 cursor-pointer ${
                 isActive
-                  ? 'ring-2 ring-primary ring-offset-1 ring-offset-[#0D0F14] scale-105'
-                  : 'opacity-50 hover:opacity-80 hover:brightness-110'
+                  ? 'ring-2 ring-[#e5a93c] ring-offset-2 ring-offset-[#151312] scale-105 shadow-md'
+                  : 'opacity-40 hover:opacity-85 hover:brightness-110'
               }`}
               style={{ width: 48, height: 48, position: 'relative' }}
               title={photo.filename || `Photo ${idx + 1}`}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Clip } from '@/types/nle';
 import { API_BASE } from '@/constants';
 import { useNLEStore } from '@/store/nleStore';
+import { Volume2 } from 'lucide-react';
 
 const TRACK_HEIGHT = 48;
 
@@ -157,7 +158,7 @@ export const ClipElement: React.FC<ClipElementProps> = ({
       {/* Right-click Context Menu */}
       {showContextMenu && (
         <div
-          className="fixed z-[100] bg-[#1a1a1a] border border-[#333] rounded shadow-xl py-1 text-xs text-[#ccc]"
+          className="fixed z-[100] bg-[#1d1b1a] border border-white/10 rounded-lg shadow-2xl py-1 text-xs text-zinc-300"
           style={{ left: contextPos.x, top: contextPos.y }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -166,9 +167,10 @@ export const ClipElement: React.FC<ClipElementProps> = ({
               setShowContextMenu(false);
               detachAudio(clip.id);
             }}
-            className="w-full px-3 py-1.5 text-left hover:bg-[#3b82f6] hover:text-white flex items-center gap-1.5"
+            className="w-full px-3 py-1.5 text-left hover:bg-[#e5a93c]/15 hover:text-[#e5a93c] flex items-center gap-2 cursor-pointer transition-colors"
           >
-            🔊 Detach Audio to Track
+            <Volume2 className="w-3.5 h-3.5" />
+            <span>Detach Audio to Track</span>
           </button>
         </div>
       )}

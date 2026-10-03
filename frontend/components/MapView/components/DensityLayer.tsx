@@ -89,9 +89,9 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
       ctx.globalCompositeOperation = 'source-over';
       for (const point of projectedPoints) {
         const gradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius);
-        gradient.addColorStop(0, 'rgba(210, 255, 114, 0.24)');
-        gradient.addColorStop(0.4, 'rgba(210, 255, 114, 0.16)');
-        gradient.addColorStop(0.72, 'rgba(90, 200, 250, 0.1)');
+        gradient.addColorStop(0, 'rgba(229, 169, 60, 0.28)');
+        gradient.addColorStop(0.45, 'rgba(245, 158, 11, 0.16)');
+        gradient.addColorStop(0.75, 'rgba(217, 119, 6, 0.08)');
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = gradient;
@@ -113,8 +113,8 @@ export const DensityLayer: React.FC<DensityLayerProps> = ({ photos }) => {
 
         const intensity = clamp(stackedNeighbors / 12, 0.18, 0.95);
         const focusGradient = ctx.createRadialGradient(point.x, point.y, 0, point.x, point.y, radius * 0.6);
-        focusGradient.addColorStop(0, `rgba(255, 247, 173, ${intensity})`);
-        focusGradient.addColorStop(0.5, `rgba(210, 255, 114, ${intensity * 0.55})`);
+        focusGradient.addColorStop(0, `rgba(255, 237, 160, ${intensity})`);
+        focusGradient.addColorStop(0.5, `rgba(229, 169, 60, ${intensity * 0.6})`);
         focusGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = focusGradient;

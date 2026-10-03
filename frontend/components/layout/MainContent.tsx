@@ -52,9 +52,9 @@ const TrashView = React.lazy(() => import('../TrashView/TrashView').then(m => ({
  */
 const ImageToolboxView = React.lazy(() => import('../ImageToolbox/ImageToolboxView').then(m => ({ default: m.ImageToolboxView })));
 /**
- * CullingView - Renders fast culling & review workspace.
+ * DashboardView - Renders dashboard (activity center, hardware telemetry, pipeline).
  */
-const CullingView = React.lazy(() => import('../culling/CullingView').then(m => ({ default: m.CullingView })));
+const DashboardView = React.lazy(() => import('../dashboard/DashboardView').then(m => ({ default: m.DashboardView })));
 
 interface MainContentProps {
   currentView: ViewMode;
@@ -192,8 +192,8 @@ export const MainContent = React.memo(function MainContent({
             onPhotoClick={onPhotoClick}
           />
         );
-      case 'cull':
-        return <CullingView />;
+      case 'dashboard':
+        return <DashboardView />;
       default:
         return (
           <PhotoGrid
@@ -219,8 +219,8 @@ export const MainContent = React.memo(function MainContent({
     <div
       ref={scrollRef as React.LegacyRef<HTMLDivElement>}
       onScroll={onScroll}
-      className={`flex-1 scroll-smooth custom-scrollbar relative ${
-        (currentView === 'agent' || currentView === 'map' || currentView === 'cull') ? 'overflow-hidden h-full' : 'overflow-y-auto'
+      className={`flex-1 scroll-smooth custom-scrollbar relative bg-[#151312] ${
+        (currentView === 'agent' || currentView === 'map') ? 'overflow-hidden h-full' : 'overflow-y-auto'
       }`}
     >
       <React.Suspense fallback={null}>

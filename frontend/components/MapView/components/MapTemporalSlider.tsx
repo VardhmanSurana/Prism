@@ -41,38 +41,39 @@ export const MapTemporalSlider: React.FC<MapTemporalSliderProps> = ({
   const isFiltered = startTimestamp !== minTimestamp || endTimestamp !== maxTimestamp;
 
   return (
-    <div className="absolute inset-x-6 bottom-6 z-[1000] mx-auto max-w-3xl">
-      <div className="rounded-[28px] border border-white/10 bg-surface/95 px-5 py-4 shadow-2xl backdrop-blur-xl">
+    <div className="absolute inset-x-6 bottom-6 z-[990] mx-auto max-w-xl pointer-events-none">
+      <div className="rounded-2xl border border-white/10 bg-[#1d1b1a]/95 px-5 py-3.5 shadow-2xl backdrop-blur-xl pointer-events-auto">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-[10px] font-bold uppercase tracking-[0.24em] text-sky-200/85">
-              Temporal filter
+            <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#e5a93c] flex items-center gap-1.5 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#e5a93c]" />
+              Temporal Range Filter
             </div>
-            <p className="mt-1 text-sm text-white">
-              {formatDate(startTimestamp)} to {formatDate(endTimestamp)}
+            <p className="mt-1 text-sm font-serif text-white">
+              {formatDate(startTimestamp)} <span className="text-[#e5a93c] font-mono text-xs mx-1">→</span> {formatDate(endTimestamp)}
             </p>
-            <p className="mt-1 text-xs text-gray-400">
-              Showing {filteredCount} of {totalCount} geotagged photos in this date window.
+            <p className="mt-0.5 text-xs font-mono text-zinc-400">
+              Showing <span className="text-[#f5f0ed] font-medium">{filteredCount}</span> of {totalCount} geotagged photos
             </p>
           </div>
           <button
             type="button"
             onClick={onReset}
             disabled={!isFiltered}
-            className={`rounded-xl border px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] transition ${
+            className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition-all ${
               isFiltered
-                ? 'border-white/15 bg-white/5 text-white hover:border-white/30 hover:bg-white/10'
-                : 'cursor-not-allowed border-white/5 bg-white/5 text-gray-500'
+                ? 'border-white/15 bg-white/5 text-zinc-200 hover:text-white hover:bg-white/10 active:scale-95'
+                : 'cursor-not-allowed border-white/5 bg-white/5 text-zinc-600'
             }`}
           >
-            Reset range
+            Reset Range
           </button>
         </div>
 
-        <div className="relative mt-4 h-9">
-          <div className="absolute inset-x-1 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/8" />
+        <div className="relative mt-3 h-8">
+          <div className="absolute inset-x-1 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-white/10" />
           <div
-            className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-sky-300 via-primary to-lime-200 shadow-[0_0_22px_rgba(120,180,255,0.25)]"
+            className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-gradient-to-r from-[#e5a93c]/70 via-[#e5a93c] to-[#f3ba57] shadow-[0_0_14px_rgba(229,169,60,0.45)]"
             style={{
               left: `${startPct}%`,
               width: `${Math.max(0, endPct - startPct)}%`,
@@ -84,7 +85,7 @@ export const MapTemporalSlider: React.FC<MapTemporalSliderProps> = ({
             max={maxTimestamp}
             value={startTimestamp}
             onChange={(event) => onStartChange(Number(event.target.value))}
-            className="absolute inset-0 h-9 w-full appearance-none bg-transparent temporal-slider pointer-events-auto"
+            className="absolute inset-0 h-8 w-full appearance-none bg-transparent temporal-slider pointer-events-auto cursor-pointer"
           />
           <input
             type="range"
@@ -92,7 +93,7 @@ export const MapTemporalSlider: React.FC<MapTemporalSliderProps> = ({
             max={maxTimestamp}
             value={endTimestamp}
             onChange={(event) => onEndChange(Number(event.target.value))}
-            className="absolute inset-0 h-9 w-full appearance-none bg-transparent temporal-slider pointer-events-auto"
+            className="absolute inset-0 h-8 w-full appearance-none bg-transparent temporal-slider pointer-events-auto cursor-pointer"
           />
         </div>
       </div>

@@ -211,33 +211,33 @@ export const EffectsBrowserPanel: React.FC = () => {
   );
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
+    <div className="w-64 bg-[#151312] border-r border-white/10 flex flex-col shrink-0 select-none">
       {/* Header */}
-      <div className="h-10 flex items-center px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Effects</span>
+      <div className="h-10 flex items-center px-3 border-b border-white/10 bg-[#171615]">
+        <span className="text-[#f5f0ed] text-xs font-medium">Effects</span>
       </div>
 
       {/* Search */}
-      <div className="p-2 border-b border-[#2a2a2a]">
+      <div className="p-2 border-b border-white/10">
         <input
           type="text"
           placeholder="Search effects..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-[#222] text-[#ccc] text-xs rounded px-2 py-1.5 border border-[#333] focus:border-[#3b82f6] outline-none placeholder:text-[#555]"
+          className="w-full bg-[#1d1b1a] text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 border border-white/10 focus:border-[#e5a93c]/50 outline-none placeholder:text-zinc-500"
         />
       </div>
 
       {/* Category tabs */}
-      <div className="flex gap-1 p-2 border-b border-[#2a2a2a] overflow-x-auto">
+      <div className="flex gap-1 p-2 border-b border-white/10 overflow-x-auto scrollbar-none">
         {CATEGORIES.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`px-2 py-1 text-[10px] rounded whitespace-nowrap transition-colors ${
+            className={`px-2 py-1 text-[10px] rounded-md whitespace-nowrap transition-colors cursor-pointer ${
               activeCategory === cat
-                ? 'bg-[#3b82f6] text-white font-medium'
-                : 'bg-[#222] text-[#777] hover:text-[#bbb]'
+                ? 'bg-[#e5a93c] text-[#151312] font-semibold shadow-sm'
+                : 'bg-white/[0.04] text-zinc-400 hover:text-zinc-200 border border-white/10'
             }`}
           >
             {cat}
@@ -247,8 +247,8 @@ export const EffectsBrowserPanel: React.FC = () => {
 
       {/* No clip selected warning */}
       {!selectedClip && (
-        <div className="p-3 text-center bg-[#151515] border-b border-[#252525]">
-          <p className="text-[#888] text-[11px]">Select a clip on the timeline to apply effects.</p>
+        <div className="p-3 text-center bg-[#171615] border-b border-white/10">
+          <p className="text-zinc-500 text-[11px]">Select a clip on the timeline to apply effects.</p>
         </div>
       )}
 
@@ -260,15 +260,15 @@ export const EffectsBrowserPanel: React.FC = () => {
               key={preset.name}
               onClick={() => handleApply(preset)}
               disabled={!selectedClip}
-              className={`group relative flex flex-col rounded-lg overflow-hidden border transition-all text-left ${
+              className={`group relative flex flex-col rounded-lg overflow-hidden border transition-all text-left cursor-pointer ${
                 selectedClip
-                  ? 'bg-[#1e1e1e] hover:bg-[#252525] border-[#2f2f2f] hover:border-[#3b82f6] shadow-sm hover:shadow-md'
-                  : 'bg-[#181818] border-[#222] opacity-50 cursor-not-allowed'
+                  ? 'bg-[#1d1b1a] hover:bg-white/[0.04] border-white/10 hover:border-[#e5a93c]/60 shadow-sm'
+                  : 'bg-white/[0.02] border-white/5 opacity-40 cursor-not-allowed'
               }`}
               title={preset.description}
             >
               {/* Sample image thumbnail with live CSS filter effect */}
-              <div className="relative w-full aspect-video bg-[#111] overflow-hidden">
+              <div className="relative w-full aspect-video bg-[#151312] overflow-hidden">
                 <img
                   src={SAMPLE_IMAGE_URL}
                   alt={preset.name}
@@ -284,16 +284,16 @@ export const EffectsBrowserPanel: React.FC = () => {
                   }}
                 />
                 <div
-                  className="w-full h-full bg-gradient-to-tr from-indigo-600 via-purple-600 to-pink-500 hidden"
+                  className="w-full h-full bg-gradient-to-tr from-amber-600 via-orange-600 to-yellow-500 hidden"
                   style={{ filter: preset.cssFilter }}
                 />
               </div>
 
               <div className="p-1.5 flex flex-col gap-0.5">
-                <span className="text-[#eee] text-[11px] font-medium leading-tight truncate">
+                <span className="text-zinc-200 group-hover:text-[#e5a93c] transition-colors text-[11px] font-medium leading-tight truncate">
                   {preset.name}
                 </span>
-                <span className="text-[#777] text-[9px] leading-tight line-clamp-1">
+                <span className="text-zinc-500 text-[9px] leading-tight line-clamp-1">
                   {preset.description}
                 </span>
               </div>

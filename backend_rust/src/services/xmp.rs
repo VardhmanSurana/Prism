@@ -5,6 +5,7 @@ use serde_json::{json, Value};
 use crate::models::Photo;
 
 /// Generates valid Adobe Camera Raw XML formatted XMP sidecar metadata string.
+#[allow(dead_code)]
 pub fn generate_xmp(photo: &Photo, adjustments: &Value) -> String {
     let exposure = adjustments.get("exposure").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let contrast = adjustments.get("contrast").and_then(|v| v.as_f64()).unwrap_or(0.0);
@@ -76,6 +77,7 @@ r#"<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Prism Photo Manager">
 }
 
 /// Parses Adobe Camera Raw XML format and extracts adjustments into Prism JSON.
+#[allow(dead_code)]
 pub fn parse_xmp(xml_content: &str) -> Option<Value> {
     if !xml_content.contains("crs:Exposure2012") && !xml_content.contains("crs:Contrast2012") && !xml_content.contains("camera-raw-settings") {
         return None;

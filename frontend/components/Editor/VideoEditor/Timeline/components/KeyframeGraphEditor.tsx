@@ -30,8 +30,8 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
 
   if (!keyframes || keyframes.length === 0) {
     return (
-      <div className="h-28 bg-[#141414] border-t border-[#252525] flex items-center justify-center">
-        <span className="text-[#666] text-xs font-mono">No keyframes on property: {property}</span>
+      <div className="h-28 bg-[#171615] border-t border-white/10 flex items-center justify-center">
+        <span className="text-zinc-500 text-xs font-mono">No keyframes on property: {property}</span>
       </div>
     );
   }
@@ -84,20 +84,20 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
   };
 
   return (
-    <div className="h-32 bg-[#141414] border-t border-[#252525] p-2 flex flex-col justify-between select-none">
+    <div className="h-32 bg-[#171615] border-t border-white/10 p-2 flex flex-col justify-between select-none">
       {/* Header toolbar */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-2">
-          <span className="text-[#3b82f6] text-xs font-mono font-semibold uppercase">{property} Curve</span>
-          <span className="text-[#666] text-[10px]">{keyframes.length} keyframes</span>
+          <span className="text-[#e5a93c] text-xs font-mono font-semibold uppercase">{property} Curve</span>
+          <span className="text-zinc-500 text-[10px]">{keyframes.length} keyframes</span>
         </div>
         {selectedIdx !== null && keyframes[selectedIdx] && (
           <div className="flex items-center gap-2">
-            <span className="text-[#999] text-[10px]">Easing:</span>
+            <span className="text-zinc-400 text-[10px]">Easing:</span>
             <select
               value={keyframes[selectedIdx].interpolation}
               onChange={(e) => handleInterpolationChange(selectedIdx, e.target.value as Keyframe['interpolation'])}
-              className="bg-[#222] text-[#ccc] text-[10px] rounded px-1.5 py-0.5 border border-[#333] outline-none"
+              className="bg-[#1d1b1a] text-zinc-200 text-[10px] rounded px-1.5 py-0.5 border border-white/10 outline-none focus:border-[#e5a93c]/50"
             >
               <option value="linear">Linear</option>
               <option value="ease-in">Ease-In</option>
@@ -110,13 +110,13 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
       </div>
 
       {/* SVG Curve Graph Canvas */}
-      <div className="relative flex-1 bg-[#0d0d0d] rounded border border-[#222] overflow-hidden my-1">
+      <div className="relative flex-1 bg-[#151312] rounded border border-white/10 overflow-hidden my-1">
         <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-full">
           {/* Grid lines */}
-          <line x1={padding} y1={svgHeight / 2} x2={svgWidth - padding} y2={svgHeight / 2} stroke="#222" strokeDasharray="3 3" />
+          <line x1={padding} y1={svgHeight / 2} x2={svgWidth - padding} y2={svgHeight / 2} stroke="rgba(255,255,255,0.06)" strokeDasharray="3 3" />
           
           {/* Curve path */}
-          <path d={pathD} fill="none" stroke="#3b82f6" strokeWidth="2" />
+          <path d={pathD} fill="none" stroke="#e5a93c" strokeWidth="2" />
 
           {/* Keyframe Nodes */}
           {points.map((pt, idx) => (
@@ -125,8 +125,8 @@ export const KeyframeGraphEditor: React.FC<KeyframeGraphEditorProps> = ({
               cx={pt.x}
               cy={pt.y}
               r={selectedIdx === idx ? "5" : "3.5"}
-              fill={selectedIdx === idx ? "#60a5fa" : "#3b82f6"}
-              stroke="#ffffff"
+              fill={selectedIdx === idx ? "#f5f0ed" : "#e5a93c"}
+              stroke="#151312"
               strokeWidth="1.5"
               className="cursor-pointer hover:scale-125 transition-transform"
               onClick={() => setSelectedIdx(idx)}

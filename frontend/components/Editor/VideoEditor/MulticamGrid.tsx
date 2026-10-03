@@ -7,6 +7,7 @@
 import React from 'react';
 import type { Track, Clip } from '@/types/nle';
 import { API_BASE } from '@/constants';
+import { X } from 'lucide-react';
 
 export interface MulticamGridProps {
   tracks: Track[];
@@ -66,21 +67,21 @@ export const MulticamGrid: React.FC<MulticamGridProps> = ({
   });
 
   return (
-    <div className="absolute inset-0 z-20 bg-black/90 flex flex-col p-2 border border-[#3b82f6]/40 rounded-lg shadow-2xl backdrop-blur-sm">
+    <div className="absolute inset-0 z-20 bg-[#151312]/95 flex flex-col p-2.5 border border-white/10 rounded-xl shadow-2xl backdrop-blur-md">
       {/* Header */}
-      <div className="h-8 px-3 flex items-center justify-between border-b border-[#252525] shrink-0 mb-2">
+      <div className="h-9 px-3 flex items-center justify-between border-b border-white/10 shrink-0 mb-2.5 bg-[#171615] rounded-lg">
         <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-white text-xs font-semibold tracking-wide">Multi-Cam Live Grid</span>
-          <span className="text-[10px] text-[#888]">Press keys 1–4 to cut live</span>
+          <div className="w-2 h-2 rounded-full bg-[#e5a93c] animate-pulse" />
+          <span className="text-[#f5f0ed] text-xs font-semibold tracking-wide">Multi-Cam Live Grid</span>
+          <span className="text-[10px] text-zinc-400">Press keys 1–4 to cut live</span>
         </div>
 
         <button
           onClick={onClose}
-          className="text-[#777] hover:text-white text-sm p-1 transition-colors"
+          className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
           title="Exit Multi-Cam Grid"
         >
-          &times;
+          <X className="w-3.5 h-3.5" />
         </button>
       </div>
 
@@ -97,10 +98,10 @@ export const MulticamGrid: React.FC<MulticamGridProps> = ({
             <div
               key={slot.angle}
               onClick={() => onSelectAngle(slot.angle)}
-              className={`relative bg-[#0d0d0d] rounded-md border-2 overflow-hidden cursor-pointer group transition-all flex items-center justify-center ${
+              className={`relative bg-[#1d1b1a] rounded-lg border-2 overflow-hidden cursor-pointer group transition-all flex items-center justify-center ${
                 slot.isVisible
-                  ? 'border-emerald-500 ring-2 ring-emerald-500/30'
-                  : 'border-[#222] hover:border-[#3b82f6]'
+                  ? 'border-[#e5a93c] ring-2 ring-[#e5a93c]/30 shadow-lg shadow-[#e5a93c]/10'
+                  : 'border-white/10 hover:border-[#e5a93c]/50'
               }`}
             >
               {streamUrl ? (
@@ -117,26 +118,26 @@ export const MulticamGrid: React.FC<MulticamGridProps> = ({
                 />
               ) : (
                 <div className="text-center px-4">
-                  <span className="text-[#555] text-xs font-medium block">No Signal</span>
-                  <span className="text-[#444] text-[10px]">Camera Angle {slot.angle}</span>
+                  <span className="text-zinc-500 text-xs font-medium block">No Signal</span>
+                  <span className="text-zinc-600 text-[10px]">Camera Angle {slot.angle}</span>
                 </div>
               )}
 
               {/* Angle Tag & Hotkey Badge */}
               <div className="absolute top-2 left-2 flex items-center gap-1.5 z-10">
-                <span className="bg-black/70 text-white font-mono text-[11px] px-2 py-0.5 rounded border border-white/10">
+                <span className="bg-[#171615]/80 text-[#f5f0ed] font-mono text-[11px] px-2 py-0.5 rounded border border-white/10 backdrop-blur-xs">
                   [{slot.angle}] {slot.trackName}
                 </span>
                 {slot.isVisible && (
-                  <span className="bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider">
+                  <span className="bg-[#e5a93c] text-[#151312] text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wider shadow-xs">
                     LIVE
                   </span>
                 )}
               </div>
 
               {/* Hover overlay hint */}
-              <div className="absolute inset-0 bg-[#3b82f6]/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <span className="bg-black/80 text-white text-xs font-medium px-3 py-1.5 rounded-full border border-white/20 shadow-lg">
+              <div className="absolute inset-0 bg-[#e5a93c]/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="bg-[#171615]/90 text-[#f5f0ed] text-xs font-medium px-3 py-1.5 rounded-full border border-white/20 shadow-lg backdrop-blur-xs">
                   Cut to Angle {slot.angle}
                 </span>
               </div>

@@ -3,7 +3,6 @@ use axum::{
     http::{header, StatusCode},
     response::{Json, Response},
 };
-use chrono::Utc;
 use serde::Deserialize;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -59,18 +58,9 @@ pub async fn list_photos(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     for p in &mut photos {
-        let p_key = p.uuid.as_deref().unwrap_or(&p.id.to_string()).to_string();
-        if p.url.as_deref().unwrap_or("").is_empty() { p.url = Some(format!("/api/v1/photos/{}/thumbnail", p_key)); }
-        if p.date_taken.is_none() { p.date_taken = p.upload_date.or(Some(Utc::now())); }
-        if p.date.is_none() { p.date = p.date_taken; }
-        if p.file_size.is_none() || p.file_size == Some(0) {
-            if let Some(real_path) = resolve_photo_path(&p.path) {
-                if let Ok(meta) = std::fs::metadata(&real_path) {
-                    p.file_size = Some(meta.len() as i64);
-                }
-            }
-        }
+        p.normalize_display_fields();
     }
+
 
     Ok(Json(photos))
 }
@@ -355,6 +345,7 @@ pub async fn get_photo_thumbnail(
     let max_dim = query.size.unwrap_or(400).clamp(64, 2048);
     let thumbnails_dir = state.config.thumbnails_dir.clone();
     let photo_id = photo.id;
+    let thumb_quality = state.config.thumb_quality.clone();
 
     // Vaulted photos: the decrypted thumbnail is encrypted-at-rest in the
     // thumbnails dir (AES-256-GCM, `.thumb_enc`) so no plaintext image ever
@@ -365,7 +356,7 @@ pub async fn get_photo_thumbnail(
         PhotoContent::File(source_path) => {
             let source_path_clone = source_path.clone();
             let target = tokio::task::spawn_blocking(move || {
-                generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim)
+                generate_thumbnail(&source_path_clone, &thumbnails_dir, photo_id, max_dim, Some(&thumb_quality))
             })
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
@@ -378,7 +369,7 @@ pub async fn get_photo_thumbnail(
                 "Vault is locked. Unlock the vault to view this photo.".to_string(),
             ))?;
             let enc_thumb = tokio::task::spawn_blocking(move || {
-                generate_vault_thumbnail(&bytes, &thumbnails_dir, photo_id, max_dim, &key)
+                generate_vault_thumbnail(&bytes, &thumbnails_dir, photo_id, max_dim, &key, Some(&thumb_quality))
             })
             .await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?

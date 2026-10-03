@@ -26,7 +26,9 @@ import {
   Grid3X3,
   LayoutList,
   SlidersHorizontal,
-  Flame,
+  ShieldCheck,
+  ShieldAlert,
+  Play,
 } from 'lucide-react';
 
 export interface CommandItem {
@@ -47,10 +49,12 @@ interface CommandPaletteProps {
 }
 
 const CATEGORY_ORDER = [
+  'Workspaces',
   'Navigation',
   'Actions',
   'View',
   'Settings',
+  'System',
   'Help',
 ];
 
@@ -312,6 +316,7 @@ export function buildDefaultCommands(actions: {
   onUpload: () => void;
   onSearch: (query: string) => void;
   onToggleLock: () => void;
+  onToggleSafeMode?: () => void;
 }): CommandItem[] {
   return [
     // Navigation
@@ -385,16 +390,6 @@ export function buildDefaultCommands(actions: {
       action: () => actions.onNavigate('agent'),
       keywords: ['ai', 'chat', 'assistant'],
     },
-    {
-      id: 'nav:cull',
-      label: 'Go to Culling Workspace',
-      description: 'High-speed review, burst triage, and pick/reject',
-      icon: <Flame className="w-4 h-4" />,
-      shortcut: '8',
-      category: 'Navigation',
-      action: () => actions.onNavigate('cull'),
-      keywords: ['cull', 'burst', 'review', 'triage', 'pick', 'reject'],
-    },
 
     // Actions
     {
@@ -420,12 +415,12 @@ export function buildDefaultCommands(actions: {
     {
       id: 'action:settings',
       label: 'Open Settings',
-      description: 'Application settings',
+      description: 'Application settings & layered configuration',
       icon: <Settings className="w-4 h-4" />,
       shortcut: ',',
       category: 'Settings',
       action: () => actions.onNavigate('utilities'),
-      keywords: ['preferences', 'config'],
+      keywords: ['preferences', 'config', 'advanced'],
     },
 
     // View
@@ -446,6 +441,17 @@ export function buildDefaultCommands(actions: {
       category: 'View',
       action: () => actions.onNavigate('gallery'),
       keywords: ['layout', 'details'],
+    },
+
+    // System
+    {
+      id: 'system:safeMode',
+      label: 'Toggle Safe Mode',
+      description: 'Disable third-party plugins and isolate custom UI for recovery',
+      icon: <ShieldAlert className="w-4 h-4 text-amber-400" />,
+      category: 'System',
+      action: () => actions.onToggleSafeMode?.(),
+      keywords: ['safe', 'mode', 'troubleshoot', 'recovery', 'plugins'],
     },
   ];
 }

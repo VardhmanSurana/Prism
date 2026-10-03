@@ -8,6 +8,7 @@ export type PhotoDensity = 'relaxed' | 'default' | 'compact';
 // ponytail: standardized on signature Prism Dark Glass theme
 export type GalleryStyle = 'prism';
 export type ImageGrouping = 'none' | 'months' | 'years';
+export type GalleryLayoutMode = 'editorial' | 'grid' | 'dense' | 'list';
 
 export interface GalleryLayoutSettings {
   version: number;
@@ -16,6 +17,7 @@ export interface GalleryLayoutSettings {
   galleryStyle: GalleryStyle;
   imageGrouping: ImageGrouping;
   cornerRadius: number; // 0-32px, 0 = sharp
+  layoutMode: GalleryLayoutMode;
 }
 
 const ROW_HEIGHT_MAP: Record<RowHeight, number> = {
@@ -40,7 +42,7 @@ function loadSettings(): GalleryLayoutSettings {
       const parsed = JSON.parse(raw) as Partial<GalleryLayoutSettings>;
       if (parsed.version !== STORAGE_VERSION) {
         localStorage.removeItem(STORAGE_KEY);
-        return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default', galleryStyle: 'prism', imageGrouping: 'none', cornerRadius: 0 };
+        return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default', galleryStyle: 'prism', imageGrouping: 'none', cornerRadius: 0, layoutMode: 'editorial' };
       }
       return {
         version: STORAGE_VERSION,
@@ -49,10 +51,11 @@ function loadSettings(): GalleryLayoutSettings {
         galleryStyle: 'prism',
         imageGrouping: parsed.imageGrouping || 'none',
         cornerRadius: typeof parsed.cornerRadius === 'number' ? parsed.cornerRadius : 0,
+        layoutMode: parsed.layoutMode || 'editorial',
       };
     }
   } catch {}
-  return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default', galleryStyle: 'prism', imageGrouping: 'none', cornerRadius: 0 };
+  return { version: STORAGE_VERSION, rowHeight: 'default', photoDensity: 'default', galleryStyle: 'prism', imageGrouping: 'none', cornerRadius: 0, layoutMode: 'editorial' };
 }
 
 /**
@@ -72,6 +75,7 @@ interface GalleryLayoutState {
   setGalleryStyle: (galleryStyle: GalleryStyle) => void;
   setImageGrouping: (imageGrouping: ImageGrouping) => void;
   setCornerRadius: (cornerRadius: number) => void;
+  setLayoutMode: (layoutMode: GalleryLayoutMode) => void;
 }
 
 /**
@@ -123,6 +127,13 @@ export const useGalleryLayoutStore = create<GalleryLayoutState>((set) => ({
   setCornerRadius: (cornerRadius) =>
     set((state) => {
       const next = { ...state.settings, cornerRadius };
+      saveSettings(next);
+      return { settings: next };
+    }),
+
+  setLayoutMode: (layoutMode) =>
+    set((state) => {
+      const next = { ...state.settings, layoutMode };
       saveSettings(next);
       return { settings: next };
     }),

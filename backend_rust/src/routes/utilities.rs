@@ -412,6 +412,22 @@ pub async fn get_background_jobs_status(
     .await
     .unwrap_or(0);
 
+    let thumbnail_done: i64 = if let Ok(entries) = fs::read_dir(&state.config.thumbnails_dir) {
+        let mut ids = std::collections::HashSet::new();
+        for entry in entries.flatten() {
+            if let Some(file_name) = entry.file_name().to_str() {
+                if let Some(prefix) = file_name.split('_').next() {
+                    if let Ok(id) = prefix.parse::<i64>() {
+                        ids.insert(id);
+                    }
+                }
+            }
+        }
+        (ids.len() as i64).min(total_photos)
+    } else {
+        0
+    };
+
     let queue_counts = sqlx::query(
         "SELECT status, COUNT(*) as cnt FROM background_jobs GROUP BY status"
     )
@@ -437,6 +453,12 @@ pub async fn get_background_jobs_status(
         "pause_reason": s.pause_reason,
         "paused_stages": s.paused_stages,
         "hardware": s.hardware,
+        "thumbnail": {
+            "processed": thumbnail_done,
+            "total": total_photos,
+            "progress": (thumbnail_done as f64 / t * 100.0).round() as i64,
+            "is_processing": s.is_processing
+        },
         "clip": {
             "processed": clip_done,
             "total": total_photos,
@@ -581,38 +603,70 @@ pub async fn get_system_state(
 
 // ── Utility endpoints (Python-only, TODO stubs) ────────────────────────────
 
+fn compute_phash_distance(ha: &str, hb: &str) -> u32 {
+    if ha.len() == hb.len() {
+        if let (Ok(val_a), Ok(val_b)) = (u64::from_str_radix(ha, 16), u64::from_str_radix(hb, 16)) {
+            (val_a ^ val_b).count_ones()
+        } else {
+            ha.bytes().zip(hb.bytes()).map(|(x, y)| (x ^ y).count_ones()).sum()
+        }
+    } else {
+        u32::MAX
+    }
+}
+
+#[derive(sqlx::FromRow)]
+struct PhotoHashItem {
+    id: i64,
+    filename: String,
+    path: String,
+    phash: Option<String>,
+}
+
 /// GET /api/v1/utilities/visual-duplicates — Visual duplicate detection by perceptual hash.
 pub async fn get_visual_duplicates(
     State(state): State<Arc<AppState>>,
 ) -> Json<Value> {
-    let photos = sqlx::query_as::<_, crate::models::Photo>(
-        "SELECT * FROM photos WHERE is_trash = 0 AND phash IS NOT NULL"
+    let photos: Vec<PhotoHashItem> = sqlx::query_as::<_, PhotoHashItem>(
+        "SELECT id, filename, path, phash FROM photos WHERE is_trash = 0 AND phash IS NOT NULL"
     )
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
 
-    // ponytail: simple Hamming distance comparison, not production-grade phash dedup
     let mut clusters: Vec<Value> = Vec::new();
+    let mut visited: std::collections::HashSet<i64> = std::collections::HashSet::new();
+
     for (i, a) in photos.iter().enumerate() {
+        if visited.contains(&a.id) {
+            continue;
+        }
+        let Some(ref ha) = a.phash else { continue };
+
         let mut cluster = vec![json!({ "id": a.id, "filename": a.filename, "path": a.path })];
+
         for b in photos.iter().skip(i + 1) {
-            if let (Some(ref ha), Some(ref hb)) = (&a.phash, &b.phash) {
-                if ha.len() == hb.len() {
-                    let dist: u32 = ha.bytes().zip(hb.bytes()).map(|(x, y)| (x ^ y).count_ones()).sum();
-                    if dist <= 5 {
-                        cluster.push(json!({ "id": b.id, "filename": b.filename, "path": b.path, "distance": dist }));
-                    }
+            if visited.contains(&b.id) {
+                continue;
+            }
+            if let Some(ref hb) = b.phash {
+                let dist = compute_phash_distance(ha, hb);
+                if dist <= 5 {
+                    cluster.push(json!({ "id": b.id, "filename": b.filename, "path": b.path, "distance": dist }));
+                    visited.insert(b.id);
                 }
             }
         }
+
         if cluster.len() > 1 {
+            visited.insert(a.id);
             clusters.push(json!({ "photos": cluster }));
         }
     }
 
     Json(json!({ "clusters": clusters }))
 }
+
 
 /// POST /api/v1/utilities/backup/export — Export atomic backup via SQLite VACUUM INTO.
 pub async fn export_backup(

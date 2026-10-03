@@ -14,13 +14,15 @@ pub struct Config {
     pub packs_dir: PathBuf,
     pub plugins_dir: PathBuf,
     pub map_cache_dir: PathBuf,
+    /// Thumbnail quality preset: "fast" (60%/256px), "balanced" (85%/400px), "quality" (95%/800px).
+    pub thumb_quality: String,
 }
 
 impl Config {
-    /// from_env - Creates config from environment variables.
+    /// from_env - Creates config from environment variables (bootstrap only:
+    /// PORT/HOST/DATABASE_URL are needed before the DB exists). Everything
+    /// else is DB-backed via the Advanced Settings UI — no .env required.
     pub fn from_env() -> Self {
-        dotenvy::dotenv().ok();
-
         let host = env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
         let port = env::var("PORT")
             .ok()
@@ -97,6 +99,27 @@ impl Config {
             packs_dir,
             plugins_dir,
             map_cache_dir,
+            thumb_quality: "balanced".to_string(),
         }
     }
 }
+
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            port: 8269,
+            host: "127.0.0.1".to_string(),
+            database_url: "sqlite::memory:".to_string(),
+            upload_dir: PathBuf::from("uploads"),
+            thumbnails_dir: PathBuf::from("thumbnails"),
+            api_key: None,
+            gpu_mode: "cpu".to_string(),
+            models_dir: PathBuf::from("models"),
+            packs_dir: PathBuf::from("packs"),
+            plugins_dir: PathBuf::from("plugins"),
+            map_cache_dir: PathBuf::from("map_cache"),
+            thumb_quality: "balanced".to_string(),
+        }
+    }
+}
+

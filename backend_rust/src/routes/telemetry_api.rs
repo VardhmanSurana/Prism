@@ -277,3 +277,126 @@ pub async fn clear_telemetry_events(
         "deleted": deleted.rows_affected()
     })))
 }
+
+#[derive(Deserialize)]
+pub struct TelemetryTimeseriesQuery {
+    pub window_minutes: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TelemetryTimeseriesPoint {
+    pub timestamp: String,
+    pub minutes_ago: i64,
+    pub events_count: i64,
+    pub avg_latency_ms: f64,
+}
+
+#[derive(Serialize)]
+pub struct TelemetryTimeseriesResponse {
+    pub window_minutes: i64,
+    pub points: Vec<TelemetryTimeseriesPoint>,
+    pub current_throughput: f64,
+    pub current_latency: f64,
+}
+
+/// GET /api/v1/telemetry/timeseries?window_minutes=15
+/// Returns uniform 1-minute historical buckets of throughput and API latency.
+pub async fn get_telemetry_timeseries(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<TelemetryTimeseriesQuery>,
+) -> Result<Json<TelemetryTimeseriesResponse>, (StatusCode, String)> {
+    let window = query.window_minutes.unwrap_or(15).clamp(5, 60);
+    let window_secs = window * 60;
+
+    // 1. Query telemetry events per minute bucket
+    let telem_rows: Vec<(i64, i64, Option<f64>)> = sqlx::query_as(
+        r#"
+        SELECT
+            CAST((strftime('%s', 'now') - strftime('%s', created_at)) / 60 AS INTEGER) AS minutes_ago,
+            COUNT(*) AS events_cnt,
+            AVG(duration_ms) AS avg_lat
+        FROM telemetry_events
+        WHERE strftime('%s', created_at) >= strftime('%s', 'now') - ?
+        GROUP BY minutes_ago
+        "#
+    )
+    .bind(window_secs)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    // 2. Query completed background jobs per minute bucket
+    let job_rows: Vec<(i64, i64)> = sqlx::query_as(
+        r#"
+        SELECT
+            CAST((strftime('%s', 'now') - strftime('%s', updated_at)) / 60 AS INTEGER) AS minutes_ago,
+            COUNT(*) AS jobs_cnt
+        FROM background_jobs
+        WHERE status = 'completed' AND strftime('%s', updated_at) >= strftime('%s', 'now') - ?
+        GROUP BY minutes_ago
+        "#
+    )
+    .bind(window_secs)
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let mut telem_map: std::collections::HashMap<i64, (i64, f64)> = std::collections::HashMap::new();
+    for (m, cnt, lat) in telem_rows {
+        if m >= 0 && m < window {
+            telem_map.insert(m, (cnt, lat.unwrap_or(0.0)));
+        }
+    }
+
+    let mut job_map: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+    for (m, cnt) in job_rows {
+        if m >= 0 && m < window {
+            job_map.insert(m, cnt);
+        }
+    }
+
+    // Baseline latency: find the latest non-zero latency across the dataset
+    let mut last_valid_lat = 15.0f64;
+    for m in (0..window).rev() {
+        if let Some((_, lat)) = telem_map.get(&m) {
+            if *lat > 0.0 {
+                last_valid_lat = *lat;
+            }
+        }
+    }
+
+    let now_utc = chrono::Utc::now();
+    let mut points = Vec::with_capacity(window as usize);
+
+    // Build uniform array from oldest (e.g. 14 mins ago) down to 0 (now)
+    for m in (0..window).rev() {
+        let (telem_cnt, telem_lat) = telem_map.get(&m).cloned().unwrap_or((0, 0.0));
+        let job_cnt = job_map.get(&m).cloned().unwrap_or(0);
+        let total_cnt = telem_cnt + job_cnt;
+
+        let lat = if telem_lat > 0.0 {
+            last_valid_lat = telem_lat;
+            telem_lat
+        } else {
+            last_valid_lat
+        };
+
+        let bucket_time = now_utc - chrono::Duration::minutes(m);
+        points.push(TelemetryTimeseriesPoint {
+            timestamp: bucket_time.to_rfc3339(),
+            minutes_ago: m,
+            events_count: total_cnt,
+            avg_latency_ms: (lat * 10.0).round() / 10.0,
+        });
+    }
+
+    let current_throughput = points.last().map(|p| p.events_count as f64).unwrap_or(0.0);
+    let current_latency = points.last().map(|p| p.avg_latency_ms).unwrap_or(last_valid_lat);
+
+    Ok(Json(TelemetryTimeseriesResponse {
+        window_minutes: window,
+        points,
+        current_throughput,
+        current_latency,
+    }))
+}

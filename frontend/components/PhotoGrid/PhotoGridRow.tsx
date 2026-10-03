@@ -4,7 +4,7 @@ import { PhotoItem } from './PhotoItem';
 import { ROW_PADDING } from './constants';
 
 /**
- * PhotoGridRow - Renders photo grid row.
+ * PhotoGridRow - Renders photo grid row with Prism spacing and hero card propagation.
  */
 export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   photos,
@@ -12,6 +12,7 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   selectedIds,
   isSelectionMode,
   rowHeight,
+  rowPadding,
   onPhotoClick,
   onToggleSelection,
   virtualRowStart,
@@ -23,6 +24,9 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   onRowHover,
   focusedPhotoId,
   onPhotoFocus,
+  heroPhotoId,
+  layoutMode,
+  onFavoriteToggle,
 }) => {
   /**
    * handleMouseEnter - Handles mouse enter.
@@ -33,12 +37,14 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
    */
   const handleMouseLeave = useCallback(() => onRowHover(null), [onRowHover]);
 
+  const gapClass = layoutMode === 'dense' ? 'gap-1.5' : 'gap-3 sm:gap-4';
+
   return (
     <div
       key={virtualRowKey}
       data-index={virtualRowIndex}
       ref={measureElement}
-      className="absolute top-0 left-0 w-full flex pl-4 sm:pl-8 pr-32 gap-2"
+      className={`absolute top-0 left-0 w-full flex pl-4 sm:pl-8 pr-12 xl:pr-24 ${gapClass}`}
       style={{
         transform: `translateY(${virtualRowStart}px)`,
         height: `${rowHeight}px`,
@@ -61,6 +67,9 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
           isRowHovered={isRowHovered}
           isFocused={focusedPhotoId === String(photo.id)}
           onFocus={onPhotoFocus ? () => onPhotoFocus(String(photo.id)) : undefined}
+          isEditorialHero={heroPhotoId != null && String(photo.id) === String(heroPhotoId)}
+          layoutMode={layoutMode}
+          onFavoriteToggle={onFavoriteToggle}
         />
       ))}
     </div>
@@ -73,6 +82,8 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
   if (prevProps.virtualRowIndex !== nextProps.virtualRowIndex) return false;
   if (prevProps.dateKey !== nextProps.dateKey) return false;
   if (prevProps.isRowHovered !== nextProps.isRowHovered) return false;
+  if (prevProps.heroPhotoId !== nextProps.heroPhotoId) return false;
+  if (prevProps.layoutMode !== nextProps.layoutMode) return false;
   if (prevProps.photos.length !== nextProps.photos.length) return false;
 
   const prevHasFocused = prevProps.photos.some(p => String(p.id) === prevProps.focusedPhotoId);
@@ -93,3 +104,5 @@ export const PhotoGridRow = React.memo<PhotoGridRowProps>(({
 
   return true;
 });
+
+PhotoGridRow.displayName = 'PhotoGridRow';

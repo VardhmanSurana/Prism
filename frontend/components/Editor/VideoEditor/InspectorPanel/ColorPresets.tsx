@@ -51,17 +51,17 @@ export const ColorPresets: React.FC<ColorPresetsProps> = ({ currentEffects, onAp
             <button
               key={preset.name}
               onClick={() => onApply(preset.effects)}
-              className={`flex flex-col items-center gap-0.5 p-1 rounded text-[10px] ${
+              className={`flex flex-col items-center gap-1 p-1.5 rounded-lg text-[10px] transition-all cursor-pointer ${
                 isActive
-                  ? 'bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/50'
-                  : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-700'
+                  ? 'bg-[#e5a93c]/15 text-[#e5a93c] ring-1 ring-[#e5a93c]/60 font-medium'
+                  : 'bg-[#151312] text-zinc-400 hover:text-white hover:bg-white/5 border border-white/10'
               }`}
             >
               <div
-                className="w-full aspect-square rounded-sm border border-zinc-700"
+                className="w-full aspect-square rounded-md border border-white/10 shadow-sm"
                 style={{ background: presetSwatchColor(preset.name) }}
               />
-              <span>{preset.name}</span>
+              <span className="truncate w-full text-center">{preset.name}</span>
             </button>
           );
         })}

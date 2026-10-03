@@ -28,12 +28,16 @@ dist-ssr
 *.kiro
 .impeccable/
 *_preview.html
+*dashboard-demo.html
 .codecontext.yaml
 # Generated folders
 backend_rust/models/*
 backend_rust/thumbnails/*
 backend_rust/face_crops/*
 backend_rust/luts/*
+backend_rust/map_caches/*
+backend_rust/map_cache/
+.hallmark/
 luts/
 
 # Ignore media and generated files
@@ -65,6 +69,9 @@ backend.pid
 .env
 .env.*
 settings.json
+*.key
+*.prism-vault.key
+backend_rust/.prism-vault.key
 
 # AI coding agent folders
 .codex/

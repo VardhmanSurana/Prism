@@ -12,6 +12,15 @@ import { ColorScopesPanel } from './ColorScopesPanel';
 import { calculateRampedSourceTime } from '@/lib/speedRampUtils';
 import { MulticamGrid } from './MulticamGrid';
 import { useNLEStore } from '@/store/nleStore';
+import {
+  SkipBack,
+  SkipForward,
+  Play,
+  Pause,
+  LayoutGrid,
+  Activity,
+  Maximize2,
+} from 'lucide-react';
 
 export interface PreviewAreaProps {
   sourcePath: string;
@@ -682,14 +691,14 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
   const isImage = isImagePath(path);
 
   return (
-    <div className="relative w-full h-full flex flex-col bg-[#0a0a0c]">
+    <div className="relative w-full h-full flex flex-col bg-[#151312]">
       <div
         ref={containerRef}
         className="flex-1 w-full min-h-0 relative flex items-center justify-center overflow-hidden"
       >
         <canvas
           ref={canvasRef}
-          className="block bg-black"
+          className="block bg-black shadow-2xl"
           style={{
             width: canvasDisplaySize ? canvasDisplaySize.width : '100%',
             height: canvasDisplaySize ? canvasDisplaySize.height : '100%',
@@ -700,12 +709,12 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
         {compareMode && hasEffectsApplied && (
           <div
-            className="absolute top-0 bottom-0 w-0.5 bg-white/80 cursor-ew-resize z-10"
+            className="absolute top-0 bottom-0 w-0.5 bg-[#e5a93c] cursor-ew-resize z-10 shadow-[0_0_8px_rgba(229,169,60,0.6)]"
             style={{ left: `${compareRatio * 100}%` }}
             onMouseDown={handleCompareMouseDown}
           >
-            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg">
-              <svg className="w-3 h-3 text-zinc-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-[#e5a93c] text-[#151312] rounded-full flex items-center justify-center shadow-lg font-bold">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
               </svg>
             </div>
@@ -854,72 +863,70 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
         />
       ))}
 
-      <div className="h-11 bg-[#111113] border-t border-white/[0.06] flex items-center justify-between px-4 shrink-0 z-10">
+      <div className="h-12 bg-[#171615] border-t border-white/10 flex items-center justify-between px-4 shrink-0 z-10">
         <div className="w-24 shrink-0" />
 
         <div className="flex items-center gap-3">
-          <button onClick={handleStepBack} className="text-[#999] hover:text-white p-1 transition-colors" title="Previous frame">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+          <button
+            onClick={handleStepBack}
+            className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            title="Previous frame"
+          >
+            <SkipBack className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => isPlaying ? onPause() : onPlay()}
-            className="text-white bg-[#222] hover:bg-[#333] rounded-full w-9 h-9 flex items-center justify-center transition-all duration-150 border border-white/[0.08] hover:border-white/[0.15]"
+            className="w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 border cursor-pointer bg-[#1d1b1a] hover:bg-[#e5a93c] text-[#f5f0ed] hover:text-[#151312] border-white/15 hover:border-[#e5a93c] shadow-md hover:shadow-[0_0_12px_rgba(229,169,60,0.4)]"
+            title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? (
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
+              <Pause className="w-4 h-4 fill-current" />
             ) : (
-              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+              <Play className="w-4 h-4 fill-current ml-0.5" />
             )}
           </button>
 
-          <button onClick={handleStepForward} className="text-[#999] hover:text-white p-1 transition-colors" title="Next frame">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+          <button
+            onClick={handleStepForward}
+            className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+            title="Next frame"
+          >
+            <SkipForward className="w-4 h-4" />
           </button>
 
-          <span className="text-white/50 text-[11px] font-mono tabular-nums ml-2 select-none">
-            {formatTimecode(playheadPosition)} / {formatTimecode(videoDuration)}
+          <span className="text-zinc-400 text-xs font-mono tabular-nums ml-2 select-none">
+            <span className="text-[#f5f0ed] font-medium">{formatTimecode(playheadPosition)}</span>
+            <span className="text-zinc-600 mx-1">/</span>
+            <span>{formatTimecode(videoDuration)}</span>
           </span>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={toggleMulticamMode}
-            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all duration-150 ${
+            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-150 cursor-pointer ${
               isMulticamMode
-                ? 'bg-[#34d399]/15 border-[#34d399]/30 text-[#34d399]'
-                : 'border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 hover:bg-white/[0.04]'
+                ? 'bg-[#e5a93c]/15 border-[#e5a93c]/50 text-[#e5a93c]'
+                : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20 hover:bg-white/5'
             }`}
             title="Toggle Multi-Cam Angle Grid"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-            </svg>
-            Multi-Cam
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>Multi-Cam</span>
           </button>
 
           <button
             onClick={() => setShowScopes((prev) => !prev)}
-            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border transition-all duration-150 ${
+            className={`text-[10px] font-medium flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-150 cursor-pointer ${
               showScopes
-                ? 'bg-[#3b82f6]/15 border-[#3b82f6]/30 text-[#3b82f6]'
-                : 'border-white/[0.08] text-white/40 hover:text-white/80 hover:border-white/20 hover:bg-white/[0.04]'
+                ? 'bg-[#e5a93c]/15 border-[#e5a93c]/50 text-[#e5a93c]'
+                : 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20 hover:bg-white/5'
             }`}
             title="Toggle Color Scopes (Waveform / Vectorscope)"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            Scopes
+            <Activity className="w-3.5 h-3.5" />
+            <span>Scopes</span>
           </button>
 
           <Dropdown
@@ -937,12 +944,10 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
 
           <button
             onClick={() => containerRef.current?.requestFullscreen?.()}
-            className="text-white/40 hover:text-white p-1.5 rounded-md hover:bg-white/[0.06] transition-all duration-150"
+            className="text-zinc-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-all duration-150 cursor-pointer"
             title="Fullscreen"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
+            <Maximize2 className="w-4 h-4" />
           </button>
         </div>
       </div>

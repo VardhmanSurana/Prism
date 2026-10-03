@@ -45,7 +45,7 @@ const FolderInput: React.FC<{
   disabled?: boolean;
 }> = ({ value, onChange, onBrowse, onAdd, placeholder, disabled }) => (
   <div className="flex gap-2">
-    <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
+    <div className="flex-1 flex gap-1.5 bg-[#100e0d] border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(255,255,255,0.2)] rounded overflow-hidden">
       <input 
         type="text" 
         id={placeholder ? `folder-input-${placeholder.replace(/[^a-zA-Z0-9]/g, '-')}` : 'folder-input'}
@@ -54,11 +54,11 @@ const FolderInput: React.FC<{
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
+        className="flex-1 bg-transparent px-3 py-2 text-xs text-[#f5f0ed] placeholder:text-[#78716c] outline-none font-mono"
       />
       <button 
         onClick={onBrowse}
-        className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border-l border-[var(--cr-border)] hover:bg-[var(--cr-surface-card-hover)] transition-all"
+        className="px-3 py-2 text-xs font-mono font-medium text-[#a8a29e] hover:text-[#f5f0ed] border-l border-[rgba(255,255,255,0.06)] hover:bg-white/5 transition-all"
       >
         Browse...
       </button>
@@ -66,7 +66,7 @@ const FolderInput: React.FC<{
     <button 
       onClick={onAdd}
       disabled={disabled}
-      className="cr-inline-btn primary"
+      className="px-3.5 py-1.5 rounded-full font-mono text-xs font-semibold bg-[#e5e2e0] hover:bg-white text-[#151312] transition shadow-sm"
     >
       Add Path
     </button>
@@ -75,11 +75,11 @@ const FolderInput: React.FC<{
 
 /** Removable tag chip for a watched/excluded folder. */
 const FolderTag: React.FC<{ folder: string; onRemove: () => void }> = ({ folder, onRemove }) => (
-  <div className="group flex items-center justify-between gap-3 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] rounded px-3 py-2 hover:border-[var(--cr-accent)] transition-all">
-    <span className="text-[11px] font-mono text-[var(--cr-text-secondary)] group-hover:text-[var(--cr-text-primary)] truncate">{folder}</span>
+  <div className="group flex items-center justify-between gap-3 bg-[#100e0d] border border-[rgba(255,255,255,0.06)] rounded px-3 py-2 hover:border-[#e5a93c] transition-all">
+    <span className="text-[11px] font-mono text-[#a8a29e] group-hover:text-[#f5f0ed] truncate">{folder}</span>
     <button 
       onClick={onRemove}
-      className="shrink-0 text-[var(--cr-status-error)] hover:bg-[var(--cr-surface-card-hover)] px-2 py-0.5 rounded font-mono text-[10px] uppercase font-bold"
+      className="shrink-0 text-[#f87171] hover:bg-white/5 px-2 py-0.5 rounded font-mono text-[10px] uppercase font-bold"
       title={`Remove ${folder}`}
     >
       Remove
@@ -172,16 +172,16 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
   return (
     <div className="space-y-4">
       {/* Prism Companion Server Connection Card */}
-      <div className="cr-card">
+      <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
         <div className="flex items-center justify-between gap-4 mb-2">
           <div>
-            <div className="cr-card-title">Prism Companion Server Connection</div>
-            <p className="text-xs text-[var(--cr-text-muted)]">
+            <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title">Prism Companion Server Connection</div>
+            <p className="text-xs text-[#78716c]">
               Specify the IP or hostname of your Dockerized Prism Companion Server or local backend.
             </p>
           </div>
           {status === 'testing' && (
-            <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-[var(--cr-surface-sunken)] text-[var(--cr-text-secondary)]">
+            <span className="text-[11px] font-mono px-2.5 py-1 rounded bg-[#100e0d] text-[#a8a29e]">
               ⏳ Testing...
             </span>
           )}
@@ -199,8 +199,8 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
         </div>
 
         <div className="flex gap-2 mt-3">
-          <div className="flex-1 flex gap-1.5 bg-[var(--cr-surface-sunken)] border border-[var(--cr-border)] focus-within:border-[var(--cr-border-focus)] rounded overflow-hidden">
-            <span className="px-3 py-2 text-xs font-mono text-[var(--cr-text-muted)] select-none border-r border-[var(--cr-border)] bg-[var(--cr-surface-card)]">
+          <div className="flex-1 flex gap-1.5 bg-[#100e0d] border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(255,255,255,0.2)] rounded overflow-hidden">
+            <span className="px-3 py-2 text-xs font-mono text-[#78716c] select-none border-r border-[rgba(255,255,255,0.06)] bg-[#211f1e]">
               Server URL
             </span>
             <input
@@ -208,32 +208,32 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               placeholder="http://127.0.0.1:8269 or http://192.168.1.100:8269"
-              className="flex-1 bg-transparent px-3 py-2 text-xs text-[var(--cr-text-primary)] placeholder:text-[var(--cr-text-muted)] outline-none font-mono"
+              className="flex-1 bg-transparent px-3 py-2 text-xs text-[#f5f0ed] placeholder:text-[#78716c] outline-none font-mono"
             />
           </div>
           <button
             onClick={() => testServerConnection(serverUrl)}
-            className="px-3 py-2 text-xs font-mono font-medium text-[var(--cr-text-secondary)] hover:text-[var(--cr-text-primary)] border border-[var(--cr-border)] rounded hover:bg-[var(--cr-surface-card-hover)] transition-all"
+            className="px-3 py-2 text-xs font-mono font-medium text-[#a8a29e] hover:text-[#f5f0ed] border border-[rgba(255,255,255,0.06)] rounded hover:bg-white/5 transition-all"
           >
             Test Status
           </button>
           <button
             onClick={handleSaveServerUrl}
-            className="cr-inline-btn primary"
+            className="px-3.5 py-1.5 rounded-full font-mono text-xs font-semibold bg-[#e5e2e0] hover:bg-white text-[#151312] transition shadow-sm"
           >
             Save & Connect
           </button>
         </div>
-        <p className="text-[11px] font-mono text-[var(--cr-text-muted)] mt-2">
+        <p className="text-[11px] font-mono text-[#78716c] mt-2">
           Saved configuration persists across application launches. Zero environment variables required.
         </p>
       </div>
       {/* Auto sync toggle card */}
-      <div className="cr-card">
+      <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
         <div className="flex items-center justify-between gap-4">
-          <div className="cr-toggle-info">
-            <span className="cr-toggle-label">Automatic System File Watcher</span>
-            <span className="cr-toggle-desc">Automatically index photo assets added to watched territories</span>
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-[#f5f0ed]">Automatic System File Watcher</span>
+            <span className="text-[11px] text-[#78716c]">Automatically index photo assets added to watched territories</span>
           </div>
           <div className="shrink-0">
             <Switch
@@ -254,9 +254,9 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
       />
 
       {/* Watched folders card */}
-      <div className="cr-card">
-        <div className="cr-card-title">Watched Library Territories</div>
-        <p className="text-xs text-[var(--cr-text-muted)] mb-3">Directories monitored by the background indexer engine.</p>
+      <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
+        <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title">Watched Library Territories</div>
+        <p className="text-xs text-[#78716c] mb-3">Directories monitored by the background indexer engine.</p>
         
         <FolderInput
           value={wInput}
@@ -269,7 +269,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
 
         <div className="mt-3 space-y-1.5">
           {wFolders.length === 0 ? (
-            <p className="text-[11px] text-[var(--cr-text-muted)] font-mono py-1">Defaulting to user Pictures directory</p>
+            <p className="text-[11px] text-[#78716c] font-mono py-1">Defaulting to user Pictures directory</p>
           ) : (
             wFolders.map((folder, idx) => (
               <FolderTag key={idx} folder={folder} onRemove={() => removeW(folder)} />
@@ -279,9 +279,9 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
       </div>
 
       {/* Excluded folders card */}
-      <div className="cr-card">
-        <div className="cr-card-title">Excluded Territories</div>
-        <p className="text-xs text-[var(--cr-text-muted)] mb-3">Paths ignored by the indexer engine.</p>
+      <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm">
+        <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title">Excluded Territories</div>
+        <p className="text-xs text-[#78716c] mb-3">Paths ignored by the indexer engine.</p>
         
         <FolderInput
           value={eInput}
@@ -294,7 +294,7 @@ export const SyncSettings: React.FC<SyncSettingsProps> = ({
 
         <div className="mt-3 space-y-1.5">
           {eFolders.length === 0 ? (
-            <p className="text-[11px] text-[var(--cr-text-muted)] font-mono py-1">No exclusions defined</p>
+            <p className="text-[11px] text-[#78716c] font-mono py-1">No exclusions defined</p>
           ) : (
             eFolders.map((folder, idx) => (
               <FolderTag key={idx} folder={folder} onRemove={() => removeE(folder)} />
@@ -334,16 +334,16 @@ export const WatcherStatusCard: React.FC<{
   const busy = scanning || !!isRescanQueued;
 
   return (
-    <div className="cr-card" data-testid="watcher-status-card">
+    <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm" data-testid="watcher-status-card">
       <div className="flex items-center justify-between gap-4 mb-3">
-        <div className="cr-card-title">Indexer Status</div>
+        <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl shadow-sm-title">Indexer Status</div>
         <button
           type="button"
           onClick={onRescanNow}
           disabled={!onRescanNow || busy}
           title="Scan all watched folders for new media immediately"
           aria-label="Rescan watched folders now"
-          className="cr-inline-btn font-mono text-xs disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3.5 py-1.5 rounded-full font-mono text-xs bg-[#2c2928] hover:bg-[#373433] text-[#f5f0ed] border border-white/10 transition font-mono text-xs disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {scanning ? 'Scanning…' : isRescanQueued ? 'Queued…' : 'Rescan Now'}
         </button>
@@ -356,8 +356,8 @@ export const WatcherStatusCard: React.FC<{
             Scanning watched folders…
           </span>
         ) : isRescanQueued ? (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[var(--cr-surface-sunken)] text-[var(--cr-text-secondary)] border border-[var(--cr-border)]">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--cr-text-muted)]" aria-hidden="true"></span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#100e0d] text-[#a8a29e] border border-[rgba(255,255,255,0.06)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#78716c]" aria-hidden="true"></span>
             Rescan queued…
           </span>
         ) : (
@@ -367,7 +367,7 @@ export const WatcherStatusCard: React.FC<{
           </span>
         )}
 
-        <span className="text-[var(--cr-text-muted)]">
+        <span className="text-[#78716c]">
           Last scan: {formatRelative(status?.last_scan_finished_ms ?? 0)}
         </span>
 
@@ -377,7 +377,7 @@ export const WatcherStatusCard: React.FC<{
           </span>
         )}
         {(status?.last_scan_skipped ?? 0) > 0 && (
-          <span className="text-[var(--cr-text-muted)]">{status?.last_scan_skipped} skipped</span>
+          <span className="text-[#78716c]">{status?.last_scan_skipped} skipped</span>
         )}
         {(status?.last_scan_failed ?? 0) > 0 && (
           <span className="px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30">
@@ -385,11 +385,11 @@ export const WatcherStatusCard: React.FC<{
           </span>
         )}
         {status?.last_scan_manual && (status?.last_scan_finished_ms ?? 0) > 0 && (
-          <span className="text-[var(--cr-text-muted)]">(manual)</span>
+          <span className="text-[#78716c]">(manual)</span>
         )}
       </div>
 
-      <p className="text-[11px] font-mono text-[var(--cr-text-muted)] mt-2">
+      <p className="text-[11px] font-mono text-[#78716c] mt-2">
         Total imported by watcher: {status?.total_imported ?? 0}
       </p>
     </div>

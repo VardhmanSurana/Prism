@@ -92,7 +92,59 @@ export const useImportProcess = ({ onUpload, onImportProgress }: UseImportProces
     }
   };
 
+  /**
+   * importFromUrl - Imports an image or video from an external web URL.
+   */
+  const importFromUrl = async (url: string): Promise<Photo> => {
+    const trimmed = url.trim();
+    if (!trimmed) {
+      throw new Error('Please enter a valid URL');
+    }
+
+    onImportProgress({
+      is_scanning: true,
+      total_files: 1,
+      processed_files: 0,
+      progress: 25,
+    });
+
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/photos/import-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: trimmed }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || `Import failed with HTTP ${response.status}`);
+      }
+
+      const raw = (await response.json()) as RawPhoto;
+      const normalized = normalizePhoto(raw);
+
+      onImportProgress({
+        is_scanning: true,
+        total_files: 1,
+        processed_files: 1,
+        progress: 100,
+      });
+
+      setTimeout(() => {
+        onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
+      }, 1200);
+
+      onUpload([normalized]);
+      return normalized;
+    } catch (err) {
+      onImportProgress({ is_scanning: false, total_files: 0, processed_files: 0, progress: 0 });
+      throw err;
+    }
+  };
+
   return {
-    startImport
+    startImport,
+    importFromUrl,
   };
 };
+

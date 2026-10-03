@@ -62,31 +62,33 @@ export const PresetsPanel: React.FC = () => {
   };
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
-      <div className="h-10 flex items-center px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Presets</span>
+    <div className="w-64 bg-[#151312] border-r border-white/10 flex flex-col shrink-0 select-none">
+      <div className="h-10 flex items-center px-3 border-b border-white/10 bg-[#171615]">
+        <span className="text-[#f5f0ed] text-xs font-medium">Presets</span>
       </div>
 
       {!selectedClip ? (
         <div className="flex-1 flex items-center justify-center px-6">
-          <p className="text-[#666] text-xs text-center">
+          <p className="text-zinc-500 text-xs text-center">
             Select a clip on the timeline to apply a preset.
           </p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto p-2">
-          <div className="grid grid-cols-2 gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
             {GRADING_PRESETS.map((preset) => (
               <button
                 key={preset.name}
                 onClick={() => applyPreset(preset)}
-                className="flex flex-col items-center gap-1 p-2 bg-[#222] hover:bg-[#2a2a2a] border border-[#333] hover:border-[#555] rounded transition-colors"
+                className="flex flex-col items-center gap-1.5 p-2 bg-[#1d1b1a] hover:bg-white/[0.04] border border-white/10 hover:border-[#e5a93c]/50 rounded-lg transition-colors cursor-pointer group"
               >
                 <div
-                  className="w-full aspect-square rounded-sm border border-[#444]"
+                  className="w-full aspect-square rounded-md border border-white/10 shadow-xs group-hover:scale-[1.02] transition-transform"
                   style={{ background: preset.swatch }}
                 />
-                <span className="text-[#ccc] text-[10px] leading-tight text-center">{preset.name}</span>
+                <span className="text-zinc-300 group-hover:text-[#e5a93c] text-[10px] font-medium leading-tight text-center transition-colors">
+                  {preset.name}
+                </span>
               </button>
             ))}
           </div>

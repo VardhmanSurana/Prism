@@ -7,14 +7,18 @@ import { useTimeline } from './hooks/useTimeline';
 import { PhotoGridHeader } from './PhotoGridHeader';
 import { PhotoGridRow } from './PhotoGridRow';
 import { PhotoListItem } from './PhotoListItem';
+import { ArchivalRetrospectiveBanner } from './ArchivalRetrospectiveBanner';
+import { ChronologyRail, ChronologyMilestone } from './ChronologyRail';
+import { StoryViewer } from '@/components/viewers/StoryViewer';
+import { formatDate } from './utils';
 import { useRenderCounter } from '@/lib/perf';
 import {
   ROW_PADDING,
   EMPTY_ROW_HEIGHT,
   HEADER_ROW_HEIGHT,
-  LIST_ITEM_HEIGHT
+  LIST_ITEM_HEIGHT,
 } from './constants';
-import { useGalleryLayout } from '../../hooks/useGalleryLayout';
+import { useGalleryLayout, GalleryLayoutMode } from '../../hooks/useGalleryLayout';
 import { useStats } from '../../hooks/useStats';
 import { API_BASE } from '../../constants';
 import { useSyncStore } from '@/store/syncStore';
@@ -23,31 +27,29 @@ import { Photo } from '../../types';
 import { useTelemetry } from '../../hooks/useTelemetry';
 import {
   Image as ImageIcon,
-  LayoutGrid,
-  List,
 } from 'lucide-react';
 
 /**
  * EmptyLibraryState - Renders empty library state.
  */
 const EmptyLibraryState: React.FC<{ isTrash: boolean }> = React.memo(({ isTrash }) => (
-  <div className="flex flex-col items-center gap-4 opacity-60">
-    <div className="w-24 h-24 rounded-2xl bg-surface border border-border flex items-center justify-center">
-      <ImageIcon size={40} className="text-gray-500" />
+  <div className="flex flex-col items-center gap-4 opacity-60 py-20">
+    <div className="w-24 h-24 rounded-2xl bg-[#151312] border border-[#292524] flex items-center justify-center">
+      <ImageIcon size={40} className="text-[#78716c]" />
     </div>
     <div className="text-center">
       {isTrash ? (
         <>
-          <p className="text-lg font-semibold text-gray-300">Trash is empty</p>
-          <p className="text-sm text-gray-500 mt-1">
-            No photos in trash.
+          <p className="text-lg font-serif text-[#f5f5f4]">Trash is empty</p>
+          <p className="text-sm text-[#78716c] mt-1 font-sans">
+            No items in trash.
           </p>
         </>
       ) : (
         <>
-          <p className="text-lg font-semibold text-gray-300">Your library is empty</p>
-          <p className="text-sm text-gray-500 mt-1">
-            Click <span className="text-primary font-medium">Import</span> above to add photos from your device.
+          <p className="text-lg font-serif text-[#f5f5f4]">Your archive is empty</p>
+          <p className="text-sm text-[#78716c] mt-1 font-sans">
+            Import photos or camera media to begin your curated collection.
           </p>
         </>
       )}
@@ -56,24 +58,8 @@ const EmptyLibraryState: React.FC<{ isTrash: boolean }> = React.memo(({ isTrash 
 ));
 EmptyLibraryState.displayName = 'EmptyLibraryState';
 
-interface StatsCardProps {
-  label: string;
-  value: string;
-}
-
 /**
- * StatsCard - Renders stats card.
- */
-const StatsCard: React.FC<StatsCardProps> = React.memo(({ label, value }) => (
-  <div className="flex items-baseline gap-2 py-1">
-    <span className="text-2xl font-bold font-sans text-white tracking-tight">{value}</span>
-    <span className="text-[11px] font-mono uppercase tracking-[0.15em] text-gray-500">{label}</span>
-  </div>
-));
-StatsCard.displayName = 'StatsCard';
-
-/**
- * PhotoGrid - Renders photo grid.
+ * PhotoGrid - Renders photo grid with Prism museum aesthetic.
  */
 export const PhotoGrid: React.FC<PhotoGridProps> = ({
   photos,
@@ -90,51 +76,52 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
   onBulkFavorite,
   onBulkDelete,
   onBulkLockToggle,
+  onFavoriteToggle: propOnFavoriteToggle,
+  layoutMode: propLayoutMode,
+  onLayoutModeChange: propOnLayoutModeChange,
+  onMonographClick,
 }) => {
   const { logAction, logError } = useTelemetry();
 
-  // Telemetry-wrapped callbacks for actions not handled in this component directly
-  /**
-   * handlePhotoClickTelemetry - Handles photo click telemetry.
-   */
+  // Telemetry-wrapped callbacks
   const handlePhotoClickTelemetry = useCallback((photo: Photo) => {
     logAction('PhotoGrid', 'photo_click', { photoId: photo.id, filename: photo.filename });
     onPhotoClick?.(photo);
   }, [onPhotoClick, logAction]);
 
-  /**
-   * handleToggleSelectionTelemetry - Handles toggle selection telemetry.
-   */
   const handleToggleSelectionTelemetry = useCallback((id: string) => {
     logAction('PhotoGrid', 'photo_select', { photoId: id });
     onToggleSelection?.(id);
   }, [onToggleSelection, logAction]);
 
-  /**
-   * handleToggleGroupSelectionTelemetry - Handles toggle group selection telemetry.
-   */
   const handleToggleGroupSelectionTelemetry = useCallback((ids: string[]) => {
     logAction('PhotoGrid', 'group_select', { count: ids.length });
     onToggleGroupSelection?.(ids);
   }, [onToggleGroupSelection, logAction]);
 
   const isSelectionMode = selectedIds.size > 0;
-  /**
-   * syncStatus - Performs sync status.
-   */
   const syncStatus = useSyncStore((s) => s.syncStatus);
   const logRender = useRenderCounter('PhotoGrid');
 
-  // Custom states for filtering and view layout
-  const [activePill, setActivePill] = useState<'all' | 'favorites' | 'recent' | 'videos'>('all');
+  // Custom states
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false);
   const [hoveredDateKey, setHoveredDateKey] = useState<string | null>(null);
   const [focusedPhotoId, setFocusedPhotoId] = useState<string | null>(null);
+  const [activeStoryHighlight, setActiveStoryHighlight] = useState<any | null>(null);
 
-  // Gallery layout settings
-  const { rowHeightPx, maxRowWidth } = useGalleryLayout();
+  // Gallery layout settings from store
+  const { settings, setLayoutMode, rowHeightPx, maxRowWidth } = useGalleryLayout();
+  const activeLayoutMode: GalleryLayoutMode = propLayoutMode || settings.layoutMode || 'editorial';
+
+  const handleLayoutModeChange = useCallback((mode: GalleryLayoutMode) => {
+    if (mode === 'list') {
+      setViewMode('list');
+    } else {
+      setViewMode('grid');
+      setLayoutMode(mode);
+      propOnLayoutModeChange?.(mode);
+    }
+  }, [setLayoutMode, propOnLayoutModeChange]);
 
   // Container width measurement for dynamic row packing
   const containerRef = useRef<HTMLDivElement>(null);
@@ -142,9 +129,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
 
   useEffect(() => {
     if (!containerRef.current) return;
-    /**
-     * observer - Performs observer.
-     */
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.contentRect.width > 0) {
@@ -156,33 +140,16 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  // Stats Integration
-  const { stats, refetch: refetchStats } = useStats(photos.length);
+  const { refetch: refetchStats } = useStats(photos.length);
 
-  // Clientside Pill Filtering and sorting logic
-  /**
-   * filteredPhotos - Performs filtered photos.
-   */
-  const filteredPhotos = useMemo(() => {
-    if (activePill === 'all') return photos;
-    if (activePill === 'favorites') {
-      return photos.filter(p => p.isFavorite || p.is_favorite);
-    } else if (activePill === 'recent') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      return photos.filter(p => new Date(p.date) >= thirtyDaysAgo);
-    } else if (activePill === 'videos') {
-      return photos.filter(p => p.file_type === 'video' || p.mime_type?.startsWith('video/'));
-    }
-    return photos;
-  }, [photos, activePill]);
-
-  // Handle Inline Toggles for List View
-  /**
-   * handleFavoriteToggle - Handles favorite toggle.
-   */
+  // Handle Inline Favorite Toggle
   const handleFavoriteToggle = useCallback(async (id: string | number, current: boolean) => {
     logAction('PhotoGrid', 'favorite_toggle', { photoId: id, newValue: !current });
+    if (propOnFavoriteToggle) {
+      await propOnFavoriteToggle(id, current);
+      refetchStats();
+      return;
+    }
     if (onBulkFavorite) {
       await onBulkFavorite(new Set([String(id)]));
       refetchStats();
@@ -202,11 +169,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
         logError('PhotoGrid', 'favorite_toggle_failed', e, { photoId: id });
       }
     }
-  }, [onBulkFavorite, onUpdatePhotos, refetchStats, logAction, logError]);
+  }, [propOnFavoriteToggle, onBulkFavorite, onUpdatePhotos, refetchStats, logAction, logError]);
 
-  /**
-   * handleLockToggle - Handles lock toggle.
-   */
   const handleLockToggle = useCallback(async (id: string | number, current: boolean) => {
     logAction('PhotoGrid', 'lock_toggle', { photoId: id, newValue: !current });
     if (onBulkLockToggle) {
@@ -234,9 +198,6 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkLockToggle, onUpdatePhotos, refetchStats, logAction, logError]);
 
-  /**
-   * handleDeleteToggle - Handles delete toggle.
-   */
   const handleDeleteToggle = useCallback(async (id: string | number) => {
     logAction('PhotoGrid', 'delete_toggle', { photoId: id });
     if (onBulkDelete) {
@@ -260,33 +221,13 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     }
   }, [onBulkDelete, onUpdatePhotos, refetchStats, logAction, logError]);
 
-  /**
-   * handleRowHover - Handles row hover.
-   */
   const handleRowHover = useCallback((dateKey: string | null) => {
     setHoveredDateKey(dateKey);
   }, []);
 
-  // Integrated Search trigger
-  /**
-   * handleSearchKeyDown - Handles search key down.
-   */
-  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      if (!searchQuery.trim()) {
-        onSearch?.(null);
-      } else {
-        logAction('PhotoGrid', 'search', { query: searchQuery.trim() });
-        onSearch?.({ query: searchQuery.trim() });
-      }
-    }
-  };
-
-  const gridRows = usePhotoGrid(filteredPhotos, maxRowWidth, containerWidth, rowHeightPx);
+  const gridRows = usePhotoGrid(photos, maxRowWidth, containerWidth, rowHeightPx, activeLayoutMode);
   const isCompactView = compact || currentView === 'trash';
-  /**
-   * rowItems - Performs row items.
-   */
+
   const rowItems = useMemo(() => {
     if (isCompactView) {
       if (photos.length === 0) {
@@ -294,17 +235,17 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       }
       return viewMode === 'grid'
         ? gridRows
-        : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
+        : photos.map(p => ({ type: 'list-item' as const, photo: p }));
     }
     if (photos.length === 0) {
       return [{ type: 'empty' as const }];
     }
     const baseItems: VirtualRowItem[] = viewMode === 'grid'
       ? gridRows
-      : filteredPhotos.map(p => ({ type: 'list-item' as const, photo: p }));
+      : photos.map(p => ({ type: 'list-item' as const, photo: p }));
 
     return baseItems;
-  }, [photos.length, filteredPhotos, gridRows, viewMode, isCompactView]);
+  }, [photos.length, photos, gridRows, viewMode, isCompactView]);
 
   const rowVirtualizer = useVirtualizer({
     count: rowItems.length,
@@ -315,31 +256,102 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       if (item.type === 'empty') return EMPTY_ROW_HEIGHT;
       if (item.type === 'header') return HEADER_ROW_HEIGHT;
       if (item.type === 'list-item') return LIST_ITEM_HEIGHT;
-      return rowHeightPx;
+      return activeLayoutMode === 'dense'
+        ? Math.round(rowHeightPx * 0.65)
+        : activeLayoutMode === 'editorial'
+          ? Math.round(rowHeightPx * 1.15)
+          : rowHeightPx;
     },
     overscan: 5,
   });
 
+  // Chronology milestones calculation for the rail
+  const chronologyMilestones = useMemo<ChronologyMilestone[]>(() => {
+    const list: ChronologyMilestone[] = [];
+    const seen = new Set<string>();
+
+    gridRows.forEach((r) => {
+      if (r.type === 'header' && !seen.has(r.dateKey)) {
+        seen.add(r.dateKey);
+        const { fullDate, year } = formatDate(r.dateKey);
+        const isCurrentYear = year === new Date().getFullYear();
+        list.push({
+          dateKey: r.dateKey,
+          label: isCurrentYear ? fullDate : `${fullDate} ${year}`,
+        });
+      }
+    });
+
+    return list;
+  }, [gridRows]);
+
+  // Jump to milestone
+  const handleSelectDateMilestone = useCallback((dateKey: string | null) => {
+    if (!dateKey) {
+      scrollParentRef?.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    const targetIdx = rowItems.findIndex(
+      (item) => item.type === 'header' && item.dateKey.startsWith(dateKey)
+    );
+    if (targetIdx !== -1) {
+      rowVirtualizer.scrollToIndex(targetIdx, { align: 'start', behavior: 'smooth' });
+    }
+  }, [rowItems, rowVirtualizer, scrollParentRef]);
+
+  const handleScrollToTop = useCallback(() => {
+    scrollParentRef?.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [scrollParentRef]);
+
+  // Active milestone detection from virtual items
+  const activeMilestoneDateKey = useMemo(() => {
+    const vItems = rowVirtualizer.getVirtualItems();
+    if (vItems.length === 0) return null;
+    for (const vi of vItems) {
+      const item = rowItems[vi.index];
+      if (item && item.type === 'header') {
+        return item.dateKey;
+      }
+      if (item && item.type === 'row' && item.photos[0]?.date) {
+        return item.photos[0].date.split('T')[0];
+      }
+    }
+    return chronologyMilestones[0]?.dateKey || null;
+  }, [rowVirtualizer.getVirtualItems(), rowItems, chronologyMilestones]);
+
+  // Clear selection handler
+  const handleClearSelection = useCallback(() => {
+    onToggleGroupSelection?.([]);
+  }, [onToggleGroupSelection]);
+
+  // Monograph View Launcher
+  const handleMonographLaunch = useCallback(() => {
+    if (onMonographClick) {
+      onMonographClick();
+    } else if (photos.length > 0) {
+      setActiveStoryHighlight({
+        id: 'monograph',
+        title: 'Prism Master Monograph',
+        subtitle: `${photos.length} curated archival works in high dynamic range`,
+        type: 'monograph',
+        photo_count: Math.min(30, photos.length),
+        cover_url: photos[0]?.url || null,
+        photos: photos.slice(0, 30),
+      });
+    }
+  }, [onMonographClick, photos]);
+
   useEffect(() => {
-    rowVirtualizer.measure();
-  }, [isStatsExpanded, rowVirtualizer]);
+    const handleOpenMonograph = () => {
+      handleMonographLaunch();
+    };
+    window.addEventListener('prism:open-monograph', handleOpenMonograph);
+    return () => {
+      window.removeEventListener('prism:open-monograph', handleOpenMonograph);
+    };
+  }, [handleMonographLaunch]);
 
-  // Calculate dynamic date metadata for view controls
-  /**
-   * dateLabel - Performs date label.
-   */
-  const dateLabel = useMemo(() => {
-    if (filteredPhotos.length === 0) return '0 photos';
-    if (isCompactView) return `${filteredPhotos.length} photos`;
-    const firstPhotoDate = new Date(filteredPhotos[0].date);
-    const today = new Date();
-    const isToday = firstPhotoDate.getDate() === today.getDate() &&
-      firstPhotoDate.getMonth() === today.getMonth() &&
-      firstPhotoDate.getFullYear() === today.getFullYear();
-    return `${isToday ? 'Today' : 'Gallery'} • ${filteredPhotos.length} photos`;
-  }, [filteredPhotos, isCompactView]);
-
-  // 2D Roving Matrix for grid and list navigation
+  // 2D Roving Matrix for navigation
   const photoRows = useMemo(() => {
     const rows: { photos: Photo[]; virtualIndex: number }[] = [];
     rowItems.forEach((item, index) => {
@@ -372,8 +384,8 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     if (focusedPhotoId && photoToGridPos.has(focusedPhotoId)) {
       return focusedPhotoId;
     }
-    return filteredPhotos.length > 0 ? String(filteredPhotos[0].id) : null;
-  }, [focusedPhotoId, photoToGridPos, filteredPhotos]);
+    return photos.length > 0 ? String(photos[0].id) : null;
+  }, [focusedPhotoId, photoToGridPos, photos]);
 
   const focusPhoto = useCallback((targetPhoto: Photo) => {
     const strId = String(targetPhoto.id);
@@ -394,9 +406,9 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       return;
     }
 
-    if (filteredPhotos.length === 0) return;
+    if (photos.length === 0) return;
 
-    const currentId = effectiveFocusedId ?? String(filteredPhotos[0].id);
+    const currentId = effectiveFocusedId ?? String(photos[0].id);
     const currentPos = photoToGridPos.get(currentId) ?? {
       rowIndex: 0,
       colIndex: 0,
@@ -407,15 +419,15 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     switch (e.key) {
       case 'ArrowRight': {
         e.preventDefault();
-        if (currentPos.photoIndex + 1 < filteredPhotos.length) {
-          focusPhoto(filteredPhotos[currentPos.photoIndex + 1]);
+        if (currentPos.photoIndex + 1 < photos.length) {
+          focusPhoto(photos[currentPos.photoIndex + 1]);
         }
         break;
       }
       case 'ArrowLeft': {
         e.preventDefault();
         if (currentPos.photoIndex - 1 >= 0) {
-          focusPhoto(filteredPhotos[currentPos.photoIndex - 1]);
+          focusPhoto(photos[currentPos.photoIndex - 1]);
         }
         break;
       }
@@ -439,12 +451,12 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       }
       case 'Home': {
         e.preventDefault();
-        focusPhoto(filteredPhotos[0]);
+        focusPhoto(photos[0]);
         break;
       }
       case 'End': {
         e.preventDefault();
-        focusPhoto(filteredPhotos[filteredPhotos.length - 1]);
+        focusPhoto(photos[photos.length - 1]);
         break;
       }
       case ' ': {
@@ -454,7 +466,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       }
       case 'Enter': {
         e.preventDefault();
-        const photo = filteredPhotos.find(p => String(p.id) === currentId);
+        const photo = photos.find(p => String(p.id) === currentId);
         if (photo) {
           handlePhotoClickTelemetry(photo);
         }
@@ -462,7 +474,7 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       }
     }
   }, [
-    filteredPhotos,
+    photos,
     effectiveFocusedId,
     photoToGridPos,
     photoRows,
@@ -471,16 +483,14 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
     handlePhotoClickTelemetry,
   ]);
 
-  // Keep timeline dial linked to regular grid rows (header/row only).
-  // gridRows from usePhotoGrid already contains only those types.
   const { timelineItems, scrollState, activeId } = useTimeline(gridRows, scrollParentRef);
 
   if (photos.length === 0 && (isLoading || syncStatus?.is_scanning)) {
     return (
-      <div className="pl-10 pr-10 pt-28 pb-4">
+      <div className="pl-6 sm:pl-10 pr-6 sm:pr-10 pt-28 pb-4">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
           {Array.from({ length: 18 }).map((_, i) => (
-            <div key={i} className="aspect-[3/4] rounded-lg bg-white/5 animate-pulse" />
+            <div key={i} className="aspect-[3/4] rounded-xl bg-[#151312] border border-[#292524] animate-pulse" />
           ))}
         </div>
       </div>
@@ -495,170 +505,173 @@ export const PhotoGrid: React.FC<PhotoGridProps> = ({
       role="region"
       aria-label="Photos grid"
       onKeyDown={handleGridKeyDown}
-      className="relative w-full font-sans"
+      className="relative w-full font-sans min-h-screen bg-[#0c0a09] text-[#f5f5f4]"
     >
-      {/* Dynamic Header (Dashboard) rendered outside virtualization for Prism theme */}
-      {!isCompactView && (
-        <div className="w-full pl-10 pr-10 pt-4 pb-2 z-20">
-          {/* Sub Navigation and View Filters */}
-          <div className="flex items-center justify-between py-2 mb-2 select-none">
-            {/* Category Pills on Left */}
-            <div className="flex items-center gap-2">
-              {([
-                { id: 'all', label: 'All' },
-                { id: 'favorites', label: 'Favorites' },
-                { id: 'recent', label: 'Recent' },
-                { id: 'videos', label: 'Videos' }
-              ] as const).map((pill) => (
-                <button
-                  key={pill.id}
-                  onClick={() => { logAction('PhotoGrid', 'filter_change', { filter: pill.id }); setActivePill(pill.id); }}
-                  className={`px-5 py-2 text-sm rounded-full transition-colors 200ms ease, background-color 200ms ease
-                    ${activePill === pill.id
-                      ? 'bg-[#2a241c] text-[#e0cfb3] font-medium'
-                      : 'text-gray-400 hover:text-white font-normal'
+      {/* Atmospheric Ambient Background Blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
+        <div className="absolute -top-10 left-1/4 w-[540px] h-[380px] rounded-full bg-[#f97316] opacity-[0.06] blur-[130px]" />
+        <div className="absolute top-96 right-12 w-[480px] h-[360px] rounded-full bg-[#818cf8] opacity-[0.05] blur-[140px]" />
+        <div className="absolute top-[1100px] left-10 w-[500px] h-[400px] rounded-full bg-[#2dd4bf] opacity-[0.04] blur-[130px]" />
+      </div>
+
+      {/* Main Container Area with Right Sticky Chronology Rail */}
+      <div className="relative z-10 w-full flex">
+        {/* Gallery Core Stream */}
+        <div className="flex-1 min-w-0">
+          {/* Memory Flashback Banner (Archival Retrospective) */}
+          {!isCompactView && photos.length > 0 && (
+            <div className="pl-4 sm:pl-8 pr-6 sm:pr-8 xl:pr-12 pt-2">
+              <ArchivalRetrospectiveBanner
+                photos={photos}
+                onReliveMemory={(memPhotos) => {
+                  if (memPhotos.length > 0) {
+                    setActiveStoryHighlight({
+                      id: 'retrospective',
+                      title: memPhotos[0]?.caption || 'Archival Retrospective',
+                      subtitle: 'Curated 35mm film captures preserved in uncompressed high dynamic range.',
+                      type: 'retrospective',
+                      photo_count: memPhotos.length,
+                      cover_url: memPhotos[0]?.url || null,
+                      photos: memPhotos,
+                    });
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          {/* Virtualized Container */}
+          <div
+            className="relative w-full"
+            style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+          >
+            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+              const item = rowItems[virtualRow.index];
+              if (!item) return null;
+
+              if (item.type === 'empty') {
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="absolute top-0 left-0 w-full flex flex-col items-center justify-center gap-5 select-none"
+                    style={{ transform: `translateY(${virtualRow.start}px)`, minHeight: '380px' }}
+                  >
+                    <EmptyLibraryState isTrash={currentView === 'trash'} />
+                  </div>
+                );
+              }
+
+              if (item.type === 'header') {
+                return (
+                  <PhotoGridHeader
+                    key={virtualRow.key}
+                    dateKey={item.dateKey}
+                    photoIds={item.photoIds}
+                    location={item.location}
+                    selectedIds={selectedIds}
+                    onToggleGroupSelection={handleToggleGroupSelectionTelemetry}
+                    virtualRowStart={virtualRow.start}
+                    virtualRowKey={virtualRow.key}
+                    virtualRowIndex={virtualRow.index}
+                    measureElement={rowVirtualizer.measureElement}
+                    isHovered={hoveredDateKey === item.dateKey}
+                  />
+                );
+              }
+
+              if (item.type === 'row') {
+                return (
+                  <PhotoGridRow
+                    key={virtualRow.key}
+                    photos={item.photos}
+                    isFull={item.isFull}
+                    selectedIds={selectedIds}
+                    isSelectionMode={isSelectionMode}
+                    onPhotoClick={handlePhotoClickTelemetry}
+                    onToggleSelection={handleToggleSelectionTelemetry}
+                    virtualRowStart={virtualRow.start}
+                    virtualRowKey={virtualRow.key}
+                    virtualRowIndex={virtualRow.index}
+                    rowHeight={
+                      activeLayoutMode === 'dense'
+                        ? Math.round(rowHeightPx * 0.65)
+                        : activeLayoutMode === 'editorial'
+                          ? Math.round(rowHeightPx * 1.15)
+                          : rowHeightPx
                     }
-                  `}
-                >
-                  {pill.label}
-                </button>
-              ))}
-            </div>
+                    rowPadding={ROW_PADDING}
+                    measureElement={rowVirtualizer.measureElement}
+                    dateKey={item.photos[0]?.date?.split('T')[0] ?? (virtualRow.key as string)}
+                    isRowHovered={hoveredDateKey !== null}
+                    onRowHover={handleRowHover}
+                    focusedPhotoId={effectiveFocusedId}
+                    onPhotoFocus={setFocusedPhotoId}
+                    heroPhotoId={item.heroPhotoId}
+                    layoutMode={activeLayoutMode}
+                    onFavoriteToggle={handleFavoriteToggle}
+                  />
+                );
+              }
 
-            {/* Date label and Grid/List view switch on Right */}
-            <div className="flex items-center gap-6">
-              <span className="text-xs text-gray-500 font-normal">
-                {filteredPhotos.length === 1 ? '1 moment' : `${filteredPhotos.length} moments`}
-              </span>
+              if (item.type === 'list-item') {
+                return (
+                  <div
+                    key={virtualRow.key}
+                    data-index={virtualRow.index}
+                    ref={rowVirtualizer.measureElement}
+                    className="absolute top-0 left-0 w-full pl-4 sm:pl-8 pr-12 pb-3"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <PhotoListItem
+                      photo={item.photo}
+                      isSelected={selectedIds.has(String(item.photo.id))}
+                      isSelectionMode={isSelectionMode}
+                      isFocused={effectiveFocusedId === String(item.photo.id)}
+                      onFocus={() => setFocusedPhotoId(String(item.photo.id))}
+                      onPhotoClick={handlePhotoClickTelemetry}
+                      onToggleSelection={handleToggleSelectionTelemetry}
+                      onFavoriteToggle={handleFavoriteToggle}
+                      onLockToggle={handleLockToggle}
+                      onDeleteToggle={handleDeleteToggle}
+                    />
+                  </div>
+                );
+              }
 
-              {/* Layout switch controls */}
-              <div className="flex items-center bg-[#161616]/40 p-1 rounded-xl border border-white/[0.08]">
-                <button
-                  onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'grid' }); setViewMode('grid'); }}
-                  className={`p-2 rounded-lg transition-colors 200ms ease, background-color 200ms ease ${viewMode === 'grid' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
-                    }`}
-                  title="Grid View"
-                >
-                  <LayoutGrid size={15} />
-                </button>
-                <button
-                  onClick={() => { logAction('PhotoGrid', 'view_mode_change', { mode: 'list' }); setViewMode('list'); }}
-                  className={`p-2 rounded-lg transition-colors 200ms ease, background-color 200ms ease ${viewMode === 'list' ? 'bg-white/5 text-[#e0cfb3]' : 'text-gray-500 hover:text-white'
-                    }`}
-                  title="List View"
-                >
-                  <List size={15} />
-                </button>
-              </div>
-            </div>
+              return null;
+            })}
           </div>
         </div>
-      )}
 
-      {/* The Virtualized Container */}
-      <div
-        className="relative w-full"
-        style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-      >
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-          const item = rowItems[virtualRow.index];
-          if (!item) return null;
-
-          // 1b. Empty library state (shown below the dashboard when no photos)
-          if (item.type === 'empty') {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={rowVirtualizer.measureElement}
-                className="absolute top-0 left-0 w-full flex flex-col items-center justify-center gap-5 select-none"
-                style={{ transform: `translateY(${virtualRow.start}px)`, minHeight: '380px' }}
-              >
-                <EmptyLibraryState isTrash={currentView === 'trash'} />
-              </div>
-            );
-          }
-
-          // 2. Timeline Grid Headers (Grid Mode only)
-          if (item.type === 'header') {
-            return (
-              <PhotoGridHeader
-                key={virtualRow.key}
-                dateKey={item.dateKey}
-                photoIds={item.photoIds}
-                location={item.location}
-                selectedIds={selectedIds}
-                onToggleGroupSelection={handleToggleGroupSelectionTelemetry}
-                virtualRowStart={virtualRow.start}
-                virtualRowKey={virtualRow.key}
-                virtualRowIndex={virtualRow.index}
-                measureElement={rowVirtualizer.measureElement}
-                isHovered={hoveredDateKey === item.dateKey}
-              />
-            );
-          }
-
-          // 3. Grid Row (Grid Mode only)
-          if (item.type === 'row') {
-            return (
-              <PhotoGridRow
-                key={virtualRow.key}
-                photos={item.photos}
-                isFull={item.isFull}
-                selectedIds={selectedIds}
-                isSelectionMode={isSelectionMode}
-                onPhotoClick={handlePhotoClickTelemetry}
-                onToggleSelection={handleToggleSelectionTelemetry}
-                virtualRowStart={virtualRow.start}
-                virtualRowKey={virtualRow.key}
-                virtualRowIndex={virtualRow.index}
-                rowHeight={rowHeightPx}
-                rowPadding={ROW_PADDING}
-                measureElement={rowVirtualizer.measureElement}
-                dateKey={item.photos[0]?.date?.split('T')[0] ?? virtualRow.key as string}
-                isRowHovered={hoveredDateKey !== null}
-                onRowHover={handleRowHover}
-                focusedPhotoId={effectiveFocusedId}
-                onPhotoFocus={setFocusedPhotoId}
-              />
-            );
-          }
-
-          // 4. List Item Row (List Mode only)
-          if (item.type === 'list-item') {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={rowVirtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pl-10 pr-10 pb-3"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
-              >
-                <PhotoListItem
-                  photo={item.photo}
-                  isSelected={selectedIds.has(String(item.photo.id))}
-                  isSelectionMode={isSelectionMode}
-                  isFocused={effectiveFocusedId === String(item.photo.id)}
-                  onFocus={() => setFocusedPhotoId(String(item.photo.id))}
-                  onPhotoClick={handlePhotoClickTelemetry}
-                  onToggleSelection={handleToggleSelectionTelemetry}
-                  onFavoriteToggle={handleFavoriteToggle}
-                  onLockToggle={handleLockToggle}
-                  onDeleteToggle={handleDeleteToggle}
-                />
-              </div>
-            );
-          }
-
-          return null;
-        })}
+        {/* Sticky Chronology Navigation Rail */}
+        {!isCompactView && chronologyMilestones.length > 0 && (
+          <ChronologyRail
+            milestones={chronologyMilestones}
+            activeDateKey={activeMilestoneDateKey}
+            onSelectMilestone={handleSelectDateMilestone}
+            onScrollToTop={handleScrollToTop}
+            scrollParentRef={scrollParentRef}
+          />
+        )}
       </div>
-      {viewMode === 'grid' && timelineItems.length > 0 && (
+
+      {/* Classic Timeline Dial fallback if no milestones */}
+      {viewMode === 'grid' && chronologyMilestones.length === 0 && timelineItems.length > 0 && (
         <TimelineDial
           items={timelineItems}
           activeId={activeId}
           scrollProgress={scrollState.progress}
           scrollHeight={scrollState.height}
+        />
+      )}
+
+      {/* Story / Monograph Modal */}
+      {activeStoryHighlight && (
+        <StoryViewer
+          highlight={activeStoryHighlight}
+          onClose={() => setActiveStoryHighlight(null)}
         />
       )}
     </div>

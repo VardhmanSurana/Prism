@@ -48,12 +48,13 @@ export function useKeyboardShortcuts({
         if (shortcut.disabled) continue;
 
         const keyMatch = e.key.toLowerCase() === shortcut.key.toLowerCase();
-        const ctrlMatch = shortcut.ctrl ? (e.ctrlKey || e.metaKey) : !e.ctrlKey && !e.metaKey;
-        const metaMatch = shortcut.meta ? e.metaKey : !e.metaKey;
+        const modifierExpected = shortcut.ctrl || shortcut.meta;
+        const modifierActive = e.ctrlKey || e.metaKey;
+        const ctrlMatch = modifierExpected ? modifierActive : (!e.ctrlKey && !e.metaKey);
         const shiftMatch = shortcut.shift ? e.shiftKey : !e.shiftKey;
         const altMatch = shortcut.alt ? e.altKey : !e.altKey;
 
-        if (keyMatch && ctrlMatch && metaMatch && shiftMatch && altMatch) {
+        if (keyMatch && ctrlMatch && shiftMatch && altMatch) {
           if (isEditable && !shortcut.always) continue;
 
           e.preventDefault();
@@ -90,9 +91,10 @@ export function usePrismShortcuts(actions: {
   useKeyboardShortcuts({
     enabled: actions.enabled !== false,
     shortcuts: [
-      // Command Palette
+      // Command Palette (Ctrl+K or Cmd+K)
       {
         key: 'k',
+        ctrl: true,
         meta: true,
         description: 'Open Command Palette',
         action: actions.onCommandPalette,
@@ -106,7 +108,6 @@ export function usePrismShortcuts(actions: {
       { key: '5', description: 'Favorites', action: () => actions.onNavigate('favorites') },
       { key: '6', description: 'Trash', action: () => actions.onNavigate('trash') },
       { key: '7', description: 'AI Agent', action: () => actions.onNavigate('agent') },
-      { key: '8', description: 'Cull', action: () => actions.onNavigate('cull') },
       // Actions
       { key: 'u', description: 'Upload', action: actions.onUpload },
       { key: 'l', description: 'Lock Toggle', action: actions.onToggleLock },

@@ -108,23 +108,23 @@ export const TextPanel: React.FC = () => {
   }, [customText, fontSize, fontFamily, fontColor, addTextClip]);
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-[#2a2a2a] flex flex-col shrink-0">
+    <div className="w-64 bg-[#151312] border-r border-white/10 flex flex-col shrink-0 select-none">
       {/* Header */}
-      <div className="h-10 flex items-center px-3 border-b border-[#2a2a2a]">
-        <span className="text-[#999] text-xs font-medium">Text</span>
+      <div className="h-10 flex items-center px-3 border-b border-white/10 bg-[#171615]">
+        <span className="text-[#f5f0ed] text-xs font-medium">Text</span>
       </div>
 
       {/* Custom text input */}
-      <div className="p-3 border-b border-[#2a2a2a]">
+      <div className="p-3 border-b border-white/10 space-y-2">
         <input
           type="text"
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
           placeholder="Type your text..."
-          className="w-full bg-[#222] text-[#ccc] text-xs rounded px-2 py-1.5 border border-[#333] placeholder-[#555]"
+          className="w-full bg-[#1d1b1a] text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 border border-white/10 placeholder-zinc-500 focus:outline-none focus:border-[#e5a93c]/50"
           onKeyDown={(e) => e.key === 'Enter' && handleAddCustom()}
         />
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="grid grid-cols-2 gap-2">
           <Dropdown
             value={fontFamily}
             onChange={(val) => setFontFamily(val as string)}
@@ -137,10 +137,10 @@ export const TextPanel: React.FC = () => {
             onChange={(e) => setFontSize(parseInt(e.target.value) || 24)}
             min="8"
             max="200"
-            className="bg-[#222] text-[#ccc] text-[10px] rounded px-1.5 py-1 border border-[#333]"
+            className="bg-[#1d1b1a] text-zinc-200 text-xs rounded-lg px-2 py-1.5 border border-white/10 focus:outline-none focus:border-[#e5a93c]/50"
           />
         </div>
-        <div className="mt-2 flex flex-col gap-2">
+        <div className="space-y-2 pt-1">
           <ColorPicker
             value={fontColor}
             onChange={setFontColor}
@@ -148,7 +148,7 @@ export const TextPanel: React.FC = () => {
           />
           <button
             onClick={handleAddCustom}
-            className="w-full px-2 py-1.5 bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[11px] font-medium rounded transition-colors"
+            className="w-full py-1.5 bg-[#e5a93c] hover:bg-[#d4982b] text-[#151312] text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-sm"
           >
             Add Text
           </button>
@@ -157,16 +157,16 @@ export const TextPanel: React.FC = () => {
 
       {/* Preset styles */}
       <div className="flex-1 overflow-y-auto p-3">
-        <span className="text-[#999] text-[10px] font-medium block mb-2">Presets</span>
+        <span className="text-zinc-400 text-[10px] font-medium block mb-2 uppercase tracking-wider">Presets</span>
         <div className="space-y-1.5">
           {TEXT_PRESETS.map((preset) => (
             <button
               key={preset.label}
               onClick={() => addTextClip(preset.text, preset.fontSize, preset.fontFamily, '#ffffff')}
-              className="w-full text-left px-3 py-2 bg-[#222] hover:bg-[#2a2a2a] border border-[#333] hover:border-[#555] rounded transition-colors"
+              className="w-full text-left px-3 py-2 bg-[#1d1b1a] hover:bg-white/[0.04] border border-white/10 hover:border-white/20 rounded-lg transition-colors cursor-pointer group"
             >
-              <div className="text-[#ccc] text-[11px] font-medium">{preset.label}</div>
-              <div className="text-[#666] text-[10px] mt-0.5 truncate">{preset.text}</div>
+              <div className="text-zinc-200 text-[11px] font-medium group-hover:text-[#e5a93c] transition-colors">{preset.label}</div>
+              <div className="text-zinc-400 text-[10px] mt-0.5 truncate">{preset.text}</div>
             </button>
           ))}
         </div>
