@@ -1,26 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Laptop,
-  Server,
   FolderOpen,
-  Sparkles,
-  Zap,
+  FolderPlus,
+  Trash2,
   Check,
   ArrowRight,
   ArrowLeft,
   Palette,
+  Sparkles,
+  CheckCircle2,
+  Sun,
+  Moon,
+  Monitor,
+  LayoutGrid,
+  Search,
+  ScanFace,
+  Wand2,
+  ScanText,
+  Type,
+  Rocket,
   Sliders,
   ShieldCheck,
-  CheckCircle2,
-  HardDrive,
-  Eye,
-  SlidersHorizontal,
-  X,
-  FileCheck,
-  Cpu,
+  MessageSquare,
   Layers,
-  Database
 } from 'lucide-react';
 import { API_BASE } from '../../constants';
 import { openFileFolderBrowser } from '../../services/FileFolderBrowserService';
@@ -30,6 +33,100 @@ interface FirstRunWizardModalProps {
   onComplete: () => void;
 }
 
+type ColorTheme = 'dark' | 'light' | 'system';
+type AccentTone = 'gold' | 'gray' | 'emerald' | 'indigo';
+type InterfaceDensity = 'compact' | 'standard' | 'spacious';
+type ThumbnailQuality = '320px' | '640px' | '1280px';
+
+/** AI flags stored in the backend general settings, keyed by our friendly toggle ids. */
+const AI_FLAGS: Record<AiFeatureId, string> = {
+  smartSearch: 'ENABLE_AI_CLIP',
+  people: 'ENABLE_AI_FACE',
+  magicEraser: 'ENABLE_AI_INPAINTING',
+  readText: 'ENABLE_AI_OCR',
+  captions: 'ENABLE_AI_CAPTION',
+  autoOrganize: 'ENABLE_IMAGE_BG_PROCESS',
+  chatAssistant: 'ENABLE_AI_AGENT',
+};
+
+type AiFeatureId = keyof typeof AI_FEATURE_META;
+
+const AI_FEATURE_META: Record<
+  string,
+  { title: string; description: string; icon: React.ReactNode }
+> = {
+  smartSearch: {
+    title: 'Smart Search',
+    description: 'Find photos by describing them in plain words',
+    icon: <Search size={16} />,
+  },
+  people: {
+    title: 'People & Faces',
+    description: 'Automatically group photos of the same people',
+    icon: <ScanFace size={16} />,
+  },
+  magicEraser: {
+    title: 'Magic Eraser & Video AI',
+    description: 'Remove unwanted objects and polish videos with AI',
+    icon: <Wand2 size={16} />,
+  },
+  readText: {
+    title: 'Read Text in Photos',
+    description: 'Search words inside screenshots, receipts, and documents',
+    icon: <ScanText size={16} />,
+  },
+  captions: {
+    title: 'Auto Captions',
+    description: 'Generate short descriptions for every photo',
+    icon: <Type size={16} />,
+  },
+  autoOrganize: {
+    title: 'Organize New Photos',
+    description: 'Sort and tag new photos in the background as you add them',
+    icon: <Layers size={16} />,
+  },
+  chatAssistant: {
+    title: 'AI Chat Assistant',
+    description: 'Ask questions about your library in the chat panel',
+    icon: <MessageSquare size={16} />,
+  },
+};
+
+const THEME_OPTIONS: { value: ColorTheme; label: string; icon: React.ReactNode }[] = [
+  { value: 'dark', label: 'Dark', icon: <Moon size={16} /> },
+  { value: 'light', label: 'Light', icon: <Sun size={16} /> },
+  { value: 'system', label: 'System', icon: <Monitor size={16} /> },
+];
+
+const ACCENT_OPTIONS: { value: AccentTone; label: string; swatch: string }[] = [
+  { value: 'gold', label: 'Gold', swatch: '#e5a93c' },
+  { value: 'gray', label: 'Graphite', swatch: '#a8a29e' },
+  { value: 'emerald', label: 'Emerald', swatch: '#34d399' },
+  { value: 'indigo', label: 'Indigo', swatch: '#818cf8' },
+];
+
+const DENSITY_OPTIONS: { value: InterfaceDensity; label: string }[] = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'spacious', label: 'Spacious' },
+];
+
+const QUALITY_OPTIONS: { value: ThumbnailQuality; label: string; hint: string }[] = [
+  { value: '320px', label: 'Fast', hint: 'Smaller previews' },
+  { value: '640px', label: 'Balanced', hint: 'Recommended' },
+  { value: '1280px', label: 'High', hint: 'Sharpest previews' },
+];
+
+const DEFAULT_AI: Record<AiFeatureId, boolean> = {
+  smartSearch: true,
+  people: true,
+  magicEraser: true,
+  readText: true,
+  captions: false,
+  autoOrganize: true,
+  chatAssistant: true,
+};
+
 export type ExecutionTopology = 'this_device' | 'vault';
 export type StorageStrategy = 'index_in_place' | 'copy';
 export type NeuralProfile = 'balanced' | 'master' | 'minimalist';
@@ -38,44 +135,27 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
   isOpen,
   onComplete,
 }) => {
-  // Step state (1: Architecture, 2: Storage Strategy, 3: Footprint, 4: Neural Engine)
+  // Step state (1: Your Photos, 2: Look & Feel, 3: AI Features, 4: Ready)
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3 | 4>(1);
 
-  // Configuration states
-  const [topology, setTopology] = useState<ExecutionTopology>('this_device');
-  const [storageStrategy, setStorageStrategy] = useState<StorageStrategy>('index_in_place');
-  const [originalsDir, setOriginalsDir] = useState<string>('/Volumes/Studio-RAW-Vault/Master_Exposures_2024');
-  const [detectedMasters, setDetectedMasters] = useState<number>(48290);
-  const [detectedPayload, setDetectedPayload] = useState<string>('1.18 TB Total Payload');
-  const [neuralProfile, setNeuralProfile] = useState<NeuralProfile>('balanced');
+  // Step 1 — Folders to watch
+  const [watchedFolders, setWatchedFolders] = useState<string[]>([]);
 
-  // Phase 03: Footprint & Cache Allocation Configuration
-  const [previewQuality, setPreviewQuality] = useState<'8k' | '4k' | '2k'>('8k');
-  const [vectorPrecision, setVectorPrecision] = useState<'fp32' | 'int8' | 'ondemand'>('fp32');
-  const [cacheQuota, setCacheQuota] = useState<'25gb' | '50gb' | '100gb' | 'uncapped'>('100gb');
-  const [precacheMode, setPrecacheMode] = useState<'background' | 'ondemand'>('background');
+  // Step 2 — Look & feel
+  const [theme, setTheme] = useState<ColorTheme>('dark');
+  const [accent, setAccent] = useState<AccentTone>('gray');
+  const [density, setDensity] = useState<InterfaceDensity>('standard');
+  const [previewQuality, setPreviewQuality] = useState<ThumbnailQuality>('640px');
 
-  // Dynamic calculations for Footprint
-  const webpGb = previewQuality === '8k' ? 44.0 : previewQuality === '4k' ? 18.2 : 6.1;
-  const vectorGb = vectorPrecision === 'fp32' ? 54.0 : vectorPrecision === 'int8' ? 13.8 : 0.0;
-  const engineIndexGb = 4.8;
-  const totalFootprint = webpGb + vectorGb + engineIndexGb;
-  const totalVolumeGb = 2000;
-  const masterOriginalsGb = 1180;
-  const headroomGb = Math.round((totalVolumeGb - masterOriginalsGb - totalFootprint) * 10) / 10;
+  // Step 3 — Smart features
+  const [aiFeatures, setAiFeatures] = useState<Record<AiFeatureId, boolean>>({ ...DEFAULT_AI });
 
-  const masterPercent = 59;
-  const webpPercent = Math.max(1, (webpGb / totalVolumeGb) * 100);
-  const vectorPercent = Math.max(0.5, (vectorGb / totalVolumeGb) * 100);
-  const indexPercent = (engineIndexGb / totalVolumeGb) * 100;
-  const headroomPercent = Math.max(5, (headroomGb / totalVolumeGb) * 100);
-  
-  // Engine Flags Drawer/Modal state
-  const [showEngineFlags, setShowEngineFlags] = useState<boolean>(false);
-  const [gpuAccelerationMode, setGpuAccelerationMode] = useState<string>('webgpu');
-  const [workerDaemons, setWorkerDaemons] = useState<number>(6);
-  const [telemetryLock, setTelemetryLock] = useState<boolean>(true);
   const [isFinishing, setIsFinishing] = useState<boolean>(false);
+
+  const toggleAi = (id: AiFeatureId) =>
+    setAiFeatures((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const enabledAiCount = Object.values(aiFeatures).filter(Boolean).length;
 
   // Handle ESC key to dismiss
   useEffect(() => {
@@ -88,54 +168,83 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Browse Directory action
-  const handleBrowseDirectory = async () => {
+  // Add folders to the watch list
+  const handleAddFolders = async () => {
     try {
       const res = await openFileFolderBrowser({
         directoryOnly: true,
-        title: 'Select Master RAW / Originals Directory',
+        multiple: true,
+        title: 'Choose folders for Prism to watch',
       });
       if (res && res.paths.length > 0) {
-        setOriginalsDir(res.paths[0]);
-        setDetectedMasters(52410);
-        setDetectedPayload('1.29 TB Total Payload');
+        setWatchedFolders((prev) => {
+          const next = [...prev];
+          res.paths.forEach((p) => {
+            if (!next.includes(p)) next.push(p);
+          });
+          return next;
+        });
       }
     } catch {
-      const custom = window.prompt('Enter path to originals folder:', originalsDir);
-      if (custom) {
-        setOriginalsDir(custom);
+      const custom = window.prompt('Enter a folder path for Prism to watch:');
+      if (custom && !watchedFolders.includes(custom)) {
+        setWatchedFolders((prev) => [...prev, custom]);
       }
     }
   };
 
+  const handleRemoveFolder = (folder: string) =>
+    setWatchedFolders((prev) => prev.filter((f) => f !== folder));
+
   const handleFinish = async () => {
     setIsFinishing(true);
     try {
+      // Appearance preferences (read by the Settings → Appearance panel)
       localStorage.setItem('prism_onboarding_completed', 'true');
-      localStorage.setItem('prism_topology', topology);
-      localStorage.setItem('prism_storage_mode', storageStrategy);
-      localStorage.setItem('prism_originals_dir', originalsDir);
-      localStorage.setItem('prism_neural_profile', neuralProfile);
-      localStorage.setItem('prism_gpu_mode', gpuAccelerationMode);
+      localStorage.setItem('prism_theme', theme);
+      localStorage.setItem('prism_accent', accent);
+      localStorage.setItem('prism_density', density);
       localStorage.setItem('prism_preview_quality', previewQuality);
-      localStorage.setItem('prism_vector_precision', vectorPrecision);
-      localStorage.setItem('prism_cache_quota', cacheQuota);
-      localStorage.setItem('prism_precache_mode', precacheMode);
+
+      // 1) Persist the folder watch list
+      await fetch(`${API_BASE}/api/v1/settings/folders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ watched_folders: watchedFolders, excluded_folders: [] }),
+      }).catch(() => {});
+
+      // 2) Persist the smart-feature toggles (merge into existing general settings)
+      try {
+        const current = await fetch(`${API_BASE}/api/v1/settings/general`)
+          .then((r) => (r.ok ? r.json() : {}))
+          .catch(() => ({}));
+        const merged: Record<string, unknown> = { ...current };
+        (Object.keys(AI_FLAGS) as AiFeatureId[]).forEach((id) => {
+          merged[AI_FLAGS[id]] = aiFeatures[id];
+        });
+        await fetch(`${API_BASE}/api/v1/settings/general`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(merged),
+        }).catch(() => {});
+      } catch {
+        /* non-fatal */
+      }
+
+      // 3) Notify the backend that onboarding finished
+      const thumbQuality =
+        previewQuality === '1280px' ? 'quality' : previewQuality === '320px' ? 'fast' : 'balanced';
+      const aiProfile =
+        enabledAiCount === 0 ? 'minimalist' : aiFeatures.captions ? 'master' : 'balanced';
 
       await fetch(`${API_BASE}/api/v1/settings/onboarding`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          topology,
-          storage_mode: storageStrategy,
-          originals_directory: originalsDir,
-          neural_profile: neuralProfile,
-          gpu_mode: gpuAccelerationMode,
-          worker_daemons: workerDaemons,
-          preview_quality: previewQuality,
-          vector_precision: vectorPrecision,
-          cache_quota: cacheQuota,
-          precache_mode: precacheMode,
+          storage_mode: 'index_in_place',
+          ai_profile: aiProfile,
+          preset: 'balanced',
+          thumb_quality: thumbQuality,
           completed: true,
         }),
       }).catch(() => {});
@@ -148,10 +257,10 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
   if (!isOpen) return null;
 
   const stepTitles: Record<1 | 2 | 3 | 4, { title: string; subtitle: string; label: string }> = {
-    1: { title: '01. Architecture', subtitle: 'Local NVMe Mode', label: 'Execution Topology' },
-    2: { title: '02. Storage Strategy', subtitle: 'Directory Linking', label: 'Storage Strategy & Directory Linking' },
-    3: { title: '03. Footprint', subtitle: `${totalFootprint.toFixed(1)} GB Est.`, label: 'Estimated Disk & Cache Allocation' },
-    4: { title: '04. Neural Engine', subtitle: 'Balanced Studio', label: 'On-Device Neural Acceleration Profile' },
+    1: { title: '1. Your Photos', subtitle: 'Choose folders', label: 'Choose your photo folders' },
+    2: { title: '2. Look & Feel', subtitle: 'Theme & layout', label: 'Personalize the interface' },
+    3: { title: '3. Smart Features', subtitle: 'AI tools', label: 'Choose your smart features' },
+    4: { title: '4. You\u2019re Ready', subtitle: 'Finish', label: 'All set' },
   };
 
   return (
@@ -176,11 +285,11 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
             <span className="w-2 h-2 rounded-full bg-[#e5e2e0] shadow-[0_0_12px_rgba(229,226,224,0.5)]"></span>
             <span className="font-serif text-lg text-[#e7e1df] tracking-wide">Prism</span>
             <span className="font-mono text-[10px] text-[#a8a29e] px-2 py-0.5 rounded-full bg-[#2c2928] border border-white/5">
-              PRISM 2.4
+              SETUP
             </span>
           </div>
           <div className="flex items-center gap-4 pointer-events-auto">
-            <span className="font-mono text-xs text-[#a8a29e] hidden sm:inline">Environment Setup</span>
+            <span className="font-mono text-xs text-[#a8a29e] hidden sm:inline">Welcome</span>
             <div className="w-8 h-8 rounded-full bg-[#2c2928] border border-white/5 flex items-center justify-center text-[#d0c4be]">
               <Palette size={16} />
             </div>
@@ -193,7 +302,7 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 16 }}
           transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-          className="relative z-20 w-full max-w-[1040px] max-h-[92vh] flex flex-col bg-[#100e0d] border border-[#2c2928] rounded-2xl shadow-2xl overflow-hidden font-sans text-[#e7e1df]"
+          className="relative z-20 w-full max-w-[820px] max-h-[86vh] flex flex-col bg-[#100e0d] border border-[#2c2928] rounded-2xl shadow-2xl overflow-hidden font-sans text-[#e7e1df]"
         >
           {/* Window Titlebar (Clean Header) */}
           <div className="w-full h-12 bg-[#1d1b1a] border-b border-[#2c2928] px-4 sm:px-6 flex items-center justify-between shrink-0">
@@ -201,96 +310,107 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
             <div className="flex items-center gap-2.5">
               <Sliders size={14} className="text-[#a8a29e]" />
               <span className="font-mono text-[11px] text-[#a8a29e] tracking-wider">
-                Prism Workspace Setup
+                Prism Setup
               </span>
             </div>
 
             {/* Right System Indicators & Close Action */}
             <div className="flex items-center gap-2.5">
               <span className="font-mono text-[10px] text-[#a8a29e] px-2.5 py-0.5 rounded-full bg-[#2c2928] border border-white/5">
-                v4.8 • First Run
+                Getting Started
               </span>
               <button
                 type="button"
                 onClick={handleFinish}
-                aria-label="Close setup"
+                aria-label="Skip setup"
                 className="w-7 h-7 rounded-full bg-[#2c2928] hover:bg-[#373433] text-[#a8a29e] hover:text-white flex items-center justify-center transition-colors border border-white/5 ml-1"
                 title="Skip & Launch"
               >
-                <X size={14} />
+                <ArrowRight size={14} />
               </button>
             </div>
           </div>
 
           {/* Header Studio Intro */}
-          <div className="px-6 sm:px-10 pt-6 sm:pt-8 pb-5 bg-[#100e0d] border-b border-[#211f1e] shrink-0">
+          <div className="px-6 sm:px-8 pt-5 pb-4 bg-[#100e0d] border-b border-[#211f1e] shrink-0">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-[#998f8a]">
-                  Calibration Phase
+                  Welcome
                 </span>
                 <span className="text-[#4d4541] text-[10px]">•</span>
                 <span className="font-mono text-[10px] text-[#c9c6c4]">
-                  Initial Environment Configuration
+                  A few quick questions
                 </span>
               </div>
-              <h1 className="font-serif text-2xl sm:text-4xl text-[#f5f0ed] tracking-tight">
-                Welcome to Prism Studio
+              <h1 className="font-serif text-xl sm:text-2xl text-[#f5f0ed] tracking-tight">
+                Welcome to Prism
               </h1>
-              <p className="text-xs sm:text-sm text-[#a8a29e] max-w-2xl font-light leading-relaxed">
-                Configure your local-first preservation engine, storage topology, and on-device neural acceleration profiles before mounting assets.
+              <p className="text-xs text-[#a8a29e] max-w-2xl font-light leading-relaxed">
+                Tell us where your photos live and how you like things to look. You can change any of
+                this later in Settings.
               </p>
             </div>
 
-            {/* Horizontal 4-Step Segmented Navigation Bar */}
-            <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-2 bg-[#1d1b1a] p-1.5 rounded-2xl border border-white/5">
-              {[1, 2, 3, 4].map((stepNum) => {
-                const s = stepNum as 1 | 2 | 3 | 4;
-                const isActive = currentStep === s;
-                const isCompleted = currentStep > s;
-                const meta = stepTitles[s];
+            {/* Horizontal 4-Step Progress Line */}
+            <div className="relative mt-6">
+              {/* Base track (connects first and last point centers) */}
+              <div className="absolute top-2.5 left-[12.5%] right-[12.5%] h-px bg-white/10" />
+              {/* Completed progress fill */}
+              <div
+                className="absolute top-2.5 left-[12.5%] h-px bg-[#e5e2e0] transition-all duration-300"
+                style={{ width: `${((currentStep - 1) / 3) * 75}%` }}
+              />
 
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setCurrentStep(s)}
-                    className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all duration-200 text-left ${
-                      isActive
-                        ? 'bg-[#3b3937] text-white shadow-sm border border-white/10'
-                        : isCompleted
-                        ? 'bg-[#2c2928] text-[#e7e1df] hover:bg-[#373433]'
-                        : 'opacity-60 hover:opacity-100 text-[#a8a29e] hover:bg-[#211f1e]'
-                    }`}
-                  >
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[11px] shrink-0 font-bold ${
-                      isActive
-                        ? 'bg-white text-[#151312]'
-                        : isCompleted
-                        ? 'bg-[#e5e2e0] text-[#151312]'
-                        : 'bg-[#373433] text-[#a8a29e]'
-                    }`}>
-                      {isCompleted ? <Check size={12} strokeWidth={3} /> : s}
-                    </span>
-                    <div className="flex flex-col min-w-0">
-                      <span className={`font-mono text-xs truncate ${isActive ? 'font-semibold text-white' : 'text-[#e7e1df]'}`}>
-                        {meta.title}
+              <div className="relative grid grid-cols-4">
+                {[1, 2, 3, 4].map((stepNum) => {
+                  const s = stepNum as 1 | 2 | 3 | 4;
+                  const isActive = currentStep === s;
+                  const isCompleted = currentStep > s;
+                  const meta = stepTitles[s];
+
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCurrentStep(s)}
+                      className="group flex flex-col items-center text-center gap-2 focus:outline-none"
+                    >
+                      <span className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[11px] shrink-0 font-bold transition-all duration-200 ${
+                        isActive
+                          ? 'bg-white text-[#151312] ring-4 ring-white/10'
+                          : isCompleted
+                          ? 'bg-[#e5e2e0] text-[#151312]'
+                          : 'bg-[#1d1b1a] text-[#a8a29e] border border-white/15 group-hover:border-white/30'
+                      }`}>
+                        {isCompleted ? <Check size={12} strokeWidth={3} /> : s}
                       </span>
-                      <span className="font-mono text-[10px] text-[#78716c] truncate">
-                        {meta.subtitle}
+                      <span className="flex flex-col min-w-0 px-1">
+                        <span className={`font-mono text-[11px] truncate transition-colors ${
+                          isActive
+                            ? 'font-semibold text-white'
+                            : isCompleted
+                            ? 'text-[#e7e1df]'
+                            : 'text-[#78716c] group-hover:text-[#a8a29e]'
+                        }`}>
+                          {meta.title}
+                        </span>
+                        <span className="hidden sm:block font-mono text-[10px] text-[#5c5550] truncate">
+                          {meta.subtitle}
+                        </span>
                       </span>
-                    </div>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Wizard Body Area (PAGE SYSTEM: Only render active step configuration) */}
-          <div className="px-6 sm:px-10 py-6 overflow-y-auto flex-1 custom-scrollbar min-h-[360px] flex flex-col justify-center">
+          <div className="px-6 sm:px-8 py-5 overflow-y-auto flex-1 custom-scrollbar min-h-[300px] flex flex-col justify-center">
             <AnimatePresence mode="wait">
 
-              {/* ═══════════ PAGE 1: EXECUTION TOPOLOGY ═══════════ */}
+              {/* ═══════════ STEP 1: YOUR PHOTOS ═══════════ */}
               {currentStep === 1 && (
                 <motion.div
                   key="step1"
@@ -302,92 +422,65 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#998f8a]">Phase 01</span>
-                      <span className="text-[#4d4541] text-[10px]">•</span>
-                      <h2 className="font-serif text-xl text-[#f5f0ed]">Execution Topology</h2>
+                      <FolderOpen size={15} className="text-[#998f8a]" />
+                      <h2 className="font-serif text-base text-[#f5f0ed]">
+                        Where are your photos?
+                      </h2>
                     </div>
                     <span className="font-mono text-[10px] text-[#e5e2e0] bg-[#2c2928] px-2.5 py-0.5 rounded-full border border-white/5">
-                      Device Primary
+                      {watchedFolders.length} folder{watchedFolders.length === 1 ? '' : 's'} added
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Card 1: Use This Device */}
-                    <div
-                      onClick={() => setTopology('this_device')}
-                      className={`group relative p-6 rounded-2xl transition-all duration-200 cursor-pointer border ${
-                        topology === 'this_device'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-10 h-10 rounded-full bg-[#373433] flex items-center justify-center text-white">
-                          <Laptop size={20} />
-                        </div>
-                        {topology === 'this_device' ? (
-                          <span className="font-mono text-xs bg-[#3b3937] text-white px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/10">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                            Selected
-                          </span>
-                        ) : (
-                          <span className="font-mono text-xs text-[#78716c] px-2 py-1">Select</span>
-                        )}
-                      </div>
-                      <h3 className="font-serif text-xl text-[#f5f0ed] mb-1.5">Use This Device</h3>
-                      <p className="text-xs sm:text-sm text-[#a8a29e] mb-5 leading-relaxed">
-                        Run complete engine on local NVMe. SQLite WAL database, zero external dependencies, absolute air-gapped privacy.
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-[11px] text-[#c9c6c4] bg-[#1d1b1a] px-2.5 py-1 rounded-full border border-white/5">
-                          M-Series / NVMe Gen4
-                        </span>
-                        <span className="font-mono text-[11px] text-[#998f8a] bg-[#1d1b1a] px-2.5 py-1 rounded-full border border-white/5">
-                          Zero Telemetry
-                        </span>
-                      </div>
-                    </div>
+                  <p className="text-xs text-[#a8a29e] leading-relaxed">
+                    Add the folders you would like Prism to watch. Your originals stay exactly where
+                    they are — new photos added to these folders appear automatically.
+                  </p>
 
-                    {/* Card 2: Connect to Prism Vault */}
-                    <div
-                      onClick={() => setTopology('vault')}
-                      className={`group relative p-6 rounded-2xl transition-all duration-200 cursor-pointer border ${
-                        topology === 'vault'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="w-10 h-10 rounded-full bg-[#2c2928] flex items-center justify-center text-[#998f8a]">
-                          <Server size={20} />
-                        </div>
-                        {topology === 'vault' ? (
-                          <span className="font-mono text-xs bg-[#3b3937] text-white px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/10">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                            Selected
-                          </span>
-                        ) : (
-                          <span className="font-mono text-xs text-[#998f8a] px-2 py-1">LAN Mode</span>
-                        )}
-                      </div>
-                      <h3 className="font-serif text-xl text-[#f5f0ed] mb-1.5">Connect to Prism Vault</h3>
-                      <p className="text-xs sm:text-sm text-[#a8a29e] mb-5 leading-relaxed">
-                        Pair with a dedicated headless studio workstation or private TrueNAS cluster over low-latency mDNS broadcast.
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono text-[11px] text-[#998f8a] bg-[#100e0d] px-2.5 py-1 rounded-full border border-white/5">
-                          10GbE / SMBv3
-                        </span>
-                        <span className="font-mono text-[11px] text-[#998f8a] bg-[#100e0d] px-2.5 py-1 rounded-full border border-white/5">
-                          Auto-Discovery
-                        </span>
-                      </div>
+                  {/* Folder list */}
+                  {watchedFolders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-8 rounded-xl border border-dashed border-white/10 bg-[#1d1b1a]/60 text-center">
+                      <FolderPlus size={22} className="text-[#5c5550]" />
+                      <span className="text-xs text-[#78716c]">No folders added yet</span>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[190px] overflow-y-auto custom-scrollbar pr-1">
+                      {watchedFolders.map((folder) => (
+                        <div
+                          key={folder}
+                          className="flex items-center justify-between gap-3 bg-[#1d1b1a] border border-white/5 px-3 py-2.5 rounded-xl"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <FolderOpen size={15} className="text-[#998f8a] shrink-0" />
+                            <span className="font-mono text-xs text-[#e7e1df] truncate" title={folder}>
+                              {folder}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFolder(folder)}
+                            aria-label={`Remove ${folder}`}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-[#78716c] hover:text-[#f87171] hover:bg-[#f87171]/10 transition-colors shrink-0"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleAddFolders}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-full bg-[#2c2928] hover:bg-[#373433] text-[#f5f0ed] font-mono text-xs transition-colors flex items-center justify-center gap-2 border border-white/10"
+                  >
+                    <FolderPlus size={14} />
+                    Add folders
+                  </button>
                 </motion.div>
               )}
 
-              {/* ═══════════ PAGE 2: STORAGE STRATEGY & DIRECTORY LINKING ═══════════ */}
+              {/* ═══════════ STEP 2: LOOK & FEEL ═══════════ */}
               {currentStep === 2 && (
                 <motion.div
                   key="step2"
@@ -399,123 +492,125 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#998f8a]">Phase 02</span>
-                      <span className="text-[#4d4541] text-[10px]">•</span>
-                      <h2 className="font-serif text-xl text-[#f5f0ed]">Storage Strategy &amp; Directory Linking</h2>
+                      <Palette size={15} className="text-[#998f8a]" />
+                      <h2 className="font-serif text-base text-[#f5f0ed]">Make it yours</h2>
                     </div>
-                    <span className="font-mono text-[10px] text-[#998f8a]">Master Integrity Protocol</span>
+                    <span className="font-mono text-[10px] text-[#998f8a]">Appearance</span>
                   </div>
 
-                  {/* Strategy Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Index in Place */}
-                    <div
-                      onClick={() => setStorageStrategy('index_in_place')}
-                      className={`p-5 rounded-2xl transition-all cursor-pointer border ${
-                        storageStrategy === 'index_in_place'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-4 h-4 rounded-full bg-[#e5e2e0] text-[#151312] flex items-center justify-center">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#151312]"></span>
-                          </span>
-                          <span className="font-mono text-[11px] text-[#f5f0ed] font-medium">
-                            Recommended for Existing Catalogs
-                          </span>
-                        </div>
-                        <span className="font-mono text-[10px] text-[#c9c6c4] bg-[#373433] px-2 py-0.5 rounded-full">
-                          Non-Destructive
-                        </span>
-                      </div>
-                      <h3 className="font-serif text-lg text-[#f5f0ed] mb-1">Index in Place</h3>
-                      <p className="text-xs text-[#a8a29e] leading-relaxed">
-                        Leave master RAW/DNG files untouched in their current hierarchical folders. Prism generates lightweight sidecars, hardware mipmaps, and neural embeddings alongside.
-                      </p>
-                    </div>
-
-                    {/* Copy into Prism Container */}
-                    <div
-                      onClick={() => setStorageStrategy('copy')}
-                      className={`p-5 rounded-2xl transition-all cursor-pointer border ${
-                        storageStrategy === 'copy'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-80 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span className="w-4 h-4 rounded-full bg-[#373433] flex items-center justify-center">
-                            {storageStrategy === 'copy' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                          </span>
-                          <span className="font-mono text-[11px] text-[#998f8a]">Consolidation Mode</span>
-                        </div>
-                        <span className="font-mono text-[10px] text-[#998f8a] bg-[#100e0d] px-2 py-0.5 rounded-full">
-                          Self-Contained
-                        </span>
-                      </div>
-                      <h3 className="font-serif text-lg text-[#f5f0ed] mb-1">Copy into Prism Container</h3>
-                      <p className="text-xs text-[#a8a29e] leading-relaxed">
-                        Ingest and restructure all exposures into a single immutable, date-partitioned library bundle with cryptographic SHA-256 checksums on write.
-                      </p>
+                  {/* Theme */}
+                  <div className="space-y-2">
+                    <label className="font-mono text-[11px] uppercase tracking-wider text-[#a8a29e]">
+                      Theme
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {THEME_OPTIONS.map((opt) => {
+                        const active = theme === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setTheme(opt.value)}
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl border transition-all ${
+                              active
+                                ? 'bg-[#2c2928] border-white/25 text-[#f5f0ed] shadow-sm'
+                                : 'bg-[#1d1b1a] border-white/5 text-[#998f8a] hover:text-[#e7e1df] hover:border-white/10'
+                            }`}
+                          >
+                            {opt.icon}
+                            <span className="font-mono text-xs">{opt.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Directory Picker Control Group */}
-                  <div className="bg-[#211f1e] border border-white/5 p-5 rounded-2xl space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="font-mono text-xs uppercase tracking-wider text-[#e7e1df]">
-                        Primary Watcher &amp; Originals Directory
-                      </label>
-                      <span className="font-mono text-[10px] text-[#c9c6c4] bg-[#2c2928] px-2.5 py-0.5 rounded-full flex items-center gap-1.5 border border-white/5">
-                        <HardDrive size={12} className="text-[#a8a29e]" />
-                        APFS 1.8 TB NVMe
-                      </span>
+                  {/* Accent */}
+                  <div className="space-y-2">
+                    <label className="font-mono text-[11px] uppercase tracking-wider text-[#a8a29e]">
+                      Accent color
+                    </label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {ACCENT_OPTIONS.map((opt) => {
+                        const active = accent === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setAccent(opt.value)}
+                            className={`flex items-center gap-2 px-2.5 py-2 rounded-xl border transition-all ${
+                              active
+                                ? 'bg-[#2c2928] border-white/25 text-[#f5f0ed]'
+                                : 'bg-[#1d1b1a] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
+                            }`}
+                          >
+                            <span
+                              className="w-3.5 h-3.5 rounded-full shrink-0"
+                              style={{ backgroundColor: opt.swatch }}
+                            />
+                            <span className="font-mono text-[11px] truncate">{opt.label}</span>
+                          </button>
+                        );
+                      })}
                     </div>
+                  </div>
 
-                    {/* Input Group */}
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="flex-1 flex items-center bg-[#100e0d] border border-white/10 px-4 py-2.5 rounded-full">
-                        <FolderOpen size={16} className="text-[#998f8a] mr-2.5 shrink-0" />
-                        <input
-                          type="text"
-                          value={originalsDir}
-                          onChange={(e) => setOriginalsDir(e.target.value)}
-                          className="w-full bg-transparent font-mono text-xs text-[#f5f0ed] outline-none select-all"
-                        />
-                        <Eye size={15} className="text-[#78716c] ml-2 shrink-0 hidden sm:inline" />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleBrowseDirectory}
-                        className="px-5 py-2.5 rounded-full bg-[#2c2928] hover:bg-[#373433] text-[#f5f0ed] font-mono text-xs transition-colors flex items-center gap-1.5 shrink-0 border border-white/10"
-                      >
-                        <FolderOpen size={14} />
-                        <span>Browse...</span>
-                      </button>
+                  {/* Density */}
+                  <div className="space-y-2">
+                    <label className="font-mono text-[11px] uppercase tracking-wider text-[#a8a29e] flex items-center gap-1.5">
+                      <LayoutGrid size={12} /> Grid density
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {DENSITY_OPTIONS.map((opt) => {
+                        const active = density === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setDensity(opt.value)}
+                            className={`py-2 rounded-xl border font-mono text-xs transition-all ${
+                              active
+                                ? 'bg-[#2c2928] border-white/25 text-[#f5f0ed] shadow-sm'
+                                : 'bg-[#1d1b1a] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
                     </div>
+                  </div>
 
-                    {/* Scan Result Verification Pill */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#1d1b1a] px-4 py-2.5 rounded-xl border border-white/5 gap-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
-                        <span className="text-xs text-[#f5f0ed] font-medium">
-                          {detectedMasters.toLocaleString()} RAW / Video Masters Detected
-                        </span>
-                        <span className="text-[#4d4541] text-xs">•</span>
-                        <span className="font-mono text-xs text-[#998f8a]">{detectedPayload}</span>
-                      </div>
-                      <div className="font-mono text-[10px] text-[#a8a29e]">
-                        Hasselblad 3FR, Sony ARW, Canon CR3
-                      </div>
+                  {/* Photo quality */}
+                  <div className="space-y-2">
+                    <label className="font-mono text-[11px] uppercase tracking-wider text-[#a8a29e]">
+                      Photo preview quality
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {QUALITY_OPTIONS.map((opt) => {
+                        const active = previewQuality === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setPreviewQuality(opt.value)}
+                            className={`flex flex-col items-start gap-0.5 p-2.5 rounded-xl border transition-all text-left ${
+                              active
+                                ? 'bg-[#2c2928] border-white/25 text-[#f5f0ed] shadow-sm'
+                                : 'bg-[#1d1b1a] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
+                            }`}
+                          >
+                            <span className="font-mono text-xs font-semibold">{opt.label}</span>
+                            <span className="font-mono text-[10px] text-[#78716c]">{opt.hint}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </motion.div>
               )}
 
-              {/* ═══════════ PAGE 3: ESTIMATED DISK & CACHE ALLOCATION ═══════════ */}
+              {/* ═══════════ STEP 3: SMART FEATURES ═══════════ */}
               {currentStep === 3 && (
                 <motion.div
                   key="step3"
@@ -527,279 +622,96 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#998f8a]">Phase 03</span>
-                      <span className="text-[#4d4541] text-[10px]">•</span>
-                      <h2 className="font-serif text-xl text-[#f5f0ed]">Estimated Disk &amp; Cache Allocation</h2>
+                      <Sparkles size={15} className="text-[#998f8a]" />
+                      <h2 className="font-serif text-base text-[#f5f0ed]">Smart features</h2>
                     </div>
-                    <span className="font-mono text-[10px] text-[#e5e2e0] bg-[#2c2928] px-2.5 py-0.5 rounded-full border border-white/5">
-                      Total Footprint: {totalFootprint.toFixed(1)} GB Local
+                    <span className="font-mono text-[10px] text-[#998f8a]">
+                      {enabledAiCount} of {Object.keys(AI_FEATURE_META).length} on
                     </span>
                   </div>
 
-                  <div className="bg-[#211f1e] border border-white/5 p-6 rounded-2xl space-y-5">
-                    {/* Progress Multi-Segment Bar */}
-                    <div className="space-y-2">
-                      <div className="flex justify-between font-mono text-xs text-[#a8a29e]">
-                        <span>Volume Breakdown: /Volumes/Studio-RAW-Vault (2.0 TB Total)</span>
-                        <span className="text-amber-400 font-medium">{headroomGb} GB Unallocated Headroom</span>
-                      </div>
-                      {/* Segmented Visual Gauge */}
-                      <div className="w-full h-3.5 bg-[#100e0d] rounded-full overflow-hidden flex p-0.5 gap-0.5 border border-white/5">
-                        <div className="h-full rounded-full bg-[#e5e2e0] transition-all duration-300" style={{ width: `${masterPercent}%` }} title="Master Originals: 1.18 TB (59%)" />
-                        <div className="h-full rounded-full bg-[#c9c6c4] transition-all duration-300" style={{ width: `${webpPercent}%` }} title={`WebP Previews: ${webpGb} GB`} />
-                        <div className="h-full rounded-full bg-[#998f8a] transition-all duration-300" style={{ width: `${vectorPercent}%` }} title={`Embeddings & Vectors: ${vectorGb} GB`} />
-                        <div className="h-full rounded-full bg-[#4d4541] transition-all duration-300" style={{ width: `${indexPercent}%` }} title="SQLite WAL: 4.8 GB" />
-                        <div className="h-full rounded-full bg-[#2c2928] transition-all duration-300" style={{ width: `${headroomPercent}%` }} title={`Free Headroom: ${headroomGb} GB`} />
-                      </div>
+                  <div className="flex items-center justify-between gap-2 bg-[#1d1b1a] border border-white/5 px-3.5 py-2.5 rounded-xl">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <ShieldCheck size={14} className="text-emerald-400 shrink-0" />
+                      <span className="text-[11px] text-[#a8a29e] leading-tight">
+                        Everything runs on this device — nothing is uploaded.
+                      </span>
                     </div>
-
-                    {/* 4 Interactive Allocation Metric Cards */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                      {/* Master Files Card */}
-                      <div className="bg-[#1d1b1a] p-3.5 rounded-xl border border-white/5">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#e5e2e0]"></span>
-                            <span className="font-mono text-xs text-[#998f8a]">Master Files</span>
-                          </div>
-                          <span className="font-mono text-[9px] text-[#78716c] uppercase">Linked</span>
-                        </div>
-                        <div className="font-serif text-2xl text-[#f5f0ed]">1.18 TB</div>
-                        <div className="font-mono text-[11px] text-[#78716c] mt-0.5">Direct Reference</div>
-                      </div>
-
-                      {/* WebP / GPU Mips Card (Interactive) */}
-                      <div 
-                        onClick={() => {
-                          const next = previewQuality === '8k' ? '4k' : previewQuality === '4k' ? '2k' : '8k';
-                          setPreviewQuality(next);
-                        }}
-                        className="bg-[#1d1b1a] p-3.5 rounded-xl border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setAiFeatures({ ...DEFAULT_AI })}
+                        className="px-2.5 py-1 rounded-full font-mono text-[10px] bg-[#2c2928] text-[#e7e1df] hover:bg-[#373433] border border-white/10 transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#c9c6c4]"></span>
-                            <span className="font-mono text-xs text-[#998f8a] group-hover:text-[#e7e1df] transition-colors">WebP Previews</span>
-                          </div>
-                          <span className="font-mono text-[9px] text-amber-300/80 uppercase">Click to Tune</span>
-                        </div>
-                        <div className="font-serif text-2xl text-[#f5f0ed]">{webpGb.toFixed(1)} GB</div>
-                        <div className="font-mono text-[11px] text-[#78716c] mt-0.5">
-                          {previewQuality === '8k' ? '8K Retinal Previews' : previewQuality === '4k' ? '4K Ultra-Sharp Previews' : '2K Compact Previews'}
-                        </div>
-                      </div>
-
-                      {/* Vector DB Card (Interactive) */}
-                      <div 
-                        onClick={() => {
-                          const next = vectorPrecision === 'fp32' ? 'int8' : vectorPrecision === 'int8' ? 'ondemand' : 'fp32';
-                          setVectorPrecision(next);
-                        }}
-                        className="bg-[#1d1b1a] p-3.5 rounded-xl border border-white/5 hover:border-white/20 transition-all cursor-pointer group"
+                        Recommended
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setAiFeatures(
+                            Object.fromEntries(
+                              Object.keys(AI_FEATURE_META).map((k) => [k, false]),
+                            ) as Record<AiFeatureId, boolean>,
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-full font-mono text-[10px] text-[#998f8a] hover:text-[#f5f0ed] transition-colors"
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#998f8a]"></span>
-                            <span className="font-mono text-xs text-[#998f8a] group-hover:text-[#e7e1df] transition-colors">Vector DB</span>
-                          </div>
-                          <span className="font-mono text-[9px] text-amber-300/80 uppercase">Click to Tune</span>
-                        </div>
-                        <div className="font-serif text-2xl text-[#f5f0ed]">{vectorGb.toFixed(1)} GB</div>
-                        <div className="font-mono text-[11px] text-[#78716c] mt-0.5">
-                          {vectorPrecision === 'fp32' ? 'Full FP32 Vectors' : vectorPrecision === 'int8' ? 'Scalar Quantized Int8' : 'Cold / On-Demand'}
-                        </div>
-                      </div>
-
-                      {/* Engine Index Card */}
-                      <div className="bg-[#1d1b1a] p-3.5 rounded-xl border border-white/5">
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full bg-[#4d4541]"></span>
-                            <span className="font-mono text-xs text-[#998f8a]">Engine Index</span>
-                          </div>
-                          <span className="font-mono text-[9px] text-[#78716c] uppercase">SQLite WAL</span>
-                        </div>
-                        <div className="font-serif text-2xl text-[#f5f0ed]">4.8 GB</div>
-                        <div className="font-mono text-[11px] text-[#78716c] mt-0.5">B-Trees &amp; FTS5 Index</div>
-                      </div>
+                        Turn all off
+                      </button>
                     </div>
+                  </div>
 
-                    {/* Interactive Tuner Section */}
-                    <div className="space-y-3 pt-2 border-t border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-[11px] uppercase tracking-wider text-[#a8a29e] flex items-center gap-1.5">
-                          <SlidersHorizontal size={13} className="text-[#a8a29e]" />
-                          <span>Custom Storage &amp; Cache Tuners</span>
-                        </span>
-                        <span className="text-[11px] text-[#78716c]">Adjusting settings updates estimated footprint dynamically</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                        {/* Tuner 1: WebP Preview Resolution */}
-                        <div className="bg-[#1a1817] p-3.5 rounded-xl border border-white/5 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <label className="font-mono text-xs text-[#f5f0ed] flex items-center gap-1.5">
-                              <Layers size={13} className="text-[#998f8a]" />
-                              <span>Preview Resolution &amp; Quality</span>
-                            </label>
-                            <span className="font-mono text-[10px] text-[#998f8a] bg-[#100e0d] px-2 py-0.5 rounded-full">
-                              {previewQuality === '8k' ? '8K Retinal (~44 GB)' : previewQuality === '4k' ? '4K Studio (~18 GB)' : '2K Compact (~6 GB)'}
+                  <div className="space-y-2 max-h-[230px] overflow-y-auto custom-scrollbar pr-1">
+                    {(Object.keys(AI_FEATURE_META) as AiFeatureId[]).map((id) => {
+                      const meta = AI_FEATURE_META[id];
+                      const on = aiFeatures[id];
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          role="switch"
+                          aria-checked={on}
+                          onClick={() => toggleAi(id)}
+                          className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                            on
+                              ? 'bg-[#211f1e] border-white/15'
+                              : 'bg-[#1d1b1a] border-white/5 hover:border-white/10'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                              on ? 'bg-[#373433] text-[#f5f0ed]' : 'bg-[#100e0d] text-[#78716c]'
+                            }`}>
+                              {meta.icon}
                             </span>
+                            <div className="flex flex-col min-w-0">
+                              <span className={`text-xs font-medium ${on ? 'text-[#f5f0ed]' : 'text-[#a8a29e]'}`}>
+                                {meta.title}
+                              </span>
+                              <span className="text-[11px] text-[#78716c] truncate">
+                                {meta.description}
+                              </span>
+                            </div>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setPreviewQuality('8k')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                previewQuality === '8k'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
+                          <span
+                            className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
+                              on ? 'bg-[#e5e2e0]' : 'bg-[#373433]'
+                            }`}
+                          >
+                            <span
+                              className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full transition-transform ${
+                                on ? 'translate-x-4 bg-[#100e0d]' : 'bg-[#a8a29e]'
                               }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">8K Retinal</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">Lossless 44 GB</div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewQuality('4k')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                previewQuality === '4k'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
-                              }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">4K Ultra</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">Balanced 18.2 GB</div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPreviewQuality('2k')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                previewQuality === '2k'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
-                              }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">2K Fast</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">Compact 6.1 GB</div>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Tuner 2: Vector DB Precision */}
-                        <div className="bg-[#1a1817] p-3.5 rounded-xl border border-white/5 space-y-2.5">
-                          <div className="flex items-center justify-between">
-                            <label className="font-mono text-xs text-[#f5f0ed] flex items-center gap-1.5">
-                              <Database size={13} className="text-[#998f8a]" />
-                              <span>Vector DB Index Precision</span>
-                            </label>
-                            <span className="font-mono text-[10px] text-[#998f8a] bg-[#100e0d] px-2 py-0.5 rounded-full">
-                              {vectorPrecision === 'fp32' ? 'FP32 Uncompressed' : vectorPrecision === 'int8' ? 'Int8 Quantized (-74%)' : 'On-Demand'}
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setVectorPrecision('fp32')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                vectorPrecision === 'fp32'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
-                              }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">Full FP32</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">54 GB (Max Recall)</div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVectorPrecision('int8')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                vectorPrecision === 'int8'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
-                              }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">Int8 Scalar</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">13.8 GB (Efficient)</div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setVectorPrecision('ondemand')}
-                              className={`p-2 rounded-xl text-left border transition-all ${
-                                vectorPrecision === 'ondemand'
-                                  ? 'bg-[#2c2928] border-white/30 text-[#f5f0ed] shadow-sm'
-                                  : 'bg-[#141211] border-white/5 text-[#998f8a] hover:text-[#e7e1df]'
-                              }`}
-                            >
-                              <div className="font-mono text-xs font-semibold">On-Demand</div>
-                              <div className="font-mono text-[10px] text-[#78716c]">0 GB (Compute JIT)</div>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quota Cap & Precache Mode */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
-                        <div className="flex items-center justify-between bg-[#1d1b1a] px-3.5 py-2.5 rounded-xl border border-white/5">
-                          <div className="flex items-center gap-2">
-                            <HardDrive size={14} className="text-[#998f8a]" />
-                            <span className="text-xs text-[#f5f0ed]">Cache Disk Quota Cap</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {(['25gb', '50gb', '100gb', 'uncapped'] as const).map((q) => (
-                              <button
-                                key={q}
-                                type="button"
-                                onClick={() => setCacheQuota(q)}
-                                className={`px-2 py-1 rounded font-mono text-[10px] uppercase transition-colors ${
-                                  cacheQuota === q
-                                    ? 'bg-[#e5e2e0] text-[#100e0d] font-bold shadow'
-                                    : 'text-[#998f8a] hover:text-[#f5f0ed]'
-                                }`}
-                              >
-                                {q === 'uncapped' ? 'Max' : q}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center justify-between bg-[#1d1b1a] px-3.5 py-2.5 rounded-xl border border-white/5">
-                          <div className="flex items-center gap-2">
-                            <Zap size={14} className="text-[#998f8a]" />
-                            <span className="text-xs text-[#f5f0ed]">Pre-cache Pipeline</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setPrecacheMode('background')}
-                              className={`px-2.5 py-1 rounded font-mono text-[10px] transition-colors ${
-                                precacheMode === 'background'
-                                  ? 'bg-[#2c2928] text-[#f5f0ed] border border-white/10 font-medium'
-                                  : 'text-[#998f8a] hover:text-[#f5f0ed]'
-                              }`}
-                            >
-                              Background Worker
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPrecacheMode('ondemand')}
-                              className={`px-2.5 py-1 rounded font-mono text-[10px] transition-colors ${
-                                precacheMode === 'ondemand'
-                                  ? 'bg-[#2c2928] text-[#f5f0ed] border border-white/10 font-medium'
-                                  : 'text-[#998f8a] hover:text-[#f5f0ed]'
-                              }`}
-                            >
-                              Browse Only
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                            />
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
 
-              {/* ═══════════ PAGE 4: ON-DEVICE NEURAL ACCELERATION PROFILE ═══════════ */}
+              {/* ═══════════ STEP 4: READY ═══════════ */}
               {currentStep === 4 && (
                 <motion.div
                   key="step4"
@@ -809,196 +721,70 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                   transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                   className="space-y-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-[10px] uppercase tracking-widest text-[#998f8a]">Phase 04</span>
-                      <span className="text-[#4d4541] text-[10px]">•</span>
-                      <h2 className="font-serif text-xl text-[#f5f0ed]">On-Device Neural Acceleration Profile</h2>
+                  <div className="flex flex-col items-center text-center gap-3 py-2">
+                    <div className="w-12 h-12 rounded-full bg-[#e5e2e0] text-[#151312] flex items-center justify-center">
+                      <Rocket size={22} />
                     </div>
-                    <span className="font-mono text-[10px] text-[#998f8a]">Hardware-Tuned Engine</span>
-                  </div>
-
-                  <div className="space-y-3">
-                    {/* Balanced Studio Profile */}
-                    <div
-                      onClick={() => setNeuralProfile('balanced')}
-                      className={`p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all border ${
-                        neuralProfile === 'balanced'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div className="w-5 h-5 rounded-full bg-[#e5e2e0] text-[#151312] flex items-center justify-center shrink-0 mt-0.5">
-                          {neuralProfile === 'balanced' && <span className="w-2 h-2 rounded-full bg-[#151312]" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-serif text-lg text-[#f5f0ed]">Balanced Studio AI</h3>
-                            <span className="font-mono text-[10px] bg-[#2c2928] text-[#e5e2e0] px-2 py-0.5 rounded-full border border-white/5">
-                              Recommended
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm text-[#a8a29e] max-w-xl mt-0.5 leading-relaxed">
-                            Semantic natural language search, automatic biometric clustering, and duplicate detection with zero cloud telemetry.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-right shrink-0 self-end sm:self-center">
-                        <span className="font-mono text-xs text-[#c9c6c4] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          8 GB RAM
-                        </span>
-                        <span className="font-mono text-xs text-[#998f8a] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          CLIP ViT-B/32
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Master Studio Pro */}
-                    <div
-                      onClick={() => setNeuralProfile('master')}
-                      className={`p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all border ${
-                        neuralProfile === 'master'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div className="w-5 h-5 rounded-full bg-[#373433] flex items-center justify-center shrink-0 mt-0.5">
-                          {neuralProfile === 'master' && <span className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-serif text-lg text-[#f5f0ed]">Master Studio Pro</h3>
-                            <span className="font-mono text-[10px] text-[#998f8a] bg-[#100e0d] px-2 py-0.5 rounded-full">
-                              Heavyweight
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm text-[#a8a29e] max-w-xl mt-0.5 leading-relaxed">
-                            Full uncompressed CLIP ViT-L/14, multi-track audio Whisper-v3 transcription, and generative depth map estimation.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-right shrink-0 self-end sm:self-center">
-                        <span className="font-mono text-xs text-[#998f8a] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          16+ GB RAM
-                        </span>
-                        <span className="font-mono text-xs text-[#998f8a] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          Download 4.8 GB
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Minimalist Cold Archive */}
-                    <div
-                      onClick={() => setNeuralProfile('minimalist')}
-                      className={`p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer transition-all border ${
-                        neuralProfile === 'minimalist'
-                          ? 'bg-[#211f1e] border-white/20 shadow-md ring-1 ring-white/10'
-                          : 'bg-[#1d1b1a] border-white/5 hover:border-white/10 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div className="w-5 h-5 rounded-full bg-[#373433] flex items-center justify-center shrink-0 mt-0.5">
-                          {neuralProfile === 'minimalist' && <span className="w-2 h-2 rounded-full bg-white" />}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-serif text-lg text-[#f5f0ed]">Minimalist Cold Archive</h3>
-                            <span className="font-mono text-[10px] text-[#998f8a] bg-[#100e0d] px-2 py-0.5 rounded-full">
-                              Pure Metadata
-                            </span>
-                          </div>
-                          <p className="text-xs sm:text-sm text-[#a8a29e] max-w-xl mt-0.5 leading-relaxed">
-                            Zero neural background tasks. Exclusively relies on EXIF markers, IPTC data, and perceptual MD5 hashing.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 text-right shrink-0 self-end sm:self-center">
-                        <span className="font-mono text-xs text-[#998f8a] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          2 GB RAM
-                        </span>
-                        <span className="font-mono text-xs text-[#998f8a] bg-[#100e0d] px-3 py-1 rounded-full border border-white/5">
-                          No Weights
-                        </span>
-                      </div>
+                    <div>
+                      <h2 className="font-serif text-lg text-[#f5f0ed]">You&apos;re all set</h2>
+                      <p className="text-xs text-[#a8a29e] mt-1 max-w-md mx-auto leading-relaxed">
+                        Prism is ready to go. Here is a quick summary of your choices — you can change
+                        any of them later in Settings.
+                      </p>
                     </div>
                   </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-[#1d1b1a] border border-white/5 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <FolderOpen size={15} className="text-[#998f8a]" />
+                        <span className="text-xs text-[#e7e1df]">Folders to watch</span>
+                      </div>
+                      <span className="font-mono text-xs text-[#c9c6c4]">
+                        {watchedFolders.length === 0 ? 'None yet' : `${watchedFolders.length} added`}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-[#1d1b1a] border border-white/5 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <Palette size={15} className="text-[#998f8a]" />
+                        <span className="text-xs text-[#e7e1df]">Appearance</span>
+                      </div>
+                      <span className="font-mono text-xs text-[#c9c6c4] capitalize">
+                        {theme} · {accent} · {previewQuality}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-[#1d1b1a] border border-white/5 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <Sparkles size={15} className="text-[#998f8a]" />
+                        <span className="text-xs text-[#e7e1df]">Smart features</span>
+                      </div>
+                      <span className="font-mono text-xs text-[#c9c6c4]">
+                        {enabledAiCount} enabled
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between bg-[#1d1b1a] border border-white/5 px-3.5 py-2.5 rounded-xl">
+                      <div className="flex items-center gap-2.5">
+                        <ShieldCheck size={15} className="text-emerald-400" />
+                        <span className="text-xs text-[#e7e1df]">Privacy</span>
+                      </div>
+                      <span className="font-mono text-xs text-[#c9c6c4]">On-device only</span>
+                    </div>
+                  </div>
+
+                  {watchedFolders.length === 0 && (
+                    <p className="text-[11px] text-[#78716c] flex items-center gap-1.5 justify-center">
+                      <CheckCircle2 size={13} className="text-[#998f8a]" />
+                      No folders yet — you can add them anytime from Settings.
+                    </p>
+                  )}
                 </motion.div>
               )}
 
             </AnimatePresence>
           </div>
 
-          {/* Engine Flags Modal / Popover */}
-          <AnimatePresence>
-            {showEngineFlags && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                className="absolute inset-x-4 bottom-20 z-40 bg-[#1d1b1a] border border-[#373433] rounded-2xl p-5 shadow-2xl space-y-4"
-              >
-                <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                  <div className="flex items-center gap-2">
-                    <Sliders size={16} className="text-[#e5e2e0]" />
-                    <span className="font-serif text-base text-[#f5f0ed]">Advanced Engine Configuration Flags</span>
-                  </div>
-                  <button 
-                    onClick={() => setShowEngineFlags(false)}
-                    className="p-1 text-[#998f8a] hover:text-white"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs font-mono">
-                  <div className="space-y-1.5">
-                    <label className="text-[#a8a29e]">GPU Pipeline Accelerator</label>
-                    <select
-                      value={gpuAccelerationMode}
-                      onChange={(e) => setGpuAccelerationMode(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#100e0d] border border-white/10 text-[#f5f0ed] focus:outline-none"
-                    >
-                      <option value="webgpu">WebGPU (Metal / Vulkan SIMD)</option>
-                      <option value="dx12">DirectX 12 Compute</option>
-                      <option value="cpu">CPU AVX-512 Fallback</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-[#a8a29e]">
-                      <span>Worker Daemons</span>
-                      <span className="text-white font-bold">{workerDaemons} Cores</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={12}
-                      value={workerDaemons}
-                      onChange={(e) => setWorkerDaemons(Number(e.target.value))}
-                      className="w-full accent-[#e5e2e0]"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[#a8a29e]">Telemetry Isolation</label>
-                    <button
-                      type="button"
-                      onClick={() => setTelemetryLock(!telemetryLock)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#100e0d] border border-white/10 text-left flex items-center justify-between"
-                    >
-                      <span>Air-gapped Mode</span>
-                      <span className={`w-2 h-2 rounded-full ${telemetryLock ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           {/* Footer Control Navigation Bar */}
-          <div className="w-full bg-[#1d1b1a] border-t border-[#2c2928] px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 select-none shrink-0">
+          <div className="w-full bg-[#1d1b1a] border-t border-[#2c2928] px-6 sm:px-8 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 select-none shrink-0">
             {/* Back and Cancel */}
             <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
               <button
@@ -1006,7 +792,7 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                 onClick={handleFinish}
                 className="font-mono text-xs text-[#998f8a] hover:text-[#f5f0ed] transition-colors"
               >
-                Cancel Setup
+                Skip setup
               </button>
               <button
                 type="button"
@@ -1015,7 +801,7 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                 className="px-3.5 py-1.5 rounded-full bg-[#2c2928] text-[#f5f0ed] hover:bg-[#373433] disabled:opacity-30 font-mono text-xs transition-colors flex items-center gap-1.5 border border-white/5"
               >
                 <ArrowLeft size={13} />
-                <span>Step {currentStep > 1 ? currentStep - 1 : 1}</span>
+                <span>Back</span>
               </button>
             </div>
 
@@ -1023,30 +809,19 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
             <div className="hidden md:flex items-center gap-2 text-[#a8a29e] font-mono text-xs">
               <span className="w-1.5 h-1.5 rounded-full bg-[#e5e2e0]"></span>
               <span>
-                Configuring Step {currentStep} of 4 • {stepTitles[currentStep].label}
+                Step {currentStep} of 4 • {stepTitles[currentStep].label}
               </span>
             </div>
 
             {/* Forward Controls */}
             <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-              <button
-                type="button"
-                onClick={() => setShowEngineFlags(!showEngineFlags)}
-                className="font-mono text-xs text-[#a8a29e] hover:text-white transition-colors flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-[#2c2928]"
-              >
-                <Sliders size={14} />
-                <span className="hidden xs:inline">Engine Flags</span>
-              </button>
-
               {currentStep < 4 ? (
                 <button
                   type="button"
                   onClick={() => setCurrentStep((s) => ((s + 1) as 1 | 2 | 3 | 4))}
                   className="px-5 py-2 rounded-full bg-[#e5e2e0] text-[#1c1b1a] hover:bg-white font-mono text-xs font-semibold shadow-md transition-all flex items-center gap-1.5 active:scale-95"
                 >
-                  <span>
-                    Continue to {currentStep === 1 ? 'Storage Strategy' : currentStep === 2 ? 'Footprint Allocation' : 'Neural Engine'}
-                  </span>
+                  <span>Continue</span>
                   <ArrowRight size={14} />
                 </button>
               ) : (
@@ -1056,8 +831,8 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
                   disabled={isFinishing}
                   className="px-6 py-2 rounded-full bg-[#e5e2e0] text-[#1c1b1a] hover:bg-white font-mono text-xs font-semibold shadow-lg transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
                 >
-                  <span>{isFinishing ? 'Initializing...' : 'Mount & Launch Studio'}</span>
-                  <Check size={14} strokeWidth={3} />
+                  <span>{isFinishing ? 'Setting things up…' : 'Start using Prism'}</span>
+                  <Rocket size={14} />
                 </button>
               )}
             </div>
@@ -1066,8 +841,8 @@ export const FirstRunWizardModal: React.FC<FirstRunWizardModalProps> = ({
 
         {/* Fixed Bottom Statusline */}
         <div className="fixed bottom-0 inset-x-0 h-10 z-20 flex items-center justify-between px-6 sm:px-10 text-[#78716c] font-mono text-[11px] pointer-events-none">
-          <span className="pointer-events-auto">Nocturnal Calibrated Engine • 16-bit ProPhoto RGB</span>
-          <span className="pointer-events-auto">Esc to Minimize • Workspace Ready</span>
+          <span className="pointer-events-auto">Private by design • Your photos never leave this device</span>
+          <span className="pointer-events-auto">Esc to skip</span>
         </div>
       </div>
     </AnimatePresence>
