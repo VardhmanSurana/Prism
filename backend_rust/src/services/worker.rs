@@ -230,7 +230,7 @@ impl SystemMonitor {
 
         // ── External drives: check if /media, /mnt, /run/media have mounted volumes ──
         // ponytail: O(1) check — just see if mount points exist, don't enumerate
-        for mount_base in &["/media", "/mnt", "/run/media"] {
+        'mount_scan: for mount_base in &["/media", "/mnt", "/run/media"] {
             if let Ok(entries) = std::fs::read_dir(mount_base) {
                 for entry in entries.flatten() {
                     if entry.path().is_dir() {
@@ -238,7 +238,7 @@ impl SystemMonitor {
                         if let Ok(mut files) = std::fs::read_dir(entry.path()) {
                             if files.next().is_some() {
                                 state.external_disconnected = false;
-                                return state; // found a mounted drive, system is fine
+                                break 'mount_scan; // found a mounted drive; continue to GPU & activity checks
                             }
                         }
                     }
@@ -337,18 +337,11 @@ impl AnalyzerRegistry {
     }
 
     /// Plan which analyzers should run on this photo given current system state.
-    /// Filters by should_run() + can_run() resource check.
+    /// Filters by each analyzer's `should_run(photo)` + `can_run()` resource check.
     pub fn plan<'a>(&'a self, photo: &PhotoRecord, state: &SystemState) -> Vec<&'a dyn Analyzer> {
-        let resume_priority = get_resume_priority(
-            photo.has_embedding,
-            photo.has_faces,
-            photo.has_summary,
-            photo.has_ocr,
-        );
-
         self.analyzers
             .iter()
-            .filter(|a| a.priority() > resume_priority)
+            .filter(|a| a.should_run(photo))
             .filter(|a| can_run(a.resource_need(), state))
             .map(|a| a.as_ref())
             .collect()
@@ -426,6 +419,14 @@ impl JobScheduler {
             has_ocr: job.has_ocr,
             ocr_attempted: job.ocr_attempted,
         };
+
+        let any_needed = registry.analyzers.iter().any(|a| a.should_run(&photo));
+        if !any_needed {
+            return ScheduleDecision::RunAnalyzers {
+                photo_id: job.photo_id,
+                analyzers: Vec::new(),
+            };
+        }
 
         let allowed: Vec<&str> = registry
             .plan(&photo, state)
@@ -677,23 +678,6 @@ pub struct WorkerStatusSnapshot {
 #[allow(dead_code)]
 pub type WorkerStatus = WorkerStatusSnapshot;
 
-// ─── Stage-aware resume ───────────────────────────────────────────────────
-
-/// Returns the priority threshold: analyakers with priority <= this value have
-/// already completed (or don't need to run).
-fn get_resume_priority(
-    has_embedding: bool,
-    has_faces: bool,
-    has_summary: bool,
-    has_ocr: bool,
-) -> u32 {
-    if has_ocr { return 0; }     // ocr priority=0 done → skip ≤0
-    if has_summary { return 100; } // vision priority=100 done → skip ≤100
-    if has_faces { return 200; }   // face priority=200 done → skip ≤200
-    if has_embedding { return 300; } // siglip priority=300 done → skip ≤300
-    0 // nothing done yet → run everything (priority > 0 for all analyzers)
-}
-
 // ─── Worker Loop (scheduler-driven) ───────────────────────────────────────
 
 /// spawn_worker_loop - Spawns worker loop worker/task.
@@ -729,7 +713,7 @@ pub fn spawn_worker_loop(
                 continue;
             }
 
-            // Fetch next pending job from DB
+            // Fetch next pending job from DB (without mutating status until scheduled)
             let job = match fetch_pending_job(&db).await {
                 Some(j) => j,
                 None => {
@@ -743,6 +727,13 @@ pub fn spawn_worker_loop(
 
             match decision {
                 ScheduleDecision::RunAnalyzers { photo_id, analyzers } => {
+                    let _ = sqlx::query(
+                        "UPDATE background_jobs SET status = 'processing', attempt_count = attempt_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?"
+                    )
+                    .bind(job.job_id)
+                    .execute(&db)
+                    .await;
+
                     worker.currently_processing.store(true, Ordering::Relaxed);
                     info!(
                         "[Scheduler] Running [{}] on photo_id={}",
@@ -751,7 +742,7 @@ pub fn spawn_worker_loop(
 
                     let (stage_names, results) = run_analyzers(
                         &ml_client, &db, &worker, &registry,
-                        photo_id, &analyzers,
+                        &job, &analyzers,
                     ).await;
 
                     update_job_status(&db, job.job_id, &stage_names, &results).await;
@@ -808,7 +799,7 @@ async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
             CASE WHEN EXISTS (SELECT 1 FROM faces WHERE photo_id = p.id) THEN 1 ELSE 0 END AS has_faces,
             CASE WHEN p.ai_summary IS NOT NULL AND p.ai_summary != '' THEN 1 ELSE 0 END AS has_summary,
             CASE WHEN p.ocr_text IS NOT NULL AND p.ocr_text != '' THEN 1 ELSE 0 END AS has_ocr,
-        CASE WHEN p.ocr_attempted_at IS NOT NULL THEN 1 ELSE 0 END AS ocr_attempted
+            CASE WHEN p.ocr_attempted_at IS NOT NULL THEN 1 ELSE 0 END AS ocr_attempted
         FROM background_jobs j
         JOIN photos p ON p.id = j.photo_id
         WHERE j.status = 'pending'
@@ -819,18 +810,10 @@ async fn fetch_pending_job(db: &DbPool) -> Option<PendingJob> {
     )
     .fetch_optional(db)
     .await
-    .ok()?;
-
-    let row = row?;
-
-    let job_id: i64 = row.get("job_id");
-    let _ = sqlx::query("UPDATE background_jobs SET status = 'processing', attempt_count = attempt_count + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-        .bind(job_id)
-        .execute(db)
-        .await;
+    .ok()??;
 
     Some(PendingJob {
-        job_id,
+        job_id: row.get("job_id"),
         photo_id: row.get("photo_id"),
         photo_path: row.get("photo_path"),
         has_embedding: row.get::<i64, _>("has_embedding") == 1,
@@ -847,30 +830,17 @@ async fn run_analyzers(
     db: &DbPool,
     worker: &Arc<WorkerState>,
     registry: &AnalyzerRegistry,
-    photo_id: i64,
+    job: &PendingJob,
     allowed: &[&str],
 ) -> (Vec<String>, Vec<bool>) {
-    // Fetch photo path once
-    let photo_path: String = sqlx::query_scalar("SELECT path FROM photos WHERE id = ?")
-        .bind(photo_id)
-        .fetch_one(db)
-        .await
-        .unwrap_or_default();
-
     let photo = PhotoRecord {
-        id: photo_id,
-        path: photo_path.clone(),
-        // ponytail: fetch minimal flags for should_run checks
-        has_embedding: sqlx::query_scalar::<_, String>("SELECT COALESCE(embedding, '') FROM photos WHERE id = ?")
-            .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
-        has_faces: sqlx::query_scalar::<_, i64>("SELECT CASE WHEN EXISTS (SELECT 1 FROM faces WHERE photo_id = ?) THEN 1 ELSE 0 END")
-            .bind(photo_id).fetch_one(db).await.unwrap_or(0) == 1,
-        has_summary: sqlx::query_scalar::<_, String>("SELECT COALESCE(ai_summary, '') FROM photos WHERE id = ?")
-            .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
-        has_ocr: sqlx::query_scalar::<_, String>("SELECT COALESCE(ocr_text, '') FROM photos WHERE id = ?")
-            .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
-        ocr_attempted: sqlx::query_scalar::<_, String>("SELECT COALESCE(ocr_attempted_at, '') FROM photos WHERE id = ?")
-            .bind(photo_id).fetch_one(db).await.unwrap_or_default() != "",
+        id: job.photo_id,
+        path: job.photo_path.clone(),
+        has_embedding: job.has_embedding,
+        has_faces: job.has_faces,
+        has_summary: job.has_summary,
+        has_ocr: job.has_ocr,
+        ocr_attempted: job.ocr_attempted,
     };
 
     let mut stage_names = Vec::with_capacity(allowed.len());
@@ -878,18 +848,18 @@ async fn run_analyzers(
 
     for &stage_name in allowed {
         if worker.is_stage_paused(stage_name) {
-            info!("[Scheduler] Skipping stage '{}' on photo {} (stage paused)", stage_name, photo_id);
+            info!("[Scheduler] Skipping stage '{}' on photo {} (stage paused)", stage_name, job.photo_id);
             continue;
         }
 
-        update_stage(db, photo_id, stage_name).await;
+        update_stage(db, job.photo_id, stage_name).await;
 
         // Find the analyzer by name in the registry
         let analyzer = registry.analyzers.iter().find(|a| a.name() == stage_name);
 
         let ok = match analyzer {
             Some(a) if a.should_run(&photo) => {
-                a.execute(ml_client, db, worker, photo_id, &photo_path).await
+                a.execute(ml_client, db, worker, job.photo_id, &job.photo_path).await
             }
             Some(_) => true, // should_run returned false, skip (success)
             None => true,    // unknown analyzer, skip

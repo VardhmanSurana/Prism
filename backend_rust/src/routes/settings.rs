@@ -1019,6 +1019,7 @@ pub async fn save_security_settings(
         }
     }
 
+    crate::routes::invalidate_api_key_cache();
     Ok(Json(json!({ "status": "success", "enabled": payload.enabled, "vault_encrypted": true })))
 }
 
@@ -1039,6 +1040,7 @@ pub async fn generate_api_key(State(state): State<Arc<AppState>>) -> Result<Json
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    crate::routes::invalidate_api_key_cache();
     Ok(Json(json!({
         "status": "success",
         "api_key": new_key,

@@ -148,6 +148,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
             job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
             title TEXT,
             status TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER DEFAULT 0,
             current_stage TEXT,
             stage_progress TEXT,
             progress_pct REAL DEFAULT 0.0,
@@ -163,6 +164,7 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
 
         CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);
         CREATE INDEX IF NOT EXISTS idx_background_jobs_photo ON background_jobs(photo_id);
+        -- idx_background_jobs_queue is created after the priority column migration below
 
         CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -330,12 +332,13 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_telemetry_session ON telemetry_events(session_id)").execute(pool).await.ok();
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)").execute(pool).await.ok();
 
-
     ensure_uuids(pool).await?;
     ensure_file_sizes(pool).await.ok();
     migrate_background_jobs_if_needed(pool).await?;
+    sqlx::query("ALTER TABLE background_jobs ADD COLUMN priority INTEGER DEFAULT 0").execute(pool).await.ok();
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_queue ON background_jobs(status, job_type, priority DESC, created_at ASC)").execute(pool).await.ok();
 
-    // Create default admin user if no users exist
+    // Create default admin user if no users exist (using env or CSPRNG password instead of hardcoded literal)
     let user_count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM users")
         .fetch_one(pool)
         .await?;
@@ -345,10 +348,15 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
         use argon2::Argon2;
         use uuid::Uuid;
 
+        let bootstrap_password = std::env::var("PRISM_ADMIN_PASSWORD")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .unwrap_or_else(crate::services::secrets::generate_secure_api_key);
+
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2
-            .hash_password(b"admin123", &salt)
+            .hash_password(bootstrap_password.as_bytes(), &salt)
             .map_err(|e| Error::Configuration(e.to_string().into()))?
             .to_string();
 
@@ -364,79 +372,86 @@ async fn create_tables(pool: &DbPool) -> Result<(), Error> {
         .execute(pool)
         .await?;
 
-        info!("Created default admin user (username: admin, password: admin123)");
+        info!("Created initial admin user (username: admin) with CSPRNG bootstrap credentials");
     }
 
     Ok(())
 }
 
-/// ensure_uuids - Ensures uuids.
+/// ensure_uuids - Ensures all core entities have a UUID using a single transaction.
 async fn ensure_uuids(pool: &DbPool) -> Result<(), Error> {
     let unassigned_photos: Vec<i64> = sqlx::query_scalar("SELECT id FROM photos WHERE uuid IS NULL OR uuid = ''")
         .fetch_all(pool)
         .await
         .unwrap_or_default();
+    let unassigned_albums: Vec<i64> = sqlx::query_scalar("SELECT id FROM albums WHERE uuid IS NULL OR uuid = ''")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+    let unassigned_projects: Vec<i64> = sqlx::query_scalar("SELECT id FROM video_projects WHERE uuid IS NULL OR uuid = ''")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+    let unassigned_people: Vec<i64> = sqlx::query_scalar("SELECT id FROM people WHERE uuid IS NULL OR uuid = ''")
+        .fetch_all(pool)
+        .await
+        .unwrap_or_default();
+
+    if unassigned_photos.is_empty()
+        && unassigned_albums.is_empty()
+        && unassigned_projects.is_empty()
+        && unassigned_people.is_empty()
+    {
+        return Ok(());
+    }
+
+    let mut tx = pool.begin().await?;
 
     for photo_id in unassigned_photos {
         let u = Uuid::new_v4().to_string();
         sqlx::query("UPDATE photos SET uuid = ? WHERE id = ?")
             .bind(&u)
             .bind(photo_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .ok();
     }
-
-    let unassigned_albums: Vec<i64> = sqlx::query_scalar("SELECT id FROM albums WHERE uuid IS NULL OR uuid = ''")
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
 
     for album_id in unassigned_albums {
         let u = Uuid::new_v4().to_string();
         sqlx::query("UPDATE albums SET uuid = ? WHERE id = ?")
             .bind(&u)
             .bind(album_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .ok();
     }
-
-    let unassigned_projects: Vec<i64> = sqlx::query_scalar("SELECT id FROM video_projects WHERE uuid IS NULL OR uuid = ''")
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
 
     for project_id in unassigned_projects {
         let u = Uuid::new_v4().to_string();
         sqlx::query("UPDATE video_projects SET uuid = ? WHERE id = ?")
             .bind(&u)
             .bind(project_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .ok();
     }
-
-    let unassigned_people: Vec<i64> = sqlx::query_scalar("SELECT id FROM people WHERE uuid IS NULL OR uuid = ''")
-        .fetch_all(pool)
-        .await
-        .unwrap_or_default();
 
     for person_id in unassigned_people {
         let u = Uuid::new_v4().to_string();
         sqlx::query("UPDATE people SET uuid = ? WHERE id = ?")
             .bind(&u)
             .bind(person_id)
-            .execute(pool)
+            .execute(&mut *tx)
             .await
             .ok();
     }
 
-
+    tx.commit().await?;
     Ok(())
 }
 
-/// ensure_file_sizes - Backfills file_size for existing photos if missing.
+/// ensure_file_sizes - Backfills file_size for existing photos if missing using spawn_blocking + single transaction.
 async fn ensure_file_sizes(pool: &DbPool) -> Result<(), Error> {
     #[derive(sqlx::FromRow)]
     struct PhotoPath {
@@ -449,18 +464,36 @@ async fn ensure_file_sizes(pool: &DbPool) -> Result<(), Error> {
         .await
         .unwrap_or_default();
 
-    for p in unmeasured {
-        if let Some(real_path) = crate::routes::photos::resolve_photo_path(&p.path) {
-            if let Ok(meta) = std::fs::metadata(&real_path) {
-                let size = meta.len() as i64;
-                let _ = sqlx::query("UPDATE photos SET file_size = ? WHERE id = ?")
-                    .bind(size)
-                    .bind(p.id)
-                    .execute(pool)
-                    .await;
-            }
-        }
+    if unmeasured.is_empty() {
+        return Ok(());
     }
+
+    let measured: Vec<(i64, i64)> = tokio::task::spawn_blocking(move || {
+        unmeasured
+            .into_iter()
+            .filter_map(|p| {
+                let real_path = crate::routes::photos::resolve_photo_path(&p.path)?;
+                let meta = std::fs::metadata(&real_path).ok()?;
+                Some((p.id, meta.len() as i64))
+            })
+            .collect()
+    })
+    .await
+    .unwrap_or_default();
+
+    if measured.is_empty() {
+        return Ok(());
+    }
+
+    let mut tx = pool.begin().await?;
+    for (id, size) in measured {
+        let _ = sqlx::query("UPDATE photos SET file_size = ? WHERE id = ?")
+            .bind(size)
+            .bind(id)
+            .execute(&mut *tx)
+            .await;
+    }
+    tx.commit().await?;
 
     Ok(())
 }
@@ -493,6 +526,7 @@ async fn migrate_background_jobs_if_needed(pool: &DbPool) -> Result<(), Error> {
                 job_type TEXT NOT NULL DEFAULT 'sequential_analysis',
                 title TEXT,
                 status TEXT NOT NULL DEFAULT 'pending',
+                priority INTEGER DEFAULT 0,
                 current_stage TEXT,
                 stage_progress TEXT,
                 progress_pct REAL DEFAULT 0.0,
@@ -524,6 +558,7 @@ async fn migrate_background_jobs_if_needed(pool: &DbPool) -> Result<(), Error> {
         sqlx::query("ALTER TABLE background_jobs_v2 RENAME TO background_jobs;").execute(&mut *tx).await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_status ON background_jobs(status);").execute(&mut *tx).await?;
         sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_photo ON background_jobs(photo_id);").execute(&mut *tx).await?;
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_background_jobs_queue ON background_jobs(status, job_type, priority DESC, created_at ASC);").execute(&mut *tx).await?;
 
         tx.commit().await?;
         info!("Migrated background_jobs table successfully.");

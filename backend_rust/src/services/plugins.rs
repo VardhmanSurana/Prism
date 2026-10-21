@@ -109,6 +109,35 @@ impl PluginManager {
         &self.plugins_dir
     }
 
+    fn validate_plugin_id(plugin_id: &str) -> Result<(), String> {
+        let trimmed = plugin_id.trim();
+        if trimmed.is_empty()
+            || trimmed.contains("..")
+            || trimmed.contains('/')
+            || trimmed.contains('\\')
+            || trimmed.starts_with('.')
+        {
+            return Err(format!("Invalid plugin ID: {}", plugin_id));
+        }
+        Ok(())
+    }
+
+    fn has_bundled_typescript_sources(dir: &Path) -> bool {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return false;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("ts") || ext.eq_ignore_ascii_case("tsx"))
+            {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Scans the `plugins/` directory and parses all installed plugin folders.
     pub fn scan_installed(&self) -> Vec<InstalledPlugin> {
         let mut installed = Vec::new();
@@ -126,7 +155,7 @@ impl PluginManager {
 
         for entry in entries.flatten() {
             let path = entry.path();
-            if !path.is_dir() {
+            if !path.is_dir() || path.join(".uninstalled").exists() {
                 continue;
             }
 
@@ -332,13 +361,16 @@ impl PluginManager {
         bundled_code: Option<String>,
     ) -> Result<InstalledPlugin, String> {
         let plugin_id = &manifest.id;
-        if plugin_id.contains("..") || plugin_id.contains('/') || plugin_id.contains('\\') {
-            return Err(format!("Invalid plugin ID: {}", plugin_id));
-        }
+        Self::validate_plugin_id(plugin_id)?;
 
         let plugin_dir = self.plugins_dir.join(plugin_id);
         fs::create_dir_all(&plugin_dir)
             .map_err(|e| format!("Failed to create plugin directory {:?}: {}", plugin_dir, e))?;
+
+        let uninstalled_marker = plugin_dir.join(".uninstalled");
+        if uninstalled_marker.exists() {
+            let _ = fs::remove_file(&uninstalled_marker);
+        }
 
         // 1. Write plugin.json manifest
         let manifest_path = plugin_dir.join("plugin.json");
@@ -355,11 +387,14 @@ impl PluginManager {
         fs::write(&config_path, config_json)
             .map_err(|e| format!("Failed to write config.json: {}", e))?;
 
-        // 3. Write code entrypoint if available
+        // 3. Write code entrypoint if available, without clobbering existing TypeScript source files
         let entry_file = manifest.entrypoint.as_deref().unwrap_or("index.js");
         let code_path = plugin_dir.join(entry_file);
+        let is_ts_source = entry_file.ends_with(".ts") || entry_file.ends_with(".tsx");
         if let Some(code) = bundled_code {
-            fs::write(&code_path, code).ok();
+            if !(is_ts_source && code_path.exists()) {
+                fs::write(&code_path, code).ok();
+            }
         } else if !code_path.exists() {
             let stub = format!(
                 "// Prism Plugin: {}\nexport default {{\n  id: \"{}\",\n  version: \"{}\",\n  initialize(context) {{\n    console.log(\"[Plugin: {}] Initialized\");\n  }}\n}};\n",
@@ -390,28 +425,40 @@ impl PluginManager {
         })
     }
 
-    /// Uninstalls a plugin by removing its directory from `plugins/`.
+    /// Uninstalls a plugin. If the directory contains bundled TypeScript source files
+    /// imported by the frontend via `@plugins/*`, writes a `.uninstalled` marker instead
+    /// of deleting the source directory.
     pub fn uninstall_plugin(&self, plugin_id: &str) -> Result<(), String> {
-        // Prevent path traversal
-        if plugin_id.contains("..") || plugin_id.contains('/') || plugin_id.contains('\\') {
-            return Err(format!("Invalid plugin ID: {}", plugin_id));
-        }
+        Self::validate_plugin_id(plugin_id)?;
 
         let plugin_dir = self.plugins_dir.join(plugin_id);
-        if !plugin_dir.exists() {
+        if !plugin_dir.exists() || plugin_dir.join(".uninstalled").exists() {
             return Err(format!("Plugin '{}' is not installed", plugin_id));
         }
 
-        fs::remove_dir_all(&plugin_dir)
-            .map_err(|e| format!("Failed to remove plugin directory {:?}: {}", plugin_dir, e))?;
+        if Self::has_bundled_typescript_sources(&plugin_dir) {
+            let config = PluginConfig {
+                enabled: false,
+                ..PluginConfig::default()
+            };
+            if let Ok(config_json) = serde_json::to_string_pretty(&config) {
+                let _ = fs::write(plugin_dir.join("config.json"), config_json);
+            }
+            fs::write(plugin_dir.join(".uninstalled"), b"1")
+                .map_err(|e| format!("Failed to mark plugin '{}' as uninstalled: {}", plugin_id, e))?;
+        } else {
+            fs::remove_dir_all(&plugin_dir)
+                .map_err(|e| format!("Failed to remove plugin directory {:?}: {}", plugin_dir, e))?;
+        }
 
         info!("Successfully uninstalled plugin '{}'", plugin_id);
         Ok(())
     }
 
     pub fn toggle_plugin(&self, plugin_id: &str, enabled: bool) -> Result<InstalledPlugin, String> {
+        Self::validate_plugin_id(plugin_id)?;
         let plugin_dir = self.plugins_dir.join(plugin_id);
-        if !plugin_dir.exists() {
+        if !plugin_dir.exists() || plugin_dir.join(".uninstalled").exists() {
             return Err(format!("Plugin '{}' is not installed", plugin_id));
         }
 
@@ -460,8 +507,9 @@ impl PluginManager {
         plugin_id: &str,
         new_settings: serde_json::Value,
     ) -> Result<InstalledPlugin, String> {
+        Self::validate_plugin_id(plugin_id)?;
         let plugin_dir = self.plugins_dir.join(plugin_id);
-        if !plugin_dir.exists() {
+        if !plugin_dir.exists() || plugin_dir.join(".uninstalled").exists() {
             return Err(format!("Plugin '{}' is not installed", plugin_id));
         }
 
@@ -501,8 +549,9 @@ impl PluginManager {
 
     /// Saves a custom thumbnail image for a plugin to `plugins/<id>/assets/thumbnail.png`.
     pub fn save_thumbnail(&self, plugin_id: &str, image_bytes: &[u8]) -> Result<InstalledPlugin, String> {
+        Self::validate_plugin_id(plugin_id)?;
         let plugin_dir = self.plugins_dir.join(plugin_id);
-        if !plugin_dir.exists() {
+        if !plugin_dir.exists() || plugin_dir.join(".uninstalled").exists() {
             return Err(format!("Plugin '{}' is not installed", plugin_id));
         }
 
@@ -552,8 +601,9 @@ impl PluginManager {
 
     /// Removes custom thumbnail from a plugin.
     pub fn delete_thumbnail(&self, plugin_id: &str) -> Result<InstalledPlugin, String> {
+        Self::validate_plugin_id(plugin_id)?;
         let plugin_dir = self.plugins_dir.join(plugin_id);
-        if !plugin_dir.exists() {
+        if !plugin_dir.exists() || plugin_dir.join(".uninstalled").exists() {
             return Err(format!("Plugin '{}' is not installed", plugin_id));
         }
 

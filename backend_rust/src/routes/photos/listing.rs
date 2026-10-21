@@ -40,6 +40,25 @@ pub async fn list_photos(
     let is_trash = query.is_trash.unwrap_or(false);
     let is_locked = query.is_locked.unwrap_or(false);
 
+    if is_locked {
+        let vault_initialized: Option<String> = sqlx::query_scalar(
+            "SELECT value FROM settings WHERE key = 'vault_initialized'",
+        )
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        if vault_initialized.as_deref() == Some("true")
+            && !crate::services::vault_crypto::get_vault().is_unlocked()
+        {
+            return Err((
+                StatusCode::LOCKED,
+                "Vault is locked. Unlock the vault to view locked photos.".to_string(),
+            ));
+        }
+    }
+
     let mut sql = String::from("SELECT * FROM photos WHERE is_trash = ? AND is_locked = ?");
     if let Some(fav) = query.is_favorite {
         if fav {
@@ -71,6 +90,24 @@ pub async fn get_photo(
     Path(id): Path<String>,
 ) -> Result<Json<Photo>, (StatusCode, String)> {
     let photo = find_photo_by_id_or_uuid(&state.db, &id).await?;
+    if photo.is_locked {
+        let vault_initialized: Option<String> = sqlx::query_scalar(
+            "SELECT value FROM settings WHERE key = 'vault_initialized'",
+        )
+        .fetch_optional(&state.db)
+        .await
+        .ok()
+        .flatten();
+
+        if vault_initialized.as_deref() == Some("true")
+            && !crate::services::vault_crypto::get_vault().is_unlocked()
+        {
+            return Err((
+                StatusCode::LOCKED,
+                "Vault is locked. Unlock the vault to view this photo.".to_string(),
+            ));
+        }
+    }
     Ok(Json(photo))
 }
 
@@ -114,15 +151,35 @@ pub async fn safe_resolve_library_path(
 ) -> Result<PathBuf, (StatusCode, String)> {
     let canonical = safe_resolve(path)?;
 
-    // 1. Check configured root directories (upload_dir, thumbnails_dir, cwd)
-    let mut allowed_roots = vec![
+    // Reject sensitive internal files (SQLite DBs, vault keys, encrypted blobs, dotfiles, source files)
+    let file_name = canonical
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default()
+        .to_ascii_lowercase();
+    if file_name.starts_with('.')
+        || file_name.ends_with(".db")
+        || file_name.ends_with(".db-wal")
+        || file_name.ends_with(".db-shm")
+        || file_name.ends_with(".key")
+        || file_name.ends_with(".prism_enc")
+        || file_name.ends_with(".thumb_enc")
+        || file_name.ends_with(".env")
+        || file_name.ends_with(".toml")
+        || file_name.ends_with(".rs")
+    {
+        return Err((
+            StatusCode::FORBIDDEN,
+            "Access denied: sensitive file type".to_string(),
+        ));
+    }
+
+    // 1. Check configured media root directories (upload_dir, thumbnails_dir — never cwd)
+    let allowed_roots = [
         state.config.upload_dir.clone(),
         state.config.thumbnails_dir.clone(),
     ];
-    if let Ok(cwd) = std::env::current_dir() {
-        allowed_roots.push(cwd);
-    }
-    for root in allowed_roots {
+    for root in &allowed_roots {
         if let Ok(canonical_root) = root.canonicalize() {
             if canonical.starts_with(&canonical_root) {
                 return Ok(canonical);
@@ -145,11 +202,11 @@ pub async fn safe_resolve_library_path(
         }
     }
 
-    // 3. Check registered photos in database
+    // 3. Check registered unlocked photos in database
     let raw_str = path.to_string();
     let canonical_str = canonical.to_string_lossy().to_string();
     let exists_in_db: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM photos WHERE path = ? OR path = ?)"
+        "SELECT EXISTS(SELECT 1 FROM photos WHERE (path = ? OR path = ?) AND is_locked = 0)"
     )
     .bind(&raw_str)
     .bind(&canonical_str)
@@ -412,14 +469,16 @@ pub struct ServeLocalQuery {
 /// serve_local_file - Performs serve local file.
 pub async fn serve_local_file(
     State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     Query(query): Query<ServeLocalQuery>,
 ) -> Result<Response, (StatusCode, String)> {
     let file_path = safe_resolve_library_path(&query.path, &state).await?;
-    serve_file_by_path(file_path).await
+    serve_file_by_path(headers, file_path).await
 }
 
 /// serve_sample_image - Performs serve sample image.
 pub async fn serve_sample_image(
+    headers: axum::http::HeaderMap,
     Path(filename): Path<String>,
 ) -> Result<Response, (StatusCode, String)> {
     if filename.contains('/') || filename.contains('\\') || filename.contains("..") {
@@ -431,14 +490,14 @@ pub async fn serve_sample_image(
         cwd.join("frontend/public/sample_images"),
         cwd.join("../frontend/public/sample_images"),
         cwd.join("sample_images"),
-        PathBuf::from("/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images"),
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../frontend/public/sample_images"),
     ];
 
     for sample_dir in &candidates {
         if sample_dir.exists() {
             if let Ok(p) = safe_resolve_under(&sample_dir.join(&filename).to_string_lossy(), sample_dir) {
                 if p.exists() {
-                    return serve_file_by_path(p).await;
+                    return serve_file_by_path(headers, p).await;
                 }
             }
         }
@@ -449,21 +508,6 @@ pub async fn serve_sample_image(
 
 
 /// serve_file_by_path - Performs serve file by path.
-async fn serve_file_by_path(file_path: PathBuf) -> Result<Response, (StatusCode, String)> {
-    let mime = mime_guess::from_path(&file_path)
-        .first_or_octet_stream()
-        .to_string();
-
-    let file = File::open(&file_path)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let stream = ReaderStream::new(file);
-    let body = axum::body::Body::from_stream(stream);
-
-    Ok(Response::builder()
-        .header(header::CONTENT_TYPE, mime)
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .body(body)
-        .unwrap())
+async fn serve_file_by_path(headers: axum::http::HeaderMap, file_path: PathBuf) -> Result<Response, (StatusCode, String)> {
+    crate::services::media_stream::serve_seekable_file(&headers, file_path).await
 }

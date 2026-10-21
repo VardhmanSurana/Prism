@@ -237,6 +237,18 @@ async fn telemetry_tracking_layer(
     response
 }
 
+type ApiKeyCacheMap = HashMap<usize, (Instant, bool, Option<String>)>;
+static API_KEY_AUTH_CACHE: OnceLock<Mutex<ApiKeyCacheMap>> = OnceLock::new();
+
+/// Invalidate the cached API key auth state (called when security settings change).
+pub fn invalidate_api_key_cache() {
+    if let Some(cache) = API_KEY_AUTH_CACHE.get() {
+        if let Ok(mut map) = cache.lock() {
+            map.clear();
+        }
+    }
+}
+
 /// Verify API key from `X-API-Key` header if configured in settings or environment.
 /// Passes through when API key protection is disabled or no key is set.
 async fn api_key_auth_layer(
@@ -250,30 +262,54 @@ async fn api_key_auth_layer(
         return next.run(req).await;
     }
 
-    // Check dynamic DB settings first
-    let db_enabled: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
-        .fetch_optional(&state.db)
-        .await
-        .unwrap_or(None);
-
-    let master_key = *state.vault_key.read();
-    let vault_key_val = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await;
-
-    let (is_enabled, expected_key) = match db_enabled.as_deref() {
-        Some("true") => {
-            (true, vault_key_val.or_else(|| state.config.api_key.clone()))
+    let state_key = Arc::as_ptr(&state) as usize;
+    let cache = API_KEY_AUTH_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let cached = cache.lock().ok().and_then(|mut map| {
+        if map.len() > 64 {
+            map.retain(|_, (ts, _, _)| ts.elapsed() < Duration::from_secs(5));
         }
-        Some("false") => (false, None),
-        _ => {
-            // Only enforce if an explicit API_KEY was supplied via environment or CLI flag.
-            // When running purely local/desktop with an auto-generated key, protection is off until explicitly enabled.
-            let is_explicit_env = std::env::var("API_KEY").is_ok();
-            if is_explicit_env {
-                (true, state.config.api_key.clone())
+        map.get(&state_key).and_then(|(ts, enabled, key)| {
+            if ts.elapsed() < Duration::from_secs(2) {
+                Some((*enabled, key.clone()))
             } else {
-                (false, None)
+                None
             }
+        })
+    });
+
+    let (is_enabled, expected_key) = if let Some(pair) = cached {
+        pair
+    } else {
+        // Check dynamic DB settings first
+        let db_enabled: Option<String> = sqlx::query_scalar("SELECT value FROM settings WHERE key = 'api_key_enabled'")
+            .fetch_optional(&state.db)
+            .await
+            .unwrap_or(None);
+
+        let master_key = *state.vault_key.read();
+        let vault_key_val = crate::services::secrets::get_secret(&state.db, &master_key, "api_key").await;
+
+        let pair = match db_enabled.as_deref() {
+            Some("true") => {
+                (true, vault_key_val.or_else(|| state.config.api_key.clone()))
+            }
+            Some("false") => (false, None),
+            _ => {
+                // Only enforce if an explicit API_KEY was supplied via environment or CLI flag.
+                // When running purely local/desktop with an auto-generated key, protection is off until explicitly enabled.
+                let is_explicit_env = std::env::var("API_KEY").is_ok();
+                if is_explicit_env {
+                    (true, state.config.api_key.clone())
+                } else {
+                    (false, None)
+                }
+            }
+        };
+
+        if let Ok(mut map) = cache.lock() {
+            map.insert(state_key, (Instant::now(), pair.0, pair.1.clone()));
         }
+        pair
     };
 
     if !is_enabled {
@@ -329,10 +365,18 @@ struct RateLimiter {
 }
 
 impl RateLimiter {
-    /// check - Performs check.
+    /// check - Performs sliding-window check with bounded bucket eviction.
     fn check(&self, key: &str, max_requests: usize, window: Duration) -> bool {
         let mut buckets = self.buckets.lock().unwrap();
         let now = Instant::now();
+        if buckets.len() > 512 {
+            buckets.retain(|_, deque| {
+                while deque.front().is_some_and(|t| now.duration_since(*t) > window) {
+                    deque.pop_front();
+                }
+                !deque.is_empty()
+            });
+        }
         let entry = buckets.entry(key.to_string()).or_default();
         while entry.front().is_some_and(|t| now.duration_since(*t) > window) {
             entry.pop_front();
@@ -506,6 +550,7 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/explore/insights", get(explore::explore_insights))
         .route("/explore/themes", get(explore::explore_themes))
         .route("/explore/on-this-day", get(explore::explore_on_this_day))
+        .route("/explore/capture-activity", get(explore::explore_capture_activity))
         .route("/explore/rediscover-prompts", get(explore::explore_rediscover_prompts))
         .route("/explore/timeline", get(explore::explore_timeline))
         .route("/explore/seasons", get(explore::explore_seasons))

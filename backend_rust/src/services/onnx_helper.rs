@@ -55,6 +55,26 @@ pub fn is_cuda_usable() -> bool {
     })
 }
 
+/// Build a CUDA-only session for GPU-exclusive workloads (e.g. Real-ESRGAN upscale).
+/// Never falls back to CPU — errors if the GPU is unusable.
+pub fn build_gpu_session(path: impl AsRef<Path>, tag: &str) -> Result<Session, String> {
+    let path_ref = path.as_ref();
+    if !is_cuda_usable() {
+        return Err(format!(
+            "[{}] requires a CUDA GPU (set GPU_MODE=cuda); CPU fallback is disabled for this workload",
+            tag
+        ));
+    }
+    Session::builder()
+        .map_err(|e| e.to_string())?
+        .with_execution_providers([ort::ep::CUDA::default().build()])
+        .map_err(|e| e.to_string())?
+        .with_optimization_level(GraphOptimizationLevel::Level3)
+        .map_err(|e| e.to_string())?
+        .commit_from_file(path_ref)
+        .map_err(|e| format!("[{}] CUDA session load failed (no CPU fallback): {}", tag, e))
+}
+
 /// Build an ONNX Runtime `Session` trying CUDA execution provider first,
 /// falling back to CPU Level-3 optimized inference if CUDA is unavailable.
 pub fn build_session(path: impl AsRef<Path>, tag: &str) -> Result<Session, ort::Error> {

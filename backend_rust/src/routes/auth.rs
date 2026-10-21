@@ -30,6 +30,7 @@ pub struct CreateUserRequest {
     pub username: String,
     pub email: String,
     pub password: String,
+    #[allow(dead_code)]
     pub role: Option<String>,
 }
 
@@ -72,16 +73,56 @@ fn verify_password(password: &str, hash: &str) -> Result<bool, String> {
     }
 }
 
-// Generate a simple JWT-like token (for demo purposes)
-// In production, use a proper JWT library like `jsonwebtoken`
-/// generate_token - Performs generate token.
-fn generate_token(user_id: i64, username: &str) -> String {
+/// Generate a signed token bound to the server's vault_key with 24-hour expiration.
+fn generate_token(user_id: i64, role: &str, key: &[u8; 32]) -> String {
+    use sha2::{Digest, Sha256};
     use std::time::{SystemTime, UNIX_EPOCH};
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .unwrap()
+        .unwrap_or_default()
         .as_secs();
-    format!("{}_{}_{}", user_id, username, timestamp)
+    let payload = format!("{}:{}:{}", user_id, role, timestamp);
+    let mut hasher = Sha256::new();
+    hasher.update(key);
+    hasher.update(payload.as_bytes());
+    hasher.update(key);
+    let sig = crate::services::vault_crypto::to_hex(&hasher.finalize());
+    format!("{}.{}", payload, sig)
+}
+
+/// Verify a signed token and return `(user_id, role)` if valid and not expired (24h).
+fn verify_token(token: &str, key: &[u8; 32]) -> Option<(i64, String)> {
+    use sha2::{Digest, Sha256};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let (payload, sig) = token.rsplit_once('.')?;
+    let mut parts = payload.splitn(3, ':');
+    let user_id: i64 = parts.next()?.parse().ok()?;
+    let role = parts.next()?.to_string();
+    let issued_at: u64 = parts.next()?.parse().ok()?;
+
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    if now.saturating_sub(issued_at) > 86_400 {
+        return None;
+    }
+
+    let mut hasher = Sha256::new();
+    hasher.update(key);
+    hasher.update(payload.as_bytes());
+    hasher.update(key);
+    let expected_sig = crate::services::vault_crypto::to_hex(&hasher.finalize());
+    if !crate::routes::constant_time_eq_str(sig, &expected_sig) {
+        return None;
+    }
+    Some((user_id, role))
+}
+
+fn extract_bearer_claims(headers: &axum::http::HeaderMap, key: &[u8; 32]) -> Option<(i64, String)> {
+    let header_val = headers.get(axum::http::header::AUTHORIZATION)?.to_str().ok()?;
+    let token = header_val.strip_prefix("Bearer ").unwrap_or(header_val).trim();
+    verify_token(token, key)
 }
 
 // Login handler
@@ -108,7 +149,8 @@ pub async fn login(
             let created_at: String = row.get("created_at");
 
             if let Ok(true) = verify_password(&request.password, &password_hash) {
-                let token = generate_token(id, &username);
+                let key = *state.vault_key.read();
+                let token = generate_token(id, &role, &key);
                 let user = User {
                     id,
                     uuid,
@@ -129,7 +171,7 @@ pub async fn login(
 }
 
 // Register handler
-/// register - Performs register.
+/// register - Performs register (always assigns 'user' role to prevent self-escalation).
 pub async fn register(
     State(state): State<std::sync::Arc<AppState>>,
     Json(request): Json<CreateUserRequest>,
@@ -143,7 +185,7 @@ pub async fn register(
     };
 
     let uuid = Uuid::new_v4().to_string();
-    let role = request.role.unwrap_or_else(|| "user".to_string());
+    let role = "user".to_string();
 
     let result = sqlx::query(
         "INSERT INTO users (uuid, username, email, password_hash, role) VALUES (?, ?, ?, ?, ?)"
@@ -157,16 +199,19 @@ pub async fn register(
     .await;
 
     match result {
-        Ok(_) => {
+        Ok(res) => {
+            let id = res.last_insert_rowid();
+            let key = *state.vault_key.read();
+            let token = generate_token(id, &role, &key);
             let user = User {
-                id: 0,
+                id,
                 uuid,
                 username: request.username,
                 email: request.email,
                 role,
                 created_at: String::new(),
             };
-            (StatusCode::CREATED, Json(AuthResponse { token: String::new(), user })).into_response()
+            (StatusCode::CREATED, Json(AuthResponse { token, user })).into_response()
         }
         Err(e) => (
             StatusCode::BAD_REQUEST,
@@ -176,28 +221,70 @@ pub async fn register(
 }
 
 // Get current user (requires auth)
-/// me - Performs me.
+/// me - Retrieves authenticated user profile from signed Bearer token.
 pub async fn me(
-    State(_state): State<std::sync::Arc<AppState>>,
-) -> impl IntoResponse {
-    // In a real implementation, extract user from JWT token
-    // For now, return a placeholder
-    let user = User {
-        id: 1,
-        uuid: "admin-uuid".to_string(),
-        username: "admin".to_string(),
-        email: "admin@prism.local".to_string(),
-        role: "admin".to_string(),
-        created_at: "2024-01-01".to_string(),
+    State(state): State<std::sync::Arc<AppState>>,
+    headers: axum::http::HeaderMap,
+) -> axum::response::Response {
+    let key = *state.vault_key.read();
+    let Some((user_id, _)) = extract_bearer_claims(&headers, &key) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse { error: "Missing or invalid authorization token".to_string() }),
+        )
+            .into_response();
     };
-    (StatusCode::OK, Json(user))
+
+    let row = sqlx::query(
+        "SELECT id, uuid, username, email, role, created_at FROM users WHERE id = ?"
+    )
+    .bind(user_id)
+    .fetch_optional(&state.db)
+    .await
+    .ok()
+    .flatten();
+
+    let Some(row) = row else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(ErrorResponse { error: "User not found".to_string() }),
+        )
+            .into_response();
+    };
+
+    let user = User {
+        id: row.get("id"),
+        uuid: row.get("uuid"),
+        username: row.get("username"),
+        email: row.get("email"),
+        role: row.get("role"),
+        created_at: row.get("created_at"),
+    };
+    (StatusCode::OK, Json(user)).into_response()
 }
 
 // List all users (admin only)
-/// list_users - Retrieves list users.
+/// list_users - Retrieves list users (requires admin Bearer token).
 pub async fn list_users(
     State(state): State<std::sync::Arc<AppState>>,
-) -> impl IntoResponse {
+    headers: axum::http::HeaderMap,
+) -> axum::response::Response {
+    let key = *state.vault_key.read();
+    let Some((_, role)) = extract_bearer_claims(&headers, &key) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse { error: "Missing or invalid authorization token".to_string() }),
+        )
+            .into_response();
+    };
+    if role != "admin" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse { error: "Admin role required".to_string() }),
+        )
+            .into_response();
+    }
+
     let result = sqlx::query(
         "SELECT id, uuid, username, email, role, created_at FROM users"
     )
@@ -217,32 +304,51 @@ pub async fn list_users(
                     created_at: row.get("created_at"),
                 })
                 .collect();
-            (StatusCode::OK, Json(users))
+            (StatusCode::OK, Json(users)).into_response()
         }
         Err(_) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(vec![]),
-        ),
+            Json(Vec::<User>::new()),
+        )
+            .into_response(),
     }
 }
 
 // Delete user (admin only)
-/// delete_user - Deletes delete user.
+/// delete_user - Deletes user by ID (requires admin Bearer token).
 pub async fn delete_user(
     State(state): State<std::sync::Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     Path(user_id): Path<i64>,
-) -> impl IntoResponse {
+) -> axum::response::Response {
+    let key = *state.vault_key.read();
+    let Some((_, role)) = extract_bearer_claims(&headers, &key) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(ErrorResponse { error: "Missing or invalid authorization token".to_string() }),
+        )
+            .into_response();
+    };
+    if role != "admin" {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(ErrorResponse { error: "Admin role required".to_string() }),
+        )
+            .into_response();
+    }
+
     let result = sqlx::query("DELETE FROM users WHERE id = ?")
         .bind(user_id)
         .execute(&state.db)
         .await;
 
     match result {
-        Ok(_) => (StatusCode::OK, Json(serde_json::json!({"message": "User deleted"}))),
+        Ok(_) => (StatusCode::OK, Json(serde_json::json!({"message": "User deleted"}))).into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({"error": format!("Failed to delete user: {}", e)})),
-        ),
+        )
+            .into_response(),
     }
 }
 
@@ -254,5 +360,5 @@ pub fn create_auth_routes() -> Router<std::sync::Arc<AppState>> {
         .route("/register", post(register))
         .route("/me", get(me))
         .route("/users", get(list_users))
-        .route("/users/{user_id}", delete(delete_user))
+        .route("/users/:user_id", delete(delete_user))
 }

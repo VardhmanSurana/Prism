@@ -649,7 +649,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_isnet_matting_on_woman_sample() {
-        let woman_path = "/home/chotaxdon/Work/Projects/Prism/frontend/public/sample_images/woman.png";
+        let woman_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../frontend/public/sample_images/woman.png")
+            .to_string_lossy()
+            .to_string();
+        if !Path::new(&woman_path).exists() {
+            eprintln!("skip: woman.png not found at {}", woman_path);
+            return;
+        }
         let pack_manager = crate::services::packs::PackManager::new(
             std::path::PathBuf::from("models/packs"),
             std::path::PathBuf::from("models"),
@@ -661,7 +668,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         let t0 = std::time::Instant::now();
-        let res = engine.get_background_mask(woman_path, 8888, &dir, Some("isnet-general-use"), Some(&pack_manager));
+        let res = engine.get_background_mask(&woman_path, 8888, &dir, Some("isnet-general-use"), Some(&pack_manager));
         eprintln!("[test] isnet result: {:?} in {:.2?}", res, t0.elapsed());
         assert!(res.is_ok());
     }

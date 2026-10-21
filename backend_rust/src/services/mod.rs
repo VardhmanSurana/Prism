@@ -39,6 +39,7 @@ pub mod scheduler;
 pub mod xmp;
 
 pub mod vault_crypto;
+pub mod media_stream;
 pub mod secrets;
 pub mod app_config;
 pub mod importer;

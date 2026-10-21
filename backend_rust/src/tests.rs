@@ -960,6 +960,15 @@ mod server_enhancement_tests {
         pool: crate::db::DbPool,
         thumbnails_dir: PathBuf,
     ) -> std::sync::Arc<crate::AppState> {
+        create_test_state_with_dirs(pool, PathBuf::from("uploads"), thumbnails_dir)
+    }
+
+    /// Fully parameterized test state: both media roots point at temp dirs.
+    fn create_test_state_with_dirs(
+        pool: crate::db::DbPool,
+        uploads_dir: PathBuf,
+        thumbnails_dir: PathBuf,
+    ) -> std::sync::Arc<crate::AppState> {
         use crate::config::Config;
         use crate::services::llm_client::LlmClient;
         use crate::services::llm_server::LlmServer;
@@ -975,7 +984,7 @@ mod server_enhancement_tests {
             port: 8269,
             host: "127.0.0.1".to_string(),
             database_url: "sqlite::memory:".to_string(),
-            upload_dir: PathBuf::from("uploads"),
+            upload_dir: uploads_dir,
             thumbnails_dir,
             api_key: None,
             gpu_mode: "cpu".to_string(),
@@ -1243,6 +1252,196 @@ mod server_enhancement_tests {
         assert!(res.status().is_success());
         let res = crate::routes::settings::request_watcher_rescan().await.into_response();
         assert!(res.status().is_success());
+    }
+
+    // ── Media streaming: HTTP Range + path allowlist ──────────────────────
+
+    #[test]
+    /// test_parse_byte_range_cases - Tests parse byte range cases.
+    fn test_parse_byte_range_cases() {
+        use crate::services::media_stream::{parse_byte_range, RangeRequest};
+
+        assert_eq!(parse_byte_range("bytes=0-499", 1000), RangeRequest::Partial { start: 0, end: 499 });
+        assert_eq!(parse_byte_range("bytes=500-", 1000), RangeRequest::Partial { start: 500, end: 999 });
+        assert_eq!(parse_byte_range("bytes=-10", 1000), RangeRequest::Partial { start: 990, end: 999 });
+        // End clamped to file length
+        assert_eq!(parse_byte_range("bytes=900-5000", 1000), RangeRequest::Partial { start: 900, end: 999 });
+        // Start past EOF → 416
+        assert_eq!(parse_byte_range("bytes=2000-", 1000), RangeRequest::Unsatisfiable);
+        assert_eq!(parse_byte_range("bytes=0-", 0), RangeRequest::Unsatisfiable);
+        // Ignorable headers → serve full body
+        assert_eq!(parse_byte_range("bytes=0-10,20-30", 1000), RangeRequest::Full);
+        assert_eq!(parse_byte_range("bytes=abc-xyz", 1000), RangeRequest::Full);
+        assert_eq!(parse_byte_range("items=0-10", 1000), RangeRequest::Full);
+        assert_eq!(parse_byte_range("bytes=500-100", 1000), RangeRequest::Full);
+    }
+
+    #[tokio::test]
+    /// test_serve_seekable_file_http_range - Tests serve seekable file http range.
+    async fn test_serve_seekable_file_http_range() {
+        use axum::body::Body;
+        use axum::extract::State;
+        use axum::http::{header, HeaderMap, Request, StatusCode};
+        use axum::routing::get;
+        use axum::Router;
+        use http_body_util::BodyExt;
+        use std::path::PathBuf;
+        use tower::ServiceExt;
+
+        use crate::services::media_stream::serve_seekable_file;
+
+        let temp = TempDir::new().unwrap();
+        let file = temp.path().join("clip.mp4");
+        let data: Vec<u8> = (0..1024u32).map(|i| (i % 251) as u8).collect();
+        std::fs::write(&file, &data).unwrap();
+
+        /// h - Performs h.
+        async fn h(State(p): State<PathBuf>, headers: HeaderMap) -> Result<axum::response::Response, (StatusCode, String)> {
+            serve_seekable_file(&headers, p).await
+        }
+        let app = Router::new().route("/f", get(h)).with_state(file.clone());
+
+        // 1. No Range → 200 full body, advertises Accept-Ranges.
+        let res = app.clone().oneshot(Request::builder().uri("/f").body(Body::empty()).unwrap()).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+        assert_eq!(res.headers().get(header::ACCEPT_RANGES).unwrap(), "bytes");
+        assert_eq!(res.headers().get(header::CONTENT_LENGTH).unwrap(), "1024");
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..], &data[..]);
+
+        // 2. Explicit range → 206 with exact slice and Content-Range.
+        let res = app.clone().oneshot(
+            Request::builder().uri("/f").header(header::RANGE, "bytes=100-199").body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+        assert_eq!(res.headers().get(header::CONTENT_RANGE).unwrap(), "bytes 100-199/1024");
+        assert_eq!(res.headers().get(header::CONTENT_LENGTH).unwrap(), "100");
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..], &data[100..200]);
+
+        // 3. Open-ended range → tail of file.
+        let res = app.clone().oneshot(
+            Request::builder().uri("/f").header(header::RANGE, "bytes=900-").body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..], &data[900..]);
+
+        // 4. Suffix range → last 10 bytes.
+        let res = app.clone().oneshot(
+            Request::builder().uri("/f").header(header::RANGE, "bytes=-10").body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(res.status(), StatusCode::PARTIAL_CONTENT);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(&body[..], &data[1014..]);
+
+        // 5. Unsatisfiable range → 416 with Content-Range: bytes */len.
+        let res = app.clone().oneshot(
+            Request::builder().uri("/f").header(header::RANGE, "bytes=2000-3000").body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(res.status(), StatusCode::RANGE_NOT_SATISFIABLE);
+        assert_eq!(res.headers().get(header::CONTENT_RANGE).unwrap(), "bytes */1024");
+
+        // 6. Malformed range header → ignored, full body (never breaks playback).
+        let res = app.oneshot(
+            Request::builder().uri("/f").header(header::RANGE, "bytes=???").body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(res.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    /// test_stream_route_allowlist - Tests stream route allowlist.
+    async fn test_stream_route_allowlist() {
+        use axum::http::{HeaderMap, StatusCode};
+        use std::path::Path;
+
+        use crate::services::media_stream::{serve_stream_route, under_allowed_roots};
+
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let temp = TempDir::new().unwrap();
+        let thumbs = temp.path().join("thumbs");
+        let uploads = temp.path().join("uploads");
+        std::fs::create_dir_all(&thumbs).unwrap();
+        std::fs::create_dir_all(&uploads).unwrap();
+
+        let state = create_test_state_with_dirs(pool.clone(), uploads.clone(), thumbs.clone());
+
+        // 1. Media under a configured root is served.
+        let video = uploads.join("a.mov");
+        std::fs::write(&video, b"movdata").unwrap();
+        let res = serve_stream_route(&state, HeaderMap::new(), &video.to_string_lossy()).await;
+        assert!(res.is_ok(), "file under upload_dir must be streamable");
+
+        // 2. Sensitive files are refused even when passed directly.
+        let db_file = uploads.join("prism.db");
+        std::fs::write(&db_file, b"sqlite").unwrap();
+        let err = serve_stream_route(&state, HeaderMap::new(), &db_file.to_string_lossy())
+            .await
+            .unwrap_err();
+        assert_eq!(err.0, StatusCode::FORBIDDEN);
+
+        let key_file = thumbs.join(".prism-vault.key");
+        std::fs::write(&key_file, b"secret").unwrap();
+        let err = serve_stream_route(&state, HeaderMap::new(), &key_file.to_string_lossy())
+            .await
+            .unwrap_err();
+        assert_eq!(err.0, StatusCode::FORBIDDEN);
+
+        // 3. Files outside every root (and not DB-registered) are refused.
+        let outside = temp.path().join("private.mp4");
+        std::fs::write(&outside, b"sneaky").unwrap();
+        let err = serve_stream_route(&state, HeaderMap::new(), &outside.to_string_lossy())
+            .await
+            .unwrap_err();
+        assert_eq!(err.0, StatusCode::FORBIDDEN);
+
+        // 4. A path traversal through .. that lands outside roots is refused
+        // (canonicalization happens before the check, so `..` cannot escape).
+        let traverse = format!("{}/../../etc/passwd", uploads.to_string_lossy());
+        let result = serve_stream_route(&state, HeaderMap::new(), &traverse).await;
+        assert!(result.is_err());
+
+        // 5. A directory (not a file) is refused rather than streamed.
+        let dir_err = serve_stream_route(&state, HeaderMap::new(), &uploads.to_string_lossy())
+            .await
+            .unwrap_err();
+        assert_eq!(dir_err.0, StatusCode::NOT_FOUND);
+
+        // 6. under_allowed_roots: symlinked/`..`-laden paths resolve before
+        // the check, so escapes are visible.
+        assert!(under_allowed_roots(&uploads.join("a.mov"), &[uploads.clone()]));
+        assert!(!under_allowed_roots(Path::new("/etc/passwd"), &[uploads.clone()]));
+    }
+
+    #[tokio::test]
+    /// test_stream_route_serves_db_registered_photos - Tests stream route serves db registered photos.
+    async fn test_stream_route_serves_db_registered_photos() {
+        use axum::http::HeaderMap;
+
+        use crate::services::media_stream::serve_stream_route;
+
+        let pool = init_db("sqlite::memory:").await.unwrap();
+        let temp = TempDir::new().unwrap();
+        let thumbs = temp.path().join("thumbs");
+        std::fs::create_dir_all(&thumbs).unwrap();
+        let state = create_test_state_with_thumbs(pool.clone(), thumbs);
+
+        // A library video living outside the app dirs, registered in the DB.
+        let library = temp.path().join("library");
+        std::fs::create_dir_all(&library).unwrap();
+        let video = library.join("holiday.mp4");
+        std::fs::write(&video, vec![7u8; 512]).unwrap();
+        sqlx::query(
+            "INSERT INTO photos (filename, path, width, height, aspect_ratio, is_locked) VALUES (?, ?, 1920, 1080, 1.777, 0)"
+        )
+        .bind("holiday.mp4")
+        .bind(video.to_string_lossy().as_ref())
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let res = serve_stream_route(&state, HeaderMap::new(), &video.to_string_lossy()).await;
+        assert!(res.is_ok(), "DB-registered unlocked photo paths must be streamable");
     }
 }
 

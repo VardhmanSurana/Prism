@@ -322,8 +322,10 @@ pub async fn analyze_video_clip(
 }
 
 // ---------------------------------------------------------------------------
-// Video streaming endpoint — serves media files for the preview player.
-// Resolves relative paths (e.g. "uploads/...") relative to the working dir.
+// Video streaming endpoint — serves media files for the preview player and
+// the /local, /transcode and /hls/playlist aliases. Paths are resolved and
+// validated against the library allowlist (see services::media_stream) and
+// served with HTTP Range support so browsers can scrub large files.
 // ---------------------------------------------------------------------------
 
 #[derive(Deserialize)]
@@ -333,77 +335,11 @@ pub struct StreamQuery {
 
 /// stream_video - Performs stream video.
 pub async fn stream_video(
+    State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     axum::extract::Query(query): axum::extract::Query<StreamQuery>,
 ) -> Result<axum::response::Response, (StatusCode, String)> {
-    use axum::http::header;
-    use std::path::PathBuf;
-    use tokio::fs::File;
-    use tokio_util::io::ReaderStream;
-
-    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-    let path_str = query.path.trim();
-
-    let mut file_path = if std::path::Path::new(path_str).is_absolute() {
-        PathBuf::from(path_str)
-    } else {
-        cwd.join(path_str)
-    };
-
-    if !file_path.exists() {
-        let alt1 = cwd.join("uploads").join(path_str);
-        if alt1.exists() {
-            file_path = alt1;
-        } else {
-            let filename_only = std::path::Path::new(path_str)
-                .file_name()
-                .map(|f| f.to_string_lossy().to_string())
-                .unwrap_or_default();
-            let alt2 = cwd.join("uploads").join(&filename_only);
-            if alt2.exists() {
-                file_path = alt2;
-            } else {
-                return Err((StatusCode::NOT_FOUND, format!("File not found: {}", query.path)));
-            }
-        }
-    }
-
-    let canonical = file_path
-        .canonicalize()
-
-        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid video path".to_string()))?;
-
-    let canonical_cwd = cwd.canonicalize().map_err(|_| (StatusCode::INTERNAL_SERVER_ERROR, "Invalid working directory".to_string()))?;
-    if !canonical.starts_with(&canonical_cwd) {
-        return Err((StatusCode::FORBIDDEN, "Access denied: path traversal detected".to_string()));
-    }
-
-    let metadata = tokio::fs::metadata(&canonical)
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let file_size = metadata.len();
-    let mime = mime_guess::from_path(&canonical)
-        .first_or_octet_stream()
-        .to_string();
-
-    let file = File::open(&canonical)
-
-        .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-
-    let stream = ReaderStream::new(file);
-    let body = axum::body::Body::from_stream(stream);
-
-    Ok(axum::response::Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, mime)
-        .header(header::CONTENT_LENGTH, file_size.to_string())
-        .header(header::ACCEPT_RANGES, "bytes")
-        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
-        .header(header::ACCESS_CONTROL_ALLOW_METHODS, "GET, OPTIONS")
-        .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "*")
-        .body(body)
-        .unwrap())
+    crate::services::media_stream::serve_stream_route(&state, headers, &query.path).await
 }
 
 // ---------------------------------------------------------------------------

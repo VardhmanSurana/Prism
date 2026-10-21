@@ -223,26 +223,44 @@ pub async fn explore_themes(
     Ok(Json(json!({ "themes": themes })))
 }
 
-/// explore_on_this_day - Performs explore on this day.
+/// explore_on_this_day - Photos taken on this calendar day in earlier years.
 pub async fn explore_on_this_day(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, (StatusCode, String)> {
+    let now = chrono::Utc::now();
+    let month_day = now.format("%m-%d").to_string();
+    let year = now.format("%Y").to_string();
+
+    // ponytail: string-slice date match — stored timestamps are RFC3339 text ('T' + offset),
+    // avoids SQLite datetime parsing quirks entirely
     let photos = sqlx::query_as::<_, Photo>(
-        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 20"
+        "SELECT * FROM photos WHERE is_trash = 0 AND date_taken IS NOT NULL \
+         AND substr(date_taken, 6, 5) = ? AND substr(date_taken, 1, 4) < ? \
+         ORDER BY date_taken DESC LIMIT 60",
     )
+    .bind(&month_day)
+    .bind(&year)
     .fetch_all(&state.db)
     .await
     .unwrap_or_default();
 
-    let items = if photos.is_empty() {
-        vec![]
-    } else {
-        vec![json!({
-            "year": 2025,
+    let mut by_year: std::collections::BTreeMap<i32, Vec<Photo>> = std::collections::BTreeMap::new();
+    for p in photos {
+        if let Some(dt) = p.date_taken {
+            let y = dt.format("%Y").to_string().parse().unwrap_or(0);
+            by_year.entry(y).or_default().push(p);
+        }
+    }
+
+    let items: Vec<Value> = by_year
+        .into_iter()
+        .rev()
+        .map(|(y, photos)| json!({
+            "year": y,
             "photo_count": photos.len(),
-            "photos": photos
-        })]
-    };
+            "photos": photos,
+        }))
+        .collect();
 
     Ok(Json(json!({ "items": items })))
 }
@@ -411,9 +429,29 @@ pub async fn explore_highlights(
 
     let mut highlights = Vec::new();
     for e in &events {
-        let cover_photos: Vec<Value> = sqlx::query_as::<_, crate::models::Photo>(
-            "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 4"
+        let (Some(start), Some(end)) = (e.start_date, e.end_date) else {
+            continue;
+        };
+
+        // ponytail: date-window association — event_photos table doesn't exist yet
+        let photo_count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM photos WHERE is_trash = 0 AND date_taken >= ? AND date_taken <= ?",
         )
+        .bind(start)
+        .bind(end)
+        .fetch_one(&state.db)
+        .await
+        .unwrap_or(0);
+
+        if photo_count == 0 {
+            continue;
+        }
+
+        let cover_photos: Vec<Value> = sqlx::query_as::<_, crate::models::Photo>(
+            "SELECT * FROM photos WHERE is_trash = 0 AND date_taken >= ? AND date_taken <= ? ORDER BY date_taken DESC LIMIT 4",
+        )
+        .bind(start)
+        .bind(end)
         .fetch_all(&state.db)
         .await
         .unwrap_or_default()
@@ -428,7 +466,7 @@ pub async fn explore_highlights(
             "subtitle": format!("{}", e.event_type),
             "location": e.location,
             "duration_sec": 30,
-            "photo_count": cover_photos.len(),
+            "photo_count": photo_count,
             "cover_photos": cover_photos,
             "summary": e.summary,
         }));
@@ -444,21 +482,39 @@ pub async fn generate_highlight_project(
 ) -> Result<Json<Value>, (StatusCode, String)> {
     let event_id = payload.get("event_id").and_then(|v| v.as_i64());
 
-    let photos = if let Some(eid) = event_id {
-        sqlx::query_as::<_, crate::models::Photo>(
-            "SELECT * FROM photos WHERE is_trash = 0 AND id IN (SELECT photo_id FROM event_photos WHERE event_id = ?) ORDER BY date_taken DESC LIMIT 12"
+    let window: Option<(chrono::DateTime<chrono::Utc>, chrono::DateTime<chrono::Utc>)> = if let Some(eid) = event_id {
+        sqlx::query_as::<_, (Option<chrono::DateTime<chrono::Utc>>, Option<chrono::DateTime<chrono::Utc>>)>(
+            "SELECT start_date, end_date FROM events WHERE id = ?",
         )
         .bind(eid)
-        .fetch_all(&state.db)
+        .fetch_optional(&state.db)
         .await
-        .unwrap_or_default()
+        .ok()
+        .flatten()
+        .and_then(|(s, e)| Some((s?, e?)))
     } else {
-        sqlx::query_as::<_, crate::models::Photo>(
-            "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 12"
+        None
+    };
+
+    // ponytail: date-window association with recent-library fallback — event_photos table doesn't exist yet
+    let recent_or_empty = sqlx::query_as::<_, Photo>(
+        "SELECT * FROM photos WHERE is_trash = 0 ORDER BY date_taken DESC LIMIT 12",
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+    let photos = if let Some((start, end)) = window {
+        let event_photos = sqlx::query_as::<_, Photo>(
+            "SELECT * FROM photos WHERE is_trash = 0 AND date_taken >= ? AND date_taken <= ? ORDER BY date_taken DESC LIMIT 12",
         )
+        .bind(start)
+        .bind(end)
         .fetch_all(&state.db)
         .await
-        .unwrap_or_default()
+        .unwrap_or_default();
+        if event_photos.is_empty() { recent_or_empty } else { event_photos }
+    } else {
+        recent_or_empty
     };
 
     let project_name = if let Some(eid) = event_id {
@@ -502,4 +558,38 @@ pub async fn generate_highlight_project(
         "width": 1920,
         "height": 1080,
     })))
+}
+
+#[derive(Deserialize)]
+pub struct CaptureActivityQuery {
+    pub days: Option<i64>,
+}
+
+/// explore_capture_activity - Daily capture counts for the activity heatmap.
+pub async fn explore_capture_activity(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<CaptureActivityQuery>,
+) -> Json<Value> {
+    let days = params.days.unwrap_or(0).clamp(0, 3650);
+
+    let mut sql = String::from(
+        "SELECT substr(COALESCE(date_taken, upload_date), 1, 10), COUNT(*) FROM photos WHERE is_trash = 0",
+    );
+    if days > 0 {
+        // days is a clamped i64 interpolated below via bind — format! here builds the bind value only
+        sql.push_str(" AND substr(COALESCE(date_taken, upload_date), 1, 10) >= date('now', ?)");
+    }
+    sql.push_str(" GROUP BY 1 ORDER BY 1");
+
+    let mut query = sqlx::query_as::<_, (String, i64)>(&sql);
+    if days > 0 {
+        query = query.bind(format!("-{} days", days));
+    }
+    let buckets = query.fetch_all(&state.db).await.unwrap_or_default();
+
+    Json(json!({
+        "days": days,
+        "buckets": buckets.iter().map(|(d, c)| json!({ "date": d, "count": c })).collect::<Vec<_>>(),
+        "total": buckets.iter().map(|(_, c)| c).sum::<i64>(),
+    }))
 }

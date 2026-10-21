@@ -15,9 +15,13 @@ struct NamedSession {
     output_name: String,
 }
 
-fn create_single_session(path: &str, tag: &str) -> Result<NamedSession, String> {
-    let session = crate::services::onnx_helper::build_session(path, tag)
-        .map_err(|e| e.to_string())?;
+fn create_single_session(path: &str, tag: &str, gpu_only: bool) -> Result<NamedSession, String> {
+    let session = if gpu_only {
+        crate::services::onnx_helper::build_gpu_session(path, tag)?
+    } else {
+        crate::services::onnx_helper::build_session(path, tag)
+            .map_err(|e| e.to_string())?
+    };
 
     let input_name = session
         .inputs()
@@ -48,7 +52,7 @@ fn single_session_cache() -> &'static Mutex<SessionCache> {
     SINGLE_SESSION_CACHE.get_or_init(|| Mutex::new(SessionCache::new()))
 }
 
-fn load_single_session(paths: &[&str], tag: &str) -> Result<Arc<SingleSession>, String> {
+fn load_single_session(paths: &[&str], tag: &str, gpu_only: bool) -> Result<Arc<SingleSession>, String> {
     let cache = single_session_cache();
     if let Some(cached) = cache.lock().unwrap().get(tag) {
         return cached.clone().ok_or_else(|| {
@@ -58,15 +62,15 @@ fn load_single_session(paths: &[&str], tag: &str) -> Result<Arc<SingleSession>, 
 
     let found = paths.iter().find(|p| Path::new(p).exists()).copied();
     let loaded = match found {
-        Some(path) => {
-            if let Ok(sess) = create_single_session(path, tag) {
-                Some(Arc::new(SingleSession {
-                    session: Mutex::new(sess),
-                }))
-            } else {
+        Some(path) => match create_single_session(path, tag, gpu_only) {
+            Ok(sess) => Some(Arc::new(SingleSession {
+                session: Mutex::new(sess),
+            })),
+            Err(e) => {
+                tracing::error!("{}", e);
                 None
             }
-        }
+        },
         None => None,
     };
     cache.lock().unwrap().insert(tag.to_string(), loaded.clone());
@@ -215,7 +219,7 @@ impl UpscaleEngine {
             }
         }
         let total_tiles = coords.len();
-        let single_sess = load_single_session(ESRGAN_PATHS, "Real-ESRGAN")?;
+        let single_sess = load_single_session(ESRGAN_PATHS, "Real-ESRGAN", true)?;
         let mut sess_guard = single_sess.session.lock().unwrap();
 
         for (idx, &(tx, ty)) in coords.iter().enumerate() {
@@ -327,7 +331,7 @@ impl FaceRestoreEngine {
         if face_boxes.is_empty() {
             return Err("No faces detected in photo — nothing to restore".to_string());
         }
-        let single_sess = load_single_session(GFPGAN_PATHS, "GFPGAN")?;
+        let single_sess = load_single_session(GFPGAN_PATHS, "GFPGAN", false)?;
         let mut sess_guard = single_sess.session.lock().unwrap();
         const IN: usize = 512;
 
@@ -428,7 +432,9 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
 
         // ── Upscale: checkerboard sample 256×256 → expect 1024×1024 ─────
-        if ESRGAN_PATHS.iter().any(|p| Path::new(p).exists()) {
+        if !crate::services::onnx_helper::is_cuda_usable() {
+            eprintln!("skip: upscale requires CUDA GPU (GPU_MODE=cuda)");
+        } else if ESRGAN_PATHS.iter().any(|p| Path::new(p).exists()) {
             let path = dir.join("sample_upscale.png");
             let mut img = image::RgbaImage::new(256, 256);
             for (x, y, p) in img.enumerate_pixels_mut() {
@@ -438,7 +444,7 @@ mod tests {
             image::DynamicImage::ImageRgba8(img)
                 .save_with_format(&path, image::ImageFormat::Png).unwrap();
 
-            eprintln!("[test] running ESRGAN x4 pass (CPU, may take a minute)...");
+            eprintln!("[test] running ESRGAN x4 pass (GPU)...");
             let res = UpscaleEngine::get()
                 .upscale(path.to_str().unwrap(), 4)
                 .expect("upscale failed");
