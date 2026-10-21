@@ -83,6 +83,7 @@ interface MainContentProps {
   onBulkLockToggle?: (selectedIds: Set<string>) => Promise<void>;
   onResetSuccess?: () => void;
   onShareAlbum?: (album: Album | SmartAlbum) => void;
+  onNavigate?: (v: ViewMode) => void;
 }
 
 /**
@@ -115,6 +116,7 @@ export const MainContent = React.memo(function MainContent({
   onBulkLockToggle,
   onResetSuccess,
   onShareAlbum,
+  onNavigate,
 }: MainContentProps) {
   /**
    * renderContent - Performs render content.
@@ -122,7 +124,7 @@ export const MainContent = React.memo(function MainContent({
   const renderContent = () => {
     switch (currentView) {
       case 'explore':
-        return <ExploreView />;
+        return <ExploreView onNavigate={onNavigate} />;
       case 'agent':
         return <AgentView onPhotoClick={onPhotoClick} />;
       case 'albums':

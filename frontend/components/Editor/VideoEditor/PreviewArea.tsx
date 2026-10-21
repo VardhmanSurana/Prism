@@ -698,6 +698,7 @@ export const PreviewArea: React.FC<PreviewAreaProps> = ({
       >
         <canvas
           ref={canvasRef}
+          data-nle-preview-canvas="true"
           className="block bg-black shadow-2xl"
           style={{
             width: canvasDisplaySize ? canvasDisplaySize.width : '100%',

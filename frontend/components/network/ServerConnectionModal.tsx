@@ -6,12 +6,15 @@ import {
   Radio,
   Wifi,
   CheckCircle2,
-  ExternalLink,
   X,
   RefreshCw,
-  HardDrive
+  HardDrive,
+  Smartphone,
+  Upload
 } from 'lucide-react';
 import { getApiBase, setApiBase } from '@/constants';
+import { useMobileStore } from '@/store/mobileStore';
+import { openWebFileObjectsDialog } from '@/platform';
 
 interface DiscoveredPeer {
   peer_id: string;
@@ -41,6 +44,20 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({ is
   const [isScanning, setIsScanning] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
+  const {
+    autoBackupEnabled,
+    backupOnWifiOnly,
+    backupVideos,
+    backupStatus,
+    backupProgress,
+    pendingCount,
+    lastBackupAt,
+    setAutoBackupEnabled,
+    setBackupOnWifiOnly,
+    setBackupVideos,
+    backupFiles,
+  } = useMobileStore();
+
   // Scan for nearby LAN peers
   const scanPeers = async () => {
     setIsScanning(true);
@@ -64,7 +81,10 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({ is
   }, [isOpen]);
 
   const handleApplyLocal = () => {
-    setApiBase('http://127.0.0.1:8269');
+    const localUrl = 'http://127.0.0.1:8269';
+    setApiBase(localUrl);
+    useMobileStore.getState().setServerUrl(localUrl);
+    useMobileStore.getState().setPaired(false);
     setStatusMessage('Switched to local device instance. Reloading...');
     setTimeout(() => {
       window.location.reload();
@@ -75,10 +95,31 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({ is
     const clean = targetUrl.trim().replace(/\/+$/, '');
     if (!clean) return;
     setApiBase(clean);
+    useMobileStore.getState().setServerUrl(clean);
+    useMobileStore.getState().setPaired(true);
     setStatusMessage(`Connecting to ${clean}... Reloading...`);
     setTimeout(() => {
       window.location.reload();
     }, 600);
+  };
+
+  const handleBackupNow = async () => {
+    const files = await openWebFileObjectsDialog({
+      multiple: true,
+      accept: backupVideos ? 'image/*,video/*' : 'image/*',
+    });
+    if (!files || files.length === 0) return;
+
+    const result = await backupFiles(files);
+    if (result.failed === 0) {
+      setStatusMessage(
+        `Backed up ${result.uploaded} item${result.uploaded === 1 ? '' : 's'} to Prism server.`
+      );
+    } else {
+      setStatusMessage(
+        `Backup finished: ${result.uploaded} uploaded, ${result.failed} failed.`
+      );
+    }
   };
 
   if (!isOpen) return null;
@@ -100,7 +141,7 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({ is
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative w-full max-w-lg overflow-hidden rounded-3xl bg-[#14171D] border border-white/10 shadow-2xl p-7 text-white z-10"
+          className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl bg-[#14171D] border border-white/10 shadow-2xl p-7 text-white z-10"
         >
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
@@ -280,6 +321,82 @@ export const ServerConnectionModal: React.FC<ServerConnectionModalProps> = ({ is
               </div>
             </div>
           )}
+
+          {/* Mobile Camera Roll Backup Section */}
+          <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 space-y-3.5 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                <Smartphone size={15} className="text-primary" />
+                <span>Mobile Camera Roll Backup</span>
+              </div>
+              {lastBackupAt && (
+                <span className="text-[10px] text-gray-400">
+                  Last backup: {new Date(lastBackupAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2.5">
+              <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
+                <span>Enable Camera Roll Auto-Backup</span>
+                <input
+                  type="checkbox"
+                  checked={autoBackupEnabled}
+                  onChange={(e) => setAutoBackupEnabled(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary"
+                />
+              </label>
+
+              <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
+                <span>Backup on Wi-Fi / LAN Only</span>
+                <input
+                  type="checkbox"
+                  checked={backupOnWifiOnly}
+                  onChange={(e) => setBackupOnWifiOnly(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary"
+                />
+              </label>
+
+              <label className="flex items-center justify-between text-xs text-gray-300 cursor-pointer">
+                <span>Include Videos in Backup</span>
+                <input
+                  type="checkbox"
+                  checked={backupVideos}
+                  onChange={(e) => setBackupVideos(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary"
+                />
+              </label>
+            </div>
+
+            {backupStatus === 'backing_up' && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] text-gray-300">
+                  <span>Backing up camera roll... ({pendingCount} remaining)</span>
+                  <span>{backupProgress}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-200"
+                    style={{ width: `${backupProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleBackupNow}
+              disabled={backupStatus === 'backing_up'}
+              className="w-full py-2.5 rounded-xl bg-primary/20 hover:bg-primary/30 disabled:opacity-50 text-primary text-xs font-semibold flex items-center justify-center gap-2 transition-colors"
+            >
+              <Upload size={14} />
+              <span>
+                {backupStatus === 'backing_up'
+                  ? `Backing up (${backupProgress}%)...`
+                  : 'Backup Photos Now'}
+              </span>
+            </button>
+          </div>
 
           {statusMessage && (
             <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-xs text-center font-medium mb-4">

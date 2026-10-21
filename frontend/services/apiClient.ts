@@ -17,6 +17,12 @@ export async function fetchWithRetry(url: string, options: RequestInit, retries 
     }
     return response;
   } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      throw err;
+    }
+    if (options?.signal?.aborted) {
+      throw err;
+    }
     if (retries > 0) {
       await new Promise(resolve => setTimeout(resolve, delay));
       return fetchWithRetry(url, options, retries - 1, delay * 2);
@@ -25,13 +31,24 @@ export async function fetchWithRetry(url: string, options: RequestInit, retries 
   }
 }
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+async function request<T = unknown>(url: string, options?: RequestInit): Promise<T> {
   const base = getApiBase();
   const fullUrl = url.startsWith('http') ? url : `${base}${url}`;
 
   const headers = new Headers(options?.headers);
   if (!headers.has('Content-Type') && !(options?.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
+  }
+
+  if (typeof window !== 'undefined' && typeof window.localStorage !== 'undefined') {
+    const apiKey = window.localStorage.getItem('prism_api_key');
+    if (apiKey && !headers.has('X-API-Key')) {
+      headers.set('X-API-Key', apiKey);
+    }
+    const authToken = window.localStorage.getItem('prism_auth_token');
+    if (authToken && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${authToken}`);
+    }
   }
 
   const response = await fetchWithRetry(fullUrl, {
@@ -59,8 +76,12 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
  * apiClient - Performs api client.
  */
 export const apiClient = {
-  get: <T>(url: string) => request<T>(url),
-  post: <T>(url: string, body: unknown) => request<T>(url, { method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) }),
-  put: <T>(url: string, body: unknown) => request<T>(url, { method: 'PUT', body: body instanceof FormData ? body : JSON.stringify(body) }),
-  delete: <T>(url: string) => request<T>(url, { method: 'DELETE' }),
+  get: <T = unknown>(url: string, options?: RequestInit) => request<T>(url, options),
+  post: <T = unknown>(url: string, body: unknown, options?: RequestInit) =>
+    request<T>(url, { ...options, method: 'POST', body: body instanceof FormData ? body : JSON.stringify(body) }),
+  put: <T = unknown>(url: string, body: unknown, options?: RequestInit) =>
+    request<T>(url, { ...options, method: 'PUT', body: body instanceof FormData ? body : JSON.stringify(body) }),
+  patch: <T = unknown>(url: string, body: unknown, options?: RequestInit) =>
+    request<T>(url, { ...options, method: 'PATCH', body: body instanceof FormData ? body : JSON.stringify(body) }),
+  delete: <T = unknown>(url: string, options?: RequestInit) => request<T>(url, { ...options, method: 'DELETE' }),
 };

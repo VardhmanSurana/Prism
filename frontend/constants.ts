@@ -15,6 +15,21 @@ export const getApiBase = (): string => {
       // Ignore localStorage access issues in tests/sandboxes
     }
   }
+  if (typeof window !== 'undefined' && window.location && window.location.hostname) {
+    const { hostname, protocol, port, origin } = window.location;
+    if (
+      hostname !== 'localhost' &&
+      hostname !== '127.0.0.1' &&
+      hostname !== '::1' &&
+      hostname !== '[::1]' &&
+      hostname !== ''
+    ) {
+      if (port === '8269') {
+        return (origin || `${protocol || 'http:'}//${hostname}:8269`).replace(/\/+$/, '');
+      }
+      return `${protocol || 'http:'}//${hostname}:8269`;
+    }
+  }
   return (import.meta.env.VITE_API_BASE as string) || DEFAULT_API_BASE;
 };
 

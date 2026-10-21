@@ -16,24 +16,34 @@ export const usePhotoGrid = (
   const { settings } = useGalleryLayout();
   const imageGrouping = settings.imageGrouping;
 
+  const isMobileViewport = Boolean(containerWidth && containerWidth < 768);
+
   // Adjust row height and packing factor based on layout mode
   const effectiveRowHeight = useMemo(() => {
-    if (layoutMode === 'dense') return Math.max(160, Math.round(rowHeight * 0.65));
-    if (layoutMode === 'editorial') return Math.max(300, Math.round(rowHeight * 1.15));
-    return rowHeight;
-  }, [layoutMode, rowHeight]);
+    let targetRowHeight = rowHeight;
+    if (layoutMode === 'dense') {
+      targetRowHeight = Math.max(160, Math.round(rowHeight * 0.65));
+    } else if (layoutMode === 'editorial') {
+      targetRowHeight = Math.max(300, Math.round(rowHeight * 1.15));
+    }
+    return isMobileViewport ? Math.min(targetRowHeight, 140) : targetRowHeight;
+  }, [layoutMode, rowHeight, isMobileViewport]);
 
   /**
    * effectiveMaxWidth - Performs effective max width.
    */
   const effectiveMaxWidth = useMemo(() => {
-    if (containerWidth && containerWidth > 300) {
-      // Subtract margins and right-side chronology rail allowance (~120px)
-      const availableWidth = Math.max(300, containerWidth - 120);
-      const baseWidth = availableWidth / effectiveRowHeight;
+    if (containerWidth && containerWidth > 240) {
+      // On mobile (< 768px), only subtract minimal horizontal padding (16px);
+      // on desktop, subtract margins and right-side chronology rail allowance (~120px)
+      const effectiveWidth =
+        containerWidth < 768
+          ? Math.max(240, containerWidth - 16)
+          : Math.max(300, containerWidth - 120);
+      const baseWidth = effectiveWidth / effectiveRowHeight;
       if (layoutMode === 'dense') return baseWidth * 1.35;
       if (layoutMode === 'editorial') return baseWidth * 0.95;
-      return Math.max(3.0, baseWidth);
+      return Math.max(containerWidth < 768 ? 2.2 : 3.0, baseWidth);
     }
     const base = maxRowWidth ? maxRowWidth * 1.5 : 6.0;
     if (layoutMode === 'dense') return base * 1.4;

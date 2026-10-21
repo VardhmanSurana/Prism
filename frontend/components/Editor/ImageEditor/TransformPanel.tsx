@@ -3,9 +3,10 @@ import { RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Check } from 'lucide
 import { Adjustments } from './filterEngine';
 import { EditorSlider } from './ui/EditorSlider';
 
-const ASPECT_RATIOS = [
+export const ASPECT_RATIOS = [
   { label: 'Free',  value: NaN       },
   { label: '1:1',   value: 1         },
+  { label: '7:9', value: 7 / 9 },
   { label: '3:2',   value: 3 / 2     },
   { label: '4:3',   value: 4 / 3     },
   { label: '4:5',   value: 4 / 5     },
@@ -63,14 +64,15 @@ export const TransformPanel: React.FC<TransformPanelProps> = ({
             {ASPECT_RATIOS.map(ratio => {
               const active =
                 (isNaN(currentRatio) && isNaN(ratio.value)) ||
-                ratio.value === currentRatio;
+                ratio.value === currentRatio ||
+                (!isNaN(currentRatio) && !isNaN(ratio.value) && Math.abs(ratio.value - currentRatio) < 0.001);
               return (
                 <button
                   key={ratio.label}
                   onClick={() => handleSetAspectRatio(ratio.value)}
                   className={`editor-btn editor-card-btn ${
                     active ? 'active' : ''
-                  } px-3 py-2.5 text-xs font-bold text-center`}
+                  } px-2.5 py-2.5 text-xs font-bold text-center leading-tight flex items-center justify-center`}
                 >
                   {ratio.label}
                 </button>

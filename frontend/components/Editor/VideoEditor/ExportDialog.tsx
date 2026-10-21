@@ -105,7 +105,11 @@ export const ExportDialog: React.FC<ExportDialogProps> = ({ onClose }) => {
             seek(tSec);
             // ponytail: rAF yields to the render pipeline; setTimeout(16) didn't
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-            return (document.querySelector('canvas') as HTMLCanvasElement) || undefined;
+            return (
+              (document.querySelector('canvas[data-nle-preview-canvas]') as HTMLCanvasElement) ||
+              (document.querySelector('canvas') as HTMLCanvasElement) ||
+              undefined
+            );
           },
           onProgress: (pct, currentFrame, totalFrames) => {
             setProgressPercent(pct);

@@ -66,6 +66,23 @@ describe('useTransformControls native crop and transform', () => {
     expect(hook.result.current.hasCropSelection).toBe(true);
   });
 
+  it('adjusts crop rect to passport size ratio (35/45) centered', () => {
+    const { hook } = setupHook();
+    const passportRatio = 35 / 45;
+
+    act(() => {
+      hook.result.current.handleSetAspectRatio(passportRatio);
+    });
+
+    expect(hook.result.current.currentRatio).toBeCloseTo(passportRatio, 5);
+    // Since ratio < 1 (portrait), newH = 1, newW = 1 * ratio = 35/45
+    expect(hook.result.current.cropRect.height).toBe(1);
+    expect(hook.result.current.cropRect.width).toBeCloseTo(passportRatio, 5);
+    expect(hook.result.current.cropRect.x).toBeCloseTo((1 - passportRatio) / 2, 5);
+    expect(hook.result.current.cropRect.y).toBe(0);
+    expect(hook.result.current.hasCropSelection).toBe(true);
+  });
+
   it('handles rotation and flips correctly', () => {
     const { hook, setTotalRotation, setFlipH, setFlipV, setStraightenAngle } = setupHook();
 

@@ -199,9 +199,9 @@ function App() {
     }
   }, [handleBulkDelete, currentView, announce]);
 
-  const handleBulkDeleteFromBar = useCallback(async () => {
+  const handleBulkDeleteFromBar = useCallback(async (skipConfirm?: boolean) => {
     const count = selectedIds.size;
-    await handleBulkDelete();
+    await handleBulkDelete(skipConfirm);
     if (count > 0) {
       announce(
         currentView === 'trash'
@@ -516,14 +516,61 @@ function App() {
             />
           )}
 
-          {isMobile && currentView === 'gallery' && (
-            <MobileHeader
-              currentView={currentView}
-              onSearch={setActiveFilters}
-              sortMode={sortMode}
-              onSortChange={setSortMode}
-              onChangeView={handleViewChange}
-            />
+          {isMobile && (
+            <>
+              <input
+                id="prism-mobile-file-upload"
+                type="file"
+                multiple
+                accept="image/*,video/*"
+                className="hidden"
+                aria-hidden="true"
+                onChange={async (e) => {
+                  const files = e.target.files ? Array.from(e.target.files) : [];
+                  e.target.value = '';
+                  if (files.length === 0) return;
+
+                  const uploadedPhotos: Photo[] = [];
+                  for (const file of files) {
+                    try {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      const res = await fetch(`${API_BASE}/api/v1/photos/upload`, {
+                        method: 'POST',
+                        body: formData,
+                      });
+                      if (res.ok) {
+                        const data = await res.json();
+                        const raw = data?.photo ?? data;
+                        if (raw && raw.id !== undefined) {
+                          uploadedPhotos.push(normalizePhoto(raw));
+                        }
+                      }
+                    } catch (err) {
+                      logError('MobileUpload', 'upload_failed', err);
+                    }
+                  }
+                  if (uploadedPhotos.length > 0) {
+                    handleUpload(uploadedPhotos);
+                  }
+                }}
+              />
+              <MobileHeader
+                currentView={currentView}
+                onSearch={setActiveFilters}
+                sortMode={sortMode}
+                onSortChange={setSortMode}
+                onChangeView={handleViewChange}
+                onUpload={() => {
+                  const input = document.getElementById('prism-mobile-file-upload') as HTMLInputElement | null;
+                  if (input) {
+                    input.click();
+                  } else {
+                    handleUpload([]);
+                  }
+                }}
+              />
+            </>
           )}
 
           <MainContent
@@ -553,6 +600,7 @@ function App() {
             onBulkLockToggle={handleBulkLockToggle}
             onResetSuccess={handleResetSuccess}
             onShareAlbum={handleShareAlbum}
+            onNavigate={handleViewChange}
           />
 
           <BulkActionsBar
@@ -637,7 +685,6 @@ function App() {
         </Suspense>
         <Suspense fallback={null}>
           <PhotoBook
-            photos={selectedPhotos}
             isOpen={isPhotoBookOpen}
             onClose={() => setIsPhotoBookOpen(false)}
           />

@@ -2,7 +2,7 @@
  * Timeline — bottom panel with tracks, clips, playhead, drag, trim, split, zoom.
  * Upgraded to match OpenCut's timeline aesthetic and frame-accurate tick ruler.
  */
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useState, useEffect, useMemo } from 'react';
 import { useNLEStore } from '@/store/nleStore';
 import type { Clip } from '@/types/nle';
 import { Ruler } from './components/Ruler';
@@ -592,7 +592,7 @@ export const Timeline: React.FC = () => {
             style={{ width: totalWidth }}
             onClick={handleRulerClick}
           >
-            {(() => {
+            {useMemo(() => {
               const { labelIntervalSeconds, tickIntervalSeconds } = getRulerConfig(pixelsPerSec, projectFps);
               const rulerDuration = totalWidth / pixelsPerSec;
               const tickCount = Math.ceil(rulerDuration / tickIntervalSeconds) + 1;
@@ -619,7 +619,7 @@ export const Timeline: React.FC = () => {
                 );
               }
               return ticks;
-            })()}
+            }, [totalWidth, pixelsPerSec, projectFps])}
 
             {/* Bookmark markers */}
             {bookmarks.map((bm) => (
