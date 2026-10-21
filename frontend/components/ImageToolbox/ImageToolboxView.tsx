@@ -26,6 +26,8 @@ import {
   Image as ImageIcon,
   Type,
   ArrowLeft,
+  Play,
+  Plus,
 } from 'lucide-react';
 import exifr from 'exifr';
 import { Photo } from '@/types';
@@ -33,6 +35,28 @@ import { PhotoBook } from '../PhotoView/PhotoBook';
 import { CollageMaker } from '../PhotoView/CollageMaker';
 import { EditingMode } from '../Editor/ImageEditor/EditingMode';
 import { StudioToolboxCatalog } from './StudioToolboxCatalog';
+import {
+  getVideoInfo,
+  trimVideoFile,
+  compressVideoFile,
+  videoToGif,
+  formatBytes,
+  formatTimecode,
+  downloadBlob,
+  estimateGifFrameCount,
+  GIF_MAX_FRAMES,
+  type VideoInfo,
+  type VideoToolResult,
+  type CompressionQuality,
+} from './videoTools';
+import {
+  parseSubtitles,
+  serializeSubtitles,
+  validateSubtitleCues,
+  formatSubtitleTimestamp,
+  type SubtitleCue,
+  type SubtitleFormat,
+} from './subtitles';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -167,12 +191,144 @@ const ToolImageUpload: React.FC<{
   );
 };
 
+// ─── Shared Upload Component (video) ─────────────────────────────────────
+
+/**
+ * ToolVideoUpload - Single-file video picker with drag & drop, preview and metadata.
+ */
+const ToolVideoUpload: React.FC<{
+  file: UploadedFile | null;
+  info: VideoInfo | null;
+  onUpload: (file: UploadedFile) => void;
+  onClear: () => void;
+  videoRef?: React.RefObject<HTMLVideoElement>;
+}> = ({ file, info, onUpload, onClear, videoRef }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  /**
+   * handleFiles - Accepts the first video file from a file list.
+   */
+  const handleFiles = useCallback((fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    const video = Array.from(fileList).find(f => f.type.startsWith('video/'));
+    if (!video) return;
+    onUpload({
+      id: `video-${Date.now()}`,
+      name: video.name,
+      url: URL.createObjectURL(video),
+      file: video,
+    });
+  }, [onUpload]);
+
+  /**
+   * handleDrop - Handles drop.
+   */
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    handleFiles(e.dataTransfer.files);
+  }, [handleFiles]);
+
+  if (!file) {
+    return (
+      <div
+        onClick={() => fileInputRef.current?.click()}
+        onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleDrop}
+        className={`border-2 border-dashed rounded-[10px] flex flex-col items-center justify-center p-10 cursor-pointer transition-colors duration-200 ease-out gap-3 ${
+          isDragOver
+            ? 'border-white/20 bg-white/5'
+            : 'border-white/10 hover:border-white/25 hover:bg-white/5'
+        }`}
+      >
+        <Upload className="w-10 h-10 text-neutral-500" />
+        <p className="text-xs font-medium text-neutral-300">Click or drop a video here</p>
+        <p className="text-[11px] text-neutral-500">Supports MP4, WebM, MOV, MKV</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          onChange={e => handleFiles(e.target.files)}
+          className="hidden"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-neutral-300 truncate">{file.name}</p>
+          <p className="text-[10px] text-neutral-500 font-mono">
+            {formatBytes(file.file.size)}
+            {info ? ` · ${info.width}×${info.height} · ${formatTimecode(info.duration)}` : ''}
+          </p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="px-3 py-1.5 bg-white/10 border border-white/20 text-neutral-300 hover:text-white hover:bg-white/15 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors duration-150 ease-out"
+          >
+            <Upload size={12} />
+            Replace
+          </button>
+          <button
+            onClick={onClear}
+            className="px-3 py-1.5 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 hover:border-red-500/30 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors duration-150 ease-out"
+          >
+            <Trash2 size={12} />
+            Clear
+          </button>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="video/*"
+          onChange={e => handleFiles(e.target.files)}
+          className="hidden"
+        />
+      </div>
+      <video
+        ref={videoRef}
+        src={file.url}
+        controls
+        className="w-full max-h-56 rounded-lg bg-black border border-white/10"
+      />
+    </div>
+  );
+};
+
 // ─── Utility: draw image to canvas ────────────────────────────────────────────
 
 /**
- * loadImageToCanvas - Performs load image to canvas.
+ * loadImageToCanvas - Decodes an image source into a canvas.
+ * Prefers createImageBitmap (off-main-thread decode) and falls back to the
+ * classic <img> decoder when bitmap decoding is unavailable or blocked.
  */
-function loadImageToCanvas(src: string): Promise<{ img: HTMLImageElement; canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> {
+async function loadImageToCanvas(src: string): Promise<{ canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D }> {
+  try {
+    const response = await fetch(src);
+    if (response.ok) {
+      const bitmap = await createImageBitmap(await response.blob());
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        bitmap.close();
+        throw new Error('Canvas context unavailable');
+      }
+      ctx.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return { canvas, ctx };
+    }
+  } catch {
+    // Fall back to the <img> decoder below.
+  }
+
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -183,7 +339,7 @@ function loadImageToCanvas(src: string): Promise<{ img: HTMLImageElement; canvas
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error('Canvas context unavailable'));
       ctx.drawImage(img, 0, 0);
-      resolve({ img, canvas, ctx });
+      resolve({ canvas, ctx });
     };
     img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
     img.src = src;
@@ -261,7 +417,7 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
 
   // Converter state
   const [converterFiles, setConverterFiles] = useState<UploadedFile[]>([]);
-  const [targetFormat, setTargetFormat] = useState<'png' | 'jpeg' | 'webp'>('webp');
+  const [targetFormat, setTargetFormat] = useState<'png' | 'jpeg' | 'webp' | 'avif'>('webp');
   const [quality, setQuality] = useState<number>(85);
   const [isConverting, setIsConverting] = useState(false);
   const [convertedCount, setConvertedCount] = useState(0);
@@ -317,6 +473,52 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
   const [metadataResults, setMetadataResults] = useState<Map<string, Record<string, unknown>>>(new Map());
   const [isParsing, setIsParsing] = useState(false);
 
+  // Converter: browser-encodable formats (detected at runtime) + failures
+  const [encodableFormats, setEncodableFormats] = useState<Array<'png' | 'jpeg' | 'webp' | 'avif'>>(
+    ['png', 'jpeg', 'webp'],
+  );
+  const [convertFailures, setConvertFailures] = useState<string[]>([]);
+
+  // Video tool state (shared source file across trimmer/compressor/GIF)
+  const [videoFile, setVideoFile] = useState<UploadedFile | null>(null);
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [videoInfoError, setVideoInfoError] = useState<string | null>(null);
+  const trimPreviewRef = useRef<HTMLVideoElement>(null);
+
+  // Trimmer state
+  const [trimStart, setTrimStart] = useState<number>(0);
+  const [trimEnd, setTrimEnd] = useState<number>(0);
+  const [isTrimming, setIsTrimming] = useState(false);
+  const [trimProgress, setTrimProgress] = useState<number>(0);
+  const [trimResult, setTrimResult] = useState<VideoToolResult | null>(null);
+  const [trimError, setTrimError] = useState<string | null>(null);
+
+  // Compressor state
+  const [compressQuality, setCompressQuality] = useState<CompressionQuality>('medium');
+  const [compressMaxHeight, setCompressMaxHeight] = useState<number>(0); // 0 = keep original
+  const [isCompressing, setIsCompressing] = useState(false);
+  const [compressProgress, setCompressProgress] = useState<number>(0);
+  const [compressResult, setCompressResult] = useState<VideoToolResult | null>(null);
+  const [compressError, setCompressError] = useState<string | null>(null);
+
+  // GIF state
+  const [gifFps, setGifFps] = useState<number>(15);
+  const [gifMaxWidth, setGifMaxWidth] = useState<number>(480);
+  const [gifStart, setGifStart] = useState<number>(0);
+  const [gifEnd, setGifEnd] = useState<number>(0);
+  const [isGifConverting, setIsGifConverting] = useState(false);
+  const [gifProgress, setGifProgress] = useState<number>(0);
+  const [gifResult, setGifResult] = useState<VideoToolResult | null>(null);
+  const [gifError, setGifError] = useState<string | null>(null);
+
+  // Subtitle editor state
+  const [subtitleCues, setSubtitleCues] = useState<SubtitleCue[]>([]);
+  const [subtitleFormat, setSubtitleFormat] = useState<SubtitleFormat>('srt');
+  const [subtitleName, setSubtitleName] = useState<string>('subtitles');
+  const [subtitleError, setSubtitleError] = useState<string | null>(null);
+  const [subtitlePasteText, setSubtitlePasteText] = useState<string>('');
+  const subtitleInputRef = useRef<HTMLInputElement>(null);
+
 
 
   // ─── Converter ────────────────────────────────────────────────────────────
@@ -328,7 +530,9 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
     if (converterFiles.length === 0) return;
     setIsConverting(true);
     setConvertedCount(0);
+    setConvertFailures([]);
 
+    const failures: string[] = [];
     for (const item of converterFiles) {
       try {
         const { canvas } = await loadImageToCanvas(item.url);
@@ -347,11 +551,39 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
           const baseName = item.name.replace(/\.[^/.]+$/, '');
           downloadCanvas(canvas, `${baseName}.${targetFormat}`, `image/${targetFormat}`, quality / 100);
         }
-      } catch { /* skip failed */ }
+      } catch {
+        failures.push(item.name);
+      }
       setConvertedCount(prev => prev + 1);
     }
+    setConvertFailures(failures);
     setIsConverting(false);
   };
+
+  // Detect which image encoders this browser actually implements, so the
+  // converter only offers formats that will not silently fall back to PNG.
+  useEffect(() => {
+    let cancelled = false;
+    const detect = (type: string) =>
+      new Promise<boolean>(resolve => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        canvas.toBlob(blob => resolve(!!blob && blob.type === type), type);
+      });
+    (async () => {
+      const [webp, avif] = await Promise.all([detect('image/webp'), detect('image/avif')]);
+      if (cancelled) return;
+      const formats: Array<'png' | 'jpeg' | 'webp' | 'avif'> = ['png', 'jpeg'];
+      if (webp) formats.push('webp');
+      if (avif) formats.push('avif');
+      setEncodableFormats(formats);
+      setTargetFormat(prev => (formats.includes(prev) ? prev : 'png'));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // When first file loads, seed resize dimensions from its natural size
   useEffect(() => {
@@ -451,6 +683,248 @@ export const ImageToolboxView: React.FC<ImageToolboxViewProps> = ({ photos = [] 
         downloadCanvas(canvas, `${baseName}-stripped.${ext}`, `image/${ext === 'png' ? 'png' : 'jpeg'}`);
       } catch { /* skip */ }
     }
+  };
+
+  // ─── Video Tools (Mediabunny / WebCodecs) ───────────────────────────────
+
+  /**
+   * revokeVideoState - Revokes object URLs and resets all video tool state.
+   */
+  const revokeVideoState = useCallback(() => {
+    setVideoFile(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setTrimResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setCompressResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setGifResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    setVideoInfo(null);
+    setVideoInfoError(null);
+    setTrimStart(0);
+    setTrimEnd(0);
+    setTrimProgress(0);
+    setTrimError(null);
+    setCompressProgress(0);
+    setCompressError(null);
+    setGifStart(0);
+    setGifEnd(0);
+    setGifProgress(0);
+    setGifError(null);
+  }, []);
+
+  /**
+   * handleVideoUpload - Loads a source video and reads its metadata.
+   */
+  const handleVideoUpload = useCallback((item: UploadedFile) => {
+    revokeVideoState();
+    setVideoFile(item);
+    getVideoInfo(item.file)
+      .then(info => {
+        setVideoInfo(info);
+        setTrimEnd(info.duration);
+        setGifEnd(Math.min(info.duration, 15));
+      })
+      .catch((err: unknown) => {
+        setVideoInfoError(err instanceof Error ? err.message : 'Could not read video metadata.');
+      });
+  }, [revokeVideoState]);
+
+  /**
+   * handleTrimPreview - Plays only the selected range in the preview player.
+   */
+  const handleTrimPreview = () => {
+    const video = trimPreviewRef.current;
+    if (!video) return;
+    video.currentTime = trimStart;
+    const stopAt = trimEnd;
+    const onTimeUpdate = () => {
+      if (video.currentTime >= stopAt) {
+        video.pause();
+        video.removeEventListener('timeupdate', onTimeUpdate);
+      }
+    };
+    video.removeEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.play()?.catch(() => { /* autoplay blocked */ });
+  };
+
+  /**
+   * handleTrimExport - Trims the selected range and prepares a download.
+   */
+  const handleTrimExport = async () => {
+    if (!videoFile) return;
+    setIsTrimming(true);
+    setTrimProgress(0);
+    setTrimError(null);
+    setTrimResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    try {
+      const result = await trimVideoFile({
+        file: videoFile.file,
+        start: trimStart,
+        end: trimEnd,
+        onProgress: setTrimProgress,
+      });
+      setTrimResult(result);
+    } catch (err) {
+      setTrimError(err instanceof Error ? err.message : 'Trimming failed.');
+    } finally {
+      setIsTrimming(false);
+    }
+  };
+
+  /**
+   * handleCompressExport - Re-encodes the video and prepares a download.
+   */
+  const handleCompressExport = async () => {
+    if (!videoFile) return;
+    setIsCompressing(true);
+    setCompressProgress(0);
+    setCompressError(null);
+    setCompressResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    try {
+      const result = await compressVideoFile({
+        file: videoFile.file,
+        quality: compressQuality,
+        maxHeight: compressMaxHeight || undefined,
+        onProgress: setCompressProgress,
+      });
+      setCompressResult(result);
+    } catch (err) {
+      setCompressError(err instanceof Error ? err.message : 'Compression failed.');
+    } finally {
+      setIsCompressing(false);
+    }
+  };
+
+  /**
+   * handleGifExport - Encodes the selected range as an animated GIF.
+   */
+  const handleGifExport = async () => {
+    if (!videoFile) return;
+    setIsGifConverting(true);
+    setGifProgress(0);
+    setGifError(null);
+    setGifResult(prev => {
+      if (prev) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+    try {
+      const result = await videoToGif({
+        file: videoFile.file,
+        fps: gifFps,
+        maxWidth: gifMaxWidth,
+        start: gifStart,
+        end: gifEnd,
+        onProgress: setGifProgress,
+      });
+      setGifResult(result);
+    } catch (err) {
+      setGifError(err instanceof Error ? err.message : 'GIF conversion failed.');
+    } finally {
+      setIsGifConverting(false);
+    }
+  };
+
+  // ─── Subtitle Editor ───────────────────────────────────────────────────
+
+  /**
+   * applySubtitleText - Parses subtitle text and loads cues into the editor.
+   */
+  const applySubtitleText = (text: string, name: string) => {
+    try {
+      const { format, cues } = parseSubtitles(text);
+      if (cues.length === 0) {
+        setSubtitleError('No cues found. Check that the text is valid SRT or WebVTT.');
+        return;
+      }
+      setSubtitleFormat(format);
+      setSubtitleCues(cues);
+      setSubtitleName(name || 'subtitles');
+      setSubtitleError(null);
+    } catch {
+      setSubtitleError('Could not parse the subtitles.');
+    }
+  };
+
+  /**
+   * handleSubtitleFile - Loads and parses a dropped/picked .srt or .vtt file.
+   */
+  const handleSubtitleFile = async (file: File) => {
+    try {
+      const text = await file.text();
+      applySubtitleText(text, file.name.replace(/\.[^/.]+$/, ''));
+    } catch {
+      setSubtitleError('Could not read the subtitle file.');
+    }
+  };
+
+  /**
+   * updateSubtitleCue - Applies a partial patch to one cue.
+   */
+  const updateSubtitleCue = (index: number, patch: Partial<SubtitleCue>) => {
+    setSubtitleCues(prev => prev.map((cue, i) => (i === index ? { ...cue, ...patch } : cue)));
+  };
+
+  /**
+   * removeSubtitleCue - Deletes the cue at the given index.
+   */
+  const removeSubtitleCue = (index: number) => {
+    setSubtitleCues(prev => prev.filter((_, i) => i !== index));
+  };
+
+  /**
+   * handleSubtitleCopy - Copies the serialized subtitles to the clipboard.
+   */
+  const handleSubtitleCopy = async () => {
+    if (subtitleCues.length === 0) return;
+    try {
+      await navigator.clipboard.writeText(serializeSubtitles(subtitleCues, subtitleFormat));
+    } catch {
+      setSubtitleError('Clipboard access was denied.');
+    }
+  };
+
+  /**
+   * addSubtitleCue - Appends a new cue after the current last cue.
+   */
+  const addSubtitleCue = () => {
+    setSubtitleCues(prev => {
+      const last = prev[prev.length - 1];
+      const start = last ? last.end : 0;
+      return [...prev, { start, end: start + 2, text: 'New cue' }];
+    });
+  };
+
+  /**
+   * handleSubtitleDownload - Validates, serializes and downloads the cues.
+   */
+  const handleSubtitleDownload = (format: SubtitleFormat) => {
+    const error = validateSubtitleCues(subtitleCues);
+    if (error) {
+      setSubtitleError(error);
+      return;
+    }
+    const text = serializeSubtitles(subtitleCues, format);
+    const blob = new Blob([text], {
+      type: format === 'vtt' ? 'text/vtt' : 'application/x-subrip',
+    });
+    downloadBlob(blob, `${subtitleName || 'subtitles'}.${format}`);
+    setSubtitleError(null);
   };
 
   // ─── Base64 Encode ──────────────────────────────────────────────────────
@@ -781,7 +1255,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
         />
 
         {/* Modals */}
-        <PhotoBook photos={photos} isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
+        <PhotoBook isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
         <CollageMaker photos={photos} isOpen={isCollageOpen} onClose={() => setIsCollageOpen(false)} />
         {isWebEditorOpen && webPreview && (
           <EditingMode
@@ -977,7 +1451,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       <div>
                         <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Target Format</label>
                         <div className="flex gap-2">
-                          {(['webp', 'png', 'jpeg'] as const).map(fmt => (
+                          {encodableFormats.map(fmt => (
                             <button
                               key={fmt}
                               onClick={() => setTargetFormat(fmt)}
@@ -1122,6 +1596,12 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
                       <Download size={15} />
                       {isConverting ? `Converting (${convertedCount}/${converterFiles.length})…` : `Convert & Download ${converterFiles.length} Images`}
                     </button>
+
+                    {convertFailures.length > 0 && (
+                      <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                        Failed to convert: {convertFailures.join(', ')}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1734,89 +2214,563 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
 
             {/* ── Video Trimmer ──────────────────────────────────── */}
             {activeTab === 'video-trimmer' && (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-[10px] bg-white/10 border border-white/20 flex items-center justify-center text-neutral-300">
-                  <Scissors size={32} />
-                </div>
-                <div className="max-w-md">
-                  <h2 className="text-lg font-bold text-white">Video Trimmer</h2>
-                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                    Cut and trim video clips with frame-accurate precision. Set start and end points, then export your trimmed clip.
+              <div className="flex-1 flex flex-col space-y-5">
+                <div className="border-b border-white/10 pb-4">
+                  <h2 className="text-sm font-bold text-white">Video Trimmer</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Cut a precise range in your browser — media data is copied untouched whenever the container allows it
                   </p>
                 </div>
-                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
-                  <div className="border-2 border-dashed border-white/20 rounded-md p-8 flex flex-col items-center gap-3 hover:border-white/30 transition-colors cursor-pointer">
-                    <Film size={24} className="text-neutral-300" />
-                    <p className="text-xs text-neutral-300">Drop a video file here</p>
-                    <p className="text-[10px] text-neutral-500">Supports MP4, MOV, WebM</p>
+
+                <ToolVideoUpload
+                  file={videoFile}
+                  info={videoInfo}
+                  onUpload={handleVideoUpload}
+                  onClear={revokeVideoState}
+                  videoRef={trimPreviewRef}
+                />
+
+                {videoInfoError && (
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                    {videoInfoError}
                   </div>
-                </div>
+                )}
+
+                {videoFile && !videoInfo && !videoInfoError && (
+                  <div className="flex items-center gap-2 text-xs text-neutral-300">
+                    <div className="w-3 h-3 border-2 border-neutral-300 border-t-transparent rounded-full animate-spin" />
+                    Reading video metadata…
+                  </div>
+                )}
+
+                {videoFile && videoInfo && (
+                  <div className="p-4 bg-neutral-950/60 rounded-md border border-white/10 space-y-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-[11px] font-mono text-neutral-400">
+                        <span>Start</span>
+                        <span className="text-stone-200 font-semibold">{formatTimecode(trimStart)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoInfo.duration}
+                        step={0.1}
+                        value={trimStart}
+                        onChange={e => setTrimStart(Math.min(Number(e.target.value), Math.max(0, trimEnd - 0.1)))}
+                        className="w-full accent-neutral-400"
+                      />
+                      <div className="flex justify-between text-[11px] font-mono text-neutral-400">
+                        <span>End</span>
+                        <span className="text-stone-200 font-semibold">{formatTimecode(trimEnd)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoInfo.duration}
+                        step={0.1}
+                        value={trimEnd}
+                        onChange={e => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.1))}
+                        className="w-full accent-neutral-400"
+                      />
+                      <div className="flex justify-between text-[10px] font-mono text-neutral-500">
+                        <span>Selected: {formatTimecode(Math.max(0, trimEnd - trimStart))}</span>
+                        <span>Source: {formatTimecode(videoInfo.duration)}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleTrimPreview}
+                        disabled={isTrimming}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                      >
+                        <Play size={14} />
+                        Preview Range
+                      </button>
+                      <button
+                        onClick={handleTrimExport}
+                        disabled={isTrimming}
+                        className="flex-1 py-2.5 bg-gradient-to-r from-white to-white/90 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition-all"
+                      >
+                        <Scissors size={14} />
+                        {isTrimming ? `Trimming… ${Math.round(trimProgress * 100)}%` : 'Trim & Export'}
+                      </button>
+                    </div>
+
+                    {isTrimming && (
+                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden">
+                        <div
+                          className="h-full bg-white transition-all duration-200"
+                          style={{ width: `${Math.round(trimProgress * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {trimError && (
+                      <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                        {trimError}
+                      </div>
+                    )}
+
+                    {trimResult && (
+                      <div className="p-3 bg-neutral-900/80 border border-white/10 rounded-md space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                            <CheckCircle2 size={13} />
+                            Trim complete
+                          </span>
+                          <span className="font-mono text-neutral-400">
+                            {formatBytes(trimResult.size)} · {trimResult.extension.toUpperCase()}
+                          </span>
+                        </div>
+                        <video src={trimResult.url} controls className="w-full max-h-48 rounded-md bg-black" />
+                        <button
+                          onClick={() => downloadBlob(trimResult.blob, `${videoFile.name.replace(/\.[^/.]+$/, '')}-trim.${trimResult.extension}`)}
+                          className="w-full py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Download size={14} />
+                          Download Trimmed Clip
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Video to GIF ───────────────────────────────────── */}
             {activeTab === 'video-gif' && (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-[10px] bg-pink-600/15 border border-pink-500/30 flex items-center justify-center text-pink-400">
-                  <ImageIcon size={32} />
-                </div>
-                <div className="max-w-md">
-                  <h2 className="text-lg font-bold text-white">Video to GIF Converter</h2>
-                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                    Convert video clips to high-quality animated GIFs. Adjust frame rate, resolution, and loop settings.
+              <div className="flex-1 flex flex-col space-y-5">
+                <div className="border-b border-white/10 pb-4">
+                  <h2 className="text-sm font-bold text-white">Video to GIF Converter</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Decode frames with WebCodecs and encode an animated GIF entirely in your browser
                   </p>
                 </div>
-                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
-                  <div className="border-2 border-dashed border-pink-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-pink-500/50 transition-colors cursor-pointer">
-                    <Film size={24} className="text-pink-400" />
-                    <p className="text-xs text-neutral-300">Drop a video file here</p>
-                    <p className="text-[10px] text-neutral-500">Converts to animated GIF</p>
+
+                <ToolVideoUpload
+                  file={videoFile}
+                  info={videoInfo}
+                  onUpload={handleVideoUpload}
+                  onClear={revokeVideoState}
+                />
+
+                {videoInfoError && (
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                    {videoInfoError}
                   </div>
-                </div>
+                )}
+
+                {videoFile && videoInfo && (
+                  <div className="p-4 bg-neutral-950/60 rounded-md border border-white/10 space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Frame Rate</label>
+                        <div className="flex gap-1.5">
+                          {[15, 24, 30].map(fps => (
+                            <button
+                              key={fps}
+                              onClick={() => setGifFps(fps)}
+                              className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                                gifFps === fps ? 'bg-white text-black font-bold' : 'bg-white/5 text-neutral-400 hover:bg-white/10'
+                              }`}
+                            >
+                              {fps} FPS
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Max Width</label>
+                        <div className="flex gap-1.5">
+                          {[240, 320, 480, 640].map(width => (
+                            <button
+                              key={width}
+                              onClick={() => setGifMaxWidth(width)}
+                              className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                                gifMaxWidth === width ? 'bg-white text-black font-bold' : 'bg-white/5 text-neutral-400 hover:bg-white/10'
+                              }`}
+                            >
+                              {width}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-[11px] font-mono text-neutral-400">
+                        <span>Start</span>
+                        <span className="text-stone-200 font-semibold">{formatTimecode(gifStart)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoInfo.duration}
+                        step={0.1}
+                        value={gifStart}
+                        onChange={e => setGifStart(Math.min(Number(e.target.value), Math.max(0, gifEnd - 0.1)))}
+                        className="w-full accent-neutral-400"
+                      />
+                      <div className="flex justify-between text-[11px] font-mono text-neutral-400">
+                        <span>End</span>
+                        <span className="text-stone-200 font-semibold">{formatTimecode(gifEnd)}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={videoInfo.duration}
+                        step={0.1}
+                        value={gifEnd}
+                        onChange={e => setGifEnd(Math.max(Number(e.target.value), gifStart + 0.1))}
+                        className="w-full accent-neutral-400"
+                      />
+                      <div className="flex justify-between text-[10px] font-mono text-neutral-500">
+                        <span>Range: {formatTimecode(Math.max(0, gifEnd - gifStart))}</span>
+                        <span
+                          className={estimateGifFrameCount(gifEnd - gifStart, gifFps) > GIF_MAX_FRAMES ? 'text-amber-400' : ''}
+                        >
+                          ≈{estimateGifFrameCount(gifEnd - gifStart, gifFps)} frames (max {GIF_MAX_FRAMES})
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleGifExport}
+                      disabled={isGifConverting || estimateGifFrameCount(gifEnd - gifStart, gifFps) > GIF_MAX_FRAMES}
+                      className="w-full py-2.5 bg-gradient-to-r from-pink-600 to-fuchsia-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition-all"
+                    >
+                      <ImageIcon size={14} />
+                      {isGifConverting ? `Encoding… ${Math.round(gifProgress * 100)}%` : 'Convert to GIF'}
+                    </button>
+
+                    {isGifConverting && (
+                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden">
+                        <div
+                          className="h-full bg-pink-400 transition-all duration-200"
+                          style={{ width: `${Math.round(gifProgress * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {gifError && (
+                      <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                        {gifError}
+                      </div>
+                    )}
+
+                    {gifResult && (
+                      <div className="p-3 bg-neutral-900/80 border border-white/10 rounded-md space-y-3">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                            <CheckCircle2 size={13} />
+                            GIF ready
+                          </span>
+                          <span className="font-mono text-neutral-400">{formatBytes(gifResult.size)}</span>
+                        </div>
+                        <img src={gifResult.url} alt="Generated GIF preview" className="w-full max-h-56 object-contain rounded-md bg-black" />
+                        <button
+                          onClick={() => downloadBlob(gifResult.blob, `${videoFile.name.replace(/\.[^/.]+$/, '')}.gif`)}
+                          className="w-full py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Download size={14} />
+                          Download GIF
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Video Compressor ────────────────────────────────── */}
             {activeTab === 'video-compress' && (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-[10px] bg-green-600/15 border border-green-500/30 flex items-center justify-center text-green-400">
-                  <RefreshCw size={32} />
-                </div>
-                <div className="max-w-md">
-                  <h2 className="text-lg font-bold text-white">Video Compressor</h2>
-                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                    Reduce video file size while preserving quality. Choose target size or compression level.
+              <div className="flex-1 flex flex-col space-y-5">
+                <div className="border-b border-white/10 pb-4">
+                  <h2 className="text-sm font-bold text-white">Video Compressor</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Re-encode with hardware acceleration to shrink files while keeping perceptual quality
                   </p>
                 </div>
-                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
-                  <div className="border-2 border-dashed border-green-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-green-500/50 transition-colors cursor-pointer">
-                    <Film size={24} className="text-green-400" />
-                    <p className="text-xs text-neutral-300">Drop a video file here</p>
-                    <p className="text-[10px] text-neutral-500">Compress with quality control</p>
+
+                <ToolVideoUpload
+                  file={videoFile}
+                  info={videoInfo}
+                  onUpload={handleVideoUpload}
+                  onClear={revokeVideoState}
+                />
+
+                {videoInfoError && (
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                    {videoInfoError}
                   </div>
-                </div>
+                )}
+
+                {videoFile && videoInfo && (
+                  <div className="p-4 bg-neutral-950/60 rounded-md border border-white/10 space-y-4">
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Quality</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { id: 'very-low' as CompressionQuality, label: 'Smallest' },
+                          { id: 'medium' as CompressionQuality, label: 'Balanced' },
+                          { id: 'high' as CompressionQuality, label: 'Best Fidelity' },
+                        ]).map(q => (
+                          <button
+                            key={q.id}
+                            onClick={() => setCompressQuality(q.id)}
+                            className={`py-2 rounded-lg text-xs font-semibold transition-all ${
+                              compressQuality === q.id ? 'bg-white text-black font-bold' : 'bg-white/5 text-neutral-400 hover:bg-white/10'
+                            }`}
+                          >
+                            {q.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold text-neutral-400 block mb-2">Max Resolution</label>
+                      <div className="grid grid-cols-4 gap-2">
+                        {([
+                          { value: 0, label: 'Keep' },
+                          { value: 1080, label: '1080p' },
+                          { value: 720, label: '720p' },
+                          { value: 480, label: '480p' },
+                        ]).map(opt => (
+                          <button
+                            key={opt.value}
+                            onClick={() => setCompressMaxHeight(opt.value)}
+                            className={`py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+                              compressMaxHeight === opt.value ? 'bg-white text-black font-bold' : 'bg-white/5 text-neutral-400 hover:bg-white/10'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleCompressExport}
+                      disabled={isCompressing}
+                      className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-md text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50 transition-all"
+                    >
+                      <RefreshCw size={14} />
+                      {isCompressing ? `Compressing… ${Math.round(compressProgress * 100)}%` : 'Compress Video'}
+                    </button>
+
+                    {isCompressing && (
+                      <div className="h-1.5 rounded bg-neutral-800 overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-400 transition-all duration-200"
+                          style={{ width: `${Math.round(compressProgress * 100)}%` }}
+                        />
+                      </div>
+                    )}
+
+                    {compressError && (
+                      <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                        {compressError}
+                      </div>
+                    )}
+
+                    {compressResult && (
+                      <div className="p-3 bg-neutral-900/80 border border-white/10 rounded-md space-y-3 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                            <CheckCircle2 size={13} />
+                            Compression complete
+                          </span>
+                          <span className="font-mono text-neutral-400">{compressResult.extension.toUpperCase()}</span>
+                        </div>
+                        <div className="flex items-center justify-between font-mono text-neutral-300">
+                          <span>{formatBytes(videoFile.file.size)}</span>
+                          <span className="text-neutral-600">→</span>
+                          <span className="text-stone-100">{formatBytes(compressResult.size)}</span>
+                          <span
+                            className={compressResult.size <= videoFile.file.size ? 'text-emerald-400 font-semibold' : 'text-amber-400 font-semibold'}
+                          >
+                            {compressResult.size <= videoFile.file.size
+                              ? `−${Math.max(0, Math.round((1 - compressResult.size / videoFile.file.size) * 100))}%`
+                              : `+${Math.round((compressResult.size / videoFile.file.size - 1) * 100)}%`}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => downloadBlob(compressResult.blob, `${videoFile.name.replace(/\.[^/.]+$/, '')}-compressed.${compressResult.extension}`)}
+                          className="w-full py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                        >
+                          <Download size={14} />
+                          Download Compressed Video
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ── Subtitle Editor ─────────────────────────────────── */}
             {activeTab === 'subtitles' && (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="w-16 h-16 rounded-[10px] bg-orange-600/15 border border-orange-500/30 flex items-center justify-center text-orange-400">
-                  <Type size={32} />
-                </div>
-                <div className="max-w-md">
-                  <h2 className="text-lg font-bold text-white">Subtitle Editor</h2>
-                  <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
-                    Add, edit, and sync subtitles for your videos. Support for SRT and VTT formats.
+              <div className="flex-1 flex flex-col space-y-5">
+                <div className="border-b border-white/10 pb-4">
+                  <h2 className="text-sm font-bold text-white">Subtitle Editor</h2>
+                  <p className="text-xs text-neutral-400 mt-0.5">
+                    Load SRT/WebVTT captions to fix timing and text, then export — 100% local
                   </p>
                 </div>
-                <div className="w-full max-w-md p-4 bg-neutral-950/60 rounded-md border border-white/10">
-                  <div className="border-2 border-dashed border-orange-500/30 rounded-md p-8 flex flex-col items-center gap-3 hover:border-orange-500/50 transition-colors cursor-pointer">
-                    <Film size={24} className="text-orange-400" />
-                    <p className="text-xs text-neutral-300">Drop a video file here</p>
-                    <p className="text-[10px] text-neutral-500">Add subtitles with timing</p>
-                  </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => subtitleInputRef.current?.click()}
+                    className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
+                  >
+                    <Upload size={14} />
+                    Load .srt / .vtt
+                  </button>
+                  <input
+                    ref={subtitleInputRef}
+                    type="file"
+                    accept=".srt,.vtt,text/vtt,application/x-subrip"
+                    className="hidden"
+                    onChange={e => {
+                      const picked = e.target.files?.[0];
+                      if (picked) void handleSubtitleFile(picked);
+                      e.target.value = '';
+                    }}
+                  />
+                  <textarea
+                    placeholder="…or paste SRT / WebVTT content here…"
+                    value={subtitlePasteText}
+                    onChange={e => setSubtitlePasteText(e.target.value)}
+                    className="flex-1 min-w-[220px] h-16 bg-neutral-900 border border-white/10 rounded-md p-2.5 text-[11px] text-neutral-300 font-mono resize-none focus:outline-none focus:border-white/20 transition-colors placeholder-neutral-600"
+                  />
+                  <button
+                    onClick={() => {
+                      if (subtitlePasteText.trim()) applySubtitleText(subtitlePasteText, 'pasted-subtitles');
+                    }}
+                    disabled={!subtitlePasteText.trim()}
+                    className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-50"
+                  >
+                    Parse Pasted Text
+                  </button>
                 </div>
+
+                {subtitleError && (
+                  <div className="px-3 py-2 bg-red-500/10 border border-red-500/30 rounded-md text-xs text-red-400">
+                    {subtitleError}
+                  </div>
+                )}
+
+                {subtitleCues.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-neutral-400">
+                        {subtitleCues.length} cue{subtitleCues.length !== 1 ? 's' : ''} · {subtitleFormat.toUpperCase()} · {subtitleName}
+                      </span>
+                      <button
+                        onClick={() => { setSubtitleCues([]); setSubtitleError(null); }}
+                        className="px-2.5 py-1 bg-white/5 border border-white/10 text-neutral-400 hover:text-red-400 hover:bg-red-500/10 rounded text-[11px] font-semibold flex items-center gap-1 transition-colors"
+                      >
+                        <Trash2 size={12} />
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                      {subtitleCues.map((cue, idx) => (
+                        <div key={idx} className="p-3 bg-neutral-950/60 border border-white/10 rounded-md space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-neutral-500">#{idx + 1}</span>
+                            <button
+                              onClick={() => removeSubtitleCue(idx)}
+                              aria-label={`Delete cue ${idx + 1}`}
+                              className="text-neutral-500 hover:text-red-400 transition-colors"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-neutral-500 block mb-1">Start (s)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={cue.start}
+                                onChange={e => updateSubtitleCue(idx, { start: Math.max(0, Number(e.target.value)) })}
+                                className="w-full bg-neutral-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/20"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[9px] uppercase tracking-wider text-neutral-500 block mb-1">End (s)</label>
+                              <input
+                                type="number"
+                                min={0}
+                                step={0.1}
+                                value={cue.end}
+                                onChange={e => updateSubtitleCue(idx, { end: Math.max(0, Number(e.target.value)) })}
+                                className="w-full bg-neutral-900 border border-white/10 rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-white/20"
+                              />
+                            </div>
+                          </div>
+                          <p className="text-[9px] font-mono text-neutral-600">
+                            {formatSubtitleTimestamp(cue.start, subtitleFormat)} → {formatSubtitleTimestamp(cue.end, subtitleFormat)}
+                          </p>
+                          <textarea
+                            rows={2}
+                            value={cue.text}
+                            onChange={e => updateSubtitleCue(idx, { text: e.target.value })}
+                            className="w-full bg-neutral-900 border border-white/10 rounded px-2.5 py-1.5 text-xs text-neutral-200 resize-none focus:outline-none focus:border-white/20"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={addSubtitleCue}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <Plus size={14} />
+                        Add Cue
+                      </button>
+                      <button
+                        onClick={() => handleSubtitleDownload('srt')}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <Download size={14} />
+                        Export SRT
+                      </button>
+                      <button
+                        onClick={() => handleSubtitleDownload('vtt')}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <Download size={14} />
+                        Export WebVTT
+                      </button>
+                      <button
+                        onClick={handleSubtitleCopy}
+                        className="px-4 py-2.5 bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all"
+                      >
+                        <Copy size={14} />
+                        Copy
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4">
+                    <div className="w-16 h-16 rounded-[10px] bg-orange-600/15 border border-orange-500/30 flex items-center justify-center text-orange-400">
+                      <Type size={32} />
+                    </div>
+                    <div className="max-w-sm">
+                      <h2 className="text-base font-bold text-white">Edit Subtitles Locally</h2>
+                      <p className="text-xs text-neutral-400 mt-2 leading-relaxed">
+                        Load an SRT or WebVTT file (or paste its contents) to review timing, fix text, add or remove cues, then export. Nothing ever leaves your browser.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1824,7 +2778,7 @@ ${paletteColors.map((c, i) => `  '${names[i]}': ${c},`).join('\n')}
       </div>
 
       {/* Modals */}
-      <PhotoBook photos={photos} isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
+      <PhotoBook isOpen={isPdfOpen} onClose={() => setIsPdfOpen(false)} />
       <CollageMaker photos={photos} isOpen={isCollageOpen} onClose={() => setIsCollageOpen(false)} />
       {isWebEditorOpen && webPreview && (
         <EditingMode

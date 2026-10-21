@@ -26,6 +26,7 @@ import {
   Layers,
   Zap,
 } from 'lucide-react';
+import { photoSrc } from '@/constants';
 import { Photo } from '@/types';
 
 export type ToolTab =
@@ -42,6 +43,28 @@ export type ToolTab =
   | 'video-gif'
   | 'video-compress'
   | 'subtitles';
+
+/** Bundled local sample images used when no library photo is available (offline-safe). */
+const FALLBACK_PROOF_IMAGES = [
+  '/sample_images/nature.png',
+  '/sample_images/pet.png',
+  '/sample_images/woman.png',
+  '/sample_images/ai_benchmark_sample.jpg',
+];
+
+/**
+ * proofImageFallback - Swaps a failed proof-plate image for a local bundled sample.
+ */
+const proofImageFallback = (idx: number) => (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const el = e.currentTarget;
+  const fallback = FALLBACK_PROOF_IMAGES[idx % FALLBACK_PROOF_IMAGES.length];
+  if (el.src !== fallback && !el.dataset.fallbackApplied) {
+    el.dataset.fallbackApplied = '1';
+    el.src = fallback;
+  } else {
+    el.style.opacity = '0';
+  }
+};
 
 interface StudioToolboxCatalogProps {
   photos?: Photo[];
@@ -84,13 +107,14 @@ export const StudioToolboxCatalog: React.FC<StudioToolboxCatalogProps> = ({
     timestamp: false,
   });
 
-  // Sample archival proof images (use photos if available or fallback rich imagery)
-  const proofImages = [
-    photos[0]?.url || photos[0]?.path || 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
-    photos[1]?.url || photos[1]?.path || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80',
-    photos[2]?.url || photos[2]?.path || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80',
-    photos[3]?.url || photos[3]?.path || 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=600&q=80',
-  ];
+  // Sample archival proof images: resolve library photos through photoSrc so
+  // backend-relative thumbnails render correctly, falling back to bundled local
+  // sample images (offline-safe, no remote CDN dependency).
+  const proofImages = [0, 1, 2, 3].map(idx => {
+    const photo = photos[idx];
+    const resolved = photo ? photoSrc(photo) : '';
+    return resolved || FALLBACK_PROOF_IMAGES[idx % FALLBACK_PROOF_IMAGES.length];
+  });
 
   const paletteSwatches = [
     { hex: '#1B1917', name: 'Basalt Deep' },
@@ -319,6 +343,7 @@ export const StudioToolboxCatalog: React.FC<StudioToolboxCatalogProps> = ({
                         <img
                           src={src}
                           alt={`Proof plate ${idx + 1}`}
+                          onError={proofImageFallback(idx)}
                           className="w-full h-full object-cover grayscale-[20%] group-hover:scale-105 group-hover:grayscale-0 transition-all duration-500"
                         />
                         <div className="absolute bottom-1 left-1.5 px-1 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[8px] font-mono text-stone-300">
@@ -431,7 +456,7 @@ export const StudioToolboxCatalog: React.FC<StudioToolboxCatalogProps> = ({
                     <div className="w-full h-full grid grid-cols-2 grid-rows-2 gap-0.5 bg-[#2c2928]">
                       {proofImages.map((src, i) => (
                         <div key={i} className="relative overflow-hidden bg-stone-900">
-                          <img src={src} alt="video-tile" className="w-full h-full object-cover filter brightness-75" />
+                          <img src={src} alt="video-tile" onError={proofImageFallback(i)} className="w-full h-full object-cover filter brightness-75" />
                         </div>
                       ))}
                     </div>
