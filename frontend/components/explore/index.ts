@@ -1,11 +1,2 @@
 export { ExploreHeader } from './ExploreHeader';
-export { AIThemeGrid } from './AIThemeGrid';
-export { EventTimeline } from './EventTimeline';
-export { OnThisDaySection } from './OnThisDaySection';
-export { SeasonalGrid } from './SeasonalGrid';
-export { PhotographyInsights } from './PhotographyInsights';
-export { RecentActivityFeed } from './RecentActivityFeed';
-export { HighlightReelSection } from './HighlightReelSection';
-export { RediscoverPrompts } from './RediscoverPrompts';
-export { ExploreWidgetCustomizer } from './ExploreWidgetCustomizer';
 export { ExploreView } from './ExploreView';
