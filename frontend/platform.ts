@@ -57,6 +57,47 @@ export async function openFileDialog(options: FileDialogOptions = {}): Promise<s
   });
 }
 
+export interface WebFileObjectsDialogOptions {
+  multiple?: boolean;
+  accept?: string;
+  capture?: string;
+}
+
+/**
+ * Open a browser <input type="file"> picker and resolve with actual File[] objects
+ * so mobile web / PWA users can select camera roll files for upload or auto-backup.
+ */
+export async function openWebFileObjectsDialog(
+  options?: { multiple?: boolean; accept?: string; capture?: string }
+): Promise<File[] | null> {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.multiple = Boolean(options?.multiple);
+    if (options?.accept) {
+      input.accept = options.accept;
+    }
+    if (options?.capture) {
+      input.setAttribute('capture', options.capture);
+    }
+    input.onchange = () => {
+      if (!input.files || input.files.length === 0) {
+        resolve(null);
+        return;
+      }
+      resolve(Array.from(input.files));
+    };
+    input.oncancel = () => {
+      resolve(null);
+    };
+    input.click();
+  });
+}
+
 /**
  * Fetch helper that resolves relative API endpoints against current origin or API_BASE
  */
