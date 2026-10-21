@@ -21,7 +21,8 @@ WORKDIR /build/frontend
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Copy full frontend source
+# Copy full frontend and plugins source (vite aliases @plugins to ../plugins)
+COPY plugins/ /build/plugins/
 COPY frontend/ ./
 
 # VITE_API_BASE is intentionally empty — the browser resolves API calls
@@ -67,6 +68,7 @@ COPY --from=backend-builder /build/backend/target/release/prism-backend-rust /ap
 
 # React production build — served as static files by Axum's fallback handler
 COPY --from=frontend-builder /build/frontend/dist /app/frontend/dist
+COPY plugins/ /app/plugins/
 
 # Persistent data directories (overridden by volume mounts at runtime)
 RUN mkdir -p /data/uploads /data/thumbnails /data/models /data/db

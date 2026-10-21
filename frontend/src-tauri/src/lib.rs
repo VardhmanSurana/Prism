@@ -5,6 +5,7 @@ use quick_xml::events::Event;
 use quick_xml::XmlVersion;
 use quick_xml::Reader;
 use tauri::{AppHandle, Emitter, Manager};
+#[cfg(desktop)]
 use tauri_plugin_shell::ShellExt;
 
 const MAX_MLT_XML_BYTES: usize = 5 * 1024 * 1024;
@@ -158,8 +159,8 @@ async fn nle_export_local(
     output_path: String,
     width: u32,
     height: u32,
-    _fps: u32,
-    _quality: String,
+    fps: u32,
+    quality: String,
 ) -> Result<String, String> {
     let allowed_roots = allowed_user_roots(&app)?;
     validate_mlt_xml(&mlt_xml, &allowed_roots)?;
@@ -181,13 +182,25 @@ async fn nle_export_local(
         temp_file.write_all(mlt_xml.as_bytes()).map_err(|e| e.to_string())?;
 
         let melt_bin = which_melt().ok_or_else(|| "melt command not found on system".to_string())?;
+        let clamped_fps = fps.clamp(1, 240);
+        let (crf, preset) = match quality.to_ascii_lowercase().as_str() {
+            "ultra" | "lossless" => ("16", "slow"),
+            "high" => ("20", "medium"),
+            "low" | "draft" => ("28", "veryfast"),
+            _ => ("23", "medium"),
+        };
 
         let mut child = Command::new(&melt_bin)
             .arg(&temp_xml_path)
             .arg("-consumer")
             .arg(format!("avformat:{}", output_path.display()))
-            .arg(format!("profile={}x{}", width, height))
+            .arg(format!("width={}", width.max(16)))
+            .arg(format!("height={}", height.max(16)))
+            .arg(format!("frame_rate_num={}", clamped_fps))
+            .arg("frame_rate_den=1")
             .arg("vcodec=libx264")
+            .arg(format!("crf={}", crf))
+            .arg(format!("preset={}", preset))
             .arg("acodec=aac")
             .arg("-progress")
             .stdout(Stdio::piped())
@@ -238,14 +251,53 @@ async fn nle_export_local(
     .map_err(|e| e.to_string())?
 }
 
+struct SidecarState(std::sync::Mutex<Option<tauri_plugin_shell::process::CommandChild>>);
+
+#[cfg(desktop)]
+fn is_backend_already_listening() -> bool {
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
+    use std::time::Duration;
+    let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8269);
+    TcpStream::connect_timeout(&addr, Duration::from_millis(150)).is_ok()
+}
+
+#[cfg(desktop)]
+fn spawn_backend(app: &tauri::App) {
+    // Only spawn the Rust backend sidecar if port 8269 is not already active
+    if !is_backend_already_listening() {
+        match app.shell().sidecar("prism-backend-rust") {
+            Ok(sidecar_command) => match sidecar_command.spawn() {
+                Ok((_rx, child)) => {
+                    let state = app.state::<SidecarState>();
+                    if let Ok(mut guard) = state.0.lock() {
+                        *guard = Some(child);
+                    };
+                }
+                Err(err) => {
+                    log::warn!("Could not spawn prism-backend-rust sidecar: {}", err);
+                }
+            },
+            Err(err) => {
+                log::warn!(
+                    "Sidecar binary prism-backend-rust not configured or missing: {}",
+                    err
+                );
+            }
+        }
+    } else {
+        log::info!("Backend already listening on 127.0.0.1:8269; skipping sidecar spawn");
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  tauri::Builder::default()
+  let app = tauri::Builder::default()
     .plugin(tauri_plugin_dialog::init())
     .plugin(tauri_plugin_fs::init())
     .plugin(tauri_plugin_shell::init())
     .plugin(tauri_plugin_updater::Builder::new().build())
     .plugin(tauri_plugin_process::init())
+    .manage(SidecarState(std::sync::Mutex::new(None)))
     .invoke_handler(tauri::generate_handler![nle_export_local])
     .setup(|app| {
       if cfg!(debug_assertions) {
@@ -256,14 +308,26 @@ pub fn run() {
         )?;
       }
 
-      // Launch the Rust backend as a sidecar
-      let sidecar_command = app.shell().sidecar("prism-backend-rust").unwrap();
-      let (mut _rx, _child) = sidecar_command.spawn().expect("Failed to spawn sidecar");
+      #[cfg(desktop)]
+      spawn_backend(app);
+
+      #[cfg(mobile)]
+      log::info!("Mobile target detected; skipping desktop sidecar spawn (connects to remote/LAN Prism backend)");
 
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application");
+
+  app.run(|app_handle, event| {
+    if let tauri::RunEvent::Exit = event {
+      let state = app_handle.state::<SidecarState>();
+      let child_opt = state.0.lock().ok().and_then(|mut guard| guard.take());
+      if let Some(child) = child_opt {
+        let _ = child.kill();
+      }
+    }
+  });
 }
 
 #[cfg(test)]

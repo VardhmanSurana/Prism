@@ -3,23 +3,28 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_LOG="$ROOT/backend_rust/backend.log"
 
-# Cleanup: kill frontend and log streamer
+# Cleanup: kill frontend, backend, and log streamer
 cleanup() {
   echo ""
-  echo "[web] Shutting down Vite web server..."
-  [ -n "$VITE_PID" ] && kill $VITE_PID 2>/dev/null || true
-  [ -n "$LOG_PID" ] && kill $LOG_PID 2>/dev/null || true
+  echo "[web] Shutting down Vite web server and backend..."
+  [ -n "$VITE_PID" ] && kill "$VITE_PID" 2>/dev/null || true
+  [ -n "$LOG_PID" ] && kill "$LOG_PID" 2>/dev/null || true
+  if [ -f "$ROOT/backend_rust/backend.pid" ]; then
+    kill "$(cat "$ROOT/backend_rust/backend.pid")" 2>/dev/null || true
+    rm -f "$ROOT/backend_rust/backend.pid"
+  fi
 }
 trap cleanup EXIT INT TERM
 
 # ── Check if Backend is already running ─────────────────────────────────────
 BACKEND_PORT=8269
+FRONTEND_PORT=3005
 
-if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null ; then
+if lsof -Pi :$BACKEND_PORT -sTCP:LISTEN -t >/dev/null 2>&1 ; then
     echo "[web] Backend is already running on port $BACKEND_PORT."
-    echo "[web] Killing existing backend for clean restart..."
-    pkill -f "prism-backend-rust" 2>/dev/null || true
-    pkill -f "vite" 2>/dev/null || true
+    echo "[web] Killing existing backend on port $BACKEND_PORT for clean restart..."
+    lsof -ti :$BACKEND_PORT | xargs -r kill 2>/dev/null || true
+    lsof -ti :$FRONTEND_PORT | xargs -r kill 2>/dev/null || true
     sleep 1
 fi
 
