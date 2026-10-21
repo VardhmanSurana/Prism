@@ -766,8 +766,44 @@ export const Lightbox: React.FC<LightboxProps> = ({
       {isEditing && isMobile && (
         <MobileEditor
           photo={photo}
+          src={editingSrc}
           onClose={() => {
             setIsEditing(false);
+          }}
+          onSave={async (blob) => {
+            const formData = new FormData();
+            formData.append('file', blob, photo.filename || 'edited.jpg');
+            formData.append('original_path', photo.path || '');
+            formData.append('original_id', String(photo.id));
+            formData.append('is_save_as', 'false');
+
+            try {
+              const res = await fetch(`${API_BASE}/api/v1/photos/upload-blob`, {
+                method: 'POST',
+                body: formData,
+              });
+
+              if (res.ok) {
+                const updatedPhotoData = await res.json();
+                const photoPayload = updatedPhotoData?.photo || updatedPhotoData;
+                const blobUrl = URL.createObjectURL(blob);
+                setEditedPhotoUrl(blobUrl);
+                setIsEditing(false);
+                if (onPhotoSelect) {
+                  onPhotoSelect({
+                    ...photo,
+                    ...photoPayload,
+                    hash: photoPayload.hash || String(Date.now()),
+                    url: `${photoPayload.url || `/api/v1/photos/${photoPayload.id || photo.id}/thumbnail`}?h=${Date.now()}`,
+                  });
+                }
+                eventService.emit('photo_updated', { type: 'photo_updated', photo: photoPayload });
+              } else {
+                console.error("Failed to save photo", await res.text());
+              }
+            } catch (e) {
+              console.error("Error saving photo", e);
+            }
           }}
         />
       )}

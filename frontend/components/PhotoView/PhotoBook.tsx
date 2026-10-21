@@ -15,7 +15,6 @@ interface Page {
 }
 
 interface PhotoBookProps {
-  photos: Photo[];
   isOpen: boolean;
   onClose: () => void;
 }
@@ -25,6 +24,17 @@ const PAGE_SIZES: Record<PageSize, { width: number; height: number; label: strin
   letter: { width: 216, height: 279, label: 'Letter', dims: '8.5×11 in' },
   square: { width: 200, height: 200, label: 'Square', dims: '8×8 in' },
 };
+
+/** Monotonic page-id counter so appended batches never collide on React keys. */
+let pageIdCounter = 0;
+
+/**
+ * nextPageId - Generates a unique page id.
+ */
+function nextPageId(): string {
+  pageIdCounter += 1;
+  return `page-${pageIdCounter}`;
+}
 
 /**
  * createPages - Performs create pages.
@@ -42,7 +52,7 @@ function createPages(photos: Photo[], layout: PageLayout): Page[] {
       const pagePhotos = photos.slice(idx, idx + count);
       if (pagePhotos.length > 0) {
         pages.push({
-          id: `page-${pages.length}`,
+          id: nextPageId(),
           photos: pagePhotos,
           layout: currentLayout,
         });
@@ -57,7 +67,7 @@ function createPages(photos: Photo[], layout: PageLayout): Page[] {
   const pages: Page[] = [];
   for (let i = 0; i < photos.length; i += perPage) {
     pages.push({
-      id: `page-${pages.length}`,
+      id: nextPageId(),
       photos: photos.slice(i, i + perPage),
       layout,
     });
@@ -66,9 +76,18 @@ function createPages(photos: Photo[], layout: PageLayout): Page[] {
 }
 
 /**
+ * capacityOf - Maximum number of photos a page with the given layout holds.
+ */
+function capacityOf(layout: PageLayout): number {
+  if (layout === '2-per-page') return 2;
+  if (layout === '4-per-page') return 4;
+  return 1;
+}
+
+/**
  * PhotoBook - Renders photo book.
  */
-export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose }) => {
+export const PhotoBook: React.FC<PhotoBookProps> = ({ isOpen, onClose }) => {
   const [pages, setPages] = useState<Page[]>([]);
   const [layout, setLayout] = useState<PageLayout>('1-per-page');
   const [pageSize, setPageSize] = useState<PageSize>('a4');
@@ -76,22 +95,25 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
   const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Start every session with a blank document; images are only added
+  // explicitly by the user from local storage.
   useEffect(() => {
     if (isOpen) {
-      setPages(createPages(photos, layout));
+      setPages([]);
     }
-  }, [isOpen, photos, layout]);
+  }, [isOpen]);
 
   /**
-   * handleLayoutChange - Handles layout change.
+   * handleLayoutChange - Re-flows the currently selected images into the new layout.
    */
   const handleLayoutChange = useCallback((newLayout: PageLayout) => {
     setLayout(newLayout);
-    setPages(createPages(photos, newLayout));
-  }, [photos]);
+    setPages(prev => createPages(prev.flatMap(page => page.photos), newLayout));
+  }, []);
 
   /**
-   * handleImageUpload - Handles image upload.
+   * handleImageUpload - Fills free slots on existing pages first, then appends
+   * new pages, so only the images the user picked end up in the PDF.
    */
   const handleImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -111,8 +133,18 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
       caption: file.name.replace(/\.[^/.]+$/, ''),
     }));
 
-    const newPages = createPages(uploadedPhotos, layout);
-    setPages(prev => [...prev, ...newPages]);
+    setPages(prev => {
+      const next = prev.map(page => ({ ...page, photos: [...page.photos] }));
+      const remaining: Photo[] = [];
+
+      for (const photo of uploadedPhotos) {
+        const slot = next.find(page => page.photos.length < capacityOf(page.layout));
+        if (slot) slot.photos.push(photo);
+        else remaining.push(photo);
+      }
+
+      return [...next, ...createPages(remaining, layout)];
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }, [layout]);
 
@@ -171,7 +203,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
    */
   const addPage = useCallback(() => {
     setPages(prev => [...prev, {
-      id: `page-${Date.now()}`,
+      id: nextPageId(),
       photos: [],
       layout: '1-per-page',
     }]);
@@ -259,6 +291,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
 
   const currentDims = PAGE_SIZES[pageSize];
   const previewAspectRatio = currentDims.width / currentDims.height;
+  const selectedCount = pages.reduce((total, page) => total + page.photos.length, 0);
 
   return (
     <AnimatePresence>
@@ -292,7 +325,7 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
               <div>
                 <h2 className="text-base font-bold text-white leading-tight">Create PDF</h2>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-neutral-400">{photos.length} photos</span>
+                  <span className="text-xs text-neutral-400">{selectedCount} {selectedCount === 1 ? 'image' : 'images'}</span>
                   <span className="text-neutral-600">•</span>
                   <span className="text-xs text-blue-400 font-medium">{pages.length} {pages.length === 1 ? 'page' : 'pages'}</span>
                 </div>
@@ -458,6 +491,21 @@ export const PhotoBook: React.FC<PhotoBookProps> = ({ photos, isOpen, onClose })
             {/* Main Page Preview Stage */}
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-black/40">
               <div className="space-y-10 max-w-xl mx-auto">
+                {pages.length === 0 && (
+                  <div
+                    onClick={triggerUpload}
+                    className="w-full flex flex-col items-center justify-center gap-4 p-10 text-neutral-500 border-2 border-dashed border-white/10 hover:border-blue-500/40 hover:bg-blue-500/5 cursor-pointer transition-colors 200ms ease rounded-xl"
+                    style={{ aspectRatio: previewAspectRatio }}
+                  >
+                    <ImagePlus className="w-10 h-10 text-blue-400/60" />
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-neutral-200">Your PDF starts blank</p>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Select images from your storage to add them to the book
+                      </p>
+                    </div>
+                  </div>
+                )}
                 {pages.map((page, pageIdx) => (
                   <motion.div
                     key={page.id}
